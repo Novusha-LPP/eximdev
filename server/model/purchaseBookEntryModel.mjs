@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import auditPlugin from "../plugins/auditPlugin.mjs";
 
 const purchaseBookEntrySchema = new mongoose.Schema({
-  entryNo: { type: String, required: true, unique: true },
+  entryNo: { type: String, required: true },
   entryDate: { type: String },
   supplierInvNo: { type: String },
   supplierInvDate: { type: String },
@@ -51,6 +51,7 @@ const purchaseBookEntrySchema = new mongoose.Schema({
   chargeHeadCategory: { type: String },
   tdsCategory: { type: String, default: '94C' },
   status: { type: String, default: '' },
+  jobDetails: { type: mongoose.Schema.Types.Mixed },
   createdAt: { type: Date, default: Date.now }
 }, { timestamps: true });
 

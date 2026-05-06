@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
+import axios from 'axios';
 import TabBar from './TabBar';
 import Toolbar from './Toolbar';
 import ChargesTable from './ChargesTable';
 import AddChargeModal from './AddChargeModal';
 import EditChargeModal from './EditChargeModal';
 import FileUploadModal from './FileUploadModal';
+import PurchaseBookModal from './PurchaseBookModal';
 import ConfirmDialog from './ConfirmDialog';
 import { useCharges } from './useCharges';
 import './charges.css';
@@ -30,7 +32,7 @@ const ChargesGrid = ({
   awbBlNo = '',
   awbBlDate = ''
 }) => {
-  const { charges, loading, error, addChargesBulk, updateCharge, deleteCharge } = useCharges(parentId, parentModule);
+  const { charges, loading, error, fetchCharges, addChargesBulk, updateCharge, deleteCharge } = useCharges(parentId, parentModule);
   
   // Get user role for locking logic
   const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
@@ -55,7 +57,59 @@ const ChargesGrid = ({
   
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [editingCharges, setEditingCharges] = useState([]);
-  
+  const [bulkPurchaseBookData, setBulkPurchaseBookData] = useState(null);
+  const [shippingLines, setShippingLines] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
+  const [organizations, setOrganizations] = useState([]);
+  const [generalOrgs, setGeneralOrgs] = useState([]);
+  const [cfsList, setCfsList] = useState([]);
+  const [transporters, setTransporters] = useState([]);
+
+  React.useEffect(() => {
+    const fetchMasterData = async () => {
+      try {
+        const [slRes, supRes, orgRes, genOrgRes, cfsRes, transRes] = await Promise.all([
+          axios.get(`${process.env.REACT_APP_API_STRING}/get-shipping-lines`),
+          axios.get(`${process.env.REACT_APP_API_STRING}/get-suppliers`),
+          axios.get(`${process.env.REACT_APP_API_STRING}/organization`),
+          axios.get(`${process.env.REACT_APP_API_STRING}/get-general-orgs`),
+          axios.get(`${process.env.REACT_APP_API_STRING}/get-cfs-list`),
+          axios.get(`${process.env.REACT_APP_API_STRING}/get-transporters`)
+        ]);
+        setShippingLines(slRes.data);
+        setSuppliers(supRes.data);
+        setOrganizations(orgRes.data.organizations || []);
+        setGeneralOrgs(genOrgRes.data);
+        setCfsList(cfsRes.data);
+        setTransporters(transRes.data);
+      } catch (error) {
+        console.error("Error fetching master data:", error);
+      }
+    };
+    fetchMasterData();
+  }, []);
+
+  const findPartyDetails = (row) => {
+    const partyName = row.cost?.partyName;
+    const partyType = row.cost?.partyType?.toUpperCase();
+    const normName = partyName?.trim().toUpperCase();
+
+    let searchList = [];
+    if (partyType === 'TRANSPORTER') searchList = transporters;
+    else if (partyType === 'VENDOR') searchList = suppliers;
+    else if (partyType === 'IMPORTER' || partyType === 'CUSTOMER') searchList = organizations;
+    else if (partyType === 'AGENT' || partyType === 'OTHERS') searchList = shippingLines;
+    else if (partyType === 'CFS') searchList = cfsList;
+    else if (partyType === 'GENERAL ORG') searchList = generalOrgs;
+
+    let partyDetails = searchList.find(p => p.name?.trim().toUpperCase() === normName);
+    if (!partyDetails) {
+      const allParties = [...shippingLines, ...suppliers, ...organizations, ...cfsList, ...transporters, ...generalOrgs];
+      partyDetails = allParties.find(p => p.name?.trim().toUpperCase() === normName);
+    }
+    return partyDetails;
+  };
+
   const [fileModalCharge, setFileModalCharge] = useState(null); // { charge: object, tab: 'revenue' | 'cost' | 'particulars' }
   const [confirmState, setConfirmState] = useState({ open: false, title: '', message: '', onConfirm: null });
 
@@ -65,9 +119,9 @@ const ChargesGrid = ({
     else {
       // Check if this specific charge is locked
       const charge = charges.find(c => c._id === id);
-      const role = (user?.role || "").toLowerCase();
-      const isAuth = role === "admin" || role === "head_of_department" || role === "hod";
-      const isIndividualLocked = (charge?.payment_request_no || charge?.purchase_book_no) && !isAuth;
+      const hasPR = charge?.payment_request_no && charge?.payment_request_status !== 'Rejected';
+      const hasPB = charge?.purchase_book_no && charge?.purchase_book_status !== 'Rejected';
+      const isIndividualLocked = hasPR || hasPB;
       
       if (!isIndividualLocked) {
         newSel.add(id);
@@ -80,10 +134,9 @@ const ChargesGrid = ({
     if (e.target.checked) {
       // If not authorized, only select charges that don't have PR/PB
       const selectable = charges.filter(c => {
-        const role = (user?.role || "").toLowerCase();
-        const isAuth = role === "admin" || role === "head_of_department" || role === "hod";
-        const isIndividualLocked = (c.payment_request_no || c.purchase_book_no) && !isAuth;
-        return !isIndividualLocked;
+        const hasPR = c.payment_request_no && c.payment_request_status !== 'Rejected';
+        const hasPB = c.purchase_book_no && c.purchase_book_status !== 'Rejected';
+        return !(hasPR || hasPB);
       });
       setSelectedIds(new Set(selectable.map(c => c._id)));
     } else {
@@ -160,6 +213,94 @@ const ChargesGrid = ({
     });
   };
 
+  const handleBulkPB = () => {
+    const selected = charges.filter(c => selectedIds.has(c._id));
+    if (selected.length === 0) {
+      alert("Please select at least one charge.");
+      return;
+    }
+
+    // Collect all charges that don't have a PB yet or were rejected
+    const eligible = selected.filter(row => !row.purchase_book_no || row.purchase_book_status === 'Rejected');
+    if (eligible.length === 0) {
+      alert("Selected charges already have a Purchase Book entry.");
+      return;
+    }
+
+    // Check if they all have the same vendor
+    const firstVendor = eligible[0].cost?.partyName;
+    const sameVendor = eligible.every(c => c.cost?.partyName === firstVendor);
+    if (!sameVendor) {
+       if (!window.confirm("Selected charges have different vendors. Are you sure you want to group them?")) return;
+    }
+
+    const firstRow = eligible[0];
+    const mappedCharges = eligible.map(row => {
+        const cost = row.cost || {};
+        const rate = parseFloat(cost.gstRate) || 18;
+        const amt = parseFloat(cost.amount || cost.amountINR) || 0;
+        const includeGst = cost.isGst || false;
+        
+        let basic = parseFloat(cost.basicAmount);
+        let totalGst = parseFloat(cost.gstAmount);
+        
+        if (isNaN(basic)) {
+          if (includeGst) {
+            basic = amt / (1 + (rate / 100));
+            totalGst = amt - basic;
+          } else {
+            basic = amt;
+            totalGst = amt * (rate / 100);
+          }
+        }
+
+        const isReimbursement = row.category === 'Reimbursement' || row.isReimbursement;
+        if (isReimbursement) {
+          basic = amt;
+          totalGst = 0;
+        }
+
+        const partyDetails = findPartyDetails(row);
+        const branch = partyDetails?.branches?.[cost.branchIndex || 0] || {};
+        const isGujarat = branch.gst?.startsWith('24');
+
+        return {
+          chargeHeading: row.chargeHead,
+          descriptionOfServices: row.category === 'Margin' ? row.chargeHead : (row.cost?.partyName ? `NEW ${row.cost.partyName}` : row.chargeHead),
+          chargeId: row._id,
+          taxableValue: basic,
+          gstPercent: isReimbursement ? 0 : rate,
+          cgst: isGujarat ? totalGst / 2 : 0,
+          sgst: isGujarat ? totalGst / 2 : 0,
+          igst: !isGujarat ? totalGst : 0,
+          tdsAmount: cost.tdsAmount || 0,
+          netPayable: cost.netPayable || (basic + (isReimbursement ? 0 : totalGst) - (cost.tdsAmount || 0)),
+          totalAmount: basic + (isReimbursement ? 0 : totalGst),
+          chargeDescription: row.cost?.chargeDescription || '',
+          chargeHeadCategory: row.category,
+          tdsCategory: row.cost?.tdsCategory || '94C',
+          jobId: parentId,
+          chargeRef: row._id,
+          jobRef: parentId
+        };
+    });
+
+    const partyDetails = findPartyDetails(firstRow);
+    setBulkPurchaseBookData({
+      partyName: firstVendor,
+      partyDetails,
+      charges: mappedCharges,
+      invoice_number: firstRow.invoice_number,
+      invoice_date: firstRow.invoice_date,
+      cthNo: cthNo,
+      jobDisplayNumber,
+      branchIndex: firstRow.cost?.branchIndex || 0,
+      jobId: parentId,
+      awbBlNo: awbBlNo,
+      awbBlDate: awbBlDate
+    });
+  };
+
   const handleAttachFiles = async (data, type = 'general') => {
     if (fileModalCharge) {
       const { charge } = fileModalCharge;
@@ -229,8 +370,10 @@ const ChargesGrid = ({
          onAddCharge={() => setIsAddOpen(true)}
          onAddHeading={handleAddHeading}
          onDeleteSelected={handleDeleteSelected}
+         onBulkPB={handleBulkPB}
          readOnly={readOnlyFinal}
          isDeleteDisabled={isDeleteDisabled}
+         isBulkPBDisabled={selectedIds.size < 2}
       />
       
       <div style={{ position: 'relative' }}>
@@ -264,6 +407,7 @@ const ChargesGrid = ({
           onClose={() => setEditingCharges([])}
           onSave={handleSaveEdit}
           updateCharge={updateCharge}
+          fetchCharges={fetchCharges}
           parentId={parentId}
           shippingLineAirline={shippingLineAirline}
           importerName={importerName}
@@ -283,6 +427,30 @@ const ChargesGrid = ({
           readOnlyBase={readOnly}
         />
       )}
+
+      <PurchaseBookModal 
+        isOpen={bulkPurchaseBookData !== null}
+        onClose={() => setBulkPurchaseBookData(null)}
+        initialData={bulkPurchaseBookData}
+        jobNumber={jobNumber}
+        jobDisplayNumber={jobDisplayNumber}
+        jobYear={jobYear}
+        awbBlNo={awbBlNo}
+        awbBlDate={awbBlDate}
+        onSuccess={async (entryNo) => {
+          // Update all selected charges
+          const initialStatus = 'Pending';
+          const ids = Array.from(selectedIds);
+          for (const id of ids) {
+            await updateCharge(id, { 
+              purchase_book_no: entryNo, 
+              purchase_book_status: initialStatus 
+            }, true);
+          }
+          await fetchCharges();
+          setSelectedIds(new Set());
+        }}
+      />
 
       {fileModalCharge && (
         <FileUploadModal 

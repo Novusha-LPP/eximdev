@@ -44,11 +44,11 @@ export const useCharges = (parentId, parentModule) => {
         }
     };
 
-    const updateCharge = async (id, updateData) => {
+    const updateCharge = async (id, updateData, skipRefresh = false) => {
         try {
             const res = await axios.put(`${process.env.REACT_APP_API_STRING}/charges/${id}`, updateData);
             if (res.data.success) {
-                await fetchCharges();
+                if (!skipRefresh) await fetchCharges();
                 return { success: true, data: res.data.data };
             }
         } catch (err) {

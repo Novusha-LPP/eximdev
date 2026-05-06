@@ -40,7 +40,8 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
         "Charge Description": '',
         "Charge Head Category": '',
         "TDS Category": '94C',
-        "attachments": []
+        "attachments": [],
+        "Charges": []
     });
 
     useEffect(() => {
@@ -50,7 +51,7 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                 const branchIndex = initialData.branchIndex || 0;
                 const branch = party?.branches?.[branchIndex] || {};
 
-                const jobNum = initialData.jobDisplayNumber || jobDisplayNumber || initialData.jobNumber || jobNumber || '';
+                const jobNum = initialData.jobDisplayNumber || initialData.jobNo || jobDisplayNumber || initialData.jobNumber || jobNumber || '';
 
                 let finalEntryNo = `PB01/${jobNum}`;
                 let updatedJobNum = jobNum;
@@ -62,8 +63,8 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                             params: {
                                 type: 'purchase',
                                 jobNo: jobNum,
-                                year: jobYear,
-                                jobId: initialData.jobId
+                                year: initialData.jobYear || jobYear,
+                                jobId: initialData.jobId || initialData.jobRef
                             },
                             headers: { 'x-api-key': API_KEY },
                             withCredentials: true
@@ -90,40 +91,73 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                     return dateStr;
                 };
 
+                const charges = initialData.charges || [];
+                const isMulti = charges.length > 0;
+                const firstCharge = isMulti ? charges[0] : initialData;
+
+                const getVal = (obj, fields) => {
+                    for (const f of fields) {
+                        if (obj[f] !== undefined && obj[f] !== null && obj[f] !== '') {
+                            const val = typeof obj[f] === 'number' ? obj[f] : parseFloat(obj[f]);
+                            if (!isNaN(val)) return val;
+                        }
+                    }
+                    return 0;
+                };
+
+                const formatVal = (val) => {
+                    if (!val || parseFloat(val) === 0) return '';
+                    const num = parseFloat(val);
+                    return isNaN(num) ? '' : num.toString();
+                };
+
+                const sumField = (fields) => {
+                    const fieldList = Array.isArray(fields) ? fields : [fields];
+                    if (!isMulti) {
+                        return getVal(initialData, fieldList);
+                    }
+                    return charges.reduce((sum, c) => sum + getVal(c, fieldList), 0);
+                };
+
+                const taxable = sumField(["taxableValue", "basicAmount", "amount"]);
+                const total = sumField(["total", "totalAmount", "amount"]);
+
                 setFormData(prev => ({
                     ...prev,
                     "Entry No": finalEntryNo,
-                    "Job No": updatedJobNum,
-                    "Supplier Inv No": initialData.invoice_number || initialData.awbBlNo || awbBlNo || '',
-                    "Supplier Inv Date": formatToISO(initialData.invoice_date || initialData.awbBlDate || awbBlDate || ''),
-                    "Supplier Name": initialData.partyName || '',
-                    "Address 1": branch.address || '',
-                    "Address 2": branch.city || '',
-                    "Address 3": branch.state || branch.city || '',
-                    "State": branch.state || '',
-                    "Country": branch.country || '',
-                    "Pin Code": branch.pincode || branch.postal_code || '',
-                    "GSTIN No": branch.gst || '',
-                    "PAN": branch.pan || '',
-                    "CIN": party?.cin || '',
-                    "Credit Terms": party?.credit_terms || '',
-                    "Taxable Value": initialData.basicAmount ? initialData.basicAmount.toFixed(2) : (initialData.amount ? initialData.amount.toFixed(2) : ''),
-                    "GST%": initialData.gstRate || '',
-                    "CGST": (initialData.cgst > 0) ? initialData.cgst.toFixed(2) : '',
-                    "SGST": (initialData.sgst > 0) ? initialData.sgst.toFixed(2) : '',
-                    "IGST": (initialData.igst > 0) ? initialData.igst.toFixed(2) : '',
-                    "TDS": initialData.tdsAmount ? initialData.tdsAmount.toFixed(2) : '',
-                    "Total": initialData.netPayable ? initialData.netPayable.toFixed(2) : '',
-                    "Description of Services": initialData.chargeHeading || '',
-                    "Charge Heading": initialData.chargeHead || '',
-                    "SAC": initialData.cthNo || '',
-                    "Status": '',
-                    "chargeRef": initialData.chargeId || '',
-                    "jobRef": initialData.jobId || '',
-                    "Charge Description": initialData.chargeDescription || '',
-                    "Charge Head Category": initialData.chargeHeadCategory || '',
-                    "TDS Category": initialData.tdsCategory || '94C',
-                    "attachments": initialData.attachments || []
+                    "Job No": updatedJobNum || jobNum,
+                    "Supplier Inv No": initialData.invoice_number || initialData.supplierInvNo || initialData.awbBlNo || awbBlNo || '',
+                    "Supplier Inv Date": initialData.invoice_date || initialData.supplierInvDate || initialData.awbBlDate || awbBlDate || '',
+                    "Supplier Name": party?.party_name || party?.name || initialData.partyName || initialData.supplierName || '',
+                    "Address 1": branch.address_line1 || party?.address_line1 || branch.address || party?.address || initialData.address1 || '',
+                    "Address 2": branch.address_line2 || party?.address_line2 || branch.city || party?.city || initialData.address2 || '',
+                    "Address 3": branch.address_line3 || party?.address_line3 || branch.state || party?.state || initialData.address3 || '',
+                    "State": branch.state || party?.state || initialData.state || '',
+                    "Country": branch.country || party?.country || initialData.country || '',
+                    "Pin Code": branch.pincode || party?.pincode || branch.postal_code || party?.postal_code || initialData.pinCode || '',
+                    "GSTIN No": branch.gst || party?.gst || party?.gstin || initialData.gstinNo || '',
+                    "PAN": branch.pan || party?.pan || initialData.pan || '',
+                    "CIN": party?.cin || initialData.cin || '',
+                    "Registration Type": (branch.gst || party?.gst || party?.gstin || initialData.gstinNo) ? 'Regular' : 'Unregistered',
+                    "Place of Supply": branch.state || party?.state || initialData.placeOfSupply || '',
+                    "Description of Services": firstCharge.descriptionOfServices || 
+                        ((firstCharge.chargeHeadCategory === 'Margin' || firstCharge.category === 'Margin') ? (firstCharge.chargeHeading || firstCharge.chargeHead || '') :
+                        (party?.party_name || party?.name || initialData.partyName || initialData.supplierName ? `NEW ${party?.party_name || party?.name || initialData.partyName || initialData.supplierName}` : '')),
+                    "Charge Heading": isMulti ? "Multiple Charges Included" : (firstCharge.chargeHeading || firstCharge.chargeHead || ''),
+                    "SAC": firstCharge.sac || firstCharge.cthNo || initialData.cthNo || '',
+                    "Taxable Value": taxable !== 0 ? taxable.toString() : '',
+                    "GST%": isMulti ? '' : (firstCharge.gstPercent || firstCharge.gstRate || initialData.gstRate || ''),
+                    "CGST": formatVal(sumField(["cgst", "cgstAmt"])),
+                    "SGST": formatVal(sumField(["sgst", "sgstAmt"])),
+                    "IGST": formatVal(sumField(["igst", "igstAmt"])),
+                    "TDS": formatVal(sumField(["tds", "tdsAmount", "tdsAmt"])),
+                    "Total": total !== 0 ? total.toString() : '',
+                    "Charge Description": firstCharge.chargeDescription || '',
+                    "Charge Head Category": firstCharge.chargeHeadCategory || firstCharge.category || '',
+                    "TDS Category": firstCharge.tdsCategory || initialData.tdsCategory || '94C',
+                    "jobRef": initialData.jobId || firstCharge.jobId,
+                    "chargeRef": firstCharge.chargeId || initialData.chargeId,
+                    "Charges": charges
                 }));
             }
         };
@@ -136,6 +170,65 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleChargeChange = (idx, field, value) => {
+        const updatedCharges = [...formData.Charges];
+        const charge = { ...updatedCharges[idx] };
+        
+        if (field === 'chargeHeading') {
+            charge[field] = value;
+        } else {
+            charge[field] = parseFloat(value) || 0;
+        }
+        
+        // Recalculate this charge's total and GST if taxable or GST% changed
+        if (field === 'taxableValue' || field === 'gstPercent') {
+            const tax = charge.taxableValue || 0;
+            const rate = charge.gstPercent || 0;
+            const gstAmt = tax * (rate / 100);
+            
+            // Re-split GST based on original split (or default to IGST if unknown)
+            // For simplicity in the UI edit, we'll update IGST and then the modal logic 
+            // usually handles the split on submission or based on state.
+            // But let's try to maintain the CGST/SGST split if it existed.
+            if (charge.cgst > 0 || charge.sgst > 0) {
+                charge.cgst = gstAmt / 2;
+                charge.sgst = gstAmt / 2;
+                charge.igst = 0;
+            } else {
+                charge.igst = gstAmt;
+                charge.cgst = 0;
+                charge.sgst = 0;
+            }
+            charge.totalAmount = tax + gstAmt;
+            charge.netPayable = charge.totalAmount - (charge.tdsAmount || 0);
+        }
+
+        if (field === 'tdsAmount') {
+            charge.netPayable = (charge.totalAmount || 0) - charge.tdsAmount;
+        }
+
+        updatedCharges[idx] = charge;
+
+        // Recalculate totals for the whole form
+        const totalTaxable = updatedCharges.reduce((sum, c) => sum + (c.taxableValue || 0), 0);
+        const totalCGST = updatedCharges.reduce((sum, c) => sum + (c.cgst || 0), 0);
+        const totalSGST = updatedCharges.reduce((sum, c) => sum + (c.sgst || 0), 0);
+        const totalIGST = updatedCharges.reduce((sum, c) => sum + (c.igst || 0), 0);
+        const totalTDS = updatedCharges.reduce((sum, c) => sum + (c.tdsAmount || 0), 0);
+        const totalNet = updatedCharges.reduce((sum, c) => sum + (c.netPayable || 0), 0);
+
+        setFormData(prev => ({
+            ...prev,
+            "Charges": updatedCharges,
+            "Taxable Value": totalTaxable.toFixed(2),
+            "CGST": totalCGST.toFixed(2),
+            "SGST": totalSGST.toFixed(2),
+            "IGST": totalIGST.toFixed(2),
+            "TDS": totalTDS.toFixed(2),
+            "Total": totalNet.toFixed(2)
+        }));
     };
 
     const handleSubmit = async (e) => {
@@ -166,7 +259,6 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
         try {
             const API_KEY = "INTERNAL_TEAM_TALLY_KEY";
 
-            // Fixed URL: process.env.REACT_APP_API_STRING already contains '/api'
             const response = await axios.post(
                 `${process.env.REACT_APP_API_STRING}/tally/purchase-entry`,
                 finalFormData,
@@ -338,6 +430,77 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                                 <input type="text" name="Charge Description" className="charges-ep-desc-input" value={formData["Charge Description"]} onChange={handleInputChange} />
                             </div>
                         </div>
+                        {formData.Charges && formData.Charges.length > 0 && (
+                            <div style={{ marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '10px', marginRight: '30px' }}>
+                                <span className="charges-ep-label" style={{ marginBottom: '10px', display: 'block', fontWeight: 'bold' }}>Included Charges List ({formData.Charges.length})</span>
+                                <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', border: '1px solid #ddd' }}>
+                                    <thead>
+                                        <tr style={{ background: '#f8f9fa' }}>
+                                            <th style={{ padding: '6px', border: '1px solid #ddd', textAlign: 'left' }}>Charge Head</th>
+                                            <th style={{ padding: '6px', border: '1px solid #ddd', textAlign: 'right' }}>Taxable Value</th>
+                                            <th style={{ padding: '6px', border: '1px solid #ddd', textAlign: 'right' }}>GST%</th>
+                                            <th style={{ padding: '6px', border: '1px solid #ddd', textAlign: 'right' }}>GST Amt</th>
+                                            <th style={{ padding: '6px', border: '1px solid #ddd', textAlign: 'right' }}>TDS</th>
+                                            <th style={{ padding: '6px', border: '1px solid #ddd', textAlign: 'right' }}>Total</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {formData.Charges.map((c, idx) => (
+                                            <tr key={idx}>
+                                                <td style={{ padding: '6px', border: '1px solid #ddd' }}>
+                                                    <input 
+                                                        type="text" 
+                                                        style={{ width: '100%', border: '1px solid #ccc', borderRadius: '3px', fontSize: '11px' }}
+                                                        value={c.chargeHeading || ''} 
+                                                        onChange={(e) => handleChargeChange(idx, 'chargeHeading', e.target.value)}
+                                                    />
+                                                </td>
+                                                <td style={{ padding: '6px', border: '1px solid #ddd', textAlign: 'right' }}>
+                                                    <input 
+                                                        type="number" 
+                                                        style={{ width: '80px', textAlign: 'right', border: '1px solid #ccc', borderRadius: '3px', fontSize: '11px' }}
+                                                        value={c.taxableValue || 0} 
+                                                        onChange={(e) => handleChargeChange(idx, 'taxableValue', e.target.value)}
+                                                    />
+                                                </td>
+                                                <td style={{ padding: '6px', border: '1px solid #ddd', textAlign: 'right' }}>
+                                                    <input 
+                                                        type="number" 
+                                                        style={{ width: '50px', textAlign: 'right', border: '1px solid #ccc', borderRadius: '3px', fontSize: '11px' }}
+                                                        value={c.gstPercent || 0} 
+                                                        onChange={(e) => handleChargeChange(idx, 'gstPercent', e.target.value)}
+                                                    /> %
+                                                </td>
+                                                <td style={{ padding: '6px', border: '1px solid #ddd', textAlign: 'right' }}>
+                                                    {( (c.cgst || 0) + (c.sgst || 0) + (c.igst || 0) ).toFixed(2)}
+                                                </td>
+                                                <td style={{ padding: '6px', border: '1px solid #ddd', textAlign: 'right' }}>
+                                                    <input 
+                                                        type="number" 
+                                                        style={{ width: '70px', textAlign: 'right', border: '1px solid #ccc', borderRadius: '3px', fontSize: '11px' }}
+                                                        value={c.tdsAmount || 0} 
+                                                        onChange={(e) => handleChargeChange(idx, 'tdsAmount', e.target.value)}
+                                                    />
+                                                </td>
+                                                <td style={{ padding: '6px', border: '1px solid #ddd', textAlign: 'right' }}>
+                                                    {c.netPayable?.toFixed(2)}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                    <tfoot>
+                                        <tr style={{ background: '#f1f8e9', fontWeight: 'bold' }}>
+                                            <td style={{ padding: '6px', border: '1px solid #ddd' }}>TOTAL</td>
+                                            <td style={{ padding: '6px', border: '1px solid #ddd', textAlign: 'right' }}>{formData["Taxable Value"]}</td>
+                                            <td style={{ padding: '6px', border: '1px solid #ddd' }}></td>
+                                            <td style={{ padding: '6px', border: '1px solid #ddd', textAlign: 'right' }}>{(parseFloat(formData["CGST"] || 0) + parseFloat(formData["SGST"] || 0) + parseFloat(formData["IGST"] || 0)).toFixed(2)}</td>
+                                            <td style={{ padding: '6px', border: '1px solid #ddd', textAlign: 'right' }}>{formData["TDS"]}</td>
+                                            <td style={{ padding: '6px', border: '1px solid #ddd', textAlign: 'right' }}>{formData["Total"]}</td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        )}
                     </div>
                     <div className="charges-modal-footer">
                         <button type="button" className="charges-btn" onClick={handleSubmit} disabled={loading}>

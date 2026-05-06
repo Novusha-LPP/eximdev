@@ -35,6 +35,7 @@ const EditChargeModal = ({
   isAuthorized = false,
   isLocked = false,
   readOnlyBase = false,
+  fetchCharges,
   awbBlNo = '',
   awbBlDate = ''
 }) => {
@@ -163,6 +164,8 @@ const EditChargeModal = ({
         invoice_date: charge.invoice_date || '',
         payment_request_no: charge.payment_request_no || '',
         payment_request_status: charge.payment_request_status || '',
+        purchase_book_no: charge.purchase_book_no || '',
+        purchase_book_status: charge.purchase_book_status || '',
         revenue: {
           ...(charge.revenue || {}),
           isGst: (charge.revenue && charge.revenue.isGst !== undefined) ? charge.revenue.isGst : true,
@@ -546,12 +549,128 @@ const EditChargeModal = ({
       document.body.removeChild(textArea);
     }
   };
+  const findPartyDetails = (row) => {
+    const partyName = row.cost?.partyName;
+    const partyType = row.cost?.partyType?.toUpperCase();
+    const normName = partyName?.trim().toUpperCase();
+
+    let searchList = [];
+    if (partyType === 'TRANSPORTER') searchList = transporters;
+    else if (partyType === 'VENDOR') searchList = suppliers;
+    else if (partyType === 'IMPORTER' || partyType === 'CUSTOMER') searchList = organizations;
+    else if (partyType === 'AGENT' || partyType === 'OTHERS') searchList = shippingLines;
+    else if (partyType === 'CFS') searchList = cfsList;
+    else if (partyType === 'GENERAL ORG') searchList = generalOrgs;
+
+    let partyDetails = searchList.find(p => p.name?.trim().toUpperCase() === normName);
+    if (!partyDetails) {
+      const allParties = [...shippingLines, ...suppliers, ...organizations, ...cfsList, ...transporters, ...generalOrgs];
+      partyDetails = allParties.find(p => p.name?.trim().toUpperCase() === normName);
+    }
+    return partyDetails;
+  };
+
+  const handleBulkPurchaseBook = () => {
+    // Collect all charges that don't have a PB yet
+    const eligible = formData.filter(row => !row.purchase_book_no || row.purchase_book_status === 'Rejected');
+    if (eligible.length === 0) {
+      alert("No eligible charges to group into a Purchase Book.");
+      return;
+    }
+
+    // Check if they all have the same vendor
+    const firstVendor = eligible[0].cost?.partyName;
+    const sameVendor = eligible.every(row => row.cost?.partyName === firstVendor);
+    if (!sameVendor) {
+       if (!window.confirm("Charges have different vendors. Are you sure you want to group them?")) return;
+    }
+
+    // Prepare data for PurchaseBookModal
+    const firstRow = eligible[0];
+    const charges = eligible.map(row => {
+        const cost = row.cost || {};
+        const rate = parseFloat(cost.gstRate) || 18;
+        const amt = parseFloat(cost.amount || cost.amountINR) || 0;
+        const includeGst = cost.isGst || false;
+        let basic = parseFloat(cost.basicAmount);
+        let totalGst = parseFloat(cost.gstAmount);
+        
+        if (isNaN(basic)) {
+          if (includeGst) {
+            basic = amt / (1 + (rate / 100));
+            totalGst = amt - basic;
+          } else {
+            basic = amt;
+            totalGst = amt * (rate / 100);
+          }
+        }
+
+        const partyDetails = findPartyDetails(row);
+        const branch = partyDetails?.branches?.[cost.branchIndex || 0] || {};
+        const isGujarat = branch.gst?.startsWith('24');
+        const isReimbursement = row.category === 'Reimbursement' || row.isReimbursement;
+
+        if (isReimbursement) {
+          basic = amt;
+          totalGst = 0;
+        }
+
+        return {
+          chargeHeading: row.chargeHead,
+          chargeId: row._id,
+          taxableValue: basic,
+          gstPercent: isReimbursement ? 0 : rate,
+          cgst: isGujarat ? totalGst / 2 : 0,
+          sgst: isGujarat ? totalGst / 2 : 0,
+          igst: !isGujarat ? totalGst : 0,
+          tdsAmount: cost.tdsAmount || 0,
+          netPayable: cost.netPayable || (basic + totalGst - (cost.tdsAmount || 0)),
+          totalAmount: basic + totalGst,
+          chargeDescription: row.cost?.chargeDescription || '',
+          chargeHeadCategory: row.category,
+          tdsCategory: row.cost?.tdsCategory || '94C',
+          jobId: parentId,
+          chargeRef: row._id,
+          jobRef: parentId
+        };
+    });
+
+    const partyDetails = findPartyDetails(firstRow);
+    setPurchaseBookData({
+      partyName: firstVendor,
+      partyDetails,
+      charges: charges,
+      invoice_number: firstRow.invoice_number,
+      invoice_date: firstRow.invoice_date,
+      cthNo: jobCthNo,
+      jobDisplayNumber,
+      branchIndex: firstRow.cost?.branchIndex || 0,
+      jobId: parentId,
+      awbBlNo: awbBlNo
+    });
+  };
 
   return createPortal(
     <div className="charges-edit-modal-overlay charges-active" onMouseDown={() => setActiveDropdown({ index: null, section: null })}>
       <div className="charges-edit-modal" ref={modalRef} onMouseDown={(e) => e.stopPropagation()}>
         <div className="charges-modal-title">Edit Charge</div>
         <div className="charges-modal-body">
+          {formData.length > 1 && (
+            <div style={{ marginBottom: '15px', padding: '12px', background: '#f0f7ff', borderRadius: '6px', border: '1px solid #cce3ff', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#1565c0' }}>Bulk Purchase Book Entry</div>
+                <div style={{ fontSize: '11px', color: '#666' }}>Combine all {formData.length} charges into a single entry number.</div>
+              </div>
+              <button 
+                type="button" 
+                className="charges-upload-btn"
+                style={{ backgroundColor: '#1976d2', color: '#fff', fontSize: '12px', padding: '6px 16px', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
+                onClick={handleBulkPurchaseBook}
+              >
+                Generate Single PB for All
+              </button>
+            </div>
+          )}
           {formData.map((row, i) => {
             const hasPR = row.payment_request_no && String(row.payment_request_no).trim().length > 0;
             const hasPB = row.purchase_book_no && String(row.purchase_book_no).trim().length > 0;
@@ -1399,8 +1518,25 @@ const EditChargeModal = ({
                               </div>
                               <div className="charges-ep-grid" style={{ marginTop: '10px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                  {/* Conditionally show based on workMode or if already exists */}
-                                  {(!row.purchase_book_no || row.purchase_book_status === 'Rejected') && (
+                                  {row.purchase_book_no && row.purchase_book_status !== 'Rejected' ? (
+                                    <div style={{ 
+                                      display: 'flex', 
+                                      alignItems: 'center', 
+                                      gap: '6px', 
+                                      backgroundColor: '#e8f5e9', 
+                                      color: '#2e7d32', 
+                                      padding: '4px 10px', 
+                                      borderRadius: '4px',
+                                      border: '1px solid #2e7d32',
+                                      fontSize: '12px',
+                                      fontWeight: 'bold'
+                                    }}>
+                                      <span>{row.purchase_book_no}</span>
+                                      <IconButton size="small" onClick={(e) => handleCopy(e, row.purchase_book_no)} sx={{ p: 0, color: '#2e7d32' }}>
+                                        <ContentCopyIcon style={{ fontSize: '14px' }} />
+                                      </IconButton>
+                                    </div>
+                                  ) : (
                                     <button 
                                       type="button" 
                                       className="charges-upload-btn" 
@@ -1433,43 +1569,21 @@ const EditChargeModal = ({
 
                                         setPurchaseBookData(() => {
                                           const cost = row.cost || {};
-                                          const rate = parseFloat(cost.gstRate) || 18;
-                                          const amt = parseFloat(cost.amount) || 0;
-                                          const includeGst = cost.isGst || false;
-                                          
-                                          let basic = parseFloat(cost.basicAmount);
-                                          let totalGst = parseFloat(cost.gstAmount);
-                                          
-                                          // Fallback in case they are missing
-                                          if (isNaN(basic)) {
-                                            if (includeGst) {
-                                              basic = amt / (1 + (rate / 100));
-                                              totalGst = amt - basic;
-                                            } else {
-                                              basic = amt;
-                                              totalGst = amt * (rate / 100);
-                                            }
-                                          }
-
                                           const branch = partyDetails?.branches?.[cost.branchIndex || 0] || {};
                                           const isGujarat = branch.gst?.startsWith('24');
 
-                                          if (row.category === 'Reimbursement') {
-                                            basic = amt;
-                                            totalGst = 0;
-                                          }
-
                                           return {
                                             partyName: partyName,
-                                            chargeHeading: `NEW ${partyName}`,
+                                            chargeHeading: row.chargeHead,
+                                            descriptionOfServices: row.category === 'Margin' ? row.chargeHead : (partyName ? `NEW ${partyName}` : row.chargeHead),
                                             partyDetails,
-                                            amount: amt,
-                                            basicAmount: basic,
-                                            gstAmount: totalGst,
-                                            gstRate: (row.category === 'Reimbursement') ? 0 : rate,
-                                            cgst: isGujarat ? totalGst / 2 : 0,
-                                            sgst: isGujarat ? totalGst / 2 : 0,
-                                            igst: !isGujarat ? totalGst : 0,
+                                            amount: parseFloat(cost.amount) || 0,
+                                            basicAmount: parseFloat(cost.basicAmount) || parseFloat(cost.amount) || 0,
+                                            gstAmount: parseFloat(cost.gstAmount) || 0,
+                                            gstRate: (row.category === 'Reimbursement') ? 0 : (parseFloat(cost.gstRate) || 0),
+                                            cgst: isGujarat ? (parseFloat(cost.gstAmount) / 2 || 0) : 0,
+                                            sgst: isGujarat ? (parseFloat(cost.gstAmount) / 2 || 0) : 0,
+                                            igst: !isGujarat ? (parseFloat(cost.gstAmount) || 0) : 0,
                                             tdsAmount: cost.tdsAmount,
                                             netPayable: cost.netPayable,
                                             totalAmount: cost.totalAmount,
@@ -1497,8 +1611,26 @@ const EditChargeModal = ({
                                       Purchase book
                                     </button>
                                   )}
-                                  {(!row.payment_request_no || row.payment_request_status === 'Rejected') && (
-                                    <button 
+                                    {row.payment_request_no && row.payment_request_status !== 'Rejected' ? (
+                                      <div style={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        gap: '6px', 
+                                        backgroundColor: '#e3f2fd', 
+                                        color: '#1565c0', 
+                                        padding: '4px 10px', 
+                                        borderRadius: '4px',
+                                        border: '1px solid #1565c0',
+                                        fontSize: '12px',
+                                        fontWeight: 'bold'
+                                      }}>
+                                        <span>{row.payment_request_no}</span>
+                                        <IconButton size="small" onClick={(e) => handleCopy(e, row.payment_request_no)} sx={{ p: 0, color: '#1565c0' }}>
+                                          <ContentCopyIcon style={{ fontSize: '14px' }} />
+                                        </IconButton>
+                                      </div>
+                                    ) : (
+                                      <button 
                                       type="button" 
                                       className="charges-upload-btn" 
                                       style={{ 
@@ -1533,7 +1665,7 @@ const EditChargeModal = ({
                                         }
                                         setPaymentRequestData({
                                           partyName: partyName,
-                                          chargeHeading: `NEW ${partyName}`,
+                                          chargeHeading: row.category === 'Margin' ? row.chargeHead : `NEW ${partyName}`,
                                           partyDetails,
                                           jobDisplayNumber,
                                           branchIndex: row.cost?.branchIndex || 0,
@@ -1640,7 +1772,7 @@ const EditChargeModal = ({
         jobNumber={jobNumber}
         jobDisplayNumber={jobDisplayNumber}
         jobYear={jobYear}
-        onSuccess={(requestNo) => {
+        onSuccess={async (requestNo) => {
           // Update the localized formData state with the new number
           const updated = [...formData];
           const activeIndex = formData.findIndex(c => c._id === paymentRequestData.chargeId || c.chargeHead === paymentRequestData.chargeHead);
@@ -1648,14 +1780,17 @@ const EditChargeModal = ({
             const initialStatus = 'Pending';
             updated[activeIndex].payment_request_no = requestNo;
             updated[activeIndex].payment_request_status = initialStatus;
-            setFormData(updated);
+            
             // PERSIST IMMEDIATELY
             if (updateCharge && updated[activeIndex]._id) {
-              updateCharge(updated[activeIndex]._id, { 
+              await updateCharge(updated[activeIndex]._id, { 
                 payment_request_no: requestNo, 
                 payment_request_status: initialStatus 
-              });
+              }, true);
             }
+            
+            if (fetchCharges) await fetchCharges();
+            setFormData(updated);
           }
         }}
       />
@@ -1669,23 +1804,34 @@ const EditChargeModal = ({
         jobYear={jobYear}
         awbBlNo={awbBlNo}
         awbBlDate={awbBlDate}
-        onSuccess={(entryNo) => {
+        onSuccess={async (entryNo) => {
           // Update the localized formData state with the new number
           const updated = [...formData];
-          const activeIndex = formData.findIndex(c => c.chargeHead === purchaseBookData.chargeHead);
-          if (activeIndex !== -1) {
-            const initialStatus = 'Pending';
-            updated[activeIndex].purchase_book_no = entryNo;
-            updated[activeIndex].purchase_book_status = initialStatus;
-            setFormData(updated);
-            // PERSIST IMMEDIATELY
-            if (updateCharge && updated[activeIndex]._id) {
-              updateCharge(updated[activeIndex]._id, { 
-                purchase_book_no: entryNo, 
-                purchase_book_status: initialStatus 
-              });
+          const initialStatus = 'Pending';
+          
+          // Identify all charges that were included in this Purchase Book
+          const chargesToUpdate = purchaseBookData.charges && purchaseBookData.charges.length > 0 
+            ? purchaseBookData.charges 
+            : [{ chargeId: purchaseBookData.chargeId }];
+
+          for (const c of chargesToUpdate) {
+            const activeIndex = updated.findIndex(item => item._id === c.chargeId);
+            if (activeIndex !== -1) {
+              updated[activeIndex].purchase_book_no = entryNo;
+              updated[activeIndex].purchase_book_status = initialStatus;
+              
+              // PERSIST IMMEDIATELY
+              if (updateCharge && updated[activeIndex]._id) {
+                await updateCharge(updated[activeIndex]._id, { 
+                  purchase_book_no: entryNo, 
+                  purchase_book_status: initialStatus 
+                }, true);
+              }
             }
           }
+          
+          if (fetchCharges) await fetchCharges();
+          setFormData(updated);
         }}
       />
       {showLogs.open && (

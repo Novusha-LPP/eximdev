@@ -1186,6 +1186,34 @@ function PaymentCompleted({ workMode = "Payment" }) {
                   </Grid>
                 </Grid>
               </Box>
+              
+              {selectedPaymentRequest.items && selectedPaymentRequest.items.length > 1 && (
+                <Box sx={{ mb: 2, border: '1px solid #ccc', borderRadius: '2px', overflow: 'hidden' }}>
+                  <Box sx={{ backgroundColor: '#f5f5f5', p: 1, borderBottom: '1px solid #ccc' }}>
+                    <Typography variant="caption" fontWeight="bold">ITEM-WISE BIFURCATION ({selectedPaymentRequest.items.length})</Typography>
+                  </Box>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.7rem' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: '#fafafa', borderBottom: '1px solid #eee' }}>
+                        <th style={{ textAlign: 'left', padding: '4px 8px' }}>Description</th>
+                        <th style={{ textAlign: 'right', padding: '4px 8px' }}>Taxable</th>
+                        <th style={{ textAlign: 'right', padding: '4px 8px' }}>GST</th>
+                        <th style={{ textAlign: 'right', padding: '4px 8px' }}>Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {selectedPaymentRequest.items.map((item, idx) => (
+                        <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
+                          <td style={{ padding: '4px 8px' }}>{item.description}</td>
+                          <td style={{ textAlign: 'right', padding: '4px 8px' }}>₹ {item.taxable?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                          <td style={{ textAlign: 'right', padding: '4px 8px' }}>₹ {item.gst?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                          <td style={{ textAlign: 'right', padding: '4px 8px', fontWeight: 'bold' }}>₹ {item.total?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </Box>
+              )}
 
               {selectedPaymentRequest.attachments?.length > 0 && (
                 <Box sx={{ mb: 1.5, p: 1, border: '1px solid #bbdefb', backgroundColor: '#e3f2fd' }}>

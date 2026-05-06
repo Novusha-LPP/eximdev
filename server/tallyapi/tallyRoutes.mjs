@@ -196,195 +196,194 @@ router.get("/next-sequence", authApiKey, async (req, res) => {
 /**
  * Helper to map readable keys to PurchaseBookEntryModel fields
  */
-const mapPurchaseEntryData = (data) => {
+const mapPurchaseEntryData = (entry) => {
   return {
-    entryNo: data["Entry No"] || data.entryNo,
-    entryDate: data["Entry Date"] || data.entryDate,
-    supplierInvNo: data["Supplier Inv No"] || data.supplierInvNo,
-    supplierInvDate: data["Supplier Inv Date"] || data.supplierInvDate,
-    jobNo: data["Job No"] || data.jobNo,
-    supplierName: data["Supplier Name"] || data.supplierName,
-    address1: data["Address 1"] || data.address1,
-    address2: data["Address 2"] || data.address2,
-    address3: data["Address 3"] || data.address3,
-    state: data["State"] || data.state,
-    country: data["Country"] || data.country,
-    pinCode: data["Pin Code"] || data.pinCode,
-    registrationType: data["Registration Type"] || data.registrationType,
-    gstinNo: data["GSTIN No"] || data.gstinNo,
-    pan: data["PAN"] || data.pan,
-    cin: data["CIN"] || data.cin,
-    placeOfSupply: data["Place of Supply"] || data.placeOfSupply,
-    creditTerms: data["Credit Terms"] || data.creditTerms,
-    descriptionOfServices: data["Description of Services"] || data.descriptionOfServices,
-    chargeHeading: data["Charge Heading"] || data.chargeHeading,
-    sac: data["SAC"] || data.sac,
-    taxableValue: data["Taxable Value"] || data.taxableValue,
-    gstPercent: data["GST%"] || data.gstPercent,
-    cgstAmt: data["CGST"] || data.cgstAmt,
-    sgstAmt: data["SGST"] || data.sgstAmt,
-    igstAmt: data["IGST"] || data.igstAmt,
-    tds: data["TDS"] || data.tds,
-    total: data["Total"] || data.total,
-    chargeRef: data.chargeRef,
-    jobRef: data.jobRef,
-    chargeDescription: data["Charge Description"] || data.chargeDescription || '',
-    chargeHeadCategory: data["Charge Head Category"] || data.chargeHeadCategory || '',
-    tdsCategory: data["TDS Category"] || data.tdsCategory || '94C',
-    status: data["Status"] || data.status || '',
-    attachments: data.attachments || []
+    "Entry No": entry.entryNo || "",
+    "Entry Date": entry.entryDate || "",
+    "Supplier Inv No": entry.supplierInvNo || "",
+    "Supplier Inv Date": entry.supplierInvDate || "",
+    "Job No": entry.jobNo || "",
+    "Supplier Name": entry.supplierName || "",
+    "Registration Type": entry.registrationType || "Regular",
+    "Description of Services": entry.descriptionOfServices || entry.chargeHeading || "",
+    "Charge Heading": entry.chargeHeading || "",
+    "SAC": entry.sac || "",
+    "Taxable Value": entry.taxableValue || 0,
+    "GST%": entry.gstPercent || 0,
+    "CGST": entry.cgstAmt || 0,
+    "SGST": entry.sgstAmt || 0,
+    "IGST": entry.igstAmt || 0,
+    "TDS": entry.tds || 0,
+    "Total": entry.total || 0,
+    "Charge Description": entry.chargeDescription || "",
+    "Charge Head Category": entry.chargeHeadCategory || "",
+    "TDS Category": entry.tdsCategory || "94C",
+    "Status": entry.status || ""
   };
 };
 
 /**
- * @api {post} /api/tally/purchase-entry Submit Purchase Book Entry for Tally (supports readable keys)
+ * @api {post} /api/tally/purchase-entry Submit Purchase Book Entry for Tally
  */
 router.post("/purchase-entry", authApiKey, async (req, res) => {
   try {
-    const rawData = req.body;
-    const data = mapPurchaseEntryData(rawData);
+    const data = req.body;
+    console.log("Purchase Entry Request Body:", JSON.stringify(data, null, 2));
+    const finalEntriesData = [];
+    
+    // Fetch detailed job data for inclusion
+    const jobDetails = await getJobDetailsInternal(data["Job No"]);
 
-    // Standardize jobNo to canonicalJobNo if possible before saving
-    if (data.jobRef) {
-      const job = await JobModel.findById(data.jobRef).select('job_number').lean();
-      if (job && job.job_number) {
-        data.jobNo = job.job_number;
+    if (data.Charges && data.Charges.length > 0) {
+      // Create separate flattened entries for each charge (data duplication intended)
+      for (const charge of data.Charges) {
+        const flatEntry = {
+          entryNo: data["Entry No"],
+          entryDate: data["Entry Date"],
+          supplierInvNo: data["Supplier Inv No"],
+          supplierInvDate: data["Supplier Inv Date"],
+          jobNo: data["Job No"],
+          supplierName: data["Supplier Name"],
+          address1: data["Address 1"],
+          address2: data["Address 2"],
+          address3: data["Address 3"],
+          state: data["State"],
+          country: data["Country"],
+          pinCode: data["Pin code"],
+          registrationType: data["Registration Type"],
+          gstinNo: data["GSTIN No"],
+          pan: data["PAN"],
+          cin: data["CIN"],
+          placeOfSupply: data["Place of Supply"],
+          creditTerms: data["Credit Terms"],
+          sac: charge.sac || data["SAC"],
+          tdsCategory: charge.tdsCategory || data["TDS Category"],
+          status: data["Status"] || "Pending",
+          
+          // Charge specific fields
+          descriptionOfServices: data["Description of Services"] || charge.chargeHeading,
+          chargeHeading: charge.chargeHeading,
+          taxableValue: charge.taxableValue,
+          gstPercent: charge.gstPercent,
+          cgstAmt: charge.cgst,
+          sgstAmt: charge.sgst,
+          igstAmt: charge.igst,
+          tds: charge.tdsAmount,
+          total: charge.totalAmount || (charge.taxableValue + (charge.cgst || 0) + (charge.sgst || 0) + (charge.igst || 0)),
+          chargeDescription: charge.chargeDescription || data["Charge Description"],
+          chargeHeadCategory: charge.chargeHeadCategory || data["Charge Head Category"],
+          chargeRef: charge.chargeId,
+          jobRef: charge.jobId || data.jobId,
+          jobDetails: jobDetails,
+          "Job Details": jobDetails
+        };
+        finalEntriesData.push(flatEntry);
+      }
+    } else {
+      // Single entry fallback
+      const singleEntry = {
+        entryNo: data["Entry No"],
+        entryDate: data["Entry Date"],
+        supplierInvNo: data["Supplier Inv No"],
+        supplierInvDate: data["Supplier Inv Date"],
+        jobNo: data["Job No"],
+        supplierName: data["Supplier Name"],
+        address1: data["Address 1"],
+        address2: data["Address 2"],
+        address3: data["Address 3"],
+        state: data["State"],
+        country: data["Country"],
+        pinCode: data["Pin code"],
+        registrationType: data["Registration Type"],
+        gstinNo: data["GSTIN No"],
+        pan: data["PAN"],
+        cin: data["CIN"],
+        placeOfSupply: data["Place of Supply"],
+        creditTerms: data["Credit Terms"],
+        descriptionOfServices: data["Description of Services"],
+        sac: data["SAC"],
+        taxableValue: data["Taxable Value"],
+        gstPercent: data["GST%"],
+        cgstAmt: data["CGST"],
+        sgstAmt: data["SGST"],
+        igstAmt: data["IGST"],
+        tds: data["TDS"],
+        total: data["Total"],
+        chargeDescription: data["Charge Description"],
+        chargeHeading: data["Charge Heading"],
+        chargeHeadCategory: data["Charge Head Category"],
+        tdsCategory: data["TDS Category"],
+        status: data["Status"] || "Pending",
+        jobRef: data.jobId,
+        chargeRef: data.chargeId,
+        jobDetails: jobDetails,
+        "Job Details": jobDetails
+      };
+      finalEntriesData.push(singleEntry);
+    }
+
+    const savedDocs = [];
+    for (const entryData of finalEntriesData) {
+      const newEntry = new PurchaseBookEntryModel(entryData);
+      await newEntry.save();
+      savedDocs.push(newEntry);
+
+      // Update individual charge in Job record
+      if (entryData.chargeRef && entryData.jobRef) {
+        await JobModel.updateOne(
+          { _id: entryData.jobRef, "charges._id": entryData.chargeRef },
+          { $set: { 
+            "charges.$.purchase_book_no": entryData.entryNo,
+            "charges.$.purchase_book_status": 'Pending'
+          }}
+        );
       }
     }
 
-    let entry;
-    let attempts = 0;
-    while (attempts < 5) {
-      try {
-        console.log("Saving Purchase Entry (Attempt " + (attempts + 1) + "):", data.entryNo);
-        entry = await PurchaseBookEntryModel.create(data);
-        break; 
-      } catch (err) {
-        if (err.code === 11000) {
-          console.warn("Duplicate Entry No detected, auto-incrementing:", data.entryNo);
-          const parts = data.entryNo.split('/');
-          const prefixPart = parts[0]; // e.g., PB01
-          const match = prefixPart.match(/\d+/);
-          if (match) {
-            const currentIdx = parseInt(match[0], 10);
-            const nextIdx = (currentIdx + 1).toString().padStart(2, '0');
-            const prefix = prefixPart.replace(/\d+/, nextIdx);
-            parts[0] = prefix;
-            data.entryNo = parts.join('/');
-            attempts++;
-          } else {
-            throw err; // Cannot auto-increment
-          }
-        } else {
-          throw err;
-        }
-      }
-    }
+    // Map to Tally payload (Array of flat objects)
+    const tallyPayload = savedDocs.map(doc => mapPurchaseEntryData(doc));
 
-    if (!entry) throw new Error("Failed to generate a unique Entry No after multiple attempts.");
-
-    if (data.jobRef && data.chargeRef) {
-      await JobModel.updateOne(
-        { _id: data.jobRef, "charges._id": data.chargeRef },
-        {
-          $set: {
-            "charges.$.purchase_book_no": entry.entryNo,
-            "charges.$.purchase_book_status": "Pending"
-          }
-        }
-      );
+    // Send to Tally
+    const API_KEY = "INTERNAL_TEAM_TALLY_KEY";
+    try {
+        await axios.post(
+            "http://1.6.98.45:5000/api/tally/purchase-entry",
+            tallyPayload,
+            { headers: { "x-api-key": API_KEY } }
+        );
+    } catch (tallyErr) {
+        console.error("Tally API Submission Error:", tallyErr.message);
+        // We still return success if it's saved in our DB
     }
 
     res.status(201).json({
       success: true,
-      message: "Purchase Book Entry saved and submitted successfully",
-      id: entry._id,
-      "Entry No": entry.entryNo
+      message: "Purchase Book Entries saved and submitted successfully",
+      count: savedDocs.length,
+      "Entry No": data["Entry No"]
     });
   } catch (error) {
-    console.error("Tally Purchase Entry Storage Error:", error);
+    console.error("Purchase Entry Error:", error);
     res.status(500).send({ error: "Internal Server Error", details: error.message });
   }
 });
 
-
 /**
- * @api {get} /api/tally/purchase-entry Retrieve Purchase Book Entry (supports query params)
+ * @api {get} /api/tally/purchase-entry Retrieve Purchase Book Entry
  */
 router.get("/purchase-entry", authApiKey, async (req, res) => {
   try {
     const entryNo = req.query.entry_no || req.query.entryNo;
+    if (!entryNo) return res.status(400).json({ error: "entry_no is required" });
 
-    if (!entryNo) {
-      return res.status(400).json({ error: "entry_no is a required query parameter" });
-    }
+    // Fetch all entries with this entryNo (could be multiple if bulk)
+    const entries = await PurchaseBookEntryModel.find({ entryNo }).lean();
+    if (!entries || entries.length === 0) return res.status(404).json({ error: "Entry not found." });
 
-    console.log("Fetching Purchase Entry:", entryNo);
-
-    const entry = await PurchaseBookEntryModel.findOne({ entryNo }).lean();
-    if (!entry) return res.status(404).json({ error: "Purchase Book Entry not found." });
-
-    // Fallback for Charge Head Category if missing
-    let chargeCategory = entry.chargeHeadCategory;
-    if (!chargeCategory && entry.jobRef && entry.chargeRef) {
-      try {
-        const job = await JobModel.findOne(
-          { _id: entry.jobRef, "charges._id": entry.chargeRef },
-          { "charges.$": 1 }
-        ).lean();
-        if (job && job.charges && job.charges[0]) {
-          chargeCategory = job.charges[0].category;
-        }
-      } catch (err) {
-        console.error("Error fetching fallback category for purchase entry:", err);
-      }
-    }
-
-    const formattedData = {
-      "Entry No": entry.entryNo,
-      "Entry Date": entry.entryDate,
-      "Supplier Inv No": entry.supplierInvNo,
-      "Supplier Inv Date": entry.supplierInvDate,
-      "Job No": entry.jobNo,
-      "Supplier Name": entry.supplierName,
-      "Address 1": entry.address1,
-      "Address 2": entry.address2,
-      "Address 3": entry.address3,
-      "State": entry.state,
-      "Country": entry.country,
-      "Pin Code": entry.pinCode,
-      "Registration Type": entry.registrationType,
-      "GSTIN No": entry.gstinNo,
-      "PAN": entry.pan,
-      "CIN": entry.cin,
-      "Place of Supply": entry.placeOfSupply,
-      "Credit Terms": entry.creditTerms,
-      "Description of Services": entry.descriptionOfServices || "",
-      "Charge Heading": entry.chargeHeading || "",
-      "SAC": entry.sac,
-      "Taxable Value": entry.taxableValue,
-      "GST%": entry.gstPercent,
-      "CGST": entry.cgstAmt,
-      "SGST": entry.sgstAmt,
-      "IGST": entry.igstAmt,
-      "TDS": entry.tds,
-      "Total": entry.total,
-      "Charge Description": entry.chargeDescription || '',
-      "Charge Head Category": chargeCategory || '',
-      "TDS Category": entry.tdsCategory || '94C',
-      "Status": entry.status
-    };
-
-    // Include Job Details
-    const job_number = entry.jobNo || (entry.entryNo && entry.entryNo.includes('/') ? entry.entryNo.split('/').slice(1).join('/') : entry.entryNo);
-    const jobDetails = await getJobDetailsInternal(job_number);
-    if (jobDetails) {
-      formattedData["Job Details"] = jobDetails;
-    }
-
-    res.status(200).json(formattedData);
-
-
+    const formattedEntries = entries.map(entry => mapPurchaseEntryData(entry));
+    
+    // If only one, return object, else return array
+    res.status(200).json(formattedEntries.length === 1 ? formattedEntries[0] : formattedEntries);
   } catch (error) {
     console.error("Fetch Purchase Entry Error:", error);
     res.status(500).send({ error: "Internal Server Error" });
@@ -402,7 +401,6 @@ router.post("/purchase-entry/status", authApiKey, async (req, res) => {
     if (!entry) return res.status(404).json({ error: "Entry not found" });
     res.status(200).json({ "Entry No": entryNo, "Status": entry.status });
   } catch (error) {
-
     console.error("Fetch Purchase Status Error:", error);
     res.status(500).send({ error: "Internal Server Error" });
   }

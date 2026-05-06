@@ -1,7 +1,7 @@
 import React from 'react';
 import './charges.css';
 
-const Toolbar = ({ onAddCharge, onAddHeading, onDeleteSelected, readOnly, isDeleteDisabled }) => {
+const Toolbar = ({ onAddCharge, onAddHeading, onDeleteSelected, onBulkPB, readOnly, isDeleteDisabled, isBulkPBDisabled }) => {
   if (readOnly) return null;
 
   return (
@@ -15,6 +15,24 @@ const Toolbar = ({ onAddCharge, onAddHeading, onDeleteSelected, readOnly, isDele
       </button>
       
       <div className="charges-toolbar-sep"></div>
+
+      <button 
+         type="button"
+         className="charges-toolbar-btn" 
+         onClick={onBulkPB} 
+         disabled={isBulkPBDisabled}
+         style={{ color: '#1976d2' }}
+      >
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+          <line x1="3" y1="9" x2="21" y2="9" />
+          <line x1="9" y1="21" x2="9" y2="9" />
+        </svg>
+        Bulk Purchase Book
+      </button>
+
+      <div className="charges-toolbar-sep"></div>
+
       <button 
          type="button"
          className="charges-toolbar-btn charges-del-btn" 

@@ -1199,56 +1199,74 @@ router.get("/api/get-payment-request-details/:requestNo(*)", async (req, res) =>
 
     if (!request) {
       // If not found in payment, check purchase book entries
-      const purchaseEntry = await PurchaseBookEntryModel.findOne({ entryNo: requestNo }).lean();
-      if (purchaseEntry) {
+      const purchaseEntries = await PurchaseBookEntryModel.find({ entryNo: requestNo }).lean();
+      if (purchaseEntries && purchaseEntries.length > 0) {
         isPurchaseBook = true;
-        // Map purchase book entry to a structure the frontend modal can render
+        const first = purchaseEntries[0];
+        
+        // Aggregate totals for the header
+        const totalAmount = purchaseEntries.reduce((sum, e) => sum + (e.total || 0), 0);
+        const totalTaxable = purchaseEntries.reduce((sum, e) => sum + (e.taxableValue || 0), 0);
+        const totalCGST = purchaseEntries.reduce((sum, e) => sum + (e.cgstAmt || 0), 0);
+        const totalSGST = purchaseEntries.reduce((sum, e) => sum + (e.sgstAmt || 0), 0);
+        const totalIGST = purchaseEntries.reduce((sum, e) => sum + (e.igstAmt || 0), 0);
+        const totalTDS = purchaseEntries.reduce((sum, e) => sum + (e.tds || 0), 0);
+
+        // Map purchase book entries to a structure the frontend modal can render
         request = {
-          requestNo: purchaseEntry.entryNo,
-          entryNo: purchaseEntry.entryNo,
-          requestDate: purchaseEntry.entryDate,
-          entryDate: purchaseEntry.entryDate,
-          paymentTo: purchaseEntry.supplierName,
-          supplierName: purchaseEntry.supplierName,
-          gstinNo: purchaseEntry.gstinNo,
-          panNo: purchaseEntry.pan,
-          supplierAddr1: purchaseEntry.address1,
-          supplierAddr2: purchaseEntry.address2,
-          supplierAddr3: purchaseEntry.address3,
-          supplierState: purchaseEntry.state,
-          supplierCountry: purchaseEntry.country,
-          supplierPin: purchaseEntry.pinCode,
-          amount: purchaseEntry.total,
-          total: purchaseEntry.total,
-          taxableValue: purchaseEntry.taxableValue,
-          gstPercent: purchaseEntry.gstPercent,
-          cgstAmt: purchaseEntry.cgstAmt,
-          sgstAmt: purchaseEntry.sgstAmt,
-          igstAmt: purchaseEntry.igstAmt,
-          tds: purchaseEntry.tds,
-          tdsAmt: purchaseEntry.tds,
-          againstBill: purchaseEntry.descriptionOfServices,
-          descriptionOfServices: purchaseEntry.descriptionOfServices,
-          supplierInvNo: purchaseEntry.supplierInvNo,
-          supplierInvDate: purchaseEntry.supplierInvDate,
-          sac: purchaseEntry.sac,
-          bankFrom: purchaseEntry.bankFrom,
+          requestNo: first.entryNo,
+          entryNo: first.entryNo,
+          requestDate: first.entryDate,
+          entryDate: first.entryDate,
+          paymentTo: first.supplierName,
+          supplierName: first.supplierName,
+          gstinNo: first.gstinNo,
+          panNo: first.pan,
+          supplierAddr1: first.address1,
+          supplierAddr2: first.address2,
+          supplierAddr3: first.address3,
+          supplierState: first.state,
+          supplierCountry: first.country,
+          supplierPin: first.pinCode,
+          amount: totalAmount,
+          total: totalAmount,
+          taxableValue: totalTaxable,
+          gstPercent: first.gstPercent, // Use first one's percentage as representative
+          cgstAmt: totalCGST,
+          sgstAmt: totalSGST,
+          igstAmt: totalIGST,
+          tds: totalTDS,
+          tdsAmt: totalTDS,
+          againstBill: purchaseEntries.length > 1 ? "Multiple Charges Included" : first.descriptionOfServices,
+          descriptionOfServices: purchaseEntries.length > 1 ? "Multiple Charges Included" : first.descriptionOfServices,
+          supplierInvNo: first.supplierInvNo,
+          supplierInvDate: first.supplierInvDate,
+          sac: first.sac,
+          bankFrom: first.bankFrom,
           requestedBy: "Tally System", 
-          isApproved: purchaseEntry.status === 'Approved' || purchaseEntry.isApproved === true,
-          status: purchaseEntry.status,
-          jobRef: purchaseEntry.jobRef,
-          chargeRef: purchaseEntry.chargeRef,
-          jobNo: purchaseEntry.jobNo,
+          isApproved: first.status === 'Approved' || first.isApproved === true,
+          status: first.status,
+          jobRef: first.jobRef,
+          chargeRef: first.chargeRef,
+          jobNo: first.jobNo,
           isPurchaseBook: true,
-          utrNumber: purchaseEntry.utrNumber,
-          utrAddedBy: purchaseEntry.utrAddedBy,
-          utrAddedAt: purchaseEntry.utrAddedAt,
-          paymentReceiptUrl: purchaseEntry.paymentReceiptUrl,
-          attachments: purchaseEntry.attachments || [],
-          approvedByFirst: purchaseEntry.approvedByFirst,
-          approvedByLast: purchaseEntry.approvedByLast,
-          approvedAt: purchaseEntry.approvedAt,
-          isRejected: purchaseEntry.status === 'Rejected' || purchaseEntry.isRejected === true
+          utrNumber: first.utrNumber,
+          utrAddedBy: first.utrAddedBy,
+          utrAddedAt: first.utrAddedAt,
+          jobDetails: first.jobDetails,
+          paymentReceiptUrl: first.paymentReceiptUrl,
+          attachments: first.attachments || [],
+          approvedByFirst: first.approvedByFirst,
+          approvedByLast: first.approvedByLast,
+          approvedAt: first.approvedAt,
+          isRejected: first.status === 'Rejected' || first.isRejected === true,
+          // Add detailed items for the UI to render if it wants
+          items: purchaseEntries.map(e => ({
+            description: e.descriptionOfServices,
+            taxable: e.taxableValue,
+            gst: (e.cgstAmt || 0) + (e.sgstAmt || 0) + (e.igstAmt || 0),
+            total: e.total
+          }))
         };
       }
     }

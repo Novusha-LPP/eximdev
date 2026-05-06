@@ -209,7 +209,7 @@ router.put('/charges/:id', verifyToken, async (req, res) => {
     }
     
     // Other top level fields
-    const excludedFields = ['revenue', 'cost', '_id', 'createdAt', 'updatedAt', 'parentId', 'parentModule', 'payment_request_no', 'purchase_book_no'];
+    const excludedFields = ['revenue', 'cost', '_id', 'createdAt', 'updatedAt', 'parentId', 'parentModule'];
     for (const key of Object.keys(req.body)) {
       if (!excludedFields.includes(key)) {
         if (isLocked && (key === 'payment_request_no' || key === 'purchase_book_no' || key === 'payment_request_status' || key === 'purchase_book_status')) {

@@ -216,9 +216,9 @@ const ChargesTable = ({
             const role = (user?.role || "").toLowerCase();
             const isAuth = role === "admin" || role === "head_of_department" || role === "hod";
             
-            const hasPR = ch.payment_request_no && String(ch.payment_request_no).trim().length > 0;
-            const hasPB = ch.purchase_book_no && String(ch.purchase_book_no).trim().length > 0;
-            const isIndividualLocked = (hasPR || hasPB) && !isAuth;
+            const hasPR = ch.payment_request_no && String(ch.payment_request_no).trim().length > 0 && ch.payment_request_status !== 'Rejected';
+            const hasPB = ch.purchase_book_no && String(ch.purchase_book_no).trim().length > 0 && ch.purchase_book_status !== 'Rejected';
+            const isIndividualLocked = (hasPR || hasPB);
             const attachmentUrls = [...new Set([
               ...(Array.isArray(ch.revenue?.url) ? ch.revenue.url : []),
               ...(Array.isArray(ch.revenue?.url_draft) ? ch.revenue.url_draft : []),

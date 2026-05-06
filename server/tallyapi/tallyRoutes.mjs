@@ -218,7 +218,8 @@ const mapPurchaseEntryData = (entry) => {
     "Charge Description": entry.chargeDescription || "",
     "Charge Head Category": entry.chargeHeadCategory || "",
     "TDS Category": entry.tdsCategory || "94C",
-    "Status": entry.status || ""
+    "Status": entry.status || "",
+    "Job Details": entry.jobDetails || entry["Job Details"] || null
   };
 };
 
@@ -453,7 +454,8 @@ const mapPaymentRequestData = (data) => {
     chargeHeading: data["Charge Heading"] || data.chargeHeading || '',
     descriptionOfServices: data["Description of Services"] || data.descriptionOfServices || '',
     status: data["Status"] || data.status || '',
-    attachments: data.attachments || []
+    attachments: data.attachments || [],
+    jobDetails: data.jobDetails || data["Job Details"] || null
   };
 };
 

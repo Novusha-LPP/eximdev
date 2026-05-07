@@ -331,10 +331,12 @@ const attendanceAPI = {
    * Get all leave requests for Admin view (with optional teamId filter)
    * Returns: { data: { pendingLeaves, recentProcessedLeaves, teams } }
    */
-  getAdminLeaveRequests: async (teamId, historyPage = 1, historyLimit = 20) => {
+  getAdminLeaveRequests: async (teamId, historyPage = 1, historyLimit = 20, search = '', month = '') => {
     try {
       const params = { historyPage, historyLimit };
       if (teamId && teamId !== 'all') params.teamId = teamId;
+      if (search) params.search = search;
+      if (month) params.month = month;
       const response = await apiClient.get('/attendance/admin-leave-requests', { params });
       return response.data;
     } catch (error) {

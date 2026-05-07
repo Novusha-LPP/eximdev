@@ -114,13 +114,21 @@ export class WorkHoursCalculator {
     // Handle cross-day shifts (e.g., 22:00 -> 06:00) by rolling end into next day.
     const shiftEndTime = shiftEndRaw <= shiftStartTime ? shiftEndRaw + (24 * 60) : shiftEndRaw;
 
-    const firstPunchMinutes = primaryInTime ? this.dateToMinutesOfDay(primaryInTime) : null;
+    let firstPunchMinutes = primaryInTime ? this.dateToMinutesOfDay(primaryInTime) : null;
     let lastPunchMinutes = primaryOutTime ? this.dateToMinutesOfDay(primaryOutTime) : null;
 
-    // For cross-day shifts, a post-midnight OUT belongs to next-day window.
-    if (lastPunchMinutes !== null && shiftEndRaw <= shiftStartTime && lastPunchMinutes < shiftStartTime) {
-      lastPunchMinutes += (24 * 60);
-    }
+    // Helper: normalize a minutes-of-day value to the nearest day relative to an anchor (minutes)
+    const normalizeMinutesToAnchor = (minuteVal, anchorMinutes) => {
+      if (minuteVal === null || anchorMinutes === null) return minuteVal;
+      const DAY = 24 * 60;
+      const candidates = [minuteVal, minuteVal + DAY, minuteVal - DAY];
+      candidates.sort((a, b) => Math.abs(a - anchorMinutes) - Math.abs(b - anchorMinutes));
+      return candidates[0];
+    };
+
+    // Normalize first/last punches to be nearest to shift start/end respectively
+    firstPunchMinutes = normalizeMinutesToAnchor(firstPunchMinutes, shiftStartTime);
+    lastPunchMinutes = normalizeMinutesToAnchor(lastPunchMinutes, shiftEndTime);
 
     // Detect if buffer is exceeded
     const isLate = firstPunchMinutes !== null && (firstPunchMinutes > shiftStartTime + lateAllowed);
@@ -128,7 +136,7 @@ export class WorkHoursCalculator {
 
     // If exceeded, calculate from actual shift start/end
     const lateByMinutes = isLate ? firstPunchMinutes - shiftStartTime : 0;
-    const earlyExitMinutes = isEarlyExit ? shiftEndTime - lastPunchMinutes : 0;
+    const earlyExitMinutes = isEarlyExit ? Math.min(shiftEndTime - lastPunchMinutes, 720) : 0;
 
     return {
       total_work_hours: parseFloat(totalWorkHours.toFixed(2)),

@@ -1,0 +1,13 @@
+{
+  "attendance_date": "2026-05-02",
+  "employee_id": "6672a2501aa931b68b091faf",
+  "correction_mode": "status_correction",
+  "apply_status_correction": true,
+  "apply_time_correction": false,
+  "shift_id": "69cd1e3b50e6c73acc73a919",
+  "status": "present",
+  "half_day_session": null,
+  "first_in": "2026-05-02T10:00",
+  "last_out": "2026-05-02T19:00",
+  "remarks": ""
+}

@@ -277,7 +277,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
     // Auto-switch hint for non-working statuses
     const [autoSwitchHintShown, setAutoSwitchHintShown] = useState(false);
     const shouldForceStatusCorrection = !hasInitialPunchIn || isNonWorkingStatus(editForm.status);
-    const isTimeCorrectionDisabled = shouldForceStatusCorrection || editForm.correction_mode === 'status_correction';
+    const isTimeCorrectionDisabled = shouldForceStatusCorrection;
 
     useEffect(() => {
         if (isAdmin) fetchCompanies();
@@ -542,14 +542,29 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
         };
 
         (empHistory || []).forEach((rec) => {
-            const status = getCalendarStatusClass(rec?.status);
+            const explicitStatus = String(rec?.status || '').toLowerCase();
+            const isHalf = explicitStatus
+                ? explicitStatus === 'half_day'
+                : Boolean(rec.is_half_day || rec.isHalfDay || rec.is_half || rec.half_day);
+            const status = getCalendarStatusClass(isHalf ? 'half_day' : rec?.status);
+            
             if (status === 'present') stats.present += 1;
             if (status === 'late') {
                 stats.late += 1;
                 stats.present += 1;
             }
             if (status === 'absent') stats.absent += 1;
-            if (status === 'leave') stats.leaves += 1;
+            if (status === 'leave' || status === 'pending_leave') stats.leaves += 1;
+            if (status === 'half_day') {
+                const hasLeave = !!(rec.leaveType || rec.leave_type);
+                if (hasLeave) {
+                    stats.leaves += 0.5;
+                    stats.present += 0.5;
+                } else {
+                    stats.present += 0.5;
+                    stats.absent += 0.5;
+                }
+            }
             if (status === 'weekly_off') stats.weeklyOff += 1;
             if (status === 'holiday') stats.holidays += 1;
         });
@@ -1640,11 +1655,18 @@ if (summarySheet) {
                                                         const dateStr = moment([browseYear, browseMonth - 1, day]).format('YYYY-MM-DD');
                                                         const rec = empHistory.find(r => r.attendance_date && getAttendanceDateKey(r.attendance_date) === dateStr);
                                                         const isToday = dateStr === moment().format('YYYY-MM-DD');
-                                                        const statusClass = getCalendarStatusClass(rec?.status);
+                                                        // Robust half-day detection synced with EmployeeProfileWorkspace
+                                                        const explicitStatus = String(rec?.status || '').toLowerCase();
+                                                        const isHalfFlag = explicitStatus
+                                                            ? explicitStatus === 'half_day'
+                                                            : Boolean(rec?.is_half_day || rec?.isHalfDay || rec?.is_half || rec?.half_day);
+                                                        const displayStatus = isHalfFlag ? 'half_day' : (rec?.status || 'none');
                                                         
-                                                        let statusBadge = getCalendarStatusBadge(rec?.status);
-                                                        if (rec?.status === 'half_day') {
-                                                            const session = rec.half_day_session || '';
+                                                        const statusClass = getCalendarStatusClass(displayStatus);
+                                                        let statusBadge = getCalendarStatusBadge(displayStatus);
+
+                                                        if (displayStatus === 'half_day') {
+                                                            const session = rec?.half_day_session || rec?.start_half_session || rec?.end_half_session || '';
                                                             statusBadge = session.toLowerCase().includes('first') ? '1st Half' : (session.toLowerCase().includes('second') ? '2nd Half' : '½ Day');
                                                         }
 
@@ -1841,7 +1863,7 @@ if (summarySheet) {
                             </div>
                         )} */}
                         <div style={{ display: 'flex', gap: '16px', marginBottom: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
-                            <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontWeight: 600, color: isTimeCorrectionDisabled ? '#ccc' : '#334155', opacity: isTimeCorrectionDisabled ? 0.5 : 1, cursor: isTimeCorrectionDisabled ? 'not-allowed' : 'pointer' }} title={!hasInitialPunchIn ? 'Not available when no punch-in exists for this date' : editForm.correction_mode === 'status_correction' ? 'Not available in Status Correction mode' : isNonWorkingStatus(editForm.status) ? 'Not applicable for non-working statuses' : ''}>
+                            <label style={{ display: 'flex', gap: '8px', alignItems: 'center', fontWeight: 600, color: isTimeCorrectionDisabled ? '#ccc' : '#334155', opacity: isTimeCorrectionDisabled ? 0.5 : 1, cursor: isTimeCorrectionDisabled ? 'not-allowed' : 'pointer' }} title={!hasInitialPunchIn ? 'Not available when no punch-in exists for this date' : isNonWorkingStatus(editForm.status) ? 'Not applicable for non-working statuses' : ''}>
                                 <input
                                     type="radio"
                                     name="correction_mode"

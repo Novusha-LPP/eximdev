@@ -14,9 +14,17 @@ import {
   Alert,
   Divider,
   TextField,
+  Card,
+  CardContent,
+  CardActions,
+  IconButton,
+  Tooltip,
 } from "@mui/material";
 import DownloadIcon from "@mui/icons-material/Download";
-import AssessmentIcon from "@mui/icons-material/Assessment";
+import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
+import PaymentIcon from "@mui/icons-material/Payment";
+import SummarizeIcon from "@mui/icons-material/Summarize";
+import FilterListIcon from "@mui/icons-material/FilterList";
 import axios from "axios";
 
 const BillingReportsUtility = () => {
@@ -29,7 +37,7 @@ const BillingReportsUtility = () => {
     year: "",
     branchId: "all",
     mode: "all",
-    detailedStatus: "billing_pending",
+    detailedStatus: "all",
     month: "all",
     startDate: "",
     endDate: "",
@@ -175,8 +183,7 @@ const BillingReportsUtility = () => {
       const filenames = {
         pr: `Payment_Request_Report_${dateSuffix}.xlsx`,
         pb: `Purchase_Book_Report_${dateSuffix}.xlsx`,
-        pr_no_pb: `PR_Pending_PB_Report_${dateSuffix}.xlsx`,
-        all: `Unified_Billing_Charges_Report_${dateSuffix}.xlsx`
+        all: `Combined_Charges_Report_${dateSuffix}.xlsx`
       };
       const filename = filenames[type] || `Report_${dateSuffix}.xlsx`;
       link.setAttribute('download', filename);
@@ -195,7 +202,6 @@ const BillingReportsUtility = () => {
       
       let errorMessage = "No records found or error generating report";
       
-      // If the response is a blob, we need to read it as text to see the error message
       if (error.response && error.response.data instanceof Blob) {
         const reader = new FileReader();
         reader.onload = () => {
@@ -215,7 +221,7 @@ const BillingReportsUtility = () => {
           }
         };
         reader.readAsText(error.response.data);
-        return; // Early return as notification is set in onload
+        return; 
       } else if (error.response && error.response.data && error.response.data.error) {
           errorMessage = error.response.data.error;
       }
@@ -233,36 +239,77 @@ const BillingReportsUtility = () => {
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="400px">
-        <CircularProgress />
+        <CircularProgress thickness={5} size={60} sx={{ color: '#1a73e8' }} />
       </Box>
     );
   }
 
+  const reportCards = [
+    {
+      id: 'pb',
+      title: "Purchase Book",
+      description: "Detailed report of all Purchase Book entries including taxes and supplier details.",
+      icon: <ReceiptLongIcon sx={{ fontSize: 40, color: '#1a73e8' }} />,
+      bgColor: '#e8f0fe',
+      btnColor: '#1a73e8'
+    },
+    {
+      id: 'pr',
+      title: "Payment Request",
+      description: "Comprehensive list of all payment requests with status, bank details, and approval dates.",
+      icon: <PaymentIcon sx={{ fontSize: 40, color: '#34a853' }} />,
+      bgColor: '#e6f4ea',
+      btnColor: '#34a853'
+    },
+    {
+      id: 'all',
+      title: "Combined Report",
+      description: "Unified view of both Purchase Book and Payment Requests for full financial reconciliation.",
+      icon: <SummarizeIcon sx={{ fontSize: 40, color: '#fbbc04' }} />,
+      bgColor: '#fef7e0',
+      btnColor: '#fbbc04'
+    }
+  ];
+
   return (
-    <Box sx={{ maxWidth: 1000, margin: "0 auto", p: 3 }}>
-      <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>
+    <Box sx={{ maxWidth: 1200, margin: "0 auto", p: { xs: 2, md: 4 } }}>
+      {/* Header Section */}
+      <Box sx={{ mb: 5, textAlign: 'center' }}>
+        <Typography variant="h4" fontWeight="800" sx={{ mb: 1, color: '#202124' }}>
+          Billing Reports Hub
+        </Typography>
+        <Typography variant="body1" color="text.secondary">
+          Select filters and download professional Excel reports in one click.
+        </Typography>
+      </Box>
+
+      {/* Filter Bar */}
+      <Paper 
+        elevation={0} 
+        sx={{ 
+          p: 3, 
+          mb: 5, 
+          borderRadius: 3, 
+          border: '1px solid #e0e0e0',
+          backgroundColor: '#fafafa'
+        }}
+      >
         <Box display="flex" alignItems="center" mb={3}>
-          <AssessmentIcon color="primary" sx={{ fontSize: 32, mr: 2 }} />
-          <Typography variant="h5" fontWeight="700">
-            Billing Charges Utility
+          <FilterListIcon sx={{ mr: 1, color: '#5f6368' }} />
+          <Typography variant="subtitle1" fontWeight="600" color="#5f6368">
+            Filter Parameters
           </Typography>
         </Box>
         
-        <Typography variant="body2" color="text.secondary" mb={4}>
-          Generate and download Excel reports for Purchase Book and Payment Request charges. 
-          Filter by year, branch, mode, and detailed status.
-        </Typography>
-
-        <Divider sx={{ mb: 4 }} />
-
-        <Grid container spacing={2} sx={{ mb: 4 }}>
-          <Grid item xs={12} md={3}>
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={6} md={3}>
             <FormControl fullWidth size="small">
               <InputLabel>Financial Year</InputLabel>
               <Select
                 value={filters.year}
                 label="Financial Year"
                 onChange={(e) => setFilters({ ...filters, year: e.target.value })}
+                sx={{ borderRadius: 2 }}
               >
                 {years.map((year) => (
                   <MenuItem key={year} value={year}>{year}</MenuItem>
@@ -271,46 +318,33 @@ const BillingReportsUtility = () => {
             </FormControl>
           </Grid>
 
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} sm={6} md={3}>
             <FormControl fullWidth size="small">
               <InputLabel>Branch</InputLabel>
               <Select
                 value={filters.branchId}
                 label="Branch"
                 onChange={(e) => setFilters({ ...filters, branchId: e.target.value })}
+                sx={{ borderRadius: 2 }}
               >
                 <MenuItem value="all">All Branches</MenuItem>
                 {branches.map((branch) => (
                   <MenuItem key={branch._id} value={branch._id}>
-                    {branch.branch_name} ({branch.branch_code})
+                    {branch.branch_name}
                   </MenuItem>
                 ))}
               </Select>
             </FormControl>
           </Grid>
 
-          <Grid item xs={12} md={3}>
-            <FormControl fullWidth size="small">
-              <InputLabel>Mode</InputLabel>
-              <Select
-                value={filters.mode}
-                label="Mode"
-                onChange={(e) => setFilters({ ...filters, mode: e.target.value })}
-              >
-                <MenuItem value="all">All Modes</MenuItem>
-                <MenuItem value="SEA">SEA</MenuItem>
-                <MenuItem value="AIR">AIR</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} sm={6} md={3}>
             <FormControl fullWidth size="small">
               <InputLabel>Detailed Status</InputLabel>
               <Select
                 value={filters.detailedStatus}
                 label="Detailed Status"
                 onChange={(e) => setFilters({ ...filters, detailedStatus: e.target.value })}
+                sx={{ borderRadius: 2 }}
               >
                 {statusOptions.map((opt) => (
                   <MenuItem key={opt.value} value={opt.value}>
@@ -321,13 +355,14 @@ const BillingReportsUtility = () => {
             </FormControl>
           </Grid>
 
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} sm={6} md={3}>
             <FormControl fullWidth size="small">
               <InputLabel>Month</InputLabel>
               <Select
                 value={filters.month}
                 label="Month"
                 onChange={(e) => setFilters({ ...filters, month: e.target.value })}
+                sx={{ borderRadius: 2 }}
               >
                 {monthOptions.map((opt) => (
                   <MenuItem key={opt.value} value={opt.value}>
@@ -338,74 +373,118 @@ const BillingReportsUtility = () => {
             </FormControl>
           </Grid>
 
-          <Grid item xs={12} md={3}>
-            <TextField
-              fullWidth
-              size="small"
-              label="Start Date"
-              type="date"
-              value={filters.startDate}
-              onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-              InputLabelProps={{ shrink: true }}
-            />
+          <Grid item xs={12} sm={6} md={6}>
+            <Box display="flex" gap={2}>
+                <TextField
+                fullWidth
+                size="small"
+                label="From Date"
+                type="date"
+                value={filters.startDate}
+                onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                />
+                <TextField
+                fullWidth
+                size="small"
+                label="To Date"
+                type="date"
+                value={filters.endDate}
+                onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                />
+            </Box>
           </Grid>
-
-          <Grid item xs={12} md={3}>
-            <TextField
-              fullWidth
-              size="small"
-              label="End Date"
-              type="date"
-              value={filters.endDate}
-              onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-              InputLabelProps={{ shrink: true }}
-            />
+          
+          <Grid item xs={12} sm={6} md={3}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Mode</InputLabel>
+              <Select
+                value={filters.mode}
+                label="Mode"
+                onChange={(e) => setFilters({ ...filters, mode: e.target.value })}
+                sx={{ borderRadius: 2 }}
+              >
+                <MenuItem value="all">All Modes</MenuItem>
+                <MenuItem value="SEA">SEA</MenuItem>
+                <MenuItem value="AIR">AIR</MenuItem>
+              </Select>
+            </FormControl>
           </Grid>
         </Grid>
-
-        <Box display="flex" gap={2} flexWrap="wrap">
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<DownloadIcon />}
-            onClick={() => handleDownload('pb')}
-            disabled={downloading}
-            sx={{ flexGrow: 1, py: 1.5, fontWeight: '600' }}
-          >
-            Download Purchase Book Report
-          </Button>
-          <Button
-            variant="contained"
-            color="secondary"
-            startIcon={<DownloadIcon />}
-            onClick={() => handleDownload('pr')}
-            disabled={downloading}
-            sx={{ flexGrow: 1, py: 1.5, fontWeight: '600' }}
-          >
-            Download Payment Request Report
-          </Button>
-          <Button
-            variant="contained"
-            color="warning"
-            startIcon={<DownloadIcon />}
-            onClick={() => handleDownload('pr_no_pb')}
-            disabled={downloading}
-            sx={{ flexGrow: 1, py: 1.5, fontWeight: '600' }}
-          >
-            PR Pending Purchase Book
-          </Button>
-          <Button
-            variant="contained"
-            color="info"
-            startIcon={<DownloadIcon />}
-            onClick={() => handleDownload('all')}
-            disabled={downloading}
-            sx={{ flexGrow: 1, py: 1.5, fontWeight: '600' }}
-          >
-            Unified PB & PR Report
-          </Button>
-        </Box>
       </Paper>
+
+      {/* Report Cards Section */}
+      <Grid container spacing={4}>
+        {reportCards.map((card) => (
+          <Grid item xs={12} md={4} key={card.id}>
+            <Card 
+              elevation={0}
+              sx={{ 
+                height: '100%', 
+                display: 'flex', 
+                flexDirection: 'column',
+                borderRadius: 4,
+                border: '1px solid #e0e0e0',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  transform: 'translateY(-8px)',
+                  boxShadow: '0 12px 24px rgba(0,0,0,0.1)',
+                  borderColor: card.btnColor
+                }
+              }}
+            >
+              <CardContent sx={{ flexGrow: 1, p: 3 }}>
+                <Box 
+                  sx={{ 
+                    width: 70, 
+                    height: 70, 
+                    borderRadius: 3, 
+                    backgroundColor: card.bgColor, 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    mb: 3
+                  }}
+                >
+                  {card.icon}
+                </Box>
+                <Typography variant="h6" fontWeight="700" gutterBottom>
+                  {card.title}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ minHeight: 60 }}>
+                  {card.description}
+                </Typography>
+              </CardContent>
+              <Divider />
+              <CardActions sx={{ p: 2 }}>
+                <Button
+                  fullWidth
+                  variant="contained"
+                  startIcon={downloading ? <CircularProgress size={20} color="inherit" /> : <DownloadIcon />}
+                  onClick={() => handleDownload(card.id)}
+                  disabled={downloading}
+                  sx={{ 
+                    borderRadius: 2, 
+                    py: 1.2, 
+                    fontWeight: '600',
+                    textTransform: 'none',
+                    backgroundColor: card.btnColor,
+                    '&:hover': {
+                      backgroundColor: card.btnColor,
+                      filter: 'brightness(0.9)'
+                    }
+                  }}
+                >
+                  {downloading ? "Preparing..." : `Download Report`}
+                </Button>
+              </CardActions>
+            </Card>
+          </Grid>
+        ))}
+      </Grid>
 
       <Snackbar
         open={notification.open}
@@ -417,7 +496,7 @@ const BillingReportsUtility = () => {
           onClose={() => setNotification({ ...notification, open: false })}
           severity={notification.severity}
           variant="filled"
-          sx={{ width: "100%" }}
+          sx={{ borderRadius: 3 }}
         >
           {notification.message}
         </Alert>

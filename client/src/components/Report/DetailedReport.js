@@ -101,6 +101,7 @@ const DetailedReport = () => {
   // The years array is now fetched dynamically through the useFetchYears hook.
 
   const months = [
+    { value: "all", label: "Entire Year" },
     { value: "4", label: "April" },
     { value: "5", label: "May" },
     { value: "6", label: "June" },
@@ -441,7 +442,7 @@ const DetailedReport = () => {
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Import Clearance Report');
 
     // Create summary worksheet using generateSummaryRows
-    const monthName = months.find(m => m.value === month)?.label || 'Unknown';
+    const monthName = month === 'all' ? 'Entire_Year' : (months.find(m => m.value === month)?.label || 'Unknown');
     const summarySheet = [];
     summarySheet.push([`Summary -- ${monthName} --${year}`]);
     summarySheet.push(['Particulars', 'Details', '20', '40', 'TEUS', 'Containers']);
@@ -481,10 +482,12 @@ const DetailedReport = () => {
   const exportToPDF = async () => {
     const doc = new jsPDF('l', 'mm', 'a4');
     // Main report page
-    const monthName = months.find(m => m.value === month)?.label || 'Unknown';
+    const monthName = month === 'all' ? 'Entire Year' : (months.find(m => m.value === month)?.label || 'Unknown');
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    const title = `Import Clearing Details of ${monthName}-${year}`;
+    const title = month === 'all' 
+        ? `Import Clearing Details for Entire Year ${year}`
+        : `Import Clearing Details of ${monthName}-${year}`;
     const pageWidth = doc.internal.pageSize.getWidth();
     const textWidth = doc.getTextWidth(title);
     const x = (pageWidth - textWidth) / 2;
@@ -607,7 +610,7 @@ const DetailedReport = () => {
     doc.addPage();
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    const summaryTitle = `Summary - ${monthName} ${year}`;
+    const summaryTitle = month === 'all' ? `Summary - Entire Year ${year}` : `Summary - ${monthName} ${year}`;
     const summaryTextWidth = doc.getTextWidth(summaryTitle);
     const summaryX = (doc.internal.pageSize.getWidth() - summaryTextWidth) / 2;
     doc.text(summaryTitle, summaryX, 15);

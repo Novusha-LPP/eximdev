@@ -13,10 +13,13 @@ const SCRAP_HS_CODES = [
 
 router.get("/api/report/import-clearance/:year/:month", async (req, res) => {
   const { year, month } = req.params;
-  const monthInt = parseInt(month, 10);
+  const isAllMonths = month === 'all';
+  const monthInt = isAllMonths ? null : parseInt(month, 10);
   const grade = req.query.grade || "";
   const { branchId, category } = req.query;
   const branchMatch = getBranchMatch(branchId, category);
+
+  const monthMatch = isAllMonths ? {} : { oocMonth: monthInt };
 
   try {
     // build pipeline first
@@ -65,7 +68,7 @@ router.get("/api/report/import-clearance/:year/:month", async (req, res) => {
       },
       {
         $match: {
-          oocMonth: monthInt,
+          ...monthMatch,
           oocFY: year,
         },
       },

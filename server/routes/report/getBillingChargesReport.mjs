@@ -19,31 +19,44 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
         
         // Calculate common date filter logic
         let dateFilter = null;
+        let stringDateFilter = null;
         if (startDate || endDate) {
             dateFilter = {};
-            if (startDate) dateFilter.$gte = new Date(startDate);
+            stringDateFilter = {};
+            if (startDate) {
+                dateFilter.$gte = new Date(startDate);
+                stringDateFilter.$gte = startDate;
+            }
             if (endDate) {
                 const end = new Date(endDate);
                 end.setHours(23, 59, 59, 999);
                 dateFilter.$lte = end;
+                stringDateFilter.$lte = endDate;
             }
         } else if (month && month !== 'all') {
+            let startOfMonth, endOfMonth, startStr, endStr;
             if (year && year.includes('-')) {
                 const [startYearShort, endYearShort] = year.split('-');
                 const startYear = 2000 + parseInt(startYearShort);
                 const endYear = 2000 + parseInt(endYearShort);
                 const monthInt = parseInt(month);
                 const targetYear = monthInt >= 4 ? startYear : endYear;
-                const startOfMonth = new Date(targetYear, monthInt - 1, 1);
-                const endOfMonth = new Date(targetYear, monthInt, 0, 23, 59, 59, 999);
-                dateFilter = { $gte: startOfMonth, $lte: endOfMonth };
+                startOfMonth = new Date(targetYear, monthInt - 1, 1);
+                endOfMonth = new Date(targetYear, monthInt, 0, 23, 59, 59, 999);
+                
+                startStr = `${targetYear}-${month.padStart(2, '0')}-01`;
+                endStr = `${targetYear}-${month.padStart(2, '0')}-${new Date(targetYear, monthInt, 0).getDate()}`;
             } else {
                 const currentYear = new Date().getFullYear();
                 const monthInt = parseInt(month);
-                const startOfMonth = new Date(currentYear, monthInt - 1, 1);
-                const endOfMonth = new Date(currentYear, monthInt, 0, 23, 59, 59, 999);
-                dateFilter = { $gte: startOfMonth, $lte: endOfMonth };
+                startOfMonth = new Date(currentYear, monthInt - 1, 1);
+                endOfMonth = new Date(currentYear, monthInt, 0, 23, 59, 59, 999);
+
+                startStr = `${currentYear}-${month.padStart(2, '0')}-01`;
+                endStr = `${currentYear}-${month.padStart(2, '0')}-${new Date(currentYear, monthInt, 0).getDate()}`;
             }
+            dateFilter = { $gte: startOfMonth, $lte: endOfMonth };
+            stringDateFilter = { $gte: startStr, $lte: endStr };
         }
 
         // Use standard branch/mode matching logic
@@ -111,14 +124,28 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
         // 2. Filter by date (if dateFilter exists)
         if (dateFilter) {
             if (type === 'pb') {
-                chargeMatchConditions.push({ "charges.purchase_book_approved_at": dateFilter });
+                // For PB, we'll use stringDateFilter on the joined entryDate field
+                chargeMatchConditions.push({ 
+                    $or: [
+                        { "entryDate": stringDateFilter },
+                        { "charges.purchase_book_approved_at": dateFilter }
+                    ]
+                });
             } else if (type === 'pr' || type === 'pr_no_pb') {
-                chargeMatchConditions.push({ "charges.payment_request_approved_at": dateFilter });
+                // For PR, we'll use stringDateFilter on the joined requestDate field
+                chargeMatchConditions.push({ 
+                    $or: [
+                        { "requestDate": stringDateFilter },
+                        { "charges.payment_request_approved_at": dateFilter }
+                    ]
+                });
             } else {
-                // For 'all' or fallback, use either PB date or PR date if they match
+                // For 'all' or fallback, use either PB (entryDate or approved_at) or PR (requestDate or approved_at) date
                 chargeMatchConditions.push({
                     $or: [
+                        { "entryDate": stringDateFilter },
                         { "charges.purchase_book_approved_at": dateFilter },
+                        { "requestDate": stringDateFilter },
                         { "charges.payment_request_approved_at": dateFilter }
                     ]
                 });
@@ -130,6 +157,28 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
         const pipeline = [
             { $match: jobMatchStage },
             { $unwind: "$charges" },
+            {
+                $lookup: {
+                    from: "purchasebookentries",
+                    localField: "charges.purchase_book_no",
+                    foreignField: "entryNo",
+                    as: "pb_details"
+                }
+            },
+            {
+                $lookup: {
+                    from: "paymentrequests",
+                    localField: "charges.payment_request_no",
+                    foreignField: "requestNo",
+                    as: "pr_details"
+                }
+            },
+            {
+                $addFields: {
+                    entryDate: { $arrayElemAt: ["$pb_details.entryDate", 0] },
+                    requestDate: { $arrayElemAt: ["$pr_details.requestDate", 0] }
+                }
+            },
             { $match: chargeMatchStage },
             {
                 $project: {
@@ -158,6 +207,8 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
                     invoice_number: "$charges.invoice_number",
                     invoice_date: "$charges.invoice_date",
                     purchase_book_approved_at: "$charges.purchase_book_approved_at",
+                    entryDate: 1,
+                    requestDate: 1,
                     payment_request_approved_at: "$charges.payment_request_approved_at"
                 }
             },
@@ -208,10 +259,10 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
                 "Party Name": row.partyName,
                 "Invoice No": row.invoice_number,
                 "Invoice Date": row.invoice_date,
-                "PB Entry Date": row.purchase_book_approved_at ? new Date(row.purchase_book_approved_at).toLocaleDateString('en-IN') : "",
+                "PB Entry Date": row.entryDate || (row.purchase_book_approved_at ? new Date(row.purchase_book_approved_at).toLocaleDateString('en-IN') : ""),
                 "PB Number": row.purchase_book_no,
                 "PB Status": row.purchase_book_status,
-                "PR Request Date": row.payment_request_approved_at ? new Date(row.payment_request_approved_at).toLocaleDateString('en-IN') : "",
+                "PR Request Date": row.requestDate || (row.payment_request_approved_at ? new Date(row.payment_request_approved_at).toLocaleDateString('en-IN') : ""),
                 "PR Number": row.payment_request_no,
                 "PR Status": row.payment_request_status,
                 "PB Mandatory?": row.isPurchaseBookMandatory ? "YES" : "NO",

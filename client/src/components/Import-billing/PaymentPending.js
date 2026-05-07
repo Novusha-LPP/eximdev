@@ -70,7 +70,7 @@ function PaymentPending({ workMode = "Payment" }) {
   const [openRejectPopup, setOpenRejectPopup] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
-  const [selectedRequestDate, setSelectedRequestDate] = useState(new Date().toLocaleString("en-CA", {timeZone: "Asia/Kolkata"}).split(',')[0]);
+  const [selectedRequestDate, setSelectedRequestDate] = useState(new Date().toLocaleString("en-CA", { timeZone: "Asia/Kolkata" }).split(',')[0]);
 
   const fetchPaymentRequestDetails = async (requestNo) => {
     try {
@@ -129,7 +129,7 @@ function PaymentPending({ workMode = "Payment" }) {
 
       const endpoint = workMode === "Purchase Book" ? "update-purchase-utr" : "update-payment-utr";
       const displayName = user ? `${user.first_name} ${user.last_name}` : (localStorage.getItem("username") || "Unknown");
-      
+
       await axios.patch(`${process.env.REACT_APP_API_STRING}/${endpoint}`, {
         requestNo: selectedPaymentRequest.requestNo,
         utrNumber: utrInput,
@@ -138,7 +138,7 @@ function PaymentPending({ workMode = "Payment" }) {
       }, {
         headers: { username: displayName }
       });
-      
+
       setUtrInput("");
       setBankFromInput("");
       setReceiptUrl("");
@@ -395,12 +395,12 @@ function PaymentPending({ workMode = "Payment" }) {
                 )}
               </div>
               <div style={{ fontSize: "10px", color: "#666" }}>
-                 {be_date ? new Date(be_date).toLocaleDateString("en-GB") : "-"}
+                {be_date ? new Date(be_date).toLocaleDateString("en-GB") : "-"}
               </div>
-              <div style={{ 
-                fontSize: "11px", 
-                fontWeight: "bold", 
-                color: "#2e7d32", 
+              <div style={{
+                fontSize: "11px",
+                fontWeight: "bold",
+                color: "#2e7d32",
                 marginTop: "4px",
                 padding: "2px 4px",
                 backgroundColor: "#e8f5e9",
@@ -428,7 +428,7 @@ function PaymentPending({ workMode = "Payment" }) {
           const filterField = workMode === "Payment" ? "payment_request_no" : "purchase_book_no";
           const isApprovedField = workMode === "Payment" ? "payment_request_is_approved" : "purchase_book_is_approved";
           const statusField = workMode === "Payment" ? "payment_request_status" : "purchase_book_status";
-          
+
           const reqGroups = charges.reduce((acc, c) => {
             if (c[filterField] && c[statusField] !== "Paid" && c[isApprovedField]) {
               if (!acc[c[filterField]]) {
@@ -518,12 +518,12 @@ function PaymentPending({ workMode = "Payment" }) {
                   <div>{entry.name}</div>
                   {entry.date && (
                     <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '2px' }}>
-                      {new Date(entry.date).toLocaleString('en-GB', { 
-                        day: '2-digit', 
-                        month: '2-digit', 
-                        year: 'numeric', 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
+                      {new Date(entry.date).toLocaleString('en-GB', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
                       })}
                     </div>
                   )}
@@ -565,7 +565,7 @@ function PaymentPending({ workMode = "Payment" }) {
             if (selectedRequestDate) {
               setSelectedRequestDate("");
             } else {
-              setSelectedRequestDate(new Date().toLocaleString("en-CA", {timeZone: "Asia/Kolkata"}).split(',')[0]);
+              setSelectedRequestDate(new Date().toLocaleString("en-CA", { timeZone: "Asia/Kolkata" }).split(',')[0]);
             }
           }}
           sx={{
@@ -598,10 +598,10 @@ function PaymentPending({ workMode = "Payment" }) {
       <Dialog open={openDetailModal} onClose={() => setOpenDetailModal(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 0, border: `2px solid ${selectedPaymentRequest?.isApproved ? '#2e7d32' : '#9e9e9e'}` } }}>
         <DialogTitle sx={{ backgroundColor: selectedPaymentRequest?.isPurchaseBook ? '#1565c0' : (selectedPaymentRequest?.isApproved ? '#2e7d32' : '#757575'), color: 'white', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1, px: 2, fontSize: '1rem' }}>
           <span>{selectedPaymentRequest?.isPurchaseBook ? "PURCHASE BOOK DETAILS" : "PAYMENT APPROVAL & UTR ENTRY"}</span>
-          <Chip 
-            label={selectedPaymentRequest?.isPurchaseBook ? "PURCHASE ENTRY" : (selectedPaymentRequest?.isApproved ? "APPROVED" : "AWAITING APPROVAL")} 
-            size="small" 
-            sx={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 'bold' }} 
+          <Chip
+            label={selectedPaymentRequest?.isPurchaseBook ? "PURCHASE ENTRY" : (selectedPaymentRequest?.isApproved ? "APPROVED" : "AWAITING APPROVAL")}
+            size="small"
+            sx={{ backgroundColor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 'bold' }}
           />
         </DialogTitle>
         <DialogContent sx={{ p: 0, backgroundColor: '#fff' }}>
@@ -729,8 +729,8 @@ function PaymentPending({ workMode = "Payment" }) {
                       </Grid>
                       <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1 }}>
                         <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
-                          CGST: {selectedPaymentRequest.cgstAmt?.toLocaleString('en-IN') || 0} | 
-                          SGST: {selectedPaymentRequest.sgstAmt?.toLocaleString('en-IN') || 0} | 
+                          CGST: {selectedPaymentRequest.cgstAmt?.toLocaleString('en-IN') || 0} |
+                          SGST: {selectedPaymentRequest.sgstAmt?.toLocaleString('en-IN') || 0} |
                           IGST: {selectedPaymentRequest.igstAmt?.toLocaleString('en-IN') || 0}
                         </Typography>
                       </Grid>
@@ -828,100 +828,100 @@ function PaymentPending({ workMode = "Payment" }) {
                 </Box>
               )}
 
-               <Box sx={{ p: 1.5, border: '1px solid #1976d2', backgroundColor: '#f0f7ff' }}>
-                  <Typography variant="caption" color="primary" fontWeight="bold" sx={{ display: 'block', mb: 1 }}>
-                    {selectedPaymentRequest?.isPurchaseBook ? "PURCHASE COMPLETION" : "UTR ENTRY"}
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, opacity: selectedPaymentRequest.isApproved ? 1 : 0.6 }}>
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                      <TextField 
-                        select 
-                        sx={{ minWidth: '160px' }} 
-                        size="small" 
-                        label="Bank From" 
-                        required 
+              <Box sx={{ p: 1.5, border: '1px solid #1976d2', backgroundColor: '#f0f7ff' }}>
+                <Typography variant="caption" color="primary" fontWeight="bold" sx={{ display: 'block', mb: 1 }}>
+                  {selectedPaymentRequest?.isPurchaseBook ? "PURCHASE COMPLETION" : "UTR ENTRY"}
+                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, opacity: selectedPaymentRequest.isApproved ? 1 : 0.6 }}>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <TextField
+                      select
+                      sx={{ minWidth: '160px' }}
+                      size="small"
+                      label="Bank From"
+                      required
+                      disabled={!selectedPaymentRequest.isApproved}
+                      value={bankFromInput}
+                      onChange={(e) => setBankFromInput(e.target.value)}
+                    >
+                      <MenuItem value="HDFC BANK">HDFC BANK</MenuItem>
+                      <MenuItem value="ICICI BANK">ICICI BANK</MenuItem>
+                      <MenuItem value="SBI BANK">SBI BANK</MenuItem>
+                      <MenuItem value="KOTAK BANK">KOTAK BANK</MenuItem>
+                      <MenuItem value="IDBI BANK">IDBI BANK</MenuItem>
+                      <MenuItem value="SOUTH INDIAN BANK">SOUTH INDIAN BANK</MenuItem>
+                      <MenuItem value="AXIS BANK">AXIS BANK</MenuItem>
+                      <MenuItem value="ODEX VAN">ODEX VAN</MenuItem>
+                      <MenuItem value="CASH">CASH</MenuItem>
+                    </TextField>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Enter UTR Number"
+                      variant="outlined"
+                      required
+                      disabled={!selectedPaymentRequest.isApproved}
+                      value={utrInput}
+                      onChange={(e) => setUtrInput(e.target.value)}
+                    />
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Button
+                      variant="outlined"
+                      component="label"
+                      size="small"
+                      startIcon={<AttachFileIcon />}
+                      disabled={!selectedPaymentRequest.isApproved}
+                      sx={{ textTransform: 'none' }}
+                    >
+                      {selectedReceipt ? "Change Receipt" : "Attach Receipt (Optional)"}
+                      <inputKOTAK MAHINDRA BANK LTDKOTAK MAHINDRA BANK LTD
+                        type="file"
+                        hidden
                         disabled={!selectedPaymentRequest.isApproved}
-                        value={bankFromInput} 
-                        onChange={(e) => setBankFromInput(e.target.value)}
-                      >
-                        <MenuItem value="HDFC BANK">HDFC BANK</MenuItem>
-                        <MenuItem value="ICICI BANK">ICICI BANK</MenuItem>
-                        <MenuItem value="SBI BANK">SBI BANK</MenuItem>
-                        <MenuItem value="KOTAK BANK">KOTAK BANK</MenuItem>
-                        <MenuItem value="IDBI BANK">IDBI BANK</MenuItem>
-                        <MenuItem value="SOUTH INDIAN BANK">SOUTH INDIAN BANK</MenuItem>
-                        <MenuItem value="AXIS BANK">AXIS BANK</MenuItem>
-                        <MenuItem value="ODEX VAN">ODEX VAN</MenuItem>
-                        <MenuItem value="CASH">CASH</MenuItem>
-                      </TextField>
-                      <TextField 
-                        fullWidth 
-                        size="small" 
-                        label="Enter UTR Number" 
-                        variant="outlined" 
-                        required
-                        disabled={!selectedPaymentRequest.isApproved}
-                        value={utrInput} 
-                        onChange={(e) => setUtrInput(e.target.value)} 
+                        onChange={(e) => setSelectedReceipt(e.target.files[0])}
                       />
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Button
-                        variant="outlined"
-                        component="label"
-                        size="small"
-                        startIcon={<AttachFileIcon />}
-                        disabled={!selectedPaymentRequest.isApproved}
-                        sx={{ textTransform: 'none' }}
-                      >
-                        {selectedReceipt ? "Change Receipt" : "Attach Receipt (Optional)"}
-                        <input
-                          type="file"
-                          hidden
-                          disabled={!selectedPaymentRequest.isApproved}
-                          onChange={(e) => setSelectedReceipt(e.target.files[0])}
-                        />
-                      </Button>
-                      {selectedReceipt && (
-                        <Typography variant="caption" sx={{ color: 'text.secondary', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {selectedReceipt.name}
-                        </Typography>
-                      )}
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Button
-                        variant="contained"
-                        color="primary"
-                        size="small"
-                        onClick={handleUpdateUTR}
-                        disabled={!selectedPaymentRequest.isApproved || !utrInput.trim() || !bankFromInput || isSubmittingUtr || isUploadingReceipt}
-                        sx={{ flexGrow: 1, fontWeight: 'bold' }}
-                      >
-                        {isSubmittingUtr || isUploadingReceipt ? <CircularProgress size={20} color="inherit" /> : (selectedPaymentRequest.isPurchaseBook ? "Mark as Entry Completed" : "Save UTR & Mark Paid")}
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        color="error"
-                        size="small"
-                        onClick={() => setOpenRejectPopup(true)}
-                        sx={{ fontWeight: 'bold' }}
-                      >
-                        Reject Request
-                      </Button>
-                    </Box>
+                    </Button>
+                    {selectedReceipt && (
+                      <Typography variant="caption" sx={{ color: 'text.secondary', maxWidth: '150px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {selectedReceipt.name}
+                      </Typography>
+                    )}
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      size="small"
+                      onClick={handleUpdateUTR}
+                      disabled={!selectedPaymentRequest.isApproved || !utrInput.trim() || !bankFromInput || isSubmittingUtr || isUploadingReceipt}
+                      sx={{ flexGrow: 1, fontWeight: 'bold' }}
+                    >
+                      {isSubmittingUtr || isUploadingReceipt ? <CircularProgress size={20} color="inherit" /> : (selectedPaymentRequest.isPurchaseBook ? "Mark as Entry Completed" : "Save UTR & Mark Paid")}
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      size="small"
+                      onClick={() => setOpenRejectPopup(true)}
+                      sx={{ fontWeight: 'bold' }}
+                    >
+                      Reject Request
+                    </Button>
                   </Box>
                 </Box>
+              </Box>
 
             </Box>
           )}
         </DialogContent>
         <DialogActions sx={{ p: 1, borderTop: '1px solid #ccc', justifyContent: 'space-between' }}>
           <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button 
+            <Button
               onClick={() => {
                 generatePurchaseBookPDF(selectedPaymentRequest, logo);
-              }} 
-              size="small" 
+              }}
+              size="small"
               variant="outlined"
             >
               Print

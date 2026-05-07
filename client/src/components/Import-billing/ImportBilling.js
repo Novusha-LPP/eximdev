@@ -11,7 +11,6 @@ import {
   Box,
   Badge,
   Typography,
-  Menu,
   MenuItem,
   Autocomplete,
 } from "@mui/material";
@@ -49,8 +48,6 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [importers, setImporters] = useState("");
-  const [anchorEl, setAnchorEl] = useState(null);
-  const [selectedRowData, setSelectedRowData] = useState(null);
   const [voucherData, setVoucherData] = useState(null);
   const voucherRef = React.useRef();
 
@@ -257,34 +254,6 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
       document.body.removeChild(textArea);
     }
   }, []);
-
-  const handleMenuOpen = (event, row) => {
-    setAnchorEl(event.currentTarget);
-    setSelectedRowData(row);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-    setSelectedRowData(null);
-  };
-
-  const handleGenerateAction = (type) => {
-    handleMenuClose();
-    if (selectedRowData) {
-      if (type === 'Agency Bill') {
-        const { branch_code, trade_type, mode, job_no, year } = selectedRowData;
-        navigate(`/agency-bill/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`);
-      } else if (type === 'Reimbursement Bill') {
-        const { branch_code, trade_type, mode, job_no, year } = selectedRowData;
-        navigate(`/reimbursement-bill/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`);
-      } else if (type === 'Cash Voucher') {
-        handleDownloadVoucher(selectedRowData);
-      } else {
-        console.log(`Generating ${type} for job ${selectedRowData.job_no}`);
-        // Future implementation for other bill types
-      }
-    }
-  };
 
   const handleDownloadVoucher = useCallback(async (job) => {
     setVoucherData({ job });
@@ -534,24 +503,25 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
           Cell: ({ cell }) => <InvoiceDisplay row={cell.row.original} />,
         },
         {
-          accessorKey: "generate_bill",
-          header: "Generate Bill",
+          accessorKey: "voucher",
+          header: "Voucher",
           muiTableHeadCellProps: { align: "center" },
           muiTableBodyCellProps: { sx: { textAlign: "center", verticalAlign: "middle" } },
           enableSorting: false,
-          size: 150,
+          size: 120,
           Cell: ({ cell }) => (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
               <Button
                 variant="contained"
-                color="primary"
+                color="secondary"
                 size="small"
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleMenuOpen(e, cell.row.original);
+                  handleDownloadVoucher(cell.row.original);
                 }}
+                startIcon={<ReceiptIcon />}
               >
-                Generate
+                Voucher
               </Button>
             </Box>
           ),
@@ -560,7 +530,7 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
 
       if (isDoView) {
         return baseColumns.filter(c => 
-          c.accessorKey !== "generate_bill" && 
+          c.accessorKey !== "voucher" && 
           c.accessorKey !== "bill_document_sent_to_accounts" &&
           c.accessorKey !== "container_numbers"
         );
@@ -570,7 +540,7 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
         c.accessorKey !== "obl_telex_bl"
       );
     },
-    [navigate, handleCopy, isDoView, currentTab, workMode]
+    [navigate, handleCopy, isDoView, currentTab, workMode, handleDownloadVoucher]
   );
 
   // Table configuration
@@ -745,22 +715,6 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
             showLastButton
           />
         </Box>
-
-        <Menu
-          anchorEl={anchorEl}
-          open={Boolean(anchorEl)}
-          onClose={handleMenuClose}
-        >
-          <MenuItem onClick={() => handleGenerateAction("Agency Bill")}>
-            Agency Bill
-          </MenuItem>
-          <MenuItem onClick={() => handleGenerateAction("Reimbursement Bill")}>
-            Reimbursement Bill
-          </MenuItem>
-          <MenuItem onClick={() => handleGenerateAction("Cash Voucher")}>
-            Cash Voucher
-          </MenuItem>
-        </Menu>
 
         {/* Hidden area for PDF capture */}
         {voucherData && (

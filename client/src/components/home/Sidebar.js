@@ -15,7 +15,6 @@ import InsightsIcon from "@mui/icons-material/Insights";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import HubIcon from "@mui/icons-material/Hub";
 import SupervisedUserCircleIcon from "@mui/icons-material/SupervisedUserCircle";
-import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
 import DomainIcon from "@mui/icons-material/Domain";
 import VpnKeyIcon from "@mui/icons-material/VpnKey";
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
@@ -154,18 +153,6 @@ function Sidebar() {
         </Tooltip>
       )}
 
-      {/* CRM Module */}
-      <Tooltip title="CRM Module" enterDelay={0} placement="right">
-        <ListItemButton
-          className="appbar-links"
-          aria-label="list-item"
-          onClick={() => navigate("/crm")}
-        >
-          <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-            <PeopleAltIcon />
-          </IconButton>
-        </ListItemButton>
-      </Tooltip>
 
       {/* NEW: Currency Exchange Rates Icon */}
       <Tooltip title="Currency Exchange Rates" enterDelay={0} placement="right">

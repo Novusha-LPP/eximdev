@@ -71,8 +71,6 @@ import EditDoPlanning from "../components/import-do/EditDoPlanning.js";
 import EditDoCompleted from "../components/import-do/EditDoCompleted.js";
 import EditBillingSheet from "../components/import-do/EditBillingSheet.js";
 import EditFreeDaysConf from "../components/import-do/EditFreeDaysConf.js";
-import AgencyBillInvoice from "../components/Import-billing/AgencyBillInvoice.jsx";
-import ReimbursementBill from "../components/Import-billing/ReimbursementBill.jsx";
 // Import DSR
 import ImportDSR from "../components/import-dsr/ImportDSR.js";
 import ViewJob from "../components/import-dsr/ViewJob.js";
@@ -180,8 +178,6 @@ import DgftTabs from "../components/dgft/DgftTabs.js";
 import ViewAuthorizationDetails from "../components/dgft/ViewAuthorizationDetails.js";
 import ViewDgftRegisterDetails from "../components/dgft/ViewDgftRegisterDetails.js";
 
-// CRM Module
-import CRMModule from "../components/crm/CRMModule.jsx";
 
 import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
@@ -426,13 +422,6 @@ function HomePageContent() {
               {/* DGFT Module */}
               <Route path="/dgft" element={<DgftTabs />} />
 
-              {/* CRM Module */}
-              <Route
-                path="/crm"
-                element={
-                  <CRMModule />
-                }
-              />
        
                 {/* Exit Feedback */}
                 <Route
@@ -798,22 +787,6 @@ function HomePageContent() {
                   element={
                     <ProtectedRoute requiredModule="Import - Billing">
                       <ViewBillingJob />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/agency-bill/:branch_code/:trade_type/:mode/:job_no/:year"
-                  element={
-                    <ProtectedRoute requiredModule="Import - Billing">
-                      <AgencyBillInvoice />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/reimbursement-bill/:branch_code/:trade_type/:mode/:job_no/:year"
-                  element={
-                    <ProtectedRoute requiredModule="Import - Billing">
-                      <ReimbursementBill />
                     </ProtectedRoute>
                   }
                 />

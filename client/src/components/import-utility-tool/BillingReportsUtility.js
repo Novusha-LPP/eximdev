@@ -13,6 +13,7 @@ import {
   Snackbar,
   Alert,
   Divider,
+  TextField,
 } from "@mui/material";
 import DownloadIcon from "@mui/icons-material/Download";
 import AssessmentIcon from "@mui/icons-material/Assessment";
@@ -29,7 +30,26 @@ const BillingReportsUtility = () => {
     branchId: "all",
     mode: "all",
     detailedStatus: "billing_pending",
+    month: "all",
+    startDate: "",
+    endDate: "",
   });
+
+  const monthOptions = [
+    { value: "all", label: "All Months" },
+    { value: "1", label: "January" },
+    { value: "2", label: "February" },
+    { value: "3", label: "March" },
+    { value: "4", label: "April" },
+    { value: "5", label: "May" },
+    { value: "6", label: "June" },
+    { value: "7", label: "July" },
+    { value: "8", label: "August" },
+    { value: "9", label: "September" },
+    { value: "10", label: "October" },
+    { value: "11", label: "November" },
+    { value: "12", label: "December" },
+  ];
 
   const statusOptions = [
     { value: "all", label: "All Statuses" },
@@ -112,10 +132,10 @@ const BillingReportsUtility = () => {
   }, [API_URL]);
 
   const handleDownload = async (type) => {
-    if (!filters.year) {
+    if (!filters.year && !filters.startDate) {
         setNotification({
             open: true,
-            message: "Please select a year",
+            message: "Please select a year or date range",
             severity: "warning",
         });
         return;
@@ -130,6 +150,9 @@ const BillingReportsUtility = () => {
           branchId: filters.branchId,
           mode: filters.mode,
           detailedStatus: filters.detailedStatus,
+          month: filters.month,
+          startDate: filters.startDate,
+          endDate: filters.endDate,
         },
         responseType: 'blob',
         withCredentials: true
@@ -139,13 +162,23 @@ const BillingReportsUtility = () => {
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = downloadUrl;
+      
+      let dateSuffix = filters.year;
+      if (filters.month !== 'all') {
+          const monthLabel = monthOptions.find(m => m.value === filters.month)?.label || filters.month;
+          dateSuffix += `_${monthLabel}`;
+      }
+      if (filters.startDate) {
+          dateSuffix = `${filters.startDate}_to_${filters.endDate || 'now'}`;
+      }
+
       const filenames = {
-        pr: `Payment_Request_Report_${filters.year}.xlsx`,
-        pb: `Purchase_Book_Report_${filters.year}.xlsx`,
-        pr_no_pb: `PR_Pending_PB_Report_${filters.year}.xlsx`,
-        all: `Unified_Billing_Charges_Report_${filters.year}.xlsx`
+        pr: `Payment_Request_Report_${dateSuffix}.xlsx`,
+        pb: `Purchase_Book_Report_${dateSuffix}.xlsx`,
+        pr_no_pb: `PR_Pending_PB_Report_${dateSuffix}.xlsx`,
+        all: `Unified_Billing_Charges_Report_${dateSuffix}.xlsx`
       };
-      const filename = filenames[type] || `Report_${filters.year}.xlsx`;
+      const filename = filenames[type] || `Report_${dateSuffix}.xlsx`;
       link.setAttribute('download', filename);
       document.body.appendChild(link);
       link.click();
@@ -286,6 +319,47 @@ const BillingReportsUtility = () => {
                 ))}
               </Select>
             </FormControl>
+          </Grid>
+
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Month</InputLabel>
+              <Select
+                value={filters.month}
+                label="Month"
+                onChange={(e) => setFilters({ ...filters, month: e.target.value })}
+              >
+                {monthOptions.map((opt) => (
+                  <MenuItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={12} md={3}>
+            <TextField
+              fullWidth
+              size="small"
+              label="Start Date"
+              type="date"
+              value={filters.startDate}
+              onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+              InputLabelProps={{ shrink: true }}
+            />
+          </Grid>
+
+          <Grid item xs={12} md={3}>
+            <TextField
+              fullWidth
+              size="small"
+              label="End Date"
+              type="date"
+              value={filters.endDate}
+              onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+              InputLabelProps={{ shrink: true }}
+            />
           </Grid>
         </Grid>
 

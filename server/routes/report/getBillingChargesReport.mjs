@@ -11,13 +11,41 @@ const router = express.Router();
 
 router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchFilter, async (req, res) => {
     try {
-        const { type, year, branchId, mode, detailedStatus } = req.query;
+        const { type, year, branchId, mode, detailedStatus, month, startDate, endDate } = req.query;
 
         // Base match stage
         const jobMatchStage = {};
-
         if (year) jobMatchStage.year = year;
         
+        // Calculate common date filter logic
+        let dateFilter = null;
+        if (startDate || endDate) {
+            dateFilter = {};
+            if (startDate) dateFilter.$gte = new Date(startDate);
+            if (endDate) {
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                dateFilter.$lte = end;
+            }
+        } else if (month && month !== 'all') {
+            if (year && year.includes('-')) {
+                const [startYearShort, endYearShort] = year.split('-');
+                const startYear = 2000 + parseInt(startYearShort);
+                const endYear = 2000 + parseInt(endYearShort);
+                const monthInt = parseInt(month);
+                const targetYear = monthInt >= 4 ? startYear : endYear;
+                const startOfMonth = new Date(targetYear, monthInt - 1, 1);
+                const endOfMonth = new Date(targetYear, monthInt, 0, 23, 59, 59, 999);
+                dateFilter = { $gte: startOfMonth, $lte: endOfMonth };
+            } else {
+                const currentYear = new Date().getFullYear();
+                const monthInt = parseInt(month);
+                const startOfMonth = new Date(currentYear, monthInt - 1, 1);
+                const endOfMonth = new Date(currentYear, monthInt, 0, 23, 59, 59, 999);
+                dateFilter = { $gte: startOfMonth, $lte: endOfMonth };
+            }
+        }
+
         // Use standard branch/mode matching logic
         const branchMatch = getBranchMatch(branchId, mode, req.authorizedBranchIds);
         Object.assign(jobMatchStage, branchMatch);
@@ -56,35 +84,48 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
         console.log("Job Match Stage:", JSON.stringify(jobMatchStage));
 
         // Charge match stage based on report type
-        let chargeMatchStage;
+        const chargeMatchConditions = [];
+        
+        // 1. Filter by report type
         if (type === 'all') {
-            chargeMatchStage = {
+            chargeMatchConditions.push({
                 $or: [
                     { "charges.payment_request_no": { $exists: true, $ne: null, $ne: "" } },
                     { "charges.purchase_book_no": { $exists: true, $ne: null, $ne: "" } }
                 ]
-            };
+            });
         } else if (type === 'pr_no_pb') {
-            chargeMatchStage = {
-                $and: [
-                    { "charges.payment_request_no": { $exists: true, $ne: null, $ne: "" } },
-                    {
-                        $or: [
-                            { "charges.purchase_book_no": { $exists: false } },
-                            { "charges.purchase_book_no": null },
-                            { "charges.purchase_book_no": "" }
-                        ]
-                    }
+            chargeMatchConditions.push({ "charges.payment_request_no": { $exists: true, $ne: null, $ne: "" } });
+            chargeMatchConditions.push({
+                $or: [
+                    { "charges.purchase_book_no": { $exists: false } },
+                    { "charges.purchase_book_no": null },
+                    { "charges.purchase_book_no": "" }
                 ]
-            };
+            });
         } else {
             const chargeMatchField = type === 'pr' ? "charges.payment_request_no" : "charges.purchase_book_no";
-            chargeMatchStage = {
-                $and: [
-                    { [chargeMatchField]: { $exists: true, $ne: null, $ne: "" } }
-                ]
-            };
+            chargeMatchConditions.push({ [chargeMatchField]: { $exists: true, $ne: null, $ne: "" } });
         }
+
+        // 2. Filter by date (if dateFilter exists)
+        if (dateFilter) {
+            if (type === 'pb') {
+                chargeMatchConditions.push({ "charges.purchase_book_approved_at": dateFilter });
+            } else if (type === 'pr' || type === 'pr_no_pb') {
+                chargeMatchConditions.push({ "charges.payment_request_approved_at": dateFilter });
+            } else {
+                // For 'all' or fallback, use either PB date or PR date if they match
+                chargeMatchConditions.push({
+                    $or: [
+                        { "charges.purchase_book_approved_at": dateFilter },
+                        { "charges.payment_request_approved_at": dateFilter }
+                    ]
+                });
+            }
+        }
+
+        const chargeMatchStage = { $and: chargeMatchConditions };
 
         const pipeline = [
             { $match: jobMatchStage },
@@ -115,7 +156,9 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
                     sacHsn: "$charges.sacHsn",
                     remark: "$charges.remark",
                     invoice_number: "$charges.invoice_number",
-                    invoice_date: "$charges.invoice_date"
+                    invoice_date: "$charges.invoice_date",
+                    purchase_book_approved_at: "$charges.purchase_book_approved_at",
+                    payment_request_approved_at: "$charges.payment_request_approved_at"
                 }
             },
             { $sort: { job_number: 1, importer: 1 } }
@@ -165,8 +208,10 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
                 "Party Name": row.partyName,
                 "Invoice No": row.invoice_number,
                 "Invoice Date": row.invoice_date,
+                "PB Entry Date": row.purchase_book_approved_at ? new Date(row.purchase_book_approved_at).toLocaleDateString('en-IN') : "",
                 "PB Number": row.purchase_book_no,
                 "PB Status": row.purchase_book_status,
+                "PR Request Date": row.payment_request_approved_at ? new Date(row.payment_request_approved_at).toLocaleDateString('en-IN') : "",
                 "PR Number": row.payment_request_no,
                 "PR Status": row.payment_request_status,
                 "PB Mandatory?": row.isPurchaseBookMandatory ? "YES" : "NO",

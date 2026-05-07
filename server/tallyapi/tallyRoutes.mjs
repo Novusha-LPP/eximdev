@@ -232,25 +232,37 @@ router.post("/purchase-entry", authApiKey, async (req, res) => {
     console.log("Purchase Entry Request Body:", JSON.stringify(data, null, 2));
     const finalEntriesData = [];
     
-    // Fetch detailed job data for inclusion
-    const jobDetails = await getJobDetailsInternal(data["Job No"]);
+    // Cache job details to avoid fetching the same job multiple times
+    const jobDetailsCache = {};
+    const getCachedJobDetails = async (jno) => {
+        if (!jobDetailsCache[jno]) {
+             jobDetailsCache[jno] = await getJobDetailsInternal(jno);
+        }
+        return jobDetailsCache[jno];
+    };
 
     if (data.Charges && data.Charges.length > 0) {
+      // Clear out any existing entries with this entryNo to replace them
+      await PurchaseBookEntryModel.deleteMany({ entryNo: data["Entry No"] });
+
       // Create separate flattened entries for each charge (data duplication intended)
       for (const charge of data.Charges) {
+        const cJobNo = charge.jobNo || data["Job No"];
+        const cJobDetails = await getCachedJobDetails(cJobNo);
+
         const flatEntry = {
           entryNo: data["Entry No"],
           entryDate: data["Entry Date"],
           supplierInvNo: data["Supplier Inv No"],
           supplierInvDate: data["Supplier Inv Date"],
-          jobNo: data["Job No"],
+          jobNo: cJobNo,
           supplierName: data["Supplier Name"],
           address1: data["Address 1"],
           address2: data["Address 2"],
           address3: data["Address 3"],
           state: data["State"],
           country: data["Country"],
-          pinCode: data["Pin code"],
+          pinCode: data["Pin Code"] || data["Pin code"],
           registrationType: data["Registration Type"],
           gstinNo: data["GSTIN No"],
           pan: data["PAN"],
@@ -274,14 +286,17 @@ router.post("/purchase-entry", authApiKey, async (req, res) => {
           chargeDescription: charge.chargeDescription || data["Charge Description"],
           chargeHeadCategory: charge.chargeHeadCategory || data["Charge Head Category"],
           chargeRef: charge.chargeId,
-          jobRef: charge.jobId || data.jobId,
-          jobDetails: jobDetails,
-          "Job Details": jobDetails
+          jobRef: charge.jobRef || charge.jobId || data.jobId,
+          jobDetails: cJobDetails,
+          "Job Details": cJobDetails
         };
         finalEntriesData.push(flatEntry);
       }
     } else {
       // Single entry fallback
+      const singleEntryJobNo = data["Job No"];
+      const fallbackJobDetails = await getCachedJobDetails(singleEntryJobNo);
+      
       const singleEntry = {
         entryNo: data["Entry No"],
         entryDate: data["Entry Date"],
@@ -317,8 +332,8 @@ router.post("/purchase-entry", authApiKey, async (req, res) => {
         status: data["Status"] || "Pending",
         jobRef: data.jobId,
         chargeRef: data.chargeId,
-        jobDetails: jobDetails,
-        "Job Details": jobDetails
+        jobDetails: fallbackJobDetails,
+        "Job Details": fallbackJobDetails
       };
       finalEntriesData.push(singleEntry);
     }

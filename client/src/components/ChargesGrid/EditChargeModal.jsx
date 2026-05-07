@@ -100,8 +100,8 @@ const EditChargeModal = ({
 
   const addSharedJob = (index, jobNo) => {
     const currentShared = formData[index].sharedWith || [];
-    if (!currentShared.includes(jobNo)) {
-      handleFieldChange(index, 'sharedWith', [...currentShared, jobNo]);
+    if (!currentShared.some(item => (item.jobNo || item) === jobNo)) {
+      handleFieldChange(index, 'sharedWith', [...currentShared, { jobNo, amount: 0 }]);
     }
     setJobSearchTerm('');
     setJobSearchResults([]);
@@ -109,7 +109,7 @@ const EditChargeModal = ({
 
   const removeSharedJob = (index, jobNo) => {
     const currentShared = formData[index].sharedWith || [];
-    handleFieldChange(index, 'sharedWith', currentShared.filter(jno => jno !== jobNo));
+    handleFieldChange(index, 'sharedWith', currentShared.filter(item => (item.jobNo || item) !== jobNo));
   };
 
   const [transporters, setTransporters] = useState([]);
@@ -208,7 +208,9 @@ const EditChargeModal = ({
         payment_request_status: charge.payment_request_status || '',
         purchase_book_no: charge.purchase_book_no || '',
         purchase_book_status: charge.purchase_book_status || '',
-        sharedWith: charge.sharedWith || [],
+        sharedWith: (charge.sharedWith || []).map(item => 
+            typeof item === 'string' ? { jobNo: item, amount: 0 } : item
+        ),
         sharedGroupId: charge.sharedGroupId || '',
         revenue: {
           ...(charge.revenue || {}),
@@ -616,7 +618,7 @@ const EditChargeModal = ({
     return partyDetails;
   };
 
-  const handleBulkPurchaseBook = () => {
+  const handleBulkPurchaseBook = async () => {
     // Collect all charges that don't have a PB yet
     const eligible = formData.filter(row => !row.purchase_book_no || row.purchase_book_status === 'Rejected');
     if (eligible.length === 0) {
@@ -624,16 +626,33 @@ const EditChargeModal = ({
       return;
     }
 
+    let allCharges = [...eligible];
+    const sharedGroupIds = eligible.map(r => r.sharedGroupId).filter(Boolean);
+    
+    if (sharedGroupIds.length > 0) {
+      try {
+        const res = await axios.post(`${process.env.REACT_APP_API_STRING}/charges/by-shared-groups`, { groupIds: sharedGroupIds }, { withCredentials: true });
+        if (res.data.success) {
+          const fetchedCharges = res.data.data;
+          const existingIds = new Set(eligible.map(r => r._id.toString()));
+          const newCharges = fetchedCharges.filter(c => !existingIds.has(c._id.toString()) && (!c.purchase_book_no || c.purchase_book_status === 'Rejected'));
+          allCharges = [...allCharges, ...newCharges];
+        }
+      } catch (err) {
+        console.error("Error fetching bifurcated shared charges", err);
+      }
+    }
+
     // Check if they all have the same vendor
-    const firstVendor = eligible[0].cost?.partyName;
-    const sameVendor = eligible.every(row => row.cost?.partyName === firstVendor);
+    const firstVendor = allCharges[0].cost?.partyName;
+    const sameVendor = allCharges.every(row => row.cost?.partyName === firstVendor);
     if (!sameVendor) {
        if (!window.confirm("Charges have different vendors. Are you sure you want to group them?")) return;
     }
 
     // Prepare data for PurchaseBookModal
-    const firstRow = eligible[0];
-    const charges = eligible.map(row => {
+    const firstRow = allCharges[0];
+    const charges = allCharges.map(row => {
         const cost = row.cost || {};
         const rate = parseFloat(cost.gstRate) || 18;
         const amt = parseFloat(cost.amount || cost.amountINR) || 0;
@@ -674,9 +693,10 @@ const EditChargeModal = ({
           chargeDescription: row.cost?.chargeDescription || '',
           chargeHeadCategory: row.category,
           tdsCategory: row.cost?.tdsCategory || '94C',
-          jobId: parentId,
+          jobId: row.jobId || parentId,
           chargeRef: row._id,
-          jobRef: parentId
+          jobRef: row.jobId || parentId,
+          jobNo: row.jobDisplayNumber || jobDisplayNumber
         };
     });
 
@@ -811,18 +831,31 @@ const EditChargeModal = ({
                         </div>
                       )}
                     </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '4px' }}>
-                      {(row.sharedWith || []).map(jobNo => (
-                        <Chip 
-                          key={jobNo}
-                          label={jobNo}
-                          size="small"
-                          onDelete={effectiveReadOnly ? undefined : () => removeSharedJob(i, jobNo)}
-                          style={{ fontSize: '11px', height: '22px' }}
-                          color="primary"
-                          variant="outlined"
-                        />
-                      ))}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '4px' }}>
+                      {(row.sharedWith || []).map((sharedItem, sIdx) => {
+                        const jobNo = typeof sharedItem === 'string' ? sharedItem : sharedItem.jobNo;
+                        const amount = typeof sharedItem === 'string' ? 0 : (sharedItem.amount || 0);
+                        return (
+                          <div key={jobNo} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#f5f8fc', padding: '4px 8px', borderRadius: '4px', border: '1px solid #d0e1f9' }}>
+                            <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#1565c0', minWidth: '100px' }}>{jobNo}</span>
+                            <span style={{ fontSize: '11px', color: '#666' }}>Amount:</span>
+                            <input 
+                                type="number"
+                                disabled={effectiveReadOnly}
+                                style={{ width: '80px', padding: '2px 4px', fontSize: '11px', border: '1px solid #ccc', borderRadius: '3px' }}
+                                value={amount}
+                                onChange={(e) => {
+                                    const newShared = [...(row.sharedWith || [])];
+                                    newShared[sIdx] = { jobNo, amount: e.target.value };
+                                    handleFieldChange(i, 'sharedWith', newShared);
+                                }}
+                            />
+                            {!effectiveReadOnly && (
+                                <button type="button" onClick={() => removeSharedJob(i, jobNo)} style={{ background: 'none', border: 'none', color: '#d32f2f', cursor: 'pointer', fontSize: '14px', marginLeft: 'auto' }}>×</button>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                   <div className="charges-form-row" style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: '8px' }}>

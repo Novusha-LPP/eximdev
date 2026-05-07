@@ -191,7 +191,7 @@ const ChargeSchema = new mongoose.Schema({
   isHeader: { type: Boolean, default: false },
   sacHsn: { type: String, trim: true },
   sharedGroupId: { type: String, trim: true },
-  sharedWith: [{ type: String, trim: true }],
+  sharedWith: [mongoose.Schema.Types.Mixed],
 
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },

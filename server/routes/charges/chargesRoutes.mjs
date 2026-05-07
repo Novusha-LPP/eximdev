@@ -257,14 +257,87 @@ router.put('/charges/:id', verifyToken, async (req, res) => {
 
       const syncData = charge.toObject();
       const sharedWithList = Array.isArray(charge.sharedWith) ? charge.sharedWith : [];
+      
+      const normalizedSharedWith = sharedWithList.map(item => 
+        typeof item === 'string' ? { jobNo: item, amount: null } : item
+      );
 
-      for (const otherJobNo of sharedWithList) {
-        if (otherJobNo === job.job_number) continue;
+      for (const sharedItem of normalizedSharedWith) {
+        const otherJobNo = sharedItem.jobNo;
+        if (!otherJobNo || otherJobNo === job.job_number) continue;
 
         const otherJob = await JobModel.findOne({ job_number: otherJobNo });
         if (!otherJob) continue;
 
         let otherCharge = otherJob.charges.find(c => c.sharedGroupId === charge.sharedGroupId);
+        
+        const specificAmount = sharedItem.amount != null ? parseFloat(sharedItem.amount) : null;
+        let costOverrides = {};
+        
+        if (specificAmount !== null && !isNaN(specificAmount) && syncData.cost) {
+            const amount = specificAmount;
+            const gstRate = parseFloat(syncData.cost.gstRate) || 18;
+            const includeGst = syncData.cost.isGst !== false;
+            let derivedBasic, derivedGst;
+
+            if (syncData.category === 'Margin') {
+                if (includeGst) {
+                    derivedBasic = amount;
+                    derivedGst = derivedBasic * (gstRate / 100);
+                    costOverrides.amount = derivedBasic + derivedGst;
+                } else {
+                    derivedBasic = amount;
+                    derivedGst = 0;
+                    costOverrides.amount = amount;
+                }
+            } else if (syncData.category === 'Reimbursement') {
+                derivedBasic = Number((amount / (1 + (gstRate / 100))).toFixed(2));
+                derivedGst = 0;
+                costOverrides.amount = amount;
+            } else {
+                derivedBasic = Number((amount / (1 + (gstRate / 100))).toFixed(2));
+                derivedGst = amount - derivedBasic;
+                costOverrides.amount = amount;
+            }
+
+            costOverrides.amountINR = costOverrides.amount * (syncData.cost.exchangeRate || 1);
+            costOverrides.rate = costOverrides.amount;
+            costOverrides.qty = 1;
+            costOverrides.basicAmount = derivedBasic;
+            costOverrides.gstAmount = derivedGst;
+            
+            if (syncData.cost.gstAmount > 0) {
+                const ratio = derivedGst / syncData.cost.gstAmount;
+                costOverrides.cgst = (syncData.cost.cgst || 0) * ratio;
+                costOverrides.sgst = (syncData.cost.sgst || 0) * ratio;
+                costOverrides.igst = (syncData.cost.igst || 0) * ratio;
+            } else {
+                costOverrides.cgst = 0;
+                costOverrides.sgst = 0;
+                costOverrides.igst = 0;
+            }
+
+            const isTds = syncData.cost.isTds || false;
+            const tdsPercent = parseFloat(syncData.cost.tdsPercent) || 0;
+            let tdsAmount = 0;
+            if (isTds) {
+                tdsAmount = derivedBasic * (tdsPercent / 100);
+            }
+            costOverrides.tdsAmount = tdsAmount;
+            
+            if (syncData.category === 'Reimbursement' || includeGst) {
+                costOverrides.netPayable = Math.round(costOverrides.amount - tdsAmount);
+            } else {
+                costOverrides.netPayable = Math.round(derivedBasic - tdsAmount);
+            }
+        }
+
+        const filteredSharedList = sharedWithList.filter(item => {
+            const jno = typeof item === 'string' ? item : item.jobNo;
+            return jno !== otherJobNo;
+        });
+        const otherChargeSharedWith = [job.job_number, ...filteredSharedList];
+
         if (!otherCharge) {
           // Create new charge in other job
           const newChargeData = {
@@ -272,35 +345,43 @@ router.put('/charges/:id', verifyToken, async (req, res) => {
             _id: undefined,
             createdAt: undefined,
             updatedAt: undefined,
-            purchase_book_no: charge.purchase_book_no, // Sync PB/PR numbers too
+            purchase_book_no: charge.purchase_book_no,
             purchase_book_status: charge.purchase_book_status,
             payment_request_no: charge.payment_request_no,
             payment_request_status: charge.payment_request_status,
-            sharedWith: [job.job_number, ...sharedWithList.filter(jno => jno !== otherJobNo)]
+            sharedWith: otherChargeSharedWith
           };
+          if (specificAmount !== null && !isNaN(specificAmount) && newChargeData.cost) {
+              newChargeData.cost = { ...newChargeData.cost, ...costOverrides };
+          }
           otherJob.charges.push(newChargeData);
         } else {
           // Update existing charge
           const excludedSyncFields = ['_id', 'createdAt', 'updatedAt', 'sharedWith', 'revenue'];
-          const costExcludes = ['amount', 'amountINR', 'basicAmount', 'gstAmount', 'tdsAmount', 'netPayable'];
+          const costExcludes = (specificAmount !== null && !isNaN(specificAmount)) 
+              ? [] // Overwrite all amounts if explicitly specified
+              : ['amount', 'amountINR', 'basicAmount', 'gstAmount', 'tdsAmount', 'netPayable', 'cgst', 'sgst', 'igst'];
 
           for (const key of Object.keys(syncData)) {
             if (excludedSyncFields.includes(key)) continue;
 
             if (key === 'cost' && syncData.cost) {
-              // Partial update of cost to allow bifurcation of amounts
               if (!otherCharge.cost) otherCharge.cost = {};
               for (const costKey of Object.keys(syncData.cost)) {
                 if (!costExcludes.includes(costKey)) {
                   otherCharge.cost[costKey] = syncData.cost[costKey];
                 }
               }
+              if (specificAmount !== null && !isNaN(specificAmount)) {
+                  for (const costKey of Object.keys(costOverrides)) {
+                      otherCharge.cost[costKey] = costOverrides[costKey];
+                  }
+              }
             } else {
               otherCharge[key] = syncData[key];
             }
           }
-          // Ensure sharedWith is also correct in the other job (circular reference)
-          otherCharge.sharedWith = [job.job_number, ...sharedWithList.filter(jno => jno !== otherJobNo)];
+          otherCharge.sharedWith = otherChargeSharedWith;
         }
         await otherJob.save();
       }
@@ -373,6 +454,32 @@ router.get('/charges/audit-trail/:id', verifyToken, async (req, res) => {
     }
     const logs = await AuditTrailModel.find({ documentId: req.params.id, documentType: "Charge" }).sort({ timestamp: -1 });
     res.json({ success: true, data: logs });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+router.post('/by-shared-groups', verifyToken, async (req, res) => {
+  try {
+    const { groupIds } = req.body;
+    if (!groupIds || !Array.isArray(groupIds)) {
+      return res.status(400).json({ success: false, message: 'groupIds array required' });
+    }
+    const jobs = await JobModel.find({ "charges.sharedGroupId": { $in: groupIds } });
+    const matchingCharges = [];
+    for (const job of jobs) {
+      for (const charge of job.charges) {
+        if (groupIds.includes(charge.sharedGroupId)) {
+          matchingCharges.push({ 
+            ...charge.toObject(), 
+            jobId: job._id, 
+            jobDisplayNumber: job.job_number, 
+            cthNo: job.cth_no 
+          });
+        }
+      }
+    }
+    res.json({ success: true, data: matchingCharges });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

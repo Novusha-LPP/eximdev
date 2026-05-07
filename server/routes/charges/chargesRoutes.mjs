@@ -336,7 +336,12 @@ router.put('/charges/:id', verifyToken, async (req, res) => {
             const jno = typeof item === 'string' ? item : item.jobNo;
             return jno !== otherJobNo;
         });
-        const otherChargeSharedWith = [job.job_number, ...filteredSharedList];
+
+        const mainJobAmount = syncData.cost ? syncData.cost.amount : (syncData.revenue ? syncData.revenue.amount : null);
+        const otherChargeSharedWith = [
+            { jobNo: job.job_number, amount: mainJobAmount },
+            ...filteredSharedList
+        ];
 
         if (!otherCharge) {
           // Create new charge in other job

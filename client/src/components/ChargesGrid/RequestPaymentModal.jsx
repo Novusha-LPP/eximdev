@@ -154,7 +154,7 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
         setLoading(true);
         try {
             const API_KEY = "INTERNAL_TEAM_TALLY_KEY";
-            
+
             const submitData = {
                 ...formData,
                 "Requested By": user ? `${user.first_name} ${user.last_name}` : (localStorage.getItem("username") || "Unknown")
@@ -209,7 +209,7 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
                                     <option value="HDFC BANK">HDFC BANK</option>
                                     <option value="ICICI BANK">ICICI BANK</option>
                                     <option value="SBI BANK">SBI BANK</option>
-                                    <option value="KOTAK BANK">KOTAK BANK</option>
+                                    <option value="KOTAK MAHINDRA BANK LTD">KOTAK MAHINDRA BANK LTD</option>
                                     <option value="IDBI BANK">IDBI BANK</option>
                                     <option value="SOUTH INDIAN BANK">SOUTH INDIAN BANK</option>
                                     <option value="CASH">CASH</option>
@@ -290,7 +290,7 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
                                 <input type="text" name="Charge Heading" className="charges-ep-desc-input" value={formData["Charge Heading"]} onChange={handleInputChange} />
                             </div>
                             <div /> {/* Spacer */}
-                             {['CHEQUE', 'DEMAND DRAFT'].includes(formData["Transaction Type"]) && (
+                            {['CHEQUE', 'DEMAND DRAFT'].includes(formData["Transaction Type"]) && (
                                 <>
                                     <div className="charges-ep-row">
                                         <span className="charges-ep-label">Instrument No</span>
@@ -331,9 +331,9 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
                             </ul>
                         </div>
                         <div className="charges-modal-footer" style={{ justifyContent: 'center' }}>
-                            <button 
-                                type="button" 
-                                className="charges-btn" 
+                            <button
+                                type="button"
+                                className="charges-btn"
                                 onClick={() => setErrorPopup({ isOpen: false, messages: [] })}
                                 style={{ background: 'linear-gradient(to bottom, #7fa8d0, #5580a8)', color: 'white' }}
                             >

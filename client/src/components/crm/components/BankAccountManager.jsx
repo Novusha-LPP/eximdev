@@ -11,7 +11,7 @@ const { Text } = Typography;
 /* Detect common bank names from IFSC prefix */
 const BANK_NAMES = {
   SBIN: 'SBI', HDFC: 'HDFC Bank', ICIC: 'ICICI Bank', UTIB: 'Axis Bank',
-  PUNB: 'PNB', BARB: 'Bank of Baroda', KKBK: 'Kotak Bank', YESB: 'Yes Bank',
+  PUNB: 'PNB', BARB: 'Bank of Baroda', KKBK: 'KOTAK MAHINDRA BANK LTD', YESB: 'Yes Bank',
   INDB: 'IndusInd Bank', IOBA: 'IOB', CNRB: 'Canara Bank', UBIN: 'Union Bank',
   BKID: 'Bank of India', CBIN: 'Central Bank', IDIB: 'Indian Bank', KVBL: 'Karur Vysya',
 };

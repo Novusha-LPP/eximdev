@@ -103,8 +103,9 @@ class AttendanceEngine {
                 const shiftStart = moment.tz(`${date} ${shift.start_time}`, 'YYYY-MM-DD HH:mm', tz);
                 let shiftEnd = moment.tz(`${date} ${shift.end_time}`, 'YYYY-MM-DD HH:mm', tz);
 
-                // For cross-day shifts, the end time is on the next day
-                if (shift.is_cross_day || shiftEnd.isSameOrBefore(shiftStart)) {
+                // For cross-day shifts, the end time is on the next day.
+                // We rely on actual time crossing midnight (end <= start) as the primary indicator.
+                if (shiftEnd.isSameOrBefore(shiftStart)) {
                     shiftEnd.add(1, 'days');
                 }
 
@@ -129,10 +130,23 @@ class AttendanceEngine {
                 if (lastOut) {
                     const punchOutTime = moment(lastOut.punch_time).tz(tz);
 
-                    if (punchOutTime.isBefore(shiftEnd.clone().subtract(earlyLeaveAllowed, 'minutes'))) {
+                    // Normalize punch timestamp to nearest day relative to shiftEnd to avoid wrong-day stamps
+                    const normalizePunchToShift = (punchMoment) => {
+                        const candidates = [
+                            punchMoment.clone(),
+                            punchMoment.clone().add(1, 'days'),
+                            punchMoment.clone().subtract(1, 'days')
+                        ];
+                        candidates.sort((a, b) => Math.abs(a.diff(shiftEnd, 'minutes')) - Math.abs(b.diff(shiftEnd, 'minutes')));
+                        return candidates[0];
+                    };
+
+                    const normPunchOut = normalizePunchToShift(punchOutTime);
+
+                    if (normPunchOut.isBefore(shiftEnd.clone().subtract(earlyLeaveAllowed, 'minutes'))) {
                         isEarlyExit = true;
-                        // If exceeded, calculate from actual shift end
-                        earlyExitMinutes = shiftEnd.diff(punchOutTime, 'minutes');
+                        // If exceeded, calculate from actual shift end (capped at 12h for sanity)
+                        earlyExitMinutes = Math.min(shiftEnd.diff(normPunchOut, 'minutes'), 720);
                     }
                 }
 
@@ -224,14 +238,27 @@ class AttendanceEngine {
             let overtimeHours = 0;
             if (company.payroll_config?.overtime_enabled && lastOut && shift) {
                 let shiftEnd = moment.tz(`${date} ${shift.end_time}`, 'YYYY-MM-DD HH:mm', tz);
-                if (shift.is_cross_day || shiftEnd.isSameOrBefore(shiftStart)) {
+                if (shiftEnd.isSameOrBefore(shiftStart)) {
                     shiftEnd.add(1, 'days');
                 }
                 const punchOutTime = moment(lastOut.punch_time).tz(tz);
+
+                // Reuse normalization to avoid a punch being recorded on wrong day causing false overtime
+                const normalizePunchToShift = (punchMoment) => {
+                    const candidates = [
+                        punchMoment.clone(),
+                        punchMoment.clone().add(1, 'days'),
+                        punchMoment.clone().subtract(1, 'days')
+                    ];
+                    candidates.sort((a, b) => Math.abs(a.diff(shiftEnd, 'minutes')) - Math.abs(b.diff(shiftEnd, 'minutes')));
+                    return candidates[0];
+                };
+
+                const normPunchOut = normalizePunchToShift(punchOutTime);
                 const threshold = shift.overtime_threshold_minutes || company.payroll_config.overtime_threshold_hours * 60 || 30;
 
-                if (punchOutTime.isAfter(shiftEnd.add(threshold, 'minutes'))) {
-                    overtimeHours = punchOutTime.diff(shiftEnd, 'hours', true);
+                if (normPunchOut.isAfter(shiftEnd.clone().add(threshold, 'minutes'))) {
+                    overtimeHours = normPunchOut.diff(shiftEnd, 'hours', true);
                 }
             }
 

@@ -588,7 +588,9 @@ export const getDashboard = async (req, res) => {
             employee_id: { $in: employeeIds },
             ...actorPendingQuery
         })
-            .populate('employee_id', 'first_name last_name username')
+            .populate('employee_id', 'first_name last_name username company_id')
+            .populate('employee_id.company_id', 'company_name')
+            .populate('company_id', 'company_name')
             .populate('current_approver_id', 'first_name last_name username role')
             .populate('leave_policy_id', 'leave_type policy_name')
             .sort({ createdAt: -1 })
@@ -599,7 +601,8 @@ export const getDashboard = async (req, res) => {
             employee_id: { $in: employeeIds },
             approval_status: { $in: ['approved', 'rejected'] }
         })
-            .populate('employee_id', 'first_name last_name username')
+            .populate('employee_id', 'first_name last_name username company_id')
+            .populate('employee_id.company_id', 'company_name')
             .populate('current_approver_id', 'first_name last_name username role')
             .populate('leave_policy_id', 'leave_type policy_name')
             .sort({ updatedAt: -1 })
@@ -616,6 +619,7 @@ export const getDashboard = async (req, res) => {
                     : leave.employee_id?.username || 'Unknown',
                 employeeId: leave.employee_id?._id || leave.employee_id,
                 leaveType: leave.leave_policy_id?.leave_type || leave.leave_type || 'Unknown',
+                organizationName: leave.company_id?.company_name || leave.employee_id?.company_id?.company_name || null,
                 fromDate: leave.from_date,
                 toDate: leave.to_date,
                 totalDays: leave.total_days,
@@ -820,6 +824,7 @@ export const getDashboard = async (req, res) => {
                     return {
                         id: leave._id,
                         employeeName: leave.employee_id.first_name ? `${leave.employee_id.first_name} ${leave.employee_id.last_name || ''}`.trim() : leave.employee_id.username,
+                        organizationName: leave.company_id?.company_name || leave.employee_id?.company_id?.company_name || null,
                         leaveType: leave.leave_policy_id?.leave_type || 'Unknown',
                         policyName: leave.leave_policy_id?.policy_name || 'Standard Policy',
                         fromDate: leave.from_date,
@@ -1463,7 +1468,7 @@ export const getAdminLeaveRequests = async (req, res) => {
             return res.status(403).json({ message: 'Admin access only' });
         }
 
-        const { teamId, status, historyPage = 1, historyLimit = 20 } = req.query;
+        const { teamId, status, historyPage = 1, historyLimit = 100, search, month } = req.query;
         const page = Math.max(1, parseInt(historyPage));
         const limit = Math.max(1, parseInt(historyLimit));
 
@@ -1577,7 +1582,9 @@ export const getAdminLeaveRequests = async (req, res) => {
             ...leaveQuery,
             ...getActorPendingLeaveQuery(admin)
         })
-            .populate('employee_id', 'first_name last_name username')
+            .populate('employee_id', 'first_name last_name username company_id')
+            .populate('employee_id.company_id', 'company_name')
+            .populate('company_id', 'company_name')
             .populate('current_approver_id', 'first_name last_name username role')
             .populate('leave_policy_id', 'leave_type policy_name')
             .populate('final_reviewed_by', 'first_name last_name username role')
@@ -1592,10 +1599,41 @@ export const getAdminLeaveRequests = async (req, res) => {
             approval_status: { $in: ['approved', 'rejected'] }
         };
 
+        if (month) {
+            const startOfMonth = moment(month, 'YYYY-MM').startOf('month').toDate();
+            const endOfMonth = moment(month, 'YYYY-MM').endOf('month').toDate();
+            historyQuery.$and = historyQuery.$and || [];
+            historyQuery.$and.push({
+                $or: [
+                    { from_date: { $lte: endOfMonth }, to_date: { $gte: startOfMonth } }
+                ]
+            });
+        }
+
+        if (search) {
+            const matchingUsers = await User.find({
+                $or: [
+                    { first_name: { $regex: search, $options: 'i' } },
+                    { last_name: { $regex: search, $options: 'i' } },
+                    { username: { $regex: search, $options: 'i' } }
+                ]
+            }).select('_id');
+            const searchEmployeeIds = matchingUsers.map(u => u._id.toString());
+            
+            if (historyQuery.employee_id && historyQuery.employee_id.$in) {
+                const existingIds = historyQuery.employee_id.$in.map(id => id.toString());
+                const intersectedIds = existingIds.filter(id => searchEmployeeIds.includes(id));
+                historyQuery.employee_id = { $in: intersectedIds };
+            } else {
+                historyQuery.employee_id = { $in: searchEmployeeIds };
+            }
+        }
+
         const totalHistory = await LeaveApplication.countDocuments(historyQuery);
 
         const recentProcessedLeaves = await LeaveApplication.find(historyQuery)
-            .populate('employee_id', 'first_name last_name username')
+            .populate('employee_id', 'first_name last_name username company_id')
+            .populate('employee_id.company_id', 'company_name')
             .populate('current_approver_id', 'first_name last_name username role')
             .populate('leave_policy_id', 'leave_type policy_name')
             .populate('final_reviewed_by', 'first_name last_name username role')
@@ -1662,6 +1700,7 @@ export const getAdminLeaveRequests = async (req, res) => {
                 employeeId: empId,
                 teamName: getTeamName(empId),
                 leaveType: leave.leave_policy_id?.leave_type || leave.leave_type || 'Unknown',
+                organizationName: leave.company_id?.company_name || leave.employee_id?.company_id?.company_name || null,
                 fromDate: leave.from_date,
                 toDate: leave.to_date,
                 totalDays: leave.total_days,
@@ -1719,25 +1758,5 @@ export const getAdminLeaveRequests = async (req, res) => {
  * Delete a leave application (Authorized Admin only)
  */
 export const deleteLeaveApplication = async (req, res) => {
-    try {
-        const admin = req.user;
-        const adminUsername = String(admin.username || '').toLowerCase();
-        
-        // Only allowlisted admins can delete history
-        if (!isAdminRole(admin.role) || !ALLOWED_USERNAMES.has(adminUsername)) {
-            return res.status(403).json({ message: 'Unauthorized: Only authorized admins can delete leave history' });
-        }
-
-        const { id } = req.params;
-        const deleted = await LeaveApplication.findByIdAndDelete(id);
-
-        if (!deleted) {
-            return res.status(404).json({ message: 'Leave application not found' });
-        }
-
-        res.json({ message: 'Leave history record deleted successfully' });
-    } catch (err) {
-        console.error('Error in deleteLeaveApplication:', err);
-        res.status(500).json({ message: 'Server error', error: err.message });
-    }
+    return res.status(403).json({ message: 'Unauthorized: The Delete History feature has been disabled.' });
 };

@@ -14,6 +14,9 @@ import LocationPickerModal from '../common/LocationPickerModal';
 import LocationDirectorySelect from '../common/LocationDirectorySelect';
 import { formatTime12Hr, minutesToHours, formatDate, getAttendanceDateKey, formatAttendanceDate, ATTENDANCE_TIME_ZONE } from '../../attendance/utils/helpers';
 import AdminApplyLeaveModal from './AdminApplyLeaveModal';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
+import * as XLSX from 'xlsx';
 import './EmployeeProfilePerformance.css';
 
 // Theme colors matching AttendanceManagement
@@ -65,7 +68,11 @@ const inputStyle = {
 };
 
 const RABS_ORG_KEY = 'rabs industries india private limited';
-const getOrgName = (emp) => emp?.company_id?.company_name || 'No Organization';
+const getOrgName = (emp) => {
+  const org = emp?.company_id?.company_name || 'No Organization';
+  console.log('[EmployeeDirectory] org for emp', emp?._id || emp?.id || emp?.username || 'unknown', org);
+  return org;
+};
 const isRabsOrganization = (name = '') => String(name).trim().toLowerCase() === RABS_ORG_KEY;
 const sortGroupNamesWithRabsLast = (names = []) => {
   return [...names].sort((a, b) => {
@@ -216,6 +223,11 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
   const [selectedMonth, setSelectedMonth] = useState(moment().month());
   const [selectedYear, setSelectedYear] = useState(moment().year());
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
+  const [exportModal, setExportModal] = useState({ open: false, orgName: '', items: [] });
+  const [exportDateRange, setExportDateRange] = useState({ 
+    start: moment().startOf('month').format('YYYY-MM-DD'), 
+    end: moment().endOf('month').format('YYYY-MM-DD') 
+  });
 
   const [tab, setTab] = useState(urlTab || 'performance');
 
@@ -340,6 +352,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
   console.log("LOading",loading);
   const [profile, setProfile] = useState(null);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [showPendingLeavesModal, setShowPendingLeavesModal] = useState(false);
   const [leavePolicies, setLeavePolicies] = useState([]);
   const [users, setUsers] = useState([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
@@ -348,6 +361,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
   const [isEditingPolicy, setIsEditingPolicy] = useState(false);
   const [migrationHistory, setMigrationHistory] = useState([]);
   const [migrationHistoryLoading, setMigrationHistoryLoading] = useState(false);
+  const [pendingLeavesModalTab, setPendingLeavesModalTab] = useState('pending');
   
   // Performance Tab States
   const [fullMonthPresenceEnabled, setFullMonthPresenceEnabled] = useState(false);
@@ -1258,7 +1272,6 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     if (e) e.preventDefault();
     setPolicySaving(true);
     try {
-      console.log(">>> [DEBUG] Sending policy update for user", id, ":", JSON.stringify(policyForm, null, 2));
       const result = await masterAPI.assignPolicyToUser(id, policyForm);
       if (result) {
         toast.success('Individual policies updated successfully');
@@ -1331,6 +1344,164 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     
   };
 
+  const handleDownloadOrgReport = (orgName, items) => {
+    setExportModal({ open: true, orgName, items });
+  };
+
+  const confirmDownloadOrgReport = async (orgName, items, startDt, endDt) => {
+    try {
+      const loadingToast = toast.loading(`Preparing report for ${orgName}...`);
+      
+      const allLogs = [];
+      const start = moment(startDt).startOf('day').format('YYYY-MM-DD');
+      const end = moment(endDt).endOf('day').format('YYYY-MM-DD');
+      
+      const chunkSize = 5;
+      for (let i = 0; i < items.length; i += chunkSize) {
+        const chunk = items.slice(i, i + chunkSize);
+        await Promise.all(chunk.map(async (emp) => {
+          try {
+            const effectiveCompanyId = emp.company_id?._id || emp.company_id;
+            const profile = await attendanceAPI.getEmployeeFullProfile(emp._id, start, end, effectiveCompanyId);
+            const history = profile?.attendance || [];
+            
+            history.forEach(log => {
+               let shiftName = '';
+               let shiftHours = '';
+               
+               if (log.shift_id) {
+                   shiftName = log.shift_id.shift_name || log.shift_id.name || '';
+                   shiftHours = `${log.shift_id.start_time || ''} - ${log.shift_id.end_time || ''}`;
+               } else if (profile.employee?.shift_id) {
+                   const s = profile.employee.shift_id;
+                   shiftName = s.shift_name || s.name || '';
+                   shiftHours = `${s.start_time || ''} - ${s.end_time || ''}`;
+               }
+               
+               const formatDateTime = (dt) => dt ? moment(dt).format('DD-MM-YYYY h:mm A') : '';
+               let formattedStatus = log.status || 'Present';
+               if (log.status === 'half_day') {
+                   formattedStatus = log.half_day_session === 'first_half' ? 'Half Day (First)' : 'Half Day (Second)';
+               } else if (log.status) {
+                   formattedStatus = log.status.charAt(0).toUpperCase() + log.status.slice(1).replace('_', ' ');
+               }
+
+               allLogs.push({
+                   "NAME": `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || emp.username,
+                   "DATE": moment(log.attendance_date).format('YYYY-MM-DD'),
+                   "STATUS": formattedStatus,
+                   "ATTENDANCE INTIME": formatDateTime(log.first_in),
+                   "ATTENDANCE OUTTIME": formatDateTime(log.last_out),
+                   "SHIFT NAME": shiftName,
+                   "SHIFT HOURS": shiftHours
+               });
+            });
+          } catch (e) {
+            console.error(`Failed to fetch history for ${emp.username}`, e);
+          }
+        }));
+      }
+
+      if (allLogs.length === 0) {
+          toast.dismiss(loadingToast);
+          toast.error(`No attendance logs found for ${orgName} in this period.`);
+          return;
+      }
+
+      // Using ExcelJS for styling
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Attendance Logs');
+
+      // Style definitions
+      const navyHeaderStyle = {
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } }, // Navy Blue (#0f172a)
+          font: { color: { argb: 'FFFFFFFF' }, bold: true, size: 14 },
+          alignment: { horizontal: 'center', vertical: 'middle' }
+      };
+
+      const dateHeaderStyle = {
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } }, // Navy Blue (#0f172a)
+          font: { color: { argb: 'FFFFFFFF' }, bold: true },
+          alignment: { horizontal: 'left', vertical: 'middle' }
+      };
+
+      const tableHeaderStyle = {
+          fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }, // Light Gray
+          font: { bold: true, color: { argb: 'FF0F172A' } },
+          border: { bottom: { style: 'thin' } }
+      };
+
+      // 1. Company Name Header
+      worksheet.mergeCells('A1:F1');
+      const companyCell = worksheet.getCell('A1');
+      companyCell.value = orgName.toUpperCase();
+      companyCell.style = navyHeaderStyle;
+      worksheet.getRow(1).height = 35;
+
+      // 2. Report Sub-title
+      worksheet.mergeCells('A2:F2');
+      const subTitleCell = worksheet.getCell('A2');
+      subTitleCell.value = `ATTENDANCE LOG REPORT: ${moment(start).format('DD MMM YYYY')} TO ${moment(end).format('DD MMM YYYY')}`;
+      subTitleCell.font = { bold: true, size: 11, color: { argb: 'FF475569' } };
+      subTitleCell.alignment = { horizontal: 'center' };
+      worksheet.getRow(2).height = 20;
+
+      worksheet.addRow([]); // Spacer row
+
+      // Get unique dates sorted descending
+      const uniqueDates = [...new Set(allLogs.map(log => log.DATE))].sort((a, b) => new Date(b) - new Date(a));
+
+      uniqueDates.forEach(dateStr => {
+          // Date Group Header
+          const dateRow = worksheet.addRow([`DATE: ${moment(dateStr).format('DD MMMM YYYY, dddd').toUpperCase()}`]);
+          dateRow.eachCell(cell => { cell.style = dateHeaderStyle; });
+          worksheet.mergeCells(`A${dateRow.number}:F${dateRow.number}`);
+          
+          // Column Headers
+          const headerRow = worksheet.addRow(["NAME", "STATUS", "ATTENDANCE INTIME", "ATTENDANCE OUTTIME", "SHIFT NAME", "SHIFT HOURS"]);
+          headerRow.eachCell(cell => { cell.style = tableHeaderStyle; });
+          
+          // Logs for this date
+          const dayLogs = allLogs
+            .filter(l => l.DATE === dateStr)
+            .sort((a, b) => a.NAME.localeCompare(b.NAME));
+          
+          dayLogs.forEach(log => {
+              worksheet.addRow([
+                  log.NAME,
+                  log.STATUS,
+                  log["ATTENDANCE INTIME"],
+                  log["ATTENDANCE OUTTIME"],
+                  log["SHIFT NAME"],
+                  log["SHIFT HOURS"]
+              ]);
+          });
+          
+          worksheet.addRow([]); // Spacer row between dates
+      });
+
+      // Set column widths
+      worksheet.columns = [
+          { width: 35 }, // Name
+          { width: 18 }, // Status
+          { width: 25 }, // In Time
+          { width: 25 }, // Out Time
+          { width: 22 }, // Shift Name
+          { width: 22 }  // Shift Hours
+      ];
+
+      // Export file
+      const buffer = await workbook.xlsx.writeBuffer();
+      saveAs(new Blob([buffer]), `Attendance_Log_${orgName.replace(/[^a-z0-9]/gi, '_')}_${moment(start).format('MMM_DD_YYYY')}.xlsx`);
+
+      toast.dismiss(loadingToast);
+      toast.success('Report downloaded successfully');
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to download report');
+    }
+  };
+
   if (loading) {
     return <div style={{ padding: '20px' }}>Loading employee profile workspace...</div>;
   }
@@ -1344,20 +1515,30 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '12px' }}>
-                  <h1 style={{ margin: 0, color: THEME.navy, fontSize: '28px', fontWeight: '800', letterSpacing: '-0.025em' }}>Employee Directory</h1>
-                  <span style={{ fontSize: '14px', color: THEME.muted, fontWeight: '600' }}>
-                    Showing {Math.min(filteredEmployees.length, (currentPage-1)*pageSize + 1)}-{Math.min(filteredEmployees.length, currentPage*pageSize)} of {filteredEmployees.length} Employees
-                  </span>
+                  <h1 style={{ margin: 0, color: THEME.navy, fontSize: '32px', fontWeight: '900', letterSpacing: '-0.03em' }}>Employee Directory</h1>
+                  <div style={{ background: '#eff6ff', color: '#1d4ed8', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <FiUsers size={14} />
+                    {filteredEmployees.length} Total
+                  </div>
                 </div>
               </div>
               <p style={{ margin: '4px 0 0 0', color: THEME.muted, fontSize: '14px', fontWeight: '500' }}>Manage workforce policies and profiles</p>
               
               {/* Search Bar */}
-              <div style={{ marginTop: '16px', position: 'relative', maxWidth: '400px' }}>
-                <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: THEME.muted, fontSize: '16px' }}>🔍</span>
+              <div style={{ marginTop: '20px', position: 'relative', maxWidth: '420px' }}>
+                <FiSearch 
+                  size={18} 
+                  style={{ 
+                    position: 'absolute', 
+                    left: '14px', 
+                    top: '50%', 
+                    transform: 'translateY(-50%)', 
+                    color: THEME.muted 
+                  }} 
+                />
                 <input 
                   type="text" 
-                  placeholder="Search by name, ID or username..." 
+                  placeholder="Search by name, ID or employee code..." 
                   value={searchTerm}
                   onChange={(e) => {
                     setSearchTerm(e.target.value);
@@ -1365,19 +1546,33 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                   }}
                   style={{
                     ...inputStyle,
-                    paddingLeft: '38px',
-                    height: '44px',
-                    borderColor: searchTerm ? THEME.primary : THEME.border,
+                    paddingLeft: '44px',
+                    paddingRight: searchTerm ? '40px' : '14px',
+                    height: '48px',
+                    fontSize: '15px',
+                    borderRadius: '12px',
+                    borderColor: searchTerm ? THEME.indigo : THEME.border,
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
                     background: '#fff',
-                    boxShadow: THEME.shadow
+                    transition: 'all 0.2s ease'
                   }}
                 />
                 {searchTerm && (
                   <button 
                     onClick={() => setSearchTerm('')}
-                    style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'transparent', cursor: 'pointer', color: THEME.muted }}
+                    style={{ 
+                      position: 'absolute', 
+                      right: '14px', 
+                      top: '50%', 
+                      transform: 'translateY(-50%)', 
+                      border: 'none', 
+                      background: 'transparent', 
+                      cursor: 'pointer', 
+                      color: THEME.muted,
+                      padding: '4px'
+                    }}
                   >
-                    ✕
+                    <FiX size={16} />
                   </button>
                 )}
               </div>
@@ -1454,15 +1649,19 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                 onClick={() => setShowBulkPolicyModal(true)}
                 style={{
                   ...buttonStyle,
-                  background: THEME.primary,
+                  background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
                   color: '#fff',
-                  padding: '10px 20px',
-                  fontSize: '13px',
+                  padding: '12px 24px',
+                  fontSize: '14px',
                   fontWeight: '700',
-                  borderRadius: '10px',
-                  boxShadow: THEME.shadow
+                  borderRadius: '12px',
+                  boxShadow: '0 4px 12px rgba(15, 23, 42, 0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
                 }}
               >
+                <FiFileText size={18} />
                 Bulk assign policies
               </button>
               {headerActions && <div style={{ marginLeft: '8px', paddingLeft: '16px', borderLeft: `1px solid ${THEME.border}` }}>{headerActions}</div>}
@@ -1470,6 +1669,11 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
           </div>
 
           {/* Employee Directory Content */}
+          <div style={{ marginBottom: '12px', display: 'flex', justifyContent: 'flex-end' }}>
+            <span style={{ fontSize: '12px', color: THEME.muted, fontWeight: '600' }}>
+              Showing {Math.min(filteredEmployees.length, (currentPage-1)*pageSize + 1)}-{Math.min(filteredEmployees.length, currentPage*pageSize)} of {filteredEmployees.length}
+            </span>
+          </div>
           {gridLoading ? (
             <div style={{ textAlign: 'center', color: THEME.muted, padding: '40px' }}>Loading employees...</div>
           ) : gridEmployees.length === 0 ? (
@@ -1493,6 +1697,14 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                     }}>
                       <span>{group.name}</span>
                       <span style={{ fontSize: '14px', color: THEME.muted, fontWeight: '600', background: '#f1f5f9', padding: '2px 10px', borderRadius: '12px' }}>{group.items.length}</span>
+                      {groupBy === 'organization' && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleDownloadOrgReport(group.name, group.items); }}
+                          style={{ marginLeft: 'auto', background: '#10b981', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                        >
+                          <FiDownload size={14} /> Export Logs
+                        </button>
+                      )}
                     </h3>
                   )}
                   <div style={{
@@ -1589,6 +1801,14 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                     }}>
                       <span>{group.name}</span>
                       <span style={{ fontSize: '12px', color: THEME.muted, background: '#f1f5f9', padding: '1px 8px', borderRadius: '10px' }}>{group.items.length}</span>
+                      {groupBy === 'organization' && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); handleDownloadOrgReport(group.name, group.items); }}
+                          style={{ marginLeft: 'auto', background: '#10b981', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                        >
+                          <FiDownload size={14} /> Export Logs
+                        </button>
+                      )}
                     </h3>
                   )}
                   <div style={{ ...cardStyle, padding: '0', overflowX: 'auto', border: `1px solid ${THEME.border}`, background: '#fff' }}>
@@ -1987,6 +2207,32 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
               </div>
             </div>
           )}
+
+          {/* Export Logs Modal */}
+          {exportModal.open && (
+            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.4)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setExportModal({ open: false, orgName: '', items: [] })}>
+              <div style={{ background: '#fff', borderRadius: '16px', width: '400px', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }} onClick={e => e.stopPropagation()}>
+                <div style={{ padding: '24px', borderBottom: '1px solid #e2e8f0' }}>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>Export Logs</h3>
+                  <p style={{ margin: '8px 0 0 0', fontSize: '13px', color: '#64748b' }}>Select date range to export attendance for <b>{exportModal.orgName}</b>.</p>
+                </div>
+                <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: '700', color: '#475569' }}>From Date</label>
+                    <input type="date" value={exportDateRange.start} onChange={e => setExportDateRange(p => ({ ...p, start: e.target.value }))} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: '700', color: '#475569' }}>To Date</label>
+                    <input type="date" value={exportDateRange.end} onChange={e => setExportDateRange(p => ({ ...p, end: e.target.value }))} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' }} />
+                  </div>
+                </div>
+                <div style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                  <button onClick={() => setExportModal({ open: false, orgName: '', items: [] })} style={{ padding: '8px 16px', background: 'transparent', border: 'none', color: '#64748b', fontWeight: '600', cursor: 'pointer', fontSize: '14px' }}>Cancel</button>
+                  <button onClick={() => { confirmDownloadOrgReport(exportModal.orgName, exportModal.items, exportDateRange.start, exportDateRange.end); setExportModal({ open: false, orgName: '', items: [] }); }} style={{ padding: '8px 24px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '14px' }}>Download</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -2103,16 +2349,59 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
         {/* Action Highlights - Modern Stats Blocks */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '30px' }}>
           {[
-            { label: 'ATTENDANCE', value: `${(profile.attendance || []).length} Records`, icon: <FiFileText />, color: '#64748b', bg: '#f1f5f9' },
-            { label: 'LEAVE QUOTA', value: `${(profile.balances || []).length} Policies`, icon: <FiActivity />, color: '#94a3b8', bg: '#f8fafc' },
-            { label: 'PENDING', value: `${(profile.pendingLeaves || []).length} Requests`, icon: <FiClock />, color: '#94a3b8', bg: '#f8fafc' }
+            { label: 'ATTENDANCE', value: `${(profile.attendance || []).length} Records`, icon: <FiFileText />, color: '#64748b', bg: '#f1f5f9', onClick: null, hasBadge: false },
+            { label: 'LEAVE QUOTA', value: `${(profile.balances || []).length} Policies`, icon: <FiActivity />, color: '#94a3b8', bg: '#f8fafc', onClick: null, hasBadge: false },
+            {
+              label: 'PENDING',
+              value: `${(profile.pendingLeaves || []).length} Requests`,
+              icon: <FiClock />,
+              color: (profile.pendingLeaves || []).length > 0 ? '#d97706' : '#94a3b8',
+              bg: (profile.pendingLeaves || []).length > 0 ? '#fffbeb' : '#f8fafc',
+              onClick: () => {
+                setPendingLeavesModalTab('pending');
+                setShowPendingLeavesModal(true);
+              },
+              hasBadge: (profile.pendingLeaves || []).length > 0
+            }
           ].map((stat, idx) => (
-            <div key={idx} style={{ ...cardStyle, background: '#fff', border: `1px solid ${THEME.border}`, padding: '24px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-               <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: stat.bg, color: stat.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>{stat.icon}</div>
-               <div>
-                  <div style={{ fontSize: '10px', color: THEME.muted, fontWeight: '700', letterSpacing: '0.05em' }}>{stat.label}</div>
-                  <div style={{ fontSize: '16px', color: THEME.text, fontWeight: '600' }}>{stat.value}</div>
-               </div>
+            <div
+              key={idx}
+              onClick={stat.onClick || undefined}
+              style={{
+                ...cardStyle,
+                background: '#fff',
+                border: `1px solid ${stat.hasBadge ? '#fde68a' : THEME.border}`,
+                padding: '24px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '16px',
+                cursor: stat.onClick ? 'pointer' : 'default',
+                transition: 'all 0.2s ease',
+                position: 'relative',
+                overflow: 'hidden'
+              }}
+              onMouseEnter={stat.onClick ? (e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 8px 24px rgba(245,158,11,0.18)';
+              } : undefined}
+              onMouseLeave={stat.onClick ? (e) => {
+                e.currentTarget.style.transform = '';
+                e.currentTarget.style.boxShadow = THEME.shadow;
+              } : undefined}
+            >
+              {stat.hasBadge && (
+                <div style={{
+                  position: 'absolute', top: '10px', right: '10px',
+                  background: '#f59e0b', color: '#fff',
+                  borderRadius: '10px', fontSize: '9px', fontWeight: '800',
+                  padding: '2px 8px', letterSpacing: '0.05em', textTransform: 'uppercase'
+                }}>View</div>
+              )}
+              <div style={{ width: '48px', height: '48px', borderRadius: '12px', background: stat.bg, color: stat.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}>{stat.icon}</div>
+              <div>
+                <div style={{ fontSize: '10px', color: THEME.muted, fontWeight: '700', letterSpacing: '0.05em' }}>{stat.label}</div>
+                <div style={{ fontSize: '16px', color: stat.hasBadge ? '#d97706' : THEME.text, fontWeight: '700' }}>{stat.value}</div>
+              </div>
             </div>
           ))}
         </div>
@@ -3088,6 +3377,31 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
               </div>
             )}
           </div>
+          {/* Export Logs Modal */}
+          {exportModal.open && (
+            <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.4)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setExportModal({ open: false, orgName: '', items: [] })}>
+              <div style={{ background: '#fff', borderRadius: '16px', width: '400px', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }} onClick={e => e.stopPropagation()}>
+                <div style={{ padding: '24px', borderBottom: '1px solid #e2e8f0' }}>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>Export Logs</h3>
+                  <p style={{ margin: '8px 0 0 0', fontSize: '13px', color: '#64748b' }}>Select date range to export attendance for <b>{exportModal.orgName}</b>.</p>
+                </div>
+                <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: '700', color: '#475569' }}>From Date</label>
+                    <input type="date" value={exportDateRange.start} onChange={e => setExportDateRange(p => ({ ...p, start: e.target.value }))} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: '700', color: '#475569' }}>To Date</label>
+                    <input type="date" value={exportDateRange.end} onChange={e => setExportDateRange(p => ({ ...p, end: e.target.value }))} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' }} />
+                  </div>
+                </div>
+                <div style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                  <button onClick={() => setExportModal({ open: false, orgName: '', items: [] })} style={{ padding: '8px 16px', background: 'transparent', border: 'none', color: '#64748b', fontWeight: '600', cursor: 'pointer', fontSize: '14px' }}>Cancel</button>
+                  <button onClick={() => { confirmDownloadOrgReport(exportModal.orgName, exportModal.items, exportDateRange.start, exportDateRange.end); setExportModal({ open: false, orgName: '', items: [] }); }} style={{ padding: '8px 24px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '14px' }}>Download</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}        {/* Leave Modal */}
         <AdminApplyLeaveModal 
@@ -3352,7 +3666,394 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
               : null
           }
         />
+
+        {/* ── Pending Leaves Detail Modal ──────────────────────────────────── */}
+        {showPendingLeavesModal && (() => {
+          const pendingLeaves = profile?.pendingLeaves || [];
+          const approvedLeaves = Array.isArray(profile?.leaves) ? profile.leaves : [];
+          const historyLeaves = approvedLeaves
+            .filter((leave) => {
+              const status = String(leave?.approval_status || leave?.status || '').toLowerCase();
+              return !['rejected', 'cancelled', 'withdrawn', 'pending', 'pending_hod', 'pending_shalini', 'pending_final'].includes(status);
+            })
+            .sort((a, b) => new Date(b.createdAt || b.from_date || 0) - new Date(a.createdAt || a.from_date || 0));
+
+          // Group by calendar month of from_date
+          const byMonth = {};
+          pendingLeaves.forEach(leave => {
+            const key = moment(leave.from_date).format('MMMM YYYY');
+            if (!byMonth[key]) byMonth[key] = [];
+            byMonth[key].push(leave);
+          });
+          const sortedMonths = Object.keys(byMonth).sort(
+            (a, b) => moment(b, 'MMMM YYYY').valueOf() - moment(a, 'MMMM YYYY').valueOf()
+          );
+
+          const stageLabels = {
+            stage_1_hod:    { label: 'HOD',     short: 'HOD',  color: '#6366f1' },
+            stage_2_shalini:{ label: 'HR',       short: 'HR',   color: '#8b5cf6' },
+            stage_3_final:  { label: 'Final',    short: 'Fin',  color: '#10b981' },
+          };
+
+          const statusChipStyle = (status) => {
+            const map = {
+              pending:                    { bg: '#fffbeb', color: '#d97706', border: '#fde68a' },
+              pending_hod:                { bg: '#eef2ff', color: '#4f46e5', border: '#c7d2fe' },
+              pending_shalini:            { bg: '#f5f3ff', color: '#7c3aed', border: '#ddd6fe' },
+              pending_final:              { bg: '#ecfdf5', color: '#059669', border: '#a7f3d0' },
+              hod_approved_pending_admin: { bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' },
+              in_review:                  { bg: '#fff7ed', color: '#ea580c', border: '#fed7aa' },
+            };
+            return map[status] || { bg: '#f8fafc', color: '#64748b', border: '#e2e8f0' };
+          };
+
+          const allStages = ['stage_1_hod', 'stage_2_shalini', 'stage_3_final'];
+
+          const getStageIndex = (stage) => allStages.indexOf(stage);
+
+          const historyByMonth = {};
+          historyLeaves.forEach((leave) => {
+            const key = moment(leave.from_date || leave.createdAt).format('MMMM YYYY');
+            if (!historyByMonth[key]) historyByMonth[key] = [];
+            historyByMonth[key].push(leave);
+          });
+          const historyMonths = Object.keys(historyByMonth).sort(
+            (a, b) => moment(b, 'MMMM YYYY').valueOf() - moment(a, 'MMMM YYYY').valueOf()
+          );
+
+          const closePendingLeavesModal = () => {
+            setShowPendingLeavesModal(false);
+            setPendingLeavesModalTab('pending');
+          };
+
+          return (
+            <div
+              style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(3px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '16px' }}
+              onClick={(e) => { if (e.target === e.currentTarget) closePendingLeavesModal(); }}
+            >
+              <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '800px', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.2)', overflow: 'hidden' }}>
+
+                {/* ── Header ── */}
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, #fffbeb, #fff7ed)', flexShrink: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '18px' }}>⏳</span>
+                    <div>
+                      <div style={{ fontSize: '15px', fontWeight: '800', color: '#0f172a', lineHeight: 1.2 }}>
+                        {pendingLeavesModalTab === 'history' ? 'Leave History' : 'Pending Leave Requests'}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#334155', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                        <span style={{ fontWeight: '700', color: '#0f172a' }}>{employeeName}</span>
+                        <span style={{ color: '#cbd5e1' }}>·</span>
+                        <span><strong style={{ color: '#d97706' }}>{pendingLeaves.length}</strong> <span style={{ color: '#64748b' }}>pending</span></span>
+                        <span style={{ color: '#cbd5e1' }}>·</span>
+                        <span><strong style={{ color: '#4f46e5' }}>{historyLeaves.length}</strong> <span style={{ color: '#64748b' }}>history</span></span>
+                        {(() => {
+                          // Resolve HOD name: prefer populated hod_id, fallback to approval chain stage_1_hod
+                          const hodObj = profile?.employee?.hod_id;
+                          let hodName = hodObj
+                            ? ([hodObj.first_name, hodObj.last_name].filter(Boolean).join(' ') || hodObj.username || '')
+                            : '';
+
+                          if (!hodName) {
+                            // Fallback: find from any leave's approval_chain stage_1_hod entry
+                            for (const lv of pendingLeaves) {
+                              const entry = (lv.approval_chain || []).find(c => c.stage === 'stage_1_hod' && c.approver_username);
+                              if (entry?.approver_username) { hodName = entry.approver_username; break; }
+                            }
+                          }
+
+                          if (!hodName) return null;
+                          return (
+                            <>
+                              <span style={{ color: '#cbd5e1' }}>·</span>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                <span style={{ fontSize: '10px', fontWeight: '800', background: '#1e293b', color: '#fff', borderRadius: '4px', padding: '1px 5px', letterSpacing: '0.04em' }}>HOD</span>
+                                <span style={{ fontWeight: '600', color: '#0f172a', fontSize: '12px' }}>{hodName}</span>
+                              </span>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                  <button onClick={closePendingLeavesModal} style={{ background: '#e2e8f0', border: 'none', borderRadius: '8px', width: '30px', height: '30px', cursor: 'pointer', fontSize: '16px', color: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: '700' }}>×</button>
+                </div>
+
+                <div style={{ display: 'flex', gap: '8px', padding: '12px 20px 0 20px', background: '#fff', flexShrink: 0 }}>
+                  <button
+                    type="button"
+                    onClick={() => setPendingLeavesModalTab('pending')}
+                    style={{
+                      ...buttonStyle,
+                      background: pendingLeavesModalTab === 'pending' ? '#0f172a' : '#f8fafc',
+                      color: pendingLeavesModalTab === 'pending' ? '#fff' : '#475569',
+                      border: `1px solid ${pendingLeavesModalTab === 'pending' ? '#0f172a' : '#e2e8f0'}`,
+                      fontSize: '12px',
+                      fontWeight: '700'
+                    }}
+                  >
+                    Pending Leaves
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPendingLeavesModalTab('history')}
+                    style={{
+                      ...buttonStyle,
+                      background: pendingLeavesModalTab === 'history' ? '#0f172a' : '#f8fafc',
+                      color: pendingLeavesModalTab === 'history' ? '#fff' : '#475569',
+                      border: `1px solid ${pendingLeavesModalTab === 'history' ? '#0f172a' : '#e2e8f0'}`,
+                      fontSize: '12px',
+                      fontWeight: '700'
+                    }}
+                  >
+                    Leave History
+                  </button>
+                </div>
+
+                <div style={{ overflowY: 'auto', flex: 1 }}>
+                  {pendingLeavesModalTab === 'pending' ? (
+                    <>
+                      {pendingLeaves.length > 0 && (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 56px 72px 180px', gap: '0', padding: '7px 20px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', flexShrink: 0 }}>
+                          {['Leave / Dates', 'Status', 'Days', 'Applied', 'Approval Stage'].map(h => (
+                            <div key={h} style={{ fontSize: '10px', fontWeight: '800', color: '#1c1d1dff', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</div>
+                          ))}
+                        </div>
+                      )}
+
+                      {pendingLeaves.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '48px 0', color: '#94a3b8' }}>
+                          <div style={{ fontSize: '40px', marginBottom: '8px' }}>🎉</div>
+                          <div style={{ fontSize: '14px', fontWeight: '700', color: '#475569' }}>No Pending Leaves</div>
+                        </div>
+                      ) : (
+                        sortedMonths.map(month => (
+                          <div key={month}>
+                            <div style={{ padding: '6px 20px', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0', borderTop: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{month}</span>
+                              <span style={{ fontSize: '11px', color: '#94a3b8' }}>· {byMonth[month].length} {byMonth[month].length === 1 ? 'request' : 'requests'}</span>
+                            </div>
+
+                            {byMonth[month].map((leave, li) => {
+                              const sc = statusChipStyle(leave.approval_status);
+                              const chain = leave.approval_chain || [];
+                              const currentStageIdx = getStageIndex(leave.approval_stage);
+                              const isLast = li === byMonth[month].length - 1;
+
+                              return (
+                                <div
+                                  key={leave._id || li}
+                                  style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: '1fr 90px 56px 72px 180px',
+                                    gap: '0',
+                                    padding: '10px 20px',
+                                    alignItems: 'center',
+                                    borderBottom: isLast ? 'none' : '1px solid #f1f5f9',
+                                    background: '#fff',
+                                    transition: 'background 0.15s'
+                                  }}
+                                  onMouseEnter={e => e.currentTarget.style.background = '#fafafa'}
+                                  onMouseLeave={e => e.currentTarget.style.background = '#fff'}
+                                >
+                                  <div style={{ paddingRight: '12px' }}>
+                                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a', lineHeight: 1.3 }}>
+                                      {leave.leave_type || leave.leave_policy_id?.leave_type || 'Leave'}
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                                      {moment(leave.from_date).format('DD MMM')}
+                                      {leave.from_date !== leave.to_date ? ` – ${moment(leave.to_date).format('DD MMM YYYY')}` : `, ${moment(leave.from_date).format('YYYY')}`}
+                                    </div>
+                                    {leave.reason && (
+                                      <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px', fontStyle: 'italic', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={leave.reason}>
+                                        "{leave.reason}"
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <div>
+                                    <span style={{ background: sc.bg, color: sc.color, border: `1px solid ${sc.border}`, borderRadius: '12px', padding: '3px 8px', fontSize: '10px', fontWeight: '700', whiteSpace: 'nowrap' }}>
+                                      {String(leave.approval_status || 'pending').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()).replace('Hod ', 'HOD ')}
+                                    </span>
+                                  </div>
+
+                                  <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
+                                    {leave.total_days}<span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '500', marginLeft: '2px' }}>d</span>
+                                  </div>
+
+                                  <div style={{ fontSize: '11px', color: '#181818ff' }}>
+                                    {moment(leave.applied_on || leave.createdAt).format('DD MMM')}
+                                  </div>
+
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0' }}>
+                                    {allStages.map((stg, si) => {
+                                      const stgInfo = stageLabels[stg];
+                                      const chainEntry = chain.find(c => c.stage === stg);
+
+                                      let stepState = 'upcoming';
+                                      if (chainEntry) {
+                                        if (chainEntry.action === 'approved') stepState = 'done';
+                                        else if (chainEntry.action === 'rejected') stepState = 'rejected';
+                                        else stepState = si === currentStageIdx ? 'current' : (si < currentStageIdx ? 'done' : 'upcoming');
+                                      } else {
+                                        if (si < currentStageIdx) stepState = 'done';
+                                        else if (si === currentStageIdx) stepState = 'current';
+                                      }
+
+                                      const pal = {
+                                        done:     { dot: '#10b981', label: '#10b981', glyph: '✓', ring: 'none' },
+                                        current:  { dot: '#f59e0b', label: '#d97706', glyph: '●', ring: '0 0 0 2px rgba(245,158,11,0.25)' },
+                                        rejected: { dot: '#ef4444', label: '#dc2626', glyph: '✗', ring: 'none' },
+                                        upcoming: { dot: '#d1d5db', label: '#9ca3af', glyph: '○', ring: 'none' },
+                                      }[stepState];
+
+                                      const approverName = chainEntry?.approver_username || null;
+                                      const isLast2 = si === allStages.length - 1;
+
+                                      return (
+                                        <div key={stg} style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                                          {si > 0 && (
+                                            <div style={{ flex: 1, height: '1.5px', background: si <= currentStageIdx ? '#10b981' : '#e2e8f0' }} />
+                                          )}
+                                          <div
+                                            title={`${stgInfo.label}${approverName ? `: ${approverName}` : ''}${chainEntry?.action_date ? ` · ${moment(chainEntry.action_date).format('DD MMM')}` : ''}`}
+                                            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'default' }}
+                                          >
+                                            <div style={{
+                                              width: '20px', height: '20px', borderRadius: '50%',
+                                              background: stepState === 'upcoming' ? '#f1f5f9' : (stepState === 'done' ? '#ecfdf5' : stepState === 'current' ? '#fffbeb' : '#fef2f2'),
+                                              border: `1.5px solid ${stepState === 'upcoming' ? '#d1d5db' : pal.dot}`,
+                                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                              fontSize: '10px', fontWeight: '900', color: pal.dot,
+                                              boxShadow: pal.ring,
+                                              flexShrink: 0
+                                            }}>
+                                              {pal.glyph}
+                                            </div>
+                                            <div style={{ fontSize: '9px', fontWeight: '700', color: pal.label, marginTop: '2px', textAlign: 'center', lineHeight: 1 }}>
+                                              {stgInfo.short}
+                                            </div>
+                                          </div>
+                                          {!isLast2 && si === 0 && (
+                                            <div style={{ flex: 1, height: '1.5px', background: si < currentStageIdx ? '#10b981' : '#e2e8f0' }} />
+                                          )}
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ))
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {historyMonths.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '48px 0', color: '#94a3b8' }}>
+                          <div style={{ fontSize: '40px', marginBottom: '8px' }}>📅</div>
+                          <div style={{ fontSize: '14px', fontWeight: '700', color: '#475569' }}>No Leave History</div>
+                        </div>
+                      ) : (
+                        historyMonths.map((month) => (
+                          <div key={month}>
+                            <div style={{ padding: '6px 20px', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0', borderTop: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '11px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{month}</span>
+                              <span style={{ fontSize: '11px', color: '#94a3b8' }}>· {historyByMonth[month].length} {historyByMonth[month].length === 1 ? 'entry' : 'entries'}</span>
+                            </div>
+
+                            {historyByMonth[month].map((leave, index) => {
+                              const status = String(leave.approval_status || leave.status || 'leave').toLowerCase();
+                              const statusPalette = {
+                                approved: { bg: '#ecfdf5', color: '#059669', border: '#a7f3d0' },
+                                rejected: { bg: '#fef2f2', color: '#dc2626', border: '#fecaca' },
+                                pending: { bg: '#fffbeb', color: '#d97706', border: '#fde68a' }
+                              }[status] || { bg: '#f8fafc', color: '#475569', border: '#e2e8f0' };
+
+                              const isLast = index === historyByMonth[month].length - 1;
+
+                              return (
+                                <div
+                                  key={leave._id || index}
+                                  style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: '1.3fr 1fr 110px 84px',
+                                    gap: '12px',
+                                    padding: '12px 20px',
+                                    alignItems: 'center',
+                                    borderBottom: isLast ? 'none' : '1px solid #f1f5f9',
+                                    background: '#fff'
+                                  }}
+                                >
+                                  <div>
+                                    <div style={{ fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>{leave.leave_type || leave.leave_policy_id?.leave_type || 'Leave'}</div>
+                                    {leave.reason && (
+                                      <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={leave.reason}>
+                                        {leave.reason}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div style={{ fontSize: '11px', color: '#64748b' }}>
+                                    {moment(leave.from_date).format('DD MMM YYYY')}
+                                    {leave.to_date && leave.from_date !== leave.to_date ? ` - ${moment(leave.to_date).format('DD MMM YYYY')}` : ''}
+                                  </div>
+                                  <div>
+                                    <span style={{ background: statusPalette.bg, color: statusPalette.color, border: `1px solid ${statusPalette.border}`, borderRadius: '12px', padding: '3px 8px', fontSize: '10px', fontWeight: '700', whiteSpace: 'nowrap' }}>
+                                      {String(leave.approval_status || leave.status || 'leave').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                                    </span>
+                                  </div>
+                                  <div style={{ textAlign: 'right', fontSize: '13px', fontWeight: '700', color: '#0f172a' }}>
+                                    {formatLeaveDays(leave.total_days ?? leave.days ?? 0)}d
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ))
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* ── Footer ── */}
+                <div style={{ padding: '12px 20px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', background: '#f8fafc', flexShrink: 0 }}>
+                  <button onClick={closePendingLeavesModal} style={{ ...buttonStyle, background: '#0f172a', color: '#fff', padding: '8px 22px', fontSize: '13px', fontWeight: '700' }}>
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
+
+      {/* Export Logs Modal */}
+      {exportModal.open && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.4)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setExportModal({ open: false, orgName: '', items: [] })}>
+          <div style={{ background: '#fff', borderRadius: '16px', width: '400px', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: '24px', borderBottom: '1px solid #e2e8f0' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#0f172a' }}>Export Logs</h3>
+              <p style={{ margin: '8px 0 0 0', fontSize: '13px', color: '#64748b' }}>Select date range to export attendance for <b>{exportModal.orgName}</b>.</p>
+            </div>
+            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: '700', color: '#475569' }}>From Date</label>
+                <input type="date" value={exportDateRange.start} onChange={e => setExportDateRange(p => ({ ...p, start: e.target.value }))} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: '700', color: '#475569' }}>To Date</label>
+                <input type="date" value={exportDateRange.end} onChange={e => setExportDateRange(p => ({ ...p, end: e.target.value }))} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '14px', boxSizing: 'border-box' }} />
+              </div>
+            </div>
+            <div style={{ padding: '16px 24px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button onClick={() => setExportModal({ open: false, orgName: '', items: [] })} style={{ padding: '8px 16px', background: 'transparent', border: 'none', color: '#64748b', fontWeight: '600', cursor: 'pointer', fontSize: '14px' }}>Cancel</button>
+              <button onClick={() => { confirmDownloadOrgReport(exportModal.orgName, exportModal.items, exportDateRange.start, exportDateRange.end); setExportModal({ open: false, orgName: '', items: [] }); }} style={{ padding: '8px 24px', background: '#10b981', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: '700', cursor: 'pointer', fontSize: '14px' }}>Download</button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

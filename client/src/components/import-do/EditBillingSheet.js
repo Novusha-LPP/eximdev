@@ -16,6 +16,9 @@ import {
   DialogContent,
   DialogContentText,
   DialogActions,
+  Alert,
+  AlertTitle,
+  Typography,
 } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { Row, Col } from "react-bootstrap";
@@ -389,6 +392,15 @@ function EditBillingSheet() {
       </Box>
 
       {data && <JobDetailsStaticData data={data} params={{ branch_code, trade_type, mode, job_no, year }} />}
+
+      {data && data.billing_reject_remark && (
+        <Box sx={{ my: 2 }}>
+          <Alert severity="error" variant="outlined">
+            <AlertTitle>Job Rejected from Billing</AlertTitle>
+            <Typography variant="body2"><strong>Remark:</strong> {data.billing_reject_remark}</Typography>
+          </Alert>
+        </Box>
+      )}
 
       {data && data.dsr_queries && (
         <div>

@@ -14,6 +14,11 @@ import {
   Menu,
   MenuItem,
   Autocomplete,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Snackbar,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
@@ -52,6 +57,9 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
   const [anchorEl, setAnchorEl] = useState(null);
   const [selectedRowData, setSelectedRowData] = useState(null);
   const [voucherData, setVoucherData] = useState(null);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectData, setRejectData] = useState({ remark: "" });
+  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
   const voucherRef = React.useRef();
 
   console.log(currentTab, "tab");
@@ -265,7 +273,6 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
 
   const handleMenuClose = () => {
     setAnchorEl(null);
-    setSelectedRowData(null);
   };
 
   const handleGenerateAction = (type) => {
@@ -273,16 +280,37 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
     if (selectedRowData) {
       if (type === 'Agency Bill') {
         const { branch_code, trade_type, mode, job_no, year } = selectedRowData;
+        setSelectedRowData(null);
         navigate(`/agency-bill/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`);
       } else if (type === 'Reimbursement Bill') {
         const { branch_code, trade_type, mode, job_no, year } = selectedRowData;
+        setSelectedRowData(null);
         navigate(`/reimbursement-bill/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`);
       } else if (type === 'Cash Voucher') {
         handleDownloadVoucher(selectedRowData);
+      } else if (type === 'Reject') {
+        setRejectDialogOpen(true);
       } else {
         console.log(`Generating ${type} for job ${selectedRowData.job_no}`);
+        setSelectedRowData(null);
         // Future implementation for other bill types
       }
+    }
+  };
+
+  const handleRejectSubmit = async () => {
+    try {
+      await axios.patch(`${process.env.REACT_APP_API_STRING}/reject-billing-job/${selectedRowData._id}`, {
+        remark: rejectData.remark
+      });
+      setSnackbar({ open: true, message: "Job rejected from billing successfully", severity: "success" });
+      setRejectDialogOpen(false);
+      setRejectData({ remark: "" });
+      setSelectedRowData(null);
+      fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYearState, showUnresolvedOnly, selectedBranch, selectedCategory);
+    } catch (error) {
+      console.error("Error rejecting job:", error);
+      setSnackbar({ open: true, message: "Failed to reject job", severity: "error" });
     }
   };
 
@@ -556,13 +584,38 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
             </Box>
           ),
         },
+        {
+          accessorKey: "reject_job",
+          header: "Reject Job",
+          muiTableHeadCellProps: { align: "center" },
+          muiTableBodyCellProps: { sx: { textAlign: "center", verticalAlign: "middle" } },
+          enableSorting: false,
+          size: 120,
+          Cell: ({ cell }) => (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+              <Button
+                variant="contained"
+                color="error"
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedRowData(cell.row.original);
+                  setRejectDialogOpen(true);
+                }}
+              >
+                Reject
+              </Button>
+            </Box>
+          ),
+        },
       ];
 
       if (isDoView) {
         return baseColumns.filter(c => 
           c.accessorKey !== "generate_bill" && 
           c.accessorKey !== "bill_document_sent_to_accounts" &&
-          c.accessorKey !== "container_numbers"
+          c.accessorKey !== "container_numbers" &&
+          c.accessorKey !== "reject_job"
         );
       }
       return baseColumns.filter(c => 
@@ -761,6 +814,35 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
             Cash Voucher
           </MenuItem>
         </Menu>
+
+        <Dialog open={rejectDialogOpen} onClose={() => { setRejectDialogOpen(false); setSelectedRowData(null); }} fullWidth maxWidth="sm">
+          <DialogTitle>Reject Job from Billing</DialogTitle>
+          <DialogContent>
+            <TextField
+              fullWidth
+              label="Rejection Remark"
+              variant="outlined"
+              margin="normal"
+              multiline
+              rows={4}
+              value={rejectData.remark}
+              onChange={(e) => setRejectData({ ...rejectData, remark: e.target.value })}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => { setRejectDialogOpen(false); setSelectedRowData(null); }}>Cancel</Button>
+            <Button onClick={handleRejectSubmit} color="error" variant="contained" disabled={!rejectData.remark}>
+              Reject
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={4000}
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          message={snackbar.message}
+        />
 
         {/* Hidden area for PDF capture */}
         {voucherData && (

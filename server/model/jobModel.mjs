@@ -715,6 +715,8 @@ const jobSchema = new mongoose.Schema({
 
   billing_completed_date: { type: String },
   bill_document_sent_to_accounts: { type: String, trim: true },
+  billing_reject_reason: { type: String, trim: true },
+  billing_reject_remark: { type: String, trim: true },
   icd_cfs_invoice_img: [{ type: String, trim: true }],
   upload_agency_bill_img: { type: String },
   upload_reimbursement_bill_img: { type: String },

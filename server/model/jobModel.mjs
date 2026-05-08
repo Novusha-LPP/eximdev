@@ -172,6 +172,7 @@ const ChargeSchema = new mongoose.Schema({
   payment_request_approved_at: { type: Date },
   payment_request_requested_by: { type: String, trim: true },
   payment_request_transaction_type: { type: String, trim: true },
+  payment_request_bank_from: { type: String, trim: true },
   payment_request_receipt_url: { type: String, trim: true },
   purchase_book_is_approved: { type: Boolean, default: false },
   purchase_book_approved_byFirst: { type: String, trim: true },

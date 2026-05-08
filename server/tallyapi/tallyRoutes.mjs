@@ -289,7 +289,8 @@ router.post("/purchase-entry", authApiKey, async (req, res) => {
         {
           $set: {
             "charges.$.purchase_book_no": entry.entryNo,
-            "charges.$.purchase_book_status": "Pending"
+            "charges.$.purchase_book_status": "Pending",
+            "charges.$.purchase_book_requested_by": entry.requestedBy
           }
         }
       );
@@ -450,7 +451,9 @@ const mapPaymentRequestData = (data) => {
 router.post("/payment-request", authApiKey, async (req, res) => {
   try {
     const rawData = req.body;
+    // console.log("DEBUG: Payment Request Raw Payload:", JSON.stringify(rawData, null, 2));
     const data = mapPaymentRequestData(rawData);
+    // console.log("DEBUG: Payment Request Mapped Data:", JSON.stringify(data, null, 2));
 
     // Standardize jobNo to canonicalJobNo if possible before saving
     if (data.jobRef) {
@@ -500,7 +503,8 @@ router.post("/payment-request", authApiKey, async (req, res) => {
             "charges.$.payment_request_no": request.requestNo,
             "charges.$.payment_request_status": "Pending",
             "charges.$.payment_request_requested_by": request.requestedBy,
-            "charges.$.payment_request_transaction_type": request.transactionType
+            "charges.$.payment_request_transaction_type": request.transactionType,
+            "charges.$.payment_request_bank_from": request.bankFrom
           }
         }
       );

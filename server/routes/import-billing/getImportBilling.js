@@ -1499,6 +1499,7 @@ router.patch("/api/update-payment-utr", async (req, res) => {
         $set: { 
           "charges.$[elem].payment_request_status": "Paid",
           "charges.$[elem].utrNumber": utrNumber,
+          "charges.$[elem].payment_request_bank_from": bankFrom,
           "charges.$[elem].utrAddedBy": username,
           "charges.$[elem].utrAddedAt": new Date(),
           "charges.$[elem].payment_request_receipt_url": req.body.paymentReceiptUrl || ""

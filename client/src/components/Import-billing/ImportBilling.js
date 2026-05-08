@@ -53,6 +53,7 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [importers, setImporters] = useState("");
+  const [selectedRowData, setSelectedRowData] = useState(null);
   const [voucherData, setVoucherData] = useState(null);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectData, setRejectData] = useState({ remark: "" });
@@ -262,6 +263,22 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
       document.body.removeChild(textArea);
     }
   }, []);
+  
+  const handleRejectSubmit = async () => {
+    try {
+      await axios.patch(`${process.env.REACT_APP_API_STRING}/reject-billing-job/${selectedRowData._id}`, {
+        remark: rejectData.remark
+      });
+      setSnackbar({ open: true, message: "Job rejected from billing successfully", severity: "success" });
+      setRejectDialogOpen(false);
+      setRejectData({ remark: "" });
+      setSelectedRowData(null);
+      fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYearState, showUnresolvedOnly, selectedBranch, selectedCategory);
+    } catch (error) {
+      console.error("Error rejecting job:", error);
+      setSnackbar({ open: true, message: "Failed to reject job", severity: "error" });
+    }
+  };
 
   const handleDownloadVoucher = useCallback(async (job) => {
     setVoucherData({ job });
@@ -749,21 +766,6 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
           />
         </Box>
 
-        <Menu
-          anchorEl={anchorEl}
-          open={Boolean(anchorEl)}
-          onClose={handleMenuClose}
-        >
-          <MenuItem onClick={() => handleGenerateAction("Agency Bill")}>
-            Agency Bill
-          </MenuItem>
-          <MenuItem onClick={() => handleGenerateAction("Reimbursement Bill")}>
-            Reimbursement Bill
-          </MenuItem>
-          <MenuItem onClick={() => handleGenerateAction("Cash Voucher")}>
-            Cash Voucher
-          </MenuItem>
-        </Menu>
 
         <Dialog open={rejectDialogOpen} onClose={() => { setRejectDialogOpen(false); setSelectedRowData(null); }} fullWidth maxWidth="sm">
           <DialogTitle>Reject Job from Billing</DialogTitle>

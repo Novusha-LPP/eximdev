@@ -383,19 +383,8 @@ router.post("/purchase-entry", authApiKey, async (req, res) => {
             { headers: { "x-api-key": API_KEY } }
         );
     } catch (tallyErr) {
-        console.error("Tally API Submission Error:", tallyErr.message);
-        // We still return success if it's saved in our DB
-    if (data.jobRef && data.chargeRef) {
-      await JobModel.updateOne(
-        { _id: data.jobRef, "charges._id": data.chargeRef },
-        {
-          $set: {
-            "charges.$.purchase_book_no": entry.entryNo,
-            "charges.$.purchase_book_status": "Pending",
-            "charges.$.purchase_book_requested_by": entry.requestedBy
-          }
-        }
-      );
+      console.error("Tally API Submission Error:", tallyErr.message);
+      // We still return success if it's saved in our DB
     }
 
     res.status(201).json({
@@ -546,7 +535,8 @@ router.post("/payment-request", authApiKey, async (req, res) => {
               "charges.$[elem].payment_request_no": request.requestNo,
               "charges.$[elem].payment_request_status": "Pending",
               "charges.$[elem].payment_request_requested_by": request.requestedBy,
-              "charges.$[elem].payment_request_transaction_type": request.transactionType
+              "charges.$[elem].payment_request_transaction_type": request.transactionType,
+              "charges.$[elem].payment_request_bank_from": request.bankFrom
             }},
             { arrayFilters: [{ "elem.sharedGroupId": charge.sharedGroupId }] }
           );
@@ -558,20 +548,11 @@ router.post("/payment-request", authApiKey, async (req, res) => {
                 "charges.$.payment_request_no": request.requestNo,
                 "charges.$.payment_request_status": "Pending",
                 "charges.$.payment_request_requested_by": request.requestedBy,
-                "charges.$.payment_request_transaction_type": request.transactionType
+                "charges.$.payment_request_transaction_type": request.transactionType,
+                "charges.$.payment_request_bank_from": request.bankFrom
               }
             }
           );
-      await JobModel.updateOne(
-        { _id: data.jobRef, "charges._id": data.chargeRef },
-        {
-          $set: {
-            "charges.$.payment_request_no": request.requestNo,
-            "charges.$.payment_request_status": "Pending",
-            "charges.$.payment_request_requested_by": request.requestedBy,
-            "charges.$.payment_request_transaction_type": request.transactionType,
-            "charges.$.payment_request_bank_from": request.bankFrom
-          }
         }
       }
     }

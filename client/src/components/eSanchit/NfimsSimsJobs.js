@@ -12,6 +12,8 @@ import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { BranchContext } from "../../contexts/BranchContext.js";
 import ContainerTrackButton from '../ContainerTrackButton';
 import ChargesGrid from "../ChargesGrid/index.jsx";
+import BLTrackingCell from "../../customHooks/BLTrackingCell";
+import ContainerCellContent from "../ContainerCellContent";
 
 
 function NfimsSimsJobs() {
@@ -168,25 +170,27 @@ function NfimsSimsJobs() {
             header: "BL Num & Date",
             size: 150,
             Cell: ({ cell }) => (
-                <Box>
-                    {cell.row.original.awb_bl_no} <br /> {cell.row.original.awb_bl_date}
-                </Box>
+                <BLTrackingCell
+                    blNumber={cell.row.original.awb_bl_no}
+                    shippingLine={cell.row.original.shipping_line_airline}
+                    customHouse={cell.row.original.custom_house}
+                    container_nos={cell.row.original.container_nos}
+                    jobId={cell.row.original._id}
+                    branch_code={cell.row.original.branch_code}
+                    mode={cell.row.original.mode}
+                    portOfReporting={cell.row.original.port_of_reporting}
+                    containerNos={cell.row.original.container_nos}
+                    onCopy={handleCopy}
+                    onUpdateSuccess={() => fetchJobs(currentPage, debouncedSearchQuery, selectedImporter, selectedYearState, selectedBranch, selectedCategory)}
+                    selectedYear={selectedYearState}
+                />
             )
         },
         {
             accessorKey: "container_nos",
             header: "Containers",
             size: 200,
-            Cell: ({ cell }) => (
-                <Box>
-                    {cell.row.original.container_nos?.map((c, i) => (
-                        <div key={i} style={{ marginBottom: "2px" }}>
-                            {c.container_number} <ContainerTrackButton customHouse={cell.row.original.custom_house} containerNo={c.container_number} /> | {c.size}
-                            <IconButton size="small" onClick={(e) => handleCopy(e, c.container_number)}><ContentCopyIcon fontSize="inherit"/></IconButton>
-                        </div>
-                    ))}
-                </Box>
-            )
+            Cell: ({ cell }) => <ContainerCellContent cell={cell} handleCopy={handleCopy} />
         }
     ], [handleCopy]);
 

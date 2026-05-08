@@ -65,6 +65,11 @@ router.patch(
         });
       }
 
+      // If re-sending to accounts, clear rejection fields
+      if (updateData.bill_document_sent_to_accounts) {
+        updateData.billing_reject_remark = "";
+      }
+
       // Perform update in one go
       const updatedJob = await JobModel.findByIdAndUpdate(
         jobId,

@@ -903,7 +903,7 @@ export const getDashboardData = async (req, res) => {
         }
 
         // 6. Calendar & Holidays (policy-aware, same source of truth as continuity views)
-        const calendarRecords = await AttendanceRecord.find({ employee_id: user._id, company_id: companyId, year_month: currentYearMonth });
+        const calendarRecords = await AttendanceRecord.find({ employee_id: user._id, year_month: currentYearMonth });
         const monthStartUTC = moment.utc(`${currentYearMonth}-01`).startOf('month').toDate();
         const monthEndUTC = moment.utc(`${currentYearMonth}-01`).endOf('month').toDate();
         const [resolvedWeekOffPolicy, resolvedHolidayPolicy] = await Promise.all([
@@ -1047,7 +1047,7 @@ export const getDashboardData = async (req, res) => {
         const pendingActions = [];
         const incompleteRecords = await AttendanceRecord.find({
             employee_id: user._id,
-            company_id: companyId,
+            
             attendance_date: { $lt: today },
             first_in: { $ne: null },
             last_out: null
@@ -1079,7 +1079,7 @@ export const getDashboardData = async (req, res) => {
             });
         });
 
-        const recent = await AttendanceRecord.find({ employee_id: user._id, company_id: companyId })
+        const recent = await AttendanceRecord.find({ employee_id: user._id })
             .sort({ attendance_date: -1 })
             .limit(5)
             .select('attendance_date first_in last_out total_work_hours status is_late late_by_minutes');
@@ -1249,7 +1249,10 @@ export const getDashboardData = async (req, res) => {
 export const getHistory = async (req, res) => {
     try {
         const companyId = req.user.company_id;
-        const baseFilters = { company_id: companyId };
+        const baseFilters = {};
+        if (req.user.role !== 'EMPLOYEE' && !req.query.employee_id) {
+            baseFilters.company_id = companyId;
+        }
         const queryParams = { ...req.query };
 
         // Disable caching for this sensitive route

@@ -1517,6 +1517,7 @@ router.patch("/api/update-payment-utr", async (req, res) => {
         $set: { 
           "charges.$[elem].payment_request_status": "Paid",
           "charges.$[elem].utrNumber": utrNumber,
+          "charges.$[elem].payment_request_bank_from": bankFrom,
           "charges.$[elem].utrAddedBy": username,
           "charges.$[elem].utrAddedAt": new Date(),
           "charges.$[elem].payment_request_receipt_url": req.body.paymentReceiptUrl || ""
@@ -1710,6 +1711,37 @@ router.patch("/api/update-purchase-utr", async (req, res) => {
 
   } catch (err) {
     console.error("Error updating PB payment details:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+router.patch("/api/reject-billing-job/:id", async (req, res) => {
+  const { id } = req.params;
+  const { remark } = req.body;
+
+  try {
+    const updatedJob = await JobModel.findByIdAndUpdate(
+      id,
+      {
+        $set: {
+          bill_document_sent_to_accounts: "",
+          billing_reject_remark: remark || "",
+        },
+      },
+      { new: true }
+    );
+
+    if (!updatedJob) {
+      return res.status(404).json({ message: "Job not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Job rejected from billing successfully",
+      data: updatedJob,
+    });
+  } catch (err) {
+    console.error("Error rejecting billing job:", err);
     res.status(500).json({ message: "Internal server error" });
   }
 });

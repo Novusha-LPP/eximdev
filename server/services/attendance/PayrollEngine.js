@@ -168,6 +168,8 @@ class PayrollEngine {
      * Combines automated logic (cutoff day) with manual Admin overrides.
      */
     static async isLocked(company, yearMonth) {
+        if (!company) return false;
+
         // 1. Check for manual override in PayrollLock
         const manualLock = await PayrollLock.findOne({
             company_id: company._id,

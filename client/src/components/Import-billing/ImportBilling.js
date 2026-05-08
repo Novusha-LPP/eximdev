@@ -13,6 +13,11 @@ import {
   Typography,
   MenuItem,
   Autocomplete,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Snackbar,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
@@ -49,6 +54,9 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
   const location = useLocation();
   const [importers, setImporters] = useState("");
   const [voucherData, setVoucherData] = useState(null);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectData, setRejectData] = useState({ remark: "" });
+  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
   const voucherRef = React.useRef();
 
   console.log(currentTab, "tab");
@@ -526,13 +534,38 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
             </Box>
           ),
         },
+        {
+          accessorKey: "reject_job",
+          header: "Reject Job",
+          muiTableHeadCellProps: { align: "center" },
+          muiTableBodyCellProps: { sx: { textAlign: "center", verticalAlign: "middle" } },
+          enableSorting: false,
+          size: 120,
+          Cell: ({ cell }) => (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+              <Button
+                variant="contained"
+                color="error"
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedRowData(cell.row.original);
+                  setRejectDialogOpen(true);
+                }}
+              >
+                Reject
+              </Button>
+            </Box>
+          ),
+        },
       ];
 
       if (isDoView) {
         return baseColumns.filter(c => 
           c.accessorKey !== "voucher" && 
           c.accessorKey !== "bill_document_sent_to_accounts" &&
-          c.accessorKey !== "container_numbers"
+          c.accessorKey !== "container_numbers" &&
+          c.accessorKey !== "reject_job"
         );
       }
       return baseColumns.filter(c => 
@@ -715,6 +748,51 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
             showLastButton
           />
         </Box>
+
+        <Menu
+          anchorEl={anchorEl}
+          open={Boolean(anchorEl)}
+          onClose={handleMenuClose}
+        >
+          <MenuItem onClick={() => handleGenerateAction("Agency Bill")}>
+            Agency Bill
+          </MenuItem>
+          <MenuItem onClick={() => handleGenerateAction("Reimbursement Bill")}>
+            Reimbursement Bill
+          </MenuItem>
+          <MenuItem onClick={() => handleGenerateAction("Cash Voucher")}>
+            Cash Voucher
+          </MenuItem>
+        </Menu>
+
+        <Dialog open={rejectDialogOpen} onClose={() => { setRejectDialogOpen(false); setSelectedRowData(null); }} fullWidth maxWidth="sm">
+          <DialogTitle>Reject Job from Billing</DialogTitle>
+          <DialogContent>
+            <TextField
+              fullWidth
+              label="Rejection Remark"
+              variant="outlined"
+              margin="normal"
+              multiline
+              rows={4}
+              value={rejectData.remark}
+              onChange={(e) => setRejectData({ ...rejectData, remark: e.target.value })}
+            />
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => { setRejectDialogOpen(false); setSelectedRowData(null); }}>Cancel</Button>
+            <Button onClick={handleRejectSubmit} color="error" variant="contained" disabled={!rejectData.remark}>
+              Reject
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={4000}
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          message={snackbar.message}
+        />
 
         {/* Hidden area for PDF capture */}
         {voucherData && (

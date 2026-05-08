@@ -804,7 +804,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
     const startEdit = (rec, overrideDate = null) => {
         const employee = profileData?.employee || {};
         const recordShiftId = rec.shift_id?._id || rec.shift_id || '';
-        const defaultShiftId = recordShiftId || employee.shift_id?._id || employee.shift_id || assignedShiftOptions?.[0]?._id || '';
+        const defaultShiftId = recordShiftId || assignedShiftOptions?.[0]?._id || '';
 
         const hasPunchIn = Boolean(rec.first_in);
         const defaultCorrectionMode = hasPunchIn ? 'time_correction' : 'status_correction';

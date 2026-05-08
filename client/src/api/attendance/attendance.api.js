@@ -413,6 +413,18 @@ const attendanceAPI = {
     } catch (error) {
       throw error.response?.data || { message: 'Failed to fetch leave balances' };
     }
+  },
+
+  /**
+   * Get all organizations
+   */
+  getOrganizations: async () => {
+    try {
+      const response = await apiClient.get('/master/organizations');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to fetch organizations' };
+    }
   }
 };
 

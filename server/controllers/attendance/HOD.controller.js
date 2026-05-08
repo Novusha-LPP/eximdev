@@ -846,7 +846,9 @@ export const getDashboard = async (req, res) => {
                             used: balance?.used || 0,
                             pending: balance?.pending_approval || 0
                         },
-                        teamName: getTeamNameForMember(leave.employee_id._id)
+                        teamName: getTeamNameForMember(leave.employee_id._id),
+                        appliedOn: leave.createdAt,
+                        createdAt: leave.createdAt
                     };
                 })),
                 recentProcessedLeaves: recentProcessedLeaves.map(leave => ({
@@ -866,7 +868,9 @@ export const getDashboard = async (req, res) => {
                     approvalStageLabel: LEAVE_STAGE_LABELS[leave.approval_stage || LEAVE_STAGE.HOD] || leave.approval_stage,
                     approvalTrail: buildApprovalTrail(leave),
                     currentApproverName: formatPersonName(leave.current_approver_id),
-                    actionDate: leave.updatedAt
+                    actionDate: leave.updatedAt,
+                    appliedOn: leave.createdAt,
+                    createdAt: leave.createdAt
                 })),
                 pendingRegularization: pendingRegularizations.map(reg => ({
                     id: reg._id,
@@ -1718,6 +1722,8 @@ export const getAdminLeaveRequests = async (req, res) => {
                 currentApproverRole,
                 currentApproverUsername: currentApprover?.username || null,
                 actionDate: leave.updatedAt,
+                appliedOn: leave.createdAt,
+                createdAt: leave.createdAt,
                 approvedBy: leave.approval_status === 'approved' ? reviewerName : null,
                 rejectedBy: leave.approval_status === 'rejected' ? reviewerName : null,
                 approverRole: reviewerRole,

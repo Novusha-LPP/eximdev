@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useContext, useCallback, useMemo } from 'react';
 import { 
   FiCheck, FiX, FiRefreshCw, FiFileText, FiFilter, FiSearch, FiXCircle, 
-  FiCalendar, FiUsers, FiBriefcase, FiClock, FiMoreVertical, FiChevronLeft, FiChevronRight 
+  FiCalendar, FiUsers, FiBriefcase, FiClock, FiMoreVertical, FiChevronLeft, FiChevronRight,
+  FiChevronDown
 } from 'react-icons/fi';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { UserContext } from '../../contexts/UserContext';
@@ -221,7 +222,8 @@ const normalizeLeaveRecord = (raw = {}) => {
     approverRole: raw.approverRole || raw.approver_role || null,
     decisionRemark: raw.decisionRemark || raw.decision_remark || null,
     rejectionReason: raw.rejectionReason || raw.rejection_reason || null,
-    actionDate: raw.actionDate || raw.action_date || raw.updatedAt || raw.updated_at || null
+    actionDate: raw.actionDate || raw.action_date || raw.updatedAt || raw.updated_at || null,
+    appliedOn: raw.appliedOn || raw.applied_on || raw.createdAt || raw.created_at || null
   };
 };
 
@@ -247,6 +249,12 @@ const LeaveApproval = () => {
   const [selectedTeam, setSelectedTeam] = useState('all');
   const [approvalsSearch, setApprovalsSearch] = useState('');
   const [groupBy, setGroupBy] = useState('none');
+  const [organizations, setOrganizations] = useState([]);
+  const [collapsedGroups, setCollapsedGroups] = useState({});
+
+  const toggleGroup = (group) => {
+    setCollapsedGroups(prev => ({ ...prev, [group]: !prev[group] }));
+  };
 
   const [totalHistory, setTotalHistory] = useState(0);
   const [historyPage, setHistoryPage] = useState(1);
@@ -306,7 +314,16 @@ const LeaveApproval = () => {
     }
   }, [isAdmin, teams.length]);
 
-  useEffect(() => { fetchRequests(selectedTeam, 1, '', ''); }, []);
+  useEffect(() => { 
+    fetchRequests(selectedTeam, 1, '', ''); 
+    const fetchOrgs = async () => {
+      try {
+        const res = await attendanceAPI.getOrganizations();
+        setOrganizations(res?.data || []);
+      } catch (err) { console.error('Failed to fetch orgs', err); }
+    };
+    if (isAdmin) fetchOrgs();
+  }, []);
 
   useEffect(() => {
     if (activeTab !== 'history') return;
@@ -363,21 +380,37 @@ const LeaveApproval = () => {
     (r.leaveType || '').toLowerCase().includes(approvalsSearch.toLowerCase())
   ), [requests, approvalsSearch]);
 
-  const getOrganization = useCallback((req) => req.organizationName || req.teamName || 'General', []);
-
   const groupedRequests = useMemo(() => {
     if (groupBy === 'none') return { 'All Requests': filteredRequests };
     const grouped = filteredRequests.reduce((acc, req) => {
-      const org = getOrganization(req);
-      if (!acc[org]) acc[org] = [];
-      acc[org].push(req);
+      const key = groupBy === 'organization' ? (req.organizationName || 'General') : (req.teamName || 'No Team');
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(req);
       return acc;
     }, {});
     return Object.keys(grouped).sort((a, b) => String(a).localeCompare(String(b))).reduce((acc, key) => {
       acc[key] = grouped[key];
       return acc;
     }, {});
-  }, [filteredRequests, groupBy, getOrganization]);
+  }, [filteredRequests, groupBy]);
+
+  const groupedHistory = useMemo(() => {
+    if (groupBy === 'none') return { 'All History': history.filter(h => (h.employeeName || '').toLowerCase().includes(historySearch.toLowerCase()) || (h.leaveType || '').toLowerCase().includes(historySearch.toLowerCase())) };
+    const filtered = history.filter(h =>
+      (h.employeeName || '').toLowerCase().includes(historySearch.toLowerCase()) ||
+      (h.leaveType || '').toLowerCase().includes(historySearch.toLowerCase())
+    );
+    const grouped = filtered.reduce((acc, req) => {
+      const key = groupBy === 'organization' ? (req.organizationName || 'General') : (req.teamName || 'No Team');
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(req);
+      return acc;
+    }, {});
+    return Object.keys(grouped).sort((a, b) => String(a).localeCompare(String(b))).reduce((acc, key) => {
+      acc[key] = grouped[key];
+      return acc;
+    }, {});
+  }, [history, historySearch, groupBy]);
 
   const filteredHistory = history.filter(h =>
     (h.employeeName || '').toLowerCase().includes(historySearch.toLowerCase()) ||
@@ -421,17 +454,16 @@ const LeaveApproval = () => {
         <div className="ap-header-actions">
           {(activeTab === 'approvals' || activeTab === 'history') && (
             <>
-              {activeTab === 'approvals' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #e2e8f0', padding: '4px 12px', borderRadius: '12px', fontSize: '13px', fontWeight: 600 }}>
-                  <FiUsers size={14} color="#64748b" />
-                  <span style={{ color: '#64748b' }}>Group by</span>
-                  <select value={groupBy} onChange={(e) => setGroupBy(e.target.value)}
-                    style={{ border: 'none', background: 'transparent', fontWeight: '700', color: '#0f172a', cursor: 'pointer', outline: 'none' }}>
-                    <option value="none">None</option>
-                    <option value="organization">Team</option>
-                  </select>
-                </div>
-              )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #e2e8f0', padding: '4px 12px', borderRadius: '12px', fontSize: '13px', fontWeight: 600 }}>
+                <FiUsers size={14} color="#64748b" />
+                <span style={{ color: '#64748b' }}>Group by</span>
+                <select value={groupBy} onChange={(e) => setGroupBy(e.target.value)}
+                  style={{ border: 'none', background: 'transparent', fontWeight: '700', color: '#0f172a', cursor: 'pointer', outline: 'none' }}>
+                  <option value="none">None</option>
+                  <option value="organization">Organization</option>
+                  <option value="team">Team</option>
+                </select>
+              </div>
               {(isAdmin || isHOD) && teams.length > 0 && (
                 <div style={{ position: 'relative' }}>
                   <FiFilter size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
@@ -483,7 +515,8 @@ const LeaveApproval = () => {
               <span>Type &amp; Duration</span>
               <span>Date(s)</span>
               <span>Reason</span>
-              <span>Meta</span>
+              <span>Applied On</span>
+              <span style={{textAlign: 'center'}}>Meta </span>
               <span style={{ textAlign: 'right' }}>Action</span>
             </div>
 
@@ -497,12 +530,13 @@ const LeaveApproval = () => {
                 {Object.keys(groupedRequests).map(group => (
                   <React.Fragment key={group}>
                     {groupBy !== 'none' && (
-                      <div className="ap-org-section-header">
-                        <span className="ap-org-name">{group}</span>
+                      <div className="ap-org-section-header" onClick={() => toggleGroup(group)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#0f3357ff', color: 'white' }}>
+                        {collapsedGroups[group] ? <FiChevronRight size={16} /> : <FiChevronDown size={16} />}
+                        <span className="ap-org-name" style={{ color: 'white' }}>{group}</span>
                         <span className="ap-org-count">{groupedRequests[group].length}</span>
                       </div>
                     )}
-                    {groupedRequests[group].map(req => (
+                    {!collapsedGroups[group] && groupedRequests[group].map(req => (
                       <div key={String(req.id)} className="ap-request-item">
 
                         {/* ── Col 1: Employee — avatar LEFT, name+team RIGHT stacked ── */}
@@ -539,12 +573,17 @@ const LeaveApproval = () => {
                           </span>
                         </div>
 
-                        {/* ── Col 4: Reason ── */}
                         <div className="ap-req-reason" title={req.reason}>
                           {req.reason ? `"${req.reason}"` : <span style={{ color: '#cbd5e1' }}>No reason provided</span>}
                         </div>
 
-                        {/* ── Col 5: Meta ── */}
+                        {/* ── Col 5: Applied On ── */}
+                        <div className="ap-col-applied">
+                          <span className="ap-date-val" style={{ fontSize: '0.75rem' }}>{fmt(req.appliedOn, 'dd MMM yyyy')}</span>
+                          <span className="ap-date-sub" style={{ fontSize: '0.65rem' }}>{fmt(req.appliedOn, 'hh:mm a')}</span>
+                        </div>
+
+                        {/* ── Col 6: Meta ── */}
                         <div className="ap-req-meta">
                           {/* Row 1: leave type + team badge side by side */}
                           <div className="ap-req-meta-row">
@@ -607,47 +646,74 @@ const LeaveApproval = () => {
               </div>
             </div>
 
-            <div className="ap-history-wrap">
-              <table className="ap-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
-                <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
-                  <tr style={{ background: '#f8fafc' }}>
-                    <th style={{ padding: '10px 14px', borderRadius: '12px 0 0 0', color: '#0f172a', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>Employee</th>
-                    <th style={{ padding: '10px 12px', color: '#0f172a', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>Type</th>
-                    <th style={{ padding: '10px 12px', color: '#0f172a', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>Duration</th>
-                    <th style={{ padding: '10px 12px', color: '#0f172a', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>Date Range</th>
-                    <th style={{ padding: '10px 12px', color: '#0f172a', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>Status</th>
-                    <th style={{ padding: '10px 12px', color: '#0f172a', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>Decision By</th>
-                    <th style={{ padding: '10px 14px', borderRadius: '0 12px 0 0', textAlign: 'right', color: '#0f172a', background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredHistory.map(req => (
-                    <tr key={req.historyKey}>
-                      <td style={{ padding: '10px 14px', fontWeight: 600, color: '#0f172a', fontSize: '13px' }}>{req.employeeName}</td>
-                      <td style={{ padding: '10px 12px' }}><span className="ap-badge blue">{req.leaveType}</span></td>
-                      <td style={{ padding: '10px 12px', fontWeight: 600, fontSize: '13px' }}>{req.is_half_day ? 'Half Day' : `${req.totalDays}d`}</td>
-                      <td style={{ padding: '10px 12px', fontSize: '12px', color: '#475569' }}>
-                        {fmt(req.fromDate, 'dd MMM')} – {fmt(req.toDate, 'dd MMM')}
-                      </td>
-                      <td style={{ padding: '10px 12px' }}>
-                        <span className={`ap-status-badge ${req.status}`}>
-                          {req.status === 'approved' ? <FiCheck size={10} /> : <FiX size={10} />} {req.status}
-                        </span>
-                      </td>
-                      <td style={{ padding: '10px 12px', fontSize: '12px', color: '#64748b' }}>
-                        {req.status === 'approved' ? (req.approvedBy || '—') : (req.rejectedBy || '—')}
-                      </td>
-                      <td style={{ padding: '10px 14px', textAlign: 'right' }}>
-                        {isHistoryEligibleForCancel(req) && (
-                          <button className="ap-icon-btn" style={{ color: '#ef4444', border: 'none' }} onClick={() => setCancelModal(req)}>
-                            <FiXCircle size={16} />
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="ap-history-content">
+              {Object.keys(groupedHistory).map(groupKey => (
+                <div key={groupKey} style={{ marginBottom: groupBy !== 'none' ? '32px' : '0' }}>
+                  {groupBy !== 'none' && (
+                    <div className="ap-org-section-header" 
+                      onClick={() => toggleGroup(groupKey)}
+                      style={{ 
+                        margin: '20px 0 12px 0', 
+                        background: '#f8fafc', 
+                        padding: '8px 16px', 
+                        borderRadius: '8px', 
+                        borderLeft: '4px solid #3b82f6',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}>
+                      {collapsedGroups[groupKey] ? <FiChevronRight size={16} /> : <FiChevronDown size={16} />}
+                      <span className="ap-org-name" style={{ fontSize: '14px', fontWeight: '800', color: '#1e293b' }}>{groupKey}</span>
+                      <span className="ap-org-count" style={{ background: '#3b82f6', color: '#fff' }}>{groupedHistory[groupKey].length}</span>
+                    </div>
+                  )}
+                  {!collapsedGroups[groupKey] && (
+                    <div className="ap-history-wrap">
+                    <table className="ap-table" style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0 }}>
+                      <thead>
+                        <tr style={{ background: '#f8fafc' }}>
+                          <th style={{ padding: '10px 14px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Employee</th>
+                          <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Type</th>
+                          <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Duration</th>
+                          <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Date Range</th>
+                          <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Status</th>
+                          <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Decision By</th>
+                          <th style={{ padding: '10px 14px', textAlign: 'right', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {groupedHistory[groupKey].map(req => (
+                          <tr key={req.historyKey}>
+                            <td style={{ padding: '10px 14px', fontWeight: 600, color: '#0f172a', fontSize: '13px' }}>{req.employeeName}</td>
+                            <td style={{ padding: '10px 12px' }}><span className="ap-badge blue">{req.leaveType}</span></td>
+                            <td style={{ padding: '10px 12px', fontWeight: 600, fontSize: '13px' }}>{req.is_half_day ? 'Half Day' : `${req.totalDays}d`}</td>
+                            <td style={{ padding: '10px 12px', fontSize: '12px', color: '#475569' }}>
+                              {fmt(req.fromDate, 'dd MMM')} – {fmt(req.toDate, 'dd MMM')}
+                            </td>
+                            <td style={{ padding: '10px 12px' }}>
+                              <span className={`ap-status-badge ${req.status}`}>
+                                {req.status === 'approved' ? <FiCheck size={10} /> : <FiX size={10} />} {req.status}
+                              </span>
+                            </td>
+                            <td style={{ padding: '10px 12px', fontSize: '12px', color: '#64748b' }}>
+                              {req.status === 'approved' ? (req.approvedBy || '—') : (req.rejectedBy || '—')}
+                            </td>
+                            <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+                              {isHistoryEligibleForCancel(req) && (
+                                <button className="ap-icon-btn" style={{ color: '#ef4444', border: 'none' }} onClick={() => setCancelModal(req)}>
+                                  <FiXCircle size={16} />
+                                </button>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+                </div>
+              ))}
             </div>
 
             <div className="ap-pagination">

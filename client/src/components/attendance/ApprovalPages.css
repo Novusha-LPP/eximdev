@@ -145,20 +145,30 @@
 .ap-search-input:focus { border-color: var(--ap-navy); outline: none; background: #fff; box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.05); }
 
 /* ─── Table / List Layout ─────────────────────────────────── */
-/* 6 columns: Employee | Type & Duration | Dates | Reason | Meta | Action */
+/* 7 columns: Employee | Type & Duration | Dates | Reason | Applied On | Meta | Action */
 .ap-list-header,
 .ap-request-item {
   display: grid;
   grid-template-columns:
-    minmax(180px, 2fr)   /* Employee */
-    minmax(140px, 1.4fr) /* Type & Duration */
-    minmax(130px, 1.3fr) /* Date(s) */
-    minmax(160px, 1.8fr) /* Reason */
-    minmax(150px, 1.5fr) /* Meta */
-    160px;               /* Action */
+    minmax(180px, 1.8fr)   /* Employee */
+    minmax(70px, 0.8fr)    /* Type & Duration */
+    minmax(70px, 0.8fr)    /* Date(s) */
+    minmax(180px, 2fr)     /* Reason */
+    minmax(100px, 0.9fr)   /* Applied On */
+    minmax(180px, 1.6fr)   /* Meta */
+    190px;                 /* Action */
   align-items: center;
   column-gap: 0;         /* gaps handled by padding */
+  border-color: #6d28d9;
 }
+
+/* TEMPORARY: Column highlighting for alignment */
+/* .ap-list-header > *:nth-child(1), .ap-request-item > *:nth-child(1) { background: rgba(255, 0, 0, 0.05); }
+.ap-list-header > *:nth-child(2), .ap-request-item > *:nth-child(2) { background: rgba(0, 255, 0, 0.05); }
+.ap-list-header > *:nth-child(3), .ap-request-item > *:nth-child(3) { background: rgba(0, 0, 255, 0.05); }
+.ap-list-header > *:nth-child(4), .ap-request-item > *:nth-child(4) { background: rgba(255, 255, 0, 0.05); }
+.ap-list-header > *:nth-child(5), .ap-request-item > *:nth-child(5) { background: rgba(255, 0, 255, 0.05); }
+.ap-list-header > *:nth-child(6), .ap-request-item > *:nth-child(6) { background: rgba(0, 255, 255, 0.05); } */
 
 /* Table column headers */
 .ap-list-header {
@@ -175,6 +185,11 @@
 .ap-list-header > * {
   padding: 0 12px;
 }
+.ap-list-header > *:nth-child(4),
+.ap-list-header > *:nth-child(5),
+.ap-list-header > *:nth-child(6) {
+  text-align: center;
+}
 .ap-list-header > *:first-child { padding-left: 20px; }
 .ap-list-header > *:last-child  { padding-right: 20px; text-align: right; }
 
@@ -187,6 +202,7 @@
   transition: background 0.15s; 
   min-height: 72px;
 }
+
 .ap-request-item:last-child { border-bottom: none; }
 .ap-request-item:hover { background: #f9fafb; }
 
@@ -197,6 +213,11 @@
   flex-direction: column;
   justify-content: center;
   align-self: center;
+}
+.ap-request-item > *:nth-child(4),
+.ap-request-item > *:nth-child(5),
+.ap-request-item > *:nth-child(6) {
+  align-items: center;
 }
 .ap-request-item > *:first-child { padding-left: 20px; }
 .ap-request-item > *:last-child  { padding-right: 20px; }
@@ -318,6 +339,7 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   padding-right: 16px !important;
+  text-align: center;
 }
 
 /* ── Col: Meta ── */
@@ -325,6 +347,7 @@
   display: flex; 
   flex-direction: column; 
   gap: 5px; 
+  align-items: center;
 }
 /* First row: leave type + team badge side by side */
 .ap-req-meta-row {

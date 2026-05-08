@@ -374,7 +374,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
   const [saving, setSaving] = useState(false);
   const [autoSwitchHintShown, setAutoSwitchHintShown] = useState(false);
   const shouldForceStatusCorrection = !hasInitialPunchIn || isNonWorkingStatus(editForm.status);
-  const isTimeCorrectionDisabled = shouldForceStatusCorrection || editForm.correction_mode === 'status_correction';
+  const isTimeCorrectionDisabled = shouldForceStatusCorrection;
 
   const [balanceForm, setBalanceForm] = useState({
     leave_policy_id: '',
@@ -777,7 +777,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
   const startEdit = (rec, overrideDate = null) => {
     const employee = profile?.employee || {};
     const recordShiftId = rec.shift_id?._id || rec.shift_id || '';
-    const defaultShiftId = recordShiftId || employee.shift_id?._id || employee.shift_id || assignedShiftOptions?.[0]?._id || '';
+    const defaultShiftId = recordShiftId || resolveShiftPolicyId(employee);
 
     const hasPunchIn = Boolean(rec.first_in);
     const defaultCorrectionMode = hasPunchIn ? 'time_correction' : 'status_correction';

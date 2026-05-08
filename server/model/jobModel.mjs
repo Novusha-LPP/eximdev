@@ -183,6 +183,7 @@ const ChargeSchema = new mongoose.Schema({
   utrNumber: { type: String, trim: true },
   utrAddedBy: { type: String, trim: true },
   utrAddedAt: { type: Date },
+  isPostBilling: { type: Boolean, default: false },
 
   revenue: ChargeLineSchema,
   cost: ChargeLineSchema,

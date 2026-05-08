@@ -565,6 +565,9 @@ function PaymentCompleted({ workMode = "Payment" }) {
                         <IconButton size="small" onClick={(e) => handleCopy(e, no)} title="Copy No" sx={{ p: 0.2 }}>
                           <ContentCopyIcon sx={{ fontSize: '0.9rem' }} />
                         </IconButton>
+                        {chargesForThisEntry.some(c => c.isPostBilling) && (
+                          <Chip label="POST-BILLING" size="small" color="error" variant="outlined" sx={{ fontSize: '0.55rem', height: '16px', fontWeight: '900' }} />
+                        )}
                         {isApproved && (
                           <Chip 
                             label="APPROVED" 

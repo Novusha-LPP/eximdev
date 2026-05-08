@@ -25,6 +25,7 @@ const paymentRequestSchema = new mongoose.Schema({
   utrAddedAt: { type: Date },
   paymentReceiptUrl: { type: String },
   isApproved: { type: Boolean, default: false },
+  isPostBilling: { type: Boolean, default: false },
   approvedByFirst: { type: String, trim: true },
   approvedByLast: { type: String, trim: true },
   approvedAt: { type: Date },

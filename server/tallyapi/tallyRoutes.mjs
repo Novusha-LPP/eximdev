@@ -244,13 +244,22 @@ router.post("/purchase-entry", authApiKey, async (req, res) => {
     const rawData = req.body;
     const data = mapPurchaseEntryData(rawData);
 
+    let isPostBilling = false;
     // Standardize jobNo to canonicalJobNo if possible before saving
     if (data.jobRef) {
-      const job = await JobModel.findById(data.jobRef).select('job_number').lean();
-      if (job && job.job_number) {
-        data.jobNo = job.job_number;
+      const job = await JobModel.findById(data.jobRef).select('job_number bill_no').lean();
+      if (job) {
+        if (job.job_number) {
+          data.jobNo = job.job_number;
+        }
+        // Check if job is completed (has bill numbers)
+        const billNos = (job.bill_no || "").split(",");
+        if (billNos[0]?.trim() && billNos[1]?.trim()) {
+          isPostBilling = true;
+        }
       }
     }
+    data.isPostBilling = isPostBilling;
 
     let entry;
     let attempts = 0;
@@ -290,7 +299,8 @@ router.post("/purchase-entry", authApiKey, async (req, res) => {
           $set: {
             "charges.$.purchase_book_no": entry.entryNo,
             "charges.$.purchase_book_status": "Pending",
-            "charges.$.purchase_book_requested_by": entry.requestedBy
+            "charges.$.purchase_book_requested_by": entry.requestedBy,
+            "charges.$.isPostBilling": entry.isPostBilling
           }
         }
       );
@@ -455,14 +465,22 @@ router.post("/payment-request", authApiKey, async (req, res) => {
     const data = mapPaymentRequestData(rawData);
     // console.log("DEBUG: Payment Request Mapped Data:", JSON.stringify(data, null, 2));
 
+    let isPostBilling = false;
     // Standardize jobNo to canonicalJobNo if possible before saving
     if (data.jobRef) {
-      const job = await JobModel.findById(data.jobRef).select('job_number importer').lean();
+      const job = await JobModel.findById(data.jobRef).select('job_number importer bill_no').lean();
       if (job) {
         if (job.job_number) data.jobNo = job.job_number;
         if (job.importer && !data.importer) data.importer = job.importer;
+        
+        // Check if job is completed (has bill numbers)
+        const billNos = (job.bill_no || "").split(",");
+        if (billNos[0]?.trim() && billNos[1]?.trim()) {
+          isPostBilling = true;
+        }
       }
     }
+    data.isPostBilling = isPostBilling;
 
     let request;
     let attempts = 0;
@@ -504,7 +522,8 @@ router.post("/payment-request", authApiKey, async (req, res) => {
             "charges.$.payment_request_status": "Pending",
             "charges.$.payment_request_requested_by": request.requestedBy,
             "charges.$.payment_request_transaction_type": request.transactionType,
-            "charges.$.payment_request_bank_from": request.bankFrom
+            "charges.$.payment_request_bank_from": request.bankFrom,
+            "charges.$.isPostBilling": request.isPostBilling
           }
         }
       );

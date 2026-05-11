@@ -23,10 +23,24 @@ class AttendanceEngine {
         const now = moment().tz(tz);
         const isToday = moment(date).isSame(now, 'day');
 
-        let punches = await AttendancePunch.find({
+        let punchQuery = {
             employee_id: user._id,
             punch_date: date
-        }).sort({ punch_time: 1 });
+        };
+
+        // For cross-day shifts, we must also look for punches on the following day to capture the OUT punch
+        if (shift?.is_cross_day) {
+            const nextDay = moment(date).add(1, 'days').format('YYYY-MM-DD');
+            punchQuery = {
+                employee_id: user._id,
+                $or: [
+                    { punch_date: date },
+                    { punch_date: nextDay }
+                ]
+            };
+        }
+
+        let punches = await AttendancePunch.find(punchQuery).sort({ punch_time: 1 });
 
         const inPunch  = punches.find(p => p.punch_type === 'IN');
         const outPunch = punches.find(p => p.punch_type === 'OUT');
@@ -145,8 +159,8 @@ class AttendanceEngine {
 
                     if (normPunchOut.isBefore(shiftEnd.clone().subtract(earlyLeaveAllowed, 'minutes'))) {
                         isEarlyExit = true;
-                        // If exceeded, calculate from actual shift end (capped at 12h for sanity)
-                        earlyExitMinutes = Math.min(shiftEnd.diff(normPunchOut, 'minutes'), 720);
+                        // If exceeded, calculate from actual shift end (capped at 18h for sanity)
+                        earlyExitMinutes = Math.min(shiftEnd.diff(normPunchOut, 'minutes'), 1080);
                     }
                 }
 
@@ -154,8 +168,14 @@ class AttendanceEngine {
                 const deptHalfDayThreshold = user.department_id?.half_day_hours;
                 const deptFullDayThreshold = user.department_id?.full_day_hours;
 
-                const fullDayThreshold = shift.full_day_hours || deptFullDayThreshold || company.attendance_config?.full_day_threshold_hours || 8;
-                const halfDayThreshold = shift.half_day_hours || deptHalfDayThreshold || company.attendance_config?.half_day_threshold_hours || 4;
+                let fullDayThreshold = shift.full_day_hours || deptFullDayThreshold || company.attendance_config?.full_day_threshold_hours || 8;
+                let halfDayThreshold = shift.half_day_hours || deptHalfDayThreshold || company.attendance_config?.half_day_threshold_hours || 4;
+
+                // Specific rule for Operations shift: 8.3 working hours required for Present
+                if (shift.shift_name?.toLowerCase().includes('operations')) {
+                    fullDayThreshold = 8.3;
+                    halfDayThreshold = 4.15;
+                }
 
                 const isShiftOver = now.isAfter(shiftEnd);
                 const isCurrentlyPunchedOut = !lastInPunch;
@@ -206,8 +226,8 @@ class AttendanceEngine {
                 } else if (effectiveHours >= adjustedFullDay) {
                     status = 'present';
                 } else if (effectiveHours <= adjustedHalfDay) {
-                    // Only finalize as half_day if shift is over and it's not today, or if it's been > 12h
-                    if ((!isToday && (isShiftOver || hoursSinceIn > 12)) || isCurrentlyPunchedOut) {
+                    // Only finalize as half_day if shift is over and it's not today, or if it's been > 18h
+                    if ((!isToday && (isShiftOver || hoursSinceIn > 18)) || isCurrentlyPunchedOut) {
                         status = 'half_day';
                         isHalfDayFlag = true;
                         isLate = false;
@@ -215,7 +235,7 @@ class AttendanceEngine {
                         status = 'present';
                     }
                 } else {
-                    if ((!isToday && (isShiftOver || hoursSinceIn > 12)) || isGapTooLarge || isCurrentlyPunchedOut) {
+                    if ((!isToday && (isShiftOver || hoursSinceIn > 18)) || isGapTooLarge || isCurrentlyPunchedOut) {
                          status = 'half_day';
                          isHalfDayFlag = true;
                          isLate = false;
@@ -224,8 +244,8 @@ class AttendanceEngine {
                     }
                 }
 
-                // ✅ Fix: Don't mark as incomplete until 12 hours after punch-in
-                if (!isToday && lastInPunch && status === 'present' && hoursSinceIn > 12) {
+                // ✅ Fix: Don't mark as incomplete until 18 hours after punch-in
+                if (!isToday && lastInPunch && status === 'present' && hoursSinceIn > 18) {
                     status = 'incomplete';
                     isHalfDayFlag = false;
                 }

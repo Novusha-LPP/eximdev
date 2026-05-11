@@ -112,7 +112,7 @@ const dateKeyUTC = (dateVal) => moment(dateVal).tz('Asia/Kolkata').format('YYYY-
 const dateKeyLocal = (dateVal) => moment(dateVal).tz('Asia/Kolkata').format('YYYY-MM-DD');
 
 const IDENTITY_LEAVE_TYPES = new Set(['lwp', 'privilege']);
-const MISSED_PUNCH_LIMIT_HOURS = 12;
+const MISSED_PUNCH_LIMIT_HOURS = 18;
 
 const getBalanceSortValue = (balance) => {
     const timestamps = [balance?.updatedAt, balance?.last_updated, balance?.createdAt]
@@ -618,7 +618,7 @@ export const punch = async (req, res) => {
             if (elapsedHours >= MISSED_PUNCH_LIMIT_HOURS) {
                 await markSessionAsMissedPunch({
                     session: activeSession,
-                    reason: 'timeout_12h',
+                    reason: 'timeout_18h',
                     source: 'system',
                     at: now.toDate()
                 });
@@ -691,7 +691,7 @@ export const punch = async (req, res) => {
         if (type === 'OUT' && warning && activeSession) {
             await markAttendanceAsMissedPunch({
                 session: activeSession,
-                reason: 'timeout_12h',
+                reason: 'timeout_18h',
                 source: 'late_punch_out',
                 markedAt: now.toDate()
             });

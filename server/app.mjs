@@ -263,7 +263,7 @@ import jobMigrationRouter from "./routes/admin/jobMigration.mjs";
 // HR Asset Module
 import userAssetsRoutes from "./routes/hr/userAssetsRoutes.mjs";
 
-const MISSED_PUNCH_LIMIT_HOURS = 12;
+const MISSED_PUNCH_LIMIT_HOURS = 18;
 
 const autoMarkStaleMissedPunchSessions = async () => {
   const now = new Date();
@@ -286,7 +286,7 @@ const autoMarkStaleMissedPunchSessions = async () => {
         $set: {
           session_status: "abandoned",
           abandoned_at: now,
-          abandoned_reason: "timeout_12h",
+          abandoned_reason: "timeout_18h",
           auto_marked_missed_punch: true,
         },
       },
@@ -312,7 +312,7 @@ const autoMarkStaleMissedPunchSessions = async () => {
           status: "incomplete",
           has_incomplete_session: true,
           missed_punch: true,
-          missed_punch_reason: "timeout_12h",
+          missed_punch_reason: "timeout_18h",
           missed_punch_marked_at: now,
           missed_punch_source: "cron",
           year_month: sessionDateKey.slice(0, 7),

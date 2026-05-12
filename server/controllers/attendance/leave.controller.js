@@ -583,8 +583,8 @@ export const getApplications = async (req, res) => {
     try {
         const actor = req.user;
         let targetId = actor._id;
+        const { employee_id, leaveMonth, appliedMonth } = req.query;
 
-        const { employee_id } = req.query;
         if (employee_id && String(employee_id) !== String(actor._id)) {
             const roleNorm = String(actor.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
             const isAdmin = roleNorm === 'ADMIN';
@@ -596,9 +596,28 @@ export const getApplications = async (req, res) => {
             targetId = employee_id;
         }
 
-        const applications = await LeaveApplication.find({
-            employee_id: targetId
-        })
+        const query = { employee_id: targetId };
+
+        const resolvedLeaveMonth = leaveMonth || req.query.month || '';
+        const resolvedAppliedMonth = appliedMonth || '';
+
+        if (resolvedLeaveMonth) {
+            const startOfMonth = moment(resolvedLeaveMonth, 'YYYY-MM').startOf('month').toDate();
+            const endOfMonth = moment(resolvedLeaveMonth, 'YYYY-MM').endOf('month').toDate();
+            query.$and = query.$and || [];
+            query.$and.push({
+                from_date: { $lte: endOfMonth },
+                to_date: { $gte: startOfMonth }
+            });
+        }
+
+        if (resolvedAppliedMonth) {
+            const startOfMonth = moment(resolvedAppliedMonth, 'YYYY-MM').startOf('month').toDate();
+            const endOfMonth = moment(resolvedAppliedMonth, 'YYYY-MM').endOf('month').toDate();
+            query.applied_on = { $gte: startOfMonth, $lte: endOfMonth };
+        }
+
+        const applications = await LeaveApplication.find(query)
             .populate('leave_policy_id', 'leave_type policy_name')
             .populate('final_reviewed_by', 'first_name last_name username role')
             .populate('hod_reviewed_by', 'first_name last_name username role')
@@ -622,6 +641,26 @@ export const getApplications = async (req, res) => {
                 ? String(effectiveReviewer.role || '').toUpperCase().replace(/[^A-Z]/g, '')
                 : null;
 
+            const approvalStatus = String(app.approval_status || 'pending');
+            const approvalStage = app.approval_stage || null;
+            const approvalStageLabel = approvalStatus === 'approved'
+                ? 'Fully Approved'
+                : approvalStatus === 'rejected'
+                    ? 'Rejected'
+                    : approvalStatus === 'cancelled'
+                        ? 'Cancelled'
+                        : approvalStatus === 'withdrawn'
+                            ? 'Withdrawn'
+                            : approvalStatus === 'pending_hod' || approvalStage === 'stage_1_hod'
+                                ? 'Pending HOD Approval'
+                                : approvalStatus === 'pending_shalini' || approvalStatus === 'hod_approved_pending_admin' || approvalStage === 'stage_2_shalini'
+                                    ? 'Approved by HOD'
+                                    : approvalStatus === 'pending_final' || approvalStage === 'stage_3_final'
+                                        ? 'Pending Final Approval'
+                                        : approvalStatus === 'in_review'
+                                            ? 'In Review'
+                                            : approvalStatus.replace(/_/g, ' ');
+
             return {
             _id: app._id,
             leave_type: app.leave_policy_id ? app.leave_policy_id.leave_type : app.leave_type || 'Unknown',
@@ -633,6 +672,12 @@ export const getApplications = async (req, res) => {
             attachment_urls: app.attachment_urls || [],
             reason: app.reason || '',
             status: getRequesterStatus(app.approval_status),
+            final_status: approvalStatus,
+            approval_stage: approvalStage,
+            approval_stage_label: approvalStageLabel,
+            approval_status_label: approvalStageLabel,
+            applied_on: app.applied_on || app.createdAt,
+            appliedOn: app.applied_on || app.createdAt,
             createdAt: app.createdAt,
             rejection_reason: app.rejection_reason || null,
             reviewer_remark: app.rejection_reason || app.final_review_comment || app.hod_review_comment || app.comments || '',

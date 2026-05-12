@@ -283,11 +283,14 @@ const HODDashboard = () => {
                     <div className="hod-pending-top">
                       <div className="hod-pending-av">{initials(req.employeeName)}</div>
                       <div className="hod-pending-info">
-                        <div className="hod-pending-name">{req.employeeName}</div>
+                        <div className="hod-pending-name">{req.employeeName} · {req.teamName || 'Unassigned'}</div>
                         <div className="hod-pending-meta">
                           <span className="hod-meta-main">
                             {req.leaveType} · {req.is_half_day ? `Half Day (${formatSession(req.half_day_session)})` : `${req.totalDays}d`} · {fmt(req.fromDate,'dd MMM')} – {fmt(req.toDate,'dd MMM')}
                           </span>
+                          {req.approvalStageLabel && (
+                            <span className="hod-meta-stage">{req.approvalStageLabel}</span>
+                          )}
                           {req.currentBalance && (
                             <span className="hod-meta-bal">
                               (Balance: <strong>{req.currentBalance.available}d</strong>)

@@ -223,6 +223,198 @@
 }
 .lm-mclose:hover { background:rgba(255,255,255,.2); }
 
+/* ── Modal tabs / attendance log panel ── */
+.aam-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  margin: 0 20px 16px;
+  background: var(--card2);
+  border: 1px solid var(--b1);
+  border-radius: var(--r3);
+}
+
+.aam-tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  border: 0;
+  border-radius: calc(var(--r3) - 2px);
+  background: transparent;
+  color: var(--t3);
+  font: inherit;
+  font-size: .8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--tf) var(--ease);
+}
+
+.aam-tab.active {
+  background: var(--card);
+  color: var(--t1);
+  box-shadow: var(--sh1);
+}
+
+.attendance-log-panel {
+  background: var(--card);
+  border: 1px solid var(--b1);
+  border-radius: var(--r3);
+  padding: 14px;
+  box-shadow: var(--sh1);
+}
+
+.attendance-log-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.attendance-log-title {
+  font-size: .9375rem;
+  font-weight: 700;
+  color: var(--t1);
+}
+
+.attendance-log-subtitle {
+  margin-top: 3px;
+  font-size: .75rem;
+  color: var(--t3);
+}
+
+.attendance-log-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  padding: 6px 10px;
+  border-radius: var(--rf);
+  background: var(--n50);
+  color: var(--t2);
+  border: 1px solid var(--b1);
+  font-size: .75rem;
+  font-weight: 600;
+}
+
+.attendance-log-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.attendance-log-stat {
+  background: var(--card2);
+  border: 1px solid var(--b1);
+  border-radius: var(--r2);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.attendance-log-stat span {
+  font-size: .625rem;
+  text-transform: uppercase;
+  letter-spacing: .7px;
+  color: var(--t3);
+  font-weight: 700;
+}
+
+.attendance-log-stat strong {
+  font-size: .875rem;
+  color: var(--t1);
+}
+
+.attendance-session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.attendance-session-card {
+  border: 1px solid var(--b1);
+  border-radius: var(--r2);
+  background: var(--card2);
+  padding: 12px;
+}
+
+.attendance-session-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.attendance-session-name {
+  font-size: .8125rem;
+  font-weight: 700;
+  color: var(--t1);
+}
+
+.attendance-session-badge {
+  padding: 3px 8px;
+  border-radius: var(--rf);
+  font-size: .625rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+
+.attendance-session-badge.ok {
+  background: var(--s-green-bg);
+  color: var(--s-green);
+}
+
+.attendance-session-badge.warn {
+  background: var(--s-amber-bg);
+  color: var(--s-amber);
+}
+
+.attendance-session-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.attendance-session-grid div {
+  background: var(--card);
+  border: 1px solid var(--b1);
+  border-radius: var(--r2);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.attendance-session-grid span {
+  font-size: .625rem;
+  text-transform: uppercase;
+  letter-spacing: .7px;
+  color: var(--t3);
+  font-weight: 700;
+}
+
+.attendance-session-grid strong {
+  font-size: .875rem;
+  color: var(--t1);
+}
+
+.attendance-log-empty {
+  padding: 18px 14px;
+  text-align: center;
+  font-size: .8125rem;
+  color: var(--t3);
+  background: var(--card2);
+  border: 1px dashed var(--b1);
+  border-radius: var(--r2);
+}
+
 /* Form */
 .lm-form { padding:20px; display:flex; flex-direction:column; gap:14px; }
 .fg  { display:flex; flex-direction:column; gap:5px; }

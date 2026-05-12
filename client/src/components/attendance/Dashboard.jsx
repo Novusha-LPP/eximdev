@@ -144,6 +144,7 @@ export default function Dashboard() {
   const [holidays, setHolidays] = useState([]);
   const [month, setMonth] = useState(new Date());
   const [showApplyLeaveModal, setShowApplyLeaveModal] = useState(false);
+  const [leaveModalDate, setLeaveModalDate] = useState('');
   
   // Analytics Modal
   const [analyticsModal, setAnalyticsModal] = useState({
@@ -210,13 +211,12 @@ export default function Dashboard() {
         if (res?.success) {
           const list = res.data || [];
           setCompanies(list);
-          if (list.length > 0 && !adminCompanyId) {
-            setAdminCompanyId(list[0]._id);
-          }
         }
       }).catch(err => console.error('Failed to load companies', err));
     }
-  }, [isAuthorizedAdmin, adminCompanyId]);
+  }, [isAuthorizedAdmin]);
+
+
 
   useEffect(() => { load(month.getMonth() + 1, month.getFullYear()); }, [month]);
 
@@ -224,12 +224,57 @@ export default function Dashboard() {
     if (!isAuthorizedAdmin) return;
     try {
       setAdminLoading(true);
-      const res = await attendanceAPI.getAdminDashboard({ 
-        date, 
-        end_date: endDate || undefined,
-        company_id: companyId || undefined 
-      });
-      if (res?.success) setAdminData(res.data);
+      const res = await attendanceAPI.getAdminAttendanceReport(
+        date,
+        endDate || date,
+        'all',
+        companyId || undefined
+      );
+
+      if (res?.success) {
+        const rows = Array.isArray(res.data) ? res.data : [];
+        const targetDate = String(date || '').slice(0, 10);
+
+        const normalizedRows = rows.map((row, index) => {
+          const todayRecord = (row.history || []).find((entry) => entry.date === targetDate) || row.history?.[0] || {};
+          const status = String(todayRecord.status || '').toLowerCase() || 'absent';
+          const leaveStatus = String(todayRecord.leaveStatus || todayRecord.approval_status || status).toLowerCase();
+
+          return {
+            id: row.id || row._id || `row-${index}`,
+            name: row.name || 'Unknown',
+            organization: row.company_name || 'All Companies',
+            department: row.designation || 'General',
+            team: row.team_name || row.team || 'Unassigned',
+            status,
+            inTime: row.latestRecord?.first_in || todayRecord.check_in || null,
+            outTime: row.latestRecord?.last_out || todayRecord.check_out || null,
+            lateMinutes: Number(row.latestRecord?.late_by_minutes ?? todayRecord.late_by_minutes ?? 0),
+            leave: todayRecord.leaveType || todayRecord.leave_type ? {
+              type: todayRecord.leaveType || todayRecord.leave_type,
+              status: leaveStatus,
+              reason: todayRecord.leaveReason || todayRecord.reason || ''
+            } : null
+          };
+        });
+
+        const stats = {
+          total: normalizedRows.length,
+          present: normalizedRows.filter(e => ['present', 'late', 'half_day'].includes(e.status)).length,
+          absent: normalizedRows.filter(e => e.status === 'absent').length,
+          onLeave: normalizedRows.filter(e => ['leave', 'pending_leave'].includes(e.status)).length,
+          halfDay: normalizedRows.filter(e => e.status === 'half_day').length,
+          late: normalizedRows.filter(e => e.status === 'late').length
+        };
+
+        setAdminData({
+          success: true,
+          stats,
+          dailySummary: normalizedRows,
+          summaryRows: normalizedRows,
+          employees: normalizedRows
+        });
+      }
     } catch { 
       toast.error('Failed to load admin analytics'); 
     } finally { 
@@ -336,6 +381,9 @@ export default function Dashboard() {
   /* -- Open Apply Leave Modal -- */
   const openApplyLeaveModal = (day) => {
     if (!day) return;
+    const selectedDate = new Date(month.getFullYear(), month.getMonth(), day);
+    const formatted = `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`;
+    setLeaveModalDate(formatted);
     setShowApplyLeaveModal(true);
   };
 
@@ -370,6 +418,9 @@ export default function Dashboard() {
 
   /* Management data */
   const stats = mgmtData?.stats || mgmtData?.summary || dash?.mgmtSnapshot || {};
+  // If admin has applied filters and we've loaded adminData, prefer those stats
+  const derivedStats = adminData?.stats || stats;
+  const visibleActiveTotal = derivedStats.total || 0;
   const pendingLeaves = mgmtData?.pendingLeaves || [];
   const pendingRegs = mgmtData?.pendingRegularization || [];
   const teamCalendar = mgmtData?.teamCalendar || mgmtData?.teamAvailability || [];
@@ -392,17 +443,19 @@ export default function Dashboard() {
   ];
 
   const managerTiles = [
-    { cls: 'green', val: stats.present ?? 0, lbl: 'Present Today', sub: `of ${stats.total ?? '—'} ${isAdmin ? 'employees' : 'team members'}`, type: 'present' },
-    { cls: 'red', val: stats.absent ?? 0, lbl: 'Absent Today', sub: 'unexcused absences', type: 'absent' },
-    { cls: 'amber', val: stats.late ?? 0, lbl: 'Late Arrivals', sub: 'after shift start', type: 'late' },
-    { cls: 'blue', val: stats.onLeave ?? stats.onLeaveCount ?? 0, lbl: 'On Leave', sub: 'approved leaves', type: 'leave' },
+    { cls: 'green', val: derivedStats.present ?? 0, lbl: 'Present Today', sub: `of ${visibleActiveTotal || '—'} active users, including late arrivals`, type: 'present' },
+    { cls: 'red', val: derivedStats.absent ?? 0, lbl: 'Absent Today', sub: 'unexcused absences', type: 'absent' },
+    { cls: 'blue', val: derivedStats.onLeave ?? derivedStats.onLeaveCount ?? 0, lbl: 'On Leave', sub: 'approved leaves', type: 'leave' },
+    { cls: 'amber', val: derivedStats.late ?? 0, lbl: 'Late Arrivals', sub: 'still counted in Present', type: 'late' },
   ];
 
   const openAnalytics = (type, date) => {
+    // default to adminDate when opening analytics so modal matches current filters
+    const initDate = date || adminDate || new Date().toISOString().split('T')[0];
     setAnalyticsModal({
       isOpen: true,
       type,
-      initialDate: date || new Date().toISOString().split('T')[0]
+      initialDate: initDate
     });
   };
 
@@ -443,7 +496,7 @@ export default function Dashboard() {
               <span className="punch-label">Today</span>
               <div className="punch-row">
                 <span className={ps?.firstIn ? 'in' : ''}>
-                  <FiLogIn size={10} /> {fmtTime(ps?.firstIn)}
+                  <FiLogIn size={10} /> {ps?.firstIn ? fmtTime(ps.firstIn) : '-'}
                 </span>
                 <span className={ps?.lastOut ? 'out' : ''}>
                   <FiLogOut size={10} /> {showMiss ? 'Miss' : fmtTime(ps?.lastOut)}
@@ -464,12 +517,13 @@ export default function Dashboard() {
 
       {/* -- STAT TILES -- */}
       <div className="db-tiles-wrap">
+
         <div className="db-tiles">
           {(isManager ? managerTiles : personalTiles).map((t, i) => (
             <div 
               key={i} 
-              className={`tile ${t.cls} ${isManager && isAuthorizedAdmin ? 'clickable' : ''}`}
-              onClick={() => isManager && isAuthorizedAdmin && t.type && openAnalytics(t.type)}
+              className={`tile ${t.cls} ${isManager && isAuthorizedAdmin && ['present', 'absent', 'leave', 'late'].includes(t.type) ? 'clickable' : ''}`}
+              onClick={() => isManager && isAuthorizedAdmin && ['present', 'absent', 'leave', 'late'].includes(t.type) && openAnalytics(t.type)}
             >
               <div className="tile-val">{t.val}</div>
               <div className="tile-lbl">{t.lbl}</div>
@@ -477,13 +531,38 @@ export default function Dashboard() {
             </div>
           ))}
         </div>
+
+        {isAuthorizedAdmin && (
+          <div className="db-main-tabs">
+            <button 
+              className={`db-main-tab ${activeTab === 'calendar' ? 'active' : ''}`}
+              onClick={() => setActiveTab('calendar')}
+            >
+              <FiCalendar /> My Dashboard
+            </button>
+            <button 
+              className={`db-main-tab ${activeTab === 'daily' ? 'active' : ''}`}
+              onClick={() => setActiveTab('daily')}
+            >
+              <FiActivity /> Daily Summary
+            </button>
+            <button 
+              className={`db-main-tab ${activeTab === 'monthly' ? 'active' : ''}`}
+              onClick={() => setActiveTab('monthly')}
+            >
+              <FiList /> Monthly Summary
+            </button>
+          </div>
+        )}
       </div>
 
       {/* -- BODY -- */}
-      <div className={`db-body ${activeTab === 'daily' ? 'full-width' : ''}`}>
+<div className={`db-body ${activeTab !== 'calendar' ? 'full-width' : ''}`}>
 
         {/* -- LEFT / MAIN -- */}
-        <div className="db-main">
+        {activeTab === 'calendar' ? (
+          <>
+            <div className="db-main">
 
           <div className="db-upper-row">
             {/* Personal punch card – compact for managers */}
@@ -597,31 +676,9 @@ export default function Dashboard() {
 
 
 
-          {isAuthorizedAdmin && (
-            <div className="db-main-tabs">
-              <button 
-                className={`db-main-tab ${activeTab === 'calendar' ? 'active' : ''}`}
-                onClick={() => setActiveTab('calendar')}
-              >
-                <FiCalendar /> My Dashboard
-              </button>
-              <button 
-                className={`db-main-tab ${activeTab === 'daily' ? 'active' : ''}`}
-                onClick={() => setActiveTab('daily')}
-              >
-                <FiActivity /> Daily Summary
-              </button>
-              <button 
-                className={`db-main-tab ${activeTab === 'monthly' ? 'active' : ''}`}
-                onClick={() => setActiveTab('monthly')}
-              >
-                <FiList /> Monthly Summary
-              </button>
-            </div>
-          )}
+      
 
-          {activeTab === 'calendar' ? (
-            <>
+
           {/* -- MANAGER: Today's Alerts (Late / Absent) -- */}
           {isManager && !isAuthorizedAdmin && (
             <div className="card">
@@ -859,36 +916,13 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
-            </>
-          ) : activeTab === 'daily' ? (
-            <AdminAnalyticsTab 
-              data={adminData} 
-              loading={adminLoading}
-              currentDate={adminDate}
-              endDate={adminEndDate}
-              onDateChange={setAdminDate}
-              onEndDateChange={setAdminEndDate}
-              companies={companies}
-              selectedCompanyId={adminCompanyId}
-              onCompanyChange={setAdminCompanyId}
-            />
-          ) : activeTab === 'monthly' ? (
-            <AdminMonthlySummaryTab 
-                currentMonth={adminMonth}
-                onMonthChange={setAdminMonth}
-                companies={companies}
-                selectedCompanyId={adminCompanyId}
-                onCompanyChange={setAdminCompanyId}
-            />
-          ) : null}
         </div>
 
         {/* -- RIGHT SIDEBAR -- */}
         <div className="db-side">
-
           {/* Pending approvals – HOD & Admin */}
           {isManager && (
-            <div className="card clickable-card" onClick={() => navigate(isHOD ? '/attendance/hod/leave-approval' : '/attendance/admin/attendance')}>
+            <div className="card clickable-card" onClick={() => navigate(isHOD ? "/attendance/hod/leave-approval" : "/attendance/admin/attendance")}>
               <div className="card-head">
                 <span className="card-title">Pending Approvals</span>
                 {allPending.length > 0
@@ -900,28 +934,28 @@ export default function Dashboard() {
                 <div className="empty-msg">Nothing pending right now! ✨</div>
               ) : allPending.slice(0, 6).map((req, i) => (
                 <div key={i} className="approval-row">
-                  <div className="approval-av">{(req.employeeName || '?')[0]}</div>
+                  <div className="approval-av">{(req.employeeName || "?")[0]}</div>
                   <div className="approval-body">
-                    <div className="approval-name">{req.employeeName}</div>
+                    <div className="approval-name">{req.employeeName} · {req.teamName || 'Unassigned'}</div>
                     <div className="approval-meta">
-                      {req._kind === 'leave' ? (req.leaveType || 'Leave') : 'Regularization'}
-                      {req._kind === 'leave' && req.totalDays ? (
-                        isHalfDayRequest(req) ? ` • Half Day (${formatSession(getHalfDaySession(req))})` : ` • ${req.totalDays} day${req.totalDays > 1 ? 's' : ''}`
-                      ) : ''}
-                      {req._kind === 'reg' && req.date ? ` • ${new Date(req.date).toLocaleDateString('en', { day: 'numeric', month: 'short' })}` : ''}
+                      {req._kind === "leave" ? (req.leaveType || "Leave") : "Regularization"}
+                      {req._kind === "leave" && req.totalDays ? (
+                        isHalfDayRequest(req) ? ` • Half Day (${formatSession(getHalfDaySession(req))})` : ` • ${req.totalDays} day${req.totalDays > 1 ? "s" : ""}`
+                      ) : ""}
+                      {req._kind === "reg" && req.date ? ` • ${new Date(req.date).toLocaleDateString("en", { day: "numeric", month: "short" })}` : ""}
                     </div>
                     <div className="approval-actions">
                       <button
                         className="act approve"
                         disabled={approving[req.id]}
-                        onClick={() => handleApprove(req.id, req._kind, 'approved')}
+                        onClick={() => handleApprove(req.id, req._kind, "approved")}
                       >
                         <FiCheck size={10} /> Approve
                       </button>
                       <button
                         className="act reject"
                         disabled={approving[req.id]}
-                        onClick={() => handleApprove(req.id, req._kind, 'rejected')}
+                        onClick={() => handleApprove(req.id, req._kind, "rejected")}
                       >
                         <FiX size={10} /> Reject
                       </button>
@@ -930,8 +964,8 @@ export default function Dashboard() {
                 </div>
               ))}
               {allPending.length > 6 && (
-                <div style={{ padding: '.75rem 1.25rem', borderTop: '1px solid var(--border)' }}>
-                  <button className="card-link" onClick={() => navigate(isHOD ? '/attendance/hod/leave-approval' : '/attendance/admin/attendance')}>
+                <div style={{ padding: ".75rem 1.25rem", borderTop: "1px solid var(--border)" }}>
+                  <button className="card-link" onClick={() => navigate(isHOD ? "/attendance/hod/leave-approval" : "/attendance/admin/attendance")}>
                     +{allPending.length - 6} more <FiArrowRight size={12} />
                   </button>
                 </div>
@@ -943,7 +977,7 @@ export default function Dashboard() {
           <div className="card">
             <div className="card-head">
               <span className="card-title">Leave Balance</span>
-              <button className="card-link" onClick={() => navigate('/attendance/leave')}>
+              <button className="card-link" onClick={() => navigate("/attendance/leave")}>
                 Apply leave <FiArrowRight size={12} />
               </button>
             </div>
@@ -954,14 +988,14 @@ export default function Dashboard() {
                 const used = b.used ?? 0;
                 const total = b.total || b.annual_quota || 1;
                 const pct = Math.min(100, (used / total) * 100);
-                const icon = getLeaveIcon(b.name || b.leave_type || '');
-                const countCls = available === 0 ? 'zero' : available <= 2 ? 'low' : '';
+                const icon = getLeaveIcon(b.name || b.leave_type || "");
+                const countCls = available === 0 ? "zero" : available <= 2 ? "low" : "";
                 return (
                   <div key={i} className="leave-row">
                     <span className="leave-emoji">{icon.emoji}</span>
                     <div className="leave-info">
                       <div className="leave-name">{b.name || b.leave_type}</div>
-                      <div className="leave-sub">{used} used{b.pending > 0 ? ` • ${b.pending} pending` : ''}</div>
+                      <div className="leave-sub">{used} used{b.pending > 0 ? ` • ${b.pending} pending` : ""}</div>
                       <div className="leave-bar">
                         <div className="leave-fill" style={{ width: `${pct}%`, background: icon.color }} />
                       </div>
@@ -981,7 +1015,7 @@ export default function Dashboard() {
               <div className="card-head">
                 <span className="card-title">Upcoming Holidays</span>
                 {isAdmin && (
-                  <button className="card-link" onClick={() => navigate('/attendance/admin/holidays')}>
+                  <button className="card-link" onClick={() => navigate("/attendance/admin/holidays")}>
                     Manage <FiArrowRight size={12} />
                   </button>
                 )}
@@ -990,17 +1024,17 @@ export default function Dashboard() {
               <div className="empty-msg">No upcoming holidays</div>
             ) : (isAdmin ? holidays : upcomingHolidays).map((h, i) => {
               const d = new Date(h.holiday_date || h.date);
-              const name = h.holiday_name || h.name || '';
-              const type = h.holiday_type || h.type || 'national';
+              const name = h.holiday_name || h.name || "";
+              const type = h.holiday_type || h.type || "national";
               return (
                 <div key={i} className="upcoming-row">
                   <div className="upcoming-badge">
-                    <span className="upcoming-month">{d.toLocaleString('default', { month: 'short' })}</span>
+                    <span className="upcoming-month">{d.toLocaleString("default", { month: "short" })}</span>
                     <span className="upcoming-day">{d.getDate()}</span>
                   </div>
                   <div>
                     <div className="upcoming-name">{getHolidayEmoji(name, type)} {name}</div>
-                    <div className="upcoming-sub">{d.toLocaleString('default', { weekday: 'long' })}</div>
+                    <div className="upcoming-sub">{d.toLocaleString("default", { weekday: "long" })}</div>
                   </div>
                 </div>
               );
@@ -1027,9 +1061,35 @@ export default function Dashboard() {
             ))}
           </div>
           )}
-
         </div>
+      </>
+    ) : activeTab === "daily" ? (
+      <div className="db-full-page">
+        <AdminAnalyticsTab
+          data={adminData}
+          loading={adminLoading}
+          currentDate={adminDate}
+          endDate={adminEndDate}
+          onDateChange={setAdminDate}
+          onEndDateChange={setAdminEndDate}
+          companies={companies}
+          selectedCompanyId={adminCompanyId}
+          onCompanyChange={setAdminCompanyId}
+        />
       </div>
+    ) : activeTab === "monthly" ? (
+      <div className="db-full-page">
+        <AdminMonthlySummaryTab 
+            currentMonth={adminMonth}
+            onMonthChange={setAdminMonth}
+            companies={companies}
+            selectedCompanyId={adminCompanyId}
+            onCompanyChange={setAdminCompanyId}
+        />
+      </div>
+    ) : null}
+      </div>
+
 
       {/* -- Apply Leave Modal -- */}
       <ApplyLeaveModal
@@ -1037,6 +1097,8 @@ export default function Dashboard() {
         onClose={() => setShowApplyLeaveModal(false)}
         onSuccess={handleApplyLeaveSuccess}
         balances={balances}
+        initialDate={leaveModalDate}
+        employeeId={user?._id || user?.id}
       />
 
       {/* -- Attendance Analytics Modal -- */}
@@ -1044,9 +1106,10 @@ export default function Dashboard() {
         isOpen={analyticsModal.isOpen}
         onClose={() => setAnalyticsModal({ ...analyticsModal, isOpen: false })}
         type={analyticsModal.type}
-        initialDate={analyticsModal.initialDate}
+        startDate={adminDate}
+        endDate={adminEndDate}
         companyId={adminCompanyId}
-        role={user?.role}
+        role={user?.role || 'ADMIN'}
       />
 
     </div>

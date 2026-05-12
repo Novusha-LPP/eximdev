@@ -99,6 +99,14 @@ const HOD_PENDING_LEAVE_STATUSES = ['pending', 'pending_hod', 'pending_shalini',
 const ADMIN_PENDING_LEAVE_STATUSES = ['pending', 'pending_hod', 'pending_shalini', 'pending_final'];
 const NON_FINAL_LEAVE_STATUSES = ['pending', 'pending_hod', 'pending_shalini', 'pending_final', 'hod_approved_pending_admin', 'in_review'];
 
+const STAGE_2_APPROVER_USERNAME = 'shalini_arun';
+const FINAL_APPROVER_USERNAMES = new Set(['manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'uday_zope']);
+const LEAVE_STAGE = {
+    HOD: 'stage_1_hod',
+    SHALINI: 'stage_2_shalini',
+    FINAL: 'stage_3_final'
+};
+
 const getWeeklyOffDaysFromPolicy = (weekOffPolicy) => {
     if (!weekOffPolicy?.day_rules || !Array.isArray(weekOffPolicy.day_rules)) return [0];
     const days = weekOffPolicy.day_rules
@@ -307,9 +315,12 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
         const isSystemAbsent = rec && String(rec.status).toLowerCase() === 'absent';
         const isWorking = rec && ['present', 'late', 'half_day'].includes(String(rec.status || '').toLowerCase());
 
-        if (leave && !isWorking) {
+        const leaveStatusNorm = String(leave?.approval_status || '').toLowerCase();
+        const isApprovedLeave = ['approved', 'pending', 'pending_hod', 'pending_shalini', 'pending_final', 'hod_approved_pending_admin', 'in_review'].includes(leaveStatusNorm);
+
+        if (leave && isApprovedLeave && !isWorking) {
             const isHalf = (leave.is_half_day || leave.is_start_half_day || leave.is_end_half_day);
-            const isPending = String(leave.approval_status || '').toLowerCase() === 'pending';
+            const isPending = leaveStatusNorm.startsWith('pending') || ['hod_approved_pending_admin', 'in_review'].includes(leaveStatusNorm);
             
             hStatus = isHalf ? 'half_day' : (isPending ? 'pending_leave' : 'leave');
             hSession = leave.half_day_session || leave.start_half_session || leave.end_half_session;
@@ -1106,7 +1117,7 @@ export const getDashboardData = async (req, res) => {
                 company_id: companyId,
                 department_id: user.department_id,
                 _id: { $ne: user._id }, // Exclude self
-                isActive: true
+                isActive: { $ne: false }
             })
                 .select('first_name last_name username designation')
                 .limit(4);
@@ -1116,7 +1127,7 @@ export const getDashboardData = async (req, res) => {
                 company_id: companyId,
                 role: 'EMPLOYEE',
                 _id: { $ne: user._id },
-                isActive: true
+                isActive: { $ne: false }
             })
                 .select('first_name last_name username designation')
                 .limit(4);
@@ -1202,7 +1213,7 @@ export const getDashboardData = async (req, res) => {
             const totalActiveEmps = await User.countDocuments({
                 company_id: companyId,
                 role: { $ne: 'ADMIN' },
-                isActive: true
+                isActive: { $ne: false }
             });
             holidayRoleContext.pendingLeaveCount = compPendingLeaves;
             holidayRoleContext.totalEmployees = totalActiveEmps;
@@ -1443,13 +1454,12 @@ export const getAdminDashboardData = async (req, res) => {
         }
 
         const activeEmployeeQuery = {
-            role: { $nin: ['ADMIN', 'Admin'] },
-            isActive: true
+            isActive: { $ne: false }
         };
         if (companyId) activeEmployeeQuery.company_id = companyId;
 
         const employees = await User.find(activeEmployeeQuery)
-            .select('first_name last_name username role department_id')
+            .select('first_name last_name username role department_id company_id')
             .populate('department_id', 'department_name')
             .lean();
             
@@ -1469,11 +1479,48 @@ export const getAdminDashboardData = async (req, res) => {
             ]
         };
         if (companyId) leaveQuery.company_id = companyId;
+        leaveQuery.approval_status = {
+            $in: [
+                'approved',
+                'pending',
+                'pending_hod',
+                'pending_shalini',
+                'pending_final',
+                'hod_approved_pending_admin',
+                'in_review'
+            ]
+        };
 
         const [attendanceRecs, activeLeaves] = await Promise.all([
             AttendanceRecord.find(attendanceQuery).lean(),
             LeaveApplication.find(leaveQuery).lean()
         ]);
+
+        const uniqueCompanyIds = [...new Set(
+            employees
+                .map((emp) => emp.company_id?.toString())
+                .filter(Boolean)
+        )];
+        const companyDocs = uniqueCompanyIds.length > 0
+            ? await Company.find({ _id: { $in: uniqueCompanyIds } }).select('_id company_name').lean()
+            : [];
+        const companyMap = new Map(companyDocs.map((company) => [company._id.toString(), company.company_name]));
+
+        const teamDocs = await TeamModel.find({
+            'members.userId': { $in: empIdList },
+            isActive: { $ne: false }
+        }).select('_id name members.userId').lean();
+        const teamIdsByEmployee = new Map();
+        teamDocs.forEach((team) => {
+            const teamId = String(team._id);
+            (team.members || []).forEach((member) => {
+                const memberId = member?.userId ? String(member.userId) : null;
+                if (!memberId) return;
+                if (!teamIdsByEmployee.has(memberId)) teamIdsByEmployee.set(memberId, []);
+                teamIdsByEmployee.get(memberId).push(teamId);
+            });
+        });
+        const teamMap = new Map(teamDocs.map((team) => [team._id.toString(), team.name]));
 
         const attendanceMap = new Map(attendanceRecs.map(r => [r.employee_id.toString(), r]));
         const leavesMap = new Map();
@@ -1484,9 +1531,9 @@ export const getAdminDashboardData = async (req, res) => {
         });
 
         // 1. Precise Statistics
-        const presentUserIds = attendanceRecs.filter(r => ['present', 'half_day'].includes(r.status)).map(r => r.employee_id.toString());
+        const presentUserIds = attendanceRecs.filter(r => ['present', 'late', 'half_day'].includes(r.status)).map(r => r.employee_id.toString());
         // INCLUDE pending leaves in the count for consistency as requested
-        const leaveUserIds = activeLeaves.filter(l => l.approval_status === 'approved' || l.approval_status === 'pending').map(l => l.employee_id.toString());
+        const leaveUserIds = activeLeaves.map(l => l.employee_id.toString());
         
         const presentToday = new Set(presentUserIds).size;
         const onLeaveToday = new Set(leaveUserIds).size;
@@ -1502,6 +1549,7 @@ export const getAdminDashboardData = async (req, res) => {
             const empIdStr = emp._id.toString();
             const att = attendanceMap.get(empIdStr);
             const employeeLeaves = leavesMap.get(empIdStr) || [];
+            const employeeTeamIds = teamIdsByEmployee.get(empIdStr) || [];
             
             // Resolve Leave Status
             let leaveInfo = null;
@@ -1512,19 +1560,24 @@ export const getAdminDashboardData = async (req, res) => {
                 leaveInfo = {
                     type: activeL.leave_type,
                     status: activeL.approval_status,
-                    stage: activeL.approval_stage
+                    stage: activeL.approval_stage,
+                    reason: activeL.reason || activeL.rejection_reason || activeL.hod_review_comment || activeL.final_review_comment || ''
                 };
             }
 
             // Resolve Attendance Status - Prioritize Leave over Weekly Off/Holiday for statistical consistency
             let status = att?.status || 'absent';
-            if (leaveInfo?.status === 'approved' || leaveInfo?.status === 'pending') {
+            if (leaveInfo) {
                 status = 'leave';
             }
 
             return {
                 id: emp._id,
                 name: `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || emp.username,
+                organization: companyMap.get(emp.company_id?.toString()) || 'All Companies',
+                team: employeeTeamIds.length > 0
+                    ? employeeTeamIds.map((teamId) => teamMap.get(teamId)).filter(Boolean).join(', ')
+                    : 'Unassigned',
                 department: emp.department_id?.department_name || 'General',
                 status: status,
                 inTime: att?.first_in,
@@ -1550,6 +1603,99 @@ export const getAdminDashboardData = async (req, res) => {
             module: log.module
         }));
 
+        // 4. PENDING APPROVALS (New Addition for Admin Dashboard consistency)
+        const actor = req.user;
+        const actorId = actor._id;
+        const actorUsername = String(actor.username || '').toLowerCase();
+        
+        let pendingLeaveQuery = {
+            approval_status: { $in: ADMIN_PENDING_LEAVE_STATUSES }
+        };
+        if (companyId) pendingLeaveQuery.company_id = companyId;
+
+        // Custom logic for stage-based approvers (replicated from HOD controller for consistency)
+        if (actorUsername === STAGE_2_APPROVER_USERNAME) {
+            pendingLeaveQuery.approval_stage = { $in: [LEAVE_STAGE.HOD, LEAVE_STAGE.SHALINI] };
+        } else if (!FINAL_APPROVER_USERNAMES.has(actorUsername)) {
+            // Regular admins see what's assigned to them specifically (if not a final approver)
+            pendingLeaveQuery.current_approver_id = actorId;
+        }
+
+        const [pendingLeavesList, pendingRegsList] = await Promise.all([
+            LeaveApplication.find(pendingLeaveQuery)
+                .populate('employee_id', 'first_name last_name username company_id')
+                .populate('leave_policy_id', 'leave_type policy_name')
+                .sort({ createdAt: -1 })
+                .limit(20)
+                .lean(),
+            RegularizationRequest.find({
+                status: 'pending',
+                ...(companyId ? { company_id: companyId } : {})
+            })
+                .populate('employee_id', 'first_name last_name username company_id')
+                .sort({ createdAt: -1 })
+                .limit(20)
+                .lean()
+        ]);
+
+        const pendingLeaves = pendingLeavesList.map(l => ({
+            id: l._id,
+            employeeName: l.employee_id ? `${l.employee_id.first_name || ''} ${l.employee_id.last_name || ''}`.trim() || l.employee_id.username : 'Unknown',
+            teamName: 'Admin View',
+            leaveType: l.leave_policy_id?.leave_type || l.leave_type || 'Leave',
+            totalDays: l.total_days,
+            reason: l.reason,
+            status: l.approval_status,
+            appliedOn: l.createdAt,
+            _kind: 'leave'
+        }));
+
+        const pendingRegularization = pendingRegsList.map(r => ({
+            id: r._id,
+            employeeName: r.employee_id ? `${r.employee_id.first_name || ''} ${r.employee_id.last_name || ''}`.trim() || r.employee_id.username : 'Unknown',
+            teamName: 'Admin View',
+            date: r.attendance_date,
+            reason: r.reason,
+            _kind: 'reg'
+        }));
+
+        // 5. RECENTLY PROCESSED LEAVES (History for Admin Dashboard)
+        const historyQuery = {};
+        if (companyId) historyQuery.company_id = companyId;
+
+        const filterMonth = req.query.month;
+        if (filterMonth && moment(filterMonth, 'YYYY-MM', true).isValid()) {
+            const startOfMonth = moment(filterMonth, 'YYYY-MM').startOf('month').toDate();
+            const endOfMonth = moment(filterMonth, 'YYYY-MM').endOf('month').toDate();
+            historyQuery.$or = [
+                { from_date: { $lte: endOfMonth }, to_date: { $gte: startOfMonth } }
+            ];
+        }
+
+        const processedLeavesList = await LeaveApplication.find(historyQuery)
+            .populate('employee_id', 'first_name last_name username company_id')
+            .populate('leave_policy_id', 'leave_type policy_name')
+            .sort({ updatedAt: -1 })
+            .limit(100)
+            .lean();
+
+        const recentProcessedLeaves = processedLeavesList.map(l => ({
+            id: l._id,
+            employeeId: l.employee_id?._id,
+            employeeName: l.employee_id ? `${l.employee_id.first_name || ''} ${l.employee_id.last_name || ''}`.trim() || l.employee_id.username : 'Unknown',
+            teamName: 'Admin View',
+            organizationName: companyMap.get(l.company_id?.toString()) || companyMap.get(l.employee_id?.company_id?.toString()) || 'General',
+            leaveType: l.leave_policy_id?.leave_type || l.leave_type || 'Leave',
+            totalDays: l.total_days,
+            reason: l.reason,
+            status: l.approval_status,
+            fromDate: l.from_date,
+            toDate: l.to_date,
+            appliedOn: l.applied_on || l.createdAt,
+            actionDate: l.updatedAt,
+            _kind: 'leave'
+        }));
+
         res.json({
             success: true,
             data: {
@@ -1563,6 +1709,9 @@ export const getAdminDashboardData = async (req, res) => {
                 },
                 dailySummary,
                 activity,
+                pendingLeaves,
+                pendingRegularization,
+                recentProcessedLeaves,
                 timestamp: new Date()
             }
         });
@@ -1638,7 +1787,7 @@ export const getPayrollData = async (req, res) => {
 
         // Query employees - handle both ObjectId and string formats
         const query = {
-            role: { $nin: ['ADMIN', 'Admin'] }
+            isActive: { $ne: false }
         };
         
         // Add company filter - try both formats
@@ -1663,7 +1812,7 @@ export const getPayrollData = async (req, res) => {
             // Try simplified query as fallback
             const fallbackCount = await User.countDocuments({ 
                 company_id: companyId,
-                role: { $nin: ['ADMIN', 'Admin'] }
+                isActive: { $ne: false }
             });
             console.log('Fallback query would return:', fallbackCount, 'employees');
         }
@@ -1682,7 +1831,7 @@ export const getPayrollData = async (req, res) => {
                     : (emp.department || 'General');
 
                 // Find employee team
-                const empTeam = await TeamModel.findOne({ 'members.userId': emp._id, isActive: true }).select('_id name');
+                const empTeam = await TeamModel.findOne({ 'members.userId': emp._id, isActive: { $ne: false } }).select('_id name');
 
                 const data = {
                     id: emp._id,
@@ -1780,7 +1929,7 @@ export const getPayrollEmployees = async (req, res) => {
                 { company_id: new mongoose.Types.ObjectId(companyId) },
                 { company_id: companyId }
             ],
-            role: { $nin: ['ADMIN', 'Admin'] }
+            isActive: { $ne: false }
         });
 
         // Get actual employees
@@ -1789,7 +1938,7 @@ export const getPayrollEmployees = async (req, res) => {
                 { company_id: new mongoose.Types.ObjectId(companyId) },
                 { company_id: companyId }
             ],
-            role: { $nin: ['ADMIN', 'Admin'] }
+            isActive: { $ne: false }
         })
             .select('first_name last_name username employee_code department role company_id joining_date')
             .limit(20);
@@ -1939,7 +2088,7 @@ export const getAdminAttendanceReport = async (req, res) => {
 
         // 1. Build Query
         const userQuery = {
-            isActive: true
+            isActive: { $ne: false }
         };
         if (companyId) {
             userQuery.company_id = companyId;
@@ -1971,16 +2120,22 @@ export const getAdminAttendanceReport = async (req, res) => {
         const activeTeams = await TeamModel.find({
             'members.userId': { $in: employeeIds },
             isActive: { $ne: false }
-        }).select('_id members.userId').lean();
+        }).select("_id name members.userId").lean();
 
         const teamIdsByEmployee = new Map();
+        const teamNamesByEmployee = new Map();
         for (const team of activeTeams) {
             const teamId = String(team._id);
+            const teamName = team.name || "---";
             for (const member of team.members || []) {
                 const memberId = member?.userId ? String(member.userId) : null;
                 if (!memberId) continue;
+                
                 if (!teamIdsByEmployee.has(memberId)) teamIdsByEmployee.set(memberId, []);
                 teamIdsByEmployee.get(memberId).push(teamId);
+
+                if (!teamNamesByEmployee.has(memberId)) teamNamesByEmployee.set(memberId, []);
+                teamNamesByEmployee.get(memberId).push(teamName);
             }
         }
 
@@ -1999,7 +2154,7 @@ export const getAdminAttendanceReport = async (req, res) => {
             }).select(REPORT_ATTENDANCE_SELECT_FIELDS).lean(),
             LeaveApplication.find({
                 employee_id: { $in: employeeIds },
-                approval_status: { $in: ['approved', 'pending'] },
+
                 $or: [
                     { from_date: { $lte: end }, to_date: { $gte: start } }
                 ]
@@ -2031,7 +2186,8 @@ export const getAdminAttendanceReport = async (req, res) => {
                 leavesByEmployee.get(empKey) || [],
                 {
                     company_id: emp.company_id?._id || emp.company_id,
-                    company_name: emp.company_id?.company_name || '---'
+                    company_name: emp.company_id?.company_name || "---",
+                    team_name: (teamNamesByEmployee.get(empKey) || []).join(", ") || "Unassigned"
                 },
                 { teamIds }
             );
@@ -2081,7 +2237,7 @@ export const getTeamAttendanceReport = async (req, res) => {
         // 2. Fetch Employee Details
         const employees = await User.find({
             _id: { $in: Array.from(memberUserIds) },
-            isActive: true
+            isActive: { $ne: false }
         })
             .select(REPORT_USER_SELECT_FIELDS)
             .populate(REPORT_COMPANY_POPULATE)
@@ -2094,13 +2250,19 @@ export const getTeamAttendanceReport = async (req, res) => {
         const employeeIds = employees.map(e => e._id);
 
         const teamIdsByEmployee = new Map();
+        const teamNamesByEmployee = new Map();
         for (const team of teams) {
             const teamIdStr = String(team._id);
+            const teamName = team.name || "---";
             for (const member of team.members || []) {
                 const memberId = member?.userId ? String(member.userId) : null;
                 if (!memberId) continue;
+                
                 if (!teamIdsByEmployee.has(memberId)) teamIdsByEmployee.set(memberId, []);
                 teamIdsByEmployee.get(memberId).push(teamIdStr);
+
+                if (!teamNamesByEmployee.has(memberId)) teamNamesByEmployee.set(memberId, []);
+                teamNamesByEmployee.get(memberId).push(teamName);
             }
         }
 
@@ -2143,7 +2305,10 @@ export const getTeamAttendanceReport = async (req, res) => {
                 endDate,
                 attendanceByEmployee.get(empKey) || [],
                 leavesByEmployee.get(empKey) || [],
-                { department: emp.department_id?.department_name || 'General' },
+                { 
+                    department: emp.department_id?.department_name || "General",
+                    team_name: (teamNamesByEmployee.get(empKey) || []).join(", ") || "Unassigned"
+                },
                 { teamIds }
             );
         });

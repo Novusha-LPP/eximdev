@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   FiUsers, FiCalendar, FiXCircle, FiX, FiSearch,
-  FiChevronLeft, FiChevronRight, FiClock, FiAlertCircle,
-  FiList, FiGrid, FiInfo
+  FiChevronRight, FiClock, FiAlertCircle,
+  FiList, FiGrid, FiInfo, FiMapPin
 } from 'react-icons/fi';
 import attendanceAPI from '../../api/attendance/attendance.api';
 import toast from 'react-hot-toast';
@@ -34,6 +34,7 @@ const STATUS_META = {
   present:  { label: 'Presence',  icon: FiUsers,    accent: '#10b981', bg: '#d1fae5', chip: 'present'  },
   leave:    { label: 'Leaves',   icon: FiCalendar, accent: '#f59e0b', bg: '#fef3c7', chip: 'leave'    },
   absent:   { label: 'Absences', icon: FiXCircle,  accent: '#ef4444', bg: '#fee2e2', chip: 'absent'   },
+  late:     { label: 'Late Arrivals', icon: FiClock, accent: '#d97706', bg: '#fffbeb', chip: 'late' },
 };
 
 const STATUS_CHIP_LABEL = {
@@ -49,30 +50,27 @@ const STATUS_CHIP_LABEL = {
 const AttendanceAnalyticsModal = ({
   isOpen, onClose,
   type = 'present',
-  initialDate,
+  startDate, endDate,
   companyId,
-  role = 'ADMIN' // Support role-based API
+  role = 'ADMIN' 
 }) => {
-  const today = initialDate ? new Date(initialDate) : new Date();
-  const [viewDate, setViewDate] = useState(today);
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [selectedUser, setSelectedUser] = useState(null);
+  const [groupBy, setGroupBy] = useState('none');
+  const [localStart, setLocalStart] = useState(startDate);
+  const [localEnd, setLocalEnd] = useState(endDate);
 
   const meta = STATUS_META[type] || STATUS_META.present;
   const Icon = meta.icon;
 
-  const loadData = useCallback(async (t, d, mode) => {
+  const loadData = useCallback(async (t, sDate, eDate) => {
     try {
       setLoading(true);
-      const dateObj = moment(d);
-      const start = dateObj.clone().startOf('month').format('YYYY-MM-DD');
-      const end = dateObj.clone().endOf('month').format('YYYY-MM-DD');
-
       const apiCall = (role === 'HOD' || role === 'HEADOFDEPARTMENT')
-        ? attendanceAPI.getTeamAttendanceReport(start, end, 'all')
-        : attendanceAPI.getAdminAttendanceReport(start, end, 'all', companyId);
+        ? attendanceAPI.getTeamAttendanceReport(sDate, eDate, 'all')
+        : attendanceAPI.getAdminAttendanceReport(sDate, eDate, 'all', companyId);
 
       const res = await apiCall;
       
@@ -81,32 +79,43 @@ const AttendanceAnalyticsModal = ({
         const processed = [];
 
         employees.forEach(emp => {
-          // Find if the employee has any status matching 'type' on the specific 'viewDate'
-          const dateStr = d.toISOString().split('T')[0];
-          const todayRecord = (emp.history || []).find(day => day.date === dateStr);
+          const history = emp.history || [];
+          // For range view, we show if they had ANY record of this type in the range
+          // But for 'present' we usually prioritize the latest or specific day?
+          // Actually, if it's a range, we should probably show all unique occurrences or just the latest.
+          // Given the UI '15 employees', we'll show unique employees who match the criteria at least once.
           
-          if (todayRecord) {
-            const s = String(todayRecord.status || '').toLowerCase();
-            let matches = false;
-            if (t === 'leave')   matches = (s === 'leave' || s === 'pending_leave');
-            if (t === 'absent')  matches = (s === 'absent');
-            if (t === 'present') matches = (s === 'present' || s === 'half_day' || s === 'late');
+          const matchingDays = history.filter(day => {
+            const status = String(day.status || '').toLowerCase();
+            if (t === 'leave')   return (status === 'leave' || status === 'pending_leave');
+            if (t === 'absent')  return (status === 'absent');
+            if (t === 'present') return (status === 'present' || status === 'half_day' || status === 'late');
+            if (t === 'late')    return (status === 'late');
+            return false;
+          });
 
-            if (matches) {
-              processed.push({
-                id: emp.id || emp._id,
-                name: emp.name || 'Unknown',
-                department: emp.designation || emp.department || 'Staff',
-                status: todayRecord.status,
-                leaveType: todayRecord.leaveType || todayRecord.leave_type || null,
-                leaveReason: todayRecord.leaveReason || null,
-                checkIn: todayRecord.check_in || todayRecord.checkIn || null,
-                checkOut: todayRecord.check_out || todayRecord.checkOut || null,
-                date: todayRecord.date,
-                // Full history for hover (all leaves in the fetched range - usually just today but backend gives more)
-                leaveHistory: (emp.history || []).filter(h => h.status === 'leave' || h.status === 'pending_leave')
-              });
-            }
+          if (matchingDays.length > 0) {
+            // Use the latest record in the range for details
+            const record = matchingDays[matchingDays.length - 1];
+            const s = String(record.status || '').toLowerCase();
+            
+            processed.push({
+              id: emp.id || emp._id,
+              name: emp.name || 'Unknown',
+              department: emp.designation || emp.department || 'Staff',
+              organization: emp.organization || emp.company_name || emp.company || 'All Companies',
+              team: emp.team || emp.team_name || 'Unassigned',
+              status: record.status,
+              leaveType: record.leaveType || record.leave_type || null,
+              leaveReason: record.leaveReason || null,
+              leaveStatus: record.approval_status 
+                ? String(record.approval_status).toLowerCase() 
+                : (s === 'leave' ? 'approved' : 'pending'),
+              checkIn: record.check_in || record.checkIn || null,
+              checkOut: record.check_out || record.checkOut || null,
+              date: record.date,
+              leaveHistory: history.filter(h => h.status === 'leave' || h.status === 'pending_leave')
+            });
           }
         });
         setData(processed);
@@ -120,12 +129,17 @@ const AttendanceAnalyticsModal = ({
   }, [companyId, role]);
 
   useEffect(() => { 
-    if (isOpen) loadData(type, new Date(initialDate), 'day'); 
-  }, [isOpen, type, initialDate, loadData]);
+    if (isOpen && localStart && localEnd) {
+      loadData(type, localStart, localEnd); 
+    }
+  }, [isOpen, type, localStart, localEnd, loadData]);
 
   useEffect(() => {
-    if (initialDate) setViewDate(new Date(initialDate));
-  }, [initialDate]);
+    if (isOpen) {
+      if (startDate) setLocalStart(startDate);
+      if (endDate) setLocalEnd(endDate);
+    }
+  }, [isOpen, startDate, endDate]);
 
   const filtered = data.filter(e =>
     e.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -286,9 +300,63 @@ const AttendanceAnalyticsModal = ({
           display: flex; align-items: flex-start; gap: 6px;
         }
 
+        .aam-leave-table-head,
+        .aam-leave-table-row {
+          display: grid;
+          grid-template-columns: minmax(0, 1.3fr) 1fr 100px;
+          gap: 20px;
+          align-items: center;
+        }
+        .aam-leave-table-head {
+          padding: 0 12px 10px;
+          margin-bottom: 8px;
+          border-bottom: 2px solid #f1f5f9;
+          color: #64748b;
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+        .aam-leave-table-row {
+          padding: 16px 12px;
+          border-bottom: 1px solid #f1f5f9;
+          transition: background 0.2s;
+        }
+        .aam-leave-table-row:hover {
+          background: #f8fafc;
+        }
+        .aam-leave-person {
+          min-width: 0;
+        }
+        .aam-leave-person .aam-name { margin-bottom: 2px; }
+        .aam-leave-reason {
+          font-size: 12px;
+          color: #475569;
+          line-height: 1.4;
+        }
+        .aam-leave-status {
+          justify-self: end;
+          padding: 4px 10px;
+          border-radius: 999px;
+          font-size: 11px;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+        }
+        .aam-leave-status.approved { background: #dcfce7; color: #166534; }
+        .aam-leave-status.pending { background: #fef3c7; color: #92400e; }
+
         .aam-loading-state { padding: 48px 0; text-align: center; color: #9ca3af; }
-        .aam-empty-state { padding: 48px 0; text-align: center; color: #9ca3af; }
         .aam-empty-icon { font-size: 32px; margin-bottom: 12px; opacity: 0.5; }
+        .aam-group-banner {
+          background: #0f172a; color: #ffffff; padding: 10px 16px;
+          border-radius: 10px; margin: 20px 0 10px; font-size: 11px;
+          font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+          display: flex; align-items: center; justify-content: space-between;
+          border-left: 4px solid #38bdf8;
+        }
+        .aam-group-label { display: flex; align-items: center; }
+        .aam-group-count-badge { background: rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 99px; font-size: 10px; }
 
         /* Hover Tooltip */
         .aam-user-hover-container { position: relative; }
@@ -319,7 +387,11 @@ const AttendanceAnalyticsModal = ({
               <div className="aam-title-group">
                 <h3 className="aam-title">{meta.label}</h3>
                 <span className="aam-subtitle">
-                  {viewDate.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                  {localStart === localEnd ? (
+                    moment(localStart).format('dddd, D MMMM YYYY')
+                  ) : (
+                    `${moment(localStart).format('D MMM')} - ${moment(localEnd).format('D MMM YYYY')}`
+                  )}
                 </span>
               </div>
             </div>
@@ -328,14 +400,59 @@ const AttendanceAnalyticsModal = ({
 
 
           <div className="aam-toolbar">
-            <div className="aam-search-container">
-              <FiSearch className="aam-search-icon" />
-              <input 
-                className="aam-search-input"
-                placeholder="Search by name or department..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <div className="aam-search-container" style={{ flex: 1 }}>
+                  <FiSearch className="aam-search-icon" />
+                  <input 
+                    className="aam-search-input"
+                    placeholder="Search name, org, or department..."
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                  />
+                </div>
+                <select 
+                  value={groupBy} 
+                  onChange={e => setGroupBy(e.target.value)}
+                  style={{
+                    padding: '10px 12px',
+                    borderRadius: '10px',
+                    border: '1px solid #e5e7eb',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    color: '#374151',
+                    outline: 'none',
+                    background: '#f9fafb',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="none">List View</option>
+                  <option value="organization">Group by Org</option>
+                </select>
+              </div>
+
+              {/* Date Range Picker inside Modal */}
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', background: '#f8fafc', padding: '8px 12px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>From:</span>
+                  <input 
+                    type="date" 
+                    value={localStart}
+                    onChange={(e) => setLocalStart(e.target.value)}
+                    style={{ border: 'none', background: 'transparent', fontSize: '13px', fontWeight: '600', color: '#1e293b', outline: 'none' }}
+                  />
+                </div>
+                <div style={{ width: '1px', height: '14px', background: '#e2e8f0' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase' }}>To:</span>
+                  <input 
+                    type="date" 
+                    value={localEnd}
+                    onChange={(e) => setLocalEnd(e.target.value)}
+                    style={{ border: 'none', background: 'transparent', fontSize: '13px', fontWeight: '600', color: '#1e293b', outline: 'none' }}
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -356,64 +473,91 @@ const AttendanceAnalyticsModal = ({
                   <span className="aam-list-title">Employee List</span>
                   <span className="aam-badge-count">{filtered.length}</span>
                 </div>
-                {filtered.map(emp => (
-                  <div 
-                    key={emp.id} 
-                    className="aam-card aam-user-hover-container clickable" 
-                    onClick={() => setSelectedUser(emp)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <div className="aam-avatar" style={{ background: avatar_color(emp.name) }}>
-                      {initials(emp.name)}
-                    </div>
-                    <div className="aam-info">
-                      <div className="aam-name">{emp.name}</div>
-                      <div className="aam-dept">{emp.department}</div>
-                      
-                      <div className="aam-details">
-                        {type === 'present' && (emp.checkIn || emp.checkOut) && (
-                          <span className="aam-detail-tag">
-                            <FiClock size={11} /> {emp.checkIn || '--'} - {emp.checkOut || '--'}
-                          </span>
-                        )}
-                        {type === 'leave' && emp.leaveType && (
-                          <span className="aam-detail-tag">
-                            <FiCalendar size={11} /> {emp.leaveType}
-                          </span>
-                        )}
-                      </div>
-                      {type === 'leave' && emp.leaveReason && (
-                        <div className="aam-reason-box">
-                          <FiInfo size={14} style={{ marginTop: 2, flexShrink: 0 }} />
-                          <span>{emp.leaveReason}</span>
-                        </div>
-                      )}
-                    </div>
+                {(() => {
+                  const items = [];
+                  let lastGroup = null;
+                  
+                  const sortedData = [...filtered].sort((a, b) => {
+                    if (groupBy === 'organization') {
+                      const orgA = a.organization || 'SFPL';
+                      const orgB = b.organization || 'SFPL';
+                      if (orgA !== orgB) return orgA.localeCompare(orgB);
+                    }
+                    return a.name.localeCompare(b.name);
+                  });
 
-                    {/* Hover History Tooltip */}
-                    {emp.leaveHistory && emp.leaveHistory.length > 0 && (
-                      <div className="aam-history-tooltip">
-                        <div className="aam-history-title">Recent Leave History</div>
-                        {emp.leaveHistory.slice(0, 5).map((h, hi) => (
-                          <div key={hi} className="aam-history-item">
-                            <span className="aam-history-date">
-                              {new Date(h.date).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' })} ({new Date(h.date).toLocaleDateString('en-IN', { weekday: 'short' })})
-                            </span>
-                            <span className="aam-history-reason">
-                              — {h.leaveReason || h.leaveType || 'No reason provided'}
-                            </span>
+                  sortedData.forEach(emp => {
+                    if (groupBy === 'organization') {
+                      const org = emp.organization || 'SFPL';
+                      if (org !== lastGroup) {
+                        items.push(
+                          <div key={`group-${org}`} className="aam-group-banner">
+                            <div className="aam-group-label">{org}</div>
+                            <div className="aam-group-count-badge">
+                              {sortedData.filter(x => (x.organization || 'SFPL') === org).length} Employees
+                            </div>
                           </div>
-                        ))}
-                      </div>
-                    )}
+                        );
+                        lastGroup = org;
+                      }
+                    }
 
-                    <div className="aam-stats">
-                      <span className={`aam-status-chip ${String(emp.status).toLowerCase().replace(' ', '_')}`}>
-                        {STATUS_CHIP_LABEL[emp.status] || emp.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                    if (type === 'leave') {
+                      items.push(
+                        <div
+                          key={emp.id}
+                          className="aam-leave-table-row clickable"
+                          onClick={() => setSelectedUser(emp)}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <div className="aam-leave-person">
+                            <div className="aam-name" style={{ fontSize: '15px', marginBottom: '4px' }}>{emp.name}</div>
+                            <div className="aam-dept" style={{ color: '#64748b' }}>{emp.organization} · {emp.team}</div>
+                          </div>
+                          <div className="aam-leave-reason" style={{ fontSize: '13px', color: '#475569' }}>
+                            {emp.leaveReason || emp.leaveType || 'Leave applied'}
+                          </div>
+                          <div className={`aam-leave-status ${emp.leaveStatus}`} style={{ textAlign: 'center' }}>
+                            {emp.leaveStatus === 'approved' ? 'APPROVED' : 'PENDING'}
+                          </div>
+                        </div>
+                      );
+                    } else {
+                      items.push(
+                        <div 
+                          key={emp.id} 
+                          className="aam-card aam-user-hover-container clickable" 
+                          onClick={() => setSelectedUser(emp)}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <div className="aam-avatar" style={{ background: avatar_color(emp.name) }}>
+                            {initials(emp.name)}
+                          </div>
+                          <div className="aam-info">
+                            <div className="aam-name">{emp.name}</div>
+                            <div className="aam-dept">{emp.department || emp.team}</div>
+                            
+                            <div className="aam-details">
+                              {type === 'present' && (emp.checkIn || emp.checkOut) && (
+                                <>
+                                  {emp.checkIn && <div className="aam-detail-tag"><FiClock /> In: {emp.checkIn}</div>}
+                                  {emp.checkOut && <div className="aam-detail-tag"><FiClock /> Out: {emp.checkOut}</div>}
+                                </>
+                              )}
+                              {emp.location && <div className="aam-detail-tag"><FiMapPin /> {emp.location}</div>}
+                            </div>
+                          </div>
+                          <div className="aam-stats">
+                            <div className={`aam-status-chip ${emp.status}`}>
+                              {STATUS_CHIP_LABEL[emp.status] || emp.status}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                  });
+                  return items;
+                })()}
               </>
             )}
           </div>
@@ -423,8 +567,8 @@ const AttendanceAnalyticsModal = ({
         isOpen={!!selectedUser}
         onClose={() => setSelectedUser(null)}
         employee={selectedUser}
-        startDate={viewDate.toISOString().substring(0, 7) + '-01'}
-        endDate={viewDate.toISOString().substring(0, 10)}
+        startDate={startDate}
+        endDate={endDate}
       />
     </>
   );

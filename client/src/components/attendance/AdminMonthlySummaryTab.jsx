@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  FiUsers, FiCalendar, FiSearch, FiDownload, FiFilter, FiChevronLeft, FiChevronRight, FiGrid
+  FiUsers, FiCalendar, FiSearch, FiDownload, FiFilter, FiChevronLeft, FiChevronRight
 } from 'react-icons/fi';
 import attendanceAPI from '../../api/attendance/attendance.api';
 import masterAPI from '../../api/attendance/master.api';
@@ -14,12 +14,12 @@ const AdminMonthlySummaryTab = ({ currentMonth, onMonthChange, companies = [], s
   const [teams, setTeams] = useState([]);
   const [selectedTeamId, setSelectedTeamId] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [groupBy] = useState('none');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const itemsPerPage = 15;
 
   const loadData = useCallback(async () => {
-    if (!selectedCompanyId) return;
     try {
       setLoading(true);
       const [year, month] = currentMonth.split('-');
@@ -37,8 +37,8 @@ const AdminMonthlySummaryTab = ({ currentMonth, onMonthChange, companies = [], s
 
   const loadTeams = useCallback(async () => {
     if (!selectedCompanyId) {
-        setTeams([]);
-        return;
+      setTeams([]);
+      return;
     }
     try {
       const res = await masterAPI.getTeamsByCompany(selectedCompanyId);
@@ -50,17 +50,27 @@ const AdminMonthlySummaryTab = ({ currentMonth, onMonthChange, companies = [], s
 
   useEffect(() => { loadData(); }, [loadData]);
   useEffect(() => { loadTeams(); }, [loadTeams]);
+  useEffect(() => { setCurrentPage(1); }, [currentMonth, selectedCompanyId, selectedTeamId, searchTerm, groupBy]);
 
   const filteredData = data.filter(emp => {
-    const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          emp.code.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesTeam = selectedTeamId === 'all' || emp.teamId === selectedTeamId; // Note: Ensure backend provides teamId if possible, or filter locally if needed
+    const name = String(emp.name || '').toLowerCase();
+    const code = String(emp.code || '').toLowerCase();
+    const department = String(emp.department || '').toLowerCase();
+    const teamName = String(emp.teamName || emp.team || '').toLowerCase();
+    const matchesSearch = !searchTerm || [name, code, department, teamName].some(value => value.includes(searchTerm.toLowerCase()));
+    const matchesTeam = selectedTeamId === 'all' || String(emp.teamId || emp.team_name || '').toLowerCase() === String(selectedTeamId).toLowerCase();
     return matchesSearch && matchesTeam;
   });
 
-  const totalPages = Math.max(1, Math.ceil(filteredData.length / itemsPerPage));
+  const sortedData = [...filteredData].sort((a, b) => {
+    if (groupBy === 'organization') return (a.company_name || a.organization || '').localeCompare(b.company_name || b.organization || '');
+    if (groupBy === 'team') return (a.teamName || a.team || '').localeCompare(b.teamName || b.team || '');
+    return (a.name || '').localeCompare(b.name || '');
+  });
+
+  const totalPages = Math.max(1, Math.ceil(sortedData.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedData = filteredData.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedData = sortedData.slice(startIndex, startIndex + itemsPerPage);
 
   const handleExport = () => {
       // Basic CSV export logic
@@ -82,12 +92,12 @@ const AdminMonthlySummaryTab = ({ currentMonth, onMonthChange, companies = [], s
     <div className="adb-monthly-tab">
       <style>{`
         .adb-monthly-tab { padding: 24px; }
-        .adb-mon-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; gap: 16px; flex-wrap: wrap; }
-        .adb-mon-controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-        .adb-filter-group { display: flex; align-items: center; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 4px 12px; gap: 8px; }
-        .adb-filter-lbl { font-size: 12px; color: #6b7280; font-weight: 500; }
-        .adb-mon-input { border: none; font-size: 14px; color: #111827; font-weight: 600; outline: none; background: transparent; }
-        .adb-mon-select { border: none; font-size: 14px; color: #111827; font-weight: 600; outline: none; background: transparent; min-width: 120px; }
+        .adb-mon-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; background: var(--surface); padding: 12px 20px; border-radius: var(--r); border: 1px solid var(--border); box-shadow: var(--shadow-sm); gap: 16px; flex-wrap: wrap; }
+        .adb-mon-controls { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+        .adb-filter-lbl { font-size: 12px; color: var(--ink3); font-weight: 600; }
+        .adb-mon-input { border: none; background: none; font-family: var(--font); font-size: 0.8125rem; font-weight: 600; color: var(--ink1); outline: none; cursor: pointer; }
+        .adb-mon-select { border: none; background: none; font-family: var(--font); font-size: 0.8125rem; font-weight: 600; color: var(--ink1); outline: none; cursor: pointer; min-width: 120px; }
+        .adb-mon-date-range { display: flex; gap: 12px; flex-wrap: wrap; }
         
         .adb-mon-grid { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .adb-mon-table { width: 100%; border-collapse: collapse; }
@@ -112,36 +122,37 @@ const AdminMonthlySummaryTab = ({ currentMonth, onMonthChange, companies = [], s
 
       <div className="adb-mon-header">
         <div className="adb-mon-controls">
-          <div className="adb-filter-group">
-            <span className="adb-filter-lbl">Organization:</span>
-            <select 
-              className="adb-mon-select"
+          <div className="adb-date-picker-wrap">
+            <span className="adb-filter-lbl">Organization</span>
+            <FiUsers className="adb-dp-icon" />
+            <select
+              className="adb-company-select"
               value={selectedCompanyId || ''}
               onChange={(e) => onCompanyChange(e.target.value)}
             >
-              <option value="">Select Organization</option>
+              <option value="">All Companies</option>
               {companies.map(c => (
                 <option key={c._id} value={c._id}>{c.company_name}</option>
               ))}
             </select>
           </div>
 
-          <div className="adb-filter-group">
-            <span className="adb-filter-lbl">Month:</span>
-            <FiCalendar size={14} color="#9ca3af" />
-            <input 
-              type="month" 
-              className="adb-mon-input" 
+          <div className="adb-date-picker-wrap">
+            <span className="adb-filter-lbl">Month</span>
+            <FiCalendar className="adb-dp-icon" />
+            <input
+              type="month"
+              className="adb-date-input"
               value={currentMonth}
               onChange={(e) => onMonthChange(e.target.value)}
             />
           </div>
 
-          <div className="adb-filter-group">
-            <span className="adb-filter-lbl">Team:</span>
-            <FiUsers size={14} color="#9ca3af" />
-            <select 
-              className="adb-mon-select"
+          <div className="adb-company-filter-wrap">
+            <span className="adb-filter-lbl">Team</span>
+            <FiFilter className="adb-dp-icon" />
+            <select
+              className="adb-company-select"
               value={selectedTeamId}
               onChange={(e) => setSelectedTeamId(e.target.value)}
             >
@@ -152,12 +163,12 @@ const AdminMonthlySummaryTab = ({ currentMonth, onMonthChange, companies = [], s
             </select>
           </div>
 
-          <div className="adb-filter-group">
-            <FiSearch size={14} color="#9ca3af" />
-            <input 
-              type="text" 
-              placeholder="Search employee..." 
+          <div className="adb-company-filter-wrap adb-mon-search">
+            <FiSearch className="adb-dp-icon" />
+            <input
+              type="text"
               className="adb-mon-input"
+              placeholder="Search employee..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -191,7 +202,7 @@ const AdminMonthlySummaryTab = ({ currentMonth, onMonthChange, companies = [], s
               {paginatedData.length === 0 ? (
                 <tr>
                   <td colSpan="6" style={{ textAlign: 'center', padding: '48px', color: '#9ca3af' }}>
-                    {!selectedCompanyId ? 'Please select an organization to view the summary.' : 'No records found for this period.'}
+                      No records found for this period.
                   </td>
                 </tr>
               ) : paginatedData.map(emp => (
@@ -226,7 +237,7 @@ const AdminMonthlySummaryTab = ({ currentMonth, onMonthChange, companies = [], s
 
           {totalPages > 1 && (
             <div className="adb-mon-pagination">
-              <span className="adb-pag-info">Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredData.length)} of {filteredData.length} employees</span>
+                      <span className="adb-pag-info">Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, sortedData.length)} of {sortedData.length} employees</span>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button 
                   className="adb-pag-btn" 

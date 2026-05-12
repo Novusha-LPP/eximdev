@@ -7,8 +7,12 @@ import fs from 'fs';
 import path from 'path';
 import * as attendanceCtrl from '../../controllers/attendance/attendance.controller.js';
 import * as hodCtrl from '../../controllers/attendance/HOD.controller.js';
+import dashboardRoutes from './dashboardRoutes.mjs';
 
 const router = express.Router();
+
+// Mount new enterprise dashboard routes
+router.use('/', dashboardRoutes);
 
 // Employee Routes
 router.post('/punch', attendanceAuthBridge, attendanceCtrl.punch);

@@ -185,7 +185,7 @@ router.get("/api/kpi/templates", verifyToken, async (req, res) => {
         const templates = await KPITemplate.find(query).populate('owner', 'first_name last_name username').lean();
         
         // Enrich with team info
-        const teams = await TeamModel.find({ isActive: true }).lean();
+        const teams = await TeamModel.find({ isActive: { $ne: false } }).lean();
         const enrichedTemplates = templates.map(tmpl => {
             const ownerId = tmpl.owner?._id?.toString();
             const userTeam = teams.find(t => 
@@ -218,7 +218,7 @@ router.get("/api/kpi/my-department", verifyToken, async (req, res) => {
         // Find team where user is a member
         const team = await TeamModel.findOne({
             "members.userId": req.user._id,
-            isActive: true
+            isActive: { $ne: false }
         });
 
         if (team && team.department) {
@@ -228,7 +228,7 @@ router.get("/api/kpi/my-department", verifyToken, async (req, res) => {
         // If not found as member, check if user is HOD
         const hodTeam = await TeamModel.findOne({
             hodId: req.user._id,
-            isActive: true
+            isActive: { $ne: false }
         });
 
         if (hodTeam && hodTeam.department) {
@@ -448,7 +448,7 @@ router.get("/api/kpi/admin/stats", verifyToken, async (req, res) => {
         const iMonth = parseInt(month);
 
         // Fetch all active teams
-        const teams = await TeamModel.find({ isActive: true });
+        const teams = await TeamModel.find({ isActive: { $ne: false } });
         
         const stats = [];
 
@@ -500,7 +500,7 @@ router.get("/api/kpi/admin/submission-status", verifyToken, async (req, res) => 
 
         // If team is specified, get members of that team
         if (teamName) {
-            const team = await TeamModel.findOne({ name: teamName, isActive: true });
+            const team = await TeamModel.findOne({ name: teamName, isActive: { $ne: false } });
             if (team) {
                 targetUserIds = team.members.map(m => m.userId.toString());
                 if (team.hodId) targetUserIds.push(team.hodId.toString());
@@ -1305,7 +1305,7 @@ router.get("/api/kpi/hod/team-sheets", verifyToken, async (req, res) => {
         let query = {};
 
         if (isHOD && !isAdmin) {
-            const teams = await TeamModel.find({ hodId: req.user._id, isActive: true });
+            const teams = await TeamModel.find({ hodId: req.user._id, isActive: { $ne: false } });
             let memberIds = [];
             teams.forEach(t => {
                 t.members.forEach(m => memberIds.push(m.userId.toString()));
@@ -1634,7 +1634,7 @@ router.get("/api/kpi/analytics/pulse", verifyToken, async (req, res) => {
 
         // Determine users to filter by
         if (teamName) {
-            const team = await TeamModel.findOne({ name: teamName, isActive: true });
+            const team = await TeamModel.findOne({ name: teamName, isActive: { $ne: false } });
             if (team) {
                 targetUserIds = team.members.map(m => m.userId.toString());
                 if (team.hodId) targetUserIds.push(team.hodId.toString());
@@ -1642,7 +1642,7 @@ router.get("/api/kpi/analytics/pulse", verifyToken, async (req, res) => {
             }
         } else if (req.user.role === 'Head_of_Department') {
             // Default HOD to their team
-            const hodTeam = await TeamModel.findOne({ hodId: req.user._id, isActive: true });
+            const hodTeam = await TeamModel.findOne({ hodId: req.user._id, isActive: { $ne: false } });
             if (hodTeam) {
                 targetUserIds = hodTeam.members.map(m => m.userId.toString());
                 targetUserIds.push(req.user._id.toString());
@@ -1662,7 +1662,7 @@ router.get("/api/kpi/analytics/pulse", verifyToken, async (req, res) => {
         const prevSheets = await KPISheet.find(queryPrev).populate('user', 'first_name last_name username role');
 
         // Fetch all teams to map users to teams
-        const allTeams = await TeamModel.find({ isActive: true });
+        const allTeams = await TeamModel.find({ isActive: { $ne: false } });
 
         const pulseData = [];
 
@@ -1777,14 +1777,14 @@ router.get("/api/kpi/analytics/blockers-losses", verifyToken, async (req, res) =
         let targetUserIds = null;
 
         if (teamName) {
-            const team = await TeamModel.findOne({ name: teamName, isActive: true });
+            const team = await TeamModel.findOne({ name: teamName, isActive: { $ne: false } });
             if (team) {
                 targetUserIds = team.members.map(m => m.userId.toString());
                 if (team.hodId) targetUserIds.push(team.hodId.toString());
                 targetUserIds = [...new Set(targetUserIds)];
             }
         } else if (req.user.role === 'Head_of_Department') {
-            const hodTeam = await TeamModel.findOne({ hodId: req.user._id, isActive: true });
+            const hodTeam = await TeamModel.findOne({ hodId: req.user._id, isActive: { $ne: false } });
             if (hodTeam) {
                 targetUserIds = hodTeam.members.map(m => m.userId.toString());
                 targetUserIds.push(req.user._id.toString());
@@ -1802,7 +1802,7 @@ router.get("/api/kpi/analytics/blockers-losses", verifyToken, async (req, res) =
             .populate('user', 'first_name last_name username role')
             .sort({ "summary.business_loss": -1 });
 
-        const allTeams = await TeamModel.find({ isActive: true });
+        const allTeams = await TeamModel.find({ isActive: { $ne: false } });
 
         const reportData = [];
         const blockerStats = {}; // Category -> count

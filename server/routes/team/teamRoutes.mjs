@@ -10,7 +10,7 @@ const router = express.Router();
 router.get("/api/teams/hod/:hodUsername", authMiddleware, async (req, res) => {
     try {
         const { hodUsername } = req.params;
-        const query = { hodUsername, isActive: true };
+        const query = { hodUsername, isActive: { $ne: false } };
 
         // If user is Admin, they must be in allowedAdmins (unless they are the HOD themselves, let's allow that)
         if (req.user.role === 'Admin') {
@@ -70,10 +70,10 @@ router.get("/api/teams/all", authMiddleware, async (req, res) => {
         // Non-admins will continue to see only teams where they are HOD or listed in allowedAdmins.
         let teamsQuery;
         if (req.user && req.user.role === 'Admin') {
-            teamsQuery = { isActive: true };
+            teamsQuery = { isActive: { $ne: false } };
         } else {
             teamsQuery = {
-                isActive: true,
+                isActive: { $ne: false },
                 $or: [
                     { allowedAdmins: req.user.username },
                     { hodUsername: req.user.username }
@@ -193,7 +193,7 @@ router.post("/api/teams", authMiddleware, auditMiddleware("Team"), async (req, r
         }
 
         // Check for duplicate team name for this HOD
-        const existingTeam = await TeamModel.findOne({ name, hodUsername, isActive: true });
+        const existingTeam = await TeamModel.findOne({ name, hodUsername, isActive: { $ne: false } });
         if (existingTeam) {
             return res.status(400).json({ success: false, message: "A team with this name already exists" });
         }
@@ -400,7 +400,7 @@ router.delete("/api/teams/:teamId/members/:username", authMiddleware, auditMiddl
 router.get("/api/teams/hod/:hodUsername/members", authMiddleware, async (req, res) => {
     try {
         const { hodUsername } = req.params;
-        const query = { hodUsername, isActive: true };
+        const query = { hodUsername, isActive: { $ne: false } };
 
         // If user is Admin, they must be in allowedAdmins (or be the HOD)
         if (req.user.role === 'Admin') {
@@ -436,7 +436,7 @@ router.get("/api/teams/hod/:hodUsername/members", authMiddleware, async (req, re
 router.get("/api/teams/hod/:hodUsername/available-users", authMiddleware, async (req, res) => {
     try {
         const { hodUsername } = req.params;
-        const query = { hodUsername, isActive: true };
+        const query = { hodUsername, isActive: { $ne: false } };
 
         // If user is Admin, they must be in allowedAdmins (or be the HOD)
         if (req.user.role === 'Admin') {

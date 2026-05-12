@@ -28,8 +28,11 @@ class AttendanceEngine {
             punch_date: date
         };
 
-        // For cross-day shifts, we must also look for punches on the following day to capture the OUT punch
-        if (shift?.is_cross_day) {
+        // Automatically detect if shift spans midnight even if is_cross_day flag is missing
+        const isCrossDay = shift?.is_cross_day || (shift?.start_time && shift?.end_time && 
+            moment(shift.end_time, 'HH:mm').isSameOrBefore(moment(shift.start_time, 'HH:mm')));
+
+        if (isCrossDay) {
             const nextDay = moment(date).add(1, 'days').format('YYYY-MM-DD');
             punchQuery = {
                 employee_id: user._id,
@@ -81,12 +84,17 @@ class AttendanceEngine {
         let totalWorkHours = 0;
         let cumulativeMs = 0;
         let lastInPunch = null;
-
+        let lastOut = null;
         punches.forEach(punch => {
             if (punch.punch_type === 'IN') {
-                lastInPunch = punch;
+                // Only consider IN punches that occur on the date being processed.
+                // This prevents the next day's shift from being counted in this day's record.
+                if (moment(punch.punch_date).format('YYYY-MM-DD') === date) {
+                    lastInPunch = punch;
+                }
             } else if (punch.punch_type === 'OUT' && lastInPunch) {
                 cumulativeMs += (punch.punch_time - lastInPunch.punch_time);
+                lastOut = punch; // This OUT belongs to a session starting on 'date'
                 lastInPunch = null;
             }
         });
@@ -104,8 +112,6 @@ class AttendanceEngine {
         let earlyInMinutes = 0;
 
         const firstIn = punches.find(p => p.punch_type === 'IN');
-        const absoluteLastPunch = punches[punches.length - 1];
-        const lastOut = (absoluteLastPunch && absoluteLastPunch.punch_type === 'OUT') ? absoluteLastPunch : null;
 
         // If employee punched in
         if (firstIn) {
@@ -172,10 +178,11 @@ class AttendanceEngine {
                 let halfDayThreshold = shift.half_day_hours || deptHalfDayThreshold || company.attendance_config?.half_day_threshold_hours || 4;
 
                 // Specific rule for Operations shift: 8.3 working hours required for Present
-                if (shift.shift_name?.toLowerCase().includes('operations')) {
+                if (shift.shift_name?.toLowerCase().includes('operation')) {
                     fullDayThreshold = 8.3;
                     halfDayThreshold = 4.15;
                 }
+                
 
                 const isShiftOver = now.isAfter(shiftEnd);
                 const isCurrentlyPunchedOut = !lastInPunch;

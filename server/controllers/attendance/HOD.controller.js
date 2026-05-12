@@ -11,6 +11,7 @@ import RegularizationRequest from '../../model/attendance/RegularizationRequest.
 import mongoose from 'mongoose';
 import { ALLOWED_USERNAMES } from '../../middleware/requireAllowedAdmin.mjs';
 import PolicyResolver from '../../services/attendance/PolicyResolver.js';
+import AggregationService from '../../services/attendance/AggregationService.js';
 import ActivityLog from '../../model/attendance/ActivityLog.js';
 
 const normalizeRole = (role) => String(role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
@@ -36,7 +37,7 @@ const LEAVE_STAGE = {
 const LEAVE_STAGE_LABELS = {
     [LEAVE_STAGE.HOD]: 'Team HOD',
     [LEAVE_STAGE.SHALINI]: 'shalini_arun',
-    [LEAVE_STAGE.FINAL]: 'Final approver'
+    [LEAVE_STAGE.FINAL]: 'Pending Final Approval'
 };
 
 const STAGE_READABLE_LABELS = {
@@ -252,7 +253,7 @@ const getShaliniApprover = async (companyId) => {
     const companyScoped = await User.findOne({
         username: STAGE_2_APPROVER_USERNAME,
         company_id: companyId,
-        isActive: true
+        isActive: { $ne: false }
     }).select('_id username role');
 
     if (companyScoped) {
@@ -261,7 +262,7 @@ const getShaliniApprover = async (companyId) => {
 
     return User.findOne({
         username: STAGE_2_APPROVER_USERNAME,
-        isActive: true
+        isActive: { $ne: false }
     }).select('_id username role');
 };
 
@@ -341,7 +342,7 @@ const logApprovalActivity = async (req, module, action, details, metadata = {}) 
 export const getDashboard = async (req, res) => {
     try {
         const hod = req.user;
-        const { date, teamId } = req.query;
+        const { date, teamId, leaveMonth, appliedMonth } = req.query;
         // Use UTC for date-only comparison to match AttendanceEngine
         const targetDate = date ? moment.utc(date).startOf('day') : moment.utc().startOf('day');
 
@@ -372,7 +373,7 @@ export const getDashboard = async (req, res) => {
                     const memberIds = team.members.map(m => m.userId).filter(Boolean);
                     employees = await User.find({
                         _id: { $in: memberIds },
-                        isActive: true
+                        isActive: { $ne: false }
                     }).select('_id first_name last_name username email role department_id');
                     debugLog.push(`Admin filtered by teamId ${teamId}: Found ${employees.length} team members`);
                 } else {
@@ -382,11 +383,13 @@ export const getDashboard = async (req, res) => {
             } else {
                 const userQuery = {
                     company_id: companyId,
-                    isActive: true
+                    isActive: { $ne: false }
                 };
                 employees = await User.find(userQuery).select('_id first_name last_name username email role department_id');
                 debugLog.push(`Admin mode (all): Found ${employees.length} total employees`);
             }
+            // For admins, fetch ALL teams so we can map names correctly
+            allTeamsForHOD = await TeamModel.find({ isActive: { $ne: false } }).lean();
         } else {
             // HOD sees only their team members
             debugLog.push(`Loading teams for HOD: ${hod.username}`);
@@ -443,11 +446,21 @@ export const getDashboard = async (req, res) => {
             
             // Convert Set to Array of ObjectIds
             employeeIds = Array.from(memberUserIds).map(id => id);
-            
-            // Fetch full employee details
+        }
+
+        const getTeamName = (empId) => {
+            const empIdStr = empId?.toString();
+            const team = allTeamsForHOD.find(t => 
+                t.members && t.members.some(m => m.userId?.toString() === empIdStr)
+            );
+            return team ? team.name : 'Unassigned';
+        };
+
+        // Fetch full employee details
+        if (employees.length === 0 && employeeIds.length > 0) {
             employees = await User.find({
                 _id: { $in: employeeIds },
-                isActive: true
+                isActive: { $ne: false }
             }).select('_id first_name last_name username email role department_id');
             
             debugLog.push(`Loaded ${employees.length} active team member details`);
@@ -468,7 +481,7 @@ export const getDashboard = async (req, res) => {
             const matchedTeam = (allTeamsForHOD || []).find(t => 
                 t.members && t.members.some(m => m.userId?.toString() === sid)
             );
-            return matchedTeam ? matchedTeam.name : null;
+            return matchedTeam ? matchedTeam.name : 'Unassigned';
         };
 
         employeeIds = employees.map(e => e._id);
@@ -597,10 +610,30 @@ export const getDashboard = async (req, res) => {
             .limit(100);
 
         // 5a. Get recently processed leave requests (History)
-        const recentProcessedLeaves = await LeaveApplication.find({
-            employee_id: { $in: employeeIds },
-            approval_status: { $in: ['approved', 'rejected'] }
-        })
+        const recentProcessedLeavesQuery = {
+            employee_id: { $in: employeeIds }
+        };
+
+        const resolvedLeaveMonth = leaveMonth || req.query.month || '';
+        const resolvedAppliedMonth = appliedMonth || '';
+
+        if (resolvedLeaveMonth) {
+            const startOfMonth = moment(resolvedLeaveMonth, 'YYYY-MM').startOf('month').toDate();
+            const endOfMonth = moment(resolvedLeaveMonth, 'YYYY-MM').endOf('month').toDate();
+            recentProcessedLeavesQuery.$and = recentProcessedLeavesQuery.$and || [];
+            recentProcessedLeavesQuery.$and.push({
+                from_date: { $lte: endOfMonth },
+                to_date: { $gte: startOfMonth }
+            });
+        }
+
+        if (resolvedAppliedMonth) {
+            const startOfMonth = moment(resolvedAppliedMonth, 'YYYY-MM').startOf('month').toDate();
+            const endOfMonth = moment(resolvedAppliedMonth, 'YYYY-MM').endOf('month').toDate();
+            recentProcessedLeavesQuery.applied_on = { $gte: startOfMonth, $lte: endOfMonth };
+        }
+
+        const recentProcessedLeaves = await LeaveApplication.find(recentProcessedLeavesQuery)
             .populate('employee_id', 'first_name last_name username company_id')
             .populate('employee_id.company_id', 'company_name')
             .populate('current_approver_id', 'first_name last_name username role')
@@ -609,6 +642,7 @@ export const getDashboard = async (req, res) => {
             .limit(50);
 
         const mapLeave = (leave) => {
+            const empId = leave.employee_id?._id || leave.employee_id;
             const currentApprover = leave.current_approver_id;
             const approvalStage = leave.approval_stage || LEAVE_STAGE.HOD;
             const approvalStageLabel = LEAVE_STAGE_LABELS[approvalStage] || approvalStage;
@@ -617,7 +651,8 @@ export const getDashboard = async (req, res) => {
                 employeeName: leave.employee_id?.first_name
                     ? `${leave.employee_id.first_name} ${leave.employee_id.last_name || ''}`.trim()
                     : leave.employee_id?.username || 'Unknown',
-                employeeId: leave.employee_id?._id || leave.employee_id,
+                employeeId: empId,
+                teamName: getTeamName(empId),
                 leaveType: leave.leave_policy_id?.leave_type || leave.leave_type || 'Unknown',
                 organizationName: leave.company_id?.company_name || leave.employee_id?.company_id?.company_name || null,
                 fromDate: leave.from_date,
@@ -780,7 +815,8 @@ export const getDashboard = async (req, res) => {
 
             return {
                 name: emp.first_name ? `${emp.first_name} ${emp.last_name || ''}`.trim() : emp.username,
-                role: 'Team Member',
+                role: emp.role || 'Team Member',
+                team: getTeamNameForMember(emp._id) || 'Unassigned',
                 attendance
             };
         });
@@ -869,12 +905,15 @@ export const getDashboard = async (req, res) => {
                     approvalTrail: buildApprovalTrail(leave),
                     currentApproverName: formatPersonName(leave.current_approver_id),
                     actionDate: leave.updatedAt,
-                    appliedOn: leave.createdAt,
-                    createdAt: leave.createdAt
+                    appliedOn: leave.applied_on || leave.createdAt,
+                    applied_on: leave.applied_on || leave.createdAt,
+                    createdAt: leave.createdAt,
+                    final_status: leave.approval_status
                 })),
                 pendingRegularization: pendingRegularizations.map(reg => ({
                     id: reg._id,
                     employeeName: reg.employee_id.first_name ? `${reg.employee_id.first_name} ${reg.employee_id.last_name || ''}`.trim() : reg.employee_id.username,
+                    teamName: getTeamNameForMember(reg.employee_id._id),
                     date: reg.attendance_date,
                     type: reg.regularization_type,
                     reason: reg.reason
@@ -1072,6 +1111,7 @@ export const approveRequest = async (req, res) => {
                     );
 
                     fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
+                    AggregationService.clearCache();
                     return res.json({ message: 'Leave rejected successfully' });
                 };
 
@@ -1116,6 +1156,7 @@ export const approveRequest = async (req, res) => {
                     );
 
                     fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
+                    AggregationService.clearCache();
                     return res.json({ message: 'Leave approved successfully' });
                 };
 
@@ -1141,6 +1182,7 @@ export const approveRequest = async (req, res) => {
 
                     setPendingStage(application, LEAVE_STAGE.SHALINI, shaliniApprover._id, 'ADMIN', STAGE_2_APPROVER_USERNAME);
                     await application.save();
+                    AggregationService.clearCache();
                     return res.json({ message: 'Leave approved by HOD and forwarded to shalini_arun' });
                 }
 
@@ -1160,6 +1202,7 @@ export const approveRequest = async (req, res) => {
                     appendApprovalHistoryEntry(application, actorObjectId, actorName, actorRole, 'approved', commentText);
                     setPendingStage(application, LEAVE_STAGE.FINAL, undefined, 'ADMIN');
                     await application.save();
+                    AggregationService.clearCache();
                     return res.json({ message: 'Leave approved by shalini_arun and forwarded for final approval' });
                 }
 
@@ -1245,6 +1288,7 @@ export const approveRequest = async (req, res) => {
                 }
             );
 
+            AggregationService.clearCache();
             return res.json({ message: `Regularization ${status} successfully` });
         }
 
@@ -1286,7 +1330,7 @@ export const getDepartmentAttendanceReport = async (req, res) => {
                 // Allowlisted admins can view all employees in company scope.
                 const userQuery = {
                     company_id: companyId,
-                    isActive: true
+                    isActive: { $ne: false }
                 };
                 employees = await User.find(userQuery).select('_id first_name last_name username');
             } else {
@@ -1314,7 +1358,7 @@ export const getDepartmentAttendanceReport = async (req, res) => {
                 employeeIds = Array.from(memberUserIds).map(id => id);
                 employees = await User.find({
                     _id: { $in: employeeIds },
-                    isActive: true
+                    isActive: { $ne: false }
                 }).select('_id first_name last_name username');
             }
         } else {
@@ -1346,7 +1390,7 @@ export const getDepartmentAttendanceReport = async (req, res) => {
             // Fetch full employee details
             employees = await User.find({
                 _id: { $in: employeeIds },
-                isActive: true
+                isActive: { $ne: false }
             }).select('_id first_name last_name username');
         }
 
@@ -1467,12 +1511,9 @@ export const getAdminLeaveRequests = async (req, res) => {
         const admin = req.user;
         const adminUsername = String(admin.username || '').toLowerCase();
         const isAllowedAdmin = ALLOWED_USERNAMES.has(adminUsername);
+        console.log(`[DEBUG_HOD] Actor: ${adminUsername} | isAllowedAdmin: ${isAllowedAdmin} | Allowed List: ${Array.from(ALLOWED_USERNAMES).join(',')}`);
 
-        if (!isAdminRole(admin.role) && !isAllowedAdmin) {
-            return res.status(403).json({ message: 'Admin access only' });
-        }
-
-        const { teamId, status, historyPage = 1, historyLimit = 100, search, month } = req.query;
+        const { teamId, status, historyPage = 1, historyLimit = 100, search, month, leaveMonth, appliedMonth } = req.query;
         const page = Math.max(1, parseInt(historyPage));
         const limit = Math.max(1, parseInt(historyLimit));
 
@@ -1582,10 +1623,13 @@ export const getAdminLeaveRequests = async (req, res) => {
                 });
 
         // Fetch pending leaves
-        const pendingLeaves = await LeaveApplication.find({
+        const finalQuery = {
             ...leaveQuery,
             ...getActorPendingLeaveQuery(admin)
-        })
+        };
+        console.log(`[DEBUG_LEAVE] Admin: ${adminUsername} | isAllowedAdmin: ${isAllowedAdmin} | Query: ${JSON.stringify(finalQuery)}`);
+
+        const pendingLeaves = await LeaveApplication.find(finalQuery)
             .populate('employee_id', 'first_name last_name username company_id')
             .populate('employee_id.company_id', 'company_name')
             .populate('company_id', 'company_name')
@@ -1598,20 +1642,31 @@ export const getAdminLeaveRequests = async (req, res) => {
             .limit(200);
 
         // Fetch recent processed leaves with pagination
-        const historyQuery = {
-            ...leaveQuery,
-            approval_status: { $in: ['approved', 'rejected'] }
-        };
+        const historyQuery = { ...leaveQuery };
+        
+        // If a specific status is requested, use it; otherwise, admins see all for tracking
+        if (status && status !== 'all') {
+            historyQuery.approval_status = status;
+        }
 
-        if (month) {
-            const startOfMonth = moment(month, 'YYYY-MM').startOf('month').toDate();
-            const endOfMonth = moment(month, 'YYYY-MM').endOf('month').toDate();
+        const resolvedLeaveMonth = leaveMonth || month || '';
+        const resolvedAppliedMonth = appliedMonth || '';
+
+        if (resolvedLeaveMonth) {
+            const startOfMonth = moment(resolvedLeaveMonth, 'YYYY-MM').startOf('month').toDate();
+            const endOfMonth = moment(resolvedLeaveMonth, 'YYYY-MM').endOf('month').toDate();
             historyQuery.$and = historyQuery.$and || [];
             historyQuery.$and.push({
                 $or: [
                     { from_date: { $lte: endOfMonth }, to_date: { $gte: startOfMonth } }
                 ]
             });
+        }
+
+        if (resolvedAppliedMonth) {
+            const startOfMonth = moment(resolvedAppliedMonth, 'YYYY-MM').startOf('month').toDate();
+            const endOfMonth = moment(resolvedAppliedMonth, 'YYYY-MM').endOf('month').toDate();
+            historyQuery.applied_on = { $gte: startOfMonth, $lte: endOfMonth };
         }
 
         if (search) {
@@ -1650,10 +1705,11 @@ export const getAdminLeaveRequests = async (req, res) => {
         // Helper to resolve team name for an employee
         const getTeamName = (empId) => {
             const empIdStr = empId?.toString();
-            const team = teams.find(t =>
+            // Use allTeams (which contains all company teams or managed teams) for lookup
+            const team = allTeams.find(t =>
                 t.members && t.members.some(m => m.userId?.toString() === empIdStr)
             );
-            return team ? team.name : null;
+            return team ? team.name : 'Unassigned';
         };
 
         const mapLeave = (leave) => {
@@ -1722,8 +1778,10 @@ export const getAdminLeaveRequests = async (req, res) => {
                 currentApproverRole,
                 currentApproverUsername: currentApprover?.username || null,
                 actionDate: leave.updatedAt,
-                appliedOn: leave.createdAt,
+                appliedOn: leave.applied_on || leave.createdAt,
+                applied_on: leave.applied_on || leave.createdAt,
                 createdAt: leave.createdAt,
+                final_status: leave.approval_status,
                 approvedBy: leave.approval_status === 'approved' ? reviewerName : null,
                 rejectedBy: leave.approval_status === 'rejected' ? reviewerName : null,
                 approverRole: reviewerRole,

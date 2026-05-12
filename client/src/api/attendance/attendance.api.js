@@ -123,11 +123,14 @@ const attendanceAPI = {
    * Get HOD Dashboard Data (also used for HOD leave approvals)
    * Admins can pass ?teamId to filter
    */
-  getHODDashboard: async (teamId) => {
+  getHODDashboard: async (teamId, leaveMonth = '', appliedMonth = '') => {
     try {
-      const url = teamId && teamId !== 'all'
-        ? `/attendance/HODDashboard?teamId=${teamId}`
-        : '/attendance/HODDashboard';
+      const params = new URLSearchParams();
+      if (teamId && teamId !== 'all') params.set('teamId', teamId);
+      if (leaveMonth) params.set('leaveMonth', leaveMonth);
+      if (appliedMonth) params.set('appliedMonth', appliedMonth);
+      const query = params.toString();
+      const url = query ? `/attendance/HODDashboard?${query}` : '/attendance/HODDashboard';
       const response = await apiClient.get(url);
       return response.data;
     } catch (error) {
@@ -331,12 +334,13 @@ const attendanceAPI = {
    * Get all leave requests for Admin view (with optional teamId filter)
    * Returns: { data: { pendingLeaves, recentProcessedLeaves, teams } }
    */
-  getAdminLeaveRequests: async (teamId, historyPage = 1, historyLimit = 20, search = '', month = '') => {
+  getAdminLeaveRequests: async (teamId, historyPage = 1, historyLimit = 20, search = '', leaveMonth = '', appliedMonth = '') => {
     try {
       const params = { historyPage, historyLimit };
       if (teamId && teamId !== 'all') params.teamId = teamId;
       if (search) params.search = search;
-      if (month) params.month = month;
+      if (leaveMonth) params.leaveMonth = leaveMonth;
+      if (appliedMonth) params.appliedMonth = appliedMonth;
       const response = await apiClient.get('/attendance/admin-leave-requests', { params });
       return response.data;
     } catch (error) {

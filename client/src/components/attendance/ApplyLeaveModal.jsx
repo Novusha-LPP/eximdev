@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
-  FiX, FiCalendar, FiActivity, FiCheckCircle, FiAlertCircle
+  FiX, FiCalendar, FiActivity, FiCheckCircle, FiAlertCircle, FiList, FiClock
 } from 'react-icons/fi';
+import { UserContext } from '../../contexts/UserContext';
 import leaveAPI from '../../api/attendance/leave.api';
+import attendanceAPI from '../../api/attendance/attendance.api';
 import toast from 'react-hot-toast';
+import moment from 'moment';
 import './LeaveManagement.css';
 
 /**
@@ -16,7 +19,20 @@ import './LeaveManagement.css';
  * - balances: array — leave balance data
  * - initialDate: string (optional) — pre-fill from_date (format: "YYYY-MM-DD")
  */
-const ApplyLeaveModal = ({ isOpen, onClose, onSuccess, balances = [] }) => {
+const fmtDate = (value) => {
+  if (!value) return '';
+  return moment(value).isValid() ? moment(value).format('DD MMM YYYY') : String(value);
+};
+
+const fmtTime = (value) => {
+  if (!value) return '--:--';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
+
+const ApplyLeaveModal = ({ isOpen, onClose, onSuccess, balances = [], initialDate = '', employeeId }) => {
+  const { user } = useContext(UserContext);
   const [form, setForm] = useState({
     leave_policy_id: '',
     from_date: '',
@@ -32,6 +48,12 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSuccess, balances = [] }) => {
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [existingApplications, setExistingApplications] = useState([]);
   const [hasOverlap, setHasOverlap] = useState(false);
+  const [activeTab, setActiveTab] = useState('leave');
+  const [attendanceDay, setAttendanceDay] = useState(null);
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
+
+  const selectedDate = initialDate || form.from_date || new Date().toISOString().slice(0, 10);
+  const selectedEmployeeId = employeeId || user?._id || user?.id;
 
   const selectedPolicy = balances.find(b => b._id === form.leave_policy_id);
   const isLwpPolicy = (policy) => String(policy?.leave_type || '').toLowerCase() === 'lwp';
@@ -75,11 +97,47 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSuccess, balances = [] }) => {
       });
       setPreview(null);
       setHasOverlap(false);
+      setActiveTab('leave');
+      setAttendanceDay(null);
     } else {
       // Fetch existing applications when modal opens
       fetchExistingApplications();
+      if (initialDate) {
+        setForm(prev => ({
+          ...prev,
+          from_date: initialDate,
+          to_date: initialDate,
+        }));
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, initialDate]);
+
+  useEffect(() => {
+    if (!isOpen || activeTab !== 'attendance' || !selectedDate) return;
+
+    const fetchAttendanceDay = async () => {
+      try {
+        setAttendanceLoading(true);
+        const res = await attendanceAPI.getHistory({
+          employee_id: selectedEmployeeId,
+          startDate: selectedDate,
+          endDate: selectedDate,
+          limit: 10,
+        });
+
+        const records = Array.isArray(res?.data) ? res.data : [];
+        const target = records.find(r => String(r.attendance_date || '').slice(0, 10) === selectedDate) || records[0] || null;
+        setAttendanceDay(target);
+      } catch (err) {
+        console.error('Failed to fetch attendance logs:', err);
+        setAttendanceDay(null);
+      } finally {
+        setAttendanceLoading(false);
+      }
+    };
+
+    fetchAttendanceDay();
+  }, [isOpen, activeTab, selectedDate, selectedEmployeeId]);
 
   // Fetch existing leave applications
   const fetchExistingApplications = async () => {
@@ -155,6 +213,9 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSuccess, balances = [] }) => {
 
   if (!isOpen) return null;
 
+  const workSessions = Array.isArray(attendanceDay?.work_sessions) ? attendanceDay.work_sessions : [];
+  const punchCount = attendanceDay?.total_punches ?? workSessions.length * 2;
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="lm-modal" onClick={e => e.stopPropagation()}>
@@ -164,7 +225,98 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSuccess, balances = [] }) => {
             <FiX size={13} />
           </button>
         </div>
+
+        <div className="aam-tabs" style={{ margin: '0 18px 16px' }}>
+          <button
+            type="button"
+            className={`aam-tab ${activeTab === 'leave' ? 'active' : ''}`}
+            onClick={() => setActiveTab('leave')}
+          >
+            <FiCalendar size={13} /> Leave
+          </button>
+          <button
+            type="button"
+            className={`aam-tab ${activeTab === 'attendance' ? 'active' : ''}`}
+            onClick={() => setActiveTab('attendance')}
+          >
+            <FiList size={13} /> Attendance Logs
+          </button>
+        </div>
+
         <form onSubmit={handleSubmit} className="lm-form">
+
+          {activeTab === 'attendance' && (
+            <div className="attendance-log-panel">
+              <div className="attendance-log-head">
+                <div>
+                  <div className="attendance-log-title">Attendance logs for {fmtDate(selectedDate)}</div>
+                  <div className="attendance-log-subtitle">Punch sequence for the selected day.</div>
+                </div>
+                <div className="attendance-log-chip">
+                  <FiClock size={12} /> {selectedDate}
+                </div>
+              </div>
+
+              {attendanceLoading ? (
+                <div className="attendance-log-empty">Loading attendance logs...</div>
+              ) : attendanceDay ? (
+                <>
+                  <div className="attendance-log-summary">
+                    <div className="attendance-log-stat">
+                      <span>Status</span>
+                      <strong>{String(attendanceDay.status || '-').replace(/_/g, ' ')}</strong>
+                    </div>
+                    <div className="attendance-log-stat">
+                      <span>First Punch In</span>
+                      <strong>{fmtTime(attendanceDay.first_in)}</strong>
+                    </div>
+                    <div className="attendance-log-stat">
+                      <span>Last Punch Out</span>
+                      <strong>{fmtTime(attendanceDay.last_out)}</strong>
+                    </div>
+                    <div className="attendance-log-stat">
+                      <span>Punch Count</span>
+                      <strong>{punchCount || 0}</strong>
+                    </div>
+                  </div>
+
+                  <div className="attendance-session-list">
+                    {workSessions.length > 0 ? workSessions.map((session, index) => (
+                      <div key={`${session.session_number || index}-${index}`} className="attendance-session-card">
+                        <div className="attendance-session-top">
+                          <div className="attendance-session-name">Session {session.session_number || index + 1}</div>
+                          <div className={`attendance-session-badge ${session.is_incomplete ? 'warn' : 'ok'}`}>
+                            {session.is_incomplete ? 'Incomplete' : 'Completed'}
+                          </div>
+                        </div>
+                        <div className="attendance-session-grid">
+                          <div>
+                            <span>In</span>
+                            <strong>{fmtTime(session.punch_in_time)}</strong>
+                          </div>
+                          <div>
+                            <span>Out</span>
+                            <strong>{fmtTime(session.punch_out_time)}</strong>
+                          </div>
+                          <div>
+                            <span>Duration</span>
+                            <strong>{typeof session.duration_hours === 'number' ? `${session.duration_hours.toFixed(2)}h` : '--'}</strong>
+                          </div>
+                        </div>
+                      </div>
+                    )) : (
+                      <div className="attendance-log-empty">No punch sessions found for this day.</div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="attendance-log-empty">No attendance record found for this day.</div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'leave' && (
+            <>
 
           {/* Form Grid */}
           <div className="form-grid">
@@ -321,6 +473,8 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSuccess, balances = [] }) => {
               )}
             </button>
           </div>
+            </>
+          )}
         </form>
       </div>
     </div>

@@ -718,6 +718,7 @@ const LeaveApproval = () => {
                           <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Type</th>
                           <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Duration</th>
                           <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Date Range</th>
+                          <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Reason</th>
                           <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Applied On</th>
                           <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Status</th>
                           <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Approver Status</th>
@@ -733,6 +734,9 @@ const LeaveApproval = () => {
                             <td style={{ padding: '10px 12px', fontWeight: 600, fontSize: '13px' }}>{req.is_half_day ? 'Half Day' : `${req.totalDays}d`}</td>
                             <td style={{ padding: '10px 12px', fontSize: '12px', color: '#475569' }}>
                               {fmt(req.fromDate, 'dd MMM')} – {fmt(req.toDate, 'dd MMM')}
+                            </td>
+                            <td style={{ padding: '10px 12px', fontSize: '12px', color: '#64748b', fontStyle: 'italic', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={req.reason}>
+                              {req.reason || <span style={{ color: '#cbd5e1' }}>—</span>}
                             </td>
                             <td style={{ padding: '10px 12px', fontSize: '12px', color: '#475569' }}>
                               {fmt(req.appliedOn || req.applied_on || req.createdAt, 'dd MMM yyyy')}

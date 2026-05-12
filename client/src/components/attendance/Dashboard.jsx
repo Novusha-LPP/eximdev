@@ -922,7 +922,7 @@ export default function Dashboard() {
         <div className="db-side">
           {/* Pending approvals – HOD & Admin */}
           {isManager && (
-            <div className="card clickable-card" onClick={() => navigate(isHOD ? "/attendance/hod/leave-approval" : "/attendance/admin/attendance")}>
+            <div className="card clickable-card" onClick={() => navigate(isHOD ? "/attendance/hod/leave-approval" : "/attendance/admin/leave-approval")}>
               <div className="card-head">
                 <span className="card-title">Pending Approvals</span>
                 {allPending.length > 0
@@ -965,7 +965,7 @@ export default function Dashboard() {
               ))}
               {allPending.length > 6 && (
                 <div style={{ padding: ".75rem 1.25rem", borderTop: "1px solid var(--border)" }}>
-                  <button className="card-link" onClick={() => navigate(isHOD ? "/attendance/hod/leave-approval" : "/attendance/admin/attendance")}>
+                  <button className="card-link" onClick={() => navigate(isHOD ? "/attendance/hod/leave-approval" : "/attendance/admin/leave-approval")}>
                     +{allPending.length - 6} more <FiArrowRight size={12} />
                   </button>
                 </div>

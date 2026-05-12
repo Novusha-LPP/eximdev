@@ -1012,6 +1012,7 @@ function HomePageContent() {
                   <Route path="hod/regularization-approval" element={<RegularizationApproval />} />
                   <Route path="admin" element={<AdminDashboard />} />
                   <Route path="admin/attendance" element={<AttendanceReport isAdmin />} />
+                  <Route path="admin/leave-approval" element={<LeaveApproval />} />
                   <Route path="admin/employee/:id/:activeTab?" element={<EmployeeProfileWorkspace />} />
                   <Route path="admin/holidays" element={<HolidayPolicyManager />} />
                   <Route path="admin/holiday-policies" element={<HolidayPolicyManager />} />

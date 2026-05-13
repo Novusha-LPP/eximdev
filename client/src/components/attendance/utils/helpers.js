@@ -260,7 +260,11 @@ export const getCurrentLocation = () => {
         resolve({
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy
+          accuracy: position.coords.accuracy,
+          altitude: position.coords.altitude,
+          heading: position.coords.heading,
+          speed: position.coords.speed,
+          timestamp: position.timestamp
         });
       },
       (error) => {

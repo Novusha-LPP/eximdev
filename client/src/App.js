@@ -5,9 +5,10 @@ import { UserContext } from "./contexts/UserContext";
 import { LocalizationProvider } from '@mui/x-date-pickers';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Routes, Route } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
+import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import { Toaster } from "react-hot-toast";
 
 function App() {
@@ -75,7 +76,12 @@ function App() {
     <UserContext.Provider value={{ user, setUser }}>
       <Toaster position="top-right" reverseOrder={false} />
       <LocalizationProvider dateAdapter={AdapterDateFns}>
-        <div className="App">{user ? <HomePage /> : <LoginPage />}</div>
+        <div className="App">
+          <Routes>
+            <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+            <Route path="*" element={user ? <HomePage /> : <LoginPage />} />
+          </Routes>
+        </div>
       </LocalizationProvider>
     </UserContext.Provider>
   );

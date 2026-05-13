@@ -28,7 +28,8 @@ const COLORS = {
   late: '#b45309',
   leave: '#1e40af',
   absent: '#c02e2e',
-  half_day: '#ff9101'
+  half_day: '#ff9101',
+  missed_punch: '#f97316'
 };
 
 const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, onEndDateChange, companies = [], selectedCompanyId, onCompanyChange }) => {
@@ -112,17 +113,20 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
   const onLeaveList = dailySummary.filter(e => ['leave', 'pending_leave'].includes(e.status));
   const presentList = dailySummary.filter(e => ['present', 'late', 'half_day'].includes(e.status));
   const absentList = dailySummary.filter(e => e.status === 'absent');
+  const missedPunchList = dailySummary.filter(e => ['incomplete', 'missed_punch'].includes(e.status));
 
   const stats = {
     present: presentList.length,
     onLeave: onLeaveList.length,
-    absent: absentList.length
+    absent: absentList.length,
+    missedPunch: missedPunchList.length
   };
   
   const chartData = [
     { name: 'Present', value: stats.present, color: COLORS.present },
     { name: 'On Leave', value: stats.onLeave, color: COLORS.leave },
     { name: 'Absent', value: stats.absent, color: COLORS.absent },
+    { name: 'Missed Punch', value: stats.missedPunch, color: COLORS.missed_punch },
   ].filter(d => d.value > 0);
 
   const getStatusStyle = (status) => {
@@ -163,7 +167,8 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
       (statusFilter === 'present' && ['present', 'late', 'half_day'].includes(emp.status)) ||
       (statusFilter === 'absent' && emp.status === 'absent') ||
       (statusFilter === 'late' && emp.status === 'late') ||
-      (statusFilter === 'leave' && ['leave', 'pending_leave'].includes(emp.status));
+      (statusFilter === 'leave' && ['leave', 'pending_leave'].includes(emp.status)) ||
+      (statusFilter === 'missed_punch' && ['incomplete', 'missed_punch'].includes(emp.status));
 
     return matchesSearch && matchesStatus;
   });
@@ -333,6 +338,7 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
                   <option value="absent">Absent</option>
                   <option value="late">Late</option>
                   <option value="leave">On Leave</option>
+                  <option value="missed_punch">Missed Punch</option>
                 </select>
               </div>
 
@@ -459,6 +465,11 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
                   <span className="adb-legend-dot" style={{ background: COLORS.absent }} />
                   <span className="adb-legend-lbl">Absent</span>
                   <span className="adb-legend-val">{stats.absent}</span>
+                </div>
+                <div className="adb-legend-item">
+                  <span className="adb-legend-dot" style={{ background: COLORS.missed_punch }} />
+                  <span className="adb-legend-lbl">Missed Punch</span>
+                  <span className="adb-legend-val">{stats.missedPunch}</span>
                 </div>
               </div>
             </div>

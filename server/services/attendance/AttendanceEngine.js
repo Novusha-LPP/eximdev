@@ -4,6 +4,7 @@ import AttendancePunch from '../../model/attendance/AttendancePunch.js';
 import WorkingDayEngine from './WorkingDayEngine.js';
 import PolicyResolver from './PolicyResolver.js';
 import LeaveApplication from '../../model/attendance/LeaveApplication.js';
+import { IST_TIMEZONE, nowIST, getISTDayRange, toISTDateStr } from '../../utils/attendance/DateUtils.js';
 
 
 /**
@@ -19,13 +20,13 @@ class AttendanceEngine {
      * @returns {Promise<Object>} The processed record
      */
     static async processDaily(user, date, company, shift) {
-        const tz = company?.timezone || 'Asia/Kolkata';
-        const now = moment().tz(tz);
-        const isToday = moment(date).isSame(now, 'day');
+        const tz = IST_TIMEZONE;
+        const now = nowIST();
+        const isToday = date === now.format('YYYY-MM-DD');
 
         let punchQuery = {
             employee_id: user._id,
-            punch_date: date
+            punch_date_str: date
         };
 
         // Automatically detect if shift spans midnight even if is_cross_day flag is missing
@@ -37,8 +38,8 @@ class AttendanceEngine {
             punchQuery = {
                 employee_id: user._id,
                 $or: [
-                    { punch_date: date },
-                    { punch_date: nextDay }
+                    { punch_date_str: date },
+                    { punch_date_str: nextDay }
                 ]
             };
         }
@@ -65,13 +66,11 @@ class AttendanceEngine {
         if (isHoliday) status = 'holiday';
 
         // Check for full-day approved leave first
-        const startOfDay = moment.utc(date).startOf('day').toDate();
-        const endOfDay = moment.utc(date).endOf('day').toDate();
         const fullLeave = await LeaveApplication.findOne({
             employee_id: user._id,
             approval_status: 'approved',
-            from_date: { $lte: endOfDay },
-            to_date: { $gte: startOfDay },
+            from_date_str: { $lte: date },
+            to_date_str: { $gte: date },
             is_half_day: false
         });
 
@@ -207,13 +206,11 @@ class AttendanceEngine {
 
                 // --- ADVANCED HALF-DAY INTEGRATION ---
                 // Query for approved half-day leaves on this date
-                const startOfDay = moment.utc(date).startOf('day').toDate();
-                const endOfDay = moment.utc(date).endOf('day').toDate();
                 leave = await LeaveApplication.findOne({
                     employee_id: user._id,
                     approval_status: 'approved',
-                    from_date: { $lte: endOfDay },
-                    to_date: { $gte: startOfDay },
+                    from_date_str: { $lte: date },
+                    to_date_str: { $gte: date },
                     is_half_day: true
                 }).select('half_day_session');
 
@@ -298,7 +295,7 @@ class AttendanceEngine {
 
             const existingRecordAdminCheck = await AttendanceRecord.findOne({
                 employee_id: empId,
-                attendance_date: attendanceDate
+                attendance_date_str: date
             });
 
             if (existingRecordAdminCheck && existingRecordAdminCheck.processed_by === 'admin') {
@@ -306,8 +303,10 @@ class AttendanceEngine {
             }
 
             return await AttendanceRecord.findOneAndUpdate(
-                { employee_id: empId, attendance_date: attendanceDate },
+                { employee_id: empId, attendance_date_str: date },
                 {
+                    attendance_date: attendanceDate,
+                    attendance_date_str: date,
                     company_id: compId,
                     department_id: deptId,
                     shift_id: shift ? (shift._id?._id || shift._id) : null,
@@ -329,7 +328,7 @@ class AttendanceEngine {
                     is_on_leave: !!leaveId,
                     leave_application_id: leaveId
                 },
-                { upsert: true, returnDocument: 'after' }
+                { upsert: true, new: true }
             );
         } else {
             const empId = user._id?._id || user._id;
@@ -350,15 +349,17 @@ class AttendanceEngine {
 
             const existingRecord = await AttendanceRecord.findOne({
                 employee_id: empId,
-                attendance_date: attendanceDate
+                attendance_date_str: date
             });
             if (existingRecord && existingRecord.first_in) {
                 return existingRecord;
             }
 
             return await AttendanceRecord.findOneAndUpdate(
-                { employee_id: empId, attendance_date: attendanceDate },
+                { employee_id: empId, attendance_date_str: date },
                 {
+                    attendance_date: attendanceDate,
+                    attendance_date_str: date,
                     company_id: compId,
                     department_id: deptId,
                     status: status,
@@ -369,7 +370,7 @@ class AttendanceEngine {
                     processed_at: new Date(),
                     processed_by: 'system'
                 },
-                { upsert: true, returnDocument: 'after' }
+                { upsert: true, new: true }
             );
         }
     }

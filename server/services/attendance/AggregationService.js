@@ -220,8 +220,12 @@ class AggregationService {
                 }
             });
 
+            const effectiveOnLeaveIds = new Set(
+                Array.from(onLeaveSet).filter(empId => !presentSet.has(empId))
+            );
+
             const absentOnLeaveOverlap = new Set(
-                Array.from(absentSet).filter(empId => onLeaveSet.has(empId))
+                Array.from(absentSet).filter(empId => effectiveOnLeaveIds.has(empId))
             );
 
             // Get total active employees
@@ -241,7 +245,7 @@ class AggregationService {
                 total_employees: totalEmployees,
                 present_today: presentSet.size,
                 absent_today: Math.max(0, absentSet.size - absentOnLeaveOverlap.size),
-                on_leave_today: onLeaveSet.size,
+                on_leave_today: effectiveOnLeaveIds.size,
                 late_arrivals: lateSet.size,
                 early_exits: earlyExitSet.size,
                 half_day: halfDaySet.size,
@@ -285,7 +289,11 @@ class AggregationService {
                     });
 
                     const orgAbsentOnLeaveOverlap = new Set(
-                        Array.from(orgAbsentSet).filter(empId => orgOnLeaveSet.has(empId))
+                        Array.from(orgAbsentSet).filter(empId => orgOnLeaveSet.has(empId) && !orgPresentSet.has(empId))
+                    );
+
+                    const orgEffectiveOnLeaveIds = new Set(
+                        Array.from(orgOnLeaveSet).filter(empId => !orgPresentSet.has(empId))
                     );
 
                     const orgTotalEmps = await User.countDocuments({
@@ -302,7 +310,7 @@ class AggregationService {
                         total_employees: orgTotalEmps,
                         present: orgPresentSet.size,
                         absent: Math.max(0, orgAbsentSet.size - orgAbsentOnLeaveOverlap.size),
-                        on_leave: orgOnLeaveSet.size,
+                        on_leave: orgEffectiveOnLeaveIds.size,
                         late: orgLateSet.size
                     });
                 }
@@ -332,7 +340,7 @@ class AggregationService {
                 }));
 
             // Add employees on leave to absent list
-            approvedLeaves.forEach(leave => {
+            approvedLeaves.filter(leave => !presentSet.has(leave.employee_id._id.toString())).forEach(leave => {
                 if (!absentList.some(a => a.emp_id === leave.employee_id._id.toString())) {
                     absentList.push({
                         emp_id: leave.employee_id._id.toString(),
@@ -353,7 +361,9 @@ class AggregationService {
                     late_by: r.late_by_minutes || 0
                 }));
 
-            const onLeaveList = approvedLeaves.map(l => ({
+            const onLeaveList = approvedLeaves
+                .filter(l => !presentSet.has(l.employee_id._id.toString()))
+                .map(l => ({
                 emp_id: l.employee_id._id.toString(),
                 emp_name: `${l.employee_id.first_name || ''} ${l.employee_id.last_name || ''}`.trim() || 'Unknown',
                 leave_type: l.leave_policy_id?.leave_type || 'Leave',

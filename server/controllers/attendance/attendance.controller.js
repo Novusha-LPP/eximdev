@@ -22,6 +22,7 @@ import ActivityLog from '../../model/attendance/ActivityLog.js';
 import ActiveSession from '../../model/attendance/ActiveSession.js';
 import { WorkHoursCalculator } from '../../services/attendance/WorkHoursCalculator.js';
 import { AttendanceStatusResolver } from '../../services/attendance/AttendanceStatusResolver.js';
+import { IST_TIMEZONE, nowIST, getISTDayRange, toISTDateStr } from '../../utils/attendance/DateUtils.js';
 
 // --- HELPERS ---
 const resolveCompanyId = (req) => {
@@ -116,8 +117,8 @@ const getWeeklyOffDaysFromPolicy = (weekOffPolicy) => {
     return days.length > 0 ? days : [0];
 };
 
-const dateKeyUTC = (dateVal) => moment(dateVal).tz('Asia/Kolkata').format('YYYY-MM-DD');
-const dateKeyLocal = (dateVal) => moment(dateVal).tz('Asia/Kolkata').format('YYYY-MM-DD');
+const dateKeyUTC = (dateVal) => moment.utc(dateVal).tz('Asia/Kolkata').format('YYYY-MM-DD');
+const dateKeyLocal = (dateVal) => moment.utc(dateVal).tz('Asia/Kolkata').format('YYYY-MM-DD');
 
 const IDENTITY_LEAVE_TYPES = new Set(['lwp', 'privilege']);
 const MISSED_PUNCH_LIMIT_HOURS = 18;
@@ -155,25 +156,21 @@ const dedupeBalancesByCanonicalKey = (balances = []) => {
 const findLeaveForDate = (leaves, dayMomentUtc) => {
     const dayStr = dayMomentUtc.format('YYYY-MM-DD');
     return leaves.find((leave) => {
-        const leaveStart = moment(leave.from_date).tz('Asia/Kolkata').format('YYYY-MM-DD');
-        const leaveEnd = moment(leave.to_date).tz('Asia/Kolkata').format('YYYY-MM-DD');
-        return dayStr >= leaveStart && dayStr <= leaveEnd;
+        return dayStr >= leave.from_date_str && dayStr <= leave.to_date_str;
     });
 };
 
 const findLeaveForDateLocal = (leaves, dayMomentLocal) => {
     const dayStr = dayMomentLocal.format('YYYY-MM-DD');
     return leaves.find((leave) => {
-        const leaveStart = moment(leave.from_date).tz('Asia/Kolkata').format('YYYY-MM-DD');
-        const leaveEnd = moment(leave.to_date).tz('Asia/Kolkata').format('YYYY-MM-DD');
-        return dayStr >= leaveStart && dayStr <= leaveEnd;
+        return dayStr >= leave.from_date_str && dayStr <= leave.to_date_str;
     });
 };
 
 const REPORT_USER_SELECT_FIELDS = '_id first_name last_name username designation company_id department_id branch_id weekoff_policy_id holiday_policy_id';
 const REPORT_COMPANY_POPULATE = { path: 'company_id', select: 'company_name attendance_config' };
-const REPORT_ATTENDANCE_SELECT_FIELDS = 'employee_id attendance_date first_in last_out is_auto_punch_out status is_late late_by_minutes is_early_in early_in_minutes is_early_exit early_exit_minutes total_work_hours half_day_session';
-const REPORT_LEAVE_SELECT_FIELDS = 'employee_id leave_policy_id leave_type from_date to_date approval_status is_half_day is_start_half_day is_end_half_day half_day_session start_half_session end_half_session reason';
+const REPORT_ATTENDANCE_SELECT_FIELDS = 'employee_id attendance_date attendance_date_str first_in last_out is_auto_punch_out status is_late late_by_minutes is_early_in early_in_minutes is_early_exit early_exit_minutes total_work_hours half_day_session';
+const REPORT_LEAVE_SELECT_FIELDS = 'employee_id leave_policy_id leave_type from_date to_date from_date_str to_date_str approval_status is_half_day is_start_half_day is_end_half_day half_day_session start_half_session end_half_session reason';
 
 const mapWithConcurrency = async (items, concurrency, mapper) => {
     if (!Array.isArray(items) || items.length === 0) return [];
@@ -279,7 +276,7 @@ const normalizeAttendanceStatus = (record, employee) => {
 };
 
 const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLeaves, extraFields = {}, policyResolveOptions = {}) => {
-    const recordsByDay = new Map(records.map((record) => [dateKeyUTC(record.attendance_date), record]));
+    const recordsByDay = new Map(records.map((record) => [record.attendance_date_str, record]));
     const policyByYear = new Map();
 
     const getPoliciesForYear = async (year) => {
@@ -597,10 +594,10 @@ export const punch = async (req, res) => {
         const company = await Company.findById(user.company_id);
         if (!company) return res.status(404).json({ message: 'Company not found' });
 
-        const tz = company.timezone || 'Asia/Kolkata';
-        const now = moment().tz(tz);
+        const tz = IST_TIMEZONE;
+        const now = nowIST();
         const today = now.format('YYYY-MM-DD');
-        const todayDate = moment.utc(today).startOf('day').toDate();
+        const todayDate = getISTDayRange(today).start;
         const yearMonth = today.substring(0, 7);
 
         // 2. Rule: Check Attendance Lock
@@ -613,6 +610,9 @@ export const punch = async (req, res) => {
         if (!validation.isValid) {
             return res.status(403).json({ message: validation.message });
         }
+
+        // Capture any geofence warnings from validation (e.g., location slightly out of range)
+        let geofenceWarning = validation.warning || null;
 
         // 4. Punch Logic (Intelligent detection of session state using ActiveSession)
         let activeSession = await ActiveSession.findOne({
@@ -665,7 +665,8 @@ export const punch = async (req, res) => {
             company_id: user.company_id,
             punch_type: type,
             punch_time: now.toDate(),
-            punch_date: today,
+            punch_date: todayDate,
+            punch_date_str: today,
             punch_method: deviceType || 'web'
         });
         await punch.save();
@@ -720,6 +721,9 @@ export const punch = async (req, res) => {
             time: now.toDate()
         };
 
+        if (geofenceWarning) {
+            response.warning = geofenceWarning;
+        }
         if (warning) {
             response.warning = warning;
         }
@@ -1443,14 +1447,19 @@ export const getAdminDashboardData = async (req, res) => {
         const { date, start_date, end_date } = req.query;
         const tz = 'Asia/Kolkata'; 
         
-        let targetStart, targetEnd;
+        let targetStart, targetEnd, dateStr, startStr, endStr;
         if (start_date && end_date) {
             targetStart = moment.tz(start_date, tz).startOf('day').toDate();
             targetEnd = moment.tz(end_date, tz).endOf('day').toDate();
+            startStr = start_date;
+            endStr = end_date;
         } else {
-            const istNow = date ? moment.tz(date, tz) : moment().tz(tz);
+            const istNow = date ? moment.tz(date, tz) : nowIST();
             targetStart = istNow.clone().startOf('day').toDate();
             targetEnd = istNow.clone().endOf('day').toDate();
+            dateStr = istNow.format('YYYY-MM-DD');
+            startStr = dateStr;
+            endStr = dateStr;
         }
 
         const activeEmployeeQuery = {
@@ -1467,16 +1476,15 @@ export const getAdminDashboardData = async (req, res) => {
         const totalEmployees = employees.length;
 
         const attendanceQuery = {
-            attendance_date: { $gte: targetStart, $lte: targetEnd },
+            attendance_date_str: { $gte: startStr, $lte: endStr },
             employee_id: { $in: empIdList }
         };
         if (companyId) attendanceQuery.company_id = companyId;
 
         const leaveQuery = {
             employee_id: { $in: empIdList },
-            $or: [
-                { from_date: { $lte: targetEnd }, to_date: { $gte: targetStart } }
-            ]
+            from_date_str: { $lte: endStr },
+            to_date_str: { $gte: startStr }
         };
         if (companyId) leaveQuery.company_id = companyId;
         leaveQuery.approval_status = {
@@ -1530,13 +1538,24 @@ export const getAdminDashboardData = async (req, res) => {
             leavesMap.get(empId).push(l);
         });
 
-        // 1. Precise Statistics
-        const presentUserIds = attendanceRecs.filter(r => ['present', 'late', 'half_day'].includes(r.status)).map(r => r.employee_id.toString());
-        // INCLUDE pending leaves in the count for consistency as requested
-        const leaveUserIds = activeLeaves.map(l => l.employee_id.toString());
+        // 1. Precise Statistics (Mutually Exclusive: Present > Leave > Absent)
+        const presentUserIds = new Set(
+            attendanceRecs
+                .filter(r => ['present', 'late', 'half_day'].includes(r.status))
+                .map(r => r.employee_id.toString())
+        );
+
+        // MATCH TABLE LOGIC: Include pending leaves but SUBTRACT overlaps with Present
+        const leaveUserIds = new Set(
+            activeLeaves
+                .filter(l => !presentUserIds.has(l.employee_id.toString()))
+                .map(l => l.employee_id.toString())
+        );
         
-        const presentToday = new Set(presentUserIds).size;
-        const onLeaveToday = new Set(leaveUserIds).size;
+        const presentToday = presentUserIds.size;
+        const onLeaveToday = leaveUserIds.size;
+        
+        console.log(`[DEBUG Dashboard] Present: ${presentToday}, Leave: ${onLeaveToday}, ActiveLeaves: ${activeLeaves.length}`);
         
         const accountedIds = new Set([...presentUserIds, ...leaveUserIds]);
         const absentToday = Math.max(0, totalEmployees - accountedIds.size);
@@ -2083,8 +2102,8 @@ export const getAdminAttendanceReport = async (req, res) => {
             return res.status(400).json({ message: 'Unable to resolve company. Please select a company and try again.' });
         }
 
-        const start = moment(startDate).startOf('day').toDate();
-        const end = moment(endDate).endOf('day').toDate();
+        const startStr = startDate;
+        const endStr = endDate;
 
         // 1. Build Query
         const userQuery = {
@@ -2150,14 +2169,12 @@ export const getAdminAttendanceReport = async (req, res) => {
         const [attendanceRecords, approvedLeaves] = await Promise.all([
             AttendanceRecord.find({
                 employee_id: { $in: employeeIds },
-                attendance_date: { $gte: start, $lte: end }
+                attendance_date_str: { $gte: startStr, $lte: endStr }
             }).select(REPORT_ATTENDANCE_SELECT_FIELDS).lean(),
             LeaveApplication.find({
                 employee_id: { $in: employeeIds },
-
-                $or: [
-                    { from_date: { $lte: end }, to_date: { $gte: start } }
-                ]
+                from_date_str: { $lte: endStr },
+                to_date_str: { $gte: startStr }
             }).select(REPORT_LEAVE_SELECT_FIELDS).lean()
         ]);
 
@@ -2211,8 +2228,9 @@ export const getTeamAttendanceReport = async (req, res) => {
             return res.status(400).json({ message: 'startDate and endDate are required' });
         }
 
-        const start = moment(startDate).startOf('day').toDate();
-        const end = moment(endDate).endOf('day').toDate();
+        const tz = 'Asia/Kolkata';
+        const start = moment.tz(startDate, tz).startOf('day').toDate();
+        const end = moment.tz(endDate, tz).endOf('day').toDate();
 
         // 1. Discover Team Members
         let teamQuery = { hodId, isActive: { $ne: false } };

@@ -11,6 +11,7 @@ const punchSchema = new mongoose.Schema({
   },
   punch_time: { type: Date, required: true, default: Date.now, index: true },
   punch_date: { type: Date, required: true, index: true }, // Date object for YYYY-MM-DD
+  punch_date_str: { type: String, required: true, index: true }, // "2026-05-13" string
 
   punch_method: {
     type: String,
@@ -45,7 +46,9 @@ const punchSchema = new mongoose.Schema({
 
 // Add indices for performance
 punchSchema.index({ employee_id: 1, punch_date: 1 });
+punchSchema.index({ employee_id: 1, punch_date_str: 1 });
 punchSchema.index({ company_id: 1, punch_date: 1 });
+punchSchema.index({ company_id: 1, punch_date_str: 1 });
 
 // SECURITY PRINCIPLE: RAW DATA IMMUTABILITY 
 // Punches are raw machine/web events. They must NEVER be modified or deleted.

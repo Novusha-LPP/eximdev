@@ -491,11 +491,9 @@ export const getDashboard = async (req, res) => {
         debugLog.push(`Searching for attendance on: ${dateStr} for ${employeeIds.length} employees`);
 
         // 2. Get attendance records for the date
-        const dayStart = targetDate.clone().startOf('day').toDate();
-        const dayEnd = targetDate.clone().endOf('day').toDate();
         const attendanceRecords = await AttendanceRecord.find({
             employee_id: { $in: employeeIds },
-            attendance_date: { $gte: dayStart, $lte: dayEnd }
+            attendance_date_str: dateStr
         }).populate('employee_id', 'first_name last_name username');
 
         debugLog.push(`Found attendance records: ${attendanceRecords.length}`);
@@ -507,8 +505,8 @@ export const getDashboard = async (req, res) => {
         const approvedLeaves = await LeaveApplication.find({
             employee_id: { $in: employeeIds },
             approval_status: 'approved',
-            from_date: { $lte: targetDate.toDate() },
-            to_date: { $gte: targetDate.toDate() }
+            from_date_str: { $lte: dateStr },
+            to_date_str: { $gte: dateStr }
         })
             .populate('employee_id', 'first_name last_name username')
             .populate('leave_policy_id', 'leave_type policy_name');
@@ -570,7 +568,9 @@ export const getDashboard = async (req, res) => {
         });
 
         // Find absent employees (no attendance record and not on leave)
-        const onLeaveIds = new Set(approvedLeaves.map(l => l.employee_id._id.toString()));
+        const effectiveApprovedLeaves = approvedLeaves.filter(l => !presentEmployees.has(l.employee_id._id.toString()));
+        const onLeaveIds = new Set(effectiveApprovedLeaves.map(l => l.employee_id._id.toString()));
+        debugLog.push(`Effective on-leave employees after presence filter: ${onLeaveIds.size}`);
 
         employees.forEach(emp => {
             const empId = emp._id.toString();
@@ -584,7 +584,7 @@ export const getDashboard = async (req, res) => {
                     onLeave: false
                 });
             } else if (isOnLeave) {
-                const leaveRecord = approvedLeaves.find(l => l.employee_id._id.toString() === empId);
+                const leaveRecord = effectiveApprovedLeaves.find(l => l.employee_id._id.toString() === empId);
                 absentEmployees.push({
                     name: emp.first_name ? `${emp.first_name} ${emp.last_name || ''}`.trim() : emp.username,
                     reason: `On leave`,
@@ -706,12 +706,12 @@ export const getDashboard = async (req, res) => {
             }
         });
 
-        // --- FIX START: Use .toDate() for accurate MongoDB querying ---
+        // --- FIX START: Use attendance_date_str for accurate range querying ---
         const weekAttendance = await AttendanceRecord.find({
             employee_id: { $in: employeeIds },
-            attendance_date: {
-                $gte: startOfWeek.startOf('day').toDate(),
-                $lte: endOfWeek.endOf('day').toDate()
+            attendance_date_str: {
+                $gte: startOfWeek.format('YYYY-MM-DD'),
+                $lte: endOfWeek.format('YYYY-MM-DD')
             }
         });
         // --- FIX END ---
@@ -720,12 +720,8 @@ export const getDashboard = async (req, res) => {
         const weekLeaves = await LeaveApplication.find({
             employee_id: { $in: employeeIds },
             approval_status: 'approved',
-            $or: [
-                {
-                    from_date: { $lte: endOfWeek.toDate() },
-                    to_date: { $gte: startOfWeek.toDate() }
-                }
-            ]
+            from_date_str: { $lte: endOfWeek.format('YYYY-MM-DD') },
+            to_date_str: { $gte: startOfWeek.format('YYYY-MM-DD') }
         });
 
         const calendarPolicies = new Map(
@@ -751,8 +747,8 @@ export const getDashboard = async (req, res) => {
                 // Check if employee is on leave
                 const leaveRecord = weekLeaves.find(leave =>
                     leave.employee_id.toString() === empId &&
-                    moment(leave.from_date).isSameOrBefore(currentDate, 'day') &&
-                    moment(leave.to_date).isSameOrAfter(currentDate, 'day')
+                    leave.from_date_str <= dateStr &&
+                    leave.to_date_str >= dateStr
                 );
 
                 if (leaveRecord) {
@@ -779,10 +775,9 @@ export const getDashboard = async (req, res) => {
 
                 // Check attendance record
                 // --- FIX START: Compare formatted strings instead of Date Object vs String ---
-                const attRecord = weekAttendance.find(att => {
-                    const attDateStr = moment(att.attendance_date).format('YYYY-MM-DD');
-                    return att.employee_id.toString() === empId && attDateStr === dateStr;
-                });
+                const attRecord = weekAttendance.find(att => 
+                    att.employee_id.toString() === empId && att.attendance_date_str === dateStr
+                );
                 // --- FIX END ---
 
                 if (attRecord) {

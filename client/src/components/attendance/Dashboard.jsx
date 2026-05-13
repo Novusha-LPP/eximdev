@@ -237,7 +237,8 @@ export default function Dashboard() {
 
         const normalizedRows = rows.map((row, index) => {
           const todayRecord = (row.history || []).find((entry) => entry.date === targetDate) || row.history?.[0] || {};
-          const status = String(todayRecord.status || '').toLowerCase() || 'absent';
+          const rawStatus = String(todayRecord.status || '').toLowerCase();
+          const status = rawStatus === 'incomplete' ? 'missed_punch' : (rawStatus || 'absent');
           const leaveStatus = String(todayRecord.leaveStatus || todayRecord.approval_status || status).toLowerCase();
 
           return {
@@ -264,7 +265,9 @@ export default function Dashboard() {
           absent: normalizedRows.filter(e => e.status === 'absent').length,
           onLeave: normalizedRows.filter(e => ['leave', 'pending_leave'].includes(e.status)).length,
           halfDay: normalizedRows.filter(e => e.status === 'half_day').length,
-          late: normalizedRows.filter(e => e.status === 'late').length
+          late: normalizedRows.filter(e => e.status === 'late').length,
+          weeklyOff: normalizedRows.filter(e => e.status === 'weekly_off').length,
+          holiday: normalizedRows.filter(e => e.status === 'holiday').length
         };
 
         setAdminData({
@@ -327,7 +330,15 @@ export default function Dashboard() {
             maximumAge: 0
           })
         );
-        location = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+        location = { 
+          latitude: pos.coords.latitude, 
+          longitude: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+          altitude: pos.coords.altitude,
+          heading: pos.coords.heading,
+          speed: pos.coords.speed,
+          timestamp: pos.timestamp
+        };
       } catch (e) {
         console.warn("Geolocation failed:", e);
       }
@@ -446,7 +457,7 @@ export default function Dashboard() {
     { cls: 'green', val: derivedStats.present ?? 0, lbl: 'Present Today', sub: `of ${visibleActiveTotal || '—'} active users, including late arrivals`, type: 'present' },
     { cls: 'red', val: derivedStats.absent ?? 0, lbl: 'Absent Today', sub: 'unexcused absences', type: 'absent' },
     { cls: 'blue', val: derivedStats.onLeave ?? derivedStats.onLeaveCount ?? 0, lbl: 'On Leave', sub: 'approved leaves', type: 'leave' },
-    { cls: 'amber', val: derivedStats.late ?? 0, lbl: 'Late Arrivals', sub: 'still counted in Present', type: 'late' },
+    { cls: 'amber', val: (derivedStats.weeklyOff ?? 0) + (derivedStats.holiday ?? 0), lbl: 'Week Off / Holiday', sub: `${derivedStats.weeklyOff ?? 0} weekly off, ${derivedStats.holiday ?? 0} holiday`, type: 'offday' },
   ];
 
   const openAnalytics = (type, date) => {
@@ -522,8 +533,8 @@ export default function Dashboard() {
           {(isManager ? managerTiles : personalTiles).map((t, i) => (
             <div 
               key={i} 
-              className={`tile ${t.cls} ${isManager && isAuthorizedAdmin && ['present', 'absent', 'leave', 'late'].includes(t.type) ? 'clickable' : ''}`}
-              onClick={() => isManager && isAuthorizedAdmin && ['present', 'absent', 'leave', 'late'].includes(t.type) && openAnalytics(t.type)}
+              className={`tile ${t.cls} ${isManager && isAuthorizedAdmin && ['present', 'absent', 'leave', 'offday'].includes(t.type) ? 'clickable' : ''}`}
+              onClick={() => isManager && isAuthorizedAdmin && ['present', 'absent', 'leave', 'offday'].includes(t.type) && openAnalytics(t.type)}
             >
               <div className="tile-val">{t.val}</div>
               <div className="tile-lbl">{t.lbl}</div>

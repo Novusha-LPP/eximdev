@@ -1157,9 +1157,11 @@ if (summarySheet) {
         if (statusFilter !== 'all') {
             // Find the robust processed status for the specific targeted end date
             const targetDateReport = e.history?.find(h => h.date === endDate);
-            let targetStatus = targetDateReport ? targetDateReport.status.toLowerCase() : 'absent';
+            const rawTargetStatus = targetDateReport ? String(targetDateReport.status || '').toLowerCase() : 'absent';
+            const targetStatus = rawTargetStatus === 'incomplete' ? 'missed_punch' : rawTargetStatus;
+            const selectedStatus = String(statusFilter || '').toLowerCase();
             
-            matchesStatus = targetStatus === statusFilter.toLowerCase();
+            matchesStatus = targetStatus === selectedStatus;
         }
         
         return matchesSearch && matchesStatus;
@@ -1350,6 +1352,7 @@ if (summarySheet) {
                         <option value="late">Late</option>
                         <option value="half_day">Half Day</option>
                         <option value="leave">Leave</option>
+                        <option value="missed_punch">Missed Punch</option>
                     </select>
 
                     {isAdmin && companies.length > 0 && (

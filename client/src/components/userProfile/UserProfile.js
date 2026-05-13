@@ -809,7 +809,15 @@ const UserProfile = ({ username: propUsername }) => {
                         maximumAge: 0
                     })
                 );
-                location = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+                location = { 
+                    latitude: pos.coords.latitude, 
+                    longitude: pos.coords.longitude,
+                    accuracy: pos.coords.accuracy,
+                    altitude: pos.coords.altitude,
+                    heading: pos.coords.heading,
+                    speed: pos.coords.speed,
+                    timestamp: pos.timestamp
+                };
             } catch (geoError) {
                 console.warn("Geolocation failed:", geoError);
                 // We proceed, but the backend will block if geofencing is mandatory for this user

@@ -8,6 +8,7 @@ const recordSchema = new mongoose.Schema({
   shift_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Shift' },
 
   attendance_date: { type: Date, required: true }, // Date object for YYYY-MM-DD
+  attendance_date_str: { type: String, required: true, index: true }, // "2026-05-13" string
   year_month: { type: String, required: true }, // "2025-02"
 
   first_in: { type: Date },
@@ -87,7 +88,9 @@ const recordSchema = new mongoose.Schema({
 
 // Compound indices for fast enterprise-scale queries
 recordSchema.index({ employee_id: 1, attendance_date: 1 }, { unique: true });
+recordSchema.index({ employee_id: 1, attendance_date_str: 1 }, { unique: true });
 recordSchema.index({ company_id: 1, attendance_date: 1 });
+recordSchema.index({ company_id: 1, attendance_date_str: 1 });
 recordSchema.index({ company_id: 1, year_month: 1 });
 recordSchema.index({ department_id: 1, attendance_date: 1 });
 recordSchema.index({ team_id: 1, attendance_date: 1 });

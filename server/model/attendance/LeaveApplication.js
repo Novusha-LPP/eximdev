@@ -11,7 +11,9 @@ const leaveApplicationSchema = new mongoose.Schema({
   leave_type: { type: String, required: true, index: true },
 
   from_date: { type: Date, required: true, index: true },
+  from_date_str: { type: String, required: true, index: true }, // "2026-05-13"
   to_date: { type: Date, required: true, index: true },
+  to_date_str: { type: String, required: true, index: true }, // "2026-05-15"
   total_days: { type: Number, required: true },
   is_half_day: { type: Boolean, default: false },
   is_start_half_day: { type: Boolean, default: false },

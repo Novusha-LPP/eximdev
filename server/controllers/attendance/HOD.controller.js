@@ -1506,7 +1506,7 @@ export const getAdminLeaveRequests = async (req, res) => {
         const admin = req.user;
         const adminUsername = String(admin.username || '').toLowerCase();
         const isAllowedAdmin = ALLOWED_USERNAMES.has(adminUsername);
-        console.log(`[DEBUG_HOD] Actor: ${adminUsername} | isAllowedAdmin: ${isAllowedAdmin} | Allowed List: ${Array.from(ALLOWED_USERNAMES).join(',')}`);
+        // console.log(`[DEBUG_HOD] Actor: ${adminUsername} | isAllowedAdmin: ${isAllowedAdmin} | Allowed List: ${Array.from(ALLOWED_USERNAMES).join(',')}`);
 
         const { teamId, status, historyPage = 1, historyLimit = 100, search, month, leaveMonth, appliedMonth } = req.query;
         const page = Math.max(1, parseInt(historyPage));
@@ -1622,7 +1622,7 @@ export const getAdminLeaveRequests = async (req, res) => {
             ...leaveQuery,
             ...getActorPendingLeaveQuery(admin)
         };
-        console.log(`[DEBUG_LEAVE] Admin: ${adminUsername} | isAllowedAdmin: ${isAllowedAdmin} | Query: ${JSON.stringify(finalQuery)}`);
+        // console.log(`[DEBUG_LEAVE] Admin: ${adminUsername} | isAllowedAdmin: ${isAllowedAdmin} | Query: ${JSON.stringify(finalQuery)}`);
 
         const pendingLeaves = await LeaveApplication.find(finalQuery)
             .populate('employee_id', 'first_name last_name username company_id')

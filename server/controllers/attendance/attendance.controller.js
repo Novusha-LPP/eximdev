@@ -927,8 +927,8 @@ export const getDashboardData = async (req, res) => {
         ]);
 
         const calendarMap = {};
-        console.log(`[DEBUG] Dashboard Calendar for ${user.username} (${currentYearMonth})`);
-        console.log(`[DEBUG] Policy: ${resolvedWeekOffPolicy?.policy_name || 'NONE'}`);
+        // console.log(`[DEBUG] Dashboard Calendar for ${user.username} (${currentYearMonth})`);
+        // console.log(`[DEBUG] Policy: ${resolvedWeekOffPolicy?.policy_name || 'NONE'}`);
         calendarRecords.forEach(r => {
             const d = moment(r.attendance_date).tz(tz).format('YYYY-MM-DD');
             calendarMap[d] = {
@@ -1005,7 +1005,7 @@ export const getDashboardData = async (req, res) => {
                 const weekOffStatus = PolicyResolver.resolveWeeklyOffStatus(dayDate, resolvedWeekOffPolicy);
 
                 if (holidayStatus?.isHoliday) {
-                    console.log(`[DEBUG] ${dateStr} is HOLIDAY: ${holidayStatus.name}`);
+                    // console.log(`[DEBUG] ${dateStr} is HOLIDAY: ${holidayStatus.name}`);
                     calendarMap[dateStr] = {
                         date: dateStr,
                         status: 'holiday',
@@ -1016,7 +1016,7 @@ export const getDashboardData = async (req, res) => {
                         holiday_name: holidayStatus?.name || 'Holiday'
                     };
                 } else if (weekOffStatus?.isOff) {
-                    console.log(`[DEBUG] ${dateStr} is WEEKOFF`);
+                    // console.log(`[DEBUG] ${dateStr} is WEEKOFF`);
                     calendarMap[dateStr] = {
                         date: dateStr,
                         status: 'weekly_off',
@@ -1027,7 +1027,7 @@ export const getDashboardData = async (req, res) => {
                     };
                 } else {
                     if (dateStr === '2026-04-25') {
-                        console.log(`[DEBUG] 2026-04-25 resolved NOT off. Status:`, weekOffStatus);
+                        // console.log(`[DEBUG] 2026-04-25 resolved NOT off. Status:`, weekOffStatus);
                     }
                 }
             }
@@ -1435,14 +1435,14 @@ export const getAdminDashboardData = async (req, res) => {
         const companyId = resolveCompanyId(req);
         
         // Diagnostic log as requested in previous troubleshooting
-        console.log(`[AdminDashboard] Request Date: ${req.query.date || 'Today'} | Resolved Company: ${companyId || 'ALL'} | Admin: ${req.user?.username}`);
+//console.log(`[AdminDashboard] Request Date: ${req.query.date || 'Today'} | Resolved Company: ${companyId || 'ALL'} | Admin: ${req.user?.username}`);
 
         // RELAXED: Handle missing companyId gracefully for Admins
         // If companyId is null, the queries below will simply skip the company_id filter,
         // allowing the admin to see data for all companies they have access to.
-        if (!companyId) {
-            console.warn(`[AdminDashboard] No specific company_id provided. Fetching global metrics for Admin: ${req.user?.username}`);
-        }
+        // if (!companyId) {
+        //     console.warn(`[AdminDashboard] No specific company_id provided. Fetching global metrics for Admin: ${req.user?.username}`);
+        // }
 
         const { date, start_date, end_date } = req.query;
         const tz = 'Asia/Kolkata'; 
@@ -1555,7 +1555,7 @@ export const getAdminDashboardData = async (req, res) => {
         const presentToday = presentUserIds.size;
         const onLeaveToday = leaveUserIds.size;
         
-        console.log(`[DEBUG Dashboard] Present: ${presentToday}, Leave: ${onLeaveToday}, ActiveLeaves: ${activeLeaves.length}`);
+        // console.log(`[DEBUG Dashboard] Present: ${presentToday}, Leave: ${onLeaveToday}, ActiveLeaves: ${activeLeaves.length}`);
         
         const accountedIds = new Set([...presentUserIds, ...leaveUserIds]);
         const absentToday = Math.max(0, totalEmployees - accountedIds.size);
@@ -1996,7 +1996,7 @@ export const getMyTodayAttendance = async (req, res) => {
         const todayStr = now.format('YYYY-MM-DD');
         const todayDate = moment.utc(todayStr).startOf('day').toDate();
 
-        console.log(`[DEBUG_HOD] User: ${user.username} ID: ${user._id} Role: ${user.role}`);
+        // console.log(`[DEBUG_HOD] User: ${user.username} ID: ${user._id} Role: ${user.role}`);
         const [record, activeSession, hodTeam] = await Promise.all([
             AttendanceRecord.findOne({
                 employee_id: user._id,
@@ -2015,7 +2015,7 @@ export const getMyTodayAttendance = async (req, res) => {
                 isActive: { $ne: false }
             }).select('_id')
         ]);
-        console.log(`[DEBUG_HOD] hodTeam found: ${!!hodTeam}`);
+        // console.log(`[DEBUG_HOD] hodTeam found: ${!!hodTeam}`);
 
         const isInSession = !!activeSession;
         const isHOD = !!hodTeam;
@@ -3483,9 +3483,8 @@ export const getEmployeeFullProfile = async (req, res) => {
 
         continuityAttendance.sort((a, b) => new Date(b.attendance_date) - new Date(a.attendance_date));
         
-        console.log(`[DEBUG_ATTENDANCE] Generating for ${employee.first_name}: total continuity items: ${continuityAttendance.length}`);
-        const absentItems = continuityAttendance.filter(i => i.status === 'absent');
-        console.log(`[DEBUG_ATTENDANCE] Absent count: ${absentItems.length}, Dates: ${absentItems.map(i => i.attendance_date).join(', ')}`);
+        // console.log(`[DEBUG_ATTENDANCE] Generating for ${employee.first_name}: total continuity items: ${continuityAttendance.length}`);
+        // console.log(`[DEBUG_ATTENDANCE] Absent count: ${absentItems.length}, Dates: ${absentItems.map(i => i.attendance_date).join(', ')}`);
 
         const holidays = continuityAttendance
             .filter((item) => String(item.status).toLowerCase() === 'holiday')

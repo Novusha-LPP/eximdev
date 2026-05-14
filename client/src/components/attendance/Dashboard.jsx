@@ -238,7 +238,10 @@ export default function Dashboard() {
         const normalizedRows = rows.map((row, index) => {
           const todayRecord = (row.history || []).find((entry) => entry.date === targetDate) || row.latestRecord || {};
           const rawStatus = String(todayRecord.status || '').toLowerCase();
-          const status = rawStatus === 'incomplete' ? 'missed_punch' : (rawStatus || 'absent');
+          const hasOpenPunch = Boolean(todayRecord.first_in && !todayRecord.last_out);
+          const status = hasOpenPunch && !['leave', 'holiday', 'weekly_off'].includes(rawStatus)
+            ? 'present'
+            : (rawStatus === 'incomplete' ? 'missed_punch' : (rawStatus || 'absent'));
           const leaveStatus = String(todayRecord.leaveStatus || todayRecord.approval_status || status).toLowerCase();
 
           return {

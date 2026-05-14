@@ -57,8 +57,8 @@ class ValidationEngine {
         // 3. Check Geo-Fencing
         const isGeoFencingRequired = userSettings.geo_fencing_required !== undefined ? userSettings.geo_fencing_required : companySettings.geo_fencing_enabled;
 
-        console.log(`[DEBUG] Validation for ${user.username}: isGeoFencingRequired=${isGeoFencingRequired}`);
-        console.log(`[DEBUG] User Geo Required: ${userSettings.geo_fencing_required}, Company Geo Enabled: ${companySettings.geo_fencing_enabled}`);
+        // console.log(`[DEBUG] Validation for ${user.username}: isGeoFencingRequired=${isGeoFencingRequired}`);
+        // console.log(`[DEBUG] User Geo Required: ${userSettings.geo_fencing_required}, Company Geo Enabled: ${companySettings.geo_fencing_enabled}`);
 
         if (isGeoFencingRequired) {
             const latitude = Number(location?.latitude);
@@ -137,12 +137,12 @@ class ValidationEngine {
             }
 
             // Final decision
-            console.log(`[GEOFENCE DEBUG] User: ${user.username} | Lat: ${latitude}, Lon: ${longitude}`);
-            debugInfo.forEach(info => console.log(`  ${info}`));
+            // console.log(`[GEOFENCE DEBUG] User: ${user.username} | Lat: ${latitude}, Lon: ${longitude}`);
+            // debugInfo.forEach(info => console.log(`  ${info}`));
 
             if (checksPerformed && !withinRange) {
                 if (withinWarningZone) {
-                    console.log(`[GEOFENCE WARNING] User in warning zone, allowing punch with warning`);
+                    // console.log(`[GEOFENCE WARNING] User in warning zone, allowing punch with warning`);
                     return { 
                         isValid: true, 
                         message: 'Success',
@@ -152,12 +152,12 @@ class ValidationEngine {
                         }
                     };
                 }
-                console.log(`[GEOFENCE REJECTION] User outside all allowed locations`);
+                // console.log(`[GEOFENCE REJECTION] User outside all allowed locations`);
                 return { isValid: false, message: 'You are outside the allowed location radius for this company.' };
             }
 
             if (checksPerformed && withinRange) {
-                console.log(`[GEOFENCE SUCCESS] User within radius`);
+                // console.log(`[GEOFENCE SUCCESS] User within radius`);
             }
         }
 

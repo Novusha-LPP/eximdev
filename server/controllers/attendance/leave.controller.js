@@ -432,10 +432,7 @@ export const getBalance = async (req, res) => {
 
         allPolicies = dedupeBalancePolicies(allPolicies);
 
-        console.log('[Leave Balance] Found', allPolicies.length, 'active policies');
-
         if (!allPolicies || allPolicies.length === 0) {
-            console.log('[Leave Balance] No active policies found');
             return res.json({ data: [] });
         }
 
@@ -480,10 +477,7 @@ export const getBalance = async (req, res) => {
 
         policies = dedupeBalancePolicies(policies);
 
-        console.log('[Leave Balance] After eligibility filter:', policies.length, 'eligible policies');
-
         if (policies.length === 0) {
-            console.log('[Leave Balance] No eligible policies after filtering. User employment_type:', targetEmployee.employment_type, 'gender:', targetEmployee.gender);
             return res.json({ data: [] });
         }
 
@@ -570,7 +564,7 @@ export const getBalance = async (req, res) => {
                 }
             };
         });
-        console.log('[Leave Balance] Returning', formattedData.length, 'leave types');
+        // console.log('[Leave Balance] Returning', formattedData.length, 'leave types');
         res.json({ data: formattedData });
     } catch (err) {
         console.error('Error in getBalance:', err);
@@ -938,15 +932,15 @@ export const applyLeave = async (req, res) => {
         // const end = moment(isHalfDay ? from_date : to_date).endOf('day');
 
         // 4. Check Balance (or Create it if missing)
-        console.log(`[DEBUG] applyLeave start - PolicyID: ${leave_policy_id}, EmployeeID: ${employee_id || actor._id}`);
+        // console.log(`[DEBUG] applyLeave start - PolicyID: ${leave_policy_id}, EmployeeID: ${employee_id || actor._id}`);
         let balanceRecord = await findBalanceForPolicy({
             employeeId: user._id,
             year: currentYear,
             policy
         });
-        console.log(`[DEBUG] Found balanceRecord: ${balanceRecord ? 'YES' : 'NO'}`);
+        // console.log(`[DEBUG] Found balanceRecord: ${balanceRecord ? 'YES' : 'NO'}`);
         if (balanceRecord) {
-            console.log(`[DEBUG] balanceRecord data: pending_approval=${balanceRecord.pending_approval}, leave_type=${balanceRecord.leave_type}`);
+            // console.log(`[DEBUG] balanceRecord data: pending_approval=${balanceRecord.pending_approval}, leave_type=${balanceRecord.leave_type}`);
         }
 
         if (!balanceRecord) {
@@ -964,7 +958,7 @@ export const applyLeave = async (req, res) => {
                 closing_balance: quota
             });
             await balanceRecord.save();
-            console.log(`[DEBUG] Created new balance record: opening=${quota}, pending=0, leave_type=${policy.leave_type}`);
+            // console.log(`[DEBUG] Created new balance record: opening=${quota}, pending=0, leave_type=${policy.leave_type}`);
         }
 
         let isUnpaidLeave = String(policy.leave_type || '').toLowerCase() === 'lwp';
@@ -1131,9 +1125,9 @@ export const applyLeave = async (req, res) => {
         // --- TRANSACTION START ---
         // session.startTransaction(); removed to support standalone MongoDB
         try {
-            console.log('[DEBUG] Re-verifying balance...');
+            // console.log('[DEBUG] Re-verifying balance...');
             let currentBalance = await LeaveBalance.findById(balanceRecord._id);
-            console.log('[DEBUG] Current balance found:', currentBalance ? 'YES' : 'NO');
+            // console.log('[DEBUG] Current balance found:', currentBalance ? 'YES' : 'NO');
             
             if (!currentBalance) {
                 throw new Error('Balance record was unexpectedly deleted during transaction');
@@ -1149,13 +1143,13 @@ export const applyLeave = async (req, res) => {
             }
 
             const currentAvailable = isUnpaidLeave ? Number.MAX_SAFE_INTEGER : resolveAvailableFromBalance(currentBalance);
-            console.log(`[DEBUG] Current available balance: ${currentAvailable}, Required: ${total_days}, LeaveType: ${policy.leave_type}`);
+            // console.log(`[DEBUG] Current available balance: ${currentAvailable}, Required: ${total_days}, LeaveType: ${policy.leave_type}`);
 
             if (!isUnpaidLeave && currentAvailable < total_days) {
                 throw new Error(`Insufficient balance during transaction. Available: ${currentAvailable}, Required: ${total_days}`);
             }
 
-            console.log('[DEBUG] Creating application...');
+            // console.log('[DEBUG] Creating application...');
             // 7. Create Application
             const application = new LeaveApplication({
                 employee_id: user._id,
@@ -1165,7 +1159,9 @@ export const applyLeave = async (req, res) => {
                 leave_policy_id: policy._id,
                 leave_type: policy.leave_type,
                 from_date: start.toDate(),
+                from_date_str: start.format('YYYY-MM-DD'),
                 to_date: end.toDate(),
+                to_date_str: end.format('YYYY-MM-DD'),
                 total_days,
                 reason,
                 is_half_day: isHalfDay,
@@ -1197,21 +1193,21 @@ export const applyLeave = async (req, res) => {
                 application.half_day_session = req.body.half_day_session;
             }
 
-            console.log('[DEBUG] Saving application...');
+            // console.log('[DEBUG] Saving application...');
             await application.save();
-            console.log('[DEBUG] Application saved.');
+            // console.log('[DEBUG] Application saved.');
 
             // 8. Update Balance (Deduct from Pending/Available)
-            console.log('[DEBUG] Updating currentBalance...');
+            // console.log('[DEBUG] Updating currentBalance...');
             if (!isUnpaidLeave) {
                 currentBalance.pending_approval = Number(currentBalance.pending_approval || 0) + total_days;
             }
             currentBalance.closing_balance = isUnpaidLeave
                 ? currentBalance.closing_balance
                 : Math.max(0, Number(currentBalance.opening_balance || 0) - Number(currentBalance.used || 0) - Number(currentBalance.pending_approval || 0));
-            console.log('[DEBUG] Saving balance...');
+            // console.log('[DEBUG] Saving balance...');
             await currentBalance.save();
-            console.log('[DEBUG] Balance saved.');
+            // console.log('[DEBUG] Balance saved.');
 
             res.json({
                 success: true,
@@ -1324,7 +1320,9 @@ export const cancelLeave = async (req, res) => {
                 leave_policy_id: application.leave_policy_id,
                 leave_type: application.leave_type,
                 from_date: cancelStart.toDate(),
+                from_date_str: cancelStart.format('YYYY-MM-DD'),
                 to_date:   cancelEnd.toDate(),
+                to_date_str:   cancelEnd.format('YYYY-MM-DD'),
                 total_days: cancelledDays,
                 reason: application.reason,
                 is_half_day: false,
@@ -1383,7 +1381,9 @@ export const cancelLeave = async (req, res) => {
                     leave_policy_id: application.leave_policy_id,
                     leave_type: application.leave_type,
                     from_date: trailingStartDate,
+                    from_date_str: moment(trailingStartDate).format('YYYY-MM-DD'),
                     to_date:   origEnd.toDate(),
+                    to_date_str:   origEnd.format('YYYY-MM-DD'),
                     total_days: trailingDays,
                     reason: application.reason,
                     is_half_day: false,

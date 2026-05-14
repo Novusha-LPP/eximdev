@@ -282,6 +282,8 @@ const ImportCreateJob = () => {
     addInvoiceRow,
     updateInvoiceRow,
     removeInvoiceRow,
+    validateAllInvoiceRows,
+    validatePoFields,
     snackbar,
     setSnackbar,
     hss_address,
@@ -372,6 +374,18 @@ const ImportCreateJob = () => {
       });
       return;
     }
+
+    // Validation for PO No and PO Date (Mandatory and interdependent)
+    const invoiceErrors = validateAllInvoiceRows();
+    if (invoiceErrors.length > 0) {
+      setSnackbar({
+        open: true,
+        message: `Invoice validation errors: ${invoiceErrors.join("; ")}`,
+        severity: "error"
+      });
+      return;
+    }
+
     await fetchNextJobNumber();
     setReviewDialogOpen(true);
   };
@@ -1761,8 +1775,8 @@ const ImportCreateJob = () => {
                         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px' }}>
                           <thead>
                             <tr style={{ backgroundColor: '#f8fafc' }}>
-                              {['Sr', 'Invoice Number', 'Invoice Date', 'PO NO', 'PO Date', 'Product Value', 'Currency', 'TOI', 'Freight', 'Insurance', 'Other Chrgs', 'Invoice Value', ''].map((h) => (
-                                <th key={h} style={{ borderBottom: '1px solid #dee2e6', padding: '6px 8px', fontSize: '0.65rem', textAlign: 'left', whiteSpace: 'nowrap', fontWeight: 700, textTransform: 'uppercase', color: '#64748b' }}>
+                              {['Sr', 'Invoice Number', 'Invoice Date', 'PO NO*', 'PO Date*', 'Product Value', 'Currency', 'TOI', 'Freight', 'Insurance', 'Other Chrgs', 'Invoice Value', ''].map((h) => (
+                                <th key={h} style={{ borderBottom: '1px solid #dee2e6', padding: '6px 8px', fontSize: '0.65rem', textAlign: 'left', whiteSpace: 'nowrap', fontWeight: 700, textTransform: 'uppercase', color: (h === 'PO NO*' || h === 'PO Date*') ? '#ef4444' : '#64748b' }}>
                                   {h}
                                 </th>
                               ))}
@@ -1770,149 +1784,176 @@ const ImportCreateJob = () => {
                           </thead>
                           <tbody>
                             {invoice_details?.map((row, rowIndex) => (
-                              <tr key={`inv-row-${rowIndex}`}>
-                                <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', fontSize: '0.75rem', width: '30px', textAlign: 'center' }}>
-                                  {rowIndex + 1}
-                                </td>
-                                <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '130px' }}>
-                                  <TextField
-                                    size="small"
-                                    fullWidth
-                                    placeholder="Inv No"
-                                    value={row.invoice_number || ""}
-                                    onChange={(e) => updateInvoiceRow(rowIndex, "invoice_number", e.target.value)}
-                                    sx={compactInput}
-                                  />
-                                </td>
-                                <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '110px' }}>
-                                  <TextField
-                                    type="date"
-                                    size="small"
-                                    fullWidth
-                                    value={row.invoice_date || ""}
-                                    onChange={(e) => updateInvoiceRow(rowIndex, "invoice_date", e.target.value)}
-                                    InputLabelProps={{ shrink: true }}
-                                    sx={compactInput}
-                                  />
-                                </td>
-                                <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '100px' }}>
-                                  <TextField
-                                    size="small"
-                                    fullWidth
-                                    placeholder="PO No"
-                                    value={row.po_no || ""}
-                                    onChange={(e) => updateInvoiceRow(rowIndex, "po_no", e.target.value)}
-                                    sx={compactInput}
-                                  />
-                                </td>
-                                <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '110px' }}>
-                                  <TextField
-                                    type="date"
-                                    size="small"
-                                    fullWidth
-                                    value={row.po_date || ""}
-                                    onChange={(e) => updateInvoiceRow(rowIndex, "po_date", e.target.value)}
-                                    InputLabelProps={{ shrink: true }}
-                                    sx={compactInput}
-                                  />
-                                </td>
-                                <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '100px' }}>
-                                  <TextField
-                                    size="small"
-                                    fullWidth
-                                    placeholder="Product Value"
-                                    value={row.product_value || ""}
-                                    onChange={(e) => updateInvoiceRow(rowIndex, "product_value", e.target.value)}
-                                    sx={compactInput}
-                                  />
-                                </td>
-                                <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '100px' }}>
-                                  <Autocomplete
-                                    freeSolo
-                                    size="small"
-                                    options={currencyOptions}
-                                    value={row.inv_currency || ""}
-                                    onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "inv_currency", newValue)}
-                                    onChange={(event, newValue) => updateInvoiceRow(rowIndex, "inv_currency", newValue || "")}
-                                    renderInput={(params) => (
-                                      <TextField
-                                        {...params}
-                                        variant="outlined"
-                                        size="small"
-                                        placeholder="Currency"
-                                        sx={compactInput}
-                                      />
-                                    )}
-                                  />
-                                </td>
-                                <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '90px' }}>
-                                  <TextField
-                                    select
-                                    size="small"
-                                    fullWidth
-                                    value={row.toi || "CIF"}
-                                    onChange={(e) => updateInvoiceRow(rowIndex, "toi", e.target.value)}
-                                    sx={compactInput}
-                                  >
-                                    <MenuItem value="CIF">CIF</MenuItem>
-                                    <MenuItem value="FOB">FOB</MenuItem>
-                                    <MenuItem value="CF">C&F</MenuItem>
-                                    <MenuItem value="CI">C&I</MenuItem>
-                                  </TextField>
-                                </td>
-                                <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '90px' }}>
-                                  <TextField
-                                    size="small"
-                                    fullWidth
-                                    placeholder="Freight"
-                                    value={row.freight || ""}
-                                    onChange={(e) => updateInvoiceRow(rowIndex, "freight", e.target.value)}
-                                    sx={compactInput}
-                                    disabled={!(row.toi === "FOB" || row.toi === "CI")}
-                                  />
-                                </td>
-                                <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '90px' }}>
-                                  <TextField
-                                    size="small"
-                                    fullWidth
-                                    placeholder="Insurance"
-                                    value={row.insurance || ""}
-                                    onChange={(e) => updateInvoiceRow(rowIndex, "insurance", e.target.value)}
-                                    sx={compactInput}
-                                    disabled={!(row.toi === "FOB" || row.toi === "CF")}
-                                  />
-                                </td>
-                                <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '90px' }}>
-                                  <TextField
-                                    size="small"
-                                    fullWidth
-                                    placeholder="Other Chrgs"
-                                    value={row.other_charges || ""}
-                                    onChange={(e) => updateInvoiceRow(rowIndex, "other_charges", e.target.value)}
-                                    sx={compactInput}
-                                  />
-                                </td>
-                                <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '100px' }}>
-                                  <TextField
-                                    size="small"
-                                    fullWidth
-                                    placeholder="Invoice Value"
-                                    value={row.total_inv_value || ""}
-                                    InputProps={{ readOnly: true }}
-                                    sx={{ ...compactInput, '& .MuiInputBase-root': { ...compactInput['& .MuiInputBase-root'], bgcolor: '#f5f5f5' } }}
-                                  />
-                                </td>
-                                <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '40px' }}>
-                                  <IconButton
-                                    size="small"
-                                    color="error"
-                                    onClick={() => removeInvoiceRow(rowIndex)}
-                                    disabled={invoice_details.length <= 1}
-                                  >
-                                    <DeleteIcon fontSize="small" />
-                                  </IconButton>
-                                </td>
-                              </tr>
+                              <React.Fragment key={`inv-row-group-${rowIndex}`}>
+                                <tr key={`inv-row-${rowIndex}`}>
+                                  <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', fontSize: '0.75rem', width: '30px', textAlign: 'center' }}>
+                                    {rowIndex + 1}
+                                  </td>
+                                  <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '130px' }}>
+                                    <TextField
+                                      size="small"
+                                      fullWidth
+                                      placeholder="Inv No"
+                                      value={row.invoice_number || ""}
+                                      onChange={(e) => updateInvoiceRow(rowIndex, "invoice_number", e.target.value)}
+                                      sx={compactInput}
+                                    />
+                                  </td>
+                                  <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '110px' }}>
+                                    <TextField
+                                      type="date"
+                                      size="small"
+                                      fullWidth
+                                      value={row.invoice_date || ""}
+                                      onChange={(e) => updateInvoiceRow(rowIndex, "invoice_date", e.target.value)}
+                                      InputLabelProps={{ shrink: true }}
+                                      sx={compactInput}
+                                    />
+                                  </td>
+                                  <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '100px' }}>
+                                    <TextField
+                                      size="small"
+                                      fullWidth
+                                      placeholder="PO No"
+                                      value={row.po_no || ""}
+                                      onChange={(e) => updateInvoiceRow(rowIndex, "po_no", e.target.value)}
+                                      error={!!row.po_validation_error}
+                                      sx={{
+                                        ...compactInput,
+                                        '& .MuiOutlinedInput-root.Mui-error': {
+                                          '& fieldset': {
+                                            borderColor: '#ef4444'
+                                          }
+                                        }
+                                      }}
+                                    />
+                                  </td>
+                                  <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '110px' }}>
+                                    <TextField
+                                      type="date"
+                                      size="small"
+                                      fullWidth
+                                      value={row.po_date || ""}
+                                      onChange={(e) => updateInvoiceRow(rowIndex, "po_date", e.target.value)}
+                                      error={!!row.po_validation_error}
+                                      InputLabelProps={{ shrink: true }}
+                                      sx={{
+                                        ...compactInput,
+                                        '& .MuiOutlinedInput-root.Mui-error': {
+                                          '& fieldset': {
+                                            borderColor: '#ef4444'
+                                          }
+                                        }
+                                      }}
+                                    />
+                                  </td>
+                                  <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '100px' }}>
+                                    <TextField
+                                      size="small"
+                                      fullWidth
+                                      placeholder="Product Value"
+                                      value={row.product_value || ""}
+                                      onChange={(e) => updateInvoiceRow(rowIndex, "product_value", e.target.value)}
+                                      sx={compactInput}
+                                    />
+                                  </td>
+                                  <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '100px' }}>
+                                    <Autocomplete
+                                      freeSolo
+                                      size="small"
+                                      options={currencyOptions}
+                                      value={row.inv_currency || ""}
+                                      onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "inv_currency", newValue)}
+                                      onChange={(event, newValue) => updateInvoiceRow(rowIndex, "inv_currency", newValue || "")}
+                                      renderInput={(params) => (
+                                        <TextField
+                                          {...params}
+                                          variant="outlined"
+                                          size="small"
+                                          placeholder="Currency"
+                                          sx={compactInput}
+                                        />
+                                      )}
+                                    />
+                                  </td>
+                                  <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '90px' }}>
+                                    <TextField
+                                      select
+                                      size="small"
+                                      fullWidth
+                                      value={row.toi || "CIF"}
+                                      onChange={(e) => updateInvoiceRow(rowIndex, "toi", e.target.value)}
+                                      sx={compactInput}
+                                    >
+                                      <MenuItem value="CIF">CIF</MenuItem>
+                                      <MenuItem value="FOB">FOB</MenuItem>
+                                      <MenuItem value="CF">C&F</MenuItem>
+                                      <MenuItem value="CI">C&I</MenuItem>
+                                    </TextField>
+                                  </td>
+                                  <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '90px' }}>
+                                    <TextField
+                                      size="small"
+                                      fullWidth
+                                      placeholder="Freight"
+                                      value={row.freight || ""}
+                                      onChange={(e) => updateInvoiceRow(rowIndex, "freight", e.target.value)}
+                                      sx={compactInput}
+                                      disabled={!(row.toi === "FOB" || row.toi === "CI")}
+                                    />
+                                  </td>
+                                  <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '90px' }}>
+                                    <TextField
+                                      size="small"
+                                      fullWidth
+                                      placeholder="Insurance"
+                                      value={row.insurance || ""}
+                                      onChange={(e) => updateInvoiceRow(rowIndex, "insurance", e.target.value)}
+                                      sx={compactInput}
+                                      disabled={!(row.toi === "FOB" || row.toi === "CF")}
+                                    />
+                                  </td>
+                                  <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '90px' }}>
+                                    <TextField
+                                      size="small"
+                                      fullWidth
+                                      placeholder="Other Chrgs"
+                                      value={row.other_charges || ""}
+                                      onChange={(e) => updateInvoiceRow(rowIndex, "other_charges", e.target.value)}
+                                      sx={compactInput}
+                                    />
+                                  </td>
+                                  <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '100px' }}>
+                                    <TextField
+                                      size="small"
+                                      fullWidth
+                                      placeholder="Invoice Value"
+                                      value={row.total_inv_value || ""}
+                                      InputProps={{ readOnly: true }}
+                                      sx={{ ...compactInput, '& .MuiInputBase-root': { ...compactInput['& .MuiInputBase-root'], bgcolor: '#f5f5f5' } }}
+                                    />
+                                  </td>
+                                  <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '40px' }}>
+                                    <IconButton
+                                      size="small"
+                                      color="error"
+                                      onClick={() => removeInvoiceRow(rowIndex)}
+                                      disabled={invoice_details.length <= 1}
+                                    >
+                                      <DeleteIcon fontSize="small" />
+                                    </IconButton>
+                                  </td>
+                                </tr>
+                                {row.po_validation_error && (
+                                  <tr key={`inv-error-${rowIndex}`}>
+                                    <td colSpan="14" style={{ padding: '4px 8px', borderBottom: '1px solid #fee', backgroundColor: '#fff5f5' }}>
+                                      <Typography variant="caption" sx={{ color: '#ef4444', fontWeight: 600, fontSize: '0.7rem' }}>
+                                        ⚠ {row.po_validation_error}
+                                      </Typography>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
                             ))}
                           </tbody>
                         </table>

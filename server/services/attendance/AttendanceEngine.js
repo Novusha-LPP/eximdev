@@ -231,7 +231,8 @@ class AttendanceEngine {
                     status = 'present';
                 } else if (effectiveHours <= adjustedHalfDay) {
                     // Only finalize as half_day if shift is over and it's not today, or if it's been > 18h
-                    if ((!isToday && (isShiftOver || hoursSinceIn > 18)) || isCurrentlyPunchedOut) {
+                    // For TODAY: Only mark as half_day if they are punched out AND the shift is over.
+                    if ((!isToday && (isShiftOver || hoursSinceIn > 18)) || (isToday && isCurrentlyPunchedOut && isShiftOver)) {
                         status = 'half_day';
                         isHalfDayFlag = true;
                         isLate = false;
@@ -239,7 +240,7 @@ class AttendanceEngine {
                         status = 'present';
                     }
                 } else {
-                    if ((!isToday && (isShiftOver || hoursSinceIn > 18)) || isGapTooLarge || isCurrentlyPunchedOut) {
+                    if ((!isToday && (isShiftOver || hoursSinceIn > 18)) || isGapTooLarge || (isToday && isCurrentlyPunchedOut && isShiftOver)) {
                          status = 'half_day';
                          isHalfDayFlag = true;
                          isLate = false;

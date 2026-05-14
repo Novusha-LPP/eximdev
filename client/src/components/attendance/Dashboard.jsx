@@ -236,7 +236,7 @@ export default function Dashboard() {
         const targetDate = String(date || '').slice(0, 10);
 
         const normalizedRows = rows.map((row, index) => {
-          const todayRecord = (row.history || []).find((entry) => entry.date === targetDate) || row.history?.[0] || {};
+          const todayRecord = (row.history || []).find((entry) => entry.date === targetDate) || row.latestRecord || {};
           const rawStatus = String(todayRecord.status || '').toLowerCase();
           const status = rawStatus === 'incomplete' ? 'missed_punch' : (rawStatus || 'absent');
           const leaveStatus = String(todayRecord.leaveStatus || todayRecord.approval_status || status).toLowerCase();

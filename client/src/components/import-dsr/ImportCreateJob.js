@@ -332,6 +332,7 @@ const ImportCreateJob = () => {
     setImporterCountry,
     hss_state,
     setHssState,
+    isPoMandatory,
   } = useImportJobForm();
 
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
@@ -384,6 +385,19 @@ const ImportCreateJob = () => {
         severity: "error"
       });
       return;
+    }
+
+    // Check for missing PO fields if mandatory for this importer
+    if (isPoMandatory) {
+      const isPoMissing = invoice_details.some(row => !row.po_no?.trim() || !row.po_date?.trim());
+      if (isPoMissing) {
+        setSnackbar({
+          open: true,
+          message: "PO No. and PO Date are mandatory for CADILA and INTAS importers.",
+          severity: "error"
+        });
+        return;
+      }
     }
 
     await fetchNextJobNumber();
@@ -1775,8 +1789,8 @@ const ImportCreateJob = () => {
                         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px' }}>
                           <thead>
                             <tr style={{ backgroundColor: '#f8fafc' }}>
-                              {['Sr', 'Invoice Number', 'Invoice Date', 'PO NO*', 'PO Date*', 'Product Value', 'Currency', 'TOI', 'Freight', 'Insurance', 'Other Chrgs', 'Invoice Value', ''].map((h) => (
-                                <th key={h} style={{ borderBottom: '1px solid #dee2e6', padding: '6px 8px', fontSize: '0.65rem', textAlign: 'left', whiteSpace: 'nowrap', fontWeight: 700, textTransform: 'uppercase', color: (h === 'PO NO*' || h === 'PO Date*') ? '#ef4444' : '#64748b' }}>
+                              {["Sr", "Inv No", "Inv Date", isPoMandatory ? "PO No *" : "PO No", isPoMandatory ? "PO Date *" : "PO Date", "Prod Val", "Currency", "TOI", "Freight", "Insurance", "Others", "Total Value", "Action"].map((h) => (
+                                <th key={h} style={{ borderBottom: '1px solid #dee2e6', padding: '6px 8px', fontSize: '0.65rem', textAlign: 'left', whiteSpace: 'nowrap', fontWeight: 700, textTransform: 'uppercase', color: (h === 'PO No *' || h === 'PO Date *') ? '#ef4444' : '#64748b' }}>
                                   {h}
                                 </th>
                               ))}

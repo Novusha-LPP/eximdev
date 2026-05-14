@@ -266,6 +266,9 @@ const useImportJobForm = () => {
     },
   ]);
 
+  const mandatoryPoImporters = ["CADILA PHARMACEUTICALS LTD", "INTAS PHARMACEUTICALS LIMITED"];
+  const isPoMandatory = mandatoryPoImporters.includes(importer);
+
   const validatePoFields = (poNo, poDate) => {
     // Both PO No and PO Date must either both be filled or both be empty
     const hasPoNo = poNo && String(poNo).trim().length > 0;
@@ -768,15 +771,17 @@ const useImportJobForm = () => {
           return;
         }
 
-        // 2. Check for missing PO No or PO Date entirely
-        const isPoMissing = invoice_details.some(row => !row.po_no?.trim() || !row.po_date?.trim());
-        if (isPoMissing) {
-          setSnackbar({
-            open: true,
-            message: "PO No. and PO Date are mandatory for all invoices.",
-            severity: "error"
-          });
-          return;
+        // 2. Check for missing PO No or PO Date entirely IF mandatory for this importer
+        if (isPoMandatory) {
+          const isPoMissing = invoice_details.some(row => !row.po_no?.trim() || !row.po_date?.trim());
+          if (isPoMissing) {
+            setSnackbar({
+              open: true,
+              message: "PO No. and PO Date are mandatory for CADILA and INTAS importers.",
+              severity: "error"
+            });
+            return;
+          }
         }
 
         const payload = {
@@ -1191,6 +1196,9 @@ const useImportJobForm = () => {
     setInsurance,
     term_value,
     setTermValue,
+    isPoMandatory,
+    validateAllInvoiceRows,
+    validatePoFields,
     snackbar,
     setSnackbar,
     isEditMode,
@@ -1214,8 +1222,6 @@ const useImportJobForm = () => {
     setImporterPostalCode,
     importer_country,
     setImporterCountry,
-    validateAllInvoiceRows,
-    validatePoFields,
   };
 };
 

@@ -756,6 +756,29 @@ const useImportJobForm = () => {
           return;
         }
 
+        // --- PO VALIDATION ---
+        // 1. Check for mismatched PO No/Date (one exists but other doesn't)
+        const poMismatchErrors = validateAllInvoiceRows();
+        if (poMismatchErrors.length > 0) {
+          setSnackbar({
+            open: true,
+            message: `Validation Error: ${poMismatchErrors[0]}`,
+            severity: "error"
+          });
+          return;
+        }
+
+        // 2. Check for missing PO No or PO Date entirely
+        const isPoMissing = invoice_details.some(row => !row.po_no?.trim() || !row.po_date?.trim());
+        if (isPoMissing) {
+          setSnackbar({
+            open: true,
+            message: "PO No. and PO Date are mandatory for all invoices.",
+            severity: "error"
+          });
+          return;
+        }
+
         const payload = {
           ...values,
           year, // <-- MANDATORY for backend

@@ -3508,6 +3508,30 @@ export const getEmployeeFullProfile = async (req, res) => {
                 : rec;
         });
 
+        const getRecordRank = (record) => {
+            const status = String(record?.status || '').toLowerCase();
+            if (status === 'present') return 7;
+            if (status === 'late') return 6;
+            if (status === 'half_day') return 5;
+            if (status === 'incomplete') return 4;
+            if (status === 'leave') return 3;
+            if (status === 'holiday') return 2;
+            if (status === 'weekly_off') return 2;
+            if (status === 'absent') return record?.is_virtual ? 0 : 1;
+            return 1;
+        };
+
+        const dedupedByDay = new Map();
+        normalizedAttendance.forEach((record) => {
+            const dayKey = dateKeyLocal(record.attendance_date || record.attendance_date_str || record.date);
+            const existing = dedupedByDay.get(dayKey);
+            if (!existing || getRecordRank(record) > getRecordRank(existing)) {
+                dedupedByDay.set(dayKey, record);
+            }
+        });
+
+        const dedupedAttendance = [...dedupedByDay.values()].sort((a, b) => new Date(b.attendance_date) - new Date(a.attendance_date));
+
         const startYear = moment(start).year();
         const resolvedWeekOffPolicy = await PolicyResolver.resolveWeekOffPolicy(employee);
         const resolvedHolidayPolicy = await PolicyResolver.resolveHolidayPolicy(employee, startYear);
@@ -3531,20 +3555,20 @@ export const getEmployeeFullProfile = async (req, res) => {
 
         // Calculate Summary for Scorecard
         const summary = {
-            present: normalizedAttendance.filter(a => a.status === 'present').length,
-            absent: normalizedAttendance.filter(a => a.status === 'absent').length,
-            late: normalizedAttendance.filter(a => a.status === 'late').length,
-            half_day: normalizedAttendance.filter(a => a.status === 'half_day').length,
+            present: dedupedAttendance.filter(a => a.status === 'present').length,
+            absent: dedupedAttendance.filter(a => a.status === 'absent').length,
+            late: dedupedAttendance.filter(a => a.status === 'late').length,
+            half_day: dedupedAttendance.filter(a => a.status === 'half_day').length,
             leaves: leaves.length, // Already filtered for approved leaves in range
-            weeklyOff: normalizedAttendance.filter(a => a.status === 'weekly_off').length,
-            holidays: normalizedAttendance.filter(a => a.status === 'holiday').length,
+            weeklyOff: dedupedAttendance.filter(a => a.status === 'weekly_off').length,
+            holidays: dedupedAttendance.filter(a => a.status === 'holiday').length,
             pendingLeaves: (pendingLeaves || []).length
         };
 
         return res.json({
             success: true,
             employee,
-            attendance: normalizedAttendance,
+            attendance: dedupedAttendance,
             balances: normalizedBalances,
             leaves,
             holidays,

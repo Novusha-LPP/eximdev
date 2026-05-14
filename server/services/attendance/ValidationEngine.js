@@ -80,8 +80,11 @@ class ValidationEngine {
             const gpsAccuracyMeters = rawAccuracy > 0 ? rawAccuracy : 100;
             debugInfo.push(`GPS Accuracy: ${gpsAccuracyMeters}m (raw: ${rawAccuracy}m)`);
 
+            const hasUserSpecificLocations = Array.isArray(userSettings.allowed_locations)
+                && userSettings.allowed_locations.length > 0;
+
             // 3.1 Check User-Specific Allowed Locations (Overrides)
-            if (userSettings.allowed_locations && userSettings.allowed_locations.length > 0) {
+            if (hasUserSpecificLocations) {
                 checksPerformed = true;
                 for (const loc of userSettings.allowed_locations) {
                     const locLat = Number(loc.latitude);
@@ -108,8 +111,8 @@ class ValidationEngine {
                 }
             }
 
-            // 3.2 Fallback to Company Allowed Locations if user has no specific ones OR if not yet found
-            if (!withinRange && companySettings.allowed_locations && companySettings.allowed_locations.length > 0) {
+            // 3.2 Fallback to company locations only when user-specific overrides are not configured.
+            if (!withinRange && !hasUserSpecificLocations && companySettings.allowed_locations && companySettings.allowed_locations.length > 0) {
                 checksPerformed = true;
                 for (const loc of companySettings.allowed_locations) {
                     const locLat = Number(loc.latitude);

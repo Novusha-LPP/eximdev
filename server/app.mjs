@@ -64,6 +64,7 @@ import getUserData from "./routes/getUserData.mjs";
 import updateProfilePhoto from "./routes/user/updateProfilePhoto.mjs";
 import getYears from "./routes/getYears.mjs";
 import login from "./routes/login.mjs";
+import logout from "./routes/logout.mjs";
 import me from "./routes/me.mjs";
 import handleS3Deletation from "./routes/handleS3Deletation.mjs";
 import updateDutyFromCth from "./routes/jobs/updateDutyFromCth.mjs";
@@ -469,6 +470,7 @@ app.use(getUserData);
 app.use(updateProfilePhoto);
 app.use(getYears);
 app.use(login);
+app.use(logout);
 app.use(me);
 
 // handle delete

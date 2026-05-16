@@ -310,15 +310,17 @@ const ATTENDANCE_PRESENCE_SELECT = 'status net_work_hours total_work_hours first
 const buildAttendanceContext = async ({ employeeId, fromDate, toDate }) => {
     const start = moment(fromDate).startOf('day');
     const end = moment(toDate || fromDate).startOf('day');
-    const dayBefore = start.clone().subtract(1, 'day').toDate();
-    const dayAfter = end.clone().add(1, 'day').toDate();
+    const dayBeforeStr = start.clone().subtract(1, 'day').format('YYYY-MM-DD');
+    const dayAfterStr = end.clone().add(1, 'day').format('YYYY-MM-DD');
+    const startStr = start.format('YYYY-MM-DD');
+    const endStr = end.format('YYYY-MM-DD');
 
     const [recBefore, recAfter, rangeAttendance] = await Promise.all([
-        AttendanceRecord.findOne({ employee_id: employeeId, attendance_date: dayBefore }).select(ATTENDANCE_PRESENCE_SELECT),
-        AttendanceRecord.findOne({ employee_id: employeeId, attendance_date: dayAfter }).select(ATTENDANCE_PRESENCE_SELECT),
+        AttendanceRecord.findOne({ employee_id: employeeId, attendance_date_str: dayBeforeStr }).select(ATTENDANCE_PRESENCE_SELECT),
+        AttendanceRecord.findOne({ employee_id: employeeId, attendance_date_str: dayAfterStr }).select(ATTENDANCE_PRESENCE_SELECT),
         AttendanceRecord.find({
             employee_id: employeeId,
-            attendance_date: { $gte: start.toDate(), $lte: end.clone().endOf('day').toDate() }
+            attendance_date_str: { $gte: startStr, $lte: endStr }
         }).select(ATTENDANCE_PRESENCE_SELECT)
     ]);
 

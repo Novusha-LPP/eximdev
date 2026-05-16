@@ -47,6 +47,7 @@ const AdminDashboard = () => {
   const onLeaveCount = data.summary?.global?.on_leave_today || 0;
   const lateCount = data.summary?.global?.late_arrivals || 0;
   const missedPunchCount = data.summary?.global?.missed_punch || 0;
+  const halfDayCount = data.summary?.global?.half_day || 0;
   const totalCount = data.summary?.global?.total_employees || 0;
 
   return (
@@ -224,6 +225,16 @@ const AdminDashboard = () => {
           </div>
         </div>
 
+        <div className="adb-kpi-card" onClick={() => setActiveTab('half_day')} style={{ cursor: 'pointer' }}>
+          <div className="adb-kpi-icon blue" style={{ background: 'linear-gradient(135deg, #6366f1 0%, #4338ca 100%)' }}>
+            <FiClock size={20} />
+          </div>
+          <div className="adb-kpi-content">
+            <div className="adb-kpi-value">{halfDayCount}</div>
+            <div className="adb-kpi-label">Half Day</div>
+          </div>
+        </div>
+
         <div className="adb-kpi-card">
           <div className="adb-kpi-icon teal">
             <FiTrendingUp size={20} />
@@ -266,6 +277,12 @@ const AdminDashboard = () => {
           onClick={() => setActiveTab('missed_punch')}
         >
           ⚠️ Missed Punch ({missedPunchCount})
+        </button>
+        <button
+          className={`adb-tab ${activeTab === 'half_day' ? 'active' : ''}`}
+          onClick={() => setActiveTab('half_day')}
+        >
+          🌗 Half Day ({halfDayCount})
         </button>
         <button
           className={`adb-tab ${activeTab === 'organizations' ? 'active' : ''}`}
@@ -483,6 +500,39 @@ const AdminDashboard = () => {
                 <div className="adb-empty-state">No pending leave requests</div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* HALF DAY TAB */}
+        {!loading && activeTab === 'half_day' && (
+          <div className="adb-tab-content">
+            <table className="adb-table">
+              <thead>
+                <tr>
+                  <th>Employee Name</th>
+                  <th>In Time</th>
+                  <th>Out Time</th>
+                  <th>Work Hours</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.daily_details?.half_day?.map(emp => (
+                  <tr key={emp.emp_id}>
+                    <td><strong>{emp.emp_name}</strong></td>
+                    <td>{emp.in_time ? new Date(emp.in_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+                    <td>{emp.out_time ? new Date(emp.out_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+                    <td>{emp.work_hours} hrs</td>
+                    <td>
+                      <span className="badge badge-blue">Half Day</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {(!data.daily_details?.half_day || data.daily_details.half_day.length === 0) && (
+              <div className="adb-empty-state">No half day records today</div>
+            )}
           </div>
         )}
 

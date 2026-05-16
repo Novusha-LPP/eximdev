@@ -56,6 +56,38 @@ const logActivity = async (req, module, action, details, metadata = {}) => {
     }
 };
 
+const escapeRegex = (value) => String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const resolveCompanyForUser = async (user) => {
+    if (!user) return null;
+
+    const existingCompanyId = user.company_id?._id || user.company_id;
+    if (existingCompanyId) {
+        const company = await Company.findById(existingCompanyId);
+        if (company) return company;
+    }
+
+    const companyName = String(user.company || '').trim();
+    if (!companyName) return null;
+
+    const company = await Company.findOne({
+        $or: [
+            { company_name_lower: companyName.toLowerCase() },
+            { company_name: new RegExp(`^${escapeRegex(companyName)}$`, 'i') }
+        ]
+    });
+
+    if (company?._id) {
+        user.company_id = company._id;
+        await User.updateOne(
+            { _id: user._id, $or: [{ company_id: { $exists: false } }, { company_id: null }] },
+            { $set: { company_id: company._id, company: company.company_name } }
+        );
+    }
+
+    return company;
+};
+
 const isHODauthorized = async (hodId, employeeId) => {
     if (!employeeId) return false;
     // Ensure hodId is treated correctly for query
@@ -420,7 +452,7 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
 // --- HELPER: Process Daily Attendance (Multi-Tenant & Rule-Driven) ---
 async function processDailyAttendance(user, date) {
     // Fetch Company & Shift Config dynamically
-    const company = await Company.findById(user.company_id);
+    const company = await resolveCompanyForUser(user);
     const shift = await PolicyResolver.resolveShift(user);
 
     // Delegate to rule-driven engine and return the processed record
@@ -546,9 +578,14 @@ export const punch = async (req, res) => {
         if (target_employee_id && (req.user.role === 'ADMIN' || req.user.role === 'HOD')) {
             const targetUser = await User.findById(target_employee_id);
             if (!targetUser) return res.status(404).json({ message: 'Target employee not found' });
+            const targetCompany = await resolveCompanyForUser(targetUser);
+            const actorCompany = await resolveCompanyForUser(req.user);
+            if (!targetCompany || !actorCompany) {
+                return res.status(404).json({ message: 'Company not found' });
+            }
             
             // Security: Ensure the actor has access to this target user (same company)
-            if (targetUser.company_id.toString() !== req.user.company_id.toString()) {
+            if (targetCompany._id.toString() !== actorCompany._id.toString()) {
                 return res.status(403).json({ message: 'Forbidden: Access across companies denied' });
             }
             
@@ -591,7 +628,7 @@ export const punch = async (req, res) => {
         }
 
         // 1. Fetch Company for rules & timezone
-        const company = await Company.findById(user.company_id);
+        const company = await resolveCompanyForUser(user);
         if (!company) return res.status(404).json({ message: 'Company not found' });
 
         const tz = IST_TIMEZONE;

@@ -203,28 +203,60 @@ class AggregationService {
             const presentSet = new Set();
             const absentSet = new Set();
             const lateSet = new Set();
-            const onLeaveSet = new Set(approvedLeaves.map(l => l.employee_id._id.toString()));
             const halfDaySet = new Set();
+            const onLeaveSet = new Set(); // Will contain FULL day leaves
             const earlyExitSet = new Set();
             const missedPunchSet = new Set();
 
+            // 5a. Identify half-day leaves for the target date
+            const onHalfDayLeaveSet = new Set();
+            const targetStr = moment.utc(targetDate).format('YYYY-MM-DD');
+
+            approvedLeaves.forEach(leave => {
+                const empId = leave.employee_id._id.toString();
+                const fromStr = leave.from_date_str;
+                const toStr = leave.to_date_str;
+
+                let isHalf = false;
+                if (leave.is_half_day && fromStr === targetStr) isHalf = true;
+                else if (leave.is_start_half_day && fromStr === targetStr) isHalf = true;
+                else if (leave.is_end_half_day && toStr === targetStr) isHalf = true;
+
+                if (isHalf) {
+                    onHalfDayLeaveSet.add(empId);
+                    halfDaySet.add(empId);
+                } else {
+                    onLeaveSet.add(empId);
+                }
+            });
+
+            // 5b. Process attendance records
             attendanceRecords.forEach(record => {
                 const empId = record.employee_id._id.toString();
 
                 if (['present', 'late', 'half_day'].includes(record.status)) {
-                    presentSet.add(empId);
-                    if (record.is_late) lateSet.add(empId);
-                    if (record.status === 'half_day') halfDaySet.add(empId);
+                    if (record.status === 'half_day' || onHalfDayLeaveSet.has(empId)) {
+                        halfDaySet.add(empId);
+                    } else {
+                        presentSet.add(empId);
+                        if (record.is_late) lateSet.add(empId);
+                    }
                     if (record.is_early_exit) earlyExitSet.add(empId);
                 } else if (record.status === 'absent') {
-                    absentSet.add(empId);
+                    if (onHalfDayLeaveSet.has(empId)) {
+                        halfDaySet.add(empId);
+                    } else {
+                        absentSet.add(empId);
+                    }
                 } else if (record.status === 'incomplete') {
                     missedPunchSet.add(empId);
                 }
             });
 
+            // 5c. Resolve mutual exclusivity for full-day leaves
+            // (Exclude anyone already counted as present or half-day)
             const effectiveOnLeaveIds = new Set(
-                Array.from(onLeaveSet).filter(empId => !presentSet.has(empId))
+                Array.from(onLeaveSet).filter(empId => !presentSet.has(empId) && !halfDaySet.has(empId))
             );
 
             const absentOnLeaveOverlap = new Set(
@@ -280,27 +312,51 @@ class AggregationService {
                     const orgPresentSet = new Set();
                     const orgAbsentSet = new Set();
                     const orgLateSet = new Set();
-                    const orgOnLeaveSet = new Set(orgLeaves.map(l => l.employee_id._id.toString()));
+                    const orgHalfDaySet = new Set();
+                    const orgOnLeaveSet = new Set();
                     const orgMissedPunchSet = new Set();
+
+                    // Org half-day leaves
+                    orgLeaves.forEach(leave => {
+                        const empId = leave.employee_id._id.toString();
+                        const fromStr = leave.from_date_str;
+                        const toStr = leave.to_date_str;
+
+                        let isHalf = false;
+                        if (leave.is_half_day && fromStr === targetStr) isHalf = true;
+                        else if (leave.is_start_half_day && fromStr === targetStr) isHalf = true;
+                        else if (leave.is_end_half_day && toStr === targetStr) isHalf = true;
+
+                        if (isHalf) orgHalfDaySet.add(empId);
+                        else orgOnLeaveSet.add(empId);
+                    });
 
                     orgAttendance.forEach(record => {
                         const empId = record.employee_id._id.toString();
                         if (['present', 'late', 'half_day'].includes(record.status)) {
-                            orgPresentSet.add(empId);
-                            if (record.is_late) orgLateSet.add(empId);
+                            if (record.status === 'half_day' || orgHalfDaySet.has(empId)) {
+                                orgHalfDaySet.add(empId);
+                            } else {
+                                orgPresentSet.add(empId);
+                                if (record.is_late) orgLateSet.add(empId);
+                            }
                         } else if (record.status === 'absent') {
-                            orgAbsentSet.add(empId);
+                            if (orgHalfDaySet.has(empId)) {
+                                orgHalfDaySet.add(empId);
+                            } else {
+                                orgAbsentSet.add(empId);
+                            }
                         } else if (record.status === 'incomplete') {
                             orgMissedPunchSet.add(empId);
                         }
                     });
 
-                    const orgAbsentOnLeaveOverlap = new Set(
-                        Array.from(orgAbsentSet).filter(empId => orgOnLeaveSet.has(empId) && !orgPresentSet.has(empId))
+                    const orgEffectiveOnLeaveIds = new Set(
+                        Array.from(orgOnLeaveSet).filter(empId => !orgPresentSet.has(empId) && !orgHalfDaySet.has(empId))
                     );
 
-                    const orgEffectiveOnLeaveIds = new Set(
-                        Array.from(orgOnLeaveSet).filter(empId => !orgPresentSet.has(empId))
+                    const orgAbsentOnLeaveOverlap = new Set(
+                        Array.from(orgAbsentSet).filter(empId => orgEffectiveOnLeaveIds.has(empId))
                     );
 
                     const orgTotalEmps = await User.countDocuments({
@@ -318,6 +374,7 @@ class AggregationService {
                         present: orgPresentSet.size,
                         absent: Math.max(0, orgAbsentSet.size - orgAbsentOnLeaveOverlap.size),
                         on_leave: orgEffectiveOnLeaveIds.size,
+                        half_day: orgHalfDaySet.size,
                         missed_punch: orgMissedPunchSet.size,
                         late: orgLateSet.size
                     });
@@ -325,37 +382,42 @@ class AggregationService {
             }
 
             // 7. Detailed employee lists
-            const presentList = attendanceRecords
-                .filter(r => ['present', 'late', 'half_day'].includes(r.status))
-                .map(r => ({
-                    emp_id: r.employee_id._id.toString(),
-                    emp_name: `${r.employee_id.first_name || ''} ${r.employee_id.last_name || ''}`.trim() || r.employee_id.username,
-                    in_time: r.first_in,
-                    out_time: r.last_out,
-                    work_hours: (r.total_work_hours || 0).toFixed(2),
-                    is_late: r.is_late,
-                    late_by: r.late_by_minutes || 0,
-                    is_half_day: r.status === 'half_day'
-                }));
+            const presentList = Array.from(presentSet).map(empId => {
+                const r = attendanceRecords.find(rec => rec.employee_id._id.toString() === empId);
+                const emp = r ? r.employee_id : approvedLeaves.find(l => l.employee_id._id.toString() === empId)?.employee_id;
+                return {
+                    emp_id: empId,
+                    emp_name: emp ? `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || emp.username : 'Unknown',
+                    in_time: r?.first_in,
+                    out_time: r?.last_out,
+                    work_hours: (r?.total_work_hours || 0).toFixed(2),
+                    is_late: r?.is_late,
+                    late_by: r?.late_by_minutes || 0
+                };
+            });
 
-            const absentList = attendanceRecords
-                .filter(r => r.status === 'absent')
-                .map(r => ({
-                    emp_id: r.employee_id._id.toString(),
-                    emp_name: `${r.employee_id.first_name || ''} ${r.employee_id.last_name || ''}`.trim() || r.employee_id.username,
+            const absentList = Array.from(absentSet).map(empId => {
+                const r = attendanceRecords.find(rec => rec.employee_id._id.toString() === empId);
+                const emp = r ? r.employee_id : approvedLeaves.find(l => l.employee_id._id.toString() === empId)?.employee_id;
+                return {
+                    emp_id: empId,
+                    emp_name: emp ? `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || emp.username : 'Unknown',
                     reason: 'No punch recorded',
                     on_leave: false
-                }));
+                };
+            });
 
-            // Add employees on leave to absent list
-            approvedLeaves.filter(leave => !presentSet.has(leave.employee_id._id.toString())).forEach(leave => {
-                if (!absentList.some(a => a.emp_id === leave.employee_id._id.toString())) {
+            // Add employees on full-day leave to absent list (if not present)
+            Array.from(effectiveOnLeaveIds).forEach(empId => {
+                if (!absentList.some(a => a.emp_id === empId)) {
+                    const leave = approvedLeaves.find(l => l.employee_id._id.toString() === empId);
+                    const emp = leave?.employee_id;
                     absentList.push({
-                        emp_id: leave.employee_id._id.toString(),
-                        emp_name: `${leave.employee_id.first_name || ''} ${leave.employee_id.last_name || ''}`.trim() || 'Unknown',
+                        emp_id: empId,
+                        emp_name: emp ? `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || 'Unknown' : 'Unknown',
                         reason: 'On approved leave',
                         on_leave: true,
-                        leave_type: leave.leave_policy_id?.leave_type || 'Leave'
+                        leave_type: leave?.leave_policy_id?.leave_type || 'Leave'
                     });
                 }
             });
@@ -379,6 +441,31 @@ class AggregationService {
                 to_date: l.to_date
             }));
 
+            const missedPunchList = attendanceRecords
+                .filter(r => r.status === 'incomplete' || r.missed_punch)
+                .map(r => ({
+                    emp_id: r.employee_id._id.toString(),
+                    emp_name: `${r.employee_id.first_name || ''} ${r.employee_id.last_name || ''}`.trim() || r.employee_id.username,
+                    in_time: r.first_in,
+                    out_time: r.last_out,
+                    reason: r.missed_punch_reason || 'Incomplete Session'
+                }));
+
+            const halfDayList = Array.from(halfDaySet).map(empId => {
+                const r = attendanceRecords.find(rec => rec.employee_id._id.toString() === empId);
+                const leave = approvedLeaves.find(l => l.employee_id._id.toString() === empId);
+                const emp = r ? r.employee_id : leave?.employee_id;
+                return {
+                    emp_id: empId,
+                    emp_name: emp ? `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || emp.username : 'Unknown',
+                    in_time: r?.first_in,
+                    out_time: r?.last_out,
+                    work_hours: (r?.total_work_hours || 0).toFixed(2),
+                    on_leave: !!leave,
+                    leave_type: leave?.leave_policy_id?.leave_type
+                };
+            });
+
             return this.setCachedValue(cacheKey, {
                 success: true,
                 summary: globalSummary,
@@ -387,7 +474,9 @@ class AggregationService {
                     present: presentList,
                     absent: absentList,
                     late: lateList,
-                    on_leave: onLeaveList
+                    on_leave: onLeaveList,
+                    missed_punch: missedPunchList,
+                    half_day: halfDayList
                 }
             }, this.cacheTtl.globalSummary);
         } catch (error) {

@@ -460,7 +460,7 @@ export default function Dashboard() {
     { cls: 'green', val: derivedStats.present ?? 0, lbl: 'Present Today', sub: `of ${visibleActiveTotal || '—'} active users, including late arrivals`, type: 'present' },
     { cls: 'red', val: derivedStats.absent ?? 0, lbl: 'Absent Today', sub: 'unexcused absences', type: 'absent' },
     { cls: 'blue', val: derivedStats.onLeave ?? derivedStats.onLeaveCount ?? 0, lbl: 'On Leave', sub: 'approved leaves', type: 'leave' },
-    { cls: 'amber', val: (derivedStats.weeklyOff ?? 0) + (derivedStats.holiday ?? 0), lbl: 'Week Off / Holiday', sub: `${derivedStats.weeklyOff ?? 0} weekly off, ${derivedStats.holiday ?? 0} holiday`, type: 'offday' },
+    { cls: 'amber', val: derivedStats.halfDay ?? 0, lbl: 'Half Day', sub: 'half day sessions today', type: 'half_day' },
   ];
 
   const openAnalytics = (type, date) => {
@@ -536,8 +536,8 @@ export default function Dashboard() {
           {(isManager ? managerTiles : personalTiles).map((t, i) => (
             <div 
               key={i} 
-              className={`tile ${t.cls} ${isManager && isAuthorizedAdmin && ['present', 'absent', 'leave', 'offday'].includes(t.type) ? 'clickable' : ''}`}
-              onClick={() => isManager && isAuthorizedAdmin && ['present', 'absent', 'leave', 'offday'].includes(t.type) && openAnalytics(t.type)}
+              className={`tile ${t.cls} ${isManager && isAuthorizedAdmin && ['present', 'absent', 'leave', 'half_day'].includes(t.type) ? 'clickable' : ''}`}
+              onClick={() => isManager && isAuthorizedAdmin && ['present', 'absent', 'leave', 'half_day'].includes(t.type) && openAnalytics(t.type)}
             >
               <div className="tile-val">{t.val}</div>
               <div className="tile-lbl">{t.lbl}</div>

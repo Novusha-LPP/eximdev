@@ -36,6 +36,7 @@ const STATUS_META = {
   absent:   { label: 'Absences', icon: FiXCircle,  accent: '#ef4444', bg: '#fee2e2', chip: 'absent'   },
   late:     { label: 'Late Arrivals', icon: FiClock, accent: '#d97706', bg: '#fffbeb', chip: 'late' },
   offday:   { label: 'Off Days', icon: FiCalendar, accent: '#6366f1', bg: '#eef2ff', chip: 'offday' },
+  half_day: { label: 'Half Day', icon: FiClock, accent: '#3b82f6', bg: '#eff6ff', chip: 'half_day' },
 };
 
 const STATUS_CHIP_LABEL = {
@@ -92,6 +93,7 @@ const AttendanceAnalyticsModal = ({
             if (t === 'absent')  return (status === 'absent');
             if (t === 'present') return (status === 'present' || status === 'half_day' || status === 'late');
             if (t === 'late')    return (status === 'late');
+            if (t === 'half_day') return (status === 'half_day');
             if (t === 'offday')  return (status === 'weekly_off' || status === 'holiday');
             return false;
           });

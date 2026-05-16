@@ -1,5 +1,6 @@
 import React, { useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
 import "../../styles/sidebar.scss";
 import { Avatar, IconButton, ListItemButton, Tooltip, Badge } from "@mui/material";
 import VerifiedIcon from "@mui/icons-material/Verified";
@@ -28,22 +29,39 @@ function Sidebar() {
   const { user, setUser } = useContext(UserContext);
   const [currencyDialogOpen, setCurrencyDialogOpen] = useState(false);
 
-  const handleLogout = () => {
-    setUser(null);
-    navigate("/");
-    // Remove user from local storage
-    localStorage.removeItem("exim_user");
-    localStorage.removeItem("selected_importer");
-    localStorage.removeItem("selected_importer_url");
-    localStorage.removeItem("tab_value");
+  const clearClientAuthData = () => {
+    // Remove user/auth-related client state from storage.
+    [
+      "exim_user",
+      "user",
+      "username",
+      "userId",
+      "userRole",
+      "selected_importer",
+      "selected_importer_url",
+      "tab_value",
+    ].forEach((key) => localStorage.removeItem(key));
 
-    // Clear the specific token cookie and all accessible cookies
-    // document.cookie = "token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-    // document.cookie.split(";").forEach((c) => {
-    //   document.cookie = c
-    //     .replace(/^ +/, "")
-    //     .replace(/=.*/, "=;expires=" + new Date(0).toUTCString() + ";path=/");
-    // });
+    // Remove all non-HttpOnly cookies available to JS.
+    document.cookie.split(";").forEach((cookie) => {
+      const eqPos = cookie.indexOf("=");
+      const name = eqPos > -1 ? cookie.substring(0, eqPos).trim() : cookie.trim();
+      if (!name) return;
+      document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;`;
+    });
+  };
+
+  const handleLogout = async () => {
+    try {
+      await axios.post(`${process.env.REACT_APP_API_STRING}/logout`, {}, { withCredentials: true });
+    } catch (error) {
+      // Proceed with client cleanup even if server logout call fails.
+      console.warn("Server logout failed, continuing with local cleanup.", error);
+    } finally {
+      clearClientAuthData();
+      setUser(null);
+      navigate("/");
+    }
   };
 
   return (

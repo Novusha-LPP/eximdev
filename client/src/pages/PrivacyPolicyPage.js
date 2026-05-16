@@ -45,7 +45,7 @@ function PrivacyPolicyPage() {
               Go Back
             </Button>
             <Typography variant="h3" sx={{ fontWeight: "bold", mb: 2 }}>
-              Privacy Policy - Attendance
+              Privacy Policy for Suraj Group Attendance App
             </Typography>
             <Typography variant="subtitle1" sx={{ color: "#666" }}>
               Effective Date: May 13, 2026
@@ -61,8 +61,8 @@ function PrivacyPolicyPage() {
               1. Introduction
             </Typography>
             <Typography paragraph sx={{ lineHeight: 1.8, fontSize: "16px" }}>
-              Welcome to the <strong>Suraj Forwarders Attendance</strong> application. This Privacy Policy
-              explains how <strong>Novusha LPP / Suraj Forwarders</strong> ("we," "us," or "our") collects, uses,
+              Welcome to the <strong>Suraj Group Attendance</strong> application. This Privacy Policy
+              explains how <strong>Alluvium IoT Solutions Pvt. Ltd. / Suraj Group</strong> ("we," "us," or "our") collects, uses,
               and shares information about you when you use our mobile application and related services (the
               "Attendance Module").
             </Typography>
@@ -132,9 +132,41 @@ function PrivacyPolicyPage() {
               </Typography>
             </Box>
 
-            {/* Section 3 */}
+            {/* Section 3 - User Consent */}
             <Typography variant="h5" sx={{ mt: 4, mb: 2, fontWeight: "bold" }}>
-              3. Data Storage and Sharing
+              3. User Consent
+            </Typography>
+            <Typography paragraph sx={{ lineHeight: 1.8, fontSize: "16px" }}>
+              By using the Suraj Group Attendance App, you explicitly consent to the collection and use of your location data for the purpose of attendance verification. We request your permission to access your device's location services the first time you use the punch-in/out features. You may withdraw your consent at any time by disabling location permissions in your device settings, though this may impact app functionality.
+            </Typography>
+
+            {/* Section 4 - Data Security */}
+            <Typography variant="h5" sx={{ mt: 4, mb: 2, fontWeight: "bold" }}>
+              4. Data Security
+            </Typography>
+            <Typography paragraph sx={{ lineHeight: 1.8, fontSize: "16px" }}>
+              We implement a variety of industry-standard security measures, including SSL encryption and secure server protocols, to maintain the safety of your personal information. Access to your data is strictly limited to authorized administrative personnel within your organization and is protected by multi-layered authentication.
+            </Typography>
+
+            {/* Section 5 - Data Retention */}
+            <Typography variant="h5" sx={{ mt: 4, mb: 2, fontWeight: "bold" }}>
+              5. Data Retention
+            </Typography>
+            <Typography paragraph sx={{ lineHeight: 1.8, fontSize: "16px" }}>
+              We retain your personal and attendance data for as long as you are an active employee of the organization or as needed to provide you with the services. We also retain and use your information as necessary to comply with our legal obligations, resolve disputes, and enforce our agreements. Inactive account data is archived or deleted in accordance with organizational data management policies.
+            </Typography>
+
+            {/* Section 6 - Third-Party Services */}
+            <Typography variant="h5" sx={{ mt: 4, mb: 2, fontWeight: "bold" }}>
+              6. Third-Party Services
+            </Typography>
+            <Typography paragraph sx={{ lineHeight: 1.8, fontSize: "16px" }}>
+              The App may use third-party services such as Google Play Services to provide core functionalities. These third parties have access to your Personal Information only to perform these tasks on our behalf and are obligated not to disclose or use it for any other purpose. We do not sell or share your data with third parties for marketing or advertising.
+            </Typography>
+
+            {/* Section 7 - Data Storage and Sharing */}
+            <Typography variant="h5" sx={{ mt: 4, mb: 2, fontWeight: "bold" }}>
+              7. Data Storage and Sharing
             </Typography>
             <Box sx={{ pl: 2, mb: 2 }}>
               <Typography paragraph sx={{ lineHeight: 1.8, fontSize: "16px" }}>
@@ -146,15 +178,11 @@ function PrivacyPolicyPage() {
                 <strong>No Third-Party Sale:</strong> We do not sell, trade, or otherwise transfer your personal
                 information or location data to outside parties for marketing or advertising purposes.
               </Typography>
-              <Typography paragraph sx={{ lineHeight: 1.8, fontSize: "16px" }}>
-                <strong>Secure Storage:</strong> All data is stored on secure servers with industry-standard
-                encryption protocols.
-              </Typography>
             </Box>
 
-            {/* Section 4 */}
+            {/* Section 8 - Permissions */}
             <Typography variant="h5" sx={{ mt: 4, mb: 2, fontWeight: "bold" }}>
-              4. Permissions
+              8. Permissions
             </Typography>
             <Typography paragraph sx={{ lineHeight: 1.8, fontSize: "16px" }}>
               To function correctly, the App will request the following permissions:
@@ -168,37 +196,26 @@ function PrivacyPolicyPage() {
               </Typography>
             </Box>
 
-            {/* Section 5 */}
+            {/* Section 9 - User Rights */}
             <Typography variant="h5" sx={{ mt: 4, mb: 2, fontWeight: "bold" }}>
-              5. Security
+              9. User Rights
             </Typography>
             <Typography paragraph sx={{ lineHeight: 1.8, fontSize: "16px" }}>
-              The security of your data is important to us. We implement a variety of security measures to maintain
-              the safety of your personal information when you enter, submit, or access your information.
+              You can manage your location permissions through your device settings at any time. You have the right to request access to the data we hold about you, or request its correction or deletion via your organization's HR department.
             </Typography>
 
-            {/* Section 6 */}
+            {/* Section 10 - Changes to This Privacy Policy */}
             <Typography variant="h5" sx={{ mt: 4, mb: 2, fontWeight: "bold" }}>
-              6. User Rights
-            </Typography>
-            <Typography paragraph sx={{ lineHeight: 1.8, fontSize: "16px" }}>
-              You can manage your location permissions through your device settings at any time. However, disabling
-              location services may prevent you from successfully recording your attendance if geofencing is enabled
-              by your organization.
-            </Typography>
-
-            {/* Section 7 */}
-            <Typography variant="h5" sx={{ mt: 4, mb: 2, fontWeight: "bold" }}>
-              7. Changes to This Privacy Policy
+              10. Changes to This Privacy Policy
             </Typography>
             <Typography paragraph sx={{ lineHeight: 1.8, fontSize: "16px" }}>
               We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new
               Privacy Policy on this page and updating the "Effective Date."
             </Typography>
 
-            {/* Section 8 */}
+            {/* Section 11 - Contact Information */}
             <Typography variant="h5" sx={{ mt: 4, mb: 2, fontWeight: "bold" }}>
-              8. Contact Us
+              11. Contact Information
             </Typography>
             <Typography paragraph sx={{ lineHeight: 1.8, fontSize: "16px" }}>
               If you have any questions about this Privacy Policy, please contact your HR Department or our support
@@ -206,7 +223,7 @@ function PrivacyPolicyPage() {
             </Typography>
             <Box sx={{ pl: 2, mb: 4 }}>
               <Typography paragraph sx={{ lineHeight: 1.8, fontSize: "16px" }}>
-                <strong>Email:</strong> support@surajforwarders.com
+                <strong>Email:</strong> support@surajforwarders.com , cloud@novusha.com
               </Typography>
               <Typography paragraph sx={{ lineHeight: 1.8, fontSize: "16px" }}>
                 <strong>Website:</strong> https://surajforwarders.com

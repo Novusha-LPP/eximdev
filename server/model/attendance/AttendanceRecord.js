@@ -49,7 +49,7 @@ const recordSchema = new mongoose.Schema({
   missed_punch: { type: Boolean, default: false },
   missed_punch_reason: {
     type: String,
-    enum: ['timeout_12h', 'next_day_auto_close', 'scheduler_auto_close', null],
+    enum: ['timeout_12h', 'timeout_18h', 'timeout_24h', 'next_day_auto_close', 'scheduler_auto_close', null],
     default: null
   },
   missed_punch_marked_at: { type: Date, default: null },

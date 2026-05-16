@@ -1,10 +1,12 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
+import verifyToken from "../../middleware/authMiddleware.mjs";
 
 const router = express.Router();
 
 router.patch("/api/update-esanchit-job/:branch_code/:trade_type/:mode/:job_no/:year",
+  verifyToken,
   auditMiddleware('Job'),
   async (req, res) => {
     const { branch_code, trade_type, mode, job_no, year } = req.params;

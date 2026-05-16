@@ -121,7 +121,7 @@ const dateKeyUTC = (dateVal) => moment.utc(dateVal).tz('Asia/Kolkata').format('Y
 const dateKeyLocal = (dateVal) => moment.utc(dateVal).tz('Asia/Kolkata').format('YYYY-MM-DD');
 
 const IDENTITY_LEAVE_TYPES = new Set(['lwp', 'privilege']);
-const MISSED_PUNCH_LIMIT_HOURS = 18;
+const MISSED_PUNCH_LIMIT_HOURS = 12;
 
 const getBalanceSortValue = (balance) => {
     const timestamps = [balance?.updatedAt, balance?.last_updated, balance?.createdAt]
@@ -629,7 +629,7 @@ export const punch = async (req, res) => {
             if (elapsedHours >= MISSED_PUNCH_LIMIT_HOURS) {
                 await markSessionAsMissedPunch({
                     session: activeSession,
-                    reason: 'timeout_18h',
+                    reason: 'timeout_12h',
                     source: 'system',
                     at: now.toDate()
                 });
@@ -703,7 +703,7 @@ export const punch = async (req, res) => {
         if (type === 'OUT' && warning && activeSession) {
             await markAttendanceAsMissedPunch({
                 session: activeSession,
-                reason: 'timeout_18h',
+                reason: 'timeout_12h',
                 source: 'late_punch_out',
                 markedAt: now.toDate()
             });
@@ -913,6 +913,7 @@ export const getDashboardData = async (req, res) => {
                 absent: todayRecs.filter(r => r.status === 'absent').length,
                 late: todayRecs.filter(r => r.is_late).length,
                 onLeave: todayRecs.filter(r => r.status === 'leave').length,
+                missedPunch: todayRecs.filter(r => r.status === 'incomplete').length,
                 pendingApprovals: pendingLeaves + pendingRegs
             };
         }
@@ -1554,11 +1555,13 @@ export const getAdminDashboardData = async (req, res) => {
         
         const presentToday = presentUserIds.size;
         const onLeaveToday = leaveUserIds.size;
+        const missedPunchToday = attendanceRecs.filter(r => r.status === 'incomplete').length;
         
         // console.log(`[DEBUG Dashboard] Present: ${presentToday}, Leave: ${onLeaveToday}, ActiveLeaves: ${activeLeaves.length}`);
         
         const accountedIds = new Set([...presentUserIds, ...leaveUserIds]);
-        const absentToday = Math.max(0, totalEmployees - accountedIds.size);
+        // Also subtract missed punches from the "Absent" count to keep tiles mutually exclusive
+        const absentToday = Math.max(0, totalEmployees - accountedIds.size - missedPunchToday);
 
         const halfDayToday = attendanceRecs.filter(r => r.status === 'half_day').length;
         const lateToday = attendanceRecs.filter(r => r.is_late).length;
@@ -1598,7 +1601,7 @@ export const getAdminDashboardData = async (req, res) => {
                     ? employeeTeamIds.map((teamId) => teamMap.get(teamId)).filter(Boolean).join(', ')
                     : 'Unassigned',
                 department: emp.department_id?.department_name || 'General',
-                status: status,
+                status: status === 'incomplete' ? 'missed_punch' : status,
                 inTime: att?.first_in,
                 outTime: att?.last_out,
                 lateMinutes: att?.late_by_minutes || 0,
@@ -1723,6 +1726,7 @@ export const getAdminDashboardData = async (req, res) => {
                     present: presentToday,
                     absent: absentToday,
                     onLeave: onLeaveToday,
+                    missedPunch: missedPunchToday,
                     halfDay: halfDayToday,
                     late: lateToday
                 },

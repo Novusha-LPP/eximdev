@@ -428,6 +428,7 @@ export const getDashboard = async (req, res) => {
                             present: 0,
                             absent: 0,
                             onLeave: 0,
+                            missedPunch: 0,
                             late: 0
                         },
                         employees: [],
@@ -519,6 +520,7 @@ export const getDashboard = async (req, res) => {
         const earlyOutEmployees = [];
         const halfDayEmployees = [];
         const absentEmployees = [];
+        const missedPunchEmployees = [];
 
         // Process attendance
         attendanceRecords.forEach(record => {
@@ -553,6 +555,14 @@ export const getDashboard = async (req, res) => {
                         inTime: record.first_in,
                         outTime: record.last_out,
                         workHours: record.total_work_hours || 0
+                    });
+                }
+
+                if (record.status === 'incomplete') {
+                    missedPunchEmployees.push({
+                        name: empName,
+                        inTime: record.first_in,
+                        reason: record.missed_punch_reason || 'Incomplete session'
                     });
                 }
             } else if (record.status === 'absent') {
@@ -791,6 +801,8 @@ export const getDashboard = async (req, res) => {
                         attendance[dateStr] = 'present_late';
                     } else if (attRecord.is_early_exit) {
                         attendance[dateStr] = 'present_early';
+                    } else if (attRecord.status === 'incomplete') {
+                        attendance[dateStr] = 'missed_punch';
                     } else {
                         attendance[dateStr] = attRecord.status;
                     }
@@ -827,17 +839,20 @@ export const getDashboard = async (req, res) => {
         res.json({
             data: {
                 summary: {
-                    present: presentEmployees.size,
+                    totalEmployees,
+                    present: presentEmployees.size - missedPunchEmployees.length,
                     absent: absentEmployees.filter(a => !a.onLeave).length,
                     late: lateEmployees.length,
                     earlyOut: earlyOutEmployees.length,
                     halfDay: halfDayEmployees.length,
-                    onLeave: approvedLeaves.length
+                    onLeave: approvedLeaves.length,
+                    missedPunch: missedPunchEmployees.length
                 },
                 absent: absentEmployees,
                 late: lateEmployees,
                 earlyOut: earlyOutEmployees,
                 halfDay: halfDayEmployees,
+                missedPunch: missedPunchEmployees,
                 pendingLeaves: await Promise.all(pendingLeaves.map(async leave => {
                     // Fetch current balance for this specific leave type
                     const balance = await LeaveBalance.findOne({

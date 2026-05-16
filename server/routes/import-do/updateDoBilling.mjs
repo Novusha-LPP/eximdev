@@ -1,6 +1,7 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs"; // Import your JobModel
 import auditMiddleware from "../../middleware/auditTrail.mjs"; // Import audit middleware
+import verifyToken from "../../middleware/authMiddleware.mjs"; // Import auth middleware
 
 const router = express.Router();
 
@@ -30,6 +31,7 @@ const extractJobInfo = async (req, res, next) => {
 // PATCH route for updating billing details
 router.patch(
   "/api/update-do-billing/:id",
+  verifyToken,
   extractJobInfo,
   auditMiddleware("Job"),
   async (req, res) => {

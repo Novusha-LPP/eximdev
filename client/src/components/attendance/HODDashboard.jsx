@@ -29,7 +29,7 @@ const fmtLate = mins => { if (!mins) return ''; const m=parseInt(mins); if(m<60)
 const initials = (n='') => n.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
 const formatSession = (s) => (s === 'first_half' ? '1st Half' : '2nd Half');
 
-const DOT_LABELS = { present:'P', absent:'A', late:'L', present_late:'L', present_early:'E', late_early:'LE', half_day:'½', leave:'LV', holiday:'HD', weekly_off:' ', empty:'' };
+const DOT_LABELS = { present:'P', absent:'A', late:'L', present_late:'L', present_early:'E', late_early:'LE', half_day:'½', leave:'LV', holiday:'HD', weekly_off:' ', missed_punch:'MP', empty:'' };
 
 const HODDashboard = () => {
   const navigate = useNavigate();
@@ -173,6 +173,7 @@ const HODDashboard = () => {
     { icon:'❌', cls:'absent',  val:summary?.absent   ??0, lbl:'Absent',     pill:'Today', pillCls:'red'   },
     { icon:'🕒', cls:'late',    val:summary?.late     ??0, lbl:'Late In',    pill:'Today', pillCls:'amber' },
     { icon:'🌴', cls:'leave',   val:summary?.onLeave  ??0, lbl:'On Leave',   pill:'Today', pillCls:'grey'  },
+    { icon:'❓', cls:'missed',  val:summary?.missedPunch ?? 0, lbl:'Missed Punch', pill:'Action', pillCls:'amber' },
     { icon:'⚠️', cls:'exceptions', val:exceptionsVal, lbl:'Exceptions', pill:'Click', pillCls:'amber', clickable:true },
   ];
 
@@ -463,7 +464,7 @@ const HODDashboard = () => {
             </div>
 
             <div className="hod-cal-legend">
-              {[['Present','#22c47a'],['Late','#f59e3a'],['Absent','#e84040'],['Half Day','#4a90e8'],['Leave','#8b6be0'],['Holiday','#4a90e8'],['Week Off','#e4e7f0']].map(([l,c],i)=>(
+              {[['Present','#22c47a'],['Late','#f59e3a'],['Absent','#e84040'],['Half Day','#4a90e8'],['Leave','#8b6be0'],['Missed Punch', '#f59e3a'],['Holiday','#4a90e8'],['Week Off','#e4e7f0']].map(([l,c],i)=>(
                 <span key={i}><span className="hod-leg-dot" style={{background:c}}/>{l}</span>
               ))}
             </div>
@@ -496,6 +497,13 @@ const HODDashboard = () => {
                 >
                   Half Day
                   {halfDay.length > 0 && <span className="hod-ttab-badge hod-ttab-blue">{halfDay.length}</span>}
+                </button>
+                <button
+                  className={`hod-ttab ${todayTab === 'missed' ? 'active' : ''}`}
+                  onClick={() => setTodayTab('missed')}
+                >
+                  Missed Punch
+                  {summary?.missedPunch > 0 && <span className="hod-ttab-badge hod-ttab-amber">{summary.missedPunch}</span>}
                 </button>
               </div>
             </div>
@@ -554,6 +562,26 @@ const HODDashboard = () => {
                         <div className="hod-person-sub">{emp.inTime ? `Punched ${fmtTime(emp.inTime)}` : 'Half Day Leave'}</div>
                       </div>
                       <span className="hod-half-chip">{emp.workHours ? `${emp.workHours.toFixed(1)}h` : 'Leave'}</span>
+                    </div>
+                  ))}
+                </div>
+              )
+            )}
+
+            {/* Missed Punch Tab */}
+            {todayTab === 'missed' && (
+              (data?.missedPunch || []).length === 0 ? (
+                <div className="hod-empty"><div className="hod-empty-icon">✨</div><span>No missed punches today</span></div>
+              ) : (
+                <div className="hod-person-list">
+                  {(data.missedPunch || []).map((emp,i) => (
+                    <div key={i} className="hod-person-row">
+                      <div className="hod-person-av late">{initials(emp.name)}</div>
+                      <div className="hod-person-info">
+                        <div className="hod-person-name">{emp.name}</div>
+                        <div className="hod-person-sub">In at {fmtTime(emp.inTime)} · {emp.reason}</div>
+                      </div>
+                      <span className="hod-late-badge">MP</span>
                     </div>
                   ))}
                 </div>

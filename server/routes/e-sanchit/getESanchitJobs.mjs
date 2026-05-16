@@ -4,6 +4,7 @@ import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 import mongoose from "mongoose";
 import { getBranchMatch } from "../../utils/branchFilter.mjs";
+import verifyToken from "../../middleware/authMiddleware.mjs";
 
 const router = express.Router();
 
@@ -179,6 +180,7 @@ router.get("/api/get-esanchit-jobs", applyUserIcdFilter, async (req, res) => {
 
 // PATCH endpoint for updating E-Sanchit jobs
 router.patch("/api/update-esanchit-job/:mode/:job_no/:year",
+  verifyToken,
   auditMiddleware('Job'),
   async (req, res) => {
     const { mode, job_no, year } = req.params;

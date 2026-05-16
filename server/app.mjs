@@ -263,7 +263,7 @@ import jobMigrationRouter from "./routes/admin/jobMigration.mjs";
 // HR Asset Module
 import userAssetsRoutes from "./routes/hr/userAssetsRoutes.mjs";
 
-const MISSED_PUNCH_LIMIT_HOURS = 18;
+const MISSED_PUNCH_LIMIT_HOURS = 12;
 
 const autoMarkStaleMissedPunchSessions = async () => {
   const now = new Date();
@@ -286,7 +286,7 @@ const autoMarkStaleMissedPunchSessions = async () => {
         $set: {
           session_status: "abandoned",
           abandoned_at: now,
-          abandoned_reason: "timeout_18h",
+          abandoned_reason: "timeout_12h",
           auto_marked_missed_punch: true,
         },
       },
@@ -312,7 +312,7 @@ const autoMarkStaleMissedPunchSessions = async () => {
           status: "incomplete",
           has_incomplete_session: true,
           missed_punch: true,
-          missed_punch_reason: "timeout_18h",
+          missed_punch_reason: "timeout_12h",
           missed_punch_marked_at: now,
           missed_punch_source: "cron",
           year_month: sessionDateKey.slice(0, 7),
@@ -735,9 +735,9 @@ if (!disableCluster && cluster.isPrimary) {
   if (process.env.NODE_ENV !== 'test') {
     mongoose
       .connect(MONGODB_URI, {
-        appName: "EximServer", // Identifies this app in Atlas logs
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
+        appName: "exim", // Identifies this app in Atlas logs
+        // useNewUrlParser: true,
+        // useUnifiedTopology: true,
         minPoolSize: 0,
         maxPoolSize: 30, // Reduced from 30 to 5 to prevent connection spikes in clustered mode
         maxIdleTimeMS: 30000,

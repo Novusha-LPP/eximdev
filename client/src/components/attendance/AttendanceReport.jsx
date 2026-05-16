@@ -39,7 +39,7 @@ const getCalendarStatusClass = (status = '') => {
     const normalized = String(status || '').toLowerCase();
     if (normalized === 'weekly_off' || normalized === 'weekoff' || normalized === 'off') return 'weekly_off';
     if (normalized === 'present_late') return 'late';
-    if (normalized === 'incomplete') return 'incomplete';
+    if (normalized === 'incomplete' || normalized === 'missed_punch') return 'incomplete';
     return normalized || 'none';
 };
 
@@ -57,6 +57,7 @@ const getCalendarStatusBadge = (status = '') => {
         absent: 'A',
         present: 'P',
         incomplete: 'MP',
+        missed_punch: 'MP',
         pending_leave: 'PLV'
     };
     return map[normalized] || '';
@@ -71,7 +72,8 @@ const StatusPill = ({ status, session, leaveType, leaveStatus }) => {
         half_day: ['Half Day', 'half-day'], 
         weekly_off: ['Off', 'off'], 
         holiday: ['Holiday', 'holiday'],
-        incomplete: ['Missed Punch', 'missed-punch']
+        incomplete: ['Missed Punch', 'missed-punch'],
+        missed_punch: ['Missed Punch', 'missed-punch']
     };
     let [label, cls] = map[status] || [status, 'default'];
 
@@ -135,11 +137,11 @@ const DailySummaryView = ({ groups, startDate, endDate }) => {
                 const isCollapsed = collapsed[sectionTitle];
                 const sectionColorObj = {
                     'Present': '#10b981', 'Late': '#f59e0b', 'Half Day': '#3b82f6',
-                    'Absent': '#ef4444', 'Leave': '#8b5cf6', 'Other': '#64748b'
+                    'Absent': '#ef4444', 'Leave': '#8b5cf6', 'Missed Punch': '#d97706', 'Other': '#64748b'
                 };
                 const bgColors = {
                     'Present': '#ecfdf5', 'Late': '#fffbeb', 'Half Day': '#eff6ff',
-                    'Absent': '#fef2f2', 'Leave': '#f5f3ff', 'Other': '#f8fafc'
+                    'Absent': '#fef2f2', 'Leave': '#f5f3ff', 'Missed Punch': '#fff7ed', 'Other': '#f8fafc'
                 };
                 const color = sectionColorObj[sectionTitle] || '#64748b';
                 const bg = bgColors[sectionTitle] || '#f8fafc';
@@ -1210,6 +1212,7 @@ if (summarySheet) {
             'Half Day': [],
             'Absent': [],
             'Leave': [],
+            'Missed Punch': [],
             'Other': []
         };
         filtered.forEach(e => {
@@ -1221,6 +1224,7 @@ if (summarySheet) {
             else if (targetStatus === 'half_day') g['Half Day'].push(e);
             else if (targetStatus === 'absent') g['Absent'].push(e);
             else if (targetStatus === 'leave') g['Leave'].push(e);
+            else if (targetStatus === 'incomplete' || targetStatus === 'missed_punch') g['Missed Punch'].push(e);
             else g['Other'].push(e);
         });
         return g;

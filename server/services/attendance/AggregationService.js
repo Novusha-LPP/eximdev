@@ -206,6 +206,7 @@ class AggregationService {
             const onLeaveSet = new Set(approvedLeaves.map(l => l.employee_id._id.toString()));
             const halfDaySet = new Set();
             const earlyExitSet = new Set();
+            const missedPunchSet = new Set();
 
             attendanceRecords.forEach(record => {
                 const empId = record.employee_id._id.toString();
@@ -217,6 +218,8 @@ class AggregationService {
                     if (record.is_early_exit) earlyExitSet.add(empId);
                 } else if (record.status === 'absent') {
                     absentSet.add(empId);
+                } else if (record.status === 'incomplete') {
+                    missedPunchSet.add(empId);
                 }
             });
 
@@ -249,6 +252,7 @@ class AggregationService {
                 late_arrivals: lateSet.size,
                 early_exits: earlyExitSet.size,
                 half_day: halfDaySet.size,
+                missed_punch: missedPunchSet.size,
                 pending_approvals: await this.getPendingApprovalsCount(companyFilter, employeeScope)
             };
 
@@ -277,6 +281,7 @@ class AggregationService {
                     const orgAbsentSet = new Set();
                     const orgLateSet = new Set();
                     const orgOnLeaveSet = new Set(orgLeaves.map(l => l.employee_id._id.toString()));
+                    const orgMissedPunchSet = new Set();
 
                     orgAttendance.forEach(record => {
                         const empId = record.employee_id._id.toString();
@@ -285,6 +290,8 @@ class AggregationService {
                             if (record.is_late) orgLateSet.add(empId);
                         } else if (record.status === 'absent') {
                             orgAbsentSet.add(empId);
+                        } else if (record.status === 'incomplete') {
+                            orgMissedPunchSet.add(empId);
                         }
                     });
 
@@ -311,6 +318,7 @@ class AggregationService {
                         present: orgPresentSet.size,
                         absent: Math.max(0, orgAbsentSet.size - orgAbsentOnLeaveOverlap.size),
                         on_leave: orgEffectiveOnLeaveIds.size,
+                        missed_punch: orgMissedPunchSet.size,
                         late: orgLateSet.size
                     });
                 }

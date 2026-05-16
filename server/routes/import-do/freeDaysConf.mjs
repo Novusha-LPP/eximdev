@@ -19,6 +19,7 @@ import JobModel from "../../model/jobModel.mjs";
 import applyUserIcdFilter from "../../middleware/icdFilter.mjs";
 import mongoose from "mongoose";
 import { getBranchMatch } from "../../utils/branchFilter.mjs";
+import verifyToken from "../../middleware/authMiddleware.mjs";
 
 const router = express.Router();
 router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
@@ -136,7 +137,7 @@ router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
 
 
 // PATCH API that updates only the free_time
-router.patch("/api/update-free-time/:id", async (req, res) => {
+router.patch("/api/update-free-time/:id", verifyToken, async (req, res) => {
   try {
     const { id } = req.params; // Extract job ID from route parameters
     const { free_time } = req.body; // Extract free_time from request body
@@ -171,7 +172,7 @@ router.patch("/api/update-free-time/:id", async (req, res) => {
 
 
 // PATCH API that updates free_time and all DO-related documents
-router.patch("/api/update-free-days-config", async (req, res) => {
+router.patch("/api/update-free-days-config", verifyToken, async (req, res) => {
   try {
     const {
       _id,

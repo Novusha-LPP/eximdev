@@ -46,6 +46,7 @@ const AdminDashboard = () => {
   const absentCount = data.summary?.global?.absent_today || 0;
   const onLeaveCount = data.summary?.global?.on_leave_today || 0;
   const lateCount = data.summary?.global?.late_arrivals || 0;
+  const missedPunchCount = data.summary?.global?.missed_punch || 0;
   const totalCount = data.summary?.global?.total_employees || 0;
 
   return (
@@ -214,6 +215,16 @@ const AdminDashboard = () => {
         </div>
 
         <div className="adb-kpi-card">
+          <div className="adb-kpi-icon orange" style={{ backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#d97706' }}>
+            <FiAlertCircle size={20} />
+          </div>
+          <div className="adb-kpi-content">
+            <div className="adb-kpi-value">{missedPunchCount}</div>
+            <div className="adb-kpi-label">Missed Punch</div>
+          </div>
+        </div>
+
+        <div className="adb-kpi-card">
           <div className="adb-kpi-icon teal">
             <FiTrendingUp size={20} />
           </div>
@@ -249,6 +260,12 @@ const AdminDashboard = () => {
           onClick={() => setActiveTab('leaves')}
         >
           📋 Leaves ({leaveRequests.pending?.length || 0})
+        </button>
+        <button
+          className={`adb-tab ${activeTab === 'missed_punch' ? 'active' : ''}`}
+          onClick={() => setActiveTab('missed_punch')}
+        >
+          ⚠️ Missed Punch ({missedPunchCount})
         </button>
         <button
           className={`adb-tab ${activeTab === 'organizations' ? 'active' : ''}`}
@@ -289,6 +306,10 @@ const AdminDashboard = () => {
                 <div className="adb-stat-item">
                   <div className="adb-stat-label">Late Arrivals</div>
                   <div className="adb-stat-value orange">{lateCount}</div>
+                </div>
+                <div className="adb-stat-item">
+                  <div className="adb-stat-label">Missed Punch</div>
+                  <div className="adb-stat-value orange" style={{ color: '#d97706' }}>{missedPunchCount}</div>
                 </div>
               </div>
             </div>
@@ -391,6 +412,37 @@ const AdminDashboard = () => {
             </table>
             {(!data.daily_details?.absent || data.daily_details.absent.length === 0) && (
               <div className="adb-empty-state">No absent employees</div>
+            )}
+          </div>
+        )}
+
+        {/* MISSED PUNCH TAB */}
+        {!loading && activeTab === 'missed_punch' && (
+          <div className="adb-tab-content">
+            <table className="adb-table">
+              <thead>
+                <tr>
+                  <th>Employee Name</th>
+                  <th>In Time</th>
+                  <th>Out Time</th>
+                  <th>Reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.daily_details?.missed_punch?.map(emp => (
+                  <tr key={emp.emp_id}>
+                    <td><strong>{emp.emp_name}</strong></td>
+                    <td>{emp.in_time ? new Date(emp.in_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+                    <td>{emp.out_time ? new Date(emp.out_time).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '—'}</td>
+                    <td>
+                      <span className="badge badge-orange">Missed Punch</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {(!data.daily_details?.missed_punch || data.daily_details.missed_punch.length === 0) && (
+              <div className="adb-empty-state">No missed punch records</div>
             )}
           </div>
         )}

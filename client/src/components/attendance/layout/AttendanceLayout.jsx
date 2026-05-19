@@ -156,7 +156,15 @@ const AttendanceLayout = () => {
                         maximumAge: 0
                     })
                 );
-                location = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+                location = { 
+                    latitude: pos.coords.latitude, 
+                    longitude: pos.coords.longitude,
+                    accuracy: pos.coords.accuracy,
+                    altitude: pos.coords.altitude,
+                    heading: pos.coords.heading,
+                    speed: pos.coords.speed,
+                    timestamp: pos.timestamp
+                };
             } catch (e) {
                 console.warn("Geolocation failed:", e);
             }

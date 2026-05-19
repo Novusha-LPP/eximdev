@@ -524,16 +524,11 @@ export const assignPolicyToUser = async (req, res) => {
       }
     }
 
-    console.log('>>> [DEBUG] updateOne filter:', { _id: userId });
-    console.log('>>> [DEBUG] updateOne body:', JSON.stringify(update, null, 2));
-
     const result = await User.updateOne({ _id: userId }, { $set: update });
-    console.log('>>> [DEBUG] updateOne result:', JSON.stringify(result, null, 2));
 
     if (result.matchedCount === 0) return res.status(404).json({ message: 'User not found' });
 
     const user = await User.findById(userId).lean();
-    console.log('>>> [DEBUG] Fetched user from DB after update:', JSON.stringify(user?.attendance_settings, null, 2));
 
     await log(req, 'POLICY', 'ASSIGN_POLICY_TO_USER', `Assigned policies to user ${user.username}`);
     res.json({

@@ -32,6 +32,7 @@ const purchaseBookEntrySchema = new mongoose.Schema({
   tds: { type: Number },
   total: { type: Number },
   isApproved: { type: Boolean, default: false },
+  isPostBilling: { type: Boolean, default: false },
   approvedByFirst: { type: String, trim: true },
   approvedByLast: { type: String, trim: true },
   approvedAt: { type: Date },

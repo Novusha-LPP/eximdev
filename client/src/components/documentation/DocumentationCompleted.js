@@ -23,6 +23,8 @@ import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { BranchContext } from "../../contexts/BranchContext.js";
 
 import ContainerTrackButton from '../ContainerTrackButton';
+import BLTrackingCell from "../../customHooks/BLTrackingCell";
+import ContainerCellContent from "../ContainerCellContent";
 
 function DocumentationCompletedd() {
   const { currentTab } = useContext(TabContext); // Access context
@@ -221,6 +223,36 @@ function DocumentationCompletedd() {
     setCurrentPage(1); // Reset to first page when user types
   };
 
+  const handleCopy = useCallback((event, text) => {
+    event.stopPropagation();
+    if (!text || text === "N/A") return; // Prevent copying empty values
+    if (
+      navigator.clipboard &&
+      typeof navigator.clipboard.writeText === "function"
+    ) {
+      navigator.clipboard
+        .writeText(text)
+        .then(() => {})
+        .catch((err) => {
+          alert("Failed to copy text to clipboard.");
+          console.error("Failed to copy:", err);
+        });
+    } else {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand("copy");
+      } catch (err) {
+        alert("Failed to copy text to clipboard.");
+        console.error("Fallback copy failed:", err);
+      }
+      document.body.removeChild(textArea);
+    }
+  }, []);
+
   const columns = [
     {
       accessorKey: "job_no",
@@ -283,9 +315,28 @@ function DocumentationCompletedd() {
       Cell: ({ cell }) => {
         const { awb_bl_no, awb_bl_date } = cell.row.original; // Destructure properties here
         return (
-          <div>
-            {awb_bl_no} <br /> {awb_bl_date}
-          </div>
+          <BLTrackingCell
+            blNumber={awb_bl_no}
+            shippingLine={cell.row.original.shipping_line_airline}
+            customHouse={cell.row.original.custom_house}
+            container_nos={cell.row.original.container_nos}
+            jobId={cell.row.original._id}
+            branch_code={cell.row.original.branch_code}
+            mode={cell.row.original.mode}
+            portOfReporting={cell.row.original.port_of_reporting}
+            containerNos={cell.row.original.container_nos}
+            onCopy={handleCopy}
+            onUpdateSuccess={() => fetchJobs({
+                page: currentPage,
+                search: debouncedSearchQuery,
+                importer: selectedImporter,
+                year: selectedYearState,
+                unresolvedOnly: showUnresolvedOnly,
+                branchId: selectedBranch,
+                category: selectedCategory
+              })}
+            selectedYear={selectedYearState}
+          />
         );
       },
     },
@@ -294,22 +345,7 @@ function DocumentationCompletedd() {
       accessorKey: "container_numbers",
       header: "Container Numbers and Size",
       size: 200,
-      Cell: ({ cell }) => {
-        const containerNos = cell.row.original.container_nos;
-        return (
-          <React.Fragment>
-            {containerNos?.map((container, id) => (
-              <div key={id} style={{ marginBottom: "4px" }}>
-                {container.container_number}<ContainerTrackButton
-                  customHouse={cell?.row?.original?.custom_house}
-                  containerNo={container.container_number}
-                />
-                | "{container.size}"
-              </div>
-            ))}
-          </React.Fragment>
-        );
-      },
+      Cell: ({ cell }) => <ContainerCellContent cell={cell} handleCopy={handleCopy} />,
     },
     {
       accessorKey: "Doc",

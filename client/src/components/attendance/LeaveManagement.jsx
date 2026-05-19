@@ -18,6 +18,20 @@ const rowClass = status => {
   return map[status] || '';
 };
 
+const getApprovalMeta = (app = {}) => {
+  const finalStatus = String(app.final_status || app.status || 'pending').toLowerCase();
+  const stage = String(app.approval_stage || '').toLowerCase();
+
+  if (finalStatus === 'approved') return { label: 'Fully Approved', style: { background: '#dcfce7', color: '#166534' }, key: 'approved' };
+  if (finalStatus === 'rejected') return { label: 'Rejected', style: { background: '#fee2e2', color: '#b91c1c' }, key: 'rejected' };
+  if (finalStatus === 'cancelled' || finalStatus === 'withdrawn') return { label: 'Cancelled', style: { background: '#f1f5f9', color: '#475569' }, key: 'cancelled' };
+  if (finalStatus === 'pending_final' || stage === 'stage_3_final') return { label: 'Pending Final Approval', style: { background: '#dbeafe', color: '#1d4ed8' }, key: 'pending' };
+  if (finalStatus === 'pending_shalini' || finalStatus === 'hod_approved_pending_admin' || stage === 'stage_2_shalini') return { label: 'Approved by HOD', style: { background: '#dbeafe', color: '#1d4ed8' }, key: 'pending' };
+  if (finalStatus === 'in_review') return { label: 'In Review', style: { background: '#dbeafe', color: '#1d4ed8' }, key: 'pending' };
+  if (finalStatus === 'pending_hod' || stage === 'stage_1_hod' || finalStatus === 'pending') return { label: 'Pending HOD Approval', style: { background: '#fef3c7', color: '#b45309' }, key: 'pending' };
+  return { label: String(finalStatus || 'pending').replace(/_/g, ' '), style: { background: '#fef3c7', color: '#b45309' }, key: 'pending' };
+};
+
 const formatSession = (s) => {
   if (!s) return '';
   return s === 'first_half' ? '1st Half' : '2nd Half';
@@ -204,37 +218,52 @@ const LeaveManagement = () => {
   /* filters */
   const [search, setSearch] = useState('');
   const [statusFilt, setStatusFilt] = useState('all');
+  const [historyFilterBy, setHistoryFilterBy] = useState('all');
+  const [historyMonth, setHistoryMonth] = useState('');
   const [curPage, setCurPage] = useState(1);
 
   const pending = applications.filter(a => a.status === 'pending');
   const isLwpPolicy = (policy) => String(policy?.leave_type || '').toLowerCase() === 'lwp';
 
   useEffect(() => { fetchData(); }, []);
+  useEffect(() => { loadApplications(); }, [historyFilterBy, historyMonth]);
 
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [br, ar, sr] = await Promise.all([
+      const [br, sr] = await Promise.all([
         leaveAPI.getBalance(),
-        leaveAPI.getApplications(),
         masterAPI.getCompanySettings(),
       ]);
       setBalances(br?.data || []);
       console.log(br?.data);
-      setApplications((ar?.data || []).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)));
       setSettings(sr || null);
     } catch { toast.error('Failed to load leave data'); }
     finally { setLoading(false); }
   };
 
+  const loadApplications = async () => {
+    try {
+      const params = {};
+      if (historyFilterBy === 'leaveMonth' && historyMonth) params.leaveMonth = historyMonth;
+      if (historyFilterBy === 'appliedMonth' && historyMonth) params.appliedMonth = historyMonth;
+      const ar = await leaveAPI.getApplications(params);
+      setApplications((ar?.data || []).sort((a, b) => new Date(b.applied_on || b.appliedOn || b.createdAt) - new Date(a.applied_on || a.appliedOn || a.createdAt)));
+    } catch {
+      toast.error('Failed to load leave applications');
+      setApplications([]);
+    }
+  };
+
   const handleApplyLeaveSuccess = () => {
     fetchData();
+    loadApplications();
   };
 
 
   const openCancelModal = (app) => setCancelTarget(app);
   const closeCancelModal = () => setCancelTarget(null);
-  const onCancelDone = () => { setCancelTarget(null); fetchData(); };
+  const onCancelDone = () => { setCancelTarget(null); fetchData(); loadApplications(); };
 
   /* -- filtered + paginated table data -- */
   const filtered = applications.filter(a => {
@@ -411,6 +440,25 @@ const LeaveManagement = () => {
               <option value="rejected">Rejected</option>
               <option value="cancelled">Cancelled</option>
             </select>
+            <select
+              value={historyFilterBy}
+              onChange={e => { setHistoryFilterBy(e.target.value); setCurPage(1); }}
+              className="sf-select"
+              style={{ height: 30 }}
+            >
+              <option value="all">All Months</option>
+              <option value="leaveMonth">Filter By Leave Month</option>
+              <option value="appliedMonth">Filter By Applied Month</option>
+            </select>
+            {historyFilterBy !== 'all' && (
+              <input
+                type="month"
+                value={historyMonth}
+                onChange={e => { setHistoryMonth(e.target.value); setCurPage(1); }}
+                className="sf-input"
+                style={{ height: 30, width: 148 }}
+              />
+            )}
             <span style={{ fontSize: '.75rem', color: 'var(--t3)', whiteSpace: 'nowrap' }}>
               {filtered.length} record{filtered.length !== 1 ? 's' : ''}
             </span>
@@ -425,6 +473,7 @@ const LeaveManagement = () => {
                 <th>Date Range</th>
                 <th>Days</th>
                 <th>Status</th>
+                <th>Approver Status</th>
                 <th>Applied On</th>
                 <th>Reviewed By</th>
                 <th>Reason</th>
@@ -434,7 +483,7 @@ const LeaveManagement = () => {
             </thead>
             <tbody>
               {pageRows.length > 0 ? pageRows.map((app, i) => (
-                <tr key={i} className={rowClass(app.status)}>
+                <tr key={i} className={rowClass(String(app.final_status || app.status || '').toLowerCase())}>
 
                   {/* Leave type */}
                   <td>
@@ -468,14 +517,21 @@ const LeaveManagement = () => {
 
                   {/* Status badge */}
                   <td>
-                    <span className={`lmbadge ${app.status || 'default'}`}>
-                      {app.status || '-'}
+                    <span className="lmbadge" style={getApprovalMeta(app).style}>
+                      {getApprovalMeta(app).label}
+                    </span>
+                  </td>
+
+                  {/* Approver status */}
+                  <td>
+                    <span className="lmbadge" style={{ ...getApprovalMeta(app).style, opacity: 0.92 }}>
+                      {app.approval_stage_label || app.approvalStageLabel || '—'}
                     </span>
                   </td>
 
                   {/* Applied on */}
                   <td>
-                    <span className="dt-applied">{formatDate(app.createdAt, 'dd MMM yyyy')}</span>
+                    <span className="dt-applied">{formatDate(app.applied_on || app.appliedOn || app.createdAt, 'dd MMM yyyy')}</span>
                   </td>
 
                   {/* Reviewed by */}
@@ -528,7 +584,7 @@ const LeaveManagement = () => {
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan={9} className="dt-empty">No applications found.</td>
+                  <td colSpan={10} className="dt-empty">No applications found.</td>
                 </tr>
               )}
             </tbody>

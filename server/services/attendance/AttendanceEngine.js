@@ -4,6 +4,9 @@ import AttendancePunch from '../../model/attendance/AttendancePunch.js';
 import WorkingDayEngine from './WorkingDayEngine.js';
 import PolicyResolver from './PolicyResolver.js';
 import LeaveApplication from '../../model/attendance/LeaveApplication.js';
+import { IST_TIMEZONE, nowIST, getISTDayRange, toISTDateStr } from '../../utils/attendance/DateUtils.js';
+const MISSED_PUNCH_LIMIT_HOURS = 12;
+
 
 
 /**
@@ -19,14 +22,31 @@ class AttendanceEngine {
      * @returns {Promise<Object>} The processed record
      */
     static async processDaily(user, date, company, shift) {
-        const tz = company?.timezone || 'Asia/Kolkata';
-        const now = moment().tz(tz);
-        const isToday = moment(date).isSame(now, 'day');
+        const tz = IST_TIMEZONE;
+        const now = nowIST();
+        const isToday = date === now.format('YYYY-MM-DD');
 
-        let punches = await AttendancePunch.find({
+        let punchQuery = {
             employee_id: user._id,
-            punch_date: date
-        }).sort({ punch_time: 1 });
+            punch_date_str: date
+        };
+
+        // Automatically detect if shift spans midnight even if is_cross_day flag is missing
+        const isCrossDay = shift?.is_cross_day || (shift?.start_time && shift?.end_time && 
+            moment(shift.end_time, 'HH:mm').isSameOrBefore(moment(shift.start_time, 'HH:mm')));
+
+        if (isCrossDay) {
+            const nextDay = moment(date).add(1, 'days').format('YYYY-MM-DD');
+            punchQuery = {
+                employee_id: user._id,
+                $or: [
+                    { punch_date_str: date },
+                    { punch_date_str: nextDay }
+                ]
+            };
+        }
+
+        let punches = await AttendancePunch.find(punchQuery).sort({ punch_time: 1 });
 
         const inPunch  = punches.find(p => p.punch_type === 'IN');
         const outPunch = punches.find(p => p.punch_type === 'OUT');
@@ -48,13 +68,11 @@ class AttendanceEngine {
         if (isHoliday) status = 'holiday';
 
         // Check for full-day approved leave first
-        const startOfDay = moment.utc(date).startOf('day').toDate();
-        const endOfDay = moment.utc(date).endOf('day').toDate();
         const fullLeave = await LeaveApplication.findOne({
             employee_id: user._id,
             approval_status: 'approved',
-            from_date: { $lte: endOfDay },
-            to_date: { $gte: startOfDay },
+            from_date_str: { $lte: date },
+            to_date_str: { $gte: date },
             is_half_day: false
         });
 
@@ -67,12 +85,17 @@ class AttendanceEngine {
         let totalWorkHours = 0;
         let cumulativeMs = 0;
         let lastInPunch = null;
-
+        let lastOut = null;
         punches.forEach(punch => {
             if (punch.punch_type === 'IN') {
-                lastInPunch = punch;
+                // Only consider IN punches that occur on the date being processed.
+                // This prevents the next day's shift from being counted in this day's record.
+                if (punch.punch_date_str === date) {
+                    lastInPunch = punch;
+                }
             } else if (punch.punch_type === 'OUT' && lastInPunch) {
                 cumulativeMs += (punch.punch_time - lastInPunch.punch_time);
+                lastOut = punch; // This OUT belongs to a session starting on 'date'
                 lastInPunch = null;
             }
         });
@@ -90,8 +113,6 @@ class AttendanceEngine {
         let earlyInMinutes = 0;
 
         const firstIn = punches.find(p => p.punch_type === 'IN');
-        const absoluteLastPunch = punches[punches.length - 1];
-        const lastOut = (absoluteLastPunch && absoluteLastPunch.punch_type === 'OUT') ? absoluteLastPunch : null;
 
         // If employee punched in
         if (firstIn) {
@@ -145,8 +166,8 @@ class AttendanceEngine {
 
                     if (normPunchOut.isBefore(shiftEnd.clone().subtract(earlyLeaveAllowed, 'minutes'))) {
                         isEarlyExit = true;
-                        // If exceeded, calculate from actual shift end (capped at 12h for sanity)
-                        earlyExitMinutes = Math.min(shiftEnd.diff(normPunchOut, 'minutes'), 720);
+                        // If exceeded, calculate from actual shift end (capped at 18h for sanity)
+                        earlyExitMinutes = Math.min(shiftEnd.diff(normPunchOut, 'minutes'), 1080);
                     }
                 }
 
@@ -154,8 +175,15 @@ class AttendanceEngine {
                 const deptHalfDayThreshold = user.department_id?.half_day_hours;
                 const deptFullDayThreshold = user.department_id?.full_day_hours;
 
-                const fullDayThreshold = shift.full_day_hours || deptFullDayThreshold || company.attendance_config?.full_day_threshold_hours || 8;
-                const halfDayThreshold = shift.half_day_hours || deptHalfDayThreshold || company.attendance_config?.half_day_threshold_hours || 4;
+                let fullDayThreshold = shift.full_day_hours || deptFullDayThreshold || company.attendance_config?.full_day_threshold_hours || 8;
+                let halfDayThreshold = shift.half_day_hours || deptHalfDayThreshold || company.attendance_config?.half_day_threshold_hours || 4;
+
+                // Specific rule for Operations shift: 8.3 working hours required for Present
+                if (shift.shift_name?.toLowerCase().includes('operation')) {
+                    fullDayThreshold = 8.3;
+                    halfDayThreshold = 4.15;
+                }
+                
 
                 const isShiftOver = now.isAfter(shiftEnd);
                 const isCurrentlyPunchedOut = !lastInPunch;
@@ -180,13 +208,11 @@ class AttendanceEngine {
 
                 // --- ADVANCED HALF-DAY INTEGRATION ---
                 // Query for approved half-day leaves on this date
-                const startOfDay = moment.utc(date).startOf('day').toDate();
-                const endOfDay = moment.utc(date).endOf('day').toDate();
                 leave = await LeaveApplication.findOne({
                     employee_id: user._id,
                     approval_status: 'approved',
-                    from_date: { $lte: endOfDay },
-                    to_date: { $gte: startOfDay },
+                    from_date_str: { $lte: date },
+                    to_date_str: { $gte: date },
                     is_half_day: true
                 }).select('half_day_session');
 
@@ -206,8 +232,9 @@ class AttendanceEngine {
                 } else if (effectiveHours >= adjustedFullDay) {
                     status = 'present';
                 } else if (effectiveHours <= adjustedHalfDay) {
-                    // Only finalize as half_day if shift is over and it's not today, or if it's been > 12h
-                    if ((!isToday && (isShiftOver || hoursSinceIn > 12)) || isCurrentlyPunchedOut) {
+                    // Only finalize as half_day if shift is over and it's not today, or if it's been > 18h
+                    // For TODAY: Only mark as half_day if they are punched out AND the shift is over.
+                    if ((!isToday && (isShiftOver || hoursSinceIn > MISSED_PUNCH_LIMIT_HOURS)) || (isToday && isCurrentlyPunchedOut && isShiftOver)) {
                         status = 'half_day';
                         isHalfDayFlag = true;
                         isLate = false;
@@ -215,7 +242,7 @@ class AttendanceEngine {
                         status = 'present';
                     }
                 } else {
-                    if ((!isToday && (isShiftOver || hoursSinceIn > 12)) || isGapTooLarge || isCurrentlyPunchedOut) {
+                    if ((!isToday && (isShiftOver || hoursSinceIn > MISSED_PUNCH_LIMIT_HOURS)) || isGapTooLarge || (isToday && isCurrentlyPunchedOut && isShiftOver)) {
                          status = 'half_day';
                          isHalfDayFlag = true;
                          isLate = false;
@@ -224,8 +251,8 @@ class AttendanceEngine {
                     }
                 }
 
-                // ✅ Fix: Don't mark as incomplete until 12 hours after punch-in
-                if (!isToday && lastInPunch && status === 'present' && hoursSinceIn > 12) {
+                // ✅ Fix: Don't mark as incomplete until 18 hours after punch-in
+                if (!isToday && lastInPunch && status === 'present' && hoursSinceIn > MISSED_PUNCH_LIMIT_HOURS) {
                     status = 'incomplete';
                     isHalfDayFlag = false;
                 }
@@ -271,7 +298,7 @@ class AttendanceEngine {
 
             const existingRecordAdminCheck = await AttendanceRecord.findOne({
                 employee_id: empId,
-                attendance_date: attendanceDate
+                attendance_date_str: date
             });
 
             if (existingRecordAdminCheck && existingRecordAdminCheck.processed_by === 'admin') {
@@ -279,8 +306,10 @@ class AttendanceEngine {
             }
 
             return await AttendanceRecord.findOneAndUpdate(
-                { employee_id: empId, attendance_date: attendanceDate },
+                { employee_id: empId, attendance_date_str: date },
                 {
+                    attendance_date: attendanceDate,
+                    attendance_date_str: date,
                     company_id: compId,
                     department_id: deptId,
                     shift_id: shift ? (shift._id?._id || shift._id) : null,
@@ -302,7 +331,7 @@ class AttendanceEngine {
                     is_on_leave: !!leaveId,
                     leave_application_id: leaveId
                 },
-                { upsert: true, returnDocument: 'after' }
+                { upsert: true, new: true }
             );
         } else {
             const empId = user._id?._id || user._id;
@@ -323,15 +352,17 @@ class AttendanceEngine {
 
             const existingRecord = await AttendanceRecord.findOne({
                 employee_id: empId,
-                attendance_date: attendanceDate
+                attendance_date_str: date
             });
             if (existingRecord && existingRecord.first_in) {
                 return existingRecord;
             }
 
             return await AttendanceRecord.findOneAndUpdate(
-                { employee_id: empId, attendance_date: attendanceDate },
+                { employee_id: empId, attendance_date_str: date },
                 {
+                    attendance_date: attendanceDate,
+                    attendance_date_str: date,
                     company_id: compId,
                     department_id: deptId,
                     status: status,
@@ -342,7 +373,7 @@ class AttendanceEngine {
                     processed_at: new Date(),
                     processed_by: 'system'
                 },
-                { upsert: true, returnDocument: 'after' }
+                { upsert: true, new: true }
             );
         }
     }

@@ -29,6 +29,8 @@ import { UserContext } from "../../contexts/UserContext";
 import { BranchContext } from "../../contexts/BranchContext.js";
 
 import ContainerTrackButton from '../ContainerTrackButton';
+import BLTrackingCell from "../../customHooks/BLTrackingCell";
+import ContainerCellContent from "../ContainerCellContent";
 
 function Submission() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
@@ -336,11 +338,22 @@ function Submission() {
       header: "BL Num & Date",
       size: 150,
       Cell: ({ cell }) => {
-        const { awb_bl_no, awb_bl_date } = cell.row.original;
+        const { awb_bl_no, awb_bl_date } = cell.row.original; // Destructure properties here
         return (
-          <div>
-            {awb_bl_no} <br /> {awb_bl_date}
-          </div>
+          <BLTrackingCell
+            blNumber={awb_bl_no}
+            shippingLine={cell.row.original.shipping_line_airline}
+            customHouse={cell.row.original.custom_house}
+            container_nos={cell.row.original.container_nos}
+            jobId={cell.row.original._id}
+            branch_code={cell.row.original.branch_code}
+            mode={cell.row.original.mode}
+            portOfReporting={cell.row.original.port_of_reporting}
+            containerNos={cell.row.original.container_nos}
+            onCopy={handleCopy}
+            onUpdateSuccess={() => fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYearState, showUnresolvedOnly, selectedBranch, selectedCategory)}
+            selectedYear={selectedYearState}
+          />
         );
       },
     },
@@ -348,22 +361,7 @@ function Submission() {
       accessorKey: "container_numbers",
       header: "Container Numbers and Size",
       size: 200,
-      Cell: ({ cell }) => {
-        const containerNos = cell.row.original.container_nos;
-        return (
-          <React.Fragment>
-            {containerNos?.map((container, id) => (
-              <div key={id} style={{ marginBottom: "4px" }}>
-                {container.container_number}<ContainerTrackButton
-                  customHouse={cell?.row?.original?.custom_house}
-                  containerNo={container.container_number}
-                />
-                | "{container.size}"
-              </div>
-            ))}
-          </React.Fragment>
-        );
-      },
+      Cell: ({ cell }) => <ContainerCellContent cell={cell} handleCopy={handleCopy} />,
     },
     {
       accessorKey: "igm_details",

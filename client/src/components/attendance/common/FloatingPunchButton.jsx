@@ -155,9 +155,21 @@ const FloatingPunchButton = () => {
             let location = null;
             try {
                 const pos = await new Promise((resolve, reject) =>
-                    navigator.geolocation.getCurrentPosition(resolve, reject)
+                    navigator.geolocation.getCurrentPosition(resolve, reject, {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    })
                 );
-                location = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+                location = { 
+                    latitude: pos.coords.latitude, 
+                    longitude: pos.coords.longitude,
+                    accuracy: pos.coords.accuracy,
+                    altitude: pos.coords.altitude,
+                    heading: pos.coords.heading,
+                    speed: pos.coords.speed,
+                    timestamp: pos.timestamp
+                };
             } catch { }
 
             const type = punchStatus?.action || 'IN';

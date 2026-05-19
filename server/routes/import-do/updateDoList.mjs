@@ -2,10 +2,11 @@ import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import kycDocumentsModel from "../../model/kycDocumentsModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
+import verifyToken from "../../middleware/authMiddleware.mjs";
 
 const router = express.Router();
 
-router.patch("/api/update-do-list", auditMiddleware('Job'), async (req, res, next) => {
+router.patch("/api/update-do-list", verifyToken, auditMiddleware('Job'), async (req, res, next) => {
   const {
     _id,
     shipping_line_bond_completed,

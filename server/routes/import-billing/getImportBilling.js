@@ -546,7 +546,7 @@ router.get(
 
       const matchConditions = {
         $and: [
-          { status: { $regex: /^pending$/i } },
+          { status: { $in: [/pending/i, /Completed/i] } },
           { charges: { $elemMatch: { [filterField]: { $type: "string", $nin: ["", "undefined", "null"] } } } }
         ],
       };
@@ -821,7 +821,7 @@ router.get(
 
       const matchConditions = {
         $and: [
-          { status: { $regex: /^pending$/i } },
+          { status: { $in: [/pending/i, /Completed/i] } },
           { charges: { $elemMatch: { [filterField]: { $type: "string", $nin: ["", "undefined", "null"] }, [isApprovedField]: true } } }
         ],
       };

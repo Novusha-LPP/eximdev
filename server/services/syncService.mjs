@@ -2,16 +2,24 @@ import { MongoClient } from "mongodb";
 import mongoose from "mongoose";
 import { migrateJobs, migrateGandhidhamJobs } from "../utils/migrationLogic.mjs";
 
-const SOURCE_URI = process.env.PROD_MONGODB_URI;
-const LOCAL_URI = process.env.DEV_MONGODB_URI;
-
 const SKIP_COLLECTIONS = ["cths", "audittrails"];
 
 export async function syncProductionToLocal(options = { onProgress: null }) {
     const { runSync = true, runMigrateJobs = false, runMigrateGandhidham = false, onProgress = null } = options;
 
-    const sourceClient = new MongoClient(SOURCE_URI);
-    const localClient = new MongoClient(LOCAL_URI);
+    // Resolve URIs with sensible fallbacks
+    const SOURCE_URI = process.env.PROD_MONGODB_URI || process.env.SERVER_MONGODB_URI;
+    const LOCAL_URI = process.env.DEV_MONGODB_URI || process.env.SERVER_MONGODB_URI || process.env.PROD_MONGODB_URI;
+
+    if (!SOURCE_URI) {
+        throw new Error("Missing source MongoDB URI. Set PROD_MONGODB_URI or SERVER_MONGODB_URI in environment.");
+    }
+    if (!LOCAL_URI) {
+        throw new Error("Missing local MongoDB URI. Set DEV_MONGODB_URI or SERVER_MONGODB_URI in environment.");
+    }
+
+    let sourceClient;
+    let localClient;
 
     const results = {
         sync: [],
@@ -19,6 +27,9 @@ export async function syncProductionToLocal(options = { onProgress: null }) {
     };
 
     try {
+        sourceClient = new MongoClient(SOURCE_URI);
+        localClient = new MongoClient(LOCAL_URI);
+
         console.log("🔄 Connecting to databases...");
         await localClient.connect();
 
@@ -79,7 +90,15 @@ export async function syncProductionToLocal(options = { onProgress: null }) {
         if (onProgress) onProgress({ phase: "Error", message: err.message, error: true });
         throw err;
     } finally {
-        await sourceClient.close();
-        await localClient.close();
+        try {
+            if (sourceClient) await sourceClient.close();
+        } catch (e) {
+            console.warn("Warning: failed to close source client:", e.message);
+        }
+        try {
+            if (localClient) await localClient.close();
+        } catch (e) {
+            console.warn("Warning: failed to close local client:", e.message);
+        }
     }
 }

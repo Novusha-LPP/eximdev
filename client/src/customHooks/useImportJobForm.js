@@ -98,6 +98,7 @@ const useImportJobForm = () => {
       toi: "CIF",
       freight: "",
       insurance: "",
+      po_validation_error: "",
       other_charges: "",
     },
   ]);
@@ -265,12 +266,41 @@ const useImportJobForm = () => {
     },
   ]);
 
+  const mandatoryPoImporters = ["CADILA PHARMACEUTICALS LTD", "INTAS PHARMACEUTICALS LIMITED"];
+  const isPoMandatory = mandatoryPoImporters.includes(importer);
+
+  const validatePoFields = (poNo, poDate) => {
+    // Both PO No and PO Date must either both be filled or both be empty
+    const hasPoNo = poNo && String(poNo).trim().length > 0;
+    const hasPoDate = poDate && String(poDate).trim().length > 0;
+
+    if (hasPoNo && !hasPoDate) {
+      return "PO Date is mandatory when PO No is provided";
+    }
+    if (!hasPoNo && hasPoDate) {
+      return "PO No is mandatory when PO Date is provided";
+    }
+    if (hasPoNo && hasPoDate) {
+      // Both are provided - valid
+      return "";
+    }
+    // Both empty - valid
+    return "";
+  };
+
   const updateInvoiceRow = (rowIndex, field, value) => {
     const updatedRows = [...invoice_details];
     updatedRows[rowIndex] = {
       ...updatedRows[rowIndex],
       [field]: value,
     };
+
+    // Validate PO fields if updating PO No or PO Date
+    if (field === "po_no" || field === "po_date") {
+      const currentRow = updatedRows[rowIndex];
+      const validationError = validatePoFields(currentRow.po_no, currentRow.po_date);
+      updatedRows[rowIndex].po_validation_error = validationError;
+    }
 
     // Auto-calculate total_inv_value from contributing fields
     const calcFields = ["product_value", "freight", "insurance", "other_charges"];
@@ -322,6 +352,7 @@ const useImportJobForm = () => {
         freight: "",
         insurance: "",
         other_charges: "",
+        po_validation_error: "",
       },
     ]);
   };
@@ -330,6 +361,17 @@ const useImportJobForm = () => {
     if (invoice_details.length <= 1) return;
     const updatedRows = invoice_details.filter((_, index) => index !== rowIndex);
     setInvoiceDetails(updatedRows);
+  };
+
+  const validateAllInvoiceRows = () => {
+    const errors = [];
+    invoice_details.forEach((row, index) => {
+      const poError = validatePoFields(row.po_no, row.po_date);
+      if (poError) {
+        errors.push(`Row ${index + 1}: ${poError}`);
+      }
+    });
+    return errors;
   };
 
   const updateDescriptionRow = (rowIndex, field, value) => {
@@ -715,6 +757,31 @@ const useImportJobForm = () => {
             severity: "error"
           });
           return;
+        }
+
+        // --- PO VALIDATION ---
+        // 1. Check for mismatched PO No/Date (one exists but other doesn't)
+        const poMismatchErrors = validateAllInvoiceRows();
+        if (poMismatchErrors.length > 0) {
+          setSnackbar({
+            open: true,
+            message: `Validation Error: ${poMismatchErrors[0]}`,
+            severity: "error"
+          });
+          return;
+        }
+
+        // 2. Check for missing PO No or PO Date entirely IF mandatory for this importer
+        if (isPoMandatory) {
+          const isPoMissing = invoice_details.some(row => !row.po_no?.trim() || !row.po_date?.trim());
+          if (isPoMissing) {
+            setSnackbar({
+              open: true,
+              message: "PO No. and PO Date are mandatory for CADILA and INTAS importers.",
+              severity: "error"
+            });
+            return;
+          }
         }
 
         const payload = {
@@ -1129,6 +1196,9 @@ const useImportJobForm = () => {
     setInsurance,
     term_value,
     setTermValue,
+    isPoMandatory,
+    validateAllInvoiceRows,
+    validatePoFields,
     snackbar,
     setSnackbar,
     isEditMode,

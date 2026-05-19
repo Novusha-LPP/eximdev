@@ -1,11 +1,13 @@
 import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
+import verifyToken from "../../middleware/authMiddleware.mjs";
 
 const router = express.Router();
 
 router.patch(
     "/api/update-advanced-payment/:id",
+    verifyToken,
     auditMiddleware("Job"),
     async (req, res) => {
         try {

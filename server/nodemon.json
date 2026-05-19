@@ -8,6 +8,7 @@
     "model",
     "middleware",
     "services",
+    "controllers",
     ".env",
     "logger.js",
     "scmCube",

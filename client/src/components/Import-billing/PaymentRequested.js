@@ -423,6 +423,9 @@ function PaymentRequested({ workMode = "Payment" }) {
                           <ContentCopyIcon sx={{ fontSize: '0.9rem' }} />
                         </IconButton>
                       </Box>
+                      {chargesForThisEntry.some(c => c.isPostBilling) && (
+                        <Chip label="POST-BILLING" size="small" color="error" variant="outlined" sx={{ fontSize: '0.55rem', height: '16px', fontWeight: '900' }} />
+                      )}
                       {isApproved && (
                         <Chip label="APPROVED" size="small" color="success" variant="outlined" sx={{ fontSize: '0.55rem', height: '16px', fontWeight: '900', color: '#2e7d32', borderColor: '#2e7d32' }} />
                       )}

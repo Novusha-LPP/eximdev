@@ -18,7 +18,7 @@ exports.getBalance = async (req, res) => {
         // Robust ID extraction
         const companyId = user.company_id?._id || user.company_id;
 
-        console.log('[Leave Balance] User:', user.username, 'CompanyID:', companyId);
+        // console.log('[Leave Balance] User:', user.username, 'CompanyID:', companyId);
 
         // 1. Fetch ALL Active Policies for the Company
         const allPolicies = await LeavePolicy.find({
@@ -26,10 +26,10 @@ exports.getBalance = async (req, res) => {
             status: 'active'
         });
 
-        console.log('[Leave Balance] Found', allPolicies.length, 'active policies');
+        // console.log('[Leave Balance] Found', allPolicies.length, 'active policies');
 
         if (!allPolicies || allPolicies.length === 0) {
-            console.log('[Leave Balance] No active policies found for company');
+            // console.log('[Leave Balance] No active policies found for company');
             return res.json({ data: [] });
         }
 
@@ -58,10 +58,10 @@ exports.getBalance = async (req, res) => {
             return eligible;
         });
 
-        console.log('[Leave Balance] After eligibility filter:', policies.length, 'eligible policies');
+        // console.log('[Leave Balance] After eligibility filter:', policies.length, 'eligible policies');
 
         if (policies.length === 0) {
-            console.log('[Leave Balance] No eligible policies after filtering. User employment_type:', user.employment_type, 'gender:', user.gender);
+            // console.log('[Leave Balance] No eligible policies after filtering. User employment_type:', user.employment_type, 'gender:', user.gender);
             return res.json({ data: [] });
         }
 
@@ -116,7 +116,7 @@ exports.getBalance = async (req, res) => {
                 }
             };
         });
-        console.log('[Leave Balance] Returning', formattedData.length, 'leave types');
+        // console.log('[Leave Balance] Returning', formattedData.length, 'leave types');
         res.json({ data: formattedData });
     } catch (err) {
         console.error('Error in getBalance:', err);
@@ -270,7 +270,9 @@ exports.applyLeave = async (req, res) => {
             leave_policy_id: policy._id,
             leave_type: policy.leave_type,
             from_date: start.toDate(),
+            from_date_str: start.format('YYYY-MM-DD'),
             to_date: end.toDate(),
+            to_date_str: end.format('YYYY-MM-DD'),
             total_days,
             reason,
             is_half_day: isHalfDay,

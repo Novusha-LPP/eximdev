@@ -61,11 +61,11 @@ export class AttendanceStatusResolver {
       };
     }
 
-    // Has incomplete session AND low hours
-    if (workData.has_incomplete && workData.total_work_hours < (shift?.minimum_hours || 3)) {
+    // Has incomplete session
+    if (workData.has_incomplete) {
       return {
         status: 'incomplete',
-        reason: `Missing OUT punch. Worked ${workData.total_work_hours}h < minimum ${shift?.minimum_hours || 3}h`,
+        reason: `Missing OUT punch recorded. Worked ${workData.total_work_hours.toFixed(2)}h`,
         is_operational_present: false,
       };
     }
@@ -124,7 +124,7 @@ export class AttendanceStatusResolver {
       present: 'present',
       half_day: 'present',
       absent: 'absent',
-      incomplete: 'absent',
+      incomplete: 'missed_punch',
       leave: 'on_leave',
       holiday: 'other',
       weekly_off: 'other',

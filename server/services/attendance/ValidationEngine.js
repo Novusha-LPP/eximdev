@@ -57,44 +57,110 @@ class ValidationEngine {
         // 3. Check Geo-Fencing
         const isGeoFencingRequired = userSettings.geo_fencing_required !== undefined ? userSettings.geo_fencing_required : companySettings.geo_fencing_enabled;
 
-        console.log(`[DEBUG] Validation for ${user.username}: isGeoFencingRequired=${isGeoFencingRequired}`);
-        console.log(`[DEBUG] User Geo Required: ${userSettings.geo_fencing_required}, Company Geo Enabled: ${companySettings.geo_fencing_enabled}`);
+        // console.log(`[DEBUG] Validation for ${user.username}: isGeoFencingRequired=${isGeoFencingRequired}`);
+        // console.log(`[DEBUG] User Geo Required: ${userSettings.geo_fencing_required}, Company Geo Enabled: ${companySettings.geo_fencing_enabled}`);
 
         if (isGeoFencingRequired) {
-            if (!location || !location.latitude || !location.longitude) {
+            const latitude = Number(location?.latitude);
+            const longitude = Number(location?.longitude);
+
+            if (!location || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
                 return { isValid: false, message: 'Location access is required for geo-fenced attendance.' };
             }
 
             let withinRange = false;
+            let withinWarningZone = false;
             let checksPerformed = false;
+            let debugInfo = [];
+
+            // GPS Accuracy handling: use reported accuracy, fallback to 100m if missing/zero
+            // Production mobile GPS: 5-20m outdoor, 50-300m indoors
+            // Laptop/WiFi: 200-3000m
+            const rawAccuracy = Number(location?.accuracy_meters ?? location?.accuracy ?? 0);
+            const gpsAccuracyMeters = rawAccuracy > 0 ? rawAccuracy : 100;
+            debugInfo.push(`GPS Accuracy: ${gpsAccuracyMeters}m (raw: ${rawAccuracy}m)`);
+
+            const hasUserSpecificLocations = Array.isArray(userSettings.allowed_locations)
+                && userSettings.allowed_locations.length > 0;
 
             // 3.1 Check User-Specific Allowed Locations (Overrides)
-            if (userSettings.allowed_locations && userSettings.allowed_locations.length > 0) {
+            if (hasUserSpecificLocations) {
                 checksPerformed = true;
                 for (const loc of userSettings.allowed_locations) {
-                    const dist = this.calculateDistance(location.latitude, location.longitude, loc.latitude, loc.longitude);
-                    if (dist <= (loc.radius_meters || 200)) {
+                    const locLat = Number(loc.latitude);
+                    const locLon = Number(loc.longitude);
+                    const baseRadius = Number(loc.radius_meters) || 200;
+                    
+                    if (!Number.isFinite(locLat) || !Number.isFinite(locLon)) continue;
+
+                    const dist = this.calculateDistance(latitude, longitude, locLat, locLon);
+                    const accuracyBuffer = Math.min(gpsAccuracyMeters, 150);
+                    const effectiveRadius = baseRadius + accuracyBuffer;
+                    const warningThreshold = baseRadius + 250; // Soft warning: 250m beyond nominal radius
+
+                    debugInfo.push(`User Location: "${loc.name}" | Distance: ${dist.toFixed(0)}m | Base Radius: ${baseRadius}m | Accuracy Buffer: ${accuracyBuffer}m | Effective: ${effectiveRadius.toFixed(0)}m`);
+
+                    if (dist <= effectiveRadius) {
                         withinRange = true;
+                        debugInfo.push(`✅ MATCH: Within effective radius`);
                         break;
+                    } else if (dist <= warningThreshold) {
+                        withinWarningZone = true;
+                        debugInfo.push(`⚠️ WARNING ZONE: Slightly outside (${(dist - effectiveRadius).toFixed(0)}m over), will allow with warning`);
                     }
                 }
             }
 
-            // 3.2 Fallback to Company Allowed Locations if user has no specific ones OR if not yet found
-            // (Note: If user has specific locations, they are treated as an override list)
-            if (!withinRange && companySettings.allowed_locations && companySettings.allowed_locations.length > 0) {
+            // 3.2 Fallback to company locations only when user-specific overrides are not configured.
+            if (!withinRange && !hasUserSpecificLocations && companySettings.allowed_locations && companySettings.allowed_locations.length > 0) {
                 checksPerformed = true;
                 for (const loc of companySettings.allowed_locations) {
-                    const dist = this.calculateDistance(location.latitude, location.longitude, loc.latitude, loc.longitude);
-                    if (dist <= (loc.radius_meters || 200)) {
+                    const locLat = Number(loc.latitude);
+                    const locLon = Number(loc.longitude);
+                    const baseRadius = Number(loc.radius_meters) || 200;
+                    
+                    if (!Number.isFinite(locLat) || !Number.isFinite(locLon)) continue;
+
+                    const dist = this.calculateDistance(latitude, longitude, locLat, locLon);
+                    const accuracyBuffer = Math.min(gpsAccuracyMeters, 150);
+                    const effectiveRadius = baseRadius + accuracyBuffer;
+                    const warningThreshold = baseRadius + 250;
+
+                    debugInfo.push(`Company Location: "${loc.name}" | Distance: ${dist.toFixed(0)}m | Base Radius: ${baseRadius}m | Accuracy Buffer: ${accuracyBuffer}m | Effective: ${effectiveRadius.toFixed(0)}m`);
+
+                    if (dist <= effectiveRadius) {
                         withinRange = true;
+                        debugInfo.push(`✅ MATCH: Within effective radius`);
                         break;
+                    } else if (dist <= warningThreshold) {
+                        withinWarningZone = true;
+                        debugInfo.push(`⚠️ WARNING ZONE: Slightly outside (${(dist - effectiveRadius).toFixed(0)}m over), will allow with warning`);
                     }
                 }
             }
 
+            // Final decision
+            // console.log(`[GEOFENCE DEBUG] User: ${user.username} | Lat: ${latitude}, Lon: ${longitude}`);
+            // debugInfo.forEach(info => console.log(`  ${info}`));
+
             if (checksPerformed && !withinRange) {
+                if (withinWarningZone) {
+                    // console.log(`[GEOFENCE WARNING] User in warning zone, allowing punch with warning`);
+                    return { 
+                        isValid: true, 
+                        message: 'Success',
+                        warning: {
+                            type: 'location_warning',
+                            message: 'Your location is slightly outside the configured office radius. Punch recorded but flagged for review.'
+                        }
+                    };
+                }
+                // console.log(`[GEOFENCE REJECTION] User outside all allowed locations`);
                 return { isValid: false, message: 'You are outside the allowed location radius for this company.' };
+            }
+
+            if (checksPerformed && withinRange) {
+                // console.log(`[GEOFENCE SUCCESS] User within radius`);
             }
         }
 
@@ -102,24 +168,27 @@ class ValidationEngine {
     }
 
     static calculateDistance(lat1, lon1, lat2, lon2) {
+        if ([lat1, lon1, lat2, lon2].some(value => !Number.isFinite(Number(value)))) {
+            return Number.POSITIVE_INFINITY;
+        }
+
         if ((lat1 == lat2) && (lon1 == lon2)) {
             return 0;
         }
-        else {
-            var radlat1 = Math.PI * lat1 / 180;
-            var radlat2 = Math.PI * lat2 / 180;
-            var theta = lon1 - lon2;
-            var radtheta = Math.PI * theta / 180;
-            var dist = Math.sin(radlat1) * Math.sin(radlat2) + Math.cos(radlat1) * Math.cos(radlat2) * Math.cos(radtheta);
-            if (dist > 1) {
-                dist = 1;
-            }
-            dist = Math.acos(dist);
-            dist = dist * 180 / Math.PI;
-            dist = dist * 60 * 1.1515;
-            dist = dist * 1.609344 * 1000; // Meters
-            return dist;
-        }
+
+        const toRadians = (value) => (Number(value) * Math.PI) / 180;
+        const earthRadiusMeters = 6371000;
+        const deltaLat = toRadians(lat2 - lat1);
+        const deltaLon = toRadians(lon2 - lon1);
+        const startLat = toRadians(lat1);
+        const endLat = toRadians(lat2);
+
+        const a = Math.sin(deltaLat / 2) * Math.sin(deltaLat / 2)
+            + Math.cos(startLat) * Math.cos(endLat)
+            * Math.sin(deltaLon / 2) * Math.sin(deltaLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return earthRadiusMeters * c;
     }
 }
 

@@ -180,6 +180,20 @@ const getMetaSequenceLabel = (req) => {
   return String(req?.approvalStageLabel || getStageLabel(req?.approvalStage) || 'pending').toLowerCase().replaceAll(' ', '_');
 };
 
+const getHistoryBadgeMeta = (req = {}) => {
+  const finalStatus = String(req.final_status || req.status || 'pending').toLowerCase();
+  const stage = String(req.approvalStage || req.approval_stage || '').toLowerCase();
+
+  if (finalStatus === 'approved') return { label: 'Fully Approved', style: { background: '#dcfce7', color: '#166534' } };
+  if (finalStatus === 'rejected') return { label: 'Rejected', style: { background: '#fee2e2', color: '#b91c1c' } };
+  if (finalStatus === 'cancelled' || finalStatus === 'withdrawn') return { label: 'Cancelled', style: { background: '#f1f5f9', color: '#475569' } };
+  if (finalStatus === 'pending_final' || stage === 'stage_3_final') return { label: 'Pending Final Approval', style: { background: '#dbeafe', color: '#1d4ed8' } };
+  if (finalStatus === 'pending_shalini' || finalStatus === 'hod_approved_pending_admin' || stage === 'stage_2_shalini') return { label: 'Approved by HOD', style: { background: '#dbeafe', color: '#1d4ed8' } };
+  if (finalStatus === 'in_review') return { label: 'In Review', style: { background: '#dbeafe', color: '#1d4ed8' } };
+  if (finalStatus === 'pending_hod' || stage === 'stage_1_hod' || finalStatus === 'pending') return { label: 'Pending HOD Approval', style: { background: '#fef3c7', color: '#b45309' } };
+  return { label: String(finalStatus || 'pending').replace(/_/g, ' '), style: { background: '#fef3c7', color: '#b45309' } };
+};
+
 const normalizeLeaveRecord = (raw = {}) => {
 
   const stage = raw.approvalStage || raw.approval_stage || (raw.status === 'pending' ? 'stage_1_hod' : null);
@@ -259,10 +273,11 @@ const LeaveApproval = () => {
   const [totalHistory, setTotalHistory] = useState(0);
   const [historyPage, setHistoryPage] = useState(1);
   const [historySearch, setHistorySearch] = useState('');
+  const [historyFilterBy, setHistoryFilterBy] = useState('all');
   const [historyMonth, setHistoryMonth] = useState('');
   const historyLimit = 20;
 
-  const fetchRequests = useCallback(async (teamId = 'all', page = 1, search = '', month = '') => {
+  const fetchRequests = useCallback(async (teamId = 'all', page = 1, search = '', leaveMonth = '', appliedMonth = '') => {
     try {
       setLoading(true);
       setError(null);
@@ -271,7 +286,7 @@ const LeaveApproval = () => {
       let total = 0;
 
       if (isAdmin) {
-        const res = await attendanceAPI.getAdminLeaveRequests(teamId !== 'all' ? teamId : undefined, page, historyLimit, search, month);
+        const res = await attendanceAPI.getAdminLeaveRequests(teamId !== 'all' ? teamId : undefined, page, historyLimit, search, leaveMonth, appliedMonth);
         pendingLeaves = (res?.data?.pendingLeaves || []).map(normalizeLeaveRecord);
         processedLeaves = (res?.data?.recentProcessedLeaves || []).map(h => {
           const normalized = normalizeLeaveRecord(h);
@@ -281,7 +296,11 @@ const LeaveApproval = () => {
         if (teams.length === 0 && res?.data?.teams?.length > 0) setTeams(res.data.teams);
         if (res?.data?.isAllowedAdmin !== undefined) setIsAllowedAdmin(res.data.isAllowedAdmin);
       } else {
-        const res = await attendanceAPI.getHODDashboard();
+        const res = await attendanceAPI.getHODDashboard(
+          teamId !== 'all' ? teamId : undefined,
+          leaveMonth,
+          appliedMonth
+        );
         pendingLeaves = (res?.data?.pendingLeaves || []).map(normalizeLeaveRecord);
         processedLeaves = (res?.data?.recentProcessedLeaves || []).map(h => {
           const normalized = normalizeLeaveRecord(h);
@@ -315,7 +334,7 @@ const LeaveApproval = () => {
   }, [isAdmin, teams.length]);
 
   useEffect(() => { 
-    fetchRequests(selectedTeam, 1, '', ''); 
+    fetchRequests(selectedTeam, 1, '', '', ''); 
     const fetchOrgs = async () => {
       try {
         const res = await attendanceAPI.getOrganizations();
@@ -327,12 +346,24 @@ const LeaveApproval = () => {
 
   useEffect(() => {
     if (activeTab !== 'history') return;
-    const t = setTimeout(() => fetchRequests(selectedTeam, historyPage, historySearch, historyMonth), 500);
+    const leaveMonth = historyFilterBy === 'leaveMonth' ? historyMonth : '';
+    const appliedMonth = historyFilterBy === 'appliedMonth' ? historyMonth : '';
+    const t = setTimeout(() => fetchRequests(selectedTeam, historyPage, historySearch, leaveMonth, appliedMonth), 500);
     return () => clearTimeout(t);
-  }, [historySearch, historyMonth, historyPage, activeTab, selectedTeam]);
+  }, [historySearch, historyMonth, historyFilterBy, historyPage, activeTab, selectedTeam]);
 
-  const handleTeamChange = (e) => { const val = e.target.value; setSelectedTeam(val); fetchRequests(val, 1); };
-  const handlePageChange = (newPage) => fetchRequests(selectedTeam, newPage);
+  const handleTeamChange = (e) => {
+    const val = e.target.value;
+    setSelectedTeam(val);
+    const leaveMonth = historyFilterBy === 'leaveMonth' ? historyMonth : '';
+    const appliedMonth = historyFilterBy === 'appliedMonth' ? historyMonth : '';
+    fetchRequests(val, 1, historySearch, leaveMonth, appliedMonth);
+  };
+  const handlePageChange = (newPage) => {
+    const leaveMonth = historyFilterBy === 'leaveMonth' ? historyMonth : '';
+    const appliedMonth = historyFilterBy === 'appliedMonth' ? historyMonth : '';
+    fetchRequests(selectedTeam, newPage, historySearch, leaveMonth, appliedMonth);
+  };
   const handleHistoryCancel = (req) => setCancelModal(req);
 
   const handleDeleteHistory = async (id) => {
@@ -340,7 +371,9 @@ const LeaveApproval = () => {
     try {
       await attendanceAPI.deleteLeaveApplication(id);
       toast.success('History record deleted');
-      fetchRequests(selectedTeam, historyPage);
+      const leaveMonth = historyFilterBy === 'leaveMonth' ? historyMonth : '';
+      const appliedMonth = historyFilterBy === 'appliedMonth' ? historyMonth : '';
+      fetchRequests(selectedTeam, historyPage, historySearch, leaveMonth, appliedMonth);
     } catch (err) { toast.error(err.message || 'Failed to delete record'); }
   };
 
@@ -631,18 +664,26 @@ const LeaveApproval = () => {
             <div className="ap-card-head" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 16 }}>
               <div>
                 <div className="ap-card-title">Leave History</div>
-                <div className="ap-card-sub">Total {totalHistory} processed records</div>
+                <div className="ap-card-sub">Total {totalHistory} leave records</div>
               </div>
               <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                <select value={historyFilterBy} onChange={(e) => { setHistoryFilterBy(e.target.value); setHistoryPage(1); }}
+                  style={{ height: 38, border: '1px solid #e2e8f0', borderRadius: '12px', padding: '0 12px', fontSize: '13px', fontWeight: 600, background: '#fff', color: '#0f172a' }}>
+                  <option value="all">All Months</option>
+                  <option value="leaveMonth">Filter By Leave Month</option>
+                  <option value="appliedMonth">Filter By Applied Month</option>
+                </select>
+                {historyFilterBy !== 'all' && (
+                  <input type="month" value={historyMonth}
+                    onChange={(e) => { setHistoryMonth(e.target.value); setHistoryPage(1); }}
+                    style={{ height: 38, border: '1px solid #e2e8f0', borderRadius: '12px', padding: '0 12px', fontSize: '13px', fontWeight: 600, background: '#fff' }} />
+                )}
                 <div className="ap-search-wrap" style={{ width: '240px' }}>
                   <FiSearch size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
                   <input type="text" placeholder="Search employee..." value={historySearch}
                     onChange={(e) => { setHistorySearch(e.target.value); setHistoryPage(1); }}
                     className="ap-search-input" style={{ height: 38, paddingLeft: 36 }} />
                 </div>
-                <input type="month" value={historyMonth}
-                  onChange={(e) => { setHistoryMonth(e.target.value); setHistoryPage(1); }}
-                  style={{ height: 38, border: '1px solid #e2e8f0', borderRadius: '12px', padding: '0 12px', fontSize: '13px', fontWeight: 600, background: '#fff' }} />
               </div>
             </div>
 
@@ -677,7 +718,10 @@ const LeaveApproval = () => {
                           <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Type</th>
                           <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Duration</th>
                           <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Date Range</th>
+                          <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Reason</th>
+                          <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Applied On</th>
                           <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Status</th>
+                          <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Approver Status</th>
                           <th style={{ padding: '10px 12px', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Decision By</th>
                           <th style={{ padding: '10px 14px', textAlign: 'right', color: '#0f172a', borderBottom: '1px solid #e2e8f0' }}>Actions</th>
                         </tr>
@@ -691,13 +735,26 @@ const LeaveApproval = () => {
                             <td style={{ padding: '10px 12px', fontSize: '12px', color: '#475569' }}>
                               {fmt(req.fromDate, 'dd MMM')} – {fmt(req.toDate, 'dd MMM')}
                             </td>
+                            <td style={{ padding: '10px 12px', fontSize: '12px', color: '#64748b', fontStyle: 'italic', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={req.reason}>
+                              {req.reason || <span style={{ color: '#cbd5e1' }}>—</span>}
+                            </td>
+                            <td style={{ padding: '10px 12px', fontSize: '12px', color: '#475569' }}>
+                              {fmt(req.appliedOn || req.applied_on || req.createdAt, 'dd MMM yyyy')}
+                            </td>
                             <td style={{ padding: '10px 12px' }}>
-                              <span className={`ap-status-badge ${req.status}`}>
-                                {req.status === 'approved' ? <FiCheck size={10} /> : <FiX size={10} />} {req.status}
+                              <span className="ap-status-badge" style={getHistoryBadgeMeta(req).style}>
+                                {getHistoryBadgeMeta(req).label}
+                              </span>
+                            </td>
+                            <td style={{ padding: '10px 12px' }}>
+                              <span className="ap-badge gray" style={{ whiteSpace: 'nowrap' }}>
+                                {req.approvalStageLabel || req.approval_stage_label || req.approvalStage || req.approval_stage || '—'}
                               </span>
                             </td>
                             <td style={{ padding: '10px 12px', fontSize: '12px', color: '#64748b' }}>
-                              {req.status === 'approved' ? (req.approvedBy || '—') : (req.rejectedBy || '—')}
+                              {['approved', 'rejected', 'cancelled', 'withdrawn'].includes(String(req.status || '').toLowerCase())
+                                ? (req.status === 'approved' ? (req.approvedBy || '—') : (req.rejectedBy || '—'))
+                                : (req.currentApproverName || req.approvedBy || '—')}
                             </td>
                             <td style={{ padding: '10px 14px', textAlign: 'right' }}>
                               {isHistoryEligibleForCancel(req) && (

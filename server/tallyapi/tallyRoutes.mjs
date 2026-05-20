@@ -217,7 +217,14 @@ const mapPurchaseEntryData = (data) => {
     placeOfSupply: data["Place of Supply"] || data.placeOfSupply,
     creditTerms: data["Credit Terms"] || data.creditTerms,
     descriptionOfServices: data["Description of Services"] || data.descriptionOfServices,
-    chargeHeading: data["Charge Heading"] || data.chargeHeading,
+    chargeHeading: (() => {
+      const heading = data["Charge Heading"] || data.chargeHeading;
+      const category = data["Charge Head Category"] || data.chargeHeadCategory || '';
+      if (category === 'Margin' && heading && !heading.endsWith(' - E')) {
+        return `${heading} - E`;
+      }
+      return heading;
+    })(),
     sac: data["SAC"] || data.sac,
     taxableValue: data["Taxable Value"] || data.taxableValue,
     gstPercent: data["GST%"] || data.gstPercent,
@@ -448,7 +455,14 @@ const mapPaymentRequestData = (data) => {
     chargeDescription: data["Charge Description"] || data.chargeDescription || '',
     chargeHeadCategory: data["Charge Head Category"] || data.chargeHeadCategory || '',
     tdsCategory: data["TDS Category"] || data.tdsCategory || '94C',
-    chargeHeading: data["Charge Heading"] || data.chargeHeading || '',
+    chargeHeading: (() => {
+      const heading = data["Charge Heading"] || data.chargeHeading || '';
+      const category = data["Charge Head Category"] || data.chargeHeadCategory || '';
+      if (category === 'Margin' && heading && !heading.endsWith(' - E')) {
+        return `${heading} - E`;
+      }
+      return heading;
+    })(),
     descriptionOfServices: data["Description of Services"] || data.descriptionOfServices || '',
     status: data["Status"] || data.status || '',
     attachments: data.attachments || []

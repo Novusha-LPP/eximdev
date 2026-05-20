@@ -115,7 +115,7 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                     "TDS": initialData.tdsAmount ? initialData.tdsAmount.toFixed(2) : '',
                     "Total": initialData.netPayable ? initialData.netPayable.toFixed(2) : '',
                     "Description of Services": initialData.chargeHeading || '',
-                    "Charge Heading": initialData.chargeHead || '',
+                    "Charge Heading": initialData.chargeHead ? (initialData.chargeHeadCategory === 'Margin' ? `${initialData.chargeHead} - E` : initialData.chargeHead) : '',
                     "SAC": initialData.cthNo || '',
                     "Status": '',
                     "chargeRef": initialData.chargeId || '',

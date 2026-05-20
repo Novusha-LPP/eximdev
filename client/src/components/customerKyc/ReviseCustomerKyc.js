@@ -181,6 +181,7 @@ function ReviseCustomerKyc() {
       branches: [],
       hsn_codes: [],
       date_of_incorporation: "",
+      industrial_domain: "",
       contacts: [],
     },
     validationSchema: validationSchema,
@@ -232,6 +233,7 @@ function ReviseCustomerKyc() {
             branches: res.data.branches || [],
             hsn_codes: res.data.hsn_codes || [],
             date_of_incorporation: res.data.date_of_incorporation || "",
+            industrial_domain: res.data.industrial_domain || "",
             contacts: res.data.contacts || [],
             factory_name_board_img: res.data.factory_name_board_img || [],
             factory_selfie_img: res.data.factory_selfie_img || [],
@@ -635,7 +637,7 @@ function ReviseCustomerKyc() {
                     </div>
                   </div>
 
-                  {/* Date of Incorporation */}
+                  {/* Date of Incorporation and Industrial Domain */}
                   <div className="row">
                     <div className="field w-half">
                       <label>Date of Incorporation</label>
@@ -643,6 +645,16 @@ function ReviseCustomerKyc() {
                         type="date"
                         name="date_of_incorporation"
                         value={formik.values.date_of_incorporation ? new Date(formik.values.date_of_incorporation).toISOString().split('T')[0] : ""}
+                        onChange={formik.handleChange}
+                      />
+                    </div>
+                    <div className="field w-half">
+                      <label>Industrial Domain</label>
+                      <input
+                        type="text"
+                        name="industrial_domain"
+                        placeholder="e.g. Electronics, Textiles"
+                        value={formik.values.industrial_domain}
                         onChange={formik.handleChange}
                       />
                     </div>

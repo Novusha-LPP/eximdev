@@ -10,11 +10,14 @@ router.post("/api/add-customer-kyc", async (req, res) => {
     return res.status(400).json({ message: "IEC number is required" });
   }
 
+  // Normalize IEC number to uppercase and trim spaces
+  const normalizedIecNo = iec_no.trim().toUpperCase();
+
   // Add the draft field to the rest object
-  const kycData = { ...rest, draft: "false" };
+  const kycData = { ...rest, iec_no: normalizedIecNo, draft: "false" };
 
   try {
-    const existingKyc = await CustomerKycModel.findOne({ iec_no });
+    const existingKyc = await CustomerKycModel.findOne({ iec_no: normalizedIecNo });
 
     if (existingKyc) {
       // Update existing KYC
@@ -23,7 +26,7 @@ router.post("/api/add-customer-kyc", async (req, res) => {
       res.status(200).json({ message: "KYC details updated successfully" });
     } else {
       // Create new KYC
-      const newKyc = new CustomerKycModel({ iec_no, ...kycData });
+      const newKyc = new CustomerKycModel({ iec_no: normalizedIecNo, ...kycData });
       await newKyc.save();
       res.status(201).json({ message: "KYC details added successfully" });
     }

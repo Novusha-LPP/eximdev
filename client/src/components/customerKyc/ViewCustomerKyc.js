@@ -259,6 +259,8 @@ function ViewCustomerKyc() {
           <Field label="Status of Exporter / Importer" value={data.status} />
           <div className="sep"></div>
           <Field label="Date of Incorporation" value={data.date_of_incorporation ? new Date(data.date_of_incorporation).toLocaleDateString() : "—"} />
+          <div className="sep"></div>
+          <Field label="Industrial Domain" value={data.industrial_domain || "—"} />
 
           <div className="id-codes">
             <Field label="IEC Number" value={data.iec_no} mono />

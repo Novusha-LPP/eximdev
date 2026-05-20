@@ -130,7 +130,16 @@ export default function SelectImporterModal(props) {
   const handleReportDownload = async () => {
     if (selectedImporter !== "" && selectedApiYears.length > 0) {
       const yearString = selectedApiYears.join(",");
-      const branchParam = selectedBranchId ? `?branchId=${selectedBranchId}` : "";
+      const params = new URLSearchParams();
+      if (selectedBranchId) {
+        params.append("branchId", selectedBranchId);
+      }
+      if (props.detailedStatus) {
+        params.append("detailedStatus", props.detailedStatus);
+      }
+      const queryString = params.toString();
+      const branchParam = queryString ? `?${queryString}` : "";
+
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING
         }/download-report/${yearString}/${encodeURIComponent(selectedImporter
@@ -153,7 +162,16 @@ export default function SelectImporterModal(props) {
   const handleDownloadAll = async () => {
     if (selectedApiYears.length > 0) {
       const yearString = selectedApiYears.join(",");
-      const branchParam = selectedBranchId ? `?branchId=${selectedBranchId}` : "";
+      const params = new URLSearchParams();
+      if (selectedBranchId) {
+        params.append("branchId", selectedBranchId);
+      }
+      if (props.detailedStatus) {
+        params.append("detailedStatus", props.detailedStatus);
+      }
+      const queryString = params.toString();
+      const branchParam = queryString ? `?${queryString}` : "";
+
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/download-report/${yearString}/${props.status}${branchParam}`
       );

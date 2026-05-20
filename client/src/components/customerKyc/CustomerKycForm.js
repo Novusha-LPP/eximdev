@@ -143,6 +143,7 @@ function CustomerKycForm() {
       // New fields
       hsn_codes: [],
       date_of_incorporation: "",
+      industrial_domain: "",
       contacts: [],
       customer_tier: "",
     },
@@ -620,6 +621,16 @@ function CustomerKycForm() {
                         type="date"
                         name="date_of_incorporation"
                         value={formik.values.date_of_incorporation ? new Date(formik.values.date_of_incorporation).toISOString().split('T')[0] : ""}
+                        onChange={formik.handleChange}
+                      />
+                    </div>
+                    <div className="field w-half">
+                      <label>Industrial Domain</label>
+                      <input
+                        type="text"
+                        name="industrial_domain"
+                        placeholder="e.g. www.example.com"
+                        value={formik.values.industrial_domain}
                         onChange={formik.handleChange}
                       />
                     </div>

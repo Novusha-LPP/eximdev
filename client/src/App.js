@@ -8,7 +8,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, Routes, Route } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
-import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
+
 import { Toaster } from "react-hot-toast";
 
 function App() {
@@ -78,7 +78,7 @@ function App() {
       <LocalizationProvider dateAdapter={AdapterDateFns}>
         <div className="App">
           <Routes>
-            <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+            
             <Route path="*" element={user ? <HomePage /> : <LoginPage />} />
           </Routes>
         </div>

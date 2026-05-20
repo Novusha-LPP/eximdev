@@ -72,8 +72,8 @@ const s = {
 };
 
 const TABS = [
-  { label: "Authorization Registration", key: "auth-reg" },
-  { label: "Register Format", key: "reg-format" },
+  { label: "DGFT Register", key: "auth-reg" },
+  { label: "License Register", key: "reg-format" },
 ];
 
 function DgftTabs() {

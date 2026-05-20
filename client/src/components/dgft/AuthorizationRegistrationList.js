@@ -148,7 +148,7 @@ const TABLE_COLUMNS = [
   { key: "iec_no",       label: "IEC NAME",            width: 150 },
   { key: "licence_no",   label: "AUTHORIZATION NUMBER",width: 180 },
   { key: "licence_date", label: "AUTHORIZATION DATE",  width: 110 },
-  { key: "bg_number",    label: "BG NUMBER",           width: 130 },
+  { key: "scheme_code",  label: "SCHEME CODE",         width: 130 },
   { key: "port_code",    label: "PORT CODE",           width: 100 },
   { key: "job_status",   label: "JOB STATUS",          width: 140 },
   { key: "documents_send_to_accounts", label: "DOCUMENTS DATE SEND TO ACCOUNTS", width: 220 },

@@ -25,7 +25,7 @@ router.get("/api/download-report/:years/:status", async (req, res) => {
     // Convert years into an array (e.g., "24-25,25-26" to ["24-25", "25-26"])
     let yearArray = years.split(",");
 
-    const branchId = req.query.branchId;
+    const { branchId, detailedStatus } = req.query;
 
     // MongoDB query to match any year in the array
     const query = {
@@ -39,8 +39,27 @@ router.get("/api/download-report/:years/:status", async (req, res) => {
 
     let jobs = await JobModel.find(query);
 
-    // Filter out jobs with `detailed_status` as "Billing Pending"
-    jobs = jobs.filter((job) => job.detailed_status !== "Billing Pending");
+    // Filter by detailedStatus if provided, otherwise filter out "Billing Pending" by default
+    const statusMapping = {
+      billed: "Billed",
+      billing_pending: "Billing Pending",
+      eta_date_pending: "ETA Date Pending",
+      estimated_time_of_arrival: "Estimated Time of Arrival",
+      gateway_igm_filed: "Gateway IGM Filed",
+      discharged: "Discharged",
+      rail_out: "Rail Out",
+      be_noted_arrival_pending: "BE Noted, Arrival Pending",
+      be_noted_clearance_pending: "BE Noted, Clearance Pending",
+      pcv_done_duty_payment_pending: "PCV Done, Duty Payment Pending",
+      custom_clearance_completed: "Custom Clearance Completed",
+    };
+
+    if (detailedStatus && detailedStatus !== "all") {
+      const mappedStatus = statusMapping[detailedStatus] || detailedStatus;
+      jobs = jobs.filter((job) => job.detailed_status === mappedStatus);
+    } else {
+      jobs = jobs.filter((job) => job.detailed_status !== "Billing Pending");
+    }
 
     // Sort data first by year, then by status rank
     jobs.sort((a, b) => {

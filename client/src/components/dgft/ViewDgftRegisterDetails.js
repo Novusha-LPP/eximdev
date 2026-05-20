@@ -199,6 +199,26 @@ function ViewDgftRegisterDetails() {
           import_value_fob_usd: found.import_value_fob_usd || "",
           import_value_rs: found.import_value_rs || "",
           job_status: found.job_status || "",
+          import_details_array: Array.isArray(found.import_details_array) && found.import_details_array.length > 0
+            ? found.import_details_array
+            : [{
+                qty_import: found.qty_import || "",
+                unit_import: found.unit_import || "",
+                import_value_fob_usd: found.import_value_fob_usd || "",
+                import_value_rs: found.import_value_rs || "",
+                hs_code_import: found.hs_code_import || "",
+                item_description_import: found.item_description_import || "",
+              }],
+          export_details_array: Array.isArray(found.export_details_array) && found.export_details_array.length > 0
+            ? found.export_details_array
+            : [{
+                qty_export: found.qty_export || "",
+                unit_export: found.unit_export || "",
+                export_value_fob_usd: found.export_value_fob_usd || "",
+                export_value_rs: found.export_value_rs || "",
+                hs_code_export: found.hs_code_export || "",
+                item_description_export: found.item_description_export || "",
+              }],
         });
       }
     } catch (err) {
@@ -213,6 +233,44 @@ function ViewDgftRegisterDetails() {
   }, [fetchDetails]);
 
   const hc = (key, value) => setFormData((prev) => ({ ...prev, [key]: value }));
+
+  const handleImportDetailChange = (index, field, value) => {
+    const newDetails = [...(formData.import_details_array || [])];
+    newDetails[index] = { ...newDetails[index], [field]: value };
+    setFormData(prev => ({ ...prev, import_details_array: newDetails }));
+  };
+
+  const addImportDetail = () => {
+    const newDetails = [...(formData.import_details_array || []), {
+      qty_import: "", unit_import: "", import_value_fob_usd: "", import_value_rs: "", hs_code_import: "", item_description_import: ""
+    }];
+    setFormData(prev => ({ ...prev, import_details_array: newDetails }));
+  };
+
+  const removeImportDetail = (index) => {
+    const newDetails = [...(formData.import_details_array || [])];
+    newDetails.splice(index, 1);
+    setFormData(prev => ({ ...prev, import_details_array: newDetails }));
+  };
+
+  const handleExportDetailChange = (index, field, value) => {
+    const newDetails = [...(formData.export_details_array || [])];
+    newDetails[index] = { ...newDetails[index], [field]: value };
+    setFormData(prev => ({ ...prev, export_details_array: newDetails }));
+  };
+
+  const addExportDetail = () => {
+    const newDetails = [...(formData.export_details_array || []), {
+      qty_export: "", unit_export: "", export_value_fob_usd: "", export_value_rs: "", hs_code_export: "", item_description_export: ""
+    }];
+    setFormData(prev => ({ ...prev, export_details_array: newDetails }));
+  };
+
+  const removeExportDetail = (index) => {
+    const newDetails = [...(formData.export_details_array || [])];
+    newDetails.splice(index, 1);
+    setFormData(prev => ({ ...prev, export_details_array: newDetails }));
+  };
 
   const showToast = (message, severity) => {
     setToast({ open: true, message, severity });
@@ -299,7 +357,7 @@ function ViewDgftRegisterDetails() {
             <div className="ap-card-title">Validity, Item and HS Code</div>
           </div>
           <div className="ap-card-body">
-            <div className="ap-fields-grid cols-2">
+            <div className="ap-fields-grid cols-4">
               <div className="ap-field-group">
                 <label className="ap-field-label">Import Validity</label>
                 <input type="date" className="ap-field-input" value={formData.import_validity || ""} onChange={(e) => hc("import_validity", e.target.value)} />
@@ -308,7 +366,7 @@ function ViewDgftRegisterDetails() {
                 <label className="ap-field-label">Export Validity</label>
                 <input type="date" className="ap-field-input" value={formData.export_validity || ""} onChange={(e) => hc("export_validity", e.target.value)} />
               </div>
-              <div className="ap-field-group">
+              {/* <div className="ap-field-group">
                 <label className="ap-field-label">HS Code (Export)</label>
                 <HSCodeAutocomplete
                   value={formData.hs_code_export || ""}
@@ -319,12 +377,12 @@ function ViewDgftRegisterDetails() {
                     }
                   }}
                 />
-              </div>
-              <div className="ap-field-group">
+              </div> */}
+              {/* <div className="ap-field-group">
                 <label className="ap-field-label">Item Description (Export)</label>
                 <textarea className="ap-field-textarea" rows={3} value={formData.item_description_export || ""} onChange={(e) => hc("item_description_export", e.target.value)} />
-              </div>
-              <div className="ap-field-group">
+              </div> */}
+              {/* <div className="ap-field-group">
                 <label className="ap-field-label">HS Code (Import)</label>
                 <HSCodeAutocomplete
                   value={formData.hs_code_import || ""}
@@ -335,18 +393,18 @@ function ViewDgftRegisterDetails() {
                     }
                   }}
                 />
-              </div>
-              <div className="ap-field-group">
+              </div> */}
+              {/* <div className="ap-field-group">
                 <label className="ap-field-label">Item Description (Import)</label>
                 <textarea className="ap-field-textarea" rows={3} value={formData.item_description_import || ""} onChange={(e) => hc("item_description_import", e.target.value)} />
-              </div>
+              </div> */}
             </div>
           </div>
         </div>
 
         <div className="ap-card">
           <div className="ap-card-header">
-            <div className="ap-card-title">Compliance &amp; Document Tracking</div>
+            <div className="ap-card-title">Payment Details</div>
           </div>
           <div className="ap-card-body">
             <div className="ap-fields-grid cols-3">
@@ -362,10 +420,10 @@ function ViewDgftRegisterDetails() {
                 <label className="ap-field-label">Documents Send To Accounts Date</label>
                 <input type="date" className="ap-field-input" value={formData.documents_send_to_accounts_date || ""} onChange={(e) => hc("documents_send_to_accounts_date", e.target.value)} />
               </div>
-              <div className="ap-field-group">
+              {/* <div className="ap-field-group">
                 <label className="ap-field-label">Payment Details</label>
                 <input className="ap-field-input" value={formData.payment_details || ""} onChange={(e) => hc("payment_details", e.target.value)} />
-              </div>
+              </div> */}
               <div className="ap-field-group">
                 <label className="ap-field-label">Transaction ID</label>
                 <input className="ap-field-input" value={formData.transaction_id || ""} onChange={(e) => hc("transaction_id", e.target.value)} />
@@ -387,62 +445,92 @@ function ViewDgftRegisterDetails() {
             <div className="ap-card-title">Quantity &amp; Value Tracking</div>
           </div>
           <div className="ap-card-body">
-            <div className="ap-section-subtitle">Export Details</div>
-            <div className="ap-fields-grid cols-3">
-              <div className="ap-field-group">
-                <label className="ap-field-label">Qty (Export)</label>
-                <div style={{ display: "flex", gap: "6px" }}>
-                  <input className="ap-field-input" style={{ flex: 2 }} value={formData.qty_export || ""} onChange={(e) => hc("qty_export", e.target.value)} />
-                  <div style={{ flex: 1 }}>
-                    <UnitAutocomplete value={formData.unit_export || ""} onChange={(v) => hc("unit_export", v)} />
+            <div className="ap-section-subtitle" style={{ marginBottom: '12px' }}>Export Details</div>
+            {(formData.export_details_array || []).map((row, idx) => (
+              <div key={idx} className="ap-item-row-compact cols-6">
+                <div className="ap-field-group">
+                  <label className="ap-field-label">Item Description (Export)</label>
+                  <textarea className="ap-field-textarea" value={row.item_description_export}
+                    onChange={e => handleExportDetailChange(idx, "item_description_export", e.target.value)}
+                    placeholder="Export description..." />
+                </div>
+                <div className="ap-field-group">
+                  <label className="ap-field-label">HS Code</label>
+                  <HSCodeAutocomplete value={row.hs_code_export} onChange={v => handleExportDetailChange(idx, "hs_code_export", v)} />
+                </div>
+                <div className="ap-field-group">
+                  <label className="ap-field-label">Qty (Export)</label>
+                  <div style={{ display: "flex", gap: "4px" }}>
+                    <input type="text" className="ap-field-input" value={row.qty_export}
+                      onChange={e => handleExportDetailChange(idx, "qty_export", e.target.value)} placeholder="0.00" style={{ flex: 2 }} />
+                    <div style={{ flex: 1.5 }}>
+                      <UnitAutocomplete value={row.unit_export} onChange={v => handleExportDetailChange(idx, "unit_export", v)} />
+                    </div>
                   </div>
                 </div>
+                <div className="ap-field-group">
+                  <label className="ap-field-label">Value (FOB USD)</label>
+                  <input type="text" className="ap-field-input" value={row.export_value_fob_usd}
+                    onChange={e => handleExportDetailChange(idx, "export_value_fob_usd", e.target.value)} placeholder="0.00" />
+                </div>
+                <div className="ap-field-group">
+                  <label className="ap-field-label">Value (Rs)</label>
+                  <input type="text" className="ap-field-input" value={row.export_value_rs}
+                    onChange={e => handleExportDetailChange(idx, "export_value_rs", e.target.value)} placeholder="0.00" />
+                </div>
+                {idx > 0 ? (
+                  <button type="button" className="ap-remove-row-btn" onClick={() => removeExportDetail(idx)} title="Remove Item">✕</button>
+                ) : (
+                  <div style={{ width: '28px' }}></div>
+                )}
               </div>
-              <div className="ap-field-group">
-                <label className="ap-field-label">Export Value (FOB USD)</label>
-                <input className="ap-field-input" value={formData.export_value_fob_usd || ""} onChange={(e) => hc("export_value_fob_usd", e.target.value)} />
-              </div>
-              <div className="ap-field-group">
-                <label className="ap-field-label">Export Value (Rs)</label>
-                <input className="ap-field-input" value={formData.export_value_rs || ""} onChange={(e) => hc("export_value_rs", e.target.value)} />
-              </div>
-              <div className="ap-field-group">
-                <label className="ap-field-label">HS Code (Export)</label>
-                <HSCodeAutocomplete value={formData.hs_code_export || ""} onChange={(v) => hc("hs_code_export", v)} />
-              </div>
-              <div className="ap-field-group">
-                <label className="ap-field-label">Item Description (Export)</label>
-                <textarea className="ap-field-textarea" rows={3} value={formData.item_description_export || ""} onChange={(e) => hc("item_description_export", e.target.value)} />
-              </div>
+            ))}
+            <div style={{ marginTop: '8px', marginBottom: '24px' }}>
+              <button type="button" className="ap-btn secondary" onClick={addExportDetail} style={{ padding: '4px 12px', height: '28px', fontSize: '12px', background: '#e2e8f0', color: '#334155', border: 'none', borderRadius: '4px', fontWeight: '600', cursor: 'pointer' }}>+ Add Export Item</button>
             </div>
 
-            <div className="ap-section-subtitle mt-20">Import Details</div>
-            <div className="ap-fields-grid cols-3">
-              <div className="ap-field-group">
-                <label className="ap-field-label">Qty (Import)</label>
-                <div style={{ display: "flex", gap: "6px" }}>
-                  <input className="ap-field-input" style={{ flex: 2 }} value={formData.qty_import || ""} onChange={(e) => hc("qty_import", e.target.value)} />
-                  <div style={{ flex: 1 }}>
-                    <UnitAutocomplete value={formData.unit_import || ""} onChange={(v) => hc("unit_import", v)} />
+            <div className="ap-section-subtitle" style={{ marginBottom: '12px' }}>Import Details</div>
+            {(formData.import_details_array || []).map((row, idx) => (
+              <div key={idx} className="ap-item-row-compact cols-6">
+                <div className="ap-field-group">
+                  <label className="ap-field-label">Item Description (Import)</label>
+                  <textarea className="ap-field-textarea" value={row.item_description_import}
+                    onChange={e => handleImportDetailChange(idx, "item_description_import", e.target.value)}
+                    placeholder="Import description..." />
+                </div>
+                <div className="ap-field-group">
+                  <label className="ap-field-label">HS Code</label>
+                  <HSCodeAutocomplete value={row.hs_code_import} onChange={v => handleImportDetailChange(idx, "hs_code_import", v)} />
+                </div>
+                <div className="ap-field-group">
+                  <label className="ap-field-label">Qty (Import)</label>
+                  <div style={{ display: "flex", gap: "4px" }}>
+                    <input type="text" className="ap-field-input" value={row.qty_import}
+                      onChange={e => handleImportDetailChange(idx, "qty_import", e.target.value)} placeholder="0.00" style={{ flex: 2 }} />
+                    <div style={{ flex: 1.5 }}>
+                      <UnitAutocomplete value={row.unit_import} onChange={v => handleImportDetailChange(idx, "unit_import", v)} />
+                    </div>
                   </div>
                 </div>
+                <div className="ap-field-group">
+                  <label className="ap-field-label">Value (FOB USD)</label>
+                  <input type="text" className="ap-field-input" value={row.import_value_fob_usd}
+                    onChange={e => handleImportDetailChange(idx, "import_value_fob_usd", e.target.value)} placeholder="0.00" />
+                </div>
+                <div className="ap-field-group">
+                  <label className="ap-field-label">Value (Rs)</label>
+                  <input type="text" className="ap-field-input" value={row.import_value_rs}
+                    onChange={e => handleImportDetailChange(idx, "import_value_rs", e.target.value)} placeholder="0.00" />
+                </div>
+                {idx > 0 ? (
+                  <button type="button" className="ap-remove-row-btn" onClick={() => removeImportDetail(idx)} title="Remove Item">✕</button>
+                ) : (
+                  <div style={{ width: '28px' }}></div>
+                )}
               </div>
-              <div className="ap-field-group">
-                <label className="ap-field-label">Import Value (FOB USD)</label>
-                <input className="ap-field-input" value={formData.import_value_fob_usd || ""} onChange={(e) => hc("import_value_fob_usd", e.target.value)} />
-              </div>
-              <div className="ap-field-group">
-                <label className="ap-field-label">Import Value (Rs)</label>
-                <input className="ap-field-input" value={formData.import_value_rs || ""} onChange={(e) => hc("import_value_rs", e.target.value)} />
-              </div>
-              <div className="ap-field-group">
-                <label className="ap-field-label">HS Code (Import)</label>
-                <HSCodeAutocomplete value={formData.hs_code_import || ""} onChange={(v) => hc("hs_code_import", v)} />
-              </div>
-              <div className="ap-field-group">
-                <label className="ap-field-label">Item Description (Import)</label>
-                <textarea className="ap-field-textarea" rows={3} value={formData.item_description_import || ""} onChange={(e) => hc("item_description_import", e.target.value)} />
-              </div>
+            ))}
+            <div style={{ marginTop: '8px' }}>
+              <button type="button" className="ap-btn secondary" onClick={addImportDetail} style={{ padding: '4px 12px', height: '28px', fontSize: '12px', background: '#e2e8f0', color: '#334155', border: 'none', borderRadius: '4px', fontWeight: '600', cursor: 'pointer' }}>+ Add Import Item</button>
             </div>
           </div>
         </div>

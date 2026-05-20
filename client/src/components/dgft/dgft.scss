@@ -20,6 +20,9 @@
       // Group header row
       tr.header-group {
         th {
+          position: sticky;
+          top: 0;
+          z-index: 10;
           background: #1a3168; // Dark Navy Blue
           color: #fff;
           padding: 6px 6px;
@@ -34,6 +37,9 @@
       // Sub header row
       tr.header-sub {
         th {
+          position: sticky;
+          top: 0;
+          z-index: 10;
           background: #16476A; // Light Navy Blue
           color: #ffffff;
           padding: 7px 6px;
@@ -48,6 +54,9 @@
       // Single-level header (for auth tab)
       tr.header-single {
         th {
+          position: sticky;
+          top: 0;
+          z-index: 10;
           background: #2563eb;
           color: #fff;
           padding: 8px 6px;
@@ -102,6 +111,7 @@
 .col-actions-head {
   position: sticky;
   left: 0;
+  top: 0;
   z-index: 12 !important;
   background: #2563eb !important;
   min-width: 90px;
@@ -358,14 +368,14 @@ $ap-radius-lg:  14px;
     font-size: 12px;
     font-weight: 700;
     letter-spacing: .07em;
-    color: #fff;
+    color: #fff !important;
     text-transform: uppercase;
     white-space: nowrap;
     user-select: none;
     cursor: pointer;
     border-right: 1px solid rgba(255,255,255,.10);
 
-    &:hover { background: rgba(255,255,255,.07); color: #fff; }
+    &:hover { background: rgba(255,255,255,.07); color: #fff !important; }
     &.ar-th-sorted { color: #fff; }
     &.ar-th-actions { cursor: default; text-align: center; }
     &.ar-th-expand  { width: 36px; min-width: 36px; cursor: default; border-right: none; }
@@ -503,7 +513,7 @@ $ap-radius-lg:  14px;
 }
 
 .ap-subheader {
-  background: $ap-surface;
+  background: $ap-surface-bg;
   border-bottom: 1px solid $ap-border;
   padding: 0 28px;
   height: 58px;
@@ -579,17 +589,17 @@ $ap-radius-lg:  14px;
 }
 
 .ap-content {
-  padding: 24px 28px;
+  padding: 14px 20px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
 }
 
 .ap-card {
-  background: $ap-surface;
-  border: 1px solid $ap-border;
+  background: #eef2f6;
+  border: 1px solid #d7dee8;
   border-radius: $ap-radius-lg;
-  box-shadow: 0 1px 3px rgba(15,28,46,.06);
+  box-shadow: none;
   position: relative;
   z-index: 1;
   animation: ap-fade-up .3s ease both;
@@ -603,12 +613,12 @@ $ap-radius-lg:  14px;
 }
 
 .ap-card-header {
-  padding: 14px 22px;
+  padding: 10px 16px;
   border-bottom: 1px solid $ap-border;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: $ap-surface-bg;
+  background: #e6ebf2;
   border-radius: $ap-radius-lg $ap-radius-lg 0 0;
 }
 
@@ -646,7 +656,7 @@ $ap-radius-lg:  14px;
   .ap-status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 }
 
-.ap-card-body { padding: 22px; }
+.ap-card-body { padding: 12px 16px; }
 
 .ap-firm-strip {
   display: grid;
@@ -655,7 +665,7 @@ $ap-radius-lg:  14px;
 }
 
 .ap-firm-cell {
-  padding: 18px 22px;
+  padding: 12px 16px;
   border-right: 1px solid $ap-border;
   
   &:last-child { border-right: none; }
@@ -683,15 +693,15 @@ $ap-radius-lg:  14px;
 .ap-fields-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  gap: 10px;
 
   &.cols-5 { grid-template-columns: repeat(5, 1fr); }
 }
 
-.ap-field-group { display: flex; flex-direction: column; gap: 5px; }
+.ap-field-group { display: flex; flex-direction: column; gap: 3px; }
 
 .ap-field-label {
-  font-size: 10.5px;
+  font-size: 10px;
   font-weight: 600;
   color: $ap-text-muted;
   text-transform: uppercase;
@@ -700,13 +710,13 @@ $ap-radius-lg:  14px;
 
 .ap-field-input {
   width: 100%;
-  height: 38px;
-  padding: 0 12px;
+  height: 30px;
+  padding: 0 9px;
   border: 1px solid $ap-border;
   border-radius: $ap-radius-sm;
-  background: $ap-surface-bg;
+  background: #f3f6fa;
   font-family: 'DM Sans', sans-serif;
-  font-size: 13.5px;
+  font-size: 12px;
   color: $ap-text-body;
   outline: none;
   transition: all .15s;
@@ -984,30 +994,106 @@ $ap-radius-lg:  14px;
 .ap-details-container {
   font-family: 'DM Sans', sans-serif;
   background: $ap-surface-bg;
-  color: #000000; // Force black
+  color: #000000 !important;
   min-height: calc(100vh - 64px);
   padding: 0;
   animation: ap-fade-up .3s ease both;
+
+  // Enforce pure black for all standard text elements
+  h1, h2, h3, h4, h5, h6, span, p, div, label, input, select, textarea, td, th {
+    color: #000000 !important;
+  }
+
+  // Input & Textarea Specific Styles
+  .ap-field-input, .ap-field-textarea {
+    color: #000000 !important;
+    border-color: #cbd5e1 !important;
+    background-color: #ffffff !important;
+
+    &::placeholder {
+      color: #666666 !important;
+      opacity: 1 !important;
+    }
+  }
+
+  // Label Specific Styles
+  .ap-field-label {
+    color: #000000 !important;
+    font-weight: 700 !important;
+  }
+
+  .ap-date-input-wrap .ap-date-text,
+  .ap-autocomplete-wrapper input,
+  .ap-autocomplete-results li,
+  .ap-res-code,
+  .ap-res-desc {
+    color: #000000 !important;
+  }
+
+  // Dropdown select element options
+  select option {
+    color: #000000 !important;
+    background-color: #ffffff !important;
+  }
+
+  // Re-establish white text on action buttons for proper contrast
+  .ap-btn-primary, .ap-floating-btn {
+    color: #ffffff !important;
+    
+    * {
+      color: #ffffff !important;
+    }
+  }
+
+  .ap-btn-secondary {
+    color: #334155 !important;
+    background-color: #e2e8f0 !important;
+
+    * {
+      color: #334155 !important;
+    }
+  }
+
+  // Re-establish proper text contrast for badges
+  .ap-status-badge.success {
+    background: #d1fae5 !important;
+    color: #065f46 !important;
+
+    * {
+      color: #065f46 !important;
+    }
+    
+    .ap-status-dot {
+      background: #065f46 !important;
+    }
+  }
+
+  .ap-status-badge.pending {
+    background: #fff7ed !important;
+    color: #9a3412 !important;
+
+    * {
+      color: #9a3412 !important;
+    }
+    
+    .ap-status-dot {
+      background: #9a3412 !important;
+    }
+  }
+
+  .ap-remove-row-btn {
+    color: #ef4444 !important;
+    background: #fee2e2 !important;
+    border-color: #fca5a5 !important;
+  }
 }
 
 .ap-page-title {
-  color: #000000;
+  color: #000000 !important;
 }
 
 .ap-firm-value {
-    color: #000000;
-}
-
-.ap-field-input, .ap-field-textarea {
-    color: #000000;
-    
-    &::placeholder {
-        color: #666;
-    }
-}
-
-.ap-field-label {
-    color: #333; // Darker label
+  color: #000000 !important;
 }
 
 .ap-section-subtitle {
@@ -1016,20 +1102,21 @@ $ap-radius-lg:  14px;
   color: $ap-accent;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-top: 10px;
-  margin-bottom: 8px;
+  margin-top: 6px;
+  margin-bottom: 6px;
   border-left: 3px solid $ap-accent;
   padding-left: 8px;
 }
 
 .ap-field-textarea {
   width: 100%;
-  padding: 10px 12px;
+  min-height: 30px;
+  padding: 5px 9px;
   border: 1px solid $ap-border;
   border-radius: $ap-radius-sm;
-  background: $ap-surface-bg;
+  background: #f3f6fa;
   font-family: 'DM Sans', sans-serif;
-  font-size: 13.5px;
+  font-size: 12px;
   color: $ap-text-body;
   outline: none;
   resize: vertical;
@@ -1138,7 +1225,7 @@ $ap-radius-lg:  14px;
 
   .ap-date-text {
     flex: 1;
-    padding-right: 38px; // leave room for icon
+    padding-right: 32px; // leave room for icon
   }
 
   .ap-date-icon-btn {
@@ -1146,7 +1233,7 @@ $ap-radius-lg:  14px;
     right: 0;
     top: 0;
     height: 100%;
-    width: 36px;
+    width: 30px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1217,3 +1304,116 @@ $ap-radius-lg:  14px;
   color: $ap-text-muted;
   margin-right: 6px;
 }
+
+/* ── Compact Item Row Layout ──────────────────────────────────── */
+.ap-item-row-compact {
+  display: grid;
+  grid-template-columns: 2.2fr 1.2fr 1.5fr 1.5fr 1.2fr 1.2fr auto;
+  gap: 6px;
+  align-items: end;
+  background: transparent;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  margin-bottom: 6px;
+  box-shadow: none;
+  transition: none;
+
+  &.cols-6 {
+    grid-template-columns: 2.2fr 1.2fr 1.5fr 1.2fr 1.2fr auto;
+  }
+
+  .ap-field-group {
+    gap: 3px;
+  }
+
+  .ap-field-label {
+    font-size: 9px;
+    font-weight: 700;
+    color: #475569;
+    letter-spacing: 0.3px;
+    margin-bottom: 1px;
+  }
+
+  .ap-field-input {
+    height: 26px;
+    padding: 0 7px;
+    font-size: 11.5px;
+    border-radius: 4px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+
+    &:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37,99,235,.15);
+    }
+  }
+
+  .ap-field-textarea {
+    height: 26px;
+    padding: 3px 7px;
+    font-size: 11.5px;
+    border-radius: 4px;
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    resize: none;
+    line-height: 1.2;
+
+    &:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37,99,235,.15);
+    }
+  }
+
+  .ap-remove-row-btn {
+    height: 28px;
+    width: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fee2e2;
+    color: #ef4444;
+    border: 1px solid #fca5a5;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    padding: 0;
+
+    &:hover {
+      background: #fecaca;
+      color: #dc2626;
+      border-color: #f87171;
+    }
+  }
+}
+
+// Sub-tables inside cards (e.g. Utilisation details)
+.ap-table {
+  width: 100%;
+  border-collapse: collapse;
+  
+  thead {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+  }
+  
+  th {
+    background: #f1f5f9 !important;
+    color: #000000 !important;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    padding: 10px 8px;
+    border-bottom: 2px solid #cbd5e1;
+    text-align: left;
+  }
+  
+  td {
+    padding: 8px;
+    border-bottom: 1px solid #e2e8f0;
+    color: #000000 !important;
+    text-align: left;
+  }
+}
+

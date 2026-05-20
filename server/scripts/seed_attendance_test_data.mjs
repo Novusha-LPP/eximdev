@@ -262,6 +262,7 @@ async function seedTestData() {
           department_id: user.department_id,
           shift_id: shift._id,
           attendance_date: date.toDate(),
+          attendance_date_str: dateStr,
           year_month: yearMonth,
           status: 'holiday',
           is_holiday: true,
@@ -286,6 +287,7 @@ async function seedTestData() {
           department_id: user.department_id,
           shift_id: shift._id,
           attendance_date: date.toDate(),
+          attendance_date_str: dateStr,
           year_month: yearMonth,
           status: 'leave',
           is_on_leave: true,
@@ -313,6 +315,7 @@ async function seedTestData() {
           department_id: user.department_id,
           shift_id: shift._id,
           attendance_date: date.toDate(),
+          attendance_date_str: dateStr,
           year_month: yearMonth,
           status: 'absent'
         });
@@ -384,6 +387,7 @@ async function seedTestData() {
         department_id: user.department_id,
         shift_id: shift._id,
         attendance_date: date.toDate(),
+        attendance_date_str: dateStr,
         year_month: yearMonth,
         first_in: punchIn.toDate(),
         last_out: punchOut.toDate(),

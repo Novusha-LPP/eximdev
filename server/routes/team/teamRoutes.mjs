@@ -237,8 +237,8 @@ router.put("/api/teams/:teamId", authMiddleware, auditMiddleware("Team"), async 
             return res.status(404).json({ success: false, message: "Team not found" });
         }
 
-        // Access control for Admins
-        if (req.user.role === 'Admin' && !team.allowedAdmins.includes(req.user.username) && team.hodUsername !== req.user.username) {
+        // Access control: non-admins must be listed in allowedAdmins or be the HOD
+        if (req.user.role !== 'Admin' && !team.allowedAdmins.includes(req.user.username) && team.hodUsername !== req.user.username) {
             return res.status(403).json({ success: false, message: "You do not have permission to modify this team" });
         }
 
@@ -289,8 +289,8 @@ router.delete("/api/teams/:teamId", authMiddleware, auditMiddleware("Team"), asy
             return res.status(404).json({ success: false, message: "Team not found" });
         }
 
-        // Access control for Admins
-        if (req.user.role === 'Admin' && !team.allowedAdmins.includes(req.user.username) && team.hodUsername !== req.user.username) {
+        // Access control: non-admins must be listed in allowedAdmins or be the HOD
+        if (req.user.role !== 'Admin' && !team.allowedAdmins.includes(req.user.username) && team.hodUsername !== req.user.username) {
             return res.status(403).json({ success: false, message: "You do not have permission to delete this team" });
         }
 
@@ -318,8 +318,8 @@ router.post("/api/teams/:teamId/members", authMiddleware, auditMiddleware("Team"
             return res.status(404).json({ success: false, message: "Team not found" });
         }
 
-        // Access control for Admins
-        if (req.user.role === 'Admin' && !team.allowedAdmins.includes(req.user.username) && team.hodUsername !== req.user.username) {
+        // Access control: non-admins must be listed in allowedAdmins or be the HOD
+        if (req.user.role !== 'Admin' && !team.allowedAdmins.includes(req.user.username) && team.hodUsername !== req.user.username) {
             return res.status(403).json({ success: false, message: "You do not have permission to add members to this team" });
         }
 
@@ -376,8 +376,8 @@ router.delete("/api/teams/:teamId/members/:username", authMiddleware, auditMiddl
             return res.status(404).json({ success: false, message: "Team not found" });
         }
 
-        // Access control for Admins
-        if (req.user.role === 'Admin' && !team.allowedAdmins.includes(req.user.username) && team.hodUsername !== req.user.username) {
+        // Access control: non-admins must be listed in allowedAdmins or be the HOD
+        if (req.user.role !== 'Admin' && !team.allowedAdmins.includes(req.user.username) && team.hodUsername !== req.user.username) {
             return res.status(403).json({ success: false, message: "You do not have permission to remove members from this team" });
         }
 

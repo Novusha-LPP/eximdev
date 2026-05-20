@@ -55,6 +55,8 @@ const dgftRegisterSchema = new mongoose.Schema(
     remarks: { type: String },
     accounts_inv_no: { type: String },
     accounts_inv_date: { type: String },
+    import_details_array: [{ type: mongoose.Schema.Types.Mixed }],
+    export_details_array: [{ type: mongoose.Schema.Types.Mixed }],
   },
   { timestamps: true }
 );

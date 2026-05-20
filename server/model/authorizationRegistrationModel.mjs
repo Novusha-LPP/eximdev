@@ -63,6 +63,7 @@ const authorizationRegistrationSchema = new mongoose.Schema(
     notification_number: { type: String },
     be_details: [{ type: mongoose.Schema.Types.Mixed }],
     import_details_array: [{ type: mongoose.Schema.Types.Mixed }],
+    export_details_array: [{ type: mongoose.Schema.Types.Mixed }],
 
     // Legacy/Unused (Keeping for backward compatibility if any)
     bond_challan_no: { type: String },

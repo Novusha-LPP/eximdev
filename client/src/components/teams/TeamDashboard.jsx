@@ -202,6 +202,8 @@ function TeamDashboard() {
             );
             if (res.data.success) {
                 const teamData = res.data.team;
+                // Update selectedTeam with latest data so sidebar and headers reflect member changes
+                setSelectedTeam(teamData);
                 // Fetch full user details for members
                 const memberUsernames = (teamData.members || []).map(m => m.username).filter(Boolean);
                 
@@ -209,9 +211,9 @@ function TeamDashboard() {
                     const lowercaseMemberUsernames = memberUsernames.map(u => u.toLowerCase());
 
                     // For admin, use enriched data if available, otherwise fetch from team's HOD endpoint
-                    if (user?.role === 'Admin' && selectedTeam.membersDetails) {
-                        // Use pre-fetched member details from all teams API
-                        setTeamMembers(selectedTeam.membersDetails);
+                    if (user?.role === 'Admin' && teamData.membersDetails) {
+                        // Use pre-fetched member details from all teams API or the fresh team data
+                        setTeamMembers(teamData.membersDetails);
                     } else if (user?.role === 'Admin') {
                         // Fetch member details directly for admin
                         const usersRes = await axios.post(

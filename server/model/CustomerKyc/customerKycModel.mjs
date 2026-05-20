@@ -86,6 +86,69 @@ const branchSchema = new Schema({
   email: { type: String, required: false, trim: true, lowercase: true }
 }, { _id: false });
 
+// Training Schema for embedded trainings array
+const trainingSchema = new Schema({
+  training_code: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  training_date: {
+    type: Date,
+    required: true
+  },
+  valid_till: {
+    type: Date
+  },
+  trainer_name: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  trainee_name: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  training_module: {
+    type: String,
+    required: true,
+    enum: ['Import Module', 'Export Module', 'Transport Module', 'E-Lock Module', 'GPS Module'],
+    trim: true
+  },
+  training_status: {
+    type: String,
+    required: true,
+    enum: ['Completed', 'Pending', 'Expired'],
+    default: 'Pending',
+    trim: true
+  },
+  training_mode: {
+    type: String,
+    required: true,
+    enum: ['Online', 'Offline'],
+    trim: true
+  },
+  remarks: {
+    type: String,
+    trim: true
+  },
+  feedback_rating: {
+    type: Number,
+    min: 1,
+    max: 5
+  },
+  feedback_comments: {
+    type: String,
+    trim: true
+  },
+  satisfaction_status: {
+    type: String,
+    enum: ['Satisfied', 'Neutral', 'Unsatisfied'],
+    trim: true
+  }
+}, { timestamps: true });
+
 // Main Customer KYC Schema
 const customerKycSchema = new Schema({
   // Basic Information
@@ -481,7 +544,12 @@ const customerKycSchema = new Schema({
   next_followup_date: {
     type: Date,
     required: false
-  }
+  },
+  udyam_no: {
+    type: String,
+    trim: true
+  },
+  trainings: [trainingSchema]
 }, {
   timestamps: true,
   toJSON: { virtuals: true },

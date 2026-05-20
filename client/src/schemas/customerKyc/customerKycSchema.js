@@ -46,6 +46,9 @@ export const validationSchema = Yup.object({
     .matches(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, 'Invalid PAN format')
     .required('PAN number is required'),
 
+  // UDYAM Information
+  udyam_no: Yup.string().nullable().optional(),
+
   // Factory Addresses
   factory_addresses: Yup.array().of(
     Yup.object({

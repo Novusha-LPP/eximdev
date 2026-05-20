@@ -116,6 +116,7 @@ function ReviseCustomerKyc() {
       iec_copy: [],
       pan_no: "",
       pan_copy: [],
+      udyam_no: "",
       banks: [
         {
           bankers_name: "",
@@ -244,6 +245,7 @@ function ReviseCustomerKyc() {
             financial_details_approved_by: res.data.financial_details_approved_by || "",
             customer_tier: res.data.customer_tier || "",
             principle_business_gst_no: res.data.principle_business_gst_no || "",
+            udyam_no: res.data.udyam_no || "",
           };
           setData(sanitizedData);
           formik.setValues(sanitizedData);
@@ -965,6 +967,22 @@ function ReviseCustomerKyc() {
                       {formik.touched.pan_no && formik.errors.pan_no && <div className="err-msg">{formik.errors.pan_no}</div>}
                     </div>
                     {renderUpload("pan_copy", "pan-copy")}
+                  </div>
+                  <div className="row">
+                    <div className="field w-half">
+                      <label>
+                        UDYAM Registration No
+                      </label>
+                      <input
+                        type="text"
+                        name="udyam_no"
+                        placeholder="UDYAM-XX-00-0000000"
+                        value={formik.values.udyam_no || ""}
+                        onChange={formik.handleChange}
+                        className={formik.touched.udyam_no && formik.errors.udyam_no ? "error" : ""}
+                      />
+                      {formik.touched.udyam_no && formik.errors.udyam_no && <div className="err-msg">{formik.errors.udyam_no}</div>}
+                    </div>
                   </div>
                 </div>
               </div>

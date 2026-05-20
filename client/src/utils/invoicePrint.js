@@ -1,6 +1,3 @@
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
-
 /**
  * Captures an HTML element as it appears on screen and downloads it as a high-quality A4 PDF.
  * @param {HTMLElement} element - The DOM element to capture (e.g., the billing div)

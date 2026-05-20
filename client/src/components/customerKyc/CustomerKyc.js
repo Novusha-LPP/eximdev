@@ -11,6 +11,7 @@ import { useNavigation } from "../../contexts/NavigationContext";
 import HodApprovalPending from "./HodApprovalPending";
 import FinancialApprovalPending from "./FinancialApprovalPending";
 import BackButton from "./BackButton";
+import TrainingManagement from "./TrainingManagement";
 import "./customerKyc.css";
 
 function CustomerKyc() {
@@ -72,6 +73,7 @@ function CustomerKyc() {
         { label: "Revisions Required" },
         { label: "Pending Approval" },
         { label: "Completed KYC" },
+        { label: "Training Management" },
       ];
     }
     
@@ -86,6 +88,7 @@ function CustomerKyc() {
     }
 
     baseTabs.push({ label: "Completed KYC" });
+    baseTabs.push({ label: "Training Management" });
     return baseTabs;
   }, [isAdmin, isHOD, isAccounts]);
 
@@ -99,32 +102,27 @@ function CustomerKyc() {
   };
 
   const renderContent = () => {
-    if (isAdmin) {
-      switch (value) {
-        case 0: return <CustomerKycStatus />;
-        case 1: return <CustomerKycForm />;
-        case 2: return <ViewDrafts />;
-        case 3: return <RevisionList />;
-        case 4: return renderPendingApproval();
-        case 5: return <CompletedKyc />;
-        default: return <CustomerKycStatus />;
-      }
-    } else {
-      // For non-admins, determine index based on presence of Pending Approval
-      const hasPendingTab = isHOD || isAccounts;
-      
-      switch (value) {
-        case 0: return <CustomerKycForm />;
-        case 1: return <ViewDrafts />;
-        case 2: return <RevisionList />;
-        case 3: 
-          if (hasPendingTab) return renderPendingApproval();
-          return <CompletedKyc />;
-        case 4:
-          if (hasPendingTab) return <CompletedKyc />;
-          return <CustomerKycForm />;
-        default: return <CustomerKycForm />;
-      }
+    const activeTabLabel = tabs[value]?.label;
+
+    switch (activeTabLabel) {
+      case "Dashboard":
+        return <CustomerKycStatus />;
+      case "New Application":
+        return <CustomerKycForm />;
+      case "Draft Applications":
+      case "My Drafts":
+        return <ViewDrafts />;
+      case "Revisions Required":
+      case "Revisions":
+        return <RevisionList />;
+      case "Pending Approval":
+        return renderPendingApproval();
+      case "Completed KYC":
+        return <CompletedKyc />;
+      case "Training Management":
+        return <TrainingManagement />;
+      default:
+        return isAdmin ? <CustomerKycStatus /> : <CustomerKycForm />;
     }
   };
 

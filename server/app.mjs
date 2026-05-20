@@ -111,6 +111,7 @@ import deleteCustomerKyc from "./routes/CustomerKyc/deleteCustomerKyc.mjs";
 import financialDetailsApproval from "./routes/CustomerKyc/financialDetailsApproval.mjs";
 import financialApprovalPending from "./routes/CustomerKyc/financialApprovalPending.mjs";
 import getKycByIec from "./routes/CustomerKyc/getKycByIec.mjs";
+import trainingRoutes from "./routes/CustomerKyc/trainingRoutes.mjs";
 
 // e-Sanchit
 import getCthDocs from "./routes/e-sanchit/getCthDocuments.mjs";
@@ -518,6 +519,7 @@ app.use(financialApprovalPending);
 app.use(getKycByIec);
 
 app.use(deleteCustomerKyc);
+app.use(trainingRoutes);
 
 // E-Sanchit
 app.use(getCthDocs);

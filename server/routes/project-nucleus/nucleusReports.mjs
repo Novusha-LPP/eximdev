@@ -4,6 +4,7 @@ import auditMiddleware from "../../middleware/auditTrail.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import UserModel from "../../model/userModel.mjs";
 import { getBranchMatch } from "../../utils/branchFilter.mjs";
+import CustomerKycModel from "../../model/CustomerKyc/customerKycModel.mjs";
 
 const router = express.Router();
 
@@ -310,6 +311,39 @@ router.get("/top-importers", async (req, res) => {
 
     } catch (error) {
         console.error("Error fetching top importers:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+// Customer UDYAM Registration Details
+router.get("/customer-udyam", async (req, res) => {
+    try {
+        const customers = await CustomerKycModel.find({ draft: { $ne: "true" } })
+            .select("name_of_individual category approval iec_no udyam_no trainings")
+            .sort({ name_of_individual: 1 })
+            .lean();
+
+        const result = customers.map(c => {
+            let udyam = c.udyam_no;
+            if (!udyam || udyam.trim() === "") {
+                const completedTraining = (c.trainings || []).find(t => t.training_status === "Completed");
+                if (completedTraining) {
+                    udyam = completedTraining.training_code;
+                }
+            }
+            return {
+                _id: c._id,
+                name_of_individual: c.name_of_individual,
+                category: c.category,
+                approval: c.approval,
+                iec_no: c.iec_no,
+                udyam_no: udyam
+            };
+        });
+
+        res.json(result);
+    } catch (error) {
+        console.error("Error fetching customer UDYAM details for Project Nucleus:", error);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });

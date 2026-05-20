@@ -245,6 +245,7 @@ function ViewCompletedKycDetails() {
           <div className="id-codes">
             <Field label="IEC Number" value={data.iec_no} mono />
             <Field label="PAN" value={data.pan_no} mono />
+            {data.udyam_no && <Field label="UDYAM" value={data.udyam_no} mono />}
           </div>
         </div>
 
@@ -402,6 +403,16 @@ function ViewCompletedKycDetails() {
                       </div>
                       <div className="doc-sub-header">PAN Copy</div>
                       {renderDocTable(data.pan_copy, "pan_copy")}
+
+                      {data.udyam_no && (
+                        <>
+                          <div className="view-divider"></div>
+                          <div className="field-group" style={{marginBottom:'12px'}}>
+                              <div className="field-label">UDYAM Registration No</div>
+                              <div className="code-chip">{data.udyam_no}</div>
+                          </div>
+                        </>
+                      )}
                  </div>
             </div>
         </div>

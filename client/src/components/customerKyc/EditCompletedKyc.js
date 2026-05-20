@@ -76,6 +76,7 @@ function EditCompletedKyc() {
       iec_copy: "",
       pan_no: "",
       pan_copy: "",
+      udyam_no: "",
       banks: [
         {
           bankers_name: "",
@@ -875,6 +876,16 @@ function EditCompletedKyc() {
                     />
                     )}
                 </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">UDYAM Registration No</label>
+                <input
+                  type="text"
+                  name="udyam_no"
+                  className="form-control"
+                  value={formik.values.udyam_no || ""}
+                  onChange={formik.handleChange}
+                />
               </div>
             </div>
           </div>

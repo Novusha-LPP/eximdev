@@ -6,7 +6,7 @@ import {
     isWithinInterval, getYear, getMonth, getQuarter, format
 } from 'date-fns';
 import {
-    ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend
+    ResponsiveContainer, AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine
 } from 'recharts';
 import './NucleusHome.css';
 
@@ -49,6 +49,75 @@ const CustomMonthlyTooltip = ({ active, payload, label }) => {
     return null;
 };
 
+const FleetTrendTooltip = ({ active, payload }) => {
+    if (active && payload && payload.length) {
+        const data = payload[0].payload;
+        let formattedDate = data.date || '';
+        try {
+            if (data.date) {
+                formattedDate = format(new Date(data.date), 'dd MMMM yyyy');
+            }
+        } catch (e) {
+            console.error("Invalid date in FleetTrendTooltip", e);
+        }
+        return (
+            <div className="custom-chart-tooltip">
+                <p className="tooltip-title">{formattedDate}</p>
+                <p className="tooltip-value">
+                    <span className="tooltip-bullet" style={{ backgroundColor: '#3b82f6' }}></span>
+                    On Road: <strong>{data.onRoadPercent ?? 0}%</strong>
+                </p>
+                <p className="tooltip-value">
+                    <span className="tooltip-bullet" style={{ backgroundColor: '#10b981' }}></span>
+                    Trips: <strong>{data.noOfTrips ?? 0}</strong>
+                </p>
+                {data.outsourcedTotal != null && (
+                    <p className="tooltip-value">
+                        <span className="tooltip-bullet" style={{ backgroundColor: '#8b5cf6' }}></span>
+                        Outsourced: <strong>{data.outsourcedTotal}</strong>
+                    </p>
+                )}
+            </div>
+        );
+    }
+    return null;
+};
+
+const ElockTrendTooltip = ({ active, payload }) => {
+    if (active && payload && payload.length) {
+        const data = payload[0].payload;
+        let formattedDate = data.date || '';
+        try {
+            if (data.date) {
+                formattedDate = format(new Date(data.date), 'dd MMMM yyyy');
+            }
+        } catch (e) {
+            console.error("Invalid date in ElockTrendTooltip", e);
+        }
+        return (
+            <div className="custom-chart-tooltip">
+                <p className="tooltip-title">{formattedDate}</p>
+                <p className="tooltip-value">
+                    <span className="tooltip-bullet" style={{ backgroundColor: '#06b6d4' }}></span>
+                    Locks Used: <strong>{data.locksUsed ?? 0}</strong>
+                </p>
+                <p className="tooltip-value">
+                    <span className="tooltip-bullet" style={{ backgroundColor: '#f43f5e' }}></span>
+                    Under Maint.: <strong>{data.maintenanceLocks ?? 0}</strong>
+                </p>
+                <p className="tooltip-value">
+                    <span className="tooltip-bullet" style={{ backgroundColor: '#10b981' }}></span>
+                    Available: <strong>{data.availableLocks ?? 0}</strong>
+                </p>
+                <p className="tooltip-value" style={{ borderTop: '1px solid #f1f5f9', paddingTop: '4px', marginTop: '4px', fontWeight: 600 }}>
+                    Total Capacity: <strong>{data.totalLocks ?? 0}</strong>
+                </p>
+            </div>
+        );
+    }
+    return null;
+};
+
 const NucleusHome = () => {
     // Categories Configuration
     const reportCategories = [
@@ -63,7 +132,16 @@ const NucleusHome = () => {
             ]
         },
         { id: 'export', label: 'Export', icon: '🛫', reports: [] },
-        { id: 'transport', label: 'Transport', icon: '🚚', reports: [] },
+        {
+            id: 'transport',
+            label: 'Transport',
+            icon: '🚚',
+            reports: [
+                { id: 'transport_table', label: 'Top 10 Transporters Volume' },
+                { id: 'fleet_utilization', label: 'Fleet Utilization' },
+                { id: 'elock_lr_completed', label: 'LR Completed Count' }
+            ]
+        },
         {
             id: 'business',
             label: 'Business',
@@ -75,7 +153,15 @@ const NucleusHome = () => {
             ]
         },
         { id: 'sharanga', label: 'Sharanga', icon: '🕉️', reports: [] },
-        { id: 'elock', label: 'Elock', icon: '🔒', reports: [] }
+        {
+            id: 'elock',
+            label: 'Elock',
+            icon: '🔒',
+            reports: [
+                { id: 'elock_utilization', label: 'E-Lock Utilization' },
+                { id: 'elock_assigned_count', label: 'E-Lock Assigned Count' }
+            ]
+        }
     ];
 
     const [activeReport, setActiveReport] = useState('fine');
@@ -90,6 +176,7 @@ const NucleusHome = () => {
     // Filter State
     const [filterType, setFilterType] = useState('month'); // Default to month
     const [presetFilter, setPresetFilter] = useState('all'); // 'day', 'week', 'month', 'last-month', 'quarter', 'year', 'all'
+    const [selectedDay, setSelectedDay] = useState(format(new Date(), 'yyyy-MM-dd'));
 
     // Custom Filter Values
     const [dateRange, setDateRange] = useState({ start: '', end: '' });
@@ -116,6 +203,39 @@ const NucleusHome = () => {
     const [clientStatusFilter, setClientStatusFilter] = useState('all');
     const [clientMonthFilter, setClientMonthFilter] = useState('all');
     const [clientYearFilter, setClientYearFilter] = useState('all');
+    
+    // Transport Reports State
+    const [fleetData, setFleetData] = useState({ summary: {}, rows: [] });
+    const [fleetLoading, setFleetLoading] = useState(false);
+    const [expandedFleetRows, setExpandedFleetRows] = useState({});
+    
+    const [elockData, setElockData] = useState({ summary: {}, rows: [] });
+    const [elockMeta, setElockMeta] = useState({});
+    const [elockLoading, setElockLoading] = useState(false);
+
+    // Transport Dashboard State (summary + monthly + category)
+    const TRANSPORT_BASE = 'https://eximbot.alvision.in/transport';
+    const TRANSPORT_API_KEY = '1234567890';
+    const TRANSPORT_HEADERS = { 'x-api-key': TRANSPORT_API_KEY };
+
+    // Transport Shipment Table State
+    const [transportTable, setTransportTable] = useState([]);
+    const [transportTableMeta, setTransportTableMeta] = useState({ totalCount: 0 });
+    const [transportTableLoading, setTransportTableLoading] = useState(false);
+    const [transportTablePage, setTransportTablePage] = useState(1);
+    const TRANSPORT_TABLE_LIMIT = 20;
+    const [transportSortBy, setTransportSortBy] = useState('totalShipments');
+    const [transportSortOrder, setTransportSortOrder] = useState('desc');
+
+    // E-Lock Dashboard State
+    const [elockAssigned, setElockAssigned] = useState([]);
+    const [elockAssignedSummary, setElockAssignedSummary] = useState({});
+    const [elockAssignedLoading, setElockAssignedLoading] = useState(false);
+    const [elockLrCompleted, setElockLrCompleted] = useState([]);
+    const [elockLrSummary, setElockLrSummary] = useState({});
+    const [elockLrLoading, setElockLrLoading] = useState(false);
+    const [elockDashFilterType, setElockDashFilterType] = useState('consignee'); // consignee | consignor
+
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'desc' });
 
     // Generate years for dropdown (Current year - 5 to Current year + 1)
@@ -254,6 +374,212 @@ const NucleusHome = () => {
         }
     }, [activeReport]);
 
+    useEffect(() => {
+        if (['fleet_utilization', 'elock_utilization'].includes(activeReport)) {
+            setFilterType('day');
+            setSelectedDay(format(new Date(), 'yyyy-MM-dd'));
+        } else {
+            if (filterType === 'day') {
+                setFilterType('month');
+            }
+        }
+    }, [activeReport]);
+
+    const getTransportDates = () => {
+        let sd = '', ed = '';
+        if (filterType === 'day') {
+            const dateObj = parse(selectedDay, 'yyyy-MM-dd', new Date());
+            if (isValid(dateObj)) {
+                sd = format(startOfMonth(dateObj), 'yyyy-MM-dd');
+                ed = format(endOfMonth(dateObj), 'yyyy-MM-dd');
+            } else {
+                sd = format(startOfMonth(new Date()), 'yyyy-MM-dd');
+                ed = format(endOfMonth(new Date()), 'yyyy-MM-dd');
+            }
+        } else if (filterType === 'month') {
+            sd = format(new Date(selectedYear, selectedMonth, 1), 'yyyy-MM-dd');
+            ed = format(endOfMonth(new Date(selectedYear, selectedMonth, 1)), 'yyyy-MM-dd');
+        } else if (filterType === 'quarter') {
+            const firstMonthOfQuarter = (selectedQuarter - 1) * 3;
+            sd = format(new Date(selectedYear, firstMonthOfQuarter, 1), 'yyyy-MM-dd');
+            ed = format(endOfMonth(new Date(selectedYear, firstMonthOfQuarter + 2, 1)), 'yyyy-MM-dd');
+        } else if (filterType === 'year') {
+            sd = format(new Date(selectedYear, 0, 1), 'yyyy-MM-dd');
+            ed = format(new Date(selectedYear, 11, 31), 'yyyy-MM-dd');
+        } else if (filterType === 'custom') {
+            sd = dateRange.start;
+            ed = dateRange.end;
+        }
+        return { startDate: sd, endDate: ed };
+    };
+
+    useEffect(() => {
+        if (activeReport === 'fleet_utilization') {
+            const fetchFleet = async () => {
+                setFleetLoading(true);
+                try {
+                    const { startDate, endDate } = getTransportDates();
+                    if (!startDate || !endDate) {
+                        setFleetLoading(false);
+                        return;
+                    }
+                    const res = await axios.get(`${TRANSPORT_BASE}/api/fleet/utilization-report`, {
+                        params: { startDate, endDate },
+                        headers: TRANSPORT_HEADERS,
+                        withCredentials: true
+                    });
+                    console.log('Fleet utilization raw response:', res.data);
+                    const d = res.data;
+                    if (d) {
+                        // API returns rows under 'dailyRows' key (per fleet_elock_report.html line 699)
+                        const inner = d.data ?? d;
+                        const rows = Array.isArray(inner?.dailyRows) ? inner.dailyRows
+                            : Array.isArray(inner?.rows) ? inner.rows
+                            : Array.isArray(inner?.report) ? inner.report
+                            : Array.isArray(inner?.daily) ? inner.daily
+                            : Array.isArray(inner) ? inner
+                            : [];
+                        const summary = inner?.summary ?? d?.summary ?? {};
+                        setFleetData({ summary, rows });
+                    }
+                } catch (err) {
+                    console.error("Error fetching fleet report:", err);
+                } finally {
+                    setFleetLoading(false);
+                }
+            };
+            fetchFleet();
+        }
+    }, [activeReport, filterType, selectedMonth, selectedYear, selectedQuarter, dateRange, selectedDay]);
+
+    useEffect(() => {
+        if (activeReport === 'elock_utilization') {
+            const fetchElock = async () => {
+                setElockLoading(true);
+                try {
+                    const { startDate, endDate } = getTransportDates();
+                    const params = {};
+                    if (startDate) params.startDate = startDate;
+                    if (endDate) params.endDate = endDate;
+                    const res = await axios.get(`${TRANSPORT_BASE}/api/elock/utilization-report`, { 
+                        params,
+                        headers: TRANSPORT_HEADERS,
+                        withCredentials: true 
+                    });
+                    if (res.data && res.data.success) {
+                        setElockData(res.data.data);
+                        setElockMeta(res.data.meta || {});
+                    }
+                } catch (err) {
+                    console.error("Error fetching elock report:", err);
+                } finally {
+                    setElockLoading(false);
+                }
+            };
+            fetchElock();
+        }
+    }, [activeReport, filterType, selectedMonth, selectedYear, selectedQuarter, dateRange, selectedDay]);
+
+    // Transport Shipment Table
+    useEffect(() => {
+        if (activeReport === 'transport_table') {
+            const fetchTable = async () => {
+                setTransportTableLoading(true);
+                try {
+                    const { startDate: from, endDate: to } = getTransportDates();
+                    if (!from || !to) { setTransportTableLoading(false); return; }
+                    const res = await axios.get(`${TRANSPORT_BASE}/api/reports/table`, {
+                        params: { from, to, page: transportTablePage, limit: TRANSPORT_TABLE_LIMIT, sortBy: transportSortBy, sortOrder: transportSortOrder },
+                        headers: TRANSPORT_HEADERS,
+                        withCredentials: true
+                    });
+                    setTransportTable(res.data?.data || res.data || []);
+                    setTransportTableMeta({ totalCount: res.data?.totalCount || 0 });
+                } catch (err) {
+                    console.error('Error fetching transport table:', err);
+                } finally {
+                    setTransportTableLoading(false);
+                }
+            };
+            fetchTable();
+        }
+    }, [activeReport, filterType, selectedMonth, selectedYear, selectedQuarter, dateRange, selectedDay, transportTablePage, transportSortBy, transportSortOrder]);
+
+    // E-Lock Assigned Count
+    useEffect(() => {
+        if (activeReport === 'elock_assigned_count') {
+            const fetchAssigned = async () => {
+                setElockAssignedLoading(true);
+                try {
+                    const { startDate: from, endDate: to } = getTransportDates();
+                    if (!from || !to) { setElockAssignedLoading(false); return; }
+                    const url = `${TRANSPORT_BASE}/api/client-elock-dashboard/assigned-count`;
+                    console.log('E-Lock Assigned: calling', url, { from, to, filterType: elockDashFilterType });
+                    const res = await axios.get(url, {
+                        params: { from, to, filterType: elockDashFilterType },
+                        headers: TRANSPORT_HEADERS,
+                        withCredentials: true
+                    });
+                    console.log('E-Lock Assigned raw response:', res.data);
+                    const raw = res.data;
+                    const inner = raw?.data ?? {};
+                    const arr = Array.isArray(inner?.byParty) ? inner.byParty : [];
+                    setElockAssigned(arr);
+                    setElockAssignedSummary({
+                        prAssignedCount: inner.prAssignedCount ?? 0,
+                        othersAssignedCount: inner.othersAssignedCount ?? 0,
+                        totalAssignedCount: inner.totalAssignedCount ?? arr.length
+                    });
+                } catch (err) {
+                    console.error('Error fetching elock assigned count:', err);
+                } finally {
+                    setElockAssignedLoading(false);
+                }
+            };
+            fetchAssigned();
+        }
+    }, [activeReport, filterType, selectedMonth, selectedYear, selectedQuarter, dateRange, selectedDay, elockDashFilterType]);
+
+    // E-Lock LR Completed Count
+    useEffect(() => {
+        if (activeReport === 'elock_lr_completed') {
+            const fetchLr = async () => {
+                setElockLrLoading(true);
+                try {
+                    const { startDate: from, endDate: to } = getTransportDates();
+                    if (!from || !to) { setElockLrLoading(false); return; }
+                    const urlLr = `${TRANSPORT_BASE}/api/client-elock-dashboard/lr-completed-count`;
+                    console.log('LR Completed: calling', urlLr, { from, to, filterType: elockDashFilterType });
+                    const res = await axios.get(urlLr, {
+                        params: { from, to, filterType: elockDashFilterType },
+                        headers: TRANSPORT_HEADERS,
+                        withCredentials: true
+                    });
+                    console.log('LR Completed raw response:', res.data);
+                    const rawLr = res.data;
+                    const innerLr = rawLr?.data ?? {};
+                    const arrLr = Array.isArray(innerLr?.byParty) ? innerLr.byParty : [];
+                    setElockLrCompleted(arrLr);
+                    setElockLrSummary({
+                        totalCompletedCount: innerLr.totalCompletedCount ?? arrLr.length
+                    });
+                } catch (err) {
+                    console.error('Error fetching elock lr completed:', err);
+                } finally {
+                    setElockLrLoading(false);
+                }
+            };
+            fetchLr();
+        }
+    }, [activeReport, filterType, selectedMonth, selectedYear, selectedQuarter, dateRange, selectedDay, elockDashFilterType]);
+
+    const toggleFleetRow = (index) => {
+        setExpandedFleetRows(prev => ({
+            ...prev,
+            [index]: !prev[index]
+        }));
+    };
+
     const filteredUdyamData = useMemo(() => {
         return udyamData.filter(item => {
             const name = (item.name_of_individual || '').toLowerCase();
@@ -335,6 +661,117 @@ const NucleusHome = () => {
         });
     }, [clientAnalyticsData.users, clientSearch, clientRoleFilter, clientStatusFilter, clientMonthFilter, clientYearFilter]);
 
+    // Trend analysis: sort fleet data rows chronologically for daily trend visualization
+    const fleetChartData = useMemo(() => {
+        if (!fleetData.rows || fleetData.rows.length === 0) return [];
+        return [...fleetData.rows].sort((a, b) => new Date(a.date) - new Date(b.date));
+    }, [fleetData.rows]);
+
+    // Trend analysis: deduplicate transaction records by date and compute daily aggregations
+    const elockDailyTrendData = useMemo(() => {
+        if (!elockData.rows || elockData.rows.length === 0) return [];
+        const dateMap = {};
+        
+        elockData.rows.forEach(row => {
+            if (!row.date) return;
+            if (!dateMap[row.date]) {
+                dateMap[row.date] = {
+                    date: row.date,
+                    locksUsed: row.locks_used_this_date ?? 0,
+                    availableLocks: row.available_locks_this_date ?? 0,
+                    maintenanceLocks: row.maintenance_locks_this_date ?? 0,
+                    totalLocks: (row.locks_used_this_date ?? 0) + (row.available_locks_this_date ?? 0) + (row.maintenance_locks_this_date ?? 0)
+                };
+            } else {
+                dateMap[row.date].locksUsed = Math.max(dateMap[row.date].locksUsed, row.locks_used_this_date ?? 0);
+                dateMap[row.date].availableLocks = Math.max(dateMap[row.date].availableLocks, row.available_locks_this_date ?? 0);
+                dateMap[row.date].maintenanceLocks = Math.max(dateMap[row.date].maintenanceLocks, row.maintenance_locks_this_date ?? 0);
+                dateMap[row.date].totalLocks = dateMap[row.date].locksUsed + dateMap[row.date].availableLocks + dateMap[row.date].maintenanceLocks;
+            }
+        });
+        
+        return Object.values(dateMap).sort((a, b) => new Date(a.date) - new Date(b.date));
+    }, [elockData.rows]);
+
+    // Calculate smart KPI card statistics for fleet report, handling single-day versus multi-day ranges
+    const fleetSummaryObj = useMemo(() => {
+        if (filterType === 'day') {
+            const dayRow = fleetData.rows?.find(r => r.date === selectedDay);
+            if (dayRow) {
+                return {
+                    fleetSize: dayRow.totalFleet ?? '—',
+                    onRoadPercent: dayRow.onRoadPercent ?? 0,
+                    trips: dayRow.noOfTrips ?? 0,
+                    outsourced: dayRow.outsourcedTotal ?? 0,
+                    vehiclesNotOnRoad: dayRow.vehiclesNotOnRoadTotal ?? 0,
+                    idlePercent: dayRow.idlePercent ?? 0,
+                    totalDays: 1
+                };
+            }
+            return { fleetSize: '—', onRoadPercent: '—', trips: '—', outsourced: '—', vehiclesNotOnRoad: '—', idlePercent: '—', totalDays: 1 };
+        } else {
+            return {
+                fleetSize: fleetData.summary?.fleetSize ?? fleetData.rows?.[0]?.totalFleet ?? '—',
+                onRoadPercent: fleetData.summary?.avgPerDay?.onRoadPercent ?? '—',
+                trips: fleetData.summary?.avgPerDay?.trips ?? '—',
+                projectedTrips: fleetData.summary?.projectedTrips ?? '—',
+                totalDays: fleetData.summary?.totalDays ?? fleetData.rows?.length ?? 0
+            };
+        }
+    }, [fleetData, filterType, selectedDay]);
+
+    // Calculate smart KPI card statistics for elock report, handling single-day versus multi-day ranges
+    const elockSummaryObj = useMemo(() => {
+        if (filterType === 'day') {
+            const dayRows = elockData.rows?.filter(r => r.date === selectedDay) || [];
+            if (dayRows.length > 0) {
+                const locksUsed = dayRows[0].locks_used_this_date ?? 0;
+                const availableLocks = dayRows[0].available_locks_this_date ?? 0;
+                const maintenanceLocks = dayRows[0].maintenance_locks_this_date ?? 0;
+                const totalLocks = locksUsed + availableLocks + maintenanceLocks;
+                const assetUtilPercent = totalLocks > 0 ? ((locksUsed / totalLocks) * 100).toFixed(1) : '—';
+                
+                const activeLocksCount = dayRows.filter(r => r.elock_assign_status === 'ACTIVE' || r.elock_assign_status === 'ASSIGNED' || r.is_active).length;
+                const returnedLocksCount = dayRows.filter(r => r.elock_assign_status === 'RETURNED' || r.is_returned).length;
+                const maintenanceCount = dayRows.filter(r => r.elock_assign_status === 'MAINTENANCE' || r.is_maintenance).length;
+
+                return {
+                    locksUsed: locksUsed,
+                    activeLocks: activeLocksCount,
+                    returnedLocks: returnedLocksCount,
+                    maintenance: maintenanceCount || maintenanceLocks,
+                    assetUtilizationPercent: assetUtilPercent,
+                    totalTransactions: dayRows.length
+                };
+            }
+            return { locksUsed: '—', activeLocks: '—', returnedLocks: '—', maintenance: '—', assetUtilizationPercent: '—', totalTransactions: 0 };
+        } else {
+            return {
+                locksUsed: elockData.summary?.locks_used ?? '—',
+                activeLocks: elockData.summary?.active_locks ?? '—',
+                returnedLocks: elockData.summary?.returned_locks ?? '—',
+                maintenance: elockData.summary?.elock_under_maintenance ?? '—',
+                assetUtilizationPercent: elockData.summary?.asset_utilization_percent ?? '—',
+                highestSingleDay: elockData.summary?.highest_single_day_utilization ?? '—'
+            };
+        }
+    }, [elockData, filterType, selectedDay]);
+
+    // Isolates table rows to only display the selected day in Day-Wise mode
+    const displayedFleetRows = useMemo(() => {
+        if (filterType === 'day') {
+            return (fleetData.rows || []).filter(row => row.date === selectedDay);
+        }
+        return fleetData.rows || [];
+    }, [fleetData.rows, filterType, selectedDay]);
+
+    const displayedElockRows = useMemo(() => {
+        if (filterType === 'day') {
+            return (elockData.rows || []).filter(row => row.date === selectedDay);
+        }
+        return elockData.rows || [];
+    }, [elockData.rows, filterType, selectedDay]);
+
     const totalCustomersCount = udyamData.length;
     const registeredCount = udyamData.filter(c => c.udyam_no && c.udyam_no.trim() !== "").length;
     const pendingCount = totalCustomersCount - registeredCount;
@@ -387,7 +824,11 @@ const NucleusHome = () => {
 
             if (!isValid(date)) return false;
 
-            if (filterType === 'date-range') {
+            if (filterType === 'day') {
+                if (!selectedDay) return true;
+                const itemDateStr = format(date, 'yyyy-MM-dd');
+                return itemDateStr === selectedDay;
+            } else if (filterType === 'date-range') {
                 if (!dateRange.start || !dateRange.end) return true;
                 const start = new Date(dateRange.start);
                 const end = new Date(dateRange.end);
@@ -611,7 +1052,66 @@ const NucleusHome = () => {
                         </div>
                     </div>
                 )}
-                {!loading && activeReport !== 'top10' && activeReport !== 'udyam' && activeReport !== 'training' && activeReport !== 'client_login_analytics' && (
+                {!loading && activeReport === 'fleet_utilization' && fleetSummaryObj && (
+                    <div className="nucleus-stats-card" style={{ borderLeft: '4px solid #3b82f6', background: 'linear-gradient(90deg, rgba(59,130,246,0.08) 0%, rgba(59,130,246,0.01) 100%)' }}>
+                        <div className="stats-text" style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap', alignItems: 'center', width: '100%' }}>
+                            <div>
+                                Fleet Size: <span className="highlight-val" style={{ color: '#3b82f6' }}>{fleetSummaryObj.fleetSize}</span>
+                            </div>
+                            <div>
+                                {filterType === 'day' ? 'On Road %' : 'Avg On Road %'}: <span className="highlight-val" style={{ color: '#10b981' }}>{fleetSummaryObj.onRoadPercent}%</span>
+                            </div>
+                            <div>
+                                {filterType === 'day' ? 'Trips' : 'Avg Trips / Day'}: <span className="highlight-val" style={{ color: '#f59e0b' }}>{fleetSummaryObj.trips}</span>
+                            </div>
+                            {filterType === 'day' ? (
+                                <>
+                                    <div>
+                                        Outsourced: <span className="highlight-val" style={{ color: '#8b5cf6' }}>{fleetSummaryObj.outsourced}</span>
+                                    </div>
+                                    <div>
+                                        Not on Road: <span className="highlight-val" style={{ color: '#ef4444' }}>{fleetSummaryObj.vehiclesNotOnRoad}</span>
+                                    </div>
+                                    <div>
+                                        Idle %: <span className="highlight-val" style={{ color: '#64748b' }}>{fleetSummaryObj.idlePercent}%</span>
+                                    </div>
+                                </>
+                            ) : (
+                                <div>
+                                    Projected Trips: <span className="highlight-val" style={{ color: '#8b5cf6' }}>{fleetSummaryObj.projectedTrips}</span>
+                                </div>
+                            )}
+                            <div style={{ marginLeft: 'auto' }}>
+                                {filterType === 'day' ? 'Selected Day' : 'Total Days'}: <span className="highlight-val" style={{ color: 'var(--text-color)' }}>{filterType === 'day' ? selectedDay : fleetSummaryObj.totalDays}</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                {!loading && activeReport === 'elock_utilization' && elockSummaryObj && (
+                    <div className="nucleus-stats-card" style={{ borderLeft: '4px solid #06b6d4', background: 'linear-gradient(90deg, rgba(6, 182, 212, 0.08) 0%, rgba(6, 182, 212, 0.01) 100%)' }}>
+                        <div className="stats-text" style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap', alignItems: 'center', width: '100%' }}>
+                            <div>
+                                Locks Used: <span className="highlight-val" style={{ color: '#3b82f6' }}>{elockSummaryObj.locksUsed}</span>
+                            </div>
+                            <div>
+                                Active Locks: <span className="highlight-val" style={{ color: '#10b981' }}>{elockSummaryObj.activeLocks}</span>
+                            </div>
+                            <div>
+                                Returned: <span className="highlight-val" style={{ color: 'var(--text-color)' }}>{elockSummaryObj.returnedLocks}</span>
+                            </div>
+                            <div>
+                                Under Maint.: <span className="highlight-val" style={{ color: '#ef4444' }}>{elockSummaryObj.maintenance}</span>
+                            </div>
+                            <div>
+                                Asset Util: <span className="highlight-val" style={{ color: elockSummaryObj.assetUtilizationPercent >= 80 ? '#10b981' : elockSummaryObj.assetUtilizationPercent >= 50 ? '#f59e0b' : '#ef4444' }}>{elockSummaryObj.assetUtilizationPercent}%</span>
+                            </div>
+                            <div style={{ marginLeft: 'auto' }}>
+                                {filterType === 'day' ? 'Total Trans.' : 'Peak Util'}: <span className="highlight-val" style={{ color: '#f59e0b' }}>{filterType === 'day' ? elockSummaryObj.totalTransactions : `${elockSummaryObj.highestSingleDay}%`}</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                {!loading && ['fine', 'penalty'].includes(activeReport) && (
                     <div className="nucleus-stats-card">
                         <div className="stats-text">
                             {(() => {
@@ -809,6 +1309,9 @@ const NucleusHome = () => {
                                         }}
                                         className="nucleus-select"
                                     >
+                                        {['fleet_utilization', 'elock_utilization'].includes(activeReport) && (
+                                            <option value="day">Day Wise</option>
+                                        )}
                                         <option value="month">Month Wise</option>
                                         <option value="quarter">Quarter Wise</option>
                                         <option value="year">Year Wise</option>
@@ -816,6 +1319,17 @@ const NucleusHome = () => {
                                         <option value="all">Unfiltered (All Time)</option>
                                     </select>
                                 </div>
+
+                                {filterType === 'day' && (
+                                    <div className="custom-inputs">
+                                        <input
+                                            type="date"
+                                            className="nucleus-input"
+                                            value={selectedDay}
+                                            onChange={(e) => setSelectedDay(e.target.value)}
+                                        />
+                                    </div>
+                                )}
 
                                 {filterType === 'date-range' && (
                                     <div className="custom-inputs">
@@ -892,7 +1406,7 @@ const NucleusHome = () => {
                     </div>
                 </div>
 
-                {loading || (activeReport === 'top10' && top10Loading) || (activeReport === 'udyam' && udyamLoading) || (activeReport === 'training' && trainingLoading) || (activeReport === 'client_login_analytics' && clientAnalyticsLoading) ? (
+                {loading || (activeReport === 'top10' && top10Loading) || (activeReport === 'udyam' && udyamLoading) || (activeReport === 'training' && trainingLoading) || (activeReport === 'client_login_analytics' && clientAnalyticsLoading) || (activeReport === 'transport_table' && transportTableLoading) || (activeReport === 'elock_assigned_count' && elockAssignedLoading) || (activeReport === 'elock_lr_completed' && elockLrLoading) ? (
                     <div className="nucleus-loading-container">
                         <div className="nucleus-loader"></div>
                         <div style={{ marginTop: '1rem', color: '#6b7280' }}>Loading report details...</div>
@@ -985,7 +1499,396 @@ const NucleusHome = () => {
                                 </div>
                             </div>
                         )}
-                        <div className="nucleus-table-wrapper">
+
+
+
+                        {/* ── Transport Shipment Table ── */}
+                        {activeReport === 'transport_table' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 600 }}>Sort by:</span>
+                                        <select value={transportSortBy} onChange={e => { setTransportSortBy(e.target.value); setTransportTablePage(1); }} className="nucleus-select" style={{ padding: '6px 12px', fontSize: '13px' }}>
+                                            <option value="totalShipments">Total Shipments</option>
+                                            <option value="consignor">Consignor</option>
+                                            <option value="consignee">Consignee</option>
+                                            <option value="route">Route</option>
+                                            <option value="period">Period</option>
+                                        </select>
+                                        <select value={transportSortOrder} onChange={e => { setTransportSortOrder(e.target.value); setTransportTablePage(1); }} className="nucleus-select" style={{ padding: '6px 12px', fontSize: '13px' }}>
+                                            <option value="desc">Descending</option>
+                                            <option value="asc">Ascending</option>
+                                        </select>
+                                    </div>
+                                    <div style={{ fontSize: '13px', color: '#64748b' }}>
+                                        Total Records: <strong style={{ color: '#1e293b' }}>{transportTableMeta.totalCount}</strong>
+                                    </div>
+                                </div>
+                                <div style={{ overflowX: 'auto', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                                        <thead>
+                                            <tr style={{ background: '#f8fafc' }}>
+                                                {['#', 'Consignor', 'Consignee', 'Route', 'Period', 'Shipments', 'Category'].map((h, i) => (
+                                                    <th key={i} style={{ padding: '11px 14px', textAlign: i === 5 ? 'right' : 'left', color: '#64748b', fontWeight: 600, borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' }}>{h}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {transportTable.length > 0 ? transportTable.map((row, i) => (
+                                                <tr key={i} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#fafbfc' }}>
+                                                    <td style={{ padding: '10px 14px', color: '#94a3b8', fontWeight: 500 }}>{(transportTablePage - 1) * TRANSPORT_TABLE_LIMIT + i + 1}</td>
+                                                    <td style={{ padding: '10px 14px', fontWeight: 600 }}>{row.consignor ?? '—'}</td>
+                                                    <td style={{ padding: '10px 14px', fontWeight: 500 }}>{row.consignee ?? '—'}</td>
+                                                    <td style={{ padding: '10px 14px', color: '#64748b' }}>{row.route ?? '—'}</td>
+                                                    <td style={{ padding: '10px 14px', color: '#64748b', fontFamily: 'monospace', fontSize: '12px' }}>{row.period ?? '—'}</td>
+                                                    <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, color: '#3b82f6' }}>{row.totalShipments ?? '—'}</td>
+                                                    <td style={{ padding: '10px 14px' }}>
+                                                        <span style={{ background: '#3b82f610', color: '#3b82f6', border: '1px solid #3b82f620', borderRadius: '6px', padding: '2px 10px', fontSize: '11px', fontWeight: 600 }}>{row.category ?? row.import_export ?? '—'}</span>
+                                                    </td>
+                                                </tr>
+                                            )) : (
+                                                <tr><td colSpan="7" style={{ textAlign: 'center', color: '#94a3b8', padding: '30px' }}>No shipment data found for the selected period.</td></tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {transportTableMeta.totalCount > TRANSPORT_TABLE_LIMIT && (
+                                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px' }}>
+                                        <button disabled={transportTablePage === 1} onClick={() => setTransportTablePage(p => Math.max(1, p - 1))} style={{ padding: '6px 16px', border: '1px solid #e2e8f0', borderRadius: '8px', background: transportTablePage === 1 ? '#f8fafc' : '#fff', cursor: transportTablePage === 1 ? 'not-allowed' : 'pointer', fontWeight: 600, color: '#64748b' }}>← Prev</button>
+                                        <span style={{ fontSize: '13px', color: '#64748b' }}>Page <strong>{transportTablePage}</strong> of <strong>{Math.ceil(transportTableMeta.totalCount / TRANSPORT_TABLE_LIMIT)}</strong></span>
+                                        <button disabled={transportTablePage >= Math.ceil(transportTableMeta.totalCount / TRANSPORT_TABLE_LIMIT)} onClick={() => setTransportTablePage(p => p + 1)} style={{ padding: '6px 16px', border: '1px solid #e2e8f0', borderRadius: '8px', background: '#fff', cursor: 'pointer', fontWeight: 600, color: '#64748b' }}>Next →</button>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* ── E-Lock Assigned Count ── */}
+                        {activeReport === 'elock_assigned_count' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 600 }}>Filter by:</span>
+                                    {['consignee', 'consignor'].map(ft => (
+                                        <button key={ft} onClick={() => setElockDashFilterType(ft)} style={{ padding: '6px 16px', border: `1px solid ${elockDashFilterType === ft ? '#3b82f6' : '#e2e8f0'}`, borderRadius: '8px', background: elockDashFilterType === ft ? '#3b82f610' : '#fff', color: elockDashFilterType === ft ? '#3b82f6' : '#64748b', fontWeight: 600, cursor: 'pointer', fontSize: '13px', textTransform: 'capitalize' }}>{ft}</button>
+                                    ))}
+                                </div>
+                                <div style={{ overflowX: 'auto', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                                        <thead>
+                                            <tr style={{ background: '#f8fafc' }}>
+                                                {['#', 'Party Name', 'PR Assigned', 'Others Assigned', 'Total Assigned'].map((h, i) => (
+                                                    <th key={i} style={{ padding: '11px 14px', textAlign: i >= 2 ? 'right' : 'left', color: '#64748b', fontWeight: 600, borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' }}>{h}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {Array.isArray(elockAssigned) && elockAssigned.length > 0 ? elockAssigned.map((row, i) => (
+                                                <tr key={i} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#fafbfc' }}>
+                                                    <td style={{ padding: '10px 14px', color: '#94a3b8' }}>{i + 1}</td>
+                                                    <td style={{ padding: '10px 14px', fontWeight: 600 }}>{row.partyName ?? row.party_name ?? row.consignee ?? row.consignor ?? row.name ?? '—'}</td>
+                                                    <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 600, color: '#475569' }}>{row.prCount ?? 0}</td>
+                                                    <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 600, color: '#475569' }}>{row.othersCount ?? 0}</td>
+                                                    <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, color: '#3b82f6', fontSize: '15px' }}>{row.totalCount ?? row.count ?? 0}</td>
+                                                </tr>
+                                            )) : (
+                                                <tr><td colSpan="5" style={{ textAlign: 'center', color: '#94a3b8', padding: '30px' }}>No e-lock assignment data found for the selected period.</td></tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── E-Lock LR Completed Count ── */}
+                        {activeReport === 'elock_lr_completed' && (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 600 }}>Filter by:</span>
+                                    {['consignee', 'consignor'].map(ft => (
+                                        <button key={ft} onClick={() => setElockDashFilterType(ft)} style={{ padding: '6px 16px', border: `1px solid ${elockDashFilterType === ft ? '#10b981' : '#e2e8f0'}`, borderRadius: '8px', background: elockDashFilterType === ft ? '#10b98110' : '#fff', color: elockDashFilterType === ft ? '#10b981' : '#64748b', fontWeight: 600, cursor: 'pointer', fontSize: '13px', textTransform: 'capitalize' }}>{ft}</button>
+                                    ))}
+                                </div>
+                                <div style={{ overflowX: 'auto', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                                        <thead>
+                                            <tr style={{ background: '#f8fafc' }}>
+                                                {['#', 'Party Name', 'LR Completed Count'].map((h, i) => (
+                                                    <th key={i} style={{ padding: '11px 14px', textAlign: i === 2 ? 'right' : 'left', color: '#64748b', fontWeight: 600, borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' }}>{h}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {Array.isArray(elockLrCompleted) && elockLrCompleted.length > 0 ? elockLrCompleted.map((row, i) => (
+                                                <tr key={i} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#fafbfc' }}>
+                                                    <td style={{ padding: '10px 14px', color: '#94a3b8' }}>{i + 1}</td>
+                                                    <td style={{ padding: '10px 14px', fontWeight: 600 }}>{row.partyName ?? row.party_name ?? row.consignee ?? row.consignor ?? row.name ?? '—'}</td>
+                                                    <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, color: '#10b981', fontSize: '16px' }}>{row.count ?? row.completedCount ?? row.lr_completed_count ?? 0}</td>
+                                                </tr>
+                                            )) : (
+                                                <tr><td colSpan="3" style={{ textAlign: 'center', color: '#94a3b8', padding: '30px' }}>No LR completed data found for the selected period.</td></tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeReport === 'fleet_utilization' && (
+                            <div className="analytics-graphs-container">
+                                <div className="analytics-graph-card">
+                                    <div className="graph-card-header">
+                                        <h3>Fleet Utilization Trend</h3>
+                                        <span className="graph-subtitle">Daily On-Road Percentage and Total Trips</span>
+                                    </div>
+                                    <div style={{ width: '100%', height: 280 }}>
+                                        <ResponsiveContainer>
+                                            <AreaChart
+                                                data={fleetChartData}
+                                                margin={{ top: 10, right: -5, left: -20, bottom: 0 }}
+                                            >
+                                                <defs>
+                                                    <linearGradient id="colorOnRoad" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.25}/>
+                                                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                                                    </linearGradient>
+                                                </defs>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(226, 232, 240, 0.5)"/>
+                                                <XAxis 
+                                                    dataKey="date" 
+                                                    tickFormatter={(str) => {
+                                                        if (!str) return '';
+                                                        try {
+                                                            const d = new Date(str);
+                                                            return format(d, 'dd MMM');
+                                                        } catch (e) {
+                                                            return str;
+                                                        }
+                                                    }}
+                                                    stroke="#94a3b8"
+                                                    fontSize={11}
+                                                    tickLine={false}
+                                                />
+                                                <YAxis yAxisId="left" stroke="#3b82f6" fontSize={11} tickLine={false} domain={[0, 100]} unit="%"/>
+                                                <YAxis yAxisId="right" orientation="right" stroke="#10b981" fontSize={11} tickLine={false} allowDecimals={false}/>
+                                                <Tooltip content={<FleetTrendTooltip />} />
+                                                <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+                                                {filterType === 'day' && selectedDay && (
+                                                    <ReferenceLine 
+                                                        yAxisId="left"
+                                                        x={selectedDay} 
+                                                        stroke="#f59e0b" 
+                                                        strokeWidth={2} 
+                                                        strokeDasharray="5 5" 
+                                                        label={{ value: 'Selected', position: 'top', fill: '#d97706', fontSize: 10, fontWeight: 600 }}
+                                                    />
+                                                )}
+                                                <Area yAxisId="left" type="monotone" name="On Road %" dataKey="onRoadPercent" stroke="#3b82f6" strokeWidth={2.5} fillOpacity={1} fill="url(#colorOnRoad)"/>
+                                                <Area yAxisId="right" type="monotone" name="Total Trips" dataKey="noOfTrips" stroke="#10b981" strokeWidth={2} fill="none"/>
+                                            </AreaChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+                                
+                                <div className="analytics-graph-card">
+                                    <div className="graph-card-header">
+                                        <h3>Non-Operational Vehicle Breakdown</h3>
+                                        <span className="graph-subtitle">Breakdown of off-road vehicle counts</span>
+                                    </div>
+                                    <div style={{ width: '100%', height: 280 }}>
+                                        <ResponsiveContainer>
+                                            <BarChart
+                                                data={fleetChartData}
+                                                margin={{ top: 10, right: 0, left: -25, bottom: 0 }}
+                                            >
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(226, 232, 240, 0.5)"/>
+                                                <XAxis 
+                                                    dataKey="date" 
+                                                    tickFormatter={(str) => {
+                                                        if (!str) return '';
+                                                        try {
+                                                            const d = new Date(str);
+                                                            return format(d, 'dd MMM');
+                                                        } catch (e) {
+                                                            return str;
+                                                        }
+                                                    }}
+                                                    stroke="#94a3b8"
+                                                    fontSize={11}
+                                                    tickLine={false}
+                                                />
+                                                <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} allowDecimals={false}/>
+                                                <Tooltip 
+                                                    contentStyle={{ 
+                                                        backgroundColor: 'rgba(255, 255, 255, 0.98)', 
+                                                        border: '1px solid #e2e8f0', 
+                                                        borderRadius: '8px'
+                                                    }}
+                                                    labelFormatter={(str) => {
+                                                        if (!str) return '';
+                                                        try {
+                                                            return format(new Date(str), 'dd MMMM yyyy');
+                                                        } catch (e) {
+                                                            return str;
+                                                        }
+                                                    }}
+                                                />
+                                                <Legend iconType="rect" wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+                                                {filterType === 'day' && selectedDay && (
+                                                    <ReferenceLine 
+                                                        x={selectedDay} 
+                                                        stroke="#f59e0b" 
+                                                        strokeWidth={2} 
+                                                        strokeDasharray="5 5" 
+                                                        label={{ value: 'Selected', position: 'top', fill: '#d97706', fontSize: 10, fontWeight: 600 }}
+                                                    />
+                                                )}
+                                                <Bar name="Breakdown" dataKey="breakdown" stackId="offroad" fill="#ef4444" radius={[0, 0, 0, 0]}/>
+                                                <Bar name="Maintenance" dataKey="maintenance" stackId="offroad" fill="#f97316" radius={[0, 0, 0, 0]}/>
+                                                <Bar name="Driver Leave" dataKey="driverOnLeave" stackId="offroad" fill="#3b82f6" radius={[0, 0, 0, 0]}/>
+                                                <Bar name="Accident" dataKey="accident" stackId="offroad" fill="#64748b" radius={[0, 0, 0, 0]}/>
+                                                <Bar name="No Driver" dataKey="noDriver" stackId="offroad" fill="#a855f7" radius={[4, 4, 0, 0]}/>
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeReport === 'elock_utilization' && (
+                            <div className="analytics-graphs-container">
+                                <div className="analytics-graph-card">
+                                    <div className="graph-card-header">
+                                        <h3>E-Lock Stock Allocation Trend</h3>
+                                        <span className="graph-subtitle">Daily stock status breakdown</span>
+                                    </div>
+                                    <div style={{ width: '100%', height: 280 }}>
+                                        <ResponsiveContainer>
+                                            <AreaChart
+                                                data={elockDailyTrendData}
+                                                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                                            >
+                                                <defs>
+                                                    <linearGradient id="colorUsed" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.4}/>
+                                                        <stop offset="95%" stopColor="#06b6d4" stopOpacity={0.05}/>
+                                                    </linearGradient>
+                                                    <linearGradient id="colorMaint" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3}/>
+                                                        <stop offset="95%" stopColor="#f43f5e" stopOpacity={0.02}/>
+                                                    </linearGradient>
+                                                    <linearGradient id="colorAvail" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
+                                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.02}/>
+                                                    </linearGradient>
+                                                </defs>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(226, 232, 240, 0.5)"/>
+                                                <XAxis 
+                                                    dataKey="date" 
+                                                    tickFormatter={(str) => {
+                                                        if (!str) return '';
+                                                        try {
+                                                            const d = new Date(str);
+                                                            return format(d, 'dd MMM');
+                                                        } catch (e) {
+                                                            return str;
+                                                        }
+                                                    }}
+                                                    stroke="#94a3b8"
+                                                    fontSize={11}
+                                                    tickLine={false}
+                                                />
+                                                <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} allowDecimals={false}/>
+                                                <Tooltip content={<ElockTrendTooltip />} />
+                                                <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+                                                {filterType === 'day' && selectedDay && (
+                                                    <ReferenceLine 
+                                                        x={selectedDay} 
+                                                        stroke="#f59e0b" 
+                                                        strokeWidth={2} 
+                                                        strokeDasharray="5 5" 
+                                                        label={{ value: 'Selected', position: 'top', fill: '#d97706', fontSize: 10, fontWeight: 600 }}
+                                                    />
+                                                )}
+                                                <Area type="monotone" name="Locks Used" dataKey="locksUsed" stackId="1" stroke="#06b6d4" strokeWidth={2} fill="url(#colorUsed)"/>
+                                                <Area type="monotone" name="Under Maintenance" dataKey="maintenanceLocks" stackId="1" stroke="#f43f5e" strokeWidth={2} fill="url(#colorMaint)"/>
+                                                <Area type="monotone" name="Available Locks" dataKey="availableLocks" stackId="1" stroke="#10b981" strokeWidth={2} fill="url(#colorAvail)"/>
+                                            </AreaChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+                                
+                                <div className="analytics-graph-card">
+                                    <div className="graph-card-header">
+                                        <h3>E-Lock Inventory Utilization Efficiency</h3>
+                                        <span className="graph-subtitle">Daily asset usage rate as a percentage of total stock</span>
+                                    </div>
+                                    <div style={{ width: '100%', height: 280 }}>
+                                        <ResponsiveContainer>
+                                            <AreaChart
+                                                data={elockDailyTrendData.map(d => {
+                                                    const total = d.totalLocks || 0;
+                                                    const util = total > 0 ? parseFloat(((d.locksUsed / total) * 100).toFixed(1)) : 0;
+                                                    return { ...d, utilPercent: util };
+                                                })}
+                                                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                                            >
+                                                <defs>
+                                                    <linearGradient id="colorUtilEff" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="5%" stopColor="#0891b2" stopOpacity={0.25}/>
+                                                        <stop offset="95%" stopColor="#0891b2" stopOpacity={0}/>
+                                                    </linearGradient>
+                                                </defs>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(226, 232, 240, 0.5)"/>
+                                                <XAxis 
+                                                    dataKey="date" 
+                                                    tickFormatter={(str) => {
+                                                        if (!str) return '';
+                                                        try {
+                                                            const d = new Date(str);
+                                                            return format(d, 'dd MMM');
+                                                        } catch (e) {
+                                                            return str;
+                                                        }
+                                                    }}
+                                                    stroke="#94a3b8"
+                                                    fontSize={11}
+                                                    tickLine={false}
+                                                />
+                                                <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} domain={[0, 100]} unit="%"/>
+                                                <Tooltip 
+                                                    contentStyle={{ 
+                                                        backgroundColor: 'rgba(255, 255, 255, 0.98)', 
+                                                        border: '1px solid #e2e8f0', 
+                                                        borderRadius: '8px'
+                                                    }}
+                                                    labelFormatter={(str) => {
+                                                        if (!str) return '';
+                                                        try {
+                                                            return format(new Date(str), 'dd MMMM yyyy');
+                                                        } catch (e) {
+                                                            return str;
+                                                        }
+                                                    }}
+                                                    formatter={(value) => [`${value}%`, 'Utilization Efficiency']}
+                                                />
+                                                <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+                                                {filterType === 'day' && selectedDay && (
+                                                    <ReferenceLine 
+                                                        x={selectedDay} 
+                                                        stroke="#f59e0b" 
+                                                        strokeWidth={2} 
+                                                        strokeDasharray="5 5" 
+                                                        label={{ value: 'Selected', position: 'top', fill: '#d97706', fontSize: 10, fontWeight: 600 }}
+                                                    />
+                                                )}
+                                                <Area type="monotone" name="Utilization Efficiency" dataKey="utilPercent" stroke="#0891b2" strokeWidth={2.5} fillOpacity={1} fill="url(#colorUtilEff)"/>
+                                            </AreaChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="nucleus-table-wrapper" style={{ display: ['transport_table', 'elock_assigned_count', 'elock_lr_completed'].includes(activeReport) ? 'none' : undefined }}>
                             <table className="nucleus-table">
                                 <thead>
                                 <tr>
@@ -1042,6 +1945,66 @@ const NucleusHome = () => {
                                             <th>Last Login Date</th>
                                             <th>Registered At</th>
                                         </>
+                                    ) : activeReport === 'fleet_utilization' ? (
+                                        <>
+                                            <th style={{ minWidth: '40px' }}></th>
+                                            <th style={{ position: 'sticky', left: 0, background: '#f8fafc', zIndex: 2 }}>Day</th>
+                                            <th>Date</th>
+                                            <th>Total Fleet</th>
+                                            <th>On Road %</th>
+                                            <th>Dispatch Status</th>
+                                            <th>Own vs O/S %</th>
+                                            <th>O/S Status</th>
+                                            <th>Automove</th>
+                                            <th>SRCC 20ft</th>
+                                            <th>SRCC 40ft</th>
+                                            <th>O/S Total</th>
+                                            <th>Idle %</th>
+                                            <th>Breakdown</th>
+                                            <th>Maint.</th>
+                                            <th>Driver Leave</th>
+                                            <th>Accident</th>
+                                            <th>No Driver</th>
+                                            <th>Not on Road</th>
+                                            <th>Kho. O-20</th>
+                                            <th>Kho. O-40</th>
+                                            <th>Kho. OS-20</th>
+                                            <th>Kho. OS-40</th>
+                                            <th>San. O-20</th>
+                                            <th>San. O-40</th>
+                                            <th>San. OS-20</th>
+                                            <th>San. OS-40</th>
+                                            <th>Mun. O-20</th>
+                                            <th>Mun. O-40</th>
+                                            <th>Mun. OS-20</th>
+                                            <th>Mun. OS-40</th>
+                                            <th>Air. O</th>
+                                            <th>Air. OS</th>
+                                            <th>Sac. O-20</th>
+                                            <th>Sac. OS-20</th>
+                                            <th>Haz. O-20</th>
+                                            <th>Haz. O-40</th>
+                                            <th>Haz. OS-20</th>
+                                            <th>Haz. OS-40</th>
+                                            <th>No. Trips</th>
+                                        </>
+                                    ) : activeReport === 'elock_utilization' ? (
+                                        <>
+                                            <th>S.No</th>
+                                            <th>TR No</th>
+                                            <th>Container No</th>
+                                            <th>Lock No</th>
+                                            <th>LR No</th>
+                                            <th>Assign Date</th>
+                                            <th>Return Date</th>
+                                            <th>Assign Status</th>
+                                            <th>Avail Locks</th>
+                                            <th>Maint Locks</th>
+                                            <th>Used Locks</th>
+                                            <th>Location</th>
+                                            <th>Customer Name</th>
+                                            <th>Assignee</th>
+                                        </>
                                     ) : (
                                         <>
                                             <th>Job No</th>
@@ -1056,7 +2019,164 @@ const NucleusHome = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {activeReport === 'top10' ? (
+                                {activeReport === 'fleet_utilization' ? (
+                                    displayedFleetRows?.length > 0 ? (
+                                        displayedFleetRows.map((row, index) => {
+                                            const tripRows = row.rows || [];
+                                            const hasTrips = tripRows.length > 0;
+                                            const isExpanded = expandedFleetRows[index];
+                                            return (
+                                                <React.Fragment key={index}>
+                                                    <tr>
+                                                        <td style={{ textAlign: 'center', background: '#fff', position: 'sticky', left: 0, zIndex: 2 }}>
+                                                            {hasTrips && (
+                                                                <button onClick={() => toggleFleetRow(index)} style={{ background: 'rgba(59,130,246,.1)', border: '1px solid rgba(59,130,246,.3)', color: '#3b82f6', borderRadius: '4px', padding: '2px 7px', cursor: 'pointer', fontSize: '11px', fontFamily: 'monospace' }} title={`${tripRows.length} trips`}>
+                                                                    {isExpanded ? '▼' : '▶'}
+                                                                </button>
+                                                            )}
+                                                        </td>
+                                                        <td style={{ textAlign: 'left', fontWeight: 600, background: '#fff', position: 'sticky', left: '40px', zIndex: 2 }}>{row.dayName ?? '—'}</td>
+                                                        <td className="mono-text">{row.date ?? '—'}</td>
+                                                        <td style={{ fontWeight: 600 }}>{row.totalFleet ?? '—'}</td>
+                                                        <td>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                <div style={{ width: '50px', background: '#e2e8f0', height: '6px', borderRadius: '3px', overflow: 'hidden' }}>
+                                                                    <div style={{ width: `${row.onRoadPercent ?? 0}%`, height: '100%', background: '#3b82f6' }}></div>
+                                                                </div>
+                                                                <span style={{ fontSize: '11px', fontWeight: 600 }}>{row.onRoadPercent ?? 0}%</span>
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <span className={`status-pill ${row.onRoadStatus === 'GREEN' ? 'success' : row.onRoadStatus === 'YELLOW' ? 'warning' : 'error'}`}>{row.onRoadStatus ?? '—'}</span>
+                                                        </td>
+                                                        <td>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                                                <div style={{ width: '50px', background: '#e2e8f0', height: '6px', borderRadius: '3px', overflow: 'hidden' }}>
+                                                                    <div style={{ width: `${row.ownVsOutsourcedPercent ?? 0}%`, height: '100%', background: '#8b5cf6' }}></div>
+                                                                </div>
+                                                                <span style={{ fontSize: '11px', fontWeight: 600 }}>{row.ownVsOutsourcedPercent ?? 0}%</span>
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <span className={`status-pill ${row.ownVsOutsourcedStatus === 'GREEN' ? 'success' : row.ownVsOutsourcedStatus === 'YELLOW' ? 'warning' : 'error'}`}>{row.ownVsOutsourcedStatus ?? '—'}</span>
+                                                        </td>
+                                                        <td>{row.automoveDispatched ?? '—'}</td>
+                                                        <td>{row.srccDispatched20ft ?? '—'}</td>
+                                                        <td>{row.srccDispatched40ft ?? '—'}</td>
+                                                        <td style={{ fontWeight: 600, color: '#3b82f6' }}>{row.outsourcedTotal ?? '—'}</td>
+                                                        <td className="mono-text">{row.idlePercent != null ? `${row.idlePercent}%` : '—'}</td>
+                                                        <td>{row.breakdown ?? '—'}</td>
+                                                        <td>{row.maintenance ?? '—'}</td>
+                                                        <td>{row.driverOnLeave ?? '—'}</td>
+                                                        <td>{row.accident ?? '—'}</td>
+                                                        <td>{row.noDriver ?? '—'}</td>
+                                                        <td style={{ fontWeight: 600, color: '#ef4444' }}>{row.vehiclesNotOnRoadTotal ?? '—'}</td>
+                                                        
+                                                        {/* Locations */}
+                                                        <td>{row.locations?.khodiyar?.own20ft ?? '—'}</td>
+                                                        <td>{row.locations?.khodiyar?.own40ft ?? '—'}</td>
+                                                        <td>{row.locations?.khodiyar?.outsourced20ft ?? '—'}</td>
+                                                        <td>{row.locations?.khodiyar?.outsourced40ft ?? '—'}</td>
+                                                        <td>{row.locations?.sanand?.own20ft ?? '—'}</td>
+                                                        <td>{row.locations?.sanand?.own40ft ?? '—'}</td>
+                                                        <td>{row.locations?.sanand?.outsourced20ft ?? '—'}</td>
+                                                        <td>{row.locations?.sanand?.outsourced40ft ?? '—'}</td>
+                                                        <td>{row.locations?.mundra?.own20ft ?? '—'}</td>
+                                                        <td>{row.locations?.mundra?.own40ft ?? '—'}</td>
+                                                        <td>{row.locations?.mundra?.outsourced20ft ?? '—'}</td>
+                                                        <td>{row.locations?.mundra?.outsourced40ft ?? '—'}</td>
+                                                        <td>{row.locations?.airport?.own ?? '—'}</td>
+                                                        <td>{row.locations?.airport?.outsourced ?? '—'}</td>
+                                                        <td>{row.locations?.sachana?.own20ft ?? '—'}</td>
+                                                        <td>{row.locations?.sachana?.outsourced20ft ?? '—'}</td>
+                                                        <td>{row.locations?.hazira?.own20ft ?? '—'}</td>
+                                                        <td>{row.locations?.hazira?.own40ft ?? '—'}</td>
+                                                        <td>{row.locations?.hazira?.outsourced20ft ?? '—'}</td>
+                                                        <td>{row.locations?.hazira?.outsourced40ft ?? '—'}</td>
+                                                        
+                                                        <td style={{ fontWeight: 600, background: '#f8fafc' }}>{row.noOfTrips ?? '—'}</td>
+                                                    </tr>
+                                                    {isExpanded && hasTrips && (
+                                                        <tr>
+                                                            <td colSpan="39" style={{ padding: 0, background: '#f8fafc' }}>
+                                                                <div style={{ margin: '8px 8px 8px 40px', border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', background: '#fff' }}>
+                                                                    <div style={{ background: 'rgba(99,102,241,.08)', padding: '8px 14px', fontFamily: 'monospace', fontSize: '11px', letterSpacing: '.8px', color: '#6366f1', textTransform: 'uppercase', borderBottom: '1px solid #e2e8f0', fontWeight: 600 }}>
+                                                                        ▸ {tripRows.length} Trip Records for {row.date}
+                                                                    </div>
+                                                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                                                                        <thead>
+                                                                            <tr style={{ background: '#f1f5f9' }}>
+                                                                                <th style={{ padding: '8px 12px', textAlign: 'left', color: '#64748b', borderBottom: '1px solid #e2e8f0', fontWeight: 600 }}>#</th>
+                                                                                <th style={{ padding: '8px 12px', textAlign: 'left', color: '#64748b', borderBottom: '1px solid #e2e8f0', fontWeight: 600 }}>TR / LR No</th>
+                                                                                <th style={{ padding: '8px 12px', textAlign: 'left', color: '#64748b', borderBottom: '1px solid #e2e8f0', fontWeight: 600 }}>Container No</th>
+                                                                                <th style={{ padding: '8px 12px', textAlign: 'left', color: '#64748b', borderBottom: '1px solid #e2e8f0', fontWeight: 600 }}>Vehicle Type</th>
+                                                                                <th style={{ padding: '8px 12px', textAlign: 'left', color: '#64748b', borderBottom: '1px solid #e2e8f0', fontWeight: 600 }}>Ownership</th>
+                                                                            </tr>
+                                                                        </thead>
+                                                                        <tbody>
+                                                                            {tripRows.map((t, ti) => (
+                                                                                <tr key={ti} style={{ borderBottom: '1px solid #f1f5f9', background: ti % 2 === 1 ? '#f8fafc' : '#fff' }}>
+                                                                                    <td style={{ padding: '6px 12px', color: '#94a3b8' }}>{ti + 1}</td>
+                                                                                    <td style={{ padding: '6px 12px', color: '#3b82f6', fontWeight: 500 }}>{t.tr_no ?? '—'}</td>
+                                                                                    <td style={{ padding: '6px 12px', fontWeight: 500 }}>{t.container_number ?? '—'}</td>
+                                                                                    <td style={{ padding: '6px 12px', color: '#64748b' }}>{t.vehicle_type ?? '—'}</td>
+                                                                                    <td style={{ padding: '6px 12px' }}>
+                                                                                        <span style={{ fontSize: '10px', padding: '2px 8px', borderRadius: '4px', background: t.ownership === 'Own' ? 'rgba(34,197,94,.1)' : 'rgba(245,158,11,.1)', color: t.ownership === 'Own' ? '#16a34a' : '#d97706', border: `1px solid ${t.ownership === 'Own' ? 'rgba(34,197,94,.2)' : 'rgba(245,158,11,.2)'}`, fontWeight: 600 }}>
+                                                                                            {t.ownership ?? '—'}
+                                                                                        </span>
+                                                                                    </td>
+                                                                                </tr>
+                                                                            ))}
+                                                                        </tbody>
+                                                                    </table>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </React.Fragment>
+                                            );
+                                        })
+                                    ) : (
+                                        <tr>
+                                            <td colSpan="39" style={{ textAlign: 'center', color: '#6b7280', padding: '30px' }}>
+                                                No fleet data found for the selected period.
+                                            </td>
+                                        </tr>
+                                    )
+                                ) : activeReport === 'elock_utilization' ? (
+                                    displayedElockRows?.length > 0 ? (
+                                        displayedElockRows.map((row, index) => (
+                                            <tr key={index}>
+                                                <td style={{ fontWeight: 500 }}>{index + 1}</td>
+                                                <td style={{ color: '#3b82f6', fontWeight: 500 }}>{row.tr_no ?? '—'}</td>
+                                                <td style={{ fontWeight: 600 }}>{row.container_number ?? '—'}</td>
+                                                <td className="mono-text">{row.lock_number ?? '—'}</td>
+                                                <td className="mono-text" style={{ color: '#64748b' }}>{row.lr_no ?? '—'}</td>
+                                                <td className="mono-text">{row.date ?? '—'}</td>
+                                                <td className="mono-text">{row.elock_return_date ?? '—'}</td>
+                                                <td>
+                                                    <span className={`status-pill ${row.elock_assign_status === 'ACTIVE' ? 'success' : row.elock_assign_status === 'RETURNED' ? 'info' : row.elock_assign_status === 'MAINTENANCE' ? 'error' : 'warning'}`}>
+                                                        {row.elock_assign_status ?? '—'}
+                                                    </span>
+                                                </td>
+                                                <td>{row.available_locks_this_date ?? '—'}</td>
+                                                <td>{row.maintenance_locks_this_date ?? '—'}</td>
+                                                <td style={{ fontWeight: 600 }}>{row.locks_used_this_date ?? '—'}</td>
+                                                <td style={{ color: '#475569' }}>{row.location ?? '—'}</td>
+                                                <td style={{ fontWeight: 500 }}>{row.customer_name ?? '—'}</td>
+                                                <td>
+                                                    <span className="handler-tag">{row.elock_assign ?? '—'}</span>
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan="14" style={{ textAlign: 'center', color: '#6b7280', padding: '30px' }}>
+                                                No E-Lock data found for the selected period.
+                                            </td>
+                                        </tr>
+                                    )
+                                ) : activeReport === 'top10' ? (
                                     sortedTop10Data.length > 0 ? (
                                         sortedTop10Data.map((item, index) => (
                                             <tr key={item.importer}>
@@ -1268,6 +2388,26 @@ const NucleusHome = () => {
                         </table>
                     </div>
                     </>
+                )}
+
+                {/* ── Summary stats cards for new transport/elock reports ── */}
+                {activeReport === 'elock_assigned_count' && !elockAssignedLoading && (
+                    <div className="nucleus-stats-card" style={{ borderLeft: '4px solid #3b82f6', background: 'linear-gradient(90deg, rgba(59,130,246,0.08) 0%, rgba(59,130,246,0.01) 100%)' }}>
+                        <div className="stats-text" style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                            <div>Parties: <span className="highlight-val" style={{ color: '#3b82f6' }}>{Array.isArray(elockAssigned) ? elockAssigned.length : 0}</span></div>
+                            <div>PR Assigned: <span className="highlight-val" style={{ color: '#8b5cf6' }}>{elockAssignedSummary.prAssignedCount ?? 0}</span></div>
+                            <div>Others Assigned: <span className="highlight-val" style={{ color: '#f59e0b' }}>{elockAssignedSummary.othersAssignedCount ?? 0}</span></div>
+                            <div>Total Assigned: <span className="highlight-val" style={{ color: '#10b981' }}>{elockAssignedSummary.totalAssignedCount ?? 0}</span></div>
+                        </div>
+                    </div>
+                )}
+                {activeReport === 'elock_lr_completed' && !elockLrLoading && (
+                    <div className="nucleus-stats-card" style={{ borderLeft: '4px solid #10b981', background: 'linear-gradient(90deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.01) 100%)' }}>
+                        <div className="stats-text" style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                            <div>Parties: <span className="highlight-val" style={{ color: '#10b981' }}>{Array.isArray(elockLrCompleted) ? elockLrCompleted.length : 0}</span></div>
+                            <div>Total LR Completed: <span className="highlight-val" style={{ color: '#3b82f6' }}>{elockLrSummary.totalCompletedCount ?? 0}</span></div>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>

@@ -155,7 +155,7 @@ const customerKycSchema = new Schema({
   category: {
     type: String,
     required: true,
-    enum: ['Individual/ Proprietary Firm', 'Partnership Firm', 'Company', 'Trust Foundations'],
+    enum: ['Individual/ Proprietary Firm', 'Partnership Firm', 'Company', 'Trust Foundations', 'Importer', 'Exporter'],
     trim: true
   },
   name_of_individual: {
@@ -166,7 +166,7 @@ const customerKycSchema = new Schema({
   status: {
     type: String,
     required: true,
-    enum: ['Manufacturer', 'Trader'],
+    enum: ['Manufacturer', 'Trader', 'pending', 'Pending'],
     trim: true
   },
 

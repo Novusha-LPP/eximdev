@@ -1,0 +1,480 @@
+{
+  "info": {
+    "_postman_id": "de22b570-b1b9-400f-90b1-6383ecd329e4",
+    "name": "EXIM Transport – Dashboard & Reports APIs",
+    "description": "## Primary APIs (frontend / integrations)\n\n**Auth:** `x-api-key: {{apiKey}}` (matches `THIRD_PARTY_API_KEY` in `server/.env`) **or** logged-in cookie/Bearer.\n\n**Date range (required on all five):** use **`from` + `to`** (ISO or YYYY-MM-DD), or **`startDate` + `endDate`** (fleet/elock), or preset **`range`** (dashboard: `last_3_months`, `current_month`, etc.).\n\n**IE code:** optional on dashboard endpoints — omit `ieCodeNo` for **all organisations** in the date range.\n\n| GET | Path |\n|-----|------|\n| `/api/reports/table` | `from`, `to`, `page`, `limit` |\n| `/api/client-elock-dashboard/assigned-count` | `from`+`to` or `range`; optional `ieCodeNo` |\n| `/api/client-elock-dashboard/lr-completed-count` | same |\n| `/api/fleet/utilization-report` | `startDate`+`endDate` or `from`+`to` |\n| `/api/elock/utilization-report` | same |\n\nVariables: `baseUrl`, `apiKey` (same value as server `.env`).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "22924234"
+  },
+  "item": [
+    {
+      "name": "Five core GET APIs (primary)",
+      "item": [
+        {
+          "name": "GET /api/reports/table",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}",
+                "description": "Shared API key when not using JWT/cookie. Logged-in admin users can omit if cookie is sent.",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/table?from=2026-02-19T18:30:00.000Z&to=2026-05-20T23:59:59.999Z&page=1&limit=10&sortBy=totalShipments&sortOrder=desc",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "table"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-02-19T18:30:00.000Z",
+                  "description": "**Required.** Range start (ISO 8601 or YYYY-MM-DD)."
+                },
+                {
+                  "key": "to",
+                  "value": "2026-05-20T23:59:59.999Z",
+                  "description": "**Required.** Range end (ISO 8601 or YYYY-MM-DD)."
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page index (default 1)."
+                },
+                {
+                  "key": "limit",
+                  "value": "10",
+                  "description": "Page size (default 10). Increase for exports; keep moderate for UI tables."
+                },
+                {
+                  "key": "sortBy",
+                  "value": "totalShipments",
+                  "description": "One of: totalShipments | consignor | consignee | route | period"
+                },
+                {
+                  "key": "sortOrder",
+                  "value": "desc",
+                  "description": "asc | desc (default desc)"
+                }
+              ]
+            },
+            "description": "Paginated shipment table. **Requires `from` + `to`.** Response includes `filters`, `data[]`, `totalCount`."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/client-elock-dashboard/lr-completed-count",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}",
+                "description": "Optional when using logged-in session.",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/client-elock-dashboard/lr-completed-count?from=2026-05-01&to=2026-05-31&filterType=consignee",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "client-elock-dashboard",
+                "lr-completed-count"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-05-01",
+                  "description": "**Required** (with to), unless using range preset."
+                },
+                {
+                  "key": "to",
+                  "value": "2026-05-31",
+                  "description": "**Required** (with from), unless using range preset."
+                },
+                {
+                  "key": "filterType",
+                  "value": "consignee",
+                  "description": "consignee (default) | consignor"
+                },
+                {
+                  "key": "ieCodeNo",
+                  "value": "",
+                  "description": "Optional — omit for all IE codes / all parties in range.",
+                  "disabled": true
+                },
+                {
+                  "key": "range",
+                  "value": "current_month",
+                  "description": "Alternative to from+to: current_month | last_3_months | last_6_months | last_12_months",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "LR completed counts by party. **Date range required.** Omit `ieCodeNo` for all data in range."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/client-elock-dashboard/assigned-count",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}",
+                "description": "Optional when using logged-in session.",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/client-elock-dashboard/assigned-count?from=2026-05-01&to=2026-05-31&filterType=consignee",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "client-elock-dashboard",
+                "assigned-count"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-05-01",
+                  "description": "**Required** (with to), unless using range preset."
+                },
+                {
+                  "key": "to",
+                  "value": "2026-05-31",
+                  "description": "**Required** (with from), unless using range preset."
+                },
+                {
+                  "key": "filterType",
+                  "value": "consignee",
+                  "description": "consignee | consignor"
+                },
+                {
+                  "key": "ieCodeNo",
+                  "value": "",
+                  "description": "Optional — omit for all parties.",
+                  "disabled": true
+                },
+                {
+                  "key": "range",
+                  "value": "last_3_months",
+                  "description": "Alternative to from+to.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "E-lock ASSIGNED counts. **Date range required.** Omit `ieCodeNo` for all data."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/fleet/utilization-report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/fleet/utilization-report?startDate=2026-05-01&endDate=2026-05-31&company=SRCC&groupBy=date",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "fleet",
+                "utilization-report"
+              ],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2026-05-01",
+                  "description": "YYYY-MM-DD — or use `from` (same meaning)."
+                },
+                {
+                  "key": "endDate",
+                  "value": "2026-05-31",
+                  "description": "YYYY-MM-DD — or use `to`."
+                },
+                {
+                  "key": "from",
+                  "value": "",
+                  "description": "Alias for startDate.",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "",
+                  "description": "Alias for endDate.",
+                  "disabled": true
+                },
+                {
+                  "key": "company",
+                  "value": "SRCC",
+                  "description": "Label/metadata filter (default SRCC in API)."
+                },
+                {
+                  "key": "groupBy",
+                  "value": "date",
+                  "description": "Default date — grouping key for report meta."
+                }
+              ]
+            },
+            "description": "Daily fleet utilization vs dispatches (snapshots + PR `tr_createdAt` in range).\n\n**Response:** `success`, `data.dailyRows[]`, `data.summary`, `meta.filters`.\n\nDates are interpreted with IST-style boundaries in server logic; use clear YYYY-MM-DD ranges."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/elock/utilization-report",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "x-api-key",
+                "value": "{{apiKey}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/elock/utilization-report?startDate=2026-05-01&endDate=2026-05-31&groupBy=none",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "elock",
+                "utilization-report"
+              ],
+              "query": [
+                {
+                  "key": "startDate",
+                  "value": "2026-05-01",
+                  "description": "YYYY-MM-DD — filters assignment history / snapshots (recommended with endDate)."
+                },
+                {
+                  "key": "endDate",
+                  "value": "2026-05-31",
+                  "description": "YYYY-MM-DD — end of range."
+                },
+                {
+                  "key": "groupBy",
+                  "value": "none",
+                  "description": "none (flat list + summary) | date | location | customer"
+                },
+                {
+                  "key": "location",
+                  "value": "",
+                  "description": "Optional substring filter on route (regex, case-insensitive).",
+                  "disabled": true
+                },
+                {
+                  "key": "customer",
+                  "value": "",
+                  "description": "Optional substring filter on customer_name.",
+                  "disabled": true
+                },
+                {
+                  "key": "includeMaintenance",
+                  "value": "false",
+                  "description": "true | false — include locks in MAINTENANCE status when false excludes them from match.",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "E-lock utilization from status history + PR / AssignOthers + daily snapshots.\n\n**Response:** `data` (shape depends on `groupBy`), `meta` with filters and totals.\n\nUse **groupBy=date** for per-day rollups, **location** / **customer** for breakdowns."
+          },
+          "response": []
+        }
+      ],
+      "description": "Highest-usage endpoints for dashboards and integrations. Set `{{apiKey}}` for key-based access; omit or leave empty when using session cookie / Bearer token from login."
+    },
+    {
+      "name": "Reports – charts & summary (admin JWT only)",
+      "item": [
+        {
+          "name": "GET /api/reports/summary",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/summary?from=2026-02-19T18:30:00.000Z&to=2026-05-20T10:06:12.563Z",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "summary"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-02-19T18:30:00.000Z",
+                  "description": "ISO 8601 start"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-05-20T10:06:12.563Z",
+                  "description": "ISO 8601 end"
+                }
+              ]
+            },
+            "description": "High-level stats: totalShipments, top consignors/consignees, avg per month."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/reports/monthly",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/monthly?from=2026-02-19T18:30:00.000Z&to=2026-05-20T10:06:12.563Z",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "monthly"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-02-19T18:30:00.000Z",
+                  "description": "ISO 8601 start"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-05-20T10:06:12.563Z",
+                  "description": "ISO 8601 end"
+                }
+              ]
+            },
+            "description": "Monthly counts by Import / Export / Local for charts."
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/reports/category",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports/category?from=2026-02-19T18:30:00.000Z&to=2026-05-20T10:06:12.563Z",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports",
+                "category"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "2026-02-19T18:30:00.000Z",
+                  "description": "ISO 8601 start"
+                },
+                {
+                  "key": "to",
+                  "value": "2026-05-20T10:06:12.563Z",
+                  "description": "ISO 8601 end"
+                }
+              ]
+            },
+            "description": "Pie/donut: counts by import_export category."
+          },
+          "response": []
+        }
+      ],
+      "description": "These routes require a logged-in **admin** user (cookie or `Authorization: Bearer`). They are **not** enabled for the shared `x-api-key` integration."
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const key = pm.collectionVariables.get('apiKey');",
+          "if (key) {",
+          "  pm.request.headers.upsert({ key: 'x-api-key', value: key });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:9007",
+      "description": "API origin without trailing slash (e.g. https://transport.example.com)"
+    },
+    {
+      "key": "apiKey",
+      "value": "1234567890",
+      "description": "Must match the single THIRD_PARTY_API_KEY in server/.env (line ~57). Restart server after change."
+    }
+  ]
+}

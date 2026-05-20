@@ -253,7 +253,7 @@ const EditChargeModal = ({
 
         // Auto-populate Payable To if type is 'Custom Duty' in Cost section
         if (section === 'cost' && field === 'partyType' && value === 'Custom Duty') {
-          updated[index][section].partyName = 'CUSTOM DUTY';
+          updated[index][section].partyName = 'CUSTOMS DUTY';
         }
       } else {
         updated[index][field] = value;
@@ -287,11 +287,20 @@ const EditChargeModal = ({
               } else if (['qty', 'rate'].includes(field)) {
                 derivedBasic = amount;
               } else {
-                derivedBasic = parseFloat(sectionRef.basicAmount) || 0;
+                if (amount === 0 && sectionRef.basicAmount) {
+                  derivedBasic = parseFloat(sectionRef.basicAmount) || 0;
+                } else {
+                  derivedBasic = parseFloat(sectionRef.basicAmount) || amount;
+                }
               }
               derivedGst = derivedBasic * (gstRate / 100);
               amount = derivedBasic + derivedGst; // Total = Basic + GST
             } else {
+              if (field === 'basicAmount' && section === secKey) {
+                amount = parseFloat(value) || 0;
+              } else if (amount === 0 && sectionRef.basicAmount) {
+                amount = parseFloat(sectionRef.basicAmount) || 0;
+              }
               derivedBasic = amount;
               derivedGst = 0;
             }
@@ -299,22 +308,44 @@ const EditChargeModal = ({
             // REIMBURSEMENT LOGIC: No GST calculation, but Basic is used for TDS
             if (field === 'basicAmount' && section === secKey) {
               derivedBasic = parseFloat(value) || 0;
+              amount = derivedBasic * (1 + (gstRate / 100));
             } else if (['qty', 'rate', 'gstRate'].includes(field)) {
               derivedBasic = Number((amount / (1 + (gstRate / 100))).toFixed(2));
             } else {
-              derivedBasic = parseFloat(sectionRef.basicAmount) || 0;
+              if (amount === 0 && (sectionRef.amount || sectionRef.basicAmount)) {
+                amount = parseFloat(sectionRef.amount) || (parseFloat(sectionRef.basicAmount) * (1 + (gstRate / 100))) || 0;
+                derivedBasic = parseFloat(sectionRef.basicAmount) || Number((amount / (1 + (gstRate / 100))).toFixed(2));
+              } else {
+                derivedBasic = parseFloat(sectionRef.basicAmount) || 0;
+              }
             }
             derivedGst = 0;
           } else {
             // INCLUSIVE LOGIC for other categories
             if (field === 'basicAmount' && section === secKey) {
               derivedBasic = parseFloat(value) || 0;
+              amount = derivedBasic * (1 + (gstRate / 100));
             } else if (['qty', 'rate', 'gstRate', 'isGst'].includes(field)) {
               derivedBasic = Number((amount / (1 + (gstRate / 100))).toFixed(2));
             } else {
-              derivedBasic = parseFloat(sectionRef.basicAmount) || 0;
+              if (amount === 0 && (sectionRef.amount || sectionRef.basicAmount)) {
+                amount = parseFloat(sectionRef.amount) || (parseFloat(sectionRef.basicAmount) * (1 + (gstRate / 100))) || 0;
+                derivedBasic = parseFloat(sectionRef.basicAmount) || Number((amount / (1 + (gstRate / 100))).toFixed(2));
+              } else {
+                derivedBasic = parseFloat(sectionRef.basicAmount) || 0;
+              }
             }
             derivedGst = amount - derivedBasic;
+          }
+
+          // Back-calculate rate if it got out of sync (e.g. manual basicAmount entry or DB load)
+          if (!['qty', 'rate'].includes(field)) {
+            if (qty > 0) {
+              sectionRef.rate = Number((amount / qty).toFixed(2));
+            } else if (amount > 0) {
+              sectionRef.qty = 1;
+              sectionRef.rate = Number(amount.toFixed(2));
+            }
           }
 
           sectionRef.amount = amount;
@@ -359,7 +390,7 @@ const EditChargeModal = ({
           const tdsPercent = parseFloat(sectionRef.tdsPercent) || 0;
           if (isTds) {
             // TDS is calculated on the basicAmount (which for Reimbursement is now Amount / 1.18)
-            sectionRef.tdsAmount = sectionRef.basicAmount * (tdsPercent / 100);
+            sectionRef.tdsAmount = Math.round(sectionRef.basicAmount * (tdsPercent / 100));
           } else {
             sectionRef.tdsAmount = 0;
           }
@@ -1078,11 +1109,11 @@ const EditChargeModal = ({
                               <div className="charges-ep-desc-row" style={{ backgroundColor: '#f8f9fa', padding: '4px', borderRadius: '4px', border: '1px solid #e9ecef', marginBottom: '8px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: '10px' }}>
                                   <span style={{ fontSize: '10px', color: '#666', fontWeight: 'bold', minWidth: '120px' }}>Tally: Description of Service</span>
-                                  <input type="text" readOnly style={{ flex: 1, fontSize: '10px', height: '20px', background: 'transparent', border: 'none', color: '#1976d2' }} value={row.cost?.partyName || ''} />
+                                  <input type="text" readOnly style={{ flex: 1, fontSize: '10px', height: '20px', background: 'transparent', border: 'none', color: '#1976d2' }} value={row.category === 'Margin' ? `${row.chargeHead || ''} - E` : (row.chargeHead || '')} />
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: '10px', borderLeft: '1px solid #dee2e6', paddingLeft: '10px' }}>
                                   <span style={{ fontSize: '10px', color: '#666', fontWeight: 'bold', minWidth: '110px' }}>Tally: Charge Heading</span>
-                                  <input type="text" readOnly style={{ flex: 1, fontSize: '10px', height: '20px', background: 'transparent', border: 'none', color: '#1976d2' }} value={row.category === 'Margin' ? `${row.chargeHead || ''} - E` : (row.chargeHead || '')} />
+                                  <input type="text" readOnly style={{ flex: 1, fontSize: '10px', height: '20px', background: 'transparent', border: 'none', color: '#1976d2' }} value={row.chargeHead || ''} />
                                 </div>
                               </div>
                               <div className="charges-ep-desc-row">

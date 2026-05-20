@@ -88,10 +88,10 @@ const RequestPaymentModal = ({ isOpen, onClose, initialData, jobNumber, jobDispl
                     "chargeRef": initialData.chargeId || '',
                     "jobRef": initialData.jobId || '',
                     "Charge Description": initialData.chargeDescription || '',
-                    "Charge Heading": initialData.chargeHead ? (initialData.chargeHeadCategory === 'Margin' ? `${initialData.chargeHead} - E` : initialData.chargeHead) : '',
+                    "Charge Heading": initialData.chargeHead || '',
                     "Charge Head Category": initialData.chargeHeadCategory || '',
                     "TDS Category": initialData.tdsCategory || '94C',
-                    "Description of Services": initialData.chargeHeading || '',
+                    "Description of Services": initialData.chargeHead ? (initialData.chargeHeadCategory === 'Margin' ? `${initialData.chargeHead} - E` : initialData.chargeHead) : '',
                     "attachments": initialData.attachments || []
                 }));
             }

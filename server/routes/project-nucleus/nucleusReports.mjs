@@ -5,6 +5,7 @@ import authMiddleware from "../../middleware/authMiddleware.mjs";
 import UserModel from "../../model/userModel.mjs";
 import { getBranchMatch } from "../../utils/branchFilter.mjs";
 import CustomerKycModel from "../../model/CustomerKyc/customerKycModel.mjs";
+import EximClientUserModel from "../../model/eximClientUserModel.mjs";
 
 const router = express.Router();
 
@@ -344,6 +345,51 @@ router.get("/customer-udyam", async (req, res) => {
         res.json(result);
     } catch (error) {
         console.error("Error fetching customer UDYAM details for Project Nucleus:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+// Client User Login Analytics Report
+router.get("/client-login-analytics", async (req, res) => {
+    try {
+        // 1. Fetch all client users with their login details
+        const clientUsers = await EximClientUserModel.find({})
+            .select("name email role status isActive lastLogin createdAt")
+            .sort({ lastLogin: -1 })
+            .lean();
+
+        // 2. Aggregate Daily logins in backend using Mongo aggregate
+        const dailyStats = await EximClientUserModel.aggregate([
+            { $match: { lastLogin: { $ne: null } } },
+            {
+                $group: {
+                    _id: { $dateToString: { format: "%Y-%m-%d", date: "$lastLogin" } },
+                    count: { $sum: 1 }
+                }
+            },
+            { $sort: { _id: 1 } }
+        ]);
+
+        // 3. Aggregate Monthly logins in backend
+        const monthlyStats = await EximClientUserModel.aggregate([
+            { $match: { lastLogin: { $ne: null } } },
+            {
+                $group: {
+                    _id: { $dateToString: { format: "%Y-%m", date: "$lastLogin" } },
+                    count: { $sum: 1 },
+                    names: { $addToSet: "$name" }
+                }
+            },
+            { $sort: { _id: 1 } }
+        ]);
+
+        res.json({
+            users: clientUsers,
+            daily: dailyStats.map(d => ({ date: d._id, count: d.count })),
+            monthly: monthlyStats.map(m => ({ month: m._id, count: m.count, names: m.names }))
+        });
+    } catch (error) {
+        console.error("Error fetching client login analytics for Project Nucleus:", error);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });

@@ -352,6 +352,11 @@ const customerKycSchema = new Schema({
     type: Date,
     required: false
   },
+  industrial_domain: {
+    type: String,
+    required: false,
+    trim: true
+  },
 
   // Contacts
   contacts: [{

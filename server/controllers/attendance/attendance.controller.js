@@ -2892,6 +2892,7 @@ export const createManualAdjustment = async (req, res) => {
                 employee_id,
                 company_id: effectiveCompanyId,
                 attendance_date: targetDate,
+                attendance_date_str: normalizedDateKey,
                 year_month: moment.utc(targetDate).format('YYYY-MM'),
                 status: status || 'present'
             });
@@ -2899,6 +2900,9 @@ export const createManualAdjustment = async (req, res) => {
             // Update company_id if record was found under a different company (e.g. migration)
             if (record.company_id?.toString() !== effectiveCompanyId?.toString()) {
                 record.company_id = effectiveCompanyId;
+            }
+            if (!record.attendance_date_str) {
+                record.attendance_date_str = normalizedDateKey;
             }
         }
 
@@ -3113,6 +3117,7 @@ export const calculateDailyAttendance = async (req, res) => {
             { employee_id, attendance_date: dateObj },
             {
                 company_id: companyId,
+                attendance_date_str: moment.utc(dateObj).format('YYYY-MM-DD'),
                 shift_id: employee.shift_id,
                 total_work_hours: workData.total_work_hours,
                 work_sessions: workData.sessions,
@@ -3777,8 +3782,17 @@ export const approveRegularization = async (req, res) => {
             record = new AttendanceRecord({
                 employee_id: regularization.employee_id,
                 company_id: companyId,
-                attendance_date: attendanceDateObj
+                attendance_date: attendanceDateObj,
+                attendance_date_str: moment.utc(attendanceDateObj).format('YYYY-MM-DD'),
+                year_month: moment.utc(attendanceDateObj).format('YYYY-MM')
             });
+        } else {
+            if (!record.attendance_date_str) {
+                record.attendance_date_str = moment.utc(attendanceDateObj).format('YYYY-MM-DD');
+            }
+            if (!record.year_month) {
+                record.year_month = moment.utc(attendanceDateObj).format('YYYY-MM');
+            }
         }
 
         // Update record with recalculated data

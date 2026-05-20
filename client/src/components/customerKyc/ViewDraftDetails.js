@@ -139,6 +139,7 @@ function ViewDraftDetails() {
       trust_telephone_of_founder: "",
       trust_email_of_founder: "",
       branches: [],
+      industrial_domain: "",
     },
     validationSchema: submitType === "update_draft" ? draftValidationSchema : validationSchema,
     enableReinitialize: true,
@@ -205,6 +206,7 @@ function ViewDraftDetails() {
                 customer_tier: res.data.customer_tier || "",
                 principle_business_gst_no: res.data.principle_business_gst_no || "",
                 udyam_no: res.data.udyam_no || "",
+                industrial_domain: res.data.industrial_domain || "",
             };
             setData(sanitizedData);
             formik.setValues(sanitizedData);

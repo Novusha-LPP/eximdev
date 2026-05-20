@@ -41,21 +41,7 @@ function LoginPage() {
                 <span>AlVision &nbsp;</span>
               </a>
             </p>
-            <p style={{ margin: "8px 0", marginTop: "12px" }}>
-              <a
-                href="/privacy-policy"
-                target="_blank"
-                rel="noreferrer"
-                style={{
-                  color: "#0066cc",
-                  cursor: "pointer",
-                  textDecoration: "underline",
-                  fontSize: "13px"
-                }}
-              >
-                Privacy Policy - Attendance
-              </a>
-            </p>
+           
           </div>
         </Col>
       </Row>

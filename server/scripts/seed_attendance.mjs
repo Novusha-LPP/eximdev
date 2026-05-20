@@ -79,6 +79,7 @@ const seedAttendance = async () => {
                 team_id: user.team_id,
                 shift_id: user.shift_id,
                 attendance_date: todayDate,
+                attendance_date_str: todayStr,
                 year_month: yearMonth,
                 first_in,
                 last_out,

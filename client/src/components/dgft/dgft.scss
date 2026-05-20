@@ -358,14 +358,14 @@ $ap-radius-lg:  14px;
     font-size: 12px;
     font-weight: 700;
     letter-spacing: .07em;
-    color: #fff;
+    color: #fff !important;
     text-transform: uppercase;
     white-space: nowrap;
     user-select: none;
     cursor: pointer;
     border-right: 1px solid rgba(255,255,255,.10);
 
-    &:hover { background: rgba(255,255,255,.07); color: #fff; }
+    &:hover { background: rgba(255,255,255,.07); color: #fff !important; }
     &.ar-th-sorted { color: #fff; }
     &.ar-th-actions { cursor: default; text-align: center; }
     &.ar-th-expand  { width: 36px; min-width: 36px; cursor: default; border-right: none; }

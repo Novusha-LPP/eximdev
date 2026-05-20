@@ -1,9 +1,14 @@
 import ExcelJS from "exceljs";
-import { saveAs } from "file-saver";
 const Big = require("big.js");
 
 const formatDate = (dateStr) => {
   return dateStr ? new Date(dateStr).toLocaleDateString("en-GB") : "";
+};
+
+const isValidDate = (date) => {
+  if (!date) return false;
+  const d = new Date(date);
+  return !isNaN(d.getTime());
 };
 
 const formatContainerDates = (containers, dateField) => {
@@ -38,18 +43,16 @@ export const convertToExcel = async (
   status,
   detailedStatus
 ) => {
-  const rowsWithoutBillNo = rows.filter(
-    (row) => row.bill_no === "" || row.bill_no === undefined
-  );
+  const filteredRows = Array.isArray(rows) ? rows : [];
 
-  if (rowsWithoutBillNo.length === 0) {
+  if (filteredRows.length === 0) {
     alert("No Data to export");
     return;
   }
 
   const uniqueDetailedStatuses = [
     ...new Set(
-      rowsWithoutBillNo
+      filteredRows
         .map((row) => row.detailed_status)
         .filter((status) => status !== undefined && status !== null)
     ),
@@ -95,7 +98,7 @@ export const convertToExcel = async (
 
 
   // Row headers
-  const dataWithHeaders = rowsWithoutBillNo.map((item) => {
+  const dataWithHeaders = filteredRows.map((item) => {
     const jobNoAndDate = `${item.job_no || ''} | ${formatDate(item.job_date)} | ${item.custom_house || ''
       } | ${item.type_of_b_e || ''}`;
 
@@ -590,7 +593,13 @@ export const convertToExcel = async (
   worksheet.addRow([]);
   worksheet.addRow([]);
 
-  const summaryRow = worksheet.addRow(["SUMMARY", "", "", "", ""]);
+  const summaryRow = worksheet.addRow([
+    `SUMMARY - TOTAL RECORDS: ${filteredRows.length}`,
+    "",
+    "",
+    "",
+    "",
+  ]);
   summaryRow.getCell(1).alignment = {
     horizontal: "center",
     vertical: "middle",
@@ -609,18 +618,39 @@ export const convertToExcel = async (
   let containersWithSize20AndNoArrival = 0;
   let containersWithSize40AndNoArrival = 0;
 
-  rowsWithoutBillNo.forEach((item) => {
-    item.container_nos.forEach((container) => {
-      if (container.size === "20" && container.arrival_date) {
+  filteredRows.forEach((item) => {
+    const containers = item.container_nos || [];
+    if (containers.length === 0) return;
+
+    let jobSize = null;
+    for (const container of containers) {
+      const cleanSize = String(container.size || "").trim();
+      if (cleanSize.startsWith("20")) {
+        jobSize = "20";
+        break;
+      } else if (cleanSize.startsWith("40")) {
+        jobSize = "40";
+        break;
+      }
+    }
+
+    if (!jobSize) return;
+
+    const allArrived = containers.every((c) => isValidDate(c.arrival_date));
+
+    if (jobSize === "20") {
+      if (allArrived) {
         containersWithSize20AndArrival++;
-      } else if (container.size === "40" && container.arrival_date) {
-        containersWithSize40AndArrival++;
-      } else if (container.size === "20" && !container.arrival_date) {
+      } else {
         containersWithSize20AndNoArrival++;
-      } else if (container.size === "40" && !container.arrival_date) {
+      }
+    } else if (jobSize === "40") {
+      if (allArrived) {
+        containersWithSize40AndArrival++;
+      } else {
         containersWithSize40AndNoArrival++;
       }
-    });
+    }
   });
 
   const totalContainers =
@@ -733,5 +763,12 @@ export const convertToExcel = async (
       ? `${sanitizedImporter} - ${status}.xlsx`
       : `${sanitizedImporter} - ${sanitizedDetailedStatus}.xlsx`;
 
-  saveAs(data, newFilename);
+  const downloadUrl = window.URL.createObjectURL(data);
+  const link = document.createElement("a");
+  link.href = downloadUrl;
+  link.download = newFilename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(downloadUrl);
 };

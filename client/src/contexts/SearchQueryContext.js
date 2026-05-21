@@ -31,7 +31,9 @@ export const SearchQueryContext = createContext({
   currentPageDoTab2: 1, // DO Completed
   setCurrentPageDoTab2: () => { },
   currentPageDoTab3: 1, // Billing Sheet
-  setCurrentPageDoTab3: () => { }, currentPageOpTab0: 1, // Operations List tab
+  setCurrentPageDoTab3: () => { },
+  currentPageDoTabAll: 1, // All Jobs DO
+  setCurrentPageDoTabAll: () => { }, currentPageOpTab0: 1, // Operations List tab
   setCurrentPageOpTab0: () => { },
   currentPageOpTab1: 1, // Examination Planning tab
   setCurrentPageOpTab1: () => { },
@@ -58,6 +60,7 @@ export const SearchQueryProvider = ({ children }) => {
   const [currentPageDoTab1, setCurrentPageDoTab1] = useState(1); // Planning DO tab
   const [currentPageDoTab2, setCurrentPageDoTab2] = useState(1); // DO Completed tab
   const [currentPageDoTab3, setCurrentPageDoTab3] = useState(1); // Billing Sheet tab
+  const [currentPageDoTabAll, setCurrentPageDoTabAll] = useState(1); // All Jobs DO tab
   const [currentPageOpTab0, setCurrentPageOpTab0] = useState(1); // Operations List tab
   const [currentPageOpTab1, setCurrentPageOpTab1] = useState(1); // Examination Planning tab
   const [currentPageOpTab2, setCurrentPageOpTab2] = useState(1); // Operations Completed tab
@@ -89,8 +92,11 @@ export const SearchQueryProvider = ({ children }) => {
         currentPageDoTab1,
         setCurrentPageDoTab1,
         currentPageDoTab2,
-        setCurrentPageDoTab2, currentPageDoTab3,
+        setCurrentPageDoTab2,
+        currentPageDoTab3,
         setCurrentPageDoTab3,
+        currentPageDoTabAll,
+        setCurrentPageDoTabAll,
         currentPageOpTab0,
         setCurrentPageOpTab0,
         currentPageOpTab1,

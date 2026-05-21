@@ -49,6 +49,7 @@ const EditChargeModal = ({
   const [organizations, setOrganizations] = useState([]);
   const [generalOrgs, setGeneralOrgs] = useState([]);
   const [cfsList, setCfsList] = useState([]);
+  const [chargeHeads, setChargeHeads] = useState([]);
 
   const [showLogs, setShowLogs] = useState({ open: false, chargeId: null, chargeName: '' });
   const [chargeLogs, setChargeLogs] = useState([]);
@@ -101,13 +102,14 @@ const EditChargeModal = ({
   useEffect(() => {
     const fetchMasterData = async () => {
       try {
-        const [slRes, supRes, orgRes, genOrgRes, cfsRes, transRes] = await Promise.all([
+        const [slRes, supRes, orgRes, genOrgRes, cfsRes, transRes, chRes] = await Promise.all([
           axios.get(`${process.env.REACT_APP_API_STRING}/get-shipping-lines`),
           axios.get(`${process.env.REACT_APP_API_STRING}/get-suppliers`),
           axios.get(`${process.env.REACT_APP_API_STRING}/organization`),
           axios.get(`${process.env.REACT_APP_API_STRING}/get-general-orgs`),
           axios.get(`${process.env.REACT_APP_API_STRING}/get-cfs-list`),
-          axios.get(`${process.env.REACT_APP_API_STRING}/get-transporters`)
+          axios.get(`${process.env.REACT_APP_API_STRING}/get-transporters`),
+          axios.get(`${process.env.REACT_APP_API_STRING}/charge-heads`)
         ]);
         setShippingLines(slRes.data);
         setSuppliers(supRes.data);
@@ -115,6 +117,7 @@ const EditChargeModal = ({
         setGeneralOrgs(genOrgRes.data);
         setCfsList(cfsRes.data);
         setTransporters(transRes.data);
+        setChargeHeads(chRes.data?.data || []);
       } catch (error) {
         console.error("Error fetching master data:", error);
       }
@@ -157,24 +160,30 @@ const EditChargeModal = ({
 
   useEffect(() => {
     if (isOpen) {
-      const initialData = JSON.parse(JSON.stringify(selectedCharges)).map(charge => ({
-        ...charge,
-        invoice_number: charge.invoice_number || '',
-        invoice_date: charge.invoice_date || '',
-        payment_request_no: charge.payment_request_no || '',
-        payment_request_status: charge.payment_request_status || '',
-        revenue: {
-          ...(charge.revenue || {}),
-          isGst: (charge.revenue && charge.revenue.isGst !== undefined) ? charge.revenue.isGst : true,
-          partyType: charge.revenue?.partyType || 'Customer'
-        },
-        cost: {
-          ...(charge.cost || {}),
-          isGst: (charge.cost && charge.cost.isGst !== undefined) ? charge.cost.isGst : true,
-          partyType: charge.cost?.partyType || 'Vendor',
-          tdsCategory: charge.cost?.tdsCategory || '94C'
-        }
-      }));
+      const initialData = JSON.parse(JSON.stringify(selectedCharges)).map(charge => {
+        const matchedHead = chargeHeads.find(ch => ch.name?.toUpperCase() === charge.chargeHead?.toUpperCase());
+        const definedSacHsn = matchedHead?.sacHsn || '';
+
+        return {
+          ...charge,
+          invoice_number: charge.invoice_number || '',
+          invoice_date: charge.invoice_date || '',
+          payment_request_no: charge.payment_request_no || '',
+          payment_request_status: charge.payment_request_status || '',
+          sacHsn: charge.sacHsn || definedSacHsn || '',
+          revenue: {
+            ...(charge.revenue || {}),
+            isGst: (charge.revenue && charge.revenue.isGst !== undefined) ? charge.revenue.isGst : true,
+            partyType: charge.revenue?.partyType || 'Customer'
+          },
+          cost: {
+            ...(charge.cost || {}),
+            isGst: (charge.cost && charge.cost.isGst !== undefined) ? charge.cost.isGst : true,
+            partyType: charge.cost?.partyType || 'Vendor',
+            tdsCategory: charge.cost?.tdsCategory || '94C'
+          }
+        };
+      });
       setFormData(initialData);
       setPanelOpen(selectedCharges.reduce((acc, _, i) => ({ ...acc, [i]: 'cost' }), {}));
       setUploadIndex(null);
@@ -186,7 +195,7 @@ const EditChargeModal = ({
         });
       }, 100);
     }
-  }, [isOpen, selectedCharges]);
+  }, [isOpen, selectedCharges, chargeHeads]);
 
   if (!isOpen) return null;
 
@@ -308,7 +317,7 @@ const EditChargeModal = ({
             // REIMBURSEMENT LOGIC: No GST calculation, but Basic is used for TDS
             if (field === 'basicAmount' && section === secKey) {
               derivedBasic = parseFloat(value) || 0;
-              amount = derivedBasic * (1 + (gstRate / 100));
+              // Keep total amount (amount) unaffected
             } else if (['qty', 'rate', 'gstRate'].includes(field)) {
               derivedBasic = Number((amount / (1 + (gstRate / 100))).toFixed(2));
             } else {
@@ -324,7 +333,7 @@ const EditChargeModal = ({
             // INCLUSIVE LOGIC for other categories
             if (field === 'basicAmount' && section === secKey) {
               derivedBasic = parseFloat(value) || 0;
-              amount = derivedBasic * (1 + (gstRate / 100));
+              // Keep total amount (amount) unaffected
             } else if (['qty', 'rate', 'gstRate', 'isGst'].includes(field)) {
               derivedBasic = Number((amount / (1 + (gstRate / 100))).toFixed(2));
             } else {
@@ -339,7 +348,7 @@ const EditChargeModal = ({
           }
 
           // Back-calculate rate if it got out of sync (e.g. manual basicAmount entry or DB load)
-          if (!['qty', 'rate'].includes(field)) {
+          if (!['qty', 'rate', 'basicAmount'].includes(field)) {
             if (qty > 0) {
               sectionRef.rate = Number((amount / qty).toFixed(2));
             } else if (amount > 0) {
@@ -1109,7 +1118,7 @@ const EditChargeModal = ({
                               <div className="charges-ep-desc-row" style={{ backgroundColor: '#f8f9fa', padding: '4px', borderRadius: '4px', border: '1px solid #e9ecef', marginBottom: '8px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: '10px' }}>
                                   <span style={{ fontSize: '10px', color: '#666', fontWeight: 'bold', minWidth: '120px' }}>Tally: Description of Service</span>
-                                  <input type="text" readOnly style={{ flex: 1, fontSize: '10px', height: '20px', background: 'transparent', border: 'none', color: '#1976d2' }} value={row.category === 'Margin' ? `${row.chargeHead || ''} - E` : (row.chargeHead || '')} />
+                                  <input type="text" readOnly style={{ flex: 1, fontSize: '10px', height: '20px', background: 'transparent', border: 'none', color: '#1976d2' }} value={row.category === 'Margin' ? `${row.chargeHead || ''} - E` : (workMode === 'Purchase Book' && row.category === 'Reimbursement' ? `NEW - ${row.cost?.partyName || ''}` : (row.chargeHead || ''))} />
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: '10px', borderLeft: '1px solid #dee2e6', paddingLeft: '10px' }}>
                                   <span style={{ fontSize: '10px', color: '#666', fontWeight: 'bold', minWidth: '110px' }}>Tally: Charge Heading</span>
@@ -1507,7 +1516,7 @@ const EditChargeModal = ({
                                               chargeHead: row.chargeHead,
                                               invoice_number: row.invoice_number,
                                               invoice_date: row.invoice_date,
-                                              cthNo: jobCthNo,
+                                              cthNo: row.sacHsn || jobCthNo,
                                               jobDisplayNumber,
                                               branchIndex: cost.branchIndex || 0,
                                               chargeId: row._id,

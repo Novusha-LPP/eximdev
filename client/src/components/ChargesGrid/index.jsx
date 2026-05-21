@@ -111,6 +111,7 @@ const ChargesGrid = ({
         chargeHead: finalName,
         category: head.category,
         isPurchaseBookMandatory: head.isPurchaseBookMandatory,
+        sacHsn: head.sacHsn || '',
         revenue: { isGst: true },
         cost: { isGst: true },
         copyToCost: true

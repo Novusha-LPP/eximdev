@@ -114,7 +114,11 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                     "IGST": (initialData.igst > 0) ? initialData.igst.toFixed(2) : '',
                     "TDS": initialData.tdsAmount ? initialData.tdsAmount.toFixed(2) : '',
                     "Total": initialData.netPayable ? initialData.netPayable.toFixed(2) : '',
-                    "Description of Services": initialData.chargeHead ? (initialData.chargeHeadCategory === 'Margin' ? `${initialData.chargeHead} - E` : initialData.chargeHead) : '',
+                    "Description of Services": initialData.chargeHead ? (
+                        initialData.chargeHeadCategory === 'Margin' ? `${initialData.chargeHead} - E` : 
+                        initialData.chargeHeadCategory === 'Reimbursement' ? `NEW - ${initialData.partyName || ''}` : 
+                        initialData.chargeHead
+                    ) : '',
                     "Charge Heading": initialData.chargeHead || '',
                     "SAC": initialData.cthNo || '',
                     "Status": '',

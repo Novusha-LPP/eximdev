@@ -46,7 +46,8 @@ const { Title, Text } = Typography;
 const { Sider, Content } = Layout;
 
 function Assign() {
-  const [userList, setUserList] = useState([]);
+  const [activeUsers, setActiveUsers] = useState([]);
+  const [inactiveUsers, setInactiveUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [activeTab, setActiveTab] = useState("Assign Module");
   const [searchTerm, setSearchTerm] = useState("");
@@ -60,10 +61,21 @@ function Assign() {
   useEffect(() => {
     async function getUsers() {
       try {
-        const res = await axios(
-          `${process.env.REACT_APP_API_STRING}/get-all-users`
-        );
-        setUserList(res.data.map((user) => ({
+        const [activeRes, inactiveRes] = await Promise.all([
+          axios(`${process.env.REACT_APP_API_STRING}/get-all-users`),
+          axios(`${process.env.REACT_APP_API_STRING}/get-all-users?status=inactive`),
+        ]);
+
+        setActiveUsers(activeRes.data.map((user) => ({
+          username: user.username,
+          firstName: user.first_name,
+          lastName: user.last_name,
+          role: user.role,
+          isActive: user.isActive,
+          deactivatedAt: user.deactivatedAt
+        })));
+
+        setInactiveUsers(inactiveRes.data.map((user) => ({
           username: user.username,
           firstName: user.first_name,
           lastName: user.last_name,
@@ -80,19 +92,24 @@ function Assign() {
   }, []);
 
   // Calculate active and inactive user counts
-  const activeUserCount = userList.filter(user => user.isActive !== false).length;
-  const inactiveUserCount = userList.filter(user => user.isActive === false).length;
+  const activeUserCount = activeUsers.length;
+  const inactiveUserCount = inactiveUsers.length;
+
+  const userList = statusFilter === "Inactive" ? inactiveUsers : activeUsers;
+
+  const selectedUserData = userList.find(u => u.username === selectedUser) || null;
+
+  useEffect(() => {
+    if (selectedUser && !selectedUserData) {
+      setSelectedUser(null);
+    }
+  }, [selectedUser, selectedUserData, statusFilter]);
 
   const filteredUsers = userList.filter(user => {
     const term = searchTerm.toLowerCase();
     const username = user.username ? user.username.toLowerCase() : "";
     const firstName = user.firstName ? user.firstName.toLowerCase() : "";
     const lastName = user.lastName ? user.lastName.toLowerCase() : "";
-
-    // Status Filter
-    const isActive = user.isActive !== false; // undefined or true means active
-    if (statusFilter === "Active" && !isActive) return false;
-    if (statusFilter === "Inactive" && isActive) return false;
 
     return (
       username.includes(term) ||
@@ -102,7 +119,7 @@ function Assign() {
   });
 
   const getSelectedUserData = () => {
-    return userList.find(u => u.username === selectedUser);
+    return selectedUserData;
   };
 
   const handleToggleStatus = async (checked) => {
@@ -117,9 +134,25 @@ function Assign() {
       message.success(res.data.message || "Status updated successfully");
 
       // Update local state
-      setUserList(prev => prev.map(u =>
-        u.username === selectedUser ? { ...u, isActive: checked, deactivatedAt: checked ? null : new Date() } : u
-      ));
+      const updatedRecord = (u) => u.username === selectedUser
+        ? { ...u, isActive: checked, deactivatedAt: checked ? null : new Date() }
+        : u;
+
+      if (checked) {
+        setActiveUsers(prev => {
+          const next = prev.map(updatedRecord);
+          const moved = inactiveUsers.find(u => u.username === selectedUser);
+          return moved ? [...next, { ...moved, isActive: true, deactivatedAt: null }] : next;
+        });
+        setInactiveUsers(prev => prev.filter(u => u.username !== selectedUser));
+      } else {
+        setInactiveUsers(prev => {
+          const next = prev.map(updatedRecord);
+          const moved = activeUsers.find(u => u.username === selectedUser);
+          return moved ? [...next, { ...moved, isActive: false, deactivatedAt: new Date() }] : next;
+        });
+        setActiveUsers(prev => prev.filter(u => u.username !== selectedUser));
+      }
 
     } catch (error) {
       console.error("Error updating status:", error);
@@ -146,37 +179,37 @@ function Assign() {
     {
       key: "Assign Module",
       label: "Admin Module",
-      children: <AssignModule selectedUser={selectedUser} />,
+      children: <AssignModule selectedUser={selectedUser} allowInactive={statusFilter === "Inactive"} />,
     },
     {
       key: "Assign Role",
       label: "Assign Role",
-      children: <AssignRole selectedUser={selectedUser} />,
+      children: <AssignRole selectedUser={selectedUser} allowInactive={statusFilter === "Inactive"} />,
     },
     {
       key: "Change Password",
       label: "Change Password",
-      children: <ChangePasswordByAdmin selectedUser={selectedUser} />,
+      children: <ChangePasswordByAdmin selectedUser={selectedUser} allowInactive={statusFilter === "Inactive"} />,
     },
     {
       key: "Assign ICD Code",
       label: "Assign ICD Code",
-      children: <SelectIcdCode selectedUser={selectedUser} />,
+      children: <SelectIcdCode selectedUser={selectedUser} allowInactive={statusFilter === "Inactive"} />,
     },
     {
       key: "Assign Branch",
       label: "Assign Branch",
-      children: <AssignBranch selectedUser={selectedUser} />,
+      children: <AssignBranch selectedUser={selectedUser} allowInactive={statusFilter === "Inactive"} />,
     },
     {
       key: "Assign Importers",
       label: "Assign Importers",
-      children: <AssignImporters selectedUser={selectedUser} />,
+      children: <AssignImporters selectedUser={selectedUser} allowInactive={statusFilter === "Inactive"} />,
     },
     {
       key: "Assign Exim Bot",
       label: "Assign Exim Bot",
-      children: <AssignEximBot selectedUser={selectedUser} />,
+      children: <AssignEximBot selectedUser={selectedUser} allowInactive={statusFilter === "Inactive"} />,
     },
   ];
 

@@ -32,7 +32,7 @@ function union(a, b) {
     return [...a, ...not(b, a)];
 }
 
-function UserProjectDetails({ selectedUser, onClose, onSave }) {
+function UserProjectDetails({ selectedUser, onClose, onSave, allowInactive = false }) {
     const [userData, setUserData] = useState(null);
     const [checked, setChecked] = useState([]);
     const [right, setRight] = useState([]); // Assigned projects
@@ -72,7 +72,7 @@ function UserProjectDetails({ selectedUser, onClose, onSave }) {
             try {
                 // Fetch User Basic Info
                 const userRes = await axios.get(
-                    `${process.env.REACT_APP_API_STRING}/get-user/${selectedUser}`
+                    `${process.env.REACT_APP_API_STRING}/get-user/${selectedUser}${allowInactive ? "?includeInactive=true" : ""}`
                 );
                 setUserData(userRes.data);
 

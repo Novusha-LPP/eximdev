@@ -5,9 +5,15 @@ const router = express.Router();
 
 router.get("/api/get-user/:username", async (req, res) => {
   const { username } = req.params;
+  const { includeInactive } = req.query;
 
   try {
-    const user = await UserModel.findOne({ username }).select(
+    const query = { username };
+    if (includeInactive !== "true") {
+      query.isActive = { $ne: false };
+    }
+
+    const user = await UserModel.findOne(query).select(
       "username role can_access_exim_bot modules first_name middle_name last_name company employee_photo designation department employment_type email assigned_importer_name selected_icd_codes is_verified"
     );
 

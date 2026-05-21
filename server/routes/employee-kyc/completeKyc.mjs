@@ -9,10 +9,10 @@ router.post("/api/complete-kyc", auditMiddleware("User"), async (req, res) => {
     const { username } = req.body;
 
     // Find the user by username
-    const user = await UserModel.findOne({ username });
+    const user = await UserModel.findOne({ username, isActive: { $ne: false } });
 
     if (!user) {
-      return res.status(404).send("User not found");
+      return res.status(404).send("User not found or inactive");
     }
 
     // Update the user with the rest of the data from req.body

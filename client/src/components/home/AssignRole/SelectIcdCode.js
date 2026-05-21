@@ -18,7 +18,7 @@ import { UserContext } from "../../../contexts/UserContext";
 const { Option } = Select;
 const { Title, Text } = Typography;
 
-function SelectIcdCode({ selectedUser }) {
+function SelectIcdCode({ selectedUser, allowInactive = false }) {
   const [selectedIcdCodes, setSelectedIcdCodes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [userData, setUserData] = useState(null);
@@ -57,7 +57,7 @@ function SelectIcdCode({ selectedUser }) {
     setLoading(true);
     try {
       const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-user/${selectedUser}`
+        `${process.env.REACT_APP_API_STRING}/get-user/${selectedUser}${allowInactive ? "?includeInactive=true" : ""}`
       );
       setUserData(res.data);
       // Set current ICD codes if user already has them assigned

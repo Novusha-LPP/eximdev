@@ -16,7 +16,7 @@ import { UserContext } from "../../../contexts/UserContext";
 
 const { Option } = Select;
 
-function AssignDepartment({ selectedUser }) {
+function AssignDepartment({ selectedUser, allowInactive = false }) {
     const [selectedDepartment, setSelectedDepartment] = useState(null);
     const [loading, setLoading] = useState(false);
     const [userData, setUserData] = useState(null);
@@ -56,7 +56,7 @@ function AssignDepartment({ selectedUser }) {
         setLoading(true);
         try {
             const res = await axios.get(
-                `${process.env.REACT_APP_API_STRING}/get-user/${selectedUser}`
+                `${process.env.REACT_APP_API_STRING}/get-user/${selectedUser}${allowInactive ? "?includeInactive=true" : ""}`
             );
             setUserData(res.data);
 

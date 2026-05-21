@@ -18,7 +18,7 @@ import { UserContext } from "../../../contexts/UserContext.js";
 
 const { Title, Text } = Typography;
 
-function UserDetails({ selectedUser, onClose, onSave }) {
+function UserDetails({ selectedUser, onClose, onSave, allowInactive = false }) {
   const [userData, setUserData] = useState(null);
   const [targetKeys, setTargetKeys] = useState([]); // Assigned importers
   const [dataSource, setDataSource] = useState([]); // All importers in Transfer format
@@ -56,7 +56,7 @@ function UserDetails({ selectedUser, onClose, onSave }) {
         let userId = null;
 
         if (typeof selectedUser === "string") {
-          const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-user/${selectedUser}`);
+          const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-user/${selectedUser}${allowInactive ? "?includeInactive=true" : ""}`);
           fetchedUser = res.data;
           userId = fetchedUser._id;
         } else if (selectedUser && selectedUser._id) {
@@ -64,7 +64,7 @@ function UserDetails({ selectedUser, onClose, onSave }) {
           // Let's rely on what's passed but ensure we have the latest assigned importers
           // The original code tried to be smart about this. Let's fetch to be safe and consistent.
           try {
-            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-user/${selectedUser.username}`);
+            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-user/${selectedUser.username}${allowInactive ? "?includeInactive=true" : ""}`);
             fetchedUser = res.data;
             userId = fetchedUser._id;
           } catch (e) {

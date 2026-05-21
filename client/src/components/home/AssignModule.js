@@ -42,7 +42,7 @@ const allModules = [
 ];
 
 // allowedModules: if provided, only these modules can be assigned (for HOD restriction)
-function AssignModule({ selectedUser, allowedModules }) {
+function AssignModule({ selectedUser, allowedModules, allowInactive = false }) {
   const [targetKeys, setTargetKeys] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -67,7 +67,7 @@ function AssignModule({ selectedUser, allowedModules }) {
       setLoading(true);
       try {
         const res = await axios(
-          `${process.env.REACT_APP_API_STRING}/get-user/${selectedUser}`
+          `${process.env.REACT_APP_API_STRING}/get-user/${selectedUser}${allowInactive ? "?includeInactive=true" : ""}`
         );
         const userModules = res.data.modules || [];
         // Filter out any modules that might be in DB but not in our static list effectively ensures valid keys

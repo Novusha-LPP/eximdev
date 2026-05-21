@@ -4,8 +4,16 @@ import UserModel from "../model/userModel.mjs";
 const router = express.Router();
 
 router.get("/api/get-all-users", async (req, res) => {
-  // const users = await UserModel.f  ind({});
-  const users = await UserModel.find({}).select(
+  const { status } = req.query;
+
+  const query = {};
+  if (status === "inactive") {
+    query.isActive = false;
+  } else if (status === "active" || !status) {
+    query.isActive = { $ne: false };
+  }
+
+  const users = await UserModel.find(query).select(
     "username role _id first_name last_name isActive deactivatedAt modules"
   );
 
@@ -20,7 +28,10 @@ router.post("/api/get-users-by-usernames", async (req, res) => {
       return res.status(400).json({ message: "Usernames array is required" });
     }
 
-    const users = await UserModel.find({ username: { $in: usernames } }).select(
+    const users = await UserModel.find({
+      username: { $in: usernames },
+      isActive: { $ne: false }
+    }).select(
       "username role _id first_name last_name isActive deactivatedAt modules employee_photo department"
     );
 

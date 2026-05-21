@@ -3,10 +3,10 @@ import UserDetails from "./AssignRole/UserDetails";
 import PropTypes from "prop-types";
 import { Empty } from "antd";
 
-function AssignImporters({ selectedUser }) {
+function AssignImporters({ selectedUser, allowInactive = false }) {
   if (!selectedUser) return <Empty description="Please select a user to assign importers" />;
 
-  return <UserDetails selectedUser={selectedUser} onClose={() => { }} />;
+  return <UserDetails selectedUser={selectedUser} allowInactive={allowInactive} onClose={() => { }} />;
 }
 
 AssignImporters.propTypes = {

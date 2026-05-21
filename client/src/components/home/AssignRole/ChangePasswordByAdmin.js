@@ -13,7 +13,7 @@ import {
 import { LockOutlined } from "@ant-design/icons";
 import { UserContext } from "../../../contexts/UserContext";
 
-function ChangePasswordByAdmin({ selectedUser }) {
+function ChangePasswordByAdmin({ selectedUser, allowInactive = false }) {
   const [loading, setLoading] = useState(false);
   const [userData, setUserData] = useState(null);
   const { user } = useContext(UserContext);
@@ -32,7 +32,7 @@ function ChangePasswordByAdmin({ selectedUser }) {
   const fetchUserData = async () => {
     try {
       const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/get-user/${selectedUser}`
+        `${process.env.REACT_APP_API_STRING}/get-user/${selectedUser}${allowInactive ? "?includeInactive=true" : ""}`
       );
       setUserData(res.data);
     } catch (error) {

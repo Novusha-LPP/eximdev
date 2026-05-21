@@ -489,6 +489,8 @@ const ImportCreateJob = () => {
   const [activeStep, setActiveStep] = useState(0);
   const [availableBanks, setAvailableBanks] = useState([]);
   const [availableHssBanks, setAvailableHssBanks] = useState([]);
+  const [masterShippingLines, setMasterShippingLines] = useState([]);
+  const [masterAirlines, setMasterAirlines] = useState([]);
 
   const selectedBranchData = branches.find((b) => b._id === branch_id);
   const dynamicPortOptions = selectedBranchData?.ports?.map((p) => p.port_name) || [];
@@ -503,6 +505,30 @@ const ImportCreateJob = () => {
       }
     };
     fetchCurrencies();
+  }, []);
+
+  React.useEffect(() => {
+    const fetchShippingLines = async () => {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-shipping-lines`);
+        setMasterShippingLines(res.data);
+      } catch (error) {
+        console.error("Error fetching shipping lines:", error);
+      }
+    };
+    fetchShippingLines();
+  }, []);
+
+  React.useEffect(() => {
+    const fetchAirlines = async () => {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-airlines`);
+        setMasterAirlines(res.data);
+      } catch (error) {
+        console.error("Error fetching airlines:", error);
+      }
+    };
+    fetchAirlines();
   }, []);
 
   React.useEffect(() => {
@@ -1536,7 +1562,11 @@ const ImportCreateJob = () => {
                     <FormField label={getAirlineOrShippingLineLabel(mode)}>
                       <Autocomplete
                         freeSolo
-                        options={shippingLineOptions}
+                        options={
+                          isAirMode(mode)
+                            ? masterAirlines.map((opt) => opt.name).filter(Boolean).sort()
+                            : masterShippingLines.map((opt) => opt.name).filter(Boolean).sort()
+                        }
                         value={shipping_line_airline}
                         onInputChange={(event, newValue) =>
                           setShippingLineAirline(newValue)

@@ -7,6 +7,7 @@ import {
 import DoPlanningContainerTable from "./DoPlanningContainerTable";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import BLTrackingCell from "../../customHooks/BLTrackingCell";
+import ExcelJS from "exceljs";
 
 import {
   IconButton,
@@ -258,6 +259,131 @@ function AllJobsList() {
     selectedCategory,
     fetchJobs,
   ]);
+
+  const handleDownloadExcel = async () => {
+    try {
+      setLoading(true);
+      // Fetch all matching jobs matching the current filters but with a very high limit
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/get-all-do-jobs`,
+        {
+          params: {
+            page: 1,
+            limit: 100000,
+            search: debouncedSearchQuery,
+            year: selectedYearState,
+            selectedICD: selectedICD,
+            importer: selectedImporter?.trim() || "",
+            username: user?.username || "",
+            unresolvedOnly: showUnresolvedOnly.toString(),
+            branchId: selectedBranch || "all",
+            category: selectedCategory || "all",
+          },
+        }
+      );
+
+      const allJobs = res.data.jobs || [];
+      if (allJobs.length === 0) {
+        alert("No jobs found to download.");
+        return;
+      }
+
+      // Create new workbook
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Jobs");
+
+      // Define header structure
+      worksheet.columns = [
+        { header: "IMPORTER", key: "importer", width: 40 },
+        { header: "BOE NO", key: "be_no", width: 25 },
+        { header: "IGM NO", key: "igm_no", width: 25 },
+        { header: "BL NO", key: "awb_bl_no", width: 30 },
+        { header: "CONTAINER NO", key: "container_no", width: 40 },
+        { header: "JOB NO", key: "job_no", width: 25 },
+      ];
+
+      // Format header row
+      const headerRow = worksheet.getRow(1);
+      headerRow.font = { bold: true, color: { argb: "000000" } };
+      headerRow.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFE89A74" }, // Orange/salmon color
+      };
+      headerRow.alignment = { horizontal: "center", vertical: "middle" };
+      headerRow.height = 25;
+
+      // Add borders to the header cells
+      headerRow.eachCell({ includeEmpty: true }, (cell) => {
+        cell.border = {
+          top: { style: "thin", color: { argb: "FF000000" } },
+          left: { style: "thin", color: { argb: "FF000000" } },
+          bottom: { style: "thin", color: { argb: "FF000000" } },
+          right: { style: "thin", color: { argb: "FF000000" } },
+        };
+      });
+
+      // Add data rows
+      allJobs.forEach((job) => {
+        const containers = job.container_nos && job.container_nos.length > 0
+          ? job.container_nos.map(c => c.container_number).filter(Boolean).join(", ")
+          : "";
+
+        const row = worksheet.addRow({
+          importer: job.importer || "",
+          be_no: job.be_no || "",
+          igm_no: job.igm_no || "",
+          awb_bl_no: job.awb_bl_no || "",
+          container_no: containers,
+          job_no: job.job_number || job.job_no || "",
+        });
+
+        // Set row height and cell formatting
+        row.height = 22;
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          cell.border = {
+            top: { style: "thin", color: { argb: "FF000000" } },
+            left: { style: "thin", color: { argb: "FF000000" } },
+            bottom: { style: "thin", color: { argb: "FF000000" } },
+            right: { style: "thin", color: { argb: "FF000000" } },
+          };
+          cell.alignment = { vertical: "middle", horizontal: "center" };
+        });
+      });
+
+      // Adjust column width based on content size
+      worksheet.columns.forEach((column) => {
+        let maxLen = column.header.length;
+        column.eachCell({ includeEmpty: false }, (cell, rowNumber) => {
+          if (rowNumber > 1) {
+            const valLen = cell.value ? String(cell.value).length : 0;
+            if (valLen > maxLen) maxLen = valLen;
+          }
+        });
+        column.width = Math.min(Math.max(maxLen + 4, 15), 50);
+      });
+
+      // Generate Excel download
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Jobs_Export_${selectedYearState || "All"}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+
+    } catch (error) {
+      console.error("Error exporting to Excel:", error);
+      alert("Failed to export jobs to Excel.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSearchInputChange = (event) => {
     setSearchQuery(event.target.value);
@@ -848,6 +974,34 @@ function AllJobsList() {
           sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
         />
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <Button
+            variant="contained"
+            size="small"
+            onClick={handleDownloadExcel}
+            sx={{
+              borderRadius: 3,
+              textTransform: "none",
+              fontWeight: 500,
+              fontSize: "0.875rem",
+              padding: "8px 20px",
+              background: "linear-gradient(135deg, #2e7d32 0%, #4caf50 100%)",
+              color: "#ffffff",
+              border: "none",
+              boxShadow: "0 4px 12px rgba(46, 125, 50, 0.3)",
+              transition: "all 0.3s ease",
+              "&:hover": {
+                background:
+                  "linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%)",
+                boxShadow: "0 6px 16px rgba(46, 125, 50, 0.4)",
+                transform: "translateY(-1px)",
+              },
+              "&:active": {
+                transform: "translateY(0px)",
+              },
+            }}
+          >
+            Download Excel
+          </Button>
           <Box sx={{ position: "relative" }}>
             <Button
               variant="contained"

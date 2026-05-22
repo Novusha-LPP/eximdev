@@ -780,7 +780,8 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     const defaultShiftId = recordShiftId || resolveShiftPolicyId(employee);
 
     const hasPunchIn = Boolean(rec.first_in);
-    const defaultCorrectionMode = hasPunchIn ? 'time_correction' : 'status_correction';
+    const isNonWorking = isNonWorkingStatus(rec.status);
+    const defaultCorrectionMode = (hasPunchIn && !isNonWorking) ? 'time_correction' : 'status_correction';
 
     const baseForm = {
         attendance_date: overrideDate || rec.attendance_date,
@@ -942,22 +943,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     setBrowseYear(d.getFullYear());
   }, [startDate]);
 
-  // Auto-switch logic
-  useEffect(() => {
-    const isNonWorking = isNonWorkingStatus(editForm.status);
-    if (!editingId || !(!hasInitialPunchIn || isNonWorking) || editForm.correction_mode !== 'time_correction') return;
 
-    setAutoSwitchHintShown(true);
-    setEditForm((prev) => {
-        const nextMode = {
-            ...prev,
-            correction_mode: 'status_correction',
-            apply_status_correction: true,
-        apply_time_correction: false
-        };
-        return applyStatusModeTimes(nextMode, nextMode.status || 'present', nextMode.shift_id);
-    });
-  }, [editingId, hasInitialPunchIn, editForm.status, editForm.correction_mode]);
 
   useEffect(() => {
     if (!profile?.employee || isEditingPolicy) return;
@@ -1135,7 +1121,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     };
 
     fetchPolicyCatalogs();
-  }, [id, profile]);
+  }, [id]);
 
   const employeeName = useMemo(() => {
     if (!profile?.employee) return 'Employee';

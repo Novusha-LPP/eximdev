@@ -188,10 +188,10 @@ function TeamDashboard() {
     // Fetch team members when team is selected
 
     useEffect(() => {
-        if (selectedTeam) {
+        if (selectedTeam?._id) {
             fetchTeamMembers();
         }
-    }, [selectedTeam]);
+    }, [selectedTeam?._id]);
 
     const fetchTeamMembers = async () => {
         if (!selectedTeam) return;

@@ -7,7 +7,7 @@ import AttendanceRecord from '../../model/attendance/AttendanceRecord.js';
 import Shift from '../../model/attendance/Shift.js';
 import LeaveApplication from '../../model/attendance/LeaveApplication.js';
 import LeaveBalance from '../../model/attendance/LeaveBalance.js';
-import RegularizationRequest from '../../model/attendance/RegularizationRequest.js';
+import RegularizationRequest, { REGULARIZATION_TYPES } from '../../model/attendance/RegularizationRequest.js';
 import Company from '../../model/attendance/Company.js';
 import Holiday from '../../model/attendance/Holiday.js';
 import moment from 'moment-timezone';
@@ -32,6 +32,14 @@ const resolveCompanyId = (req) => {
     return explicitId;
 };
 
+const normalizeRole = (role) => String(role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+const isAdminRole = (role) => normalizeRole(role) === 'ADMIN';
+const isHodRole = (role) => {
+    const n = normalizeRole(role);
+    return n === 'HOD' || n === 'HEADOFDEPARTMENT';
+};
+const isAdminOrHodRole = (role) => isAdminRole(role) || isHodRole(role);
+
 const getLeaveLocalDateRange = (leave, tz = 'Asia/Kolkata') => {
     const start = moment(leave.from_date).tz(tz).startOf('day');
     const end = moment(leave.to_date).tz(tz).startOf('day');
@@ -41,7 +49,7 @@ const getLeaveLocalDateRange = (leave, tz = 'Asia/Kolkata') => {
 const logActivity = async (req, module, action, details, metadata = {}) => {
     try {
         const activity = new ActivityLog({
-            company_id: resolveCompanyId(req),
+            company_id: resolveCompanyId(req) || req.user?.company_id?._id || req.user?.company_id || metadata?.company_id,
             user_id: req.user?._id,
             module,
             action,
@@ -151,6 +159,36 @@ const getWeeklyOffDaysFromPolicy = (weekOffPolicy) => {
 
 const dateKeyUTC = (dateVal) => moment.utc(dateVal).tz('Asia/Kolkata').format('YYYY-MM-DD');
 const dateKeyLocal = (dateVal) => moment.utc(dateVal).tz('Asia/Kolkata').format('YYYY-MM-DD');
+
+const resolvePendingCorrectionRequestsForDay = async ({ employeeId, attendanceDate, actorId, source = 'system', remarks = '' }) => {
+    if (!employeeId || !attendanceDate || !actorId) return 0;
+
+    const dateKey = moment(attendanceDate).tz('Asia/Kolkata').format('YYYY-MM-DD');
+    const now = new Date();
+    const comment = remarks || 'Resolved via attendance correction';
+
+    const result = await RegularizationRequest.updateMany(
+        {
+            employee_id: employeeId,
+            attendance_date: dateKey,
+            status: 'pending'
+        },
+        {
+            $set: {
+                status: 'approved',
+                approved_by: actorId,
+                approved_at: now,
+                approved_comments: comment,
+                is_resolved: true,
+                resolved_at: now,
+                resolved_by: actorId,
+                resolution_source: source
+            }
+        }
+    );
+
+    return result?.modifiedCount || result?.nModified || 0;
+};
 
 const IDENTITY_LEAVE_TYPES = new Set(['lwp', 'privilege']);
 const MISSED_PUNCH_LIMIT_HOURS = 12;
@@ -575,7 +613,7 @@ export const punch = async (req, res) => {
         const { type, location, employee_id: target_employee_id } = req.body;
 
         // --- NEW: Multi-Actor Punch Support (Admin/HOD can punch for others) ---
-        if (target_employee_id && (req.user.role === 'ADMIN' || req.user.role === 'HOD')) {
+        if (target_employee_id && isAdminOrHodRole(req.user?.role)) {
             const targetUser = await User.findById(target_employee_id);
             if (!targetUser) return res.status(404).json({ message: 'Target employee not found' });
             const targetCompany = await resolveCompanyForUser(targetUser);
@@ -590,7 +628,7 @@ export const punch = async (req, res) => {
             }
             
             // Additional check for HOD: Employee must be in their team
-            if (req.user.role === 'HOD') {
+            if (isHodRole(req.user?.role)) {
                 const hodTeams = await TeamModel.find({ 
                     hodId: req.user._id,
                     isActive: { $ne: false }
@@ -782,9 +820,17 @@ export const requestRegularization = async (req, res) => {
     try {
         const user = req.user;
         const { date, type, in_time, out_time, reason } = req.body;
+        const regularizationType = String(type || 'missing_punch').trim();
 
         if (!date || !reason) {
             return res.status(400).json({ message: 'Date and reason are required' });
+        }
+
+        if (!REGULARIZATION_TYPES.includes(regularizationType)) {
+            return res.status(400).json({
+                message: `Invalid regularization type: ${regularizationType}`,
+                allowedTypes: REGULARIZATION_TYPES
+            });
         }
 
         const existing = await RegularizationRequest.findOne({
@@ -803,7 +849,7 @@ export const requestRegularization = async (req, res) => {
             company_id: user.company_id,
             department_id: user.department_id,
             attendance_date: date,
-            regularization_type: type,
+            regularization_type: regularizationType,
             requested_in_time: requestedInTime,
             requested_out_time: requestedOutTime,
             reason: reason,
@@ -851,7 +897,7 @@ export const getDashboardData = async (req, res) => {
         const { employee_id: target_employee_id } = req.query;
 
         // Admin/HOD can view dashboard for any employee in their company
-        if (target_employee_id && (req.user.role === 'ADMIN' || req.user.role === 'HOD')) {
+        if (target_employee_id && isAdminOrHodRole(req.user?.role)) {
             const targetUser = await User.findById(target_employee_id);
             if (targetUser && targetUser.company_id.toString() === req.user.company_id.toString()) {
                 user = targetUser;
@@ -1438,11 +1484,12 @@ export const getRegularizations = async (req, res) => {
     try {
         const companyId = req.user.company_id;
         const baseFilters = { company_id: companyId };
+        const roleNorm = normalizeRole(req.user?.role);
 
         // Data Isolation:
-        if (req.user.role === 'EMPLOYEE') {
+        if (roleNorm === 'EMPLOYEE') {
             baseFilters.employee_id = req.user._id?._id || req.user._id;
-        } else if (req.user.role === 'HOD') {
+        } else if (isHodRole(roleNorm)) {
             const teamMemberIds = await getHodTeamMemberIds(req.user._id);
             if (teamMemberIds.length === 0) {
                 return res.json({ data: [], total: 0 });
@@ -1699,6 +1746,9 @@ export const getAdminDashboardData = async (req, res) => {
 
         const pendingLeaves = pendingLeavesList.map(l => ({
             id: l._id,
+            employeeId: l.employee_id?._id,
+            employeeUsername: l.employee_id?.username,
+            company_id: l.employee_id?.company_id || l.company_id,
             employeeName: l.employee_id ? `${l.employee_id.first_name || ''} ${l.employee_id.last_name || ''}`.trim() || l.employee_id.username : 'Unknown',
             teamName: 'Admin View',
             leaveType: l.leave_policy_id?.leave_type || l.leave_type || 'Leave',
@@ -1711,6 +1761,9 @@ export const getAdminDashboardData = async (req, res) => {
 
         const pendingRegularization = pendingRegsList.map(r => ({
             id: r._id,
+            employeeId: r.employee_id?._id,
+            employeeUsername: r.employee_id?.username,
+            company_id: r.employee_id?.company_id || r.company_id,
             employeeName: r.employee_id ? `${r.employee_id.first_name || ''} ${r.employee_id.last_name || ''}`.trim() || r.employee_id.username : 'Unknown',
             teamName: 'Admin View',
             date: r.attendance_date,
@@ -2550,6 +2603,7 @@ const applyStatusCorrectionTimes = (record, attendanceDate, status, shift, compa
 export const updateAttendanceRecord = async (req, res) => {
     try {
         const { id } = req.params;
+        const actorRole = req.user?.role;
         let {
             status,
             half_day_session,
@@ -2589,12 +2643,12 @@ export const updateAttendanceRecord = async (req, res) => {
             }
         }
 
-        if (req.user.role !== 'ADMIN' && req.user.role !== 'HOD') {
+        if (!isAdminOrHodRole(actorRole)) {
             return res.status(403).json({ message: 'Unauthorized: Only admins and HODs can edit records' });
         }
 
         // HOD Authorization Check: Must be their team member
-        if (req.user.role === 'HOD') {
+        if (isHodRole(actorRole)) {
             const targetEmployeeId = employee_id || (await AttendanceRecord.findById(id))?.employee_id;
             if (!await isHODauthorized(req.user._id, targetEmployeeId)) {
                 return res.status(403).json({ message: 'Forbidden: Member not in your team' });
@@ -2769,7 +2823,7 @@ export const updateAttendanceRecord = async (req, res) => {
                 ? `${record.remarks} | Override: pending leave exists`
                 : 'Override: pending leave exists';
         }
-        record.processed_by = 'admin';
+        record.processed_by = isAdminRole(actorRole) ? 'admin' : 'hod';
         record.processed_at = new Date();
 
         // 5. Shared Calculation Logic
@@ -2780,11 +2834,25 @@ export const updateAttendanceRecord = async (req, res) => {
         await record.save();
         await syncUserTodayStatus(record, company);
 
-        await logActivity(req, 'ATTENDANCE', 'UPDATE_RECORD', `Admin updated record ${id}`, { record_id: id, force_override: allowOverride, pending_leave_id: pendingLeave?._id || null });
+        const resolvedRequestsCount = await resolvePendingCorrectionRequestsForDay({
+            employeeId: record.employee_id,
+            attendanceDate: record.attendance_date,
+            actorId: req.user._id,
+            source: isAdminRole(actorRole) ? 'admin_manual_correction' : 'hod_manual_correction',
+            remarks: remarks || 'Resolved via manual attendance correction'
+        });
+
+        await logActivity(req, 'ATTENDANCE', 'UPDATE_RECORD', `${isAdminRole(actorRole) ? 'Admin' : 'HOD'} updated record ${id}`, {
+            record_id: id,
+            force_override: allowOverride,
+            pending_leave_id: pendingLeave?._id || null,
+            resolved_correction_requests: resolvedRequestsCount
+        });
         res.json({
             success: true,
             message: pendingLeave && allowOverride ? 'Record updated with override' : 'Record updated',
             warning: pendingLeave && allowOverride ? 'Pending leave existed for this date and was overridden.' : null,
+            resolvedRequestsCount,
             record
         });
 
@@ -2796,6 +2864,7 @@ export const updateAttendanceRecord = async (req, res) => {
 
 export const createManualAdjustment = async (req, res) => {
     try {
+        const actorRole = req.user?.role;
         let {
             attendance_date,
             employee_id,
@@ -2836,12 +2905,12 @@ export const createManualAdjustment = async (req, res) => {
             }
         }
 
-        if (req.user.role !== 'ADMIN' && req.user.role !== 'HOD') {
+        if (!isAdminOrHodRole(actorRole)) {
             return res.status(403).json({ message: 'Authorization denied: Only admins and HODs can create adjustments' });
         }
 
         // HOD Authorization Check: Must be their team member
-        if (req.user.role === 'HOD') {
+        if (isHodRole(actorRole)) {
             if (!await isHODauthorized(req.user._id, employee_id)) {
                 return res.status(403).json({ message: 'Forbidden: Member not in your team' });
             }
@@ -3023,7 +3092,7 @@ export const createManualAdjustment = async (req, res) => {
                 ? `${record.remarks} | Override: pending leave exists`
                 : 'Override: pending leave exists';
         }
-        record.processed_by = 'admin';
+        record.processed_by = isAdminRole(actorRole) ? 'admin' : 'hod';
         record.processed_at = new Date();
 
         normalizeManualCorrectionFlags(record);
@@ -3032,11 +3101,25 @@ export const createManualAdjustment = async (req, res) => {
         await record.save();
         await syncUserTodayStatus(record, company);
 
-        await logActivity(req, 'ATTENDANCE', 'CREATE_RECORD', `Manual adjustment for ${attendance_date}`, { record_id: record._id, force_override: allowOverride, pending_leave_id: pendingLeave?._id || null });
+        const resolvedRequestsCount = await resolvePendingCorrectionRequestsForDay({
+            employeeId: record.employee_id,
+            attendanceDate: record.attendance_date,
+            actorId: req.user._id,
+            source: isAdminRole(actorRole) ? 'admin_manual_correction' : 'hod_manual_correction',
+            remarks: remarks || 'Resolved via manual attendance correction'
+        });
+
+        await logActivity(req, 'ATTENDANCE', 'CREATE_RECORD', `Manual adjustment for ${attendance_date}`, {
+            record_id: record._id,
+            force_override: allowOverride,
+            pending_leave_id: pendingLeave?._id || null,
+            resolved_correction_requests: resolvedRequestsCount
+        });
         res.json({
             success: true,
             message: pendingLeave && allowOverride ? 'Adjustment saved with override' : 'Adjustment saved successfully',
             warning: pendingLeave && allowOverride ? 'Pending leave existed for this date and was overridden.' : null,
+            resolvedRequestsCount,
             record
         });
 
@@ -3052,17 +3135,18 @@ export const calculateDailyAttendance = async (req, res) => {
         const employee_id = req.params.employee_id || req.body.employee_id;
         const attendance_date = req.params.attendance_date || req.body.attendance_date;
         const companyId = resolveCompanyId(req);
+        const actorRole = req.user?.role;
 
         if (!employee_id || !attendance_date) {
             return res.status(400).json({ message: 'employee_id and attendance_date are required' });
         }
 
         // Authorization
-        if (req.user.role !== 'ADMIN' && req.user.role !== 'HOD') {
+        if (!isAdminOrHodRole(actorRole)) {
             return res.status(403).json({ message: 'Unauthorized' });
         }
 
-        if (req.user.role === 'HOD') {
+        if (isHodRole(actorRole)) {
             if (!await isHODauthorized(req.user._id, employee_id)) {
                 return res.status(403).json({ message: 'Forbidden: Member not in your team' });
             }
@@ -3281,13 +3365,14 @@ export const deleteAttendanceRecord = async (req, res) => {
     try {
         const { id } = req.params;
         const companyId = resolveCompanyId(req);
+        const actorRole = req.user?.role;
 
-        if (req.user.role !== 'ADMIN' && req.user.role !== 'HOD') {
+        if (!isAdminOrHodRole(actorRole)) {
             return res.status(403).json({ message: 'Only admins and HODs can delete attendance records' });
         }
 
         // HOD Authorization Check: Must be their team member
-        if (req.user.role === 'HOD') {
+        if (isHodRole(actorRole)) {
             const record = await AttendanceRecord.findById(id);
             if (!record || !await isHODauthorized(req.user._id, record.employee_id)) {
                 return res.status(403).json({ message: 'Forbidden: Member not in your team' });
@@ -3361,6 +3446,8 @@ export const getEmployeeFullProfile = async (req, res) => {
 
         const profileCompanyId = employee.company_id?._id || employee.company_id;
         const requestedCompanyId = req.query?.company_id;
+        const correctionStartStr = moment(start).tz('Asia/Kolkata').format('YYYY-MM-DD');
+        const correctionEndStr = moment(end).tz('Asia/Kolkata').format('YYYY-MM-DD');
         const effectiveCompanyId =
             requestedCompanyId && requestedCompanyId !== 'all'
                 ? requestedCompanyId
@@ -3408,11 +3495,14 @@ export const getEmployeeFullProfile = async (req, res) => {
 
             RegularizationRequest.find({
                 employee_id: id,
-                status: 'pending'
-            }).lean()
+                attendance_date: { $gte: correctionStartStr, $lte: correctionEndStr }
+            }).sort({ createdAt: -1 }).lean()
         ]);
 
-        const [attendance, balances, leaves, pendingLeaves, pendingRegularizations] = results;
+        const [attendance, balances, leaves, pendingLeaves, correctionRequests] = results;
+        const pendingRegularizations = (correctionRequests || []).filter(
+            (request) => String(request?.status || '').toLowerCase() === 'pending'
+        );
 
         const policyByYear = new Map();
         const getPoliciesForYear = async (year) => {
@@ -3625,7 +3715,8 @@ export const getEmployeeFullProfile = async (req, res) => {
                 holiday_policy_name: resolvedHolidayPolicy?.policy_name || null
             },
             pendingLeaves: pendingLeaves || [],
-            pendingRegularizations: pendingRegularizations || []
+            pendingRegularizations: pendingRegularizations || [],
+            correctionRequests: correctionRequests || []
         });
     } catch (err) {
         console.error('>>> [CRITICAL_ERROR] getEmployeeFullProfile failed:', err);
@@ -3722,12 +3813,13 @@ export const approveRegularization = async (req, res) => {
         const regularizationId = req.params.id || req.body.regularization_id;
         const { approval_remarks } = req.body;
         const companyId = resolveCompanyId(req);
+        const actorRole = req.user?.role;
 
         if (!regularizationId) {
             return res.status(400).json({ message: 'regularization_id is required' });
         }
 
-        if (req.user.role !== 'ADMIN' && req.user.role !== 'HOD') {
+        if (!isAdminOrHodRole(actorRole)) {
             return res.status(403).json({ message: 'Authorization denied: Only admins and HODs can approve regularizations' });
         }
 
@@ -3742,7 +3834,7 @@ export const approveRegularization = async (req, res) => {
         }
 
         // HOD Authorization Check: Must be employee's HOD
-        if (req.user.role === 'HOD') {
+        if (isHodRole(actorRole)) {
             if (!await isHODauthorized(req.user._id, regularization.employee_id)) {
                 return res.status(403).json({ message: 'Forbidden: Employee not in your team' });
             }
@@ -3815,6 +3907,10 @@ export const approveRegularization = async (req, res) => {
         regularization.approved_by = req.user._id;
         regularization.approved_at = moment().toDate();
         regularization.approved_comments = approval_remarks;
+        regularization.is_resolved = true;
+        regularization.resolved_at = moment().toDate();
+        regularization.resolved_by = req.user._id;
+        regularization.resolution_source = 'request_approval';
         await regularization.save();
 
         await logActivity(req, 'ATTENDANCE', 'APPROVE_REGULARIZATION', `Approved regularization for ${employee.first_name}`, {

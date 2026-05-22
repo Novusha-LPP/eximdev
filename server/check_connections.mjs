@@ -16,7 +16,7 @@ async function run() {
     const client = new MongoClient(MONGO_URI, {
         appName: "mongo-diagnostics",
         serverSelectionTimeoutMS: 5000,
-        useUnifiedTopology: true,
+        // useUnifiedTopology: true,
     });
 
     try {

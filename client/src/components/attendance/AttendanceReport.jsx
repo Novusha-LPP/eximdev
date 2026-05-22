@@ -34,6 +34,22 @@ const formatLeaveBadge = (leaveType) => {
         .slice(0, 3);
 };
 
+const getCorrectionStatusMeta = (request = {}) => {
+    const source = String(request?.resolution_source || '').toLowerCase();
+    const status = String(request?.status || 'pending').toLowerCase();
+
+    if (request?.is_resolved || source === 'admin_manual_correction' || source === 'hod_manual_correction') {
+        return { label: 'Resolved', className: 'resolved' };
+    }
+    if (status === 'approved') {
+        return { label: 'Approved', className: 'approved' };
+    }
+    if (status === 'rejected') {
+        return { label: 'Rejected', className: 'rejected' };
+    }
+    return { label: 'Pending', className: 'pending' };
+};
+
 
 const getCalendarStatusClass = (status = '') => {
     const normalized = String(status || '').toLowerCase();
@@ -596,6 +612,18 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                 })
                 .sort((a, b) => new Date(b.createdAt || b.from_date || 0) - new Date(a.createdAt || a.from_date || 0));
         }, [profileData?.leaves, profileData?.pendingLeaves]);
+
+    const correctionHistory = useMemo(() => {
+        const requests = Array.isArray(profileData?.correctionRequests)
+            ? profileData.correctionRequests
+            : (Array.isArray(profileData?.pendingRegularizations) ? profileData.pendingRegularizations : []);
+
+        return [...requests].sort((a, b) => {
+            const left = new Date(b.createdAt || b.updatedAt || b.attendance_date || 0).getTime();
+            const right = new Date(a.createdAt || a.updatedAt || a.attendance_date || 0).getTime();
+            return left - right;
+        });
+    }, [profileData?.correctionRequests, profileData?.pendingRegularizations]);
 
     const assignedShiftOptions = React.useMemo(() => {
         const employee = profileData?.employee || {};
@@ -1230,6 +1258,20 @@ if (summarySheet) {
         return g;
     }, [filtered, endDate, groupBy, dashboardData]);
 
+    // Auto-open drawer if navigated from dashboard corrections tab
+    useEffect(() => {
+        const openId = location.state?.openUserId;
+        if (openId && filtered.length > 0 && !selectedEmp) {
+            const emp = filtered.find(e => String(e.id) === String(openId) || String(e._id) === String(openId));
+            if (emp) {
+                setActiveTab('attendance');
+                openDrawer(emp, 'attendance');
+                // Clear state so it doesn't re-open on drawer close
+                navigate(location.pathname, { replace: true, state: { ...location.state, openUserId: undefined } });
+            }
+        }
+    }, [filtered, location.state, location.pathname, selectedEmp, navigate]);
+
     return (
         <div className="ar-console">
 
@@ -1414,7 +1456,7 @@ if (summarySheet) {
                                     <tr>
                                         <th>Employee</th>
                                         <th>In/Out</th>
-                                        <th>Continuity Pattern</th>
+                                        <th>Correction</th>
                                         <th style={{ textAlign: 'center' }}>P</th>
                                         <th style={{ textAlign: 'center' }}>A</th>
                                         <th style={{ textAlign: 'center' }}>L</th>
@@ -1472,7 +1514,9 @@ if (summarySheet) {
                                                 </div>
                                             </td>
                                             <td>
-                                                <RenderHeatmap history={emp.history || []} startDate={startDate} endDate={endDate} />
+                                                <button className="ar-act-btn ar-btn-edit" style={{ background: '#f1f5f9', color: '#334155', border: '1px solid #e2e8f0', padding: '4px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '600' }} onClick={() => { setActiveTab('attendance'); openDrawer(emp, 'attendance'); }}>
+                                                    View
+                                                </button>
                                             </td>
                                             <td style={{ textAlign: 'center' }}><span className="ar-count ar-c-green">{emp.present}</span></td>
                                             <td style={{ textAlign: 'center' }}><span className="ar-count ar-c-red">{emp.absent}</span></td>
@@ -1714,6 +1758,34 @@ if (summarySheet) {
                                                     }
                                                     return days;
                                                 })()}
+                                            </div>
+
+                                            <div className="ar-correction-req-wrap">
+                                                <div className="ar-correction-req-head">
+                                                    <h4 className="ar-pane-title" style={{ margin: 0 }}>Attendance Correction Requests</h4>
+                                                    <span className="ar-correction-req-count">{correctionHistory.length}</span>
+                                                </div>
+
+                                                {correctionHistory.length === 0 ? (
+                                                    <div className="ar-correction-empty">No correction requests for this period.</div>
+                                                ) : (
+                                                    <div className="ar-correction-list">
+                                                        {correctionHistory.map((request) => {
+                                                            const statusMeta = getCorrectionStatusMeta(request);
+                                                            return (
+                                                                <div key={request._id || `${request.attendance_date}-${request.createdAt || ''}`} className="ar-correction-item">
+                                                                    <div className="ar-correction-item-main">
+                                                                        <div className="ar-correction-item-top">
+                                                                            <span className="ar-correction-date">{formatAttendanceDate(request.attendance_date, 'dd MMM yyyy')}</span>
+                                                                            <span className={`ar-correction-status ${statusMeta.className}`}>{statusMeta.label}</span>
+                                                                        </div>
+                                                                        <div className="ar-correction-reason">{request.reason || 'No details provided'}</div>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
 

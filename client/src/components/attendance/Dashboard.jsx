@@ -141,6 +141,7 @@ export default function Dashboard() {
   const [balances, setBalances] = useState([]);
   const [mgmtData, setMgmtData] = useState(null);
   const [todayTab, setTodayTab] = useState('absent');
+  const [pendingTab, setPendingTab] = useState('leave');
   const [holidays, setHolidays] = useState([]);
   const [month, setMonth] = useState(new Date());
   const [showApplyLeaveModal, setShowApplyLeaveModal] = useState(false);
@@ -920,20 +921,52 @@ export default function Dashboard() {
 
         {/* -- RIGHT SIDEBAR -- */}
         <div className="db-side">
-          {/* Pending approvals – HOD & Admin */}
           {isManager && (
-            <div className="card clickable-card" onClick={() => navigate(isHOD ? "/attendance/hod/leave-approval" : "/attendance/admin/leave-approval")}>
-              <div className="card-head">
-                <span className="card-title">Pending Approvals</span>
-                {allPending.length > 0
-                  ? <span className="card-badge badge-amber">{allPending.length}</span>
-                  : <span className="card-badge badge-green">All clear</span>
-                }
+            <div className="card">
+              <div className="card-head" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                  <span className="card-title">Pending Approvals</span>
+                  {allPending.length > 0
+                    ? <span className="card-badge badge-amber">{allPending.length}</span>
+                    : <span className="card-badge badge-green">All clear</span>
+                  }
+                </div>
+                <div className="db-tabs-mini" style={{ width: '100%' }}>
+                  <button 
+                    className={`db-tab-mini ${pendingTab === 'leave' ? 'active' : ''}`}
+                    onClick={() => setPendingTab('leave')}
+                    style={{ flex: 1, justifyContent: 'center' }}
+                  >
+                    Leaves {allPending.filter(r => r._kind === 'leave').length > 0 && <span className="tab-count-amber">{allPending.filter(r => r._kind === 'leave').length}</span>}
+                  </button>
+                  <button 
+                    className={`db-tab-mini ${pendingTab === 'reg' ? 'active' : ''}`}
+                    onClick={() => setPendingTab('reg')}
+                    style={{ flex: 1, justifyContent: 'center' }}
+                  >
+                    Corrections {allPending.filter(r => r._kind === 'reg').length > 0 && <span className="tab-count-amber">{allPending.filter(r => r._kind === 'reg').length}</span>}
+                  </button>
+                </div>
               </div>
-              {allPending.length === 0 ? (
+              {allPending.filter(r => r._kind === pendingTab).length === 0 ? (
                 <div className="empty-msg">Nothing pending right now! ✨</div>
-              ) : allPending.slice(0, 6).map((req, i) => (
-                <div key={i} className="approval-row">
+              ) : allPending.filter(r => r._kind === pendingTab).slice(0, 6).map((req, i) => (
+                <div 
+                  key={i} 
+                  className="approval-row" 
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => {
+                    if (req._kind === 'reg') {
+                      if (req.employeeUsername) {
+                        navigate(`/attendance/teams/${req.company_id || 'all'}/user/${req.employeeUsername}/performance`);
+                      } else {
+                        navigate(isHOD ? "/attendance/hod/report" : "/attendance/admin/attendance", { state: { openUserId: req.employeeId || req.employee_id } });
+                      }
+                    } else {
+                      navigate(isHOD ? "/attendance/hod/leave-approval" : "/attendance/admin/leave-approval");
+                    }
+                  }}
+                >
                   <div className="approval-av">{(req.employeeName || "?")[0]}</div>
                   <div className="approval-body">
                     <div className="approval-name">{req.employeeName} · {req.teamName || 'Unassigned'}</div>
@@ -944,7 +977,7 @@ export default function Dashboard() {
                       ) : ""}
                       {req._kind === "reg" && req.date ? ` • ${new Date(req.date).toLocaleDateString("en", { day: "numeric", month: "short" })}` : ""}
                     </div>
-                    <div className="approval-actions">
+                    <div className="approval-actions" onClick={e => e.stopPropagation()}>
                       <button
                         className="act approve"
                         disabled={approving[req.id]}
@@ -963,10 +996,16 @@ export default function Dashboard() {
                   </div>
                 </div>
               ))}
-              {allPending.length > 6 && (
+              {allPending.filter(r => r._kind === pendingTab).length > 6 && (
                 <div style={{ padding: ".75rem 1.25rem", borderTop: "1px solid var(--border)" }}>
-                  <button className="card-link" onClick={() => navigate(isHOD ? "/attendance/hod/leave-approval" : "/attendance/admin/leave-approval")}>
-                    +{allPending.length - 6} more <FiArrowRight size={12} />
+                  <button className="card-link" onClick={() => {
+                      if (pendingTab === 'reg') {
+                          navigate(isHOD ? "/attendance/hod/report" : "/attendance/admin/attendance");
+                      } else {
+                          navigate(isHOD ? "/attendance/hod/leave-approval" : "/attendance/admin/leave-approval");
+                      }
+                  }}>
+                    +{allPending.filter(r => r._kind === pendingTab).length - 6} more <FiArrowRight size={12} />
                   </button>
                 </div>
               )}

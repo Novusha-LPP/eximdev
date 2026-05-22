@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import {
-  FiX, FiCalendar, FiActivity, FiCheckCircle, FiAlertCircle, FiList, FiClock
+  FiX, FiCalendar, FiActivity, FiCheckCircle, FiAlertCircle, FiList, FiClock, FiEdit3
 } from 'react-icons/fi';
 import { UserContext } from '../../contexts/UserContext';
 import leaveAPI from '../../api/attendance/leave.api';
@@ -51,8 +51,10 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSuccess, balances = [], initialDat
   const [activeTab, setActiveTab] = useState('leave');
   const [attendanceDay, setAttendanceDay] = useState(null);
   const [attendanceLoading, setAttendanceLoading] = useState(false);
+  const [correctionForm, setCorrectionForm] = useState({ date: '', type: 'missing_punch', in_time: '', out_time: '', reason: '' });
+  const [submittingCorrection, setSubmittingCorrection] = useState(false);
 
-  const selectedDate = initialDate || form.from_date || new Date().toISOString().slice(0, 10);
+  const selectedDate = activeTab === 'correction' ? (correctionForm.date || new Date().toISOString().slice(0, 10)) : (initialDate || form.from_date || new Date().toISOString().slice(0, 10));
   const selectedEmployeeId = employeeId || user?._id || user?.id;
 
   const selectedPolicy = balances.find(b => b._id === form.leave_policy_id);
@@ -99,6 +101,7 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSuccess, balances = [], initialDat
       setHasOverlap(false);
       setActiveTab('leave');
       setAttendanceDay(null);
+      setCorrectionForm({ date: '', type: 'missing_punch', in_time: '', out_time: '', reason: '' });
     } else {
       // Fetch existing applications when modal opens
       fetchExistingApplications();
@@ -108,12 +111,16 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSuccess, balances = [], initialDat
           from_date: initialDate,
           to_date: initialDate,
         }));
+        setCorrectionForm(cf => ({ ...cf, date: initialDate }));
+      } else {
+        const today = new Date().toISOString().slice(0, 10);
+        setCorrectionForm(cf => ({ ...cf, date: today }));
       }
     }
   }, [isOpen, initialDate]);
 
   useEffect(() => {
-    if (!isOpen || activeTab !== 'attendance' || !selectedDate) return;
+    if (!isOpen || (activeTab !== 'attendance' && activeTab !== 'correction') || !selectedDate) return;
 
     const fetchAttendanceDay = async () => {
       try {
@@ -138,6 +145,21 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSuccess, balances = [], initialDat
 
     fetchAttendanceDay();
   }, [isOpen, activeTab, selectedDate, selectedEmployeeId]);
+
+  // Auto pre-fill correction form when attendanceDay is fetched
+  useEffect(() => {
+    if (activeTab === 'correction' && attendanceDay) {
+      const inTime = attendanceDay.first_in ? new Date(attendanceDay.first_in).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }) : '';
+      const outTime = attendanceDay.last_out ? new Date(attendanceDay.last_out).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }) : '';
+      
+      setCorrectionForm(prev => ({
+        ...prev,
+        in_time: prev.in_time || inTime,
+        out_time: prev.out_time || outTime,
+        type: (inTime && !outTime) ? 'missing_punch' : (!inTime && outTime) ? 'missing_punch' : (inTime && outTime) ? 'half_day' : 'absent'
+      }));
+    }
+  }, [attendanceDay, activeTab]);
 
   // Fetch existing leave applications
   const fetchExistingApplications = async () => {
@@ -241,19 +263,34 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSuccess, balances = [], initialDat
           >
             <FiList size={13} /> Attendance Logs
           </button>
+          <button
+            type="button"
+            className={`aam-tab ${activeTab === 'correction' ? 'active' : ''}`}
+            onClick={() => setActiveTab('correction')}
+          >
+            <FiEdit3 size={13} /> Request for Correction
+          </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="lm-form">
+        <div className="lm-form">
 
           {activeTab === 'attendance' && (
             <div className="attendance-log-panel">
               <div className="attendance-log-head">
-                <div>
+                <div style={{ flex: 1 }}>
                   <div className="attendance-log-title">Attendance logs for {fmtDate(selectedDate)}</div>
                   <div className="attendance-log-subtitle">Punch sequence for the selected day.</div>
                 </div>
-                <div className="attendance-log-chip">
-                  <FiClock size={12} /> {selectedDate}
+                <div>
+                  <input type="date" 
+                    className="lm-date-picker" 
+                    style={{ padding: '6px 10px', fontSize: '12px', border: '1px solid #cbd5e1', borderRadius: '6px', outline: 'none' }}
+                    value={form.from_date || new Date().toISOString().slice(0, 10)} 
+                    onChange={(e) => {
+                      setForm(v => ({ ...v, from_date: e.target.value, to_date: e.target.value }));
+                      setCorrectionForm(v => ({ ...v, date: e.target.value }));
+                    }}
+                  />
                 </div>
               </div>
 
@@ -316,7 +353,7 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSuccess, balances = [], initialDat
           )}
 
           {activeTab === 'leave' && (
-            <>
+            <form onSubmit={handleSubmit} className="leave-tab-form">
 
           {/* Form Grid */}
           <div className="form-grid">
@@ -472,10 +509,95 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSuccess, balances = [], initialDat
                 <><FiCheckCircle size={16} /> Submit Request</>
               )}
             </button>
-          </div>
-            </>
+            </div>
+            </form>
           )}
-        </form>
+
+          {activeTab === 'correction' && (
+            <div className="correction-tab-panel" style={{ padding: '4px 6px' }}>
+              {attendanceLoading ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: '#6b7280', fontSize: '13px' }}>
+                  <FiActivity className="animate-spin" style={{ marginRight: '6px' }} /> Fetching date context...
+                </div>
+              ) : (
+                <>
+                  {attendanceDay && (
+                    <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px', fontSize: '13px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+                      <div style={{ background: '#e0f2fe', color: '#0284c7', padding: '8px', borderRadius: '50%' }}>
+                        <FiClock size={16} />
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 600, color: '#1e293b', marginBottom: '2px' }}>Current Log for {fmtDate(selectedDate)}</div>
+                        <div style={{ color: '#64748b', fontSize: '12px' }}>
+                          First In: <strong style={{ color: '#475569' }}>{fmtTime(attendanceDay.first_in)}</strong> |
+                          Last Out: <strong style={{ color: '#475569' }}>{fmtTime(attendanceDay.last_out)}</strong>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <form onSubmit={async (e) => {
+                    e.preventDefault();
+                    try {
+                      setSubmittingCorrection(true);
+                      // payload expects: date, type, in_time, out_time, reason
+                      await attendanceAPI.requestRegularization({
+                        date: correctionForm.date,
+                        type: correctionForm.type,
+                        in_time: correctionForm.in_time,
+                        out_time: correctionForm.out_time,
+                        reason: correctionForm.reason
+                      });
+                      toast.success('Correction request submitted');
+                      setSubmittingCorrection(false);
+                      onClose();
+                      if (onSuccess) onSuccess();
+                    } catch (err) {
+                      setSubmittingCorrection(false);
+                      toast.error(err?.message || err?.response?.data?.message || 'Failed to submit correction');
+                    }
+                  }}>
+                    <div className="fg">
+                      <label>DATE</label>
+                      <input type="date" value={correctionForm.date} onChange={e => setCorrectionForm(v => ({ ...v, date: e.target.value }))} required />
+                    </div>
+
+                    <div className="fg">
+                      <label>ISSUE TYPE</label>
+                      <select value={correctionForm.type} onChange={e => setCorrectionForm(v => ({ ...v, type: e.target.value }))} required>
+                        <option value="missing_punch">Missing Punch</option>
+                        <option value="absent">Absent</option>
+                        <option value="half_day">Half Day</option>
+                      </select>
+                    </div>
+
+                    <div className="mfg2">
+                      <div className="mfg">
+                        <label>Check-in Time</label>
+                        <input type="time" value={correctionForm.in_time} onChange={e => setCorrectionForm(v => ({ ...v, in_time: e.target.value }))} />
+                      </div>
+                      <div className="mfg">
+                        <label>Check-out Time</label>
+                        <input type="time" value={correctionForm.out_time} onChange={e => setCorrectionForm(v => ({ ...v, out_time: e.target.value }))} />
+                      </div>
+                    </div>
+
+                    <div className="fg">
+                      <label>REASON</label>
+                      <textarea value={correctionForm.reason} onChange={e => setCorrectionForm(v => ({ ...v, reason: e.target.value }))} required rows={3} placeholder="Explain why the correction is needed" />
+                    </div>
+
+                    <div className="lm-mfooter">
+                      <button type="submit" className="lm-submit" disabled={submittingCorrection || !correctionForm.date || !correctionForm.reason}>
+                        {submittingCorrection ? (<><FiActivity className="animate-spin" size={16} /> Submitting...</>) : (<><FiCheckCircle size={16} /> Submit Correction</>)}
+                      </button>
+                    </div>
+                  </form>
+                </>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

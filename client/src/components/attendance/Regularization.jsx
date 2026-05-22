@@ -6,9 +6,18 @@ import toast from 'react-hot-toast';
 import { Modal } from 'antd';
 import './Regularization.css';
 
-const TYPE_LABELS = { missing_punch: 'Missing Punch', late_in: 'Late Check-in', early_out: 'Early Check-out' };
+const TYPE_LABELS = { missing_punch: 'Missing Punch', absent: 'Absent', half_day: 'Half Day' };
+
+const getDisplayStatus = (request = {}) => {
+  const source = String(request?.resolution_source || '').toLowerCase();
+  if (request?.is_resolved || source === 'admin_manual_correction' || source === 'hod_manual_correction') {
+    return 'resolved';
+  }
+  return String(request?.status || 'pending').toLowerCase();
+};
 
 const StatusIcon = ({ status }) => {
+  if (status === 'resolved') return <FiCheckCircle size={16} />;
   if (status === 'approved') return <FiCheckCircle size={16} />;
   if (status === 'rejected') return <FiX size={16} />;
   return <FiClock size={16} />;
@@ -73,15 +82,15 @@ const Regularization = () => {
       ) : requests.length > 0 ? (
         <div className="rg-list">
           {requests.map((r, i) => (
-            <div key={i} className={`rg-card ${r.status}`}>
-              <div className="rg-ic"><StatusIcon status={r.status} /></div>
+            <div key={i} className={`rg-card ${getDisplayStatus(r)}`}>
+              <div className="rg-ic"><StatusIcon status={getDisplayStatus(r)} /></div>
               <div className="rg-main">
                 <div className="rg-top">
                   <div>
                     <div className="rg-date">{formatDate(r.attendance_date, 'dd MMM yyyy')}</div>
                     <div className="rg-dow">{new Date(r.attendance_date).toLocaleDateString('en', { weekday: 'long' })}</div>
                   </div>
-                  <span className={`rgbadge ${r.status}`}>{r.status}</span>
+                  <span className={`rgbadge ${getDisplayStatus(r)}`}>{getDisplayStatus(r)}</span>
                 </div>
 
                 <div className="rg-type">
@@ -113,10 +122,11 @@ const Regularization = () => {
 
                 <div className="rg-foot">
                   <span>Submitted {formatDate(r.createdAt, 'dd MMM   hh:mm a')}</span>
-                  {r.status === 'pending' && (
+                  {getDisplayStatus(r) === 'pending' && (
                     <button className="rg-cancel-btn" onClick={() => cancel(r._id)}>Cancel Request</button>
                   )}
-                  {r.approved_by && <span>  Reviewed by Manager</span>}
+                  {getDisplayStatus(r) === 'resolved' && <span>Resolved after attendance correction</span>}
+                  {getDisplayStatus(r) === 'approved' && <span>Reviewed by Manager</span>}
                 </div>
               </div>
             </div>
@@ -147,8 +157,8 @@ const Regularization = () => {
                 <label>Issue Type</label>
                 <select value={form.type} onChange={e => setForm({...form, type: e.target.value})} required>
                   <option value="missing_punch">Missing Punch</option>
-                  <option value="late_in">Late Check-in</option>
-                  <option value="early_out">Early Check-out</option>
+                  <option value="absent">Absent</option>
+                  <option value="half_day">Half Day</option>
                 </select>
               </div>
               <div className="mfg2">

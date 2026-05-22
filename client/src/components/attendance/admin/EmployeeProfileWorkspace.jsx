@@ -2602,27 +2602,59 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                     </div>
                   </div>
 
+                  {/* Correction Requests Log */}
+                  <div style={{ ...cardStyle }}>
+                     <h3 style={{ margin: '0 0 16px 0', fontSize: '14px', fontWeight: '700' }}>Correction Requests</h3>
+                     <div className="ar-correction-list">
+                        {(profile.correctionRequests || []).length === 0 ? (
+                           <div style={{ textAlign: 'center', padding: '20px', color: THEME.muted, fontSize: '12px' }}>No correction requests</div>
+                        ) : (
+                           (profile.correctionRequests || []).slice(0, 5).map((request) => {
+                              const st = String(request.status || '').toLowerCase();
+                              let sColor = '#64748b', sBg = '#f1f5f9', sLabel = 'Unknown';
+                              if (st === 'pending') { sColor = '#d97706'; sBg = '#fffbeb'; sLabel = 'Pending'; }
+                              else if (st === 'approved' || st === 'resolved') { sColor = '#059669'; sBg = '#ecfdf5'; sLabel = 'Resolved'; }
+                              else if (st === 'rejected') { sColor = '#e11d48'; sBg = '#fff1f2'; sLabel = 'Rejected'; }
+                              
+                              return (
+                                 <div key={request._id || request.id} style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '12px', border: '1px solid #e2e8f0', borderRadius: '8px', marginBottom: '8px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                       <span style={{ fontSize: '12px', fontWeight: '700', color: THEME.navy }}>
+                                          {request.attendance_date ? new Date(request.attendance_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '--'}
+                                       </span>
+                                       <span style={{ fontSize: '10px', fontWeight: '700', padding: '2px 8px', borderRadius: '12px', color: sColor, background: sBg }}>{sLabel}</span>
+                                    </div>
+                                    <div style={{ fontSize: '11px', color: THEME.text, textTransform: 'capitalize' }}>
+                                       {request.regularization_type ? String(request.regularization_type).replace(/_/g, ' ') : (request.reason || 'No details')}
+                                    </div>
+                                 </div>
+                              );
+                           })
+                        )}
+                     </div>
+                  </div>
+
                   {/* Recent Activity Log */}
                   <div style={{ ...cardStyle, flex: 1 }}>
                      <h3 style={{ margin: '0 0 16px 0', fontSize: '14px', fontWeight: '700' }}>Activity Highlights</h3>
-                     <div className="ar-timeline">
+                     <div className="ar-correction-list">
                         {empHistory.filter(r => r.status && r.status !== 'none').slice(0, 5).map((rec, i) => (
-                          <div key={i} className="ar-time-item">
-                             <div className="ar-time-icon">
-                               <FiClock size={16} />
-                             </div>
-                             <div className="ar-time-info">
-                               <div className="ar-time-title">{getAttendanceDateLabel(rec.attendance_date)}</div>
-                               <div className="ar-time-sub">
+                          <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', marginBottom: '8px' }}>
+                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                 <FiClock size={12} color={THEME.muted} />
+                                 <span style={{ fontSize: '12px', fontWeight: '700', color: THEME.navy }}>{getAttendanceDateLabel(rec.attendance_date)}</span>
+                               </div>
+                               <div style={{ transform: 'scale(0.85)', transformOrigin: 'right center' }}>
                                  <StatusPill 
                                    status={getCalendarStatusClass(rec.status)} 
                                    session={rec.half_day_session} 
                                    leaveType={rec.leaveType || rec.leave_type}
                                    leaveStatus={rec.leaveStatus || rec.approval_status}
                                  />
-                                 {rec.first_in && <span style={{ marginLeft: '8px' }}>{moment(rec.first_in).format('h:mm a')}</span>}
                                </div>
                              </div>
+                             {rec.first_in && <div style={{ fontSize: '11px', color: THEME.text, marginLeft: '20px' }}>In: {moment(rec.first_in).format('h:mm a')}</div>}
                           </div>
                         ))}
                         {empHistory.length === 0 && <div style={{ textAlign: 'center', padding: '20px', color: THEME.muted, fontSize: '12px' }}>No recent activity</div>}

@@ -15,11 +15,13 @@
 .rg-card.approved{border-left:3px solid var(--s-green-lt)}
 .rg-card.rejected{border-left:3px solid var(--s-red-lt)}
 .rg-card.pending {border-left:3px solid var(--s-amber-lt)}
+.rg-card.resolved{border-left:3px solid #38bdf8}
 
 .rg-ic{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 .rg-card.approved .rg-ic{background:var(--s-green-bg);color:var(--s-green)}
 .rg-card.rejected .rg-ic{background:var(--s-red-bg);  color:var(--s-red)}
 .rg-card.pending  .rg-ic{background:var(--s-amber-bg);color:var(--s-amber)}
+.rg-card.resolved .rg-ic{background:#e0f2fe;color:#0369a1}
 
 .rg-main{flex:1}
 .rg-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px;gap:8px;flex-wrap:wrap}
@@ -30,6 +32,7 @@
 .rgbadge.approved{background:var(--s-green-bg);color:var(--s-green)}
 .rgbadge.rejected{background:var(--s-red-bg);  color:var(--s-red)}
 .rgbadge.pending {background:var(--s-amber-bg);color:var(--s-amber)}
+.rgbadge.resolved{background:#e0f2fe;color:#0369a1}
 
 .rg-type{display:flex;align-items:center;gap:6px;font-size:.875rem;font-weight:600;color:var(--t2);margin-bottom:8px}
 .rg-times{display:flex;gap:7px;margin-bottom:8px;flex-wrap:wrap}

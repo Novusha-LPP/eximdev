@@ -3,6 +3,7 @@ import express from "express";
 import OpenPointProject from "../../model/openPoints/openPointProjectModel.mjs";
 import OpenPoint from "../../model/openPoints/openPointModel.mjs";
 import UserModel from "../../model/userModel.mjs";
+import TeamModel from "../../model/teamModel.mjs";
 import mongoose from "mongoose";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
@@ -823,5 +824,126 @@ router.put("/api/open-points/projects/:projectId/change-owner", authMiddleware, 
         res.status(500).json({ error: error.message });
     }
 });
+
+// Get Open Points counts grouped by teams and members for the Pulse Dashboard
+router.get("/api/open-points/pulse/teams", authMiddleware, async (req, res) => {
+    try {
+        // Fetch all active teams
+        const teams = await TeamModel.find({ isActive: { $ne: false } }).sort({ name: 1 });
+        
+        // Auto-add HOD to members if not already present (fixes old teams)
+        for (const team of teams) {
+            const hodInMembers = team.members.some(m => m.username === team.hodUsername);
+            if (!hodInMembers && team.hodUsername) {
+                const hodUser = await UserModel.findOne({ username: team.hodUsername });
+                if (hodUser) {
+                    team.members.unshift({
+                        userId: hodUser._id,
+                        username: team.hodUsername,
+                        addedAt: team.createdAt || new Date()
+                    });
+                    await team.save();
+                }
+            }
+        }
+
+        const teamsLean = teams.map(t => t.toObject());
+
+        // Fetch HOD details for each team
+        const hodIds = [...new Set(teamsLean.map(t => t.hodId?.toString()).filter(Boolean))];
+        const hods = await UserModel.find({ _id: { $in: hodIds } })
+            .select('_id first_name last_name username employee_photo')
+            .lean();
+
+        const hodMap = {};
+        hods.forEach(h => { hodMap[h._id.toString()] = h; });
+
+        // Fetch member details
+        const allMemberUsernames = new Set();
+        teamsLean.forEach(t => t.members.forEach(m => allMemberUsernames.add(m.username)));
+
+        const members = await UserModel.find({ username: { $in: [...allMemberUsernames] } })
+            .select('_id username first_name last_name department employee_photo role')
+            .lean();
+
+        const memberMap = {};
+        members.forEach(m => { memberMap[m.username] = m; });
+
+        // Gather all user IDs that are part of any team
+        const allUserIds = members.map(m => m._id);
+
+        // Fetch all pending points count (status !== 'Green') for all these users
+        const pendingCounts = await OpenPoint.aggregate([
+            {
+                $match: {
+                    responsible_person: { $in: allUserIds },
+                    status: { $ne: 'Green' }
+                }
+            },
+            {
+                $group: {
+                    _id: "$responsible_person",
+                    count: { $sum: 1 }
+                }
+            }
+        ]);
+
+        const countsMap = {};
+        pendingCounts.forEach(c => {
+            if (c._id) {
+                countsMap[c._id.toString()] = c.count;
+            }
+        });
+
+        // Enrich teams with HOD, member details and pending counts
+        const enrichedTeams = enrichedTeamsArray(teamsLean, hodMap, memberMap, countsMap);
+
+        res.json({ success: true, teams: enrichedTeams });
+    } catch (error) {
+        console.error("Error fetching open points pulse teams:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Helper function to enrich teams
+function enrichedTeamsArray(teamsLean, hodMap, memberMap, countsMap) {
+    return teamsLean.map(team => {
+        const hodDetails = hodMap[team.hodId?.toString()] || null;
+        
+        // Map members details and get their pending count
+        const membersDetails = team.members.map(m => {
+            const uDetails = memberMap[m.username] || {};
+            const uId = uDetails._id ? uDetails._id.toString() : null;
+            const count = uId ? (countsMap[uId] || 0) : 0;
+            return {
+                ...m,
+                ...uDetails,
+                pendingCount: count
+            };
+        });
+
+        // Calculate total team pending points
+        const totalPendingCount = membersDetails.reduce((sum, m) => sum + (m.pendingCount || 0), 0);
+
+        // Severity calculation
+        let severity = 'green';
+        if (totalPendingCount > 10) {
+            severity = 'red';
+        } else if (totalPendingCount > 0) {
+            severity = 'amber';
+        }
+
+        return {
+            _id: team._id,
+            name: team.name,
+            description: team.description,
+            department: team.department,
+            hodDetails,
+            members: membersDetails,
+            totalPendingCount,
+            severity
+        };
+    });
+}
 
 export default router;

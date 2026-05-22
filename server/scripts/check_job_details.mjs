@@ -3,7 +3,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const IMEXCUBE_BASE_URL = "http://testimpexapi.impexcube.in";
+const IMEXCUBE_BASE_URL = "https://impexapi.impexcube.in";
 const USERNAME = process.env.IMPEX_USERNAME || "APITest";
 const PASSWORD = process.env.IMPEX_PASSWORD || "Api@$2026";
 const COMPANY_BR_CODE = process.env.COMPANY_BR_CODE || "F94B2F92-4226-4678-855F-932DD2C45AB7";
@@ -15,7 +15,7 @@ async function checkJobDetails() {
   try {
     console.log("--- Step 1: Login ---");
     const loginUrl = `${IMEXCUBE_BASE_URL}/api/Authentication/login?username=${encodeURIComponent(USERNAME)}&password=${encodeURIComponent(PASSWORD)}&CompanyBrCode=${encodeURIComponent(COMPANY_BR_CODE)}&Fyear=${encodeURIComponent(FYEAR)}`;
-    
+
     const loginRes = await axios.post(loginUrl, null, { headers: { accept: "*/*" } });
     const token = loginRes.data.data.accessToken;
     console.log("Login successful.");
@@ -31,13 +31,13 @@ async function checkJobDetails() {
 
     console.log(`\n--- Step 2: Fetch Job Details for ${JOB_NO} ---`);
     console.log(`URL: ${url}`);
-    
+
     // The image shows exact payload in section 5.2
     const payload = {
       "Method": "GetJobInfo",
       "User_Job_No": JOB_NO
     };
-    
+
     console.log("Payload:", JSON.stringify(payload, null, 2));
 
     try {
@@ -47,7 +47,7 @@ async function checkJobDetails() {
       console.log("POST Result:", JSON.stringify(res.data, null, 2));
     } catch (err) {
       console.log("POST Failed:", err.response?.status, err.response?.data || err.message);
-      
+
       console.log("\nTrying as GET with body (though unusual)...");
       try {
         const resGet = await axios.get(url, { headers, data: payload });

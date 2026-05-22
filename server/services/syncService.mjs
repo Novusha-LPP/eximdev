@@ -2,7 +2,7 @@ import { MongoClient } from "mongodb";
 import mongoose from "mongoose";
 import { migrateJobs, migrateGandhidhamJobs } from "../utils/migrationLogic.mjs";
 
-const SKIP_COLLECTIONS = ["cths", "audittrails"];
+const SKIP_COLLECTIONS = ["cths", "audittrails", "users"];
 
 export async function syncProductionToLocal(options = { onProgress: null }) {
     const { runSync = true, runMigrateJobs = false, runMigrateGandhidham = false, onProgress = null } = options;
@@ -38,6 +38,22 @@ export async function syncProductionToLocal(options = { onProgress: null }) {
             const sourceDb = sourceClient.db();
             const localDb = localClient.db();
 
+            // Clear all local collections except 'users' before starting the sync
+            console.log("🧹 Clearing existing local collections (except 'users')...");
+            const localCollections = await localDb.listCollections().toArray();
+            for (const col of localCollections) {
+                const name = col.name;
+                if (name === "users" || name.startsWith("system.")) {
+                    continue;
+                }
+                console.log(`   🧹 Clearing local collection: ${name}`);
+                try {
+                    await localDb.collection(name).deleteMany({});
+                } catch (clearErr) {
+                    console.warn(`Warning: failed to clear local collection ${name}:`, clearErr.message);
+                }
+            }
+
             const collections = await sourceDb.listCollections().toArray();
             const totalCols = collections.length;
             console.log(`📦 Found ${totalCols} collections`);
@@ -64,7 +80,52 @@ export async function syncProductionToLocal(options = { onProgress: null }) {
                 // Replace local data
                 await localCollection.deleteMany({});
                 if (data.length > 0) {
-                    await localCollection.insertMany(data);
+                    let cleanedData = data;
+
+                    // Deduplicate data if there are unique indexes on the local collection
+                    try {
+                        const indexes = await localCollection.indexes();
+                        const uniqueIndexes = indexes.filter(idx => idx.unique);
+
+                        if (uniqueIndexes.length > 0) {
+                            const getNestedValue = (obj, path) => {
+                                return path.split('.').reduce((acc, part) => acc && acc[part], obj);
+                            };
+
+                            for (const index of uniqueIndexes) {
+                                const keyFields = Object.keys(index.key);
+                                if (keyFields.length === 1 && keyFields[0] === "_id") continue;
+
+                                const seen = new Set();
+                                const filtered = [];
+
+                                // Process from newest to oldest (reverse order) to keep the latest record in case of duplicate keys
+                                for (let i = cleanedData.length - 1; i >= 0; i--) {
+                                    const item = cleanedData[i];
+                                    const keyParts = keyFields.map(field => {
+                                        const val = getNestedValue(item, field);
+                                        if (val && typeof val === 'object' && val.toString) {
+                                            return val.toString();
+                                        }
+                                        return String(val);
+                                    });
+                                    const keyStr = keyParts.join("::");
+
+                                    if (!seen.has(keyStr)) {
+                                        seen.add(keyStr);
+                                        filtered.push(item);
+                                    } else {
+                                        console.log(`⚠️ Duplicate key found and removed in collection ${name}: ${keyStr} for index ${index.name}`);
+                                    }
+                                }
+                                cleanedData = filtered.reverse();
+                            }
+                        }
+                    } catch (e) {
+                        console.warn(`Could not verify unique indexes for collection ${name}:`, e.message);
+                    }
+
+                    await localCollection.insertMany(cleanedData);
                 }
 
                 results.sync.push({ collection: name, count: data.length });

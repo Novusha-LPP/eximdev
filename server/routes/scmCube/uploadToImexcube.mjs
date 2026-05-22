@@ -12,7 +12,7 @@ const router = express.Router();
 
 // IMEXCUBE TEST credentials from env
 const IMEXCUBE_BASE_URL =
-  process.env.IMEXCUBE_BASE_URL || "http://testimpexapi.impexcube.in";
+  process.env.IMEXCUBE_BASE_URL || "https://impexapi.impexcube.in";
 const IMPEX_USERNAME = process.env.IMPEX_USERNAME || "";
 const IMPEX_PASSWORD = process.env.IMPEX_PASSWORD || "";
 const COMPANY_BR_CODE = process.env.COMPANY_BR_CODE || "";
@@ -125,7 +125,7 @@ async function buildJobPayload(job_number, isPreview = false) {
       if (mandatory) errors.push(`'${fieldName}' is missing`);
       return "";
     }
-    
+
     if (decimals > 0) {
       return String(Number(num.toFixed(decimals)));
     }

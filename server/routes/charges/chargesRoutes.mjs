@@ -193,29 +193,39 @@ router.put('/charges/:id', verifyToken, async (req, res) => {
     
     // Assign fields
     if (req.body.revenue) {
+      if (isLocked) {
+        // Only allow updating attachments when locked
+        const currentRevenue = charge.revenue ? charge.revenue.toObject() : {};
+        const updatedRevenue = { ...currentRevenue };
+        if (req.body.revenue.url !== undefined) updatedRevenue.url = req.body.revenue.url;
+        if (req.body.revenue.url_draft !== undefined) updatedRevenue.url_draft = req.body.revenue.url_draft;
+        if (req.body.revenue.url_final !== undefined) updatedRevenue.url_final = req.body.revenue.url_final;
+        charge.revenue = updatedRevenue;
+      } else {
         charge.revenue = { ...(charge.revenue ? charge.revenue.toObject() : {}), ...req.body.revenue };
+      }
     }
     
     if (req.body.cost) {
-        if (isLocked) {
-            // Allow updating attachments even if locked
-            if (req.body.cost.url) {
-                const currentCost = charge.cost ? charge.cost.toObject() : {};
-                charge.cost = { ...currentCost, url: req.body.cost.url };
-            }
-        } else {
-            charge.cost = { ...(charge.cost ? charge.cost.toObject() : {}), ...req.body.cost };
-        }
+      if (isLocked) {
+        // Only allow updating attachments when locked
+        const currentCost = charge.cost ? charge.cost.toObject() : {};
+        const updatedCost = { ...currentCost };
+        if (req.body.cost.url !== undefined) updatedCost.url = req.body.cost.url;
+        if (req.body.cost.url_draft !== undefined) updatedCost.url_draft = req.body.cost.url_draft;
+        if (req.body.cost.url_final !== undefined) updatedCost.url_final = req.body.cost.url_final;
+        charge.cost = updatedCost;
+      } else {
+        charge.cost = { ...(charge.cost ? charge.cost.toObject() : {}), ...req.body.cost };
+      }
     }
     
     // Other top level fields
-    const excludedFields = ['revenue', 'cost', '_id', 'createdAt', 'updatedAt', 'parentId', 'parentModule', 'payment_request_no', 'purchase_book_no'];
-    for (const key of Object.keys(req.body)) {
-      if (!excludedFields.includes(key)) {
-        if (isLocked && (key === 'payment_request_no' || key === 'purchase_book_no' || key === 'payment_request_status' || key === 'purchase_book_status')) {
-            // Skip
-        } else {
-            charge[key] = req.body[key];
+    if (!isLocked) {
+      const excludedFields = ['revenue', 'cost', '_id', 'createdAt', 'updatedAt', 'parentId', 'parentModule', 'payment_request_no', 'purchase_book_no'];
+      for (const key of Object.keys(req.body)) {
+        if (!excludedFields.includes(key)) {
+          charge[key] = req.body[key];
         }
       }
     }

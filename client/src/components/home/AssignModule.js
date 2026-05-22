@@ -36,6 +36,7 @@ const allModules = [
   "MRM",
   "DGFT",
   "Pulse",
+  "Team Pulse",
   "MasterDirectory",
   "Attendance",
   "Bill Cover"

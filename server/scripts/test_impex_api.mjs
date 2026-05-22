@@ -1,9 +1,9 @@
-   import axios from "axios";
+import axios from "axios";
 import dotenv from "dotenv";
 
 dotenv.config();
 
-const IMEXCUBE_BASE_URL = "http://testimpexapi.impexcube.in";
+const IMEXCUBE_BASE_URL = "https://impexapi.impexcube.in";
 const USERNAME = process.env.IMPEX_USERNAME || "APITest";
 const PASSWORD = process.env.IMPEX_PASSWORD || "Api@$2026";
 const COMPANY_BR_CODE = process.env.COMPANY_BR_CODE || "F94B2F92-4226-4678-855F-932DD2C45AB7";

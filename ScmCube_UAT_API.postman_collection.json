@@ -106,7 +106,7 @@
 	"variable": [
 		{
 			"key": "baseUrl",
-			"value": "http://testimpexapi.impexcube.in",
+			"value": "https://impexapi.impexcube.in",
 			"type": "string"
 		},
 		{

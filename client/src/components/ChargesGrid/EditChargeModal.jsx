@@ -214,6 +214,23 @@ const EditChargeModal = ({
       const updated = [...prev];
       if (!updated[index]) return prev;
 
+      // Lock protection check: check if the charge is locked for the current user
+      const row = updated[index];
+      const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
+      const role = (user?.role || "").toLowerCase();
+      const isAuth = role === "admin" || role === "head_of_department" || role === "hod";
+      const hasActivePR = row.payment_request_no && row.payment_request_status !== 'Rejected';
+      const hasActivePB = row.purchase_book_no && row.purchase_book_status !== 'Rejected';
+      const isIndividualLocked = (hasActivePR || hasActivePB) && !isAuth;
+      const effectiveReadOnly = readOnly || isIndividualLocked;
+
+      if (effectiveReadOnly) {
+        // Only allow changes to attachment fields when locked
+        if (field !== 'url' && field !== 'url_draft' && field !== 'url_final') {
+          return prev;
+        }
+      }
+
       if (section) {
         updated[index][section] = updated[index][section] || {};
         updated[index][section][field] = value;

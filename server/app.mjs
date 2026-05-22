@@ -429,6 +429,8 @@ app.use(
       "Content-Type",
       "Authorization",
       "user-id",
+      "userid",
+      "userId",
       "username",
       "user-role",
       "x-username",

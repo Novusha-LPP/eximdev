@@ -620,37 +620,24 @@ export const convertToExcel = async (
 
   filteredRows.forEach((item) => {
     const containers = item.container_nos || [];
-    if (containers.length === 0) return;
-
-    let jobSize = null;
-    for (const container of containers) {
+    containers.forEach((container) => {
       const cleanSize = String(container.size || "").trim();
+      const arrived = isValidDate(container.arrival_date);
+
       if (cleanSize.startsWith("20")) {
-        jobSize = "20";
-        break;
+        if (arrived) {
+          containersWithSize20AndArrival++;
+        } else {
+          containersWithSize20AndNoArrival++;
+        }
       } else if (cleanSize.startsWith("40")) {
-        jobSize = "40";
-        break;
+        if (arrived) {
+          containersWithSize40AndArrival++;
+        } else {
+          containersWithSize40AndNoArrival++;
+        }
       }
-    }
-
-    if (!jobSize) return;
-
-    const allArrived = containers.every((c) => isValidDate(c.arrival_date));
-
-    if (jobSize === "20") {
-      if (allArrived) {
-        containersWithSize20AndArrival++;
-      } else {
-        containersWithSize20AndNoArrival++;
-      }
-    } else if (jobSize === "40") {
-      if (allArrived) {
-        containersWithSize40AndArrival++;
-      } else {
-        containersWithSize40AndNoArrival++;
-      }
-    }
+    });
   });
 
   const totalContainers =

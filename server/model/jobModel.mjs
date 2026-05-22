@@ -200,21 +200,27 @@ const ChargeSchema = new mongoose.Schema({
 });
 
 ChargeSchema.pre("save", function (next) {
-  if (this.revenue) {
-    this.revenue.amount = (this.revenue.rate || 0) * (this.revenue.qty || 0);
-    this.revenue.amountINR = this.revenue.amount * (this.revenue.exchangeRate || 1);
-  }
-  if (this.cost) {
-    this.cost.amount = (this.cost.rate || 0) * (this.cost.qty || 0);
-    this.cost.amountINR = this.cost.amount * (this.cost.exchangeRate || 1);
-  }
+  const hasActivePR = this.payment_request_no && this.payment_request_status !== 'Rejected';
+  const hasActivePB = this.purchase_book_no && this.purchase_book_status !== 'Rejected';
+  const isLocked = hasActivePR || hasActivePB;
 
-  if (this.isNew && this.copyToCost && this.revenue && this.cost) {
-    this.cost.rate = this.revenue.rate;
-    this.cost.amount = this.revenue.amount;
-    this.cost.amountINR = this.revenue.amountINR;
-    this.cost.currency = this.revenue.currency;
-    this.cost.basis = this.revenue.basis;
+  if (!isLocked) {
+    if (this.revenue) {
+      this.revenue.amount = (this.revenue.rate || 0) * (this.revenue.qty || 0);
+      this.revenue.amountINR = this.revenue.amount * (this.revenue.exchangeRate || 1);
+    }
+    if (this.cost) {
+      this.cost.amount = (this.cost.rate || 0) * (this.cost.qty || 0);
+      this.cost.amountINR = this.cost.amount * (this.cost.exchangeRate || 1);
+    }
+
+    if (this.isNew && this.copyToCost && this.revenue && this.cost) {
+      this.cost.rate = this.revenue.rate;
+      this.cost.amount = this.revenue.amount;
+      this.cost.amountINR = this.revenue.amountINR;
+      this.cost.currency = this.revenue.currency;
+      this.cost.basis = this.revenue.basis;
+    }
   }
 
   this.updatedAt = Date.now();

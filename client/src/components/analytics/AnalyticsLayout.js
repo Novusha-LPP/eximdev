@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import axios from 'axios';
 import Autocomplete from '@mui/material/Autocomplete';
 import TextField from '@mui/material/TextField';
@@ -16,6 +15,7 @@ import RefreshIcon from '@mui/icons-material/Refresh';
 import MenuIcon from '@mui/icons-material/Menu';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import PendingActionsIcon from '@mui/icons-material/PendingActions';
+import { UserContext } from '../../contexts/UserContext';
 
 // Icons
 import DashboardIcon from '@mui/icons-material/Dashboard';
@@ -38,6 +38,7 @@ const navItems = [
     { name: 'Submission', path: 'submission', icon: <TaskIcon fontSize="small" /> },
     { name: 'Operations', path: 'operations', icon: <EngineeringIcon fontSize="small" /> },
     { name: 'DO', path: 'do-management', icon: <AssignmentTurnedInIcon fontSize="small" /> },
+    { name: 'Team Pulse', path: 'team-pulse', icon: <PendingActionsIcon fontSize="small" /> },
 ];
 
 const AnalyticsLayout = () => {
@@ -49,7 +50,19 @@ const AnalyticsLayout = () => {
     const [refreshKey, setRefreshKey] = useState(0);
     const [importersList, setImportersList] = useState([]);
 
-    const currentModule = navItems.find(item => location.pathname.includes(item.path)) || navItems[0];
+    const { user } = useContext(UserContext);
+
+    const allowedNavItems = useMemo(() => {
+        const userModules = user?.modules || [];
+        return navItems.filter(item => {
+            if (item.path === 'team-pulse') {
+                return userModules.includes('Team Pulse');
+            }
+            return userModules.includes('Pulse');
+        });
+    }, [user]);
+
+    const currentModule = allowedNavItems.find(item => location.pathname.includes(item.path)) || allowedNavItems[0] || navItems[0];
     const [selectedPreset, setSelectedPreset] = useState('Today');
 
     useEffect(() => {
@@ -140,7 +153,7 @@ const AnalyticsLayout = () => {
                                 }
                             }}
                         >
-                            {navItems.map((item) => (
+                            {allowedNavItems.map((item) => (
                                 <MenuItem
                                     key={item.path}
                                     onClick={() => handleNavigate(item.path)}

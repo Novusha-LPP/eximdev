@@ -68,6 +68,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/mrm");
     case "Pulse":
       return navigate("/pulse");
+    case "Team Pulse":
+      return navigate("/pulse/team-pulse");
     case "MasterDirectory":
       return navigate("/master-directory");
     case "Document Collection":

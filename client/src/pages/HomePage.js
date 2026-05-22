@@ -6,6 +6,7 @@ import { Route, Routes, Navigate } from "react-router-dom";
 import { TabValueContext } from "../contexts/TabValueContext.js";
 import { SearchQueryProvider } from "../contexts/SearchQueryContext.js";
 import ProtectedRoute from "./ProtectedRoute.js";
+import { UserContext } from "../contexts/UserContext";
 // Home
 import Home from "../components/home/Home";
 import Assign from "../components/home/Assign.js";
@@ -148,6 +149,7 @@ import ESanchitDashboard from "../components/analytics/ESanchitDashboard";
 import OperationsDashboard from "../components/analytics/OperationsDashboard";
 import SubmissionDashboard from "../components/analytics/SubmissionDashboard";
 import CombinedDashboard from "../components/analytics/CombinedDashboard";
+import TeamPulseDashboard from "../components/analytics/TeamPulseDashboard";
 
 // Open Points
 
@@ -190,6 +192,18 @@ import { useBranch } from "../contexts/BranchContext.js";
 import TeamDashboard from "../components/teams/TeamDashboard";
 
 const drawerWidth = 60;
+
+const PulseIndex = () => {
+  const { user } = React.useContext(UserContext);
+  const userModules = user?.modules || [];
+  if (userModules.includes("Pulse")) {
+    return <Navigate to="combined" replace />;
+  }
+  if (userModules.includes("Team Pulse")) {
+    return <Navigate to="team-pulse" replace />;
+  }
+  return <Navigate to="/" replace />;
+};
 
 function HomePageContent() {
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -864,14 +878,14 @@ function HomePageContent() {
                 <Route
                   path="/pulse"
                   element={
-                    <ProtectedRoute requiredModule="Pulse">
+                    <ProtectedRoute requiredModule={["Pulse", "Team Pulse"]}>
                       <AnalyticsProvider>
                         <AnalyticsLayout />
                       </AnalyticsProvider>
                     </ProtectedRoute>
                   }
                 >
-                  <Route index element={<Navigate to="combined" replace />} />
+                  <Route index element={<PulseIndex />} />
                   <Route path="combined" element={<CombinedDashboard />} />
                   <Route path="esanchit" element={<ESanchitDashboard />} />
                   <Route
@@ -884,6 +898,7 @@ function HomePageContent() {
                     path="do-management"
                     element={<DoManagementDashboard />}
                   />
+                  <Route path="team-pulse" element={<TeamPulseDashboard />} />
                 </Route>
 
                 {/* MRM Module */}

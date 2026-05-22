@@ -137,7 +137,7 @@ const NucleusHome = () => {
             label: 'Transport',
             icon: '🚚',
             reports: [
-                { id: 'transport_table', label: 'Top 10 Transporters Volume' },
+                { id: 'transport_table', label: 'Top 10 Transporters' },
                 { id: 'fleet_utilization', label: 'Fleet Utilization' },
                 { id: 'elock_lr_completed', label: 'LR Completed Count' }
             ]

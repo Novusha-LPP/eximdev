@@ -6,6 +6,8 @@ import { getBranchMatch } from "../../utils/branchFilter.mjs";
 
 const router = express.Router();
 
+const escapeRegex = (string) => string.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+
 router.get(
   "/api/do-team-list-of-jobs",
   applyUserIcdFilter,
@@ -115,14 +117,14 @@ router.get(
       // ✅ If importer is selected, add it to the query
       if (decodedImporter && decodedImporter !== "Select Importer") {
         baseQuery.$and.push({
-          importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
+          importer: { $regex: new RegExp(`^${escapeRegex(decodedImporter)}$`, "i") },
         });
       }
 
       // ✅ If selectedICD is provided, filter by ICD Code
       if (decodedICD && decodedICD !== "Select ICD") {
         baseQuery.$and.push({
-          custom_house: { $regex: new RegExp(`^${decodedICD}$`, "i") },
+          custom_house: { $regex: new RegExp(`^${escapeRegex(decodedICD)}$`, "i") },
         });
       }
 

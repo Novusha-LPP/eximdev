@@ -22,6 +22,8 @@ import { getBranchMatch } from "../../utils/branchFilter.mjs";
 import verifyToken from "../../middleware/authMiddleware.mjs";
 
 const router = express.Router();
+
+const escapeRegex = (string) => string.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
 router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
   try {
     // Extract and validate query parameters
@@ -73,6 +75,15 @@ router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
             { is_free_time_updated: false }, // Field exists and is false
           ],
         },
+        {
+          $or: [
+            { free_time: { $exists: false } },
+            { free_time: 0 },
+            { free_time: "0" },
+            { free_time: null },
+            { free_time: "" }
+          ],
+        },
         searchQuery,
       ],
     };
@@ -84,11 +95,11 @@ router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
 
     // ✅ Apply Importer Filter if provided
     if (importer && importer !== "Select Importer") {
-      baseQuery.$and.push({ importer: { $regex: new RegExp(`^${importer}$`, "i") } });
+      baseQuery.$and.push({ importer: { $regex: new RegExp(`^${escapeRegex(importer)}$`, "i") } });
     }
 
     if (selectedICD && selectedICD !== "Select ICD") {
-      baseQuery.$and.push({ custom_house: { $regex: new RegExp(`^${selectedICD}$`, "i") } });
+      baseQuery.$and.push({ custom_house: { $regex: new RegExp(`^${escapeRegex(selectedICD)}$`, "i") } });
     }
 
     const branchMatch = getBranchMatch(branchId, category);

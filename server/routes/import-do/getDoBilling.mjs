@@ -6,6 +6,8 @@ import { getBranchMatch } from "../../utils/branchFilter.mjs";
 
 const router = express.Router();
 
+const escapeRegex = (string) => string.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+
 // Utility function to build search query
 const buildSearchQuery = (search) => ({
   $or: [
@@ -96,19 +98,19 @@ router.get("/api/get-do-billing", applyUserIcdFilter, async (req, res) => {
     // ✅ If importer is selected, filter by importer
     if (decodedImporter && decodedImporter !== "Select Importer") {
       baseQuery.$and.push({
-        importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
+        importer: { $regex: new RegExp(`^${escapeRegex(decodedImporter)}$`, "i") },
       });
     }
 
     // ✅ If selectedICD is provided, filter by ICD Code
     if (decodedICD && decodedICD !== "Select ICD") {
       baseQuery.$and.push({
-        custom_house: { $regex: new RegExp(`^${decodedICD}$`, "i") },
+        custom_house: { $regex: new RegExp(`^${escapeRegex(decodedICD)}$`, "i") },
       });
     }
     if (decodedOBL && decodedOBL !== "Select OBL") {
       baseQuery.$and.push({
-        obl_telex_bl: { $regex: new RegExp(`^${decodedOBL}$`, "i") },
+        obl_telex_bl: { $regex: new RegExp(`^${escapeRegex(decodedOBL)}$`, "i") },
       });
     }
 

@@ -6,6 +6,8 @@ import { getBranchMatch } from "../../utils/branchFilter.mjs";
 
 const router = express.Router();
 
+const escapeRegex = (string) => string.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+
 // Utility function to build search query
 const buildSearchQuery = (search) => ({
   $or: [
@@ -96,7 +98,7 @@ router.get(
       // ✅ Apply importer filter if provided
       if (decodedImporter && decodedImporter !== "Select Importer" && decodedImporter !== "All Importers") {
         baseQuery.$and.push({
-          importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
+          importer: { $regex: new RegExp(`^${escapeRegex(decodedImporter)}$`, "i") },
         });
       }
 
@@ -111,7 +113,7 @@ router.get(
       // ✅ Apply ICD filter if provided
       if (decodedICD && decodedICD !== "All ICDs" && decodedICD !== "Select ICD") {
         baseQuery.$and.push({
-          custom_house: { $regex: new RegExp(`^${decodedICD}$`, "i") },
+          custom_house: { $regex: new RegExp(`^${escapeRegex(decodedICD)}$`, "i") },
         });
       }
 

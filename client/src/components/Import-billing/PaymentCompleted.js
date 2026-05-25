@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useContext } from "react";
 import axios from "axios";
 import { MaterialReactTable } from "material-react-table";
 import { Link, useNavigate } from "react-router-dom";
+import * as XLSX from "xlsx";
 import { TabContext } from "../eSanchit/ESanchitTab.js";
 import {
   TextField,
@@ -66,9 +67,160 @@ function PaymentCompleted({ workMode = "Payment" }) {
   const [completionEndDate, setCompletionEndDate] = useState("");
   const [dateFilterType, setDateFilterType] = useState("single"); // 'single', 'range', 'today', 'week', 'month', 'year'
   const [anchorEl, setAnchorEl] = useState(null);
+  const [isExporting, setIsExporting] = useState(false);
 
   const handleAdvancedClick = (event) => setAnchorEl(event.currentTarget);
   const handleAdvancedClose = () => setAnchorEl(null);
+
+  const handleDownloadExcel = async () => {
+    setIsExporting(true);
+    try {
+      const { start, end } = calculateDates();
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/get-payment-completed-jobs`,
+        {
+          params: {
+            page: 1,
+            limit: 100000,
+            search: debouncedSearchQuery,
+            importer: selectedImporter?.trim() || "",
+            year: selectedYearState || "",
+            username: user?.username || "",
+            branchId: selectedBranch || "all",
+            category: selectedCategory || "all",
+            startDate: start,
+            endDate: end,
+            workMode,
+          },
+        }
+      );
+
+      const allJobs = res.data.jobs || [];
+      const excelData = [];
+      const filterField = workMode === "Payment" ? "payment_request_no" : "purchase_book_no";
+      const dataFieldMode = workMode === "Payment" ? "payment_request_transaction_type" : "supplier_name";
+
+      const uniquePRs = new Set();
+      allJobs.forEach((job) => {
+        (job.charges || []).forEach((c) => {
+          if (c[filterField]) uniquePRs.add(c[filterField]);
+        });
+      });
+
+      const prDetailsMap = {};
+      const prPromises = Array.from(uniquePRs).map(async (prNo) => {
+        try {
+          const detailRes = await axios.get(`${process.env.REACT_APP_API_STRING}/get-payment-request-details/${encodeURIComponent(prNo)}`);
+          prDetailsMap[prNo] = detailRes.data;
+        } catch (e) {
+          console.error(`Failed to fetch PR details for ${prNo}`, e);
+          prDetailsMap[prNo] = null;
+        }
+      });
+      await Promise.all(prPromises);
+
+      allJobs.forEach((job) => {
+        const charges = job.charges || [];
+        const reqMap = new Map();
+
+        charges.forEach((c) => {
+          const reqNo = c[filterField];
+          if (reqNo && !reqMap.has(reqNo)) {
+            const reqDate = c.createdAt || c.payment_request_created_at || "";
+            const transMode = c[dataFieldMode] || "-";
+            const dates = charges
+              .filter((ch) => ch[filterField] === reqNo)
+              .map((ch) => ch.utrAddedAt || ch.updatedAt)
+              .filter(Boolean)
+              .sort((a, b) => new Date(b) - new Date(a));
+            const compDate = dates.length > 0 ? dates[0] : null;
+
+            let isValidDate = true;
+            if (start && end) {
+              if (!compDate) {
+                isValidDate = false;
+              } else {
+                const cDate = new Date(compDate);
+                cDate.setHours(0, 0, 0, 0);
+                const sDate = new Date(start);
+                sDate.setHours(0, 0, 0, 0);
+                const eDate = new Date(end);
+                eDate.setHours(0, 0, 0, 0);
+
+                if (cDate < sDate || cDate > eDate) {
+                  isValidDate = false;
+                }
+              }
+            }
+
+            if (isValidDate) {
+              const prDetails = prDetailsMap[reqNo] || {};
+              const amount = prDetails.amount || prDetails.totalAmount || prDetails.payment_request_amount || c.payment_request_amount || c.amount || c.total_amount || 0;
+              const bankFrom = prDetails.bankFrom || prDetails.bank || prDetails.payment_request_bank || c.payment_request_bank || c.bank || "-";
+              const beneficiary = prDetails.paymentTo || prDetails.beneficiary || prDetails.payment_request_beneficiary || c.payment_request_beneficiary || c.beneficiary || "-";
+
+              const containerNos = job.container_nos && Array.isArray(job.container_nos) 
+                ? job.container_nos.map((cn) => cn.container_number).filter(Boolean).join(", ") 
+                : "-";
+
+              reqMap.set(reqNo, {
+                "IMPORTER": job.importer || "-",
+                "BOE NO": job.be_no || "-",
+                "IGM NO": job.igm_no || "-",
+                "SHIPPING LINE": job.shipping_line_airline || "-",
+                "BL NO": job.awb_bl_no || "-",
+                "CONTAINER NO": containerNos || "-",
+                "JOB NO": job.job_number || job.job_no || "-",
+                "Payment Request No": reqNo,
+                "Date": reqDate ? new Date(reqDate).toLocaleDateString("en-GB") : "-",
+                "Transaction Mode": transMode,
+                "Completion Date": compDate ? new Date(compDate).toLocaleDateString("en-GB") : "-",
+                "Amount": amount,
+                "bankFrom": bankFrom,
+                "paymentTo": beneficiary,
+              });
+            }
+          }
+        });
+
+        reqMap.forEach((val) => excelData.push(val));
+      });
+
+      if (excelData.length === 0) {
+        alert("No data available to export");
+        return;
+      }
+
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      
+      const colWidths = [
+        { wch: 30 }, // IMPORTER
+        { wch: 20 }, // BOE NO
+        { wch: 20 }, // IGM NO
+        { wch: 25 }, // SHIPPING LINE
+        { wch: 20 }, // BL NO
+        { wch: 25 }, // CONTAINER NO
+        { wch: 20 }, // JOB NO
+        { wch: 25 }, // Payment Request No
+        { wch: 15 }, // Date
+        { wch: 20 }, // Transaction Mode
+        { wch: 20 }, // Completion Date
+        { wch: 15 }, // Amount
+        { wch: 20 }, // Bank From
+        { wch: 25 }, // Beneficiary
+      ];
+      worksheet['!cols'] = colWidths;
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Payment Completed");
+      XLSX.writeFile(workbook, `Payment_Completed_${new Date().toISOString().split("T")[0]}.xlsx`);
+    } catch (error) {
+      console.error("Error exporting to Excel:", error);
+      alert("Failed to export Excel. Please try again.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const calculateDates = useCallback(() => {
     const today = new Date();
@@ -936,7 +1088,6 @@ function PaymentCompleted({ workMode = "Payment" }) {
               </Button>
             </Box>
           </Popover>
-
           {dateFilterType !== "single" && (
             <Chip 
               label={dateFilterType.toUpperCase()} 
@@ -949,6 +1100,17 @@ function PaymentCompleted({ workMode = "Payment" }) {
               sx={{ borderRadius: '5px', fontWeight: 'bold' }}
             />
           )}
+
+          <Button
+            size="small"
+            variant="contained"
+            color="success"
+            onClick={handleDownloadExcel}
+            disabled={isExporting}
+            sx={{ borderRadius: '20px', textTransform: 'none', fontWeight: 'bold', ml: 1 }}
+          >
+            {isExporting ? "Exporting..." : "Download Excel"}
+          </Button>
         </Box>
       </div>
     ),

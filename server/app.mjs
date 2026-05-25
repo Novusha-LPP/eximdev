@@ -413,11 +413,13 @@ app.use((req, res, next) => {
 app.use(
   cors({
     origin: [
+      "null",
       "http://eximdev.s3-website.ap-south-1.amazonaws.com",
       "http://localhost:3000",
       "http://localhost:3001",
+      "http://localhost:9007",
       "http://192.168.1.105:3000",
-        "http://192.168.1.105:3001",
+      "http://192.168.1.105:3001",
       "http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com",
       "https://import.alvision.in",
       "https://test-frontend.alvision.in"
@@ -461,6 +463,10 @@ app.get("/", async (req, res) => {
   } catch (error) {
     res.status(500).send("An error occurred");
   }
+});
+
+app.get("/fleet", (req, res) => {
+  res.sendFile(path.join(path.dirname(fileURLToPath(import.meta.url)), "fleet.html"));
 });
 
 // app.use(updateJobCount);
@@ -852,4 +858,4 @@ if (!disableCluster && cluster.isPrimary) {
 }
 
 export default app;
- 
+

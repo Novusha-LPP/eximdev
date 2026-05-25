@@ -18,6 +18,7 @@ export const getEndpoint = (path) => {
 };
 
 export const TRANSPORT_BASE = 'https://eximbot.alvision.in/transport';
+// export const TRANSPORT_BASE = 'http://localhost:9007';
 export const TRANSPORT_API_KEY = '1234567890';
 export const TRANSPORT_HEADERS = { 'x-api-key': TRANSPORT_API_KEY };
 

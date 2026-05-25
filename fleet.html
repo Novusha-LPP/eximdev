@@ -1,0 +1,1252 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fleet Dispatch Report</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css" />
+    <style>
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #ffffff;
+            --bg2: #f5f5f0;
+            --bg3: #eeede8;
+            --text: #1a1a18;
+            --text2: #5f5e5a;
+            --text3: #888780;
+            --border: rgba(0, 0, 0, 0.12);
+            --border2: rgba(0, 0, 0, 0.22);
+            --radius: 8px;
+            --radius-lg: 12px;
+            --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #1c1c1a;
+                --bg2: #252523;
+                --bg3: #2e2e2b;
+                --text: #f0efe8;
+                --text2: #b4b2a9;
+                --text3: #888780;
+                --border: rgba(255, 255, 255, 0.10);
+                --border2: rgba(255, 255, 255, 0.20);
+            }
+        }
+
+        body {
+            font-family: var(--font);
+            background: var(--bg3);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 0;
+        }
+
+        header {
+            background: var(--bg);
+            border-bottom: 0.5px solid var(--border2);
+            padding: 14px 24px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            flex-wrap: wrap;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        header h1 {
+            font-size: 17px;
+            font-weight: 600;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+        }
+
+        header h1 i {
+            font-size: 20px;
+            color: var(--text2);
+        }
+
+        .ctrl-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        input[type=date] {
+            font-family: var(--font);
+            font-size: 13px;
+            padding: 7px 12px;
+            border-radius: var(--radius);
+            border: 0.5px solid var(--border2);
+            background: var(--bg2);
+            color: var(--text);
+            outline: none;
+            cursor: pointer;
+        }
+
+        input[type=date]:focus {
+            border-color: #378ADD;
+            box-shadow: 0 0 0 3px rgba(55, 138, 221, 0.15);
+        }
+
+        button#loadBtn {
+            font-family: var(--font);
+            font-size: 13px;
+            font-weight: 500;
+            padding: 7px 16px;
+            border-radius: var(--radius);
+            border: 0.5px solid var(--border2);
+            background: var(--bg2);
+            color: var(--text);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: background 0.15s;
+        }
+
+        button#loadBtn:hover {
+            background: var(--bg3);
+        }
+
+        button#loadBtn:active {
+            transform: scale(0.97);
+        }
+
+        main {
+            padding: 20px 24px 40px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+
+        .metric {
+            background: var(--bg);
+            border-radius: var(--radius);
+            padding: 14px 16px;
+            border: 0.5px solid var(--border);
+        }
+
+        .metric-label {
+            font-size: 11px;
+            color: var(--text3);
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .metric-value {
+            font-size: 28px;
+            font-weight: 600;
+            color: var(--text);
+            line-height: 1;
+        }
+
+        .metric-value.warn {
+            color: #BA7517;
+        }
+
+        .metric-value.danger {
+            color: #A32D2D;
+        }
+
+        .metric-value.info {
+            color: #185FA5;
+        }
+
+        .metric-value.ok {
+            color: #3B6D11;
+        }
+
+        .section {
+            margin-bottom: 24px;
+        }
+
+        .section-hdr {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .section-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text2);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .section-title i {
+            font-size: 16px;
+        }
+
+        .badge {
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 99px;
+            line-height: 1.7;
+        }
+
+        .badge-blue {
+            background: #E6F1FB;
+            color: #0C447C;
+        }
+
+        .badge-amber {
+            background: #FAEEDA;
+            color: #633806;
+        }
+
+        .badge-red {
+            background: #FCEBEB;
+            color: #791F1F;
+        }
+
+        .badge-green {
+            background: #EAF3DE;
+            color: #27500A;
+        }
+
+        .badge-gray {
+            background: #F1EFE8;
+            color: #444441;
+        }
+
+        .badge-purple {
+            background: #EEEDFE;
+            color: #3C3489;
+        }
+
+        .tbl-wrap {
+            overflow-x: auto;
+            border-radius: var(--radius-lg);
+            border: 0.5px solid var(--border);
+            background: var(--bg);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        thead {
+            background: var(--bg2);
+        }
+
+        th {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text3);
+            text-align: left;
+            padding: 10px 12px;
+            border-bottom: 0.5px solid var(--border);
+            white-space: nowrap;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        td {
+            padding: 9px 12px;
+            color: var(--text);
+            border-bottom: 0.5px solid var(--border);
+            vertical-align: middle;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tbody tr:hover td {
+            background: var(--bg2);
+        }
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 99px;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        .s-nodriver {
+            background: #FAEEDA;
+            color: #633806;
+        }
+
+        .s-leave {
+            background: #FCEBEB;
+            color: #791F1F;
+        }
+
+        .s-maint {
+            background: #E6F1FB;
+            color: #0C447C;
+        }
+
+        .s-other {
+            background: #F1EFE8;
+            color: #444441;
+        }
+
+        .s-accident {
+            background: #FEE2E2;
+            color: #991B1B;
+            border: 0.5px solid #FCA5A5;
+        }
+
+        .ie-import {
+            background: #E6F1FB;
+            color: #0C447C;
+        }
+
+        .ie-export {
+            background: #EAF3DE;
+            color: #27500A;
+        }
+
+        .ie-sales {
+            background: #EEEDFE;
+            color: #3C3489;
+        }
+
+        .own-own {
+            background: #EAF3DE;
+            color: #27500A;
+        }
+
+        .own-hired {
+            background: #F1EFE8;
+            color: #444441;
+        }
+
+        .vno {
+            font-weight: 600;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .lrno {
+            font-weight: 600;
+            white-space: nowrap;
+            font-size: 12px;
+        }
+
+        .muted {
+            color: var(--text2);
+        }
+
+        .exc-remark {
+            font-size: 12px;
+            color: var(--text2);
+            max-width: 280px;
+            line-height: 1.5;
+        }
+
+        .empty {
+            padding: 28px;
+            text-align: center;
+            color: var(--text3);
+            font-size: 13px;
+        }
+
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 40px;
+            color: var(--text2);
+            font-size: 13px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid var(--border2);
+            border-top-color: #378ADD;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            flex-shrink: 0;
+        }
+
+        .err-box {
+            background: #FCEBEB;
+            color: #791F1F;
+            border-radius: var(--radius-lg);
+            border: 0.5px solid #F7C1C1;
+            padding: 16px 20px;
+            font-size: 13px;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .err-box i {
+            font-size: 18px;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .err-box small {
+            display: block;
+            margin-top: 4px;
+            color: #A32D2D;
+            font-size: 12px;
+        }
+
+        .exc-row td {
+            background: #FFFBF5;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .exc-row td {
+                background: #2a2318;
+            }
+        }
+
+        /* ── Excel Spreadsheet Styles ────────────────────────────────── */
+        .excel-wrap {
+            overflow-x: auto;
+            border: 1px solid var(--border2);
+            background: #ffffff;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            border-radius: var(--radius-lg);
+            margin-bottom: 24px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .excel-wrap {
+                background: #1e1e1d;
+                border-color: var(--border2);
+            }
+        }
+
+        .excel-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            font-size: 11px;
+            color: #000000;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .excel-table {
+                color: #e0e0dc;
+            }
+        }
+
+        .excel-table th {
+            background: #fef08a; /* Excel classic yellow header */
+            color: #000000;
+            border: 1px solid #b7b7b7;
+            font-weight: 700;
+            text-align: center;
+            padding: 8px 10px;
+            line-height: 1.4;
+            white-space: normal;
+            vertical-align: middle;
+            font-size: 10px;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .excel-table th {
+                background: #854d0e; /* Dark-mode friendly gold */
+                color: #ffffff;
+                border-color: #52524f;
+            }
+        }
+
+        .excel-table td {
+            border: 1px solid #d4d4d4;
+            padding: 6px 10px;
+            text-align: center;
+            vertical-align: middle;
+            font-weight: 500;
+            background: #ffffff;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .excel-table td {
+                background: #252523;
+                border-color: #3f3f3e;
+            }
+        }
+
+        .excel-table tr:hover td {
+            background: #fef9c3 !important; /* Excel soft yellow hover */
+            color: #000000;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .excel-table tr:hover td {
+                background: #423b18 !important;
+                color: #ffffff;
+            }
+        }
+
+        .excel-table .num {
+            font-family: 'Consolas', monospace;
+            font-size: 11px;
+        }
+
+        .excel-table .highlight-yellow {
+            background: #fef9c3; /* Soft yellow cell */
+            color: #000000;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .excel-table .highlight-yellow {
+                background: #3a3205;
+                color: #fef9c3;
+            }
+        }
+
+        .excel-table .highlight-red {
+            background: #fee2e2; /* Soft red cell */
+            color: #991b1b;
+            font-weight: 600;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .excel-table .highlight-red {
+                background: #450a0a;
+                color: #fca5a5;
+            }
+        }
+
+        .excel-table .highlight-green {
+            background: #dcfce7; /* Soft green cell */
+            color: #166534;
+            font-weight: 600;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .excel-table .highlight-green {
+                background: #064e3b;
+                color: #a7f3d0;
+            }
+        }
+
+        @media (max-width: 600px) {
+            header {
+                padding: 12px 16px;
+            }
+
+            main {
+                padding: 14px 12px 32px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <h1><i class="ti ti-truck"></i> Fleet Dispatch Report</h1>
+        <div class="ctrl-group">
+            <label style="font-size:12px;opacity:0.8;font-weight:500;">Preset:</label>
+            <select id="presetSelect" style="
+                font-family: var(--font);
+                font-size: 13px;
+                padding: 7px 12px;
+                border-radius: var(--radius);
+                border: 0.5px solid var(--border2);
+                background: var(--bg2);
+                color: var(--text);
+                outline: none;
+                cursor: pointer;
+            ">
+                <option value="custom">Custom Range</option>
+                <option value="today">Today (May 25)</option>
+                <option value="weekly">Weekly (Last 7 Days)</option>
+                <option value="monthly">Monthly (Last 30 Days)</option>
+                <option value="may-2026">May 2026</option>
+            </select>
+            <label style="font-size:12px;opacity:0.8;font-weight:500;">From:</label>
+            <input type="date" id="startDateInput" value="2026-05-22" />
+            <label style="font-size:12px;opacity:0.8;font-weight:500;">To:</label>
+            <input type="date" id="endDateInput" value="2026-05-22" />
+            <button id="loadBtn"><i class="ti ti-refresh"></i> Load</button>
+        </div>
+    </header>
+
+    <main id="main">
+        <div class="loading">
+            <div class="spinner"></div> Loading report…
+        </div>
+    </main>
+
+    <script>
+        const BASE = 'http://localhost:9006';
+        const API_KEY = '1234567890';
+
+        async function fetchReport(startDate, endDate) {
+            const url = `${BASE}/api/fleet/utilization-report?startDate=${startDate}&endDate=${endDate}`;
+            const res = await fetch(url, { headers: { 'x-api-key': API_KEY } });
+            if (!res.ok) throw new Error(`HTTP ${res.status} – ${res.statusText}`);
+            return res.json();
+        }
+
+        /* ── helpers ──────────────────────────────────────────────────── */
+        function esc(s) {
+            return String(s ?? '—')
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+        function fmtDate(d) { return d ? d.slice(0, 10) : '—'; }
+
+        function statusPill(s, other) {
+            if (s === 'No Driver') return `<span class="pill s-nodriver">No driver</span>`;
+            if (s === 'Driver on Leave') return `<span class="pill s-leave">Driver on leave</span>`;
+            if (s === 'Maintenance') return `<span class="pill s-maint">Maintenance</span>`;
+            if (s === 'Accident') return `<span class="pill s-accident">Accident</span>`;
+            return `<span class="pill s-other">${esc(other || s)}</span>`;
+        }
+        function iePill(ie) {
+            const cls = ie === 'Import' ? 'ie-import' : ie === 'Export' ? 'ie-export' : 'ie-sales';
+            return `<span class="pill ${cls}">${esc(ie)}</span>`;
+        }
+        function ownPill(v) {
+            return v === 'Own'
+                ? `<span class="pill own-own">Own</span>`
+                : `<span class="pill own-hired">Hired</span>`;
+        }
+
+        /* ── section renderers ────────────────────────────────────────── */
+        function renderMetrics(totalFleet, fleet, active, closed) {
+            const noDriver = fleet.filter(v => v.status === 'No Driver').length;
+            const onLeave = fleet.filter(v => v.status === 'Driver on Leave').length;
+            const maint = fleet.filter(v => v.status === 'Maintenance').length;
+            const accident = fleet.filter(v => v.status === 'Accident').length;
+
+            const m = (label, val, cls = '') =>
+                `<div class="metric">
+       <div class="metric-label">${label}</div>
+       <div class="metric-value ${cls}">${val}</div>
+     </div>`;
+
+            const totalFleetNum = parseInt(totalFleet) || 0;
+            const notOnRoad = fleet.length;
+            const ownTrips = closed.filter(r => (r.own_hired || '').toLowerCase().trim() === 'own').length;
+            const idleVal = !isNaN(parseInt(totalFleet)) ? Math.max(0, parseInt(totalFleet) - notOnRoad - ownTrips) : 'NA';
+
+            const fmt = (val) => {
+                if (totalFleetNum <= 0) return val;
+                const pct = ((val / totalFleetNum) * 100).toFixed(0);
+                return `${val}<div style="font-size: 14px; font-weight: 500; margin-top: 4px; opacity: 0.85;">(${pct}%)</div>`;
+            };
+
+            const onRoadCount = Math.max(0, totalFleetNum - notOnRoad);
+            const onRoadPctVal = totalFleetNum > 0 ? (onRoadCount / totalFleetNum) * 100 : 0;
+            const onRoadColor = onRoadPctVal >= 90 ? 'ok' : onRoadPctVal >= 75 ? 'warn' : 'danger';
+            const onRoadVal = fmt(onRoadCount);
+
+            let idleColor = '';
+            if (idleVal !== 'NA') {
+                const idleValInt = parseInt(idleVal);
+                idleColor = idleValInt === 0 ? 'ok' : idleValInt <= 2 ? 'warn' : 'danger';
+            }
+            const idleValFormatted = idleVal !== 'NA' ? fmt(idleVal) : 'NA';
+
+            const notOnRoadFormatted = fmt(notOnRoad);
+            const noDriverFormatted = fmt(noDriver);
+            const onLeaveFormatted = fmt(onLeave);
+            const maintFormatted = fmt(maint);
+            const accidentFormatted = fmt(accident);
+
+             return `<div class="metrics">
+      ${m('Fleet Size', totalFleet, 'info')}
+      ${m('Vehicle on Road', onRoadVal, onRoadColor)}
+      ${m('Idle', idleValFormatted, idleColor)}
+      ${m('Not on Road', notOnRoadFormatted, 'danger')}
+      ${m('No driver', noDriverFormatted, 'warn')}
+      ${m('Driver on leave', onLeaveFormatted, 'danger')}
+      ${m('Maintenance', maintFormatted, 'info')}
+      ${m('Accidents', accidentFormatted, 'danger')}
+      ${m('Total Trips', closed.length)}
+    </div>`;
+        }
+
+        function renderLRs(lrs, showClosed) {
+            if (!lrs.length) return '<div class="empty">No records found</div>';
+            const rows = lrs.map(r => `
+    <tr>
+      <td class="lrno">${esc(r.tr_no)}</td>
+      <td>${iePill(r.import_export)}</td>
+      <td class="muted">${esc(r.branch)}</td>
+      <td>${esc(r.consignee)}</td>
+      <td class="muted">${esc(r.consignor)}</td>
+      <td class="vno">${esc(r.vehicle_no)}</td>
+      <td class="vno">${esc(r.container_number)}</td>
+      <td>${ownPill(r.own_hired)}</td>
+      ${showClosed ? `<td class="muted">${fmtDate(r.dispatchClosedDate)}</td>` : ''}
+    </tr>`).join('');
+            return `<div class="tbl-wrap"><table>
+    <thead><tr>
+      <th>LR no.</th><th>Type</th><th>Branch</th><th>Consignee</th><th>Consignor</th>
+      <th>Vehicle</th><th>Container</th><th>Own/Hired</th>
+      ${showClosed ? '<th>Closed date</th>' : ''}
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
+        }
+
+        function renderFleet(fleet) {
+            if (!fleet.length) return '<div class="empty">No vehicles found</div>';
+            const rows = fleet.map(v => `
+    <tr>
+      <td class="vno">${esc(v.vehicleNumber)}</td>
+      <td class="muted">${esc(v.vehicleType)}</td>
+      <td>${statusPill(v.status, v.otherStatusText)}</td>
+      <td class="muted" style="font-size:12px">${esc(v.lastSummary)}</td>
+    </tr>`).join('');
+            return `<div class="tbl-wrap"><table>
+    <thead><tr>
+      <th>Vehicle no.</th><th>Vehicle type</th><th>Status</th><th>Last update</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
+        }
+
+        function section(icon, title, badgeClass, count, content) {
+            return `<div class="section">
+    <div class="section-hdr">
+      <span class="section-title"><i class="ti ti-${icon}"></i> ${title}</span>
+      <span class="badge ${badgeClass}">${count}</span>
+    </div>
+    ${content}
+  </div>`;
+        }
+
+        function renderBranchWise(closed) {
+            const branches = {};
+            closed.forEach(r => {
+                const br = r.branch || 'Unknown';
+                if (!branches[br]) {
+                    branches[br] = { 
+                        name: br,
+                        c20: 0, 
+                        c40: 0, 
+                        other: 0,
+                        own20: 0,
+                        own40: 0,
+                        hired20: 0,
+                        hired40: 0,
+                        ownOther: 0,
+                        hiredOther: 0,
+                        total: 0 
+                    };
+                }
+                
+                const vehicle = (r.type_of_vehicle || '').toLowerCase();
+                const ownHired = (r.own_hired || '').toLowerCase().trim();
+                const is20 = vehicle.includes('20') || vehicle.includes('20ft');
+                const is40 = vehicle.includes('40') || vehicle.includes('40ft');
+                
+                branches[br].total++;
+                if (is20) {
+                    branches[br].c20++;
+                    if (ownHired === 'own') branches[br].own20++;
+                    else branches[br].hired20++;
+                } else if (is40) {
+                    branches[br].c40++;
+                    if (ownHired === 'own') branches[br].own40++;
+                    else branches[br].hired40++;
+                } else {
+                    branches[br].other++;
+                    if (ownHired === 'own') branches[br].ownOther++;
+                    else branches[br].hiredOther++;
+                }
+            });
+
+            const list = Object.values(branches);
+            if (!list.length) return '<div class="empty">No branch wise data found</div>';
+
+            let grand20 = 0, grandOwn20 = 0, grandHired20 = 0;
+            let grand40 = 0, grandOwn40 = 0, grandHired40 = 0;
+            let grandOther = 0, grandOwnOther = 0, grandHiredOther = 0;
+            let grandTotal = 0;
+
+            list.forEach(b => {
+                grand20 += b.c20;
+                grandOwn20 += b.own20;
+                grandHired20 += b.hired20;
+                grand40 += b.c40;
+                grandOwn40 += b.own40;
+                grandHired40 += b.hired40;
+                grandOther += b.other;
+                grandOwnOther += b.ownOther || 0;
+                grandHiredOther += b.hiredOther || 0;
+                grandTotal += b.total;
+            });
+
+            // Compute box breakdowns: Automove vs Other Branches combined
+            const automoveData = branches['Automove'] || {
+                c20: 0, own20: 0, hired20: 0,
+                c40: 0, own40: 0, hired40: 0,
+                other: 0, ownOther: 0, hiredOther: 0,
+                total: 0
+            };
+
+            const othersData = {
+                c20: 0, own20: 0, hired20: 0,
+                c40: 0, own40: 0, hired40: 0,
+                other: 0, ownOther: 0, hiredOther: 0,
+                total: 0
+            };
+
+            Object.keys(branches).forEach(br => {
+                if (br !== 'Automove') {
+                    const b = branches[br];
+                    othersData.c20 += b.c20;
+                    othersData.own20 += b.own20;
+                    othersData.hired20 += b.hired20;
+                    othersData.c40 += b.c40;
+                    othersData.own40 += b.own40;
+                    othersData.hired40 += b.hired40;
+                    othersData.other += b.other;
+                    othersData.ownOther += b.ownOther || 0;
+                    othersData.hiredOther += b.hiredOther || 0;
+                    othersData.total += b.total;
+                }
+            });
+
+            const automoveOwn = automoveData.own20 + automoveData.own40 + automoveData.ownOther;
+            const automoveHired = automoveData.hired20 + automoveData.hired40 + automoveData.hiredOther;
+            const automoveOwnPct = automoveData.total > 0 ? ((automoveOwn / automoveData.total) * 100).toFixed(0) : 0;
+            const automoveHiredPct = automoveData.total > 0 ? ((automoveHired / automoveData.total) * 100).toFixed(0) : 0;
+
+            const othersOwn = othersData.own20 + othersData.own40 + othersData.ownOther;
+            const othersHired = othersData.hired20 + othersData.hired40 + othersData.hiredOther;
+            const othersOwnPct = othersData.total > 0 ? ((othersOwn / othersData.total) * 100).toFixed(0) : 0;
+            const othersHiredPct = othersData.total > 0 ? ((othersHired / othersData.total) * 100).toFixed(0) : 0;
+
+            const own20Pct = othersData.c20 > 0 ? ((othersData.own20 / othersData.c20) * 100).toFixed(0) : 0;
+            const hired20Pct = othersData.c20 > 0 ? ((othersData.hired20 / othersData.c20) * 100).toFixed(0) : 0;
+
+            const own40Pct = othersData.c40 > 0 ? ((othersData.own40 / othersData.c40) * 100).toFixed(0) : 0;
+            const hired40Pct = othersData.c40 > 0 ? ((othersData.hired40 / othersData.c40) * 100).toFixed(0) : 0;
+
+            const boxesHtml = `
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 16px;">
+                <!-- Automove Card -->
+                <div style="background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 18px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span style="font-size: 13px; font-weight: 700; color: #185FA5; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 6px;">
+                            <i class="ti ti-route" style="font-size: 16px;"></i> Automove Operations
+                        </span>
+                        <span class="badge badge-blue" style="font-size: 12px; padding: 4px 10px;">${automoveData.total} Trips (Own: ${automoveOwnPct}%, Hired: ${automoveHiredPct}%)</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; border-top: 0.5px solid var(--border); padding-top: 10px;">
+                        <div style="display: flex; flex-direction: column; gap: 2px;">
+                            <span style="font-size: 10px; color: var(--text3); text-transform: uppercase;">Own Vehicles</span>
+                            <span style="font-size: 20px; font-weight: 600; color: #3B6D11;">${automoveOwn} <span style="font-size: 11px; font-weight: 500; color: var(--text3);">(${automoveOwnPct}%)</span></span>
+                            <span style="font-size: 10px; color: var(--text2);">Company Dispatched</span>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 2px; border-left: 0.5px solid var(--border); padding-left: 20px;">
+                            <span style="font-size: 10px; color: var(--text3); text-transform: uppercase;">Hired Vehicles</span>
+                            <span style="font-size: 20px; font-weight: 600; color: #BA7517;">${automoveHired} <span style="font-size: 11px; font-weight: 500; color: var(--text3);">(${automoveHiredPct}%)</span></span>
+                            <span style="font-size: 10px; color: var(--text2);">Market Outsourced</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Combined Others Card -->
+                <div style="background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 18px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);">
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span style="font-size: 13px; font-weight: 700; color: #3B6D11; text-transform: uppercase; letter-spacing: 0.05em; display: flex; align-items: center; gap: 6px;">
+                            <i class="ti ti-building-bridge" style="font-size: 16px;"></i> SR Containers Carriers
+                        </span>
+                        <span class="badge badge-green" style="font-size: 12px; padding: 4px 10px;">${othersData.total} Trips (Own: ${othersOwnPct}%, Hired: ${othersHiredPct}%)</span>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; border-top: 0.5px solid var(--border); padding-top: 10px;">
+                        <div style="display: flex; flex-direction: column; gap: 2px;">
+                            <span style="font-size: 10px; color: var(--text3); text-transform: uppercase;">20 Feet</span>
+                            <span style="font-size: 20px; font-weight: 600; color: #185FA5;">${othersData.c20}</span>
+                            <span style="font-size: 10px; color: var(--text2);">Own: ${othersData.own20} (${own20Pct}%) | Hired: ${othersData.hired20} (${hired20Pct}%)</span>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 2px; border-left: 0.5px solid var(--border); padding-left: 20px;">
+                            <span style="font-size: 10px; color: var(--text3); text-transform: uppercase;">40 Feet</span>
+                            <span style="font-size: 20px; font-weight: 600; color: #BA7517;">${othersData.c40}</span>
+                            <span style="font-size: 10px; color: var(--text2);">Own: ${othersData.own40} (${own40Pct}%) | Hired: ${othersData.hired40} (${hired40Pct}%)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            `;
+
+            const fmtPct = (count, total) => {
+                if (!total || total <= 0) return '0%';
+                return `${((count / total) * 100).toFixed(0)}%`;
+            };
+
+            const rows = list.map(b => `
+                <tr>
+                    <td style="font-weight:600;font-size:13px;">${esc(b.name)}</td>
+                    <td style="font-weight:600;color:#185FA5;">${b.c20} <span class="muted" style="font-weight:400;font-size:11px;">(Own: ${b.own20} (${fmtPct(b.own20, b.c20)}), Hired: ${b.hired20} (${fmtPct(b.hired20, b.c20)}))</span></td>
+                    <td style="font-weight:600;color:#BA7517;">${b.c40} <span class="muted" style="font-weight:400;font-size:11px;">(Own: ${b.own40} (${fmtPct(b.own40, b.c40)}), Hired: ${b.hired40} (${fmtPct(b.hired40, b.c40)}))</span></td>
+                    <td style="font-weight:600;">${b.other} <span class="muted" style="font-weight:400;font-size:11px;">(Own: ${b.ownOther} (${fmtPct(b.ownOther, b.other)}), Hired: ${b.hiredOther} (${fmtPct(b.hiredOther, b.other)}))</span></td>
+                    <td style="font-weight:600;">${b.total}</td>
+                </tr>
+            `).join('');
+
+            const totalRow = `
+                <tr style="font-weight:bold; background: var(--bg2); border-top: 1.5px solid var(--border2);">
+                    <td>Total</td>
+                    <td style="color:#185FA5;">${grand20} <span class="muted" style="font-weight:500;font-size:11px;">(Own: ${grandOwn20} (${fmtPct(grandOwn20, grand20)}), Hired: ${grandHired20} (${fmtPct(grandHired20, grand20)}))</span></td>
+                    <td style="color:#BA7517;">${grand40} <span class="muted" style="font-weight:500;font-size:11px;">(Own: ${grandOwn40} (${fmtPct(grandOwn40, grand40)}), Hired: ${grandHired40} (${fmtPct(grandHired40, grand40)}))</span></td>
+                    <td>${grandOther} <span class="muted" style="font-weight:500;font-size:11px;">(Own: ${grandOwnOther} (${fmtPct(grandOwnOther, grandOther)}), Hired: ${grandHiredOther} (${fmtPct(grandHiredOther, grandOther)}))</span></td>
+                    <td>${grandTotal}</td>
+                </tr>
+            `;
+
+            return boxesHtml + `<div class="tbl-wrap"><table>
+                <thead><tr>
+                    <th>Branch</th>
+                    <th>20 Feet Count</th>
+                    <th>40 Feet Count</th>
+                    <th>Other Vehicles</th>
+                    <th>Total Trips</th>
+                </tr></thead>
+                <tbody>
+                    ${rows}
+                    ${totalRow}
+                </tbody>
+            </table></div>`;
+        }
+
+        function renderAllocationVisualizer(totalFleet, fleet, active, closed) {
+            const totalFleetNum = parseInt(totalFleet);
+            if (isNaN(totalFleetNum) || totalFleetNum <= 0) return '';
+
+            const oosCount = fleet.length;
+            const ownTrips = closed.filter(r => (r.own_hired || '').toLowerCase().trim() === 'own').length;
+            
+            const idleCount = Math.max(0, totalFleetNum - oosCount - ownTrips);
+            const activeCount = ownTrips; // own vehicles utilized on trips
+
+            const activePercent = ((activeCount / totalFleetNum) * 100).toFixed(1);
+            const idlePercent = ((idleCount / totalFleetNum) * 100).toFixed(1);
+            const oosPercent = ((oosCount / totalFleetNum) * 100).toFixed(1);
+
+            const activeWidth = activeCount > 0 ? `${activePercent}%` : '0%';
+            const idleWidth = idleCount > 0 ? `${idlePercent}%` : '0%';
+            const oosWidth = oosCount > 0 ? `${oosPercent}%` : '0%';
+
+            return `<div class="section">
+    <div class="section-hdr">
+        <span class="section-title"><i class="ti ti-chart-bar"></i> Fleet Allocation & Utilization Breakdown</span>
+    </div>
+    <div class="tbl-wrap" style="padding: 20px; background: var(--bg); display: flex; flex-direction: column; gap: 20px;">
+        <!-- Visual Stacked Bar -->
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: 500;">
+                <span class="muted">Visual Allocation (Active vs Idle vs Out of Service)</span>
+                <span>Total Own Fleet: <strong>${totalFleetNum}</strong> Vehicles</span>
+            </div>
+            <div style="height: 24px; border-radius: var(--radius); display: flex; overflow: hidden; background: var(--bg3); box-shadow: inset 0 1px 3px rgba(0,0,0,0.12);">
+                ${activeCount > 0 ? `<div style="width: ${activeWidth}; background: linear-gradient(90deg, #3B6D11, #4CAF50); display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.3); transition: width 0.5s ease;">
+                    ${activePercent >= 8 ? `Active (${activePercent}%)` : `${activePercent}%`}
+                </div>` : ''}
+                ${idleCount > 0 ? `<div style="width: ${idleWidth}; background: linear-gradient(90deg, #185FA5, #2196F3); display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.3); transition: width 0.5s ease;">
+                    ${idlePercent >= 8 ? `Idle (${idlePercent}%)` : `${idlePercent}%`}
+                </div>` : ''}
+                ${oosCount > 0 ? `<div style="width: ${oosWidth}; background: linear-gradient(90deg, #A32D2D, #F44336); display: flex; align-items: center; justify-content: center; color: white; font-size: 11px; font-weight: 600; text-shadow: 0 1px 2px rgba(0,0,0,0.3); transition: width 0.5s ease;">
+                    ${oosPercent >= 8 ? `Out of Service (${oosPercent}%)` : `${oosPercent}%`}
+                </div>` : ''}
+            </div>
+        </div>
+        
+        <!-- Detailed Cards Grid -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
+            <!-- Active Card -->
+            <div style="border: 0.5px solid var(--border); padding: 14px 16px; border-radius: var(--radius); display: flex; align-items: center; gap: 14px; background: var(--bg2);">
+                <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(76, 175, 80, 0.1); display: flex; align-items: center; justify-content: center; color: #4CAF50; font-size: 18px;">
+                    <i class="ti ti-route"></i>
+                </div>
+                <div>
+                    <div style="font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px;">Active on Road</div>
+                    <div style="font-size: 18px; font-weight: 600; color: var(--text);">${activeCount} <span style="font-size: 11px; font-weight: 500; color: var(--text3);">vehicles (${activePercent}%)</span></div>
+                </div>
+            </div>
+            
+            <!-- Idle Card -->
+            <div style="border: 0.5px solid var(--border); padding: 14px 16px; border-radius: var(--radius); display: flex; align-items: center; gap: 14px; background: var(--bg2);">
+                <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(33, 150, 243, 0.1); display: flex; align-items: center; justify-content: center; color: #2196F3; font-size: 18px;">
+                    <i class="ti ti-circle-dot"></i>
+                </div>
+                <div>
+                    <div style="font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px;">Idle / Available</div>
+                    <div style="font-size: 18px; font-weight: 600; color: var(--text);">${idleCount} <span style="font-size: 11px; font-weight: 500; color: var(--text3);">vehicles (${idlePercent}%)</span></div>
+                </div>
+            </div>
+            
+            <!-- Out of Service Card -->
+            <div style="border: 0.5px solid var(--border); padding: 14px 16px; border-radius: var(--radius); display: flex; align-items: center; gap: 14px; background: var(--bg2);">
+                <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(229, 57, 53, 0.1); display: flex; align-items: center; justify-content: center; color: #E53935; font-size: 18px;">
+                    <i class="ti ti-alert-triangle"></i>
+                </div>
+                <div>
+                    <div style="font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 2px;">Out of Service</div>
+                    <div style="font-size: 18px; font-weight: 600; color: var(--text);">${oosCount} <span style="font-size: 11px; font-weight: 500; color: var(--text3);">vehicles (${oosPercent}%)</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>`;
+        }
+
+        function renderExcelSheet(totalFleet, dispatches) {
+            if (!dispatches || !dispatches.length) return '<div class="empty">No spreadsheet data available</div>';
+            
+            const totalFleetNum = parseInt(totalFleet) || 39;
+            
+            const rows = dispatches.map(d => {
+                const dateStr = d.date ? d.date.slice(0, 10) : '—';
+                const fleet = d.fleetStatus || [];
+                const active = d.activeLRs || [];
+                const closed = d.closedLRs || [];
+                
+                // Not on Road breakdowns
+                const breakdown = fleet.filter(v => v.status === 'Breakdown').length;
+                const maintenance = fleet.filter(v => v.status === 'Maintenance').length;
+                const leave = fleet.filter(v => v.status === 'Driver on Leave').length;
+                const accident = fleet.filter(v => v.status === 'Accident' || v.status === 'Accidents').length;
+                const noDriver = fleet.filter(v => v.status === 'No Driver').length;
+                const others = fleet.filter(v => !['Breakdown', 'Maintenance', 'Driver on Leave', 'Accident', 'Accidents', 'No Driver'].includes(v.status)).length;
+                const notOnRoadTotal = fleet.length;
+                
+                // Used for trips (OOR count)
+                const usedForTrips = Math.max(0, totalFleetNum - notOnRoadTotal);
+                const oorPercent = totalFleetNum > 0 ? ((usedForTrips / totalFleetNum) * 100).toFixed(1) + '%' : '0.0%';
+                
+                // Idle count
+                const ownTripsCount = closed.filter(r => (r.own_hired || '').toLowerCase().trim() === 'own').length;
+                const idle = Math.max(0, totalFleetNum - notOnRoadTotal - ownTripsCount);
+                
+                // Dispatches
+                const automove = [...active, ...closed].filter(r => (r.branch || '').toLowerCase().trim() === 'automove').length;
+                const snContainer = [...active, ...closed].filter(r => (r.branch || '').toLowerCase().trim() !== 'automove').length;
+                
+                // Summary LRs (Closed)
+                const ownClosed20 = closed.filter(r => (r.own_hired || '').toLowerCase().trim() === 'own' && ((r.type_of_vehicle || '').includes('20') || (r.type_of_vehicle || '').includes('20ft'))).length;
+                const ownClosed40 = closed.filter(r => (r.own_hired || '').toLowerCase().trim() === 'own' && ((r.type_of_vehicle || '').includes('40') || (r.type_of_vehicle || '').includes('40ft'))).length;
+                
+                // Outsourced (Hired)
+                const outsourced20 = [...active, ...closed].filter(r => (r.own_hired || '').toLowerCase().trim() === 'hired' && ((r.type_of_vehicle || '').includes('20') || (r.type_of_vehicle || '').includes('20ft'))).length;
+                const outsourced40 = [...active, ...closed].filter(r => (r.own_hired || '').toLowerCase().trim() === 'hired' && ((r.type_of_vehicle || '').includes('40') || (r.type_of_vehicle || '').includes('40ft'))).length;
+                const outsourcedTotal = outsourced20 + outsourced40;
+                
+                // Trips breakdown
+                const ownTrips = [...active, ...closed].filter(r => (r.own_hired || '').toLowerCase().trim() === 'own').length;
+                const hiredTrips = [...active, ...closed].filter(r => (r.own_hired || '').toLowerCase().trim() === 'hired').length;
+                
+                return `
+                    <tr>
+                        <td style="font-weight:600;white-space:nowrap;">${esc(dateStr)}</td>
+                        <td class="num highlight-yellow">${totalFleetNum}</td>
+                        <td class="num">${usedForTrips}</td>
+                        <td class="num" style="font-weight:600;color:#3B6D11;">${oorPercent}</td>
+                        <td class="num highlight-yellow">${idle}</td>
+                        <td class="num highlight-red">${notOnRoadTotal}</td>
+                        <td class="num">${breakdown}</td>
+                        <td class="num">${maintenance}</td>
+                        <td class="num">${leave}</td>
+                        <td class="num">${accident}</td>
+                        <td class="num">${noDriver}</td>
+                        <td class="num">${others}</td>
+                        <td class="num">${automove}</td>
+                        <td class="num">${snContainer}</td>
+                        <td class="num highlight-green">${active.length}</td>
+                        <td class="num">${ownClosed20}</td>
+                        <td class="num">${ownClosed40}</td>
+                        <td class="num">${ownTrips}</td>
+                        <td class="num">${hiredTrips}</td>
+                        <td class="num">${outsourced20}</td>
+                        <td class="num">${outsourced40}</td>
+                        <td class="num highlight-yellow">${outsourcedTotal}</td>
+                    </tr>
+                `;
+            }).join('');
+            
+            return `
+                <div class="excel-wrap">
+                    <table class="excel-table">
+                        <thead>
+                            <tr>
+                                <th rowspan="2">Date of Report</th>
+                                <th rowspan="2" style="background:#fde047;">Total Fleet [ ${totalFleetNum} ]</th>
+                                <th rowspan="2">Our Vehicles used for trips</th>
+                                <th rowspan="2">Our Vehicles On Road %</th>
+                                <th rowspan="2" style="background:#fde047;">Idle Vehicles</th>
+                                <th rowspan="2" style="background:#fee2e2;color:#991b1b;">Vehicles Not on Road Total</th>
+                                <th colspan="6" style="background:#fee2e2;color:#991b1b;">Vehicles Not on Road (Breakdown Details)</th>
+                                <th colspan="2">Dispatched Count</th>
+                                <th rowspan="2" style="background:#dcfce7;color:#166534;">Under Operation</th>
+                                <th colspan="2">Summary (Own)</th>
+                                <th colspan="2">Trips</th>
+                                <th colspan="3" style="background:#fde047;">Outsourced (Hired)</th>
+                            </tr>
+                            <tr>
+                                <th style="background:#fef2f2;">Breakdown</th>
+                                <th style="background:#fef2f2;">Maint.</th>
+                                <th style="background:#fef2f2;">Leave</th>
+                                <th style="background:#fef2f2;">Accident</th>
+                                <th style="background:#fef2f2;">No Driver</th>
+                                <th style="background:#fef2f2;">Others</th>
+                                <th>Automove</th>
+                                <th>S N Carrier</th>
+                                <th>Total 20ft</th>
+                                <th>Total 40ft</th>
+                                <th>Own Trip</th>
+                                <th>Hired Trip</th>
+                                <th style="background:#fefcbf;">20ft</th>
+                                <th style="background:#fefcbf;">40ft</th>
+                                <th style="background:#fefcbf;">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rows}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        /* ── render all ───────────────────────────────────────────────── */
+        function renderAll(data) {
+            const innerData = data.data ?? data;
+            const totalFleet = innerData.totalFleet ?? 'NA';
+
+            let fleet = [];
+            let active = [];
+            let closed = [];
+
+            const dispatches = innerData.dispatch
+                ? (Array.isArray(innerData.dispatch) ? innerData.dispatch : [innerData.dispatch])
+                : [];
+
+            dispatches.forEach(d => {
+                if (d.fleetStatus) fleet.push(...d.fleetStatus);
+                if (d.activeLRs) active.push(...d.activeLRs);
+                if (d.closedLRs) closed.push(...d.closedLRs);
+            });
+
+            const brNames = new Set(closed.map(r => r.branch).filter(Boolean));
+
+            document.getElementById('main').innerHTML =
+                renderMetrics(totalFleet, fleet, active, closed) +
+                section('building-bridge', 'Branch Wise Summary (20ft & 40ft)', 'badge-purple', brNames.size, renderBranchWise(closed)) +
+                section('truck', 'Fleet status', 'badge-gray', fleet.length, renderFleet(fleet)) +
+                section('circle-check', 'Total Trips', 'badge-blue', closed.length, renderLRs(closed, true));
+        }
+
+        /* ── load handler ─────────────────────────────────────────────── */
+        async function load() {
+            const startDate = document.getElementById('startDateInput').value;
+            const endDate = document.getElementById('endDateInput').value;
+            if (!startDate || !endDate) return;
+            document.getElementById('main').innerHTML =
+                '<div class="loading"><div class="spinner"></div> Fetching report…</div>';
+            try {
+                const data = await fetchReport(startDate, endDate);
+                if (data.success) renderAll(data);
+                else document.getElementById('main').innerHTML =
+                    `<div class="err-box"><i class="ti ti-alert-circle"></i><div>API returned an error.<small>Check server logs for details.</small></div></div>`;
+            } catch (e) {
+                document.getElementById('main').innerHTML =
+                    `<div class="err-box"><i class="ti ti-plug-x"></i><div>
+         Failed to fetch: <strong>${e.message}</strong>
+         <small>Make sure the server is running at <code>${BASE}</code> and CORS is enabled.</small>
+       </div></div>`;
+            }
+        }
+
+        document.getElementById('loadBtn').addEventListener('click', load);
+        document.getElementById('startDateInput').addEventListener('keydown', e => { if (e.key === 'Enter') load(); });
+        document.getElementById('endDateInput').addEventListener('keydown', e => { if (e.key === 'Enter') load(); });
+
+        const presetSelect = document.getElementById('presetSelect');
+        const startDateInput = document.getElementById('startDateInput');
+        const endDateInput = document.getElementById('endDateInput');
+
+        presetSelect.addEventListener('change', () => {
+            const val = presetSelect.value;
+            const today = new Date('2026-05-25'); // Anchored to May 25, 2026
+
+            const fmt = (d) => {
+                const y = d.getFullYear();
+                const m = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${y}-${m}-${day}`;
+            };
+
+            if (val === 'today') {
+                startDateInput.value = '2026-05-22'; // Default day with rich mock data
+                endDateInput.value = '2026-05-22';
+                load();
+            } else if (val === 'weekly') {
+                const past = new Date(today);
+                past.setDate(today.getDate() - 6);
+                startDateInput.value = fmt(past);
+                endDateInput.value = fmt(today);
+                load();
+            } else if (val === 'monthly') {
+                const past = new Date(today);
+                past.setDate(today.getDate() - 29);
+                startDateInput.value = fmt(past);
+                endDateInput.value = fmt(today);
+                load();
+            } else if (val === 'may-2026') {
+                startDateInput.value = '2026-05-01';
+                endDateInput.value = '2026-05-31';
+                load();
+            }
+        });
+
+        startDateInput.addEventListener('change', () => {
+            presetSelect.value = 'custom';
+        });
+        endDateInput.addEventListener('change', () => {
+            presetSelect.value = 'custom';
+        });
+
+        /* ── auto-load on page open ───────────────────────────────────── */
+        load();
+    </script>
+</body>
+
+</html>

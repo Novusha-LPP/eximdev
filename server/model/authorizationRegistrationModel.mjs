@@ -56,6 +56,8 @@ const authorizationRegistrationSchema = new mongoose.Schema(
     documents_received_date: { type: String },
     documents_send_to_icd: { type: String },
     documents_send_to_accounts: { type: String },
+    accounts_billing_invoice_no: { type: String },
+    accounts_billing_invoice_date: { type: String },
     
     registration_no: { type: String },
     auth_date: { type: String },

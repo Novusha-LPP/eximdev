@@ -353,6 +353,12 @@ $ap-radius-lg:  14px;
   min-width: 1000px;
 
   // ── Header ──────────────────────────────────────────────────
+  thead {
+    position: sticky;
+    top: 0;
+    z-index: 15;
+  }
+
   thead tr {
     background: $ar-navy;
     border-bottom: 2px solid darken($ar-navy, 6%);
@@ -956,7 +962,7 @@ $ap-radius-lg:  14px;
 .ar-th-sticky {
   position: sticky;
   top: 0;
-  z-index: 12 !important;
+  z-index: 20 !important;
   background: $ar-navy !important;
 }
 
@@ -985,6 +991,17 @@ $ap-radius-lg:  14px;
   max-width: 100px;
   border-left: 2px solid $ar-border !important; 
   box-shadow: -2px 0 5px rgba(0,0,0,0.05);
+}
+
+.ar-td-actions {
+  padding: 9px 4px !important;
+}
+
+.ar-actions-cell {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
 }
 
 /* ================================================================

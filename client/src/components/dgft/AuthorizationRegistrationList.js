@@ -69,13 +69,15 @@ const INITIAL_FORM = {
   bond_number: "",
   bond_date: "",
   port_code: "",
+  accounts_billing_invoice_no: "",
+  accounts_billing_invoice_date: "",
 };
 
 const DATE_FIELDS = new Set([
   "date", "licence_date", "date_send_to_icd_ports",
   "registration_date", "bg_date", "bg_expiry_date", "bond_date",
   "lic_recd_from_party", "completed", "billing_done_or_not",
-  "import_validity", "export_validity",
+  "import_validity", "export_validity", "accounts_billing_invoice_date",
 ]);
 
 const CATEGORY_OPTIONS = [
@@ -138,20 +140,21 @@ const FIELDS = [
   { key: "billing_done_or_not",  label: "Billing Done", type: "date" },
   { key: "bill_number",          label: "Bill Number" },
   { key: "port_code",            label: "Port Code", select: true, options: PORT_CODE_OPTIONS },
+  { key: "accounts_billing_invoice_no", label: "Accounts Billing Invoice Number" },
+  { key: "accounts_billing_invoice_date", label: "Accounts Billing Invoice Date", type: "date" },
 ];
 
 // Table columns — per image 1 (no Sr No, actions first)
 const TABLE_COLUMNS = [
   { key: "job_no",       label: "JOB NUMBER",          width: 120 },
   { key: "date",         label: "DATE",                width: 100 },
-  { key: "party_name",   label: "FIRM NAME",           width: 200 },
+  { key: "party_name",   label: "FIRM NAME",           width: 300 },
   { key: "iec_no",       label: "IEC NAME",            width: 150 },
   { key: "licence_no",   label: "AUTHORIZATION NUMBER",width: 180 },
   { key: "licence_date", label: "AUTHORIZATION DATE",  width: 110 },
-  { key: "scheme_code",  label: "SCHEME CODE",         width: 130 },
+  { key: "job_type",     label: "JOB CATEGORIES",      width: 170 },
   { key: "port_code",    label: "PORT CODE",           width: 100 },
   { key: "job_status",   label: "JOB STATUS",          width: 140 },
-  { key: "documents_send_to_accounts", label: "DOCUMENTS DATE SEND TO ACCOUNTS", width: 220 },
   { key: "_actions",     label: "ACTIONS",             width: 100 },
 ];
 
@@ -546,7 +549,17 @@ function AuthorizationRegistrationList({ onCountChange }) {
               <tr>
                 {TABLE_COLUMNS.map((col) => {
                   const sorted = sort.key === col.key;
-                  if (col.key === "_actions") return <th key="_actions" className="ar-th-sticky ar-th-actions">ACTIONS</th>;
+                  if (col.key === "_actions") {
+                    return (
+                      <th
+                        key="_actions"
+                        className="ar-th-sticky ar-th-actions"
+                        style={{ width: col.width, minWidth: col.width, maxWidth: col.width }}
+                      >
+                        ACTIONS
+                      </th>
+                    );
+                  }
                   return (
                     <th
                       key={col.key}
@@ -573,7 +586,12 @@ function AuthorizationRegistrationList({ onCountChange }) {
                     {TABLE_COLUMNS.map((col) => {
                       if (col.key === "_actions") {
                         return (
-                          <td key="_actions" className="ar-td-sticky ar-td-actions" onClick={(e) => e.stopPropagation()}>
+                          <td
+                            key="_actions"
+                            className="ar-td-sticky ar-td-actions"
+                            style={{ width: col.width, minWidth: col.width, maxWidth: col.width }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <div className="ar-actions-cell">
                               <button className="ar-btn ar-btn-edit ar-btn-sm" onClick={(e) => { e.stopPropagation(); handleOpenEdit(row); }}>Edit</button>
                               <button className="ar-btn ar-btn-danger ar-btn-sm" onClick={(e) => { e.stopPropagation(); handleDelete(row._id); }}>Del</button>

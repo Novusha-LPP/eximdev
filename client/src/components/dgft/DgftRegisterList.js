@@ -38,7 +38,8 @@ const JOB_STATUS_OPTIONS = [
   "DEFICIENT",
   "APPROVED",
   "REJECTED",
-  "BILLING CLOSED",
+  "BILLING",
+  "CLOSED",
 ];
 
 const ROWS_PER_PAGE_OPTIONS = [25, 50, 100];
@@ -162,7 +163,6 @@ const FIELDS = [
 
 // Flat column definitions for the table (no grouping)
 const COLUMNS = [
-  { key: "_actions", label: "Actions", width: 90 },
   { key: "job_no", label: "JOB Number", width: 110 },
   { key: "date", label: "Date", width: 85 },
   { key: "party_name", label: "Firm Name", width: 170 },
@@ -172,6 +172,7 @@ const COLUMNS = [
   { key: "file_no", label: "File Number", width: 120 },
   { key: "file_date", label: "File Date", width: 100 },
   { key: "job_status", label: "Job Status", width: 130 },
+  { key: "_actions", label: "Actions", width: 90 },
 ];
 
 // Inline styles matching the enterprise design

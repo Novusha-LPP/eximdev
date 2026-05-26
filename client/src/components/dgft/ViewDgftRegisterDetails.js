@@ -190,6 +190,8 @@ function ViewDgftRegisterDetails() {
           transaction_id: found.transaction_id || "",
           transaction_amount: found.transaction_amount || "",
           transaction_date: found.transaction_date || "",
+          accounts_inv_no: found.accounts_inv_no || "",
+          accounts_inv_date: found.accounts_inv_date || "",
           qty_export: found.qty_export || "",
           unit_export: found.unit_export || "",
           export_value_fob_usd: found.export_value_fob_usd || "",
@@ -354,7 +356,7 @@ function ViewDgftRegisterDetails() {
 
         <div className="ap-card">
           <div className="ap-card-header">
-            <div className="ap-card-title">Validity, Item and HS Code</div>
+            <div className="ap-card-title">Validity</div>
           </div>
           <div className="ap-card-body">
             <div className="ap-fields-grid cols-4">
@@ -435,6 +437,14 @@ function ViewDgftRegisterDetails() {
               <div className="ap-field-group">
                 <label className="ap-field-label">Transaction Date</label>
                 <input type="date" className="ap-field-input" value={formData.transaction_date || ""} onChange={(e) => hc("transaction_date", e.target.value)} />
+              </div>
+              <div className="ap-field-group">
+                <label className="ap-field-label">Accounts Invoice Number</label>
+                <input className="ap-field-input" value={formData.accounts_inv_no || ""} onChange={(e) => hc("accounts_inv_no", e.target.value)} />
+              </div>
+              <div className="ap-field-group">
+                <label className="ap-field-label">Accounts Invoice Date</label>
+                <input type="date" className="ap-field-input" value={formData.accounts_inv_date || ""} onChange={(e) => hc("accounts_inv_date", e.target.value)} />
               </div>
             </div>
           </div>

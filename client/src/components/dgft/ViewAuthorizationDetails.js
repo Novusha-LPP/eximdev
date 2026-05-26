@@ -308,6 +308,8 @@ function ViewAuthorizationDetails() {
           documents_send_to_accounts: safeStr(found.documents_send_to_accounts || found.documents_send_to_account),
           bg_number:                  safeStr(found.bg_number),
           bond_number:                safeStr(found.bond_number),
+          accounts_billing_invoice_no: safeStr(found.accounts_billing_invoice_no),
+          accounts_billing_invoice_date: safeStr(found.accounts_billing_invoice_date),
           registration_no:            safeStr(found.registration_no || found.licence_no),
           auth_date:                  safeStr(found.auth_date || found.licence_date),
           scheme_code:                safeStr(found.scheme_code),
@@ -556,6 +558,18 @@ function ViewAuthorizationDetails() {
               <div className="ap-field-group">
                 <label className="ap-field-label">Documents Date Send to Accounts</label>
                 <DatePickerInput value={subData.documents_send_to_accounts} onChange={v => hc("documents_send_to_accounts", v)} />
+              </div>
+            </div>
+
+            <div className="ap-fields-grid cols-3 mt-12">
+              <div className="ap-field-group">
+                <label className="ap-field-label">Accounts Billing Invoice Number</label>
+                <input type="text" className="ap-field-input" value={subData.accounts_billing_invoice_no || ""}
+                  onChange={e => hc("accounts_billing_invoice_no", e.target.value)} placeholder="Enter billing invoice number" />
+              </div>
+              <div className="ap-field-group">
+                <label className="ap-field-label">Accounts Billing Invoice Date</label>
+                <DatePickerInput value={subData.accounts_billing_invoice_date} onChange={v => hc("accounts_billing_invoice_date", v)} />
               </div>
             </div>
           </div>

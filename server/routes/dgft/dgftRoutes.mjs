@@ -438,6 +438,8 @@ const AUTH_HEADER_MAP = {
   "Documents received date": "documents_received_date",
   "Documents send date to ICD": "documents_send_to_icd",
   "Documents send date to accounts": "documents_send_to_accounts",
+  "Accounts Billing Invoice Number": "accounts_billing_invoice_no",
+  "Accounts Billing Invoice Date": "accounts_billing_invoice_date",
 };
 
 router.post(
@@ -486,7 +488,7 @@ router.post(
         }
 
         // --- Normalize all date fields to DD/MM/YYYY ---
-        const AUTH_DATE_KEYS = ["date", "licence_date", "date_send_to_icd_ports", "registration_date", "lic_recd_from_party"];
+        const AUTH_DATE_KEYS = ["date", "licence_date", "date_send_to_icd_ports", "registration_date", "lic_recd_from_party", "accounts_billing_invoice_date"];
         AUTH_DATE_KEYS.forEach((key) => {
           if (mapped[key]) {
             mapped[key] = normalizeDate(mapped[key]);

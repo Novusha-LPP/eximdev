@@ -59,11 +59,22 @@ async function buildOwnerFilter(user, requestedTeamId = null) {
 // GET /api/crm/leads
 router.get('/', async (req, res) => {
   try {
-    const { status, source, teamId } = req.query;
+    const { status, source, teamId, startDate, endDate, period } = req.query;
     const ownerFilter = await buildOwnerFilter(req.user, teamId);
     const query = { ...ownerFilter };
     if (status) query.status = status;
     if (source) query.source = source;
+
+    if (startDate && endDate) {
+      query.createdAt = {
+        $gte: new Date(`${startDate}T00:00:00.000Z`),
+        $lte: new Date(`${endDate}T23:59:59.999Z`)
+      };
+    } else if (period) {
+      query.period = period;
+    } else {
+      query.period = new Date().toISOString().substring(0, 7);
+    }
 
     const leads = await Lead.find(query)
       .populate('ownerId', 'username first_name last_name')

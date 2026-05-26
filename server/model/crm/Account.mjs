@@ -12,7 +12,8 @@ const accountSchema = new mongoose.Schema({
   annualRevenue: { type: Number },
   parentAccountId: { type: mongoose.Schema.Types.ObjectId, ref: 'Account', default: null },
   healthScore: { type: Number, default: 0 },
-  address: { type: String }
+  address: { type: String },
+  period: { type: String, default: () => new Date().toISOString().substring(0, 7) }
 }, { timestamps: true });
 
 export default mongoose.model('Account', accountSchema);

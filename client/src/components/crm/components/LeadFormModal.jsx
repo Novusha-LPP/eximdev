@@ -25,7 +25,8 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh }) {
     email: '',
     phone: '',
     source: 'web',
-    interestedServices: []
+    interestedServices: [],
+    crateSize: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -45,7 +46,8 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh }) {
         email: '',
         phone: '',
         source: 'web',
-        interestedServices: []
+        interestedServices: [],
+        crateSize: ''
       });
     } catch (error) {
       message.error("Error creating lead: " + (error.response?.data?.message || error.message));
@@ -198,6 +200,18 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh }) {
               >
                 {SOURCES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
               </select>
+            </div>
+
+            {/* Crate Size */}
+            <div>
+              <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Crate Size (Optional)</label>
+              <input 
+                type="text"
+                value={formData.crateSize || ''}
+                onChange={e => setFormData({...formData, crateSize: e.target.value})}
+                placeholder="Ex. 40ft x 20 units"
+                style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
+              />
             </div>
 
             {/* Services */}

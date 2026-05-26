@@ -1,16 +1,18 @@
 import React, { useEffect, useState, useContext } from 'react';
 import { fetchProjectPoints, updatePointStatus, createOpenPoint, fetchProjectDetails, addProjectMember, fetchAllUsers, deleteOpenPoint, removeProjectMember, deleteProject, changeProjectOwner } from '../../services/openPointsService';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { UserContext } from '../../contexts/UserContext';
 import '../../styles/openPoints.scss';
 
 const ProjectWorkspace = () => {
     const { projectId } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
     const { user } = useContext(UserContext);
     const [points, setPoints] = useState([]);
     const [projectTeam, setProjectTeam] = useState([]); // Array of {user: {_id, username}, role}
     const [loading, setLoading] = useState(true);
+    const [highlightedPointId, setHighlightedPointId] = useState(null);
 
     // Add Member State
     const [showAddMember, setShowAddMember] = useState(false);
@@ -62,6 +64,34 @@ const ProjectWorkspace = () => {
     useEffect(() => {
         loadData();
     }, [projectId]);
+
+    // Scroll to and highlight point if query param exists
+    useEffect(() => {
+        if (points.length > 0) {
+            const queryParams = new URLSearchParams(location.search);
+            const searchPointId = queryParams.get('searchPointId');
+            if (searchPointId) {
+                // Find point in the list
+                const foundPoint = points.find(p => p._id === searchPointId);
+                if (foundPoint) {
+                    setHighlightedPointId(searchPointId);
+                    
+                    // Scroll to it after a short delay so the DOM has fully rendered
+                    setTimeout(() => {
+                        const rowElement = document.getElementById(`point-row-${searchPointId}`);
+                        if (rowElement) {
+                            rowElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    }, 500);
+
+                    // Clear highlight after 5 seconds
+                    setTimeout(() => {
+                        setHighlightedPointId(null);
+                    }, 5000);
+                }
+            }
+        }
+    }, [points, location.search]);
 
     // Re-calculate summary when team or points change to ensure names are up to date
     useEffect(() => {
@@ -744,8 +774,14 @@ const ProjectWorkspace = () => {
                             if (hideGreen && !filters.status && !monthFilter && p.status === 'Green') return false;
                             return true;
                         }).map((point, index) => (
-                            <tr key={point._id}>
-                                <td style={{ textAlign: 'center' }}>{index + 1}</td>
+                            <tr 
+                                key={point._id} 
+                                id={`point-row-${point._id}`}
+                                style={highlightedPointId === point._id ? { backgroundColor: '#fef08a', transition: 'background-color 0.5s ease', boxShadow: 'inset 0 0 10px rgba(234, 179, 8, 0.4)' } : {}}
+                            >
+                                <td style={{ textAlign: 'center', fontFamily: 'monospace', fontWeight: 'bold', fontSize: '12px', color: '#1e293b' }}>
+                                    {point.unique_id || index + 1}
+                                </td>
                                 <td>
                                     <textarea
                                         value={point.title || ''}

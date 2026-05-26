@@ -4,6 +4,7 @@ const Schema = mongoose.Schema;
 
 const projectSchema = new Schema({
     name: { type: String, required: true },
+    initials: { type: String, uppercase: true, trim: true, index: true },
     description: String,
     owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     status: { type: String, enum: ['Active', 'Archived'], default: 'Active' },

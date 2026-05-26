@@ -10,7 +10,8 @@ const contactSchema = new mongoose.Schema({
   title: { type: String },
   isPrimary: { type: Boolean, default: false },
   tags: [{ type: String }],
-  convertedFromLead: { type: mongoose.Schema.Types.ObjectId, ref: 'Lead' }
+  convertedFromLead: { type: mongoose.Schema.Types.ObjectId, ref: 'Lead' },
+  period: { type: String, default: () => new Date().toISOString().substring(0, 7) }
 }, { timestamps: true });
 
 export default mongoose.model('Contact', contactSchema);

@@ -33,7 +33,10 @@ const opportunitySchema = new mongoose.Schema({
   }],
   expectedCloseDate: { type: Date },
   probability: { type: Number, min: 0, max: 100, default: 0 },
+  crateSize: { type: String },
+  period: { type: String, default: () => new Date().toISOString().substring(0, 7) },
   closeReason: { type: String },
+  closeNotes: { type: String },
   stageHistory: [{
     stage: { type: String },
     enteredAt: { type: Date, default: Date.now },

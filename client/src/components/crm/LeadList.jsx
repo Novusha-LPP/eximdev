@@ -4,6 +4,7 @@ import { message } from 'antd';
 
 import LeadFormModal from './components/LeadFormModal';
 import LeadDetailModal from './components/LeadDetailModal';
+import FilterBar from './components/FilterBar';
 
 export default function LeadList() {
   const [leads, setLeads] = useState([]);
@@ -18,15 +19,51 @@ export default function LeadList() {
   const [userTeams, setUserTeams] = useState([]);
   const [selectedTeamId, setSelectedTeamId] = useState('');
 
-  const fetchLeads = async (teamId = selectedTeamId) => {
+  const [filters, setFilters] = useState(() => {
+    try {
+      const stored = localStorage.getItem('crm_filters_leads');
+      if (stored) return JSON.parse(stored);
+    } catch (e) {}
+    return {
+      type: 'this_month',
+      month: new Date().toISOString().substring(0, 7),
+      startDate: '',
+      endDate: ''
+    };
+  });
+
+  const handleFilterChange = (newFilters) => {
+    setFilters(prev => {
+      if (
+        prev &&
+        prev.type === newFilters.type &&
+        prev.month === newFilters.month &&
+        prev.startDate === newFilters.startDate &&
+        prev.endDate === newFilters.endDate
+      ) {
+        return prev;
+      }
+      return newFilters;
+    });
+  };
+
+  const fetchLeads = async (teamId = selectedTeamId, activeFilters = filters) => {
+    if (!activeFilters) return;
     setLoading(true);
     setError(null);
     try {
       const queryParams = new URLSearchParams();
       if (teamId) queryParams.append('teamId', teamId);
       
+      if (activeFilters.startDate && activeFilters.endDate) {
+        queryParams.append('startDate', activeFilters.startDate);
+        queryParams.append('endDate', activeFilters.endDate);
+      } else if (activeFilters.month) {
+        queryParams.append('period', activeFilters.month);
+      }
+      
       const res = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/crm/leads${queryParams.toString() ? `?${queryParams.toString()}` : ''}`,
+        `${process.env.REACT_APP_API_STRING}/crm/leads?${queryParams.toString()}`,
         { withCredentials: true }
       );
       setLeads(Array.isArray(res.data) ? res.data : []);
@@ -72,8 +109,13 @@ export default function LeadList() {
 
   useEffect(() => {
     fetchUserTeams();
-    fetchLeads();
   }, []);
+
+  useEffect(() => {
+    if (filters) {
+      fetchLeads(selectedTeamId, filters);
+    }
+  }, [filters, selectedTeamId]);
 
   const handleConvert = async (leadId, leadName) => {
     if (!window.confirm(`Convert "${leadName}" into an Account & Opportunity?\n\nThis will create a new account, contact, and sales opportunity.`)) {
@@ -108,15 +150,6 @@ export default function LeadList() {
       setConverting(null);
     }
   };
-
-  if (loading) return (
-    <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div>
-        <div style={{ fontSize: '18px', marginBottom: '12px' }}>⏳ Loading leads...</div>
-        <div style={{ fontSize: '14px', color: '#94a3b8' }}>Fetching your lead list</div>
-      </div>
-    </div>
-  );
 
   return (
     <div style={{ background: '#fff', padding: '2rem', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0' }}>
@@ -190,74 +223,87 @@ export default function LeadList() {
           </button>
         </div>
       </div>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ borderBottom: '2px solid #f1f5f9', textAlign: 'left', color: '#64748b', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              <th style={{ padding: '16px 12px' }}>Company</th>
-              <th style={{ padding: '16px 12px' }}>Contact Person</th>
-              <th style={{ padding: '16px 12px' }}>Status</th>
-              <th style={{ padding: '16px 12px', textAlign: 'right' }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {leads.length === 0 ? (
-              <tr><td colSpan="4" style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>No leads found in your pipeline.</td></tr>
-            ) : leads.map(lead => (
-              <tr key={lead._id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#fafafa'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                <td style={{ padding: '16px 12px', fontWeight: 600, color: '#334155' }}>{lead.company || 'N/A'}</td>
-                <td style={{ padding: '16px 12px', color: '#475569' }}>{lead.firstName} {lead.lastName}</td>
-                <td style={{ padding: '16px 12px' }}>
-                  <span style={{ 
-                    background: lead.status === 'converted' ? '#dcfce7' : '#fef3c7', 
-                    color: lead.status === 'converted' ? '#166534' : '#92400e', 
-                    padding: '6px 12px', 
-                    borderRadius: '20px', 
-                    fontSize: '0.75rem', 
-                    fontWeight: 700,
-                    textTransform: 'capitalize'
-                  }}>
-                    {lead.status}
-                  </span>
-                </td>
-                 <td style={{ padding: '16px 12px', textAlign: 'right' }}>
-                   <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                     <button
-                       onClick={() => {
-                         setSelectedLead(lead);
-                         setIsDetailModalOpen(true);
-                       }}
-                       style={{ background: '#f8fafc', color: '#475569', padding: '6px 14px', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
-                     >
-                       View
-                     </button>
-                     {lead.status !== 'converted' && (
-                       <button 
-                         onClick={() => handleConvert(lead._id, `${lead.firstName} ${lead.lastName}`)}
-                         disabled={converting === lead._id}
-                         style={{ 
-                           background: converting === lead._id ? '#d1d5db' : '#10b981', 
-                           color: 'white', 
-                           padding: '6px 14px', 
-                           border: 'none', 
-                           borderRadius: '6px', 
-                           cursor: converting === lead._id ? 'not-allowed' : 'pointer', 
-                           fontSize: '0.8rem', 
-                           fontWeight: 600,
-                           opacity: converting === lead._id ? 0.6 : 1,
-                           minWidth: '90px'
-                         }}
-                       >
-                         {converting === lead._id ? '⏳ Converting...' : 'Convert'}
-                       </button>
-                     )}
-                   </div>
-                 </td>
+
+      {/* Persistent Filter Bar */}
+      <FilterBar moduleName="leads" onChange={handleFilterChange} />
+
+      {loading ? (
+        <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div>
+            <div style={{ fontSize: '18px', marginBottom: '12px' }}>⏳ Loading leads...</div>
+            <div style={{ fontSize: '14px', color: '#94a3b8' }}>Fetching your lead list</div>
+          </div>
+        </div>
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '2px solid #f1f5f9', textAlign: 'left', color: '#64748b', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                <th style={{ padding: '16px 12px' }}>Company</th>
+                <th style={{ padding: '16px 12px' }}>Contact Person</th>
+                <th style={{ padding: '16px 12px' }}>Status</th>
+                <th style={{ padding: '16px 12px', textAlign: 'right' }}>Actions</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {leads.length === 0 ? (
+                <tr><td colSpan="4" style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>No leads found in your pipeline.</td></tr>
+              ) : leads.map(lead => (
+                <tr key={lead._id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#fafafa'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  <td style={{ padding: '16px 12px', fontWeight: 600, color: '#334155' }}>{lead.company || 'N/A'}</td>
+                  <td style={{ padding: '16px 12px', color: '#475569' }}>{lead.firstName} {lead.lastName}</td>
+                  <td style={{ padding: '16px 12px' }}>
+                    <span style={{ 
+                      background: lead.status === 'converted' ? '#dcfce7' : '#fef3c7', 
+                      color: lead.status === 'converted' ? '#166534' : '#92400e', 
+                      padding: '6px 12px', 
+                      borderRadius: '20px', 
+                      fontSize: '0.75rem', 
+                      fontWeight: 700,
+                      textTransform: 'capitalize'
+                    }}>
+                      {lead.status}
+                    </span>
+                  </td>
+                   <td style={{ padding: '16px 12px', textAlign: 'right' }}>
+                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                       <button
+                         onClick={() => {
+                           setSelectedLead(lead);
+                           setIsDetailModalOpen(true);
+                         }}
+                         style={{ background: '#f8fafc', color: '#475569', padding: '6px 14px', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
+                       >
+                         View
+                       </button>
+                       {lead.status !== 'converted' && (
+                         <button 
+                           onClick={() => handleConvert(lead._id, `${lead.firstName} ${lead.lastName}`)}
+                           disabled={converting === lead._id}
+                           style={{ 
+                             background: converting === lead._id ? '#d1d5db' : '#10b981', 
+                             color: 'white', 
+                             padding: '6px 14px', 
+                             border: 'none', 
+                             borderRadius: '6px', 
+                             cursor: converting === lead._id ? 'not-allowed' : 'pointer', 
+                             fontSize: '0.8rem', 
+                             fontWeight: 600,
+                             opacity: converting === lead._id ? 0.6 : 1,
+                             minWidth: '90px'
+                           }}
+                         >
+                           {converting === lead._id ? '⏳ Converting...' : 'Convert'}
+                         </button>
+                       )}
+                     </div>
+                   </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

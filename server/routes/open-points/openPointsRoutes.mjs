@@ -10,6 +10,41 @@ import auditMiddleware from "../../middleware/auditTrail.mjs";
 
 const router = express.Router();
 
+// Helper to generate initials from a name
+function generateInitials(name) {
+    if (!name) return "OP";
+    const cleanName = name.replace(/[^a-zA-Z0-9\s]/g, ""); // Keep alphanumeric and spaces
+    const words = cleanName.trim().split(/\s+/).filter(Boolean);
+    if (words.length === 1) {
+        return words[0].substring(0, 3).toUpperCase();
+    }
+    // Take first letter of each word
+    let initials = words.map(w => w[0]).join("").toUpperCase();
+    if (initials.length < 2) {
+        initials = words[0].substring(0, 3).toUpperCase();
+    }
+    return initials;
+}
+
+// Helper to get a unique initials string across all projects
+async function getUniqueInitials(projectName, projectId = null) {
+    let baseInitials = generateInitials(projectName);
+    let initials = baseInitials;
+    let counter = 1;
+    while (true) {
+        const query = { initials };
+        if (projectId) {
+            query._id = { $ne: projectId };
+        }
+        const existing = await OpenPointProject.findOne(query);
+        if (!existing) {
+            return initials;
+        }
+        counter++;
+        initials = `${baseInitials}${counter}`;
+    }
+}
+
 // Middleware to verify if user is part of the project
 const verifyProjectAccess = async (req, res, next) => {
     try {
@@ -63,8 +98,10 @@ router.post("/api/open-points/projects", authMiddleware, auditMiddleware("OpenPo
             return res.status(404).json({ error: "Owner user not found" });
         }
 
+        const initials = await getUniqueInitials(name);
         const project = new OpenPointProject({
             name,
+            initials,
             description,
             owner: owner._id,
             team_members
@@ -323,8 +360,6 @@ router.get("/api/open-points/project/:projectId/points", authMiddleware, verifyP
 // Create Point
 router.post("/api/open-points/points", authMiddleware, auditMiddleware("OpenPoint"), async (req, res) => {
     try {
-
-
         const pointData = { ...req.body };
 
         // Server-side fallback: If responsibility text is missing but ID is present, fetch it.
@@ -333,7 +368,6 @@ router.post("/api/open-points/points", authMiddleware, auditMiddleware("OpenPoin
                 const user = await UserModel.findById(pointData.responsible_person);
                 if (user) {
                     pointData.responsibility = user.username;
-
                 }
             } catch (err) {
                 console.error("Failed to auto-fill responsibility", err);
@@ -341,6 +375,24 @@ router.post("/api/open-points/points", authMiddleware, auditMiddleware("OpenPoin
         }
 
         pointData.created_by = req.user._id;
+
+        // Fetch project and generate initials if missing
+        const project = await OpenPointProject.findById(pointData.project_id);
+        if (!project) {
+            return res.status(404).json({ error: "Project not found" });
+        }
+
+        if (!project.initials) {
+            project.initials = await getUniqueInitials(project.name);
+            await project.save();
+        }
+
+        // Find highest seq_id inside this project to calculate next sequence ID
+        const lastPoint = await OpenPoint.findOne({ project_id: project._id }).sort({ seq_id: -1 });
+        const nextSeqId = lastPoint && lastPoint.seq_id ? lastPoint.seq_id + 1 : 1;
+
+        pointData.seq_id = nextSeqId;
+        pointData.unique_id = `${project.initials}-${nextSeqId}`;
 
         const point = new OpenPoint(pointData);
         let savedPoint = await point.save();
@@ -945,5 +997,68 @@ function enrichedTeamsArray(teamsLean, hodMap, memberMap, countsMap) {
         };
     });
 }
+
+// Get search suggestions for unique IDs or titles
+router.get("/api/open-points/suggestions", authMiddleware, async (req, res) => {
+    try {
+        const { q } = req.query;
+        if (!q || !q.trim()) {
+            return res.json([]);
+        }
+        
+        // Find matching projects user has access to (respect permissions)
+        const userId = req.user._id;
+        const projects = await OpenPointProject.distinct('_id', {
+            $or: [
+                { owner: userId },
+                { "team_members.user": userId }
+            ]
+        });
+
+        // Find up to 10 points matching unique_id or title
+        const points = await OpenPoint.find({
+            project_id: { $in: projects },
+            $or: [
+                { unique_id: { $regex: new RegExp(q.trim(), "i") } },
+                { title: { $regex: new RegExp(q.trim(), "i") } }
+            ]
+        })
+        .select('unique_id title project_id')
+        .limit(10);
+
+        res.json(points);
+    } catch (error) {
+        console.error("Suggestions error:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Search open point by unique ID globally
+router.get("/api/open-points/search/:uniqueId", authMiddleware, async (req, res) => {
+    try {
+        const { uniqueId } = req.params;
+        if (!uniqueId) {
+            return res.status(400).json({ error: "Unique ID is required" });
+        }
+        
+        // Case-insensitive search on unique_id
+        const point = await OpenPoint.findOne({ 
+            unique_id: { $regex: new RegExp(`^${uniqueId.trim()}$`, "i") } 
+        });
+
+        if (!point) {
+            return res.status(404).json({ error: `Open Point with ID "${uniqueId}" not found.` });
+        }
+
+        res.json({
+            found: true,
+            pointId: point._id,
+            projectId: point.project_id
+        });
+    } catch (error) {
+        console.error("Global search error:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
 
 export default router;

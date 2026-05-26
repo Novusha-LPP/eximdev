@@ -6,6 +6,7 @@ import ContactsList from './components/ContactsList';
 import TasksList from './components/TasksList';
 import CRMDashboard from './CRMDashboard';
 import SalesTeamManagement from './components/SalesTeamManagement';
+import CRMReportsDashboard from './CRMReportsDashboard';
 
 const TABS = [
   { key: 'dashboard', label: 'Dashboard', description: 'View key metrics & pipeline health' },
@@ -14,7 +15,8 @@ const TABS = [
   { key: 'accounts', label: 'Accounts', description: 'Company information' },
   { key: 'contacts', label: 'Contacts', description: 'People at organizations' },
   { key: 'teams', label: 'Teams', description: 'Sales team structure' },
-  { key: 'tasks', label: 'Tasks', description: 'Action items & follow-ups' }
+  { key: 'tasks', label: 'Tasks', description: 'Action items & follow-ups' },
+  { key: 'reports', label: 'Reports', description: 'Week-wise & Month-wise stage reports' }
 ];
 
 const CRM_WORKFLOW = {
@@ -48,6 +50,7 @@ export default function CRMModule() {
       case 'contacts': return <ContactsList />;
       case 'teams': return <SalesTeamManagement />;
       case 'tasks': return <TasksList />;
+      case 'reports': return <CRMReportsDashboard />;
       default: return <CRMDashboard />;
     }
   };

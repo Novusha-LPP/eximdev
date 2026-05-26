@@ -401,7 +401,9 @@ const MyOpenPoints = ({ username: propUsername, viewMode }) => {
                             <tbody>
                                 {filteredPoints.map((point, index) => (
                                     <tr key={point._id}>
-                                        <td style={{ textAlign: 'center' }}>{index + 1}</td>
+                                        <td style={{ textAlign: 'center', fontFamily: 'monospace', fontWeight: 'bold', fontSize: '12px', color: '#1e293b' }}>
+                                             {point.unique_id || index + 1}
+                                        </td>
                                         <td>
                                             <span
                                                 style={{ cursor: 'pointer', color: '#3b82f6', fontWeight: 600, textDecoration: 'underline' }}

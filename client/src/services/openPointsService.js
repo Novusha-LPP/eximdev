@@ -111,3 +111,13 @@ export const fetchMyPendingCount = async () => {
     const response = await axios.get(`${API_URL}/open-points/my-pending-count`, getHeaders());
     return response.data; // { count: X }
 };
+
+export const searchOpenPointByUniqueId = async (uniqueId) => {
+    const response = await axios.get(`${API_URL}/open-points/search/${uniqueId}`, getHeaders());
+    return response.data; // { found: true, pointId, projectId }
+};
+
+export const fetchOpenPointSuggestions = async (query) => {
+    const response = await axios.get(`${API_URL}/open-points/suggestions?q=${encodeURIComponent(query)}`, getHeaders());
+    return response.data; // array of { _id, unique_id, title, project_id }
+};

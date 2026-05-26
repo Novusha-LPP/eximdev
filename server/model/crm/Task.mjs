@@ -26,7 +26,13 @@ const taskSchema = new mongoose.Schema({
     enum: ['low', 'medium', 'high', 'urgent'], 
     default: 'medium' 
   },
-  reminder: { type: Date }
+  reminder: { type: Date },
+  reassignmentHistory: [{
+    fromUser: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    toUser: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    timestamp: { type: Date, default: Date.now }
+  }]
 }, { timestamps: true });
 
 export default mongoose.model('Task', taskSchema);

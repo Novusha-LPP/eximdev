@@ -5,6 +5,8 @@ const pointSchema = new mongoose.Schema({
     project_id: { type: mongoose.Schema.Types.ObjectId, ref: 'OpenPointProject', required: true, index: true },
     title: { type: String, required: true },
     description: String,
+    seq_id: { type: Number },
+    unique_id: { type: String, index: true },
 
     // New Excel Fields
     responsibility: { type: String }, // Text name from Excel

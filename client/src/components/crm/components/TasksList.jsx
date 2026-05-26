@@ -281,9 +281,40 @@ export default function TasksList() {
                             ? (task.assignedTo.first_name ? `${task.assignedTo.first_name} ${task.assignedTo.last_name || ''}`.trim() : task.assignedTo.username || 'Unassigned') 
                             : (task.assignedTo || 'Unassigned')}
                         </span>
-                      
                       </div>
+                      {task.relatedTo?.model && task.relatedTo?.id && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span style={{ color: '#cbd5e1' }}>🔗</span> Linked: 
+                          <span style={{ 
+                            background: '#eef2ff', color: '#4f46e5', 
+                            padding: '2px 8px', borderRadius: '4px', border: '1px solid #dbeafe',
+                            fontWeight: 700, fontSize: '0.725rem' 
+                          }}>
+                            {task.relatedTo.model}: {task.relatedTo.name || 'View Record'}
+                          </span>
+                        </div>
+                      )}
                     </div>
+
+                    {task.reassignmentHistory && task.reassignmentHistory.length > 0 && (
+                      <div style={{ 
+                        marginTop: '12px', padding: '10px 14px', background: '#f8fafc', 
+                        borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '0.75rem' 
+                      }}>
+                        <div style={{ fontWeight: 700, color: '#64748b', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.025em' }}>Reassignment Log</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          {task.reassignmentHistory.map((hist, idx) => (
+                            <div key={idx} style={{ color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span>🔄 Reassigned from</span>
+                              <strong style={{ color: '#1e293b' }}>{hist.fromUser?.username || 'Teammate'}</strong>
+                              <span>to</span>
+                              <strong style={{ color: '#1e293b' }}>{hist.toUser?.username || 'Teammate'}</strong>
+                              <span style={{ color: '#94a3b8' }}>• {new Date(hist.timestamp).toLocaleDateString('en-IN')}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import OpportunityDetailModal from './components/OpportunityDetailModal';
+import FilterBar from './components/FilterBar';
 import confetti from 'canvas-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
+import { message } from 'antd';
 
 const PIPELINE_STAGES = [
   { id: 'lead', name: 'Lead', color: '#4f8ef7' },
@@ -25,13 +27,57 @@ export default function CRMKanbanBoard() {
   const [showCelebration, setShowCelebration] = useState(false);
   const [celebrationDealName, setCelebrationDealName] = useState('');
 
-  const fetchBoard = async () => {
+  // Lost Reason Modal States
+  const [isLostModalOpen, setIsLostModalOpen] = useState(false);
+  const [lostOpportunityId, setLostOpportunityId] = useState(null);
+  const [lostFromStage, setLostFromStage] = useState(null);
+  const [lostReason, setLostReason] = useState('');
+  const [lostNotes, setLostNotes] = useState('');
+
+  const [filters, setFilters] = useState(() => {
+    try {
+      const stored = localStorage.getItem('crm_filters_pipeline');
+      if (stored) return JSON.parse(stored);
+    } catch (e) {}
+    return {
+      type: 'this_month',
+      month: new Date().toISOString().substring(0, 7),
+      startDate: '',
+      endDate: ''
+    };
+  });
+
+  const handleFilterChange = (newFilters) => {
+    setFilters(prev => {
+      if (
+        prev &&
+        prev.type === newFilters.type &&
+        prev.month === newFilters.month &&
+        prev.startDate === newFilters.startDate &&
+        prev.endDate === newFilters.endDate
+      ) {
+        return prev;
+      }
+      return newFilters;
+    });
+  };
+
+  const fetchBoard = async (activeFilters = filters) => {
+    if (!activeFilters) return;
     setLoading(true);
     setError(null);
     try {
+      const params = {};
+      if (activeFilters.startDate && activeFilters.endDate) {
+        params.startDate = activeFilters.startDate;
+        params.endDate = activeFilters.endDate;
+      } else if (activeFilters.month) {
+        params.period = activeFilters.month;
+      }
+
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/crm/opportunities/board`,
-        { withCredentials: true }
+        { params, withCredentials: true }
       );
       
       const realBoard = res.data || {};
@@ -51,8 +97,10 @@ export default function CRMKanbanBoard() {
   };
 
   useEffect(() => {
-    fetchBoard();
-  }, []);
+    if (filters) {
+      fetchBoard(filters);
+    }
+  }, [filters]);
 
   const handleDragStart = (e, opportunity, fromStage) => {
     setDraggedOpportunity({ opportunity, fromStage });
@@ -67,9 +115,43 @@ export default function CRMKanbanBoard() {
   const handleDropStage = (e, toStage) => {
     e.preventDefault();
     if (draggedOpportunity && draggedOpportunity.fromStage !== toStage) {
-      handleUpdateOpportunityStage(draggedOpportunity.opportunity._id, toStage);
+      if (toStage === 'lost') {
+        setLostOpportunityId(draggedOpportunity.opportunity._id);
+        setLostFromStage(draggedOpportunity.fromStage);
+        setLostReason('');
+        setLostNotes('');
+        setIsLostModalOpen(true);
+      } else {
+        handleUpdateOpportunityStage(draggedOpportunity.opportunity._id, toStage);
+      }
     }
     setDraggedOpportunity(null);
+  };
+
+  const handleConfirmLost = async () => {
+    if (!lostReason) return;
+    setIsLostModalOpen(false);
+    setUpdating(true);
+    try {
+      await axios.put(
+        `${process.env.REACT_APP_API_STRING}/crm/opportunities/${lostOpportunityId}`,
+        {
+          stage: 'lost',
+          closeReason: lostReason,
+          closeNotes: lostNotes
+        },
+        { withCredentials: true }
+      );
+      message.success('Opportunity marked as Lost');
+      fetchBoard();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to update opportunity');
+      console.error(err);
+    } finally {
+      setUpdating(false);
+      setLostOpportunityId(null);
+      setLostFromStage(null);
+    }
   };
 
   const handleUpdateOpportunityStage = async (opportunityId, newStage) => {
@@ -157,15 +239,6 @@ export default function CRMKanbanBoard() {
     }
   };
 
-  if (loading) return (
-    <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', minHeight: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div>
-        <div style={{ fontSize: '18px', marginBottom: '12px' }}>⏳ Loading CRM Pipeline...</div>
-        <div style={{ fontSize: '14px', color: '#94a3b8' }}>Fetching your opportunities</div>
-      </div>
-    </div>
-  );
-
   return (
     <>
       <AnimatePresence>
@@ -241,10 +314,21 @@ export default function CRMKanbanBoard() {
         </div>
       )}
 
-      <div style={{ 
-        display: 'flex', gap: '20px', overflowX: 'auto', paddingBottom: '24px', 
-        minHeight: 'calc(100vh - 200px)', background: '#f8fafc', padding: '24px'
-      }}>
+      {/* Persistent Filter Bar */}
+      <FilterBar moduleName="pipeline" onChange={handleFilterChange} />
+
+      {loading ? (
+        <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', minHeight: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', margin: '24px' }}>
+          <div>
+            <div style={{ fontSize: '18px', marginBottom: '12px' }}>⏳ Loading CRM Pipeline...</div>
+            <div style={{ fontSize: '14px', color: '#94a3b8' }}>Fetching your opportunities</div>
+          </div>
+        </div>
+      ) : (
+        <div style={{ 
+          display: 'flex', gap: '20px', overflowX: 'auto', paddingBottom: '24px', 
+          minHeight: 'calc(100vh - 200px)', background: '#f8fafc', padding: '24px'
+        }}>
         {PIPELINE_STAGES.map(stage => {
           const opps = board[stage.id] || [];
           return (
@@ -318,6 +402,19 @@ export default function CRMKanbanBoard() {
                         )}
                       </div>
                     )}
+
+                    {opp.crateSize && (
+                      <div style={{ 
+                        fontSize: '0.7rem', color: '#64748b', marginBottom: '12px', 
+                        display: 'flex', alignItems: 'center', gap: '4px',
+                        background: '#f8fafc', padding: '4px 8px', borderRadius: '6px',
+                        border: '1px solid #e2e8f0', width: 'fit-content'
+                      }}>
+                        <span>📦</span>
+                        <strong style={{ color: '#475569' }}>Crate Size:</strong>
+                        <span>{opp.crateSize}</span>
+                      </div>
+                    )}
                     
                     <div style={{ 
                       marginTop: 'auto', display: 'flex', justifyContent: 'space-between', 
@@ -345,6 +442,132 @@ export default function CRMKanbanBoard() {
           )
         })}
       </div>
+      )}
+      {/* Lost Reason Modal */}
+      {isLostModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.75)',
+          backdropFilter: 'blur(10px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 10000,
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            width: '100%',
+            maxWidth: '500px',
+            borderRadius: '16px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+            overflow: 'hidden',
+            padding: '24px',
+            border: '1px solid #e2e8f0',
+            animation: 'modalSlideIn 0.3s ease-out'
+          }}>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '1.25rem', color: '#1e293b', fontWeight: 700 }}>
+              Mark Deal as Lost
+            </h3>
+            <p style={{ margin: '0 0 20px 0', fontSize: '0.875rem', color: '#64748b' }}>
+              Please provide a reason for losing this opportunity. This data helps us improve our sales performance.
+            </p>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', color: '#475569', fontWeight: 600, fontSize: '0.875rem' }}>
+                Reason for Loss <span style={{ color: '#ef4444' }}>*</span>
+              </label>
+              <select
+                value={lostReason}
+                onChange={(e) => setLostReason(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  border: '1.5px solid #cbd5e1',
+                  borderRadius: '8px',
+                  fontSize: '0.9rem',
+                  outline: 'none',
+                  transition: 'border-color 0.2s',
+                  color: '#1e293b',
+                  background: '#ffffff'
+                }}
+              >
+                <option value="">-- Select a Reason --</option>
+                <option value="Price Lost">Price Lost — Lost due to competitor offering lower price</option>
+                <option value="Product Lost">Product Lost — Product did not meet client specifications</option>
+                <option value="No Reply / No Response">No Reply / No Response — Client became unresponsive</option>
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', color: '#475569', fontWeight: 600, fontSize: '0.875rem' }}>
+                Additional Notes
+              </label>
+              <textarea
+                value={lostNotes}
+                onChange={(e) => setLostNotes(e.target.value)}
+                placeholder="Enter any additional details or context here..."
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  border: '1.5px solid #cbd5e1',
+                  borderRadius: '8px',
+                  fontSize: '0.9rem',
+                  outline: 'none',
+                  minHeight: '100px',
+                  resize: 'vertical',
+                  transition: 'border-color 0.2s',
+                  color: '#1e293b'
+                }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => {
+                  setIsLostModalOpen(false);
+                  setLostOpportunityId(null);
+                  setLostFromStage(null);
+                }}
+                style={{
+                  padding: '10px 18px',
+                  border: '1px solid #cbd5e1',
+                  background: '#ffffff',
+                  color: '#475569',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  fontSize: '0.875rem',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmLost}
+                disabled={!lostReason}
+                style={{
+                  padding: '10px 18px',
+                  background: lostReason ? '#ef4444' : '#fca5a5',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: lostReason ? 'pointer' : 'not-allowed',
+                  fontWeight: 600,
+                  fontSize: '0.875rem',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Confirm Lost
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

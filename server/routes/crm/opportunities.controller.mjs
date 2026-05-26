@@ -81,10 +81,23 @@ async function buildOwnerFilter(user, requestedTeamId = null) {
 // GET /api/crm/opportunities
 router.get('/', async (req, res) => {
   try {
-    const { stage, forecastCategory, teamId } = req.query;
+    const { stage, forecastCategory, teamId, startDate, endDate, period, dateField } = req.query;
     const query = { ...(await buildOwnerFilter(req.user, teamId)) };
     if (stage) query.stage = stage;
     if (forecastCategory) query.forecastCategory = forecastCategory;
+
+    const filterField = dateField === 'last_updated' || dateField === 'updatedAt' ? 'updatedAt' : 'createdAt';
+
+    if (startDate && endDate) {
+      query[filterField] = {
+        $gte: new Date(`${startDate}T00:00:00.000Z`),
+        $lte: new Date(`${endDate}T23:59:59.999Z`)
+      };
+    } else if (period) {
+      query.period = period;
+    } else {
+      query.period = new Date().toISOString().substring(0, 7);
+    }
 
     const opportunities = await Opportunity.find(query)
       .populate('accountId', 'name')
@@ -99,8 +112,24 @@ router.get('/', async (req, res) => {
 // GET /api/crm/opportunities/board
 router.get('/board', async (req, res) => {
   try {
+    const { startDate, endDate, period, dateField } = req.query;
     const ownerFilter = await buildOwnerFilter(req.user);
-    const opportunities = await Opportunity.find(ownerFilter)
+    const query = { ...ownerFilter };
+
+    const filterField = dateField === 'last_updated' || dateField === 'updatedAt' ? 'updatedAt' : 'createdAt';
+
+    if (startDate && endDate) {
+      query[filterField] = {
+        $gte: new Date(`${startDate}T00:00:00.000Z`),
+        $lte: new Date(`${endDate}T23:59:59.999Z`)
+      };
+    } else if (period) {
+      query.period = period;
+    } else {
+      query.period = new Date().toISOString().substring(0, 7);
+    }
+
+    const opportunities = await Opportunity.find(query)
       .populate('accountId', 'name')
       .populate('ownerId', 'username');
     const board = {
@@ -166,6 +195,14 @@ router.put('/:id', async (req, res) => {
         return res.status(400).json({ success: false, message: validation.message });
       }
 
+      if (stage === 'lost') {
+        if (!req.body.closeReason) {
+          return res.status(400).json({ success: false, message: 'Close reason is required when marking opportunity as Lost' });
+        }
+        opportunity.closeReason = req.body.closeReason;
+        opportunity.closeNotes = req.body.closeNotes || '';
+      }
+
       // Update stage history
       const lastHistory = opportunity.stageHistory[opportunity.stageHistory.length - 1];
       if (lastHistory && !lastHistory.exitedAt) {
@@ -185,7 +222,7 @@ router.put('/:id', async (req, res) => {
       }
       
       // Update forecast category for terminal stages
-      if (stage === 'won') {
+      if (stage === 'won' || stage === 'lost') {
         opportunity.forecastCategory = 'closed';
       } else if (TERMINAL_STAGES.includes(opportunity.stage) && stage !== 'lost') {
         // If moving out of lost (shouldn't happen due to validation above)
@@ -197,8 +234,10 @@ router.put('/:id', async (req, res) => {
     }
 
     // Update other allowed fields
-    const { newRemark, ...otherDataToAssign } = otherData;
+    const { newRemark, closeReason, closeNotes, ...otherDataToAssign } = otherData;
     Object.assign(opportunity, otherDataToAssign);
+    if (closeReason) opportunity.closeReason = closeReason;
+    if (closeNotes !== undefined) opportunity.closeNotes = closeNotes;
 
     // Handle new remark if provided
     if (newRemark && newRemark.trim()) {
@@ -226,9 +265,17 @@ router.put('/:id', async (req, res) => {
 // PATCH /api/crm/opportunities/:id/stage
 router.patch('/:id/stage', async (req, res) => {
   try {
-    const { stage, probability } = req.body;
+    const { stage, probability, closeReason, closeNotes } = req.body;
     const opp = await Opportunity.findOne({ _id: req.params.id });
     if (!opp) return res.status(404).json({ message: 'Opportunity not found' });
+
+    if (stage === 'lost') {
+      if (!closeReason) {
+        return res.status(400).json({ message: 'Close reason is required when marking opportunity as Lost' });
+      }
+      opp.closeReason = closeReason;
+      opp.closeNotes = closeNotes || '';
+    }
 
     // Update history
     const lastHistory = opp.stageHistory[opp.stageHistory.length - 1];
@@ -241,7 +288,7 @@ router.patch('/:id/stage', async (req, res) => {
     if (probability !== undefined) opp.probability = probability;
     
     // Update forecast category automatically for terminal stages
-    if (stage === 'won') opp.forecastCategory = 'closed';
+    if (stage === 'won' || stage === 'lost') opp.forecastCategory = 'closed';
 
     await opp.save();
     res.json(opp);
@@ -253,12 +300,12 @@ router.patch('/:id/stage', async (req, res) => {
 // PATCH /api/crm/opportunities/:id/close
 router.patch('/:id/close', async (req, res) => {
   try {
-    const { status, closeReason } = req.body; // status: 'won' or 'lost'
+    const { status, closeReason, closeNotes } = req.body; // status: 'won' or 'lost'
     if (!['won', 'lost'].includes(status)) {
       return res.status(400).json({ message: 'Invalid close status' });
     }
-    if (!closeReason) {
-      return res.status(400).json({ message: 'Close reason is required' });
+    if (status === 'lost' && !closeReason) {
+      return res.status(400).json({ message: 'Close reason is required when marking opportunity as Lost' });
     }
 
     const opp = await Opportunity.findOne({ _id: req.params.id });
@@ -273,8 +320,9 @@ router.patch('/:id/close', async (req, res) => {
 
     opp.stage = status;
     opp.closeReason = closeReason;
+    opp.closeNotes = closeNotes || '';
     opp.probability = status === 'won' ? 100 : 0;
-    opp.forecastCategory = status === 'won' ? 'closed' : 'pipeline'; // lost is usually out of active pipeline but kept for history
+    opp.forecastCategory = 'closed';
 
     await opp.save();
     res.json(opp);

@@ -80,14 +80,27 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
         expectedCloseDate: formData.expectedCloseDate,
         services: formData.services || [],
         newRemark: newRemark,
-        userName: fullUserName
+        userName: fullUserName,
+        closeReason: formData.closeReason,
+        closeNotes: formData.closeNotes,
+        crateSize: formData.crateSize
       };
+
+      if (stageChanged && newStage === 'lost' && !formData.closeReason) {
+        message.error('Please select a Reason for Loss');
+        setIsSaving(false);
+        return;
+      }
 
       // If stage changed, use the dedicated PATCH /stage endpoint
       if (stageChanged) {
         await axios.patch(
           `${process.env.REACT_APP_API_STRING}/crm/opportunities/${opportunity._id}/stage`,
-          { stage: newStage },
+          { 
+            stage: newStage,
+            closeReason: formData.closeReason,
+            closeNotes: formData.closeNotes
+          },
           { withCredentials: true }
         );
       }
@@ -266,6 +279,37 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                 </div>
               </div>
 
+              {formData.stage === 'lost' && (
+                <div style={{ background: '#fef2f2', padding: '16px', borderRadius: '12px', border: '1.5px solid #fca5a5', marginBottom: '16px' }}>
+                  <div style={{ marginBottom: '12px' }}>
+                    <label style={{ display: 'block', marginBottom: '6px', color: '#991b1b', fontWeight: 600, fontSize: '0.85rem' }}>
+                      Reason for Loss <span style={{ color: '#ef4444' }}>*</span>
+                    </label>
+                    <select
+                      value={formData.closeReason || ''}
+                      onChange={(e) => setFormData({ ...formData, closeReason: e.target.value })}
+                      style={{ width: '100%', padding: '10px 12px', border: '1px solid #fca5a5', borderRadius: '8px', fontSize: '0.9rem', color: '#991b1b', background: '#ffffff', outline: 'none' }}
+                    >
+                      <option value="">-- Select a Reason --</option>
+                      <option value="Price Lost">Price Lost — Lost due to competitor offering lower price</option>
+                      <option value="Product Lost">Product Lost — Product did not meet client specifications</option>
+                      <option value="No Reply / No Response">No Reply / No Response — Client became unresponsive</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '6px', color: '#991b1b', fontWeight: 600, fontSize: '0.85rem' }}>
+                      Additional Notes
+                    </label>
+                    <textarea
+                      value={formData.closeNotes || ''}
+                      onChange={(e) => setFormData({ ...formData, closeNotes: e.target.value })}
+                      placeholder="Enter details on why the deal was lost..."
+                      style={{ width: '100%', padding: '10px 12px', border: '1px solid #fca5a5', borderRadius: '8px', fontSize: '0.9rem', minHeight: '80px', color: '#991b1b', outline: 'none' }}
+                    />
+                  </div>
+                </div>
+              )}
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                 <div>
                   <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Deal Value (₹)</label>
@@ -292,14 +336,26 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                 </div>
               </div>
 
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Expected Close Date</label>
-                <input
-                  type="date"
-                  value={formData.expectedCloseDate?.substring(0, 10) || ''}
-                  onChange={(e) => setFormData({ ...formData, expectedCloseDate: e.target.value })}
-                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
-                />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Expected Close Date</label>
+                  <input
+                    type="date"
+                    value={formData.expectedCloseDate?.substring(0, 10) || ''}
+                    onChange={(e) => setFormData({ ...formData, expectedCloseDate: e.target.value })}
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Crate Size</label>
+                  <input
+                    type="text"
+                    value={formData.crateSize || ''}
+                    onChange={(e) => setFormData({ ...formData, crateSize: e.target.value })}
+                    placeholder="Ex. 40ft x 20 units"
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
+                  />
+                </div>
               </div>
 
               <div style={{ marginBottom: '16px' }}>
@@ -396,6 +452,23 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
               {/* Opportunity Details */}
               <div style={{ marginBottom: '24px' }}>
                 <h4 style={{ color: '#475569', fontWeight: 700, marginBottom: '12px', fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Details</h4>
+
+                {formData.stage === 'lost' && (
+                  <div style={{ background: '#fef2f2', padding: '16px', borderRadius: '12px', border: '1px solid #fca5a5', marginBottom: '16px' }}>
+                    <div style={{ fontSize: '0.8rem', color: '#991b1b', fontWeight: 600 }}>Reason for Loss</div>
+                    <p style={{ margin: '4px 0 12px 0', color: '#7f1d1d', fontWeight: 700, fontSize: '0.95rem' }}>
+                      {formData.closeReason || 'Not specified'}
+                    </p>
+                    {formData.closeNotes && (
+                      <>
+                        <div style={{ fontSize: '0.8rem', color: '#991b1b', fontWeight: 600 }}>Additional Notes</div>
+                        <p style={{ margin: '4px 0 0 0', color: '#7f1d1d', fontSize: '0.9rem', whiteSpace: 'pre-wrap' }}>
+                          {formData.closeNotes}
+                        </p>
+                      </>
+                    )}
+                  </div>
+                )}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
                   <div>
                     <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Expected Close</span>
@@ -408,6 +481,13 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                     <p style={{ margin: '4px 0 0 0', color: '#334155', fontWeight: 600 }}>{formData.forecastCategory || 'Pipeline'}</p>
                   </div>
                 </div>
+
+                {formData.crateSize && (
+                  <div style={{ marginBottom: '16px' }}>
+                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>📦 Crate Size</span>
+                    <p style={{ margin: '4px 0 0 0', color: '#334155', fontWeight: 600 }}>{formData.crateSize}</p>
+                  </div>
+                )}
                 
                 {/* Services Display */}
                 {(formData.services || []).length > 0 && (

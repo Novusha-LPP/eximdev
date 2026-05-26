@@ -1,4 +1,5 @@
 import express from 'express';
+import '../../model/crm/Notification.mjs';
 import leadsRouter from './leads.controller.mjs';
 import accountsRouter from './accounts.controller.mjs';
 import contactsRouter from './contacts.controller.mjs';

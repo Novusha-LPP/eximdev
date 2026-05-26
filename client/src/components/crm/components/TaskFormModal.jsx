@@ -11,7 +11,12 @@ export default function TaskFormModal({ isOpen, onClose, onRefresh, task }) {
     priority: 'medium',
     dueDate: '',
     assignedTo: '', // This will store the ID
-    reminder: false
+    reminder: false,
+    relatedTo: {
+      model: '',
+      id: '',
+      name: ''
+    }
   });
   
   const [users, setUsers] = useState([]);
@@ -19,9 +24,38 @@ export default function TaskFormModal({ isOpen, onClose, onRefresh, task }) {
   const [userSearch, setUserSearch] = useState('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
 
+  // Polymorphic relatedTo options
+  const [entities, setEntities] = useState([]);
+  const [entitySearch, setEntitySearch] = useState('');
+  const [isEntityDropdownOpen, setIsEntityDropdownOpen] = useState(false);
+
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  const fetchEntityOptions = async (model) => {
+    if (!model) return;
+    try {
+      let endpoint = '';
+      if (model === 'Lead') endpoint = '/crm/leads';
+      else if (model === 'Opportunity') endpoint = '/crm/opportunities';
+      else if (model === 'Account') endpoint = '/crm/accounts';
+      else if (model === 'Contact') endpoint = '/crm/contacts';
+
+      const res = await axios.get(`${process.env.REACT_APP_API_STRING}${endpoint}`, { withCredentials: true });
+      const mapped = (res.data || []).map(item => {
+        let name = '';
+        if (model === 'Lead') name = `${item.firstName} ${item.lastName || ''} (${item.company})`;
+        else if (model === 'Opportunity') name = `${item.name} (${typeof item.accountId === 'object' ? (item.accountId?.name || 'No Account') : 'No Account'})`;
+        else if (model === 'Account') name = item.name;
+        else if (model === 'Contact') name = `${item.firstName} ${item.lastName || ''}`;
+        return { id: item._id, name };
+      });
+      setEntities(mapped);
+    } catch (err) {
+      console.error('Error fetching entity options:', err);
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -37,8 +71,15 @@ export default function TaskFormModal({ isOpen, onClose, onRefresh, task }) {
       setFormData({
         ...task,
         assignedTo: task.assignedTo?._id || task.assignedTo || '',
-        reminder: !!task.reminder
+        reminder: !!task.reminder,
+        relatedTo: task.relatedTo || { model: '', id: '', name: '' }
       });
+      if (task.relatedTo?.model) {
+        fetchEntityOptions(task.relatedTo.model);
+        setEntitySearch(task.relatedTo.name || '');
+      } else {
+        setEntitySearch('');
+      }
     } else {
       setFormData({
         title: '',
@@ -47,9 +88,12 @@ export default function TaskFormModal({ isOpen, onClose, onRefresh, task }) {
         priority: 'medium',
         dueDate: '',
         assignedTo: '',
-        reminder: false
+        reminder: false,
+        relatedTo: { model: '', id: '', name: '' }
       });
       setUserSearch('');
+      setEntitySearch('');
+      setEntities([]);
     }
   }, [task, isOpen]);
 
@@ -289,6 +333,103 @@ export default function TaskFormModal({ isOpen, onClose, onRefresh, task }) {
                 />
               )}
             </div>
+          </div>
+
+          {/* Polymorphic Record Linker */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '20px' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '8px', color: '#334155', fontWeight: 700, fontSize: '0.875rem' }}>LINK TYPE</label>
+              <select
+                value={formData.relatedTo?.model || ''}
+                onChange={(e) => {
+                  const model = e.target.value;
+                  setFormData({
+                    ...formData,
+                    relatedTo: { model, id: '', name: '' }
+                  });
+                  setEntitySearch('');
+                  setEntities([]);
+                  if (model) {
+                    fetchEntityOptions(model);
+                  }
+                }}
+                style={{ width: '100%', padding: '12px 16px', border: '1px solid #e2e8f0', borderRadius: '12px', fontSize: '0.95rem', background: '#fbfcfd', outline: 'none', cursor: 'pointer' }}
+              >
+                <option value="">None</option>
+                <option value="Lead">Lead</option>
+                <option value="Opportunity">Opportunity (Deal)</option>
+                <option value="Account">Account</option>
+                <option value="Contact">Contact</option>
+              </select>
+            </div>
+
+            {formData.relatedTo?.model && (
+              <div style={{ position: 'relative' }}>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#334155', fontWeight: 700, fontSize: '0.875rem' }}>SELECT RECORD</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    placeholder={`Search ${formData.relatedTo.model}...`}
+                    value={entitySearch}
+                    onChange={e => {
+                      setEntitySearch(e.target.value);
+                      setIsEntityDropdownOpen(true);
+                    }}
+                    onFocus={() => setIsEntityDropdownOpen(true)}
+                    style={{ width: '100%', padding: '12px 16px 12px 40px', border: '1px solid #e2e8f0', borderRadius: '12px', fontSize: '0.95rem', outline: 'none', background: '#fbfcfd' }}
+                  />
+                  <Search size={18} style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                </div>
+
+                {isEntityDropdownOpen && (
+                  <div style={{
+                    position: 'absolute', top: 'calc(100% + 8px)', left: 0, right: 0, zIndex: 100,
+                    border: '1px solid #e2e8f0', borderRadius: '12px', maxHeight: '200px',
+                    overflowY: 'auto', background: '#fff', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)'
+                  }}>
+                    {entities.filter(ent => ent.name.toLowerCase().includes(entitySearch.toLowerCase())).length === 0 ? (
+                      <div style={{ padding: '20px', textAlign: 'center', color: '#94a3b8', fontSize: '0.9rem' }}>No matching records</div>
+                    ) : entities.filter(ent => ent.name.toLowerCase().includes(entitySearch.toLowerCase())).map(ent => {
+                      const isSelected = formData.relatedTo?.id === ent.id;
+                      return (
+                        <div
+                          key={ent.id}
+                          onClick={() => {
+                            setFormData({
+                              ...formData,
+                              relatedTo: {
+                                ...formData.relatedTo,
+                                id: ent.id,
+                                name: ent.name
+                              }
+                            });
+                            setEntitySearch(ent.name);
+                            setIsEntityDropdownOpen(false);
+                          }}
+                          style={{
+                            padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9',
+                            background: isSelected ? '#f1f5f9' : 'transparent',
+                            fontSize: '0.9rem', color: '#1e293b',
+                            fontWeight: isSelected ? 600 : 400
+                          }}
+                          onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = '#f8fafc'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = isSelected ? '#f1f5f9' : 'transparent'; }}
+                        >
+                          {ent.name}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                
+                {isEntityDropdownOpen && (
+                  <div 
+                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 99 }}
+                    onClick={() => setIsEntityDropdownOpen(false)}
+                  />
+                )}
+              </div>
+            )}
           </div>
 
           <div style={{ 

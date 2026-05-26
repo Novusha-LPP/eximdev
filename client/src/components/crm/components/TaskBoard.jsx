@@ -254,6 +254,16 @@ export default function TaskBoard() {
                         )}
                       </div>
 
+                      {task.relatedTo?.model && task.relatedTo?.id && (
+                        <div style={{ 
+                          fontSize: '0.7rem', color: '#4f46e5', background: '#eef2ff',
+                          padding: '2px 6px', borderRadius: '4px', border: '1px solid #dbeafe',
+                          marginTop: '6px', fontWeight: 600, display: 'inline-block', width: 'fit-content'
+                        }}>
+                          🔗 {task.relatedTo.model}: {task.relatedTo.name?.split(' (')[0] || 'Link'}
+                        </div>
+                      )}
+
                       {status !== 'completed' && (
                         <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
                           {status !== 'in_progress' && (

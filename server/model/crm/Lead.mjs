@@ -35,6 +35,8 @@ const leadSchema = new mongoose.Schema({
   },
   score: { type: Number, default: 0 },
   grade: { type: String, enum: ['A', 'B', 'C', 'D'], default: 'D' },
+  crateSize: { type: String },
+  period: { type: String, default: () => new Date().toISOString().substring(0, 7) },
   convertedAt: { type: Date },
   convertedTo: {
     accountId: { type: mongoose.Schema.Types.ObjectId, ref: 'Account' },

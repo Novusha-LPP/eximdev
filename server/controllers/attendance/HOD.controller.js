@@ -1,7 +1,8 @@
 import AttendanceRecord from '../../model/attendance/AttendanceRecord.js';
 import LeaveApplication from '../../model/attendance/LeaveApplication.js';
 import Holiday from '../../model/attendance/Holiday.js';
-import moment from 'moment';
+import moment from 'moment-timezone';
+import Company from '../../model/attendance/Company.js';
 import fs from 'fs';
 import TeamModel from '../../model/teamModel.mjs';
 import User from '../../model/userModel.mjs';
@@ -1056,13 +1057,16 @@ export const approveRequest = async (req, res) => {
                 const currentApproverId = toIdString(application.current_approver_id);
 
                 const applyLeaveAttendance = async (processedBy) => {
-                    const start = moment(application.from_date_str || application.from_date).startOf('day');
-                    const end = moment(application.to_date_str || application.to_date).startOf('day');
-                    let curr = moment(start);
+                    const company = await Company.findById(application.company_id).select('timezone').lean();
+                    const tz = company?.timezone || 'Asia/Kolkata';
 
-                    while (curr.isSameOrBefore(end)) {
+                    const start = moment(application.from_date_str || application.from_date).tz(tz).startOf('day');
+                    const end = moment(application.to_date_str || application.to_date).tz(tz).startOf('day');
+                    let curr = start.clone();
+
+                    while (curr.isSameOrBefore(end, 'day')) {
                         const dateStr = curr.format('YYYY-MM-DD');
-                        const attDate = moment.utc(dateStr).startOf('day').toDate();
+                        const attDate = moment.utc(dateStr, 'YYYY-MM-DD').startOf('day').toDate();
 
                         await AttendanceRecord.findOneAndUpdate(
                             { employee_id: application.employee_id, attendance_date: attDate },

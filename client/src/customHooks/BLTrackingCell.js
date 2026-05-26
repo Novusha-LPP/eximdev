@@ -1,8 +1,6 @@
 import React, { useState, useContext } from "react";
-import { IconButton } from "@mui/material";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faShip, faAnchor, faLayerGroup } from "@fortawesome/free-solid-svg-icons";
+import { faShip, faAnchor, faLayerGroup, faCopy } from "@fortawesome/free-solid-svg-icons";
 import BLStatus from "./BLStatus";
 import SeaCargoStatus from "./SeaCargoStatus";
 import AirCargoStatus from "./AirCargoStatus";
@@ -21,9 +19,9 @@ const BLTrackingCell = ({
   portOfReporting,
   containerNos,
   onCopy,
-  onUpdateSuccess, // Add this prop to handle updates
-  invalidateCache, // Add this prop for cache invalidation
-  selectedYear, // Add this prop for the current year
+  onUpdateSuccess,
+  invalidateCache,
+  selectedYear,
 }) => {
   const [isAirCargoDialogOpen, setIsAirCargoDialogOpen] = useState(false);
   const [isAirExtendedDialogOpen, setIsAirExtendedDialogOpen] = useState(false);
@@ -37,11 +35,9 @@ const BLTrackingCell = ({
   const { branches } = useContext(BranchContext);
   const activeBranchConfig = branches?.find(b => b.branch_code === branch_code)?.configuration || null;
 
-  // Extract location code
   const locationCode =
     portOfReporting?.match(/\(([^)]+)\)/)?.[1] || portOfReporting;
 
-  // Build shipping line URLs
   const containerFirst = containerNos?.[0]?.container_number || "";
 
   const buildShippingLineUrls = (num) => ({
@@ -75,12 +71,9 @@ const BLTrackingCell = ({
       : "#",
   });
 
-  // Handle opening BL Status dialog
   const handleOpenAirCargoDialog = (event, mawbNumber) => {
     event.preventDefault();
     setSelectedMawb(mawbNumber);
-    
-    // Logic for AMD branch AIR mode
     if (branch_code?.startsWith('AMD') && mode === 'AIR') {
       setSelectedLocation('INAMD4');
       setIsAirExtendedDialogOpen(true);
@@ -89,12 +82,9 @@ const BLTrackingCell = ({
     }
   };
 
-  // Handle opening Sea Cargo dialog
   const handleOpenSeaCargoDialog = (event, blNo) => {
     event.preventDefault();
     setSelectedBL(blNo);
-    
-    // Logic for GIM branch
     if (branch_code?.startsWith('GIM')) {
       setSelectedLocation('INMUN1');
       setIsExtended(true);
@@ -102,29 +92,22 @@ const BLTrackingCell = ({
       setSelectedLocation(locationCode);
       setIsExtended(false);
     }
-    
     setIsSeaCargoDialogOpen(true);
   };
 
-  // Handle opening Air Console dialog
   const handleOpenAirConsoleDialog = (event, mawbNo) => {
     event.preventDefault();
     setSelectedMawb(mawbNo);
-    
-    // Logic for AMD branch
     if (branch_code?.startsWith('AMD')) {
       setSelectedLocation('INAMD4');
     } else {
       setSelectedLocation(locationCode);
     }
-    
     setIsAirConsoleDialogOpen(true);
   };
 
-  // Unified tracking handler
   const handleOpenTracking = (event, num) => {
     if ((branch_code?.startsWith('AMD') || branch_code?.startsWith('BRD')) && mode === 'SEA') {
-      // AMD and BRD SEA branch uses BL tracking
       handleOpenAirCargoDialog(event, num);
     } else if (mode === 'SEA' || branch_code?.startsWith('GIM')) {
       handleOpenSeaCargoDialog(event, num);
@@ -133,20 +116,15 @@ const BLTrackingCell = ({
     }
   };
 
-  // Handle successful update from SeaCargoStatus
   const handleSeaCargoUpdate = (responseData) => {
-    // Invalidate cache if function is provided
     if (invalidateCache && selectedYear) {
       invalidateCache(selectedYear);
     }
-
-    // Call parent's update handler if provided
     if (onUpdateSuccess) {
       onUpdateSuccess(jobId, responseData.data);
     }
   };
 
-  // Render number block with icons
   const renderNumberBlock = (num, label) => {
     if (!num) return null;
 
@@ -155,7 +133,6 @@ const BLTrackingCell = ({
 
     return (
       <div style={{ marginBottom: "12px" }}>
-        {/* Number as clickable link - opens tracking dialog */}
         <a
           href="#"
           onClick={(e) => handleOpenTracking(e, num)}
@@ -178,52 +155,44 @@ const BLTrackingCell = ({
             marginTop: "4px",
           }}
         >
-          {/* Copy Number */}
-          <IconButton size="small" onClick={(event) => onCopy?.(event, num)}>
-            <abbr title={`Copy ${label}`}>
-              <ContentCopyIcon fontSize="inherit" />
-            </abbr>
-          </IconButton>
+          <button
+            className="icon-btn"
+            title={`Copy ${label}`}
+            onClick={(event) => onCopy?.(event, num)}
+          >
+            <FontAwesomeIcon icon={faCopy} size="sm" />
+          </button>
 
-          {/* Shipping Line Tracking Link */}
           {shippingLine && url !== "#" && (
-            <abbr title={`Track Shipment at ${shippingLine}`}>
-              <a href={url} target="_blank" rel="noopener noreferrer">
-                <FontAwesomeIcon icon={faShip} size="1x" color="blue" />
-              </a>
-            </abbr>
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`Track Shipment at ${shippingLine}`}
+              style={{ display: "inline-flex", alignItems: "center" }}
+            >
+              <FontAwesomeIcon icon={faShip} size="sm" color="#1976d2" />
+            </a>
           )}
 
-          {/* Sea Cargo Tracking Icon */}
-          <abbr title={`Sea IGM Entry`}>
+          <a
+            href="#"
+            onClick={(e) => handleOpenSeaCargoDialog(e, num)}
+            title="Sea IGM Entry"
+            style={{ display: "inline-flex", alignItems: "center", cursor: "pointer" }}
+          >
+            <FontAwesomeIcon icon={faAnchor} size="sm" color="#1976d2" />
+          </a>
+
+          {mode === 'AIR' && (
             <a
               href="#"
-              onClick={(e) => handleOpenSeaCargoDialog(e, num)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                cursor: "pointer",
-              }}
+              onClick={(e) => handleOpenAirConsoleDialog(e, num)}
+              title="Air Console Master/House"
+              style={{ display: "inline-flex", alignItems: "center", cursor: "pointer" }}
             >
-              <FontAwesomeIcon icon={faAnchor} size="1x" color="blue" />
+              <FontAwesomeIcon icon={faLayerGroup} size="sm" color="#2e7d32" />
             </a>
-          </abbr>
-
-          {/* Air Console Tracking Icon */}
-          {mode === 'AIR' && (
-            <abbr title={`Air Console Master/House`}>
-              <a
-                href="#"
-                onClick={(e) => handleOpenAirConsoleDialog(e, num)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  cursor: "pointer",
-                }}
-              >
-                <FontAwesomeIcon icon={faLayerGroup} size="1x" color="green" />
-              </a>
-            </abbr>
           )}
         </div>
       </div>
@@ -237,7 +206,6 @@ const BLTrackingCell = ({
         {hblNumber && renderNumberBlock(hblNumber, "HBL Number")}
       </div>
 
-      {/* BL Status Dialog */}
       <BLStatus
         isOpen={isAirCargoDialogOpen}
         jobId={jobId}
@@ -247,7 +215,6 @@ const BLTrackingCell = ({
         mawbNumber={selectedMawb}
       />
 
-      {/* Air Cargo Status Dialog (Extended) */}
       <AirCargoStatus
         isOpen={isAirExtendedDialogOpen}
         jobId={jobId}
@@ -256,7 +223,6 @@ const BLTrackingCell = ({
         mawbNumber={selectedMawb}
       />
 
-      {/* Air Console Status Dialog */}
       <AirConsoleStatus
         isOpen={isAirConsoleDialogOpen}
         onClose={() => setIsAirConsoleDialogOpen(false)}
@@ -264,7 +230,6 @@ const BLTrackingCell = ({
         mawbNumber={selectedMawb}
       />
 
-      {/* Sea Cargo Status Dialog */}
       <SeaCargoStatus
         isOpen={isSeaCargoDialogOpen}
         jobId={jobId}

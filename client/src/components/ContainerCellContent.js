@@ -1,23 +1,19 @@
 import React, { useState } from "react";
-import { IconButton, Tooltip } from "@mui/material";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faAnchor } from "@fortawesome/free-solid-svg-icons";
+import { faAnchor, faCopy } from "@fortawesome/free-solid-svg-icons";
 import ContainerTrackDialog from "./ContainerTrackDialog";
 import DeliveryChallanPdf from "./import-dsr/DeliveryChallanPDF.js";
 import IgstCalculationPDF from "./import-dsr/IgstCalculationPDF.js";
 import { isAirMode, getContainerOrPackageLabel } from "../utils/modeLogic";
 
-// Helper function to get color based on shortage amount
 const getShortageColor = (shortage) => {
   if (shortage < 0) {
-    return "#e02251"; // Red for shortage
+    return "#e02251";
   } else {
-    return "#2e7d32"; // Green for no shortage
+    return "#2e7d32";
   }
 };
 
-// Helper function to get shortage/excess text for tooltip
 const getShortageText = (shortage) => {
   if (shortage < 0) {
     return `Shortage: ${Math.abs(shortage).toFixed(2)} kg`;
@@ -49,23 +45,22 @@ const ContainerCellContent = ({ cell, handleCopy }) => {
 
         return (
           <div key={id} style={{ marginBottom: "4px" }}>
-            <Tooltip title={tooltipText} arrow placement="top">
-              <a
-                href={`https://www.ldb.co.in/ldb/containersearch/39/${container.container_number}/1726651147706`}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  color: containerColor,
-                  fontWeight: "bold",
-                  textDecoration: "none",
-                  cursor: "pointer",
-                }}
-                onMouseOver={(e) => (e.target.style.textDecoration = "underline")}
-                onMouseOut={(e) => (e.target.style.textDecoration = "none")}
-              >
-                {container.container_number}
-              </a>
-            </Tooltip>
+            <a
+              href={`https://www.ldb.co.in/ldb/containersearch/39/${container.container_number}/1726651147706`}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={tooltipText}
+              style={{
+                color: containerColor,
+                fontWeight: "bold",
+                textDecoration: "none",
+                cursor: "pointer",
+              }}
+              onMouseOver={(e) => (e.target.style.textDecoration = "underline")}
+              onMouseOut={(e) => (e.target.style.textDecoration = "none")}
+            >
+              {container.container_number}
+            </a>
 
             {!isAirMode(jobData?.mode) && container.size && <>| "{container.size}"</>}
             <div
@@ -75,38 +70,31 @@ const ContainerCellContent = ({ cell, handleCopy }) => {
                 gap: "4px",
               }}
             >
-              {/* CONCOR Container Track Button */}
               {jobData?.custom_house?.toUpperCase().includes("ICD KHODIYAR") && (
-                <Tooltip title="Track on CONCOR India">
-                  <IconButton
-                    size="small"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setContainerTrackContainers([container.container_number]);
-                      setContainerTrackOpen(true);
-                    }}
-                    style={{ padding: 0, marginLeft: 4, marginRight: 4 }}
-                  >
-                    <FontAwesomeIcon
-                      icon={faAnchor}
-                      style={{ fontSize: 12, color: "#7c3aed" }}
-                    />
-                  </IconButton>
-                </Tooltip>
-              )}
-              <Tooltip
-                title={`Copy ${getContainerOrPackageLabel(jobData?.mode)} Number`}
-                arrow
-              >
-                <IconButton
-                  size="small"
-                  onClick={(event) => handleCopy(event, container.container_number)}
+                <button
+                  className="icon-btn"
+                  title="Track on CONCOR India"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setContainerTrackContainers([container.container_number]);
+                    setContainerTrackOpen(true);
+                  }}
+                  style={{ padding: 0, marginLeft: 4, marginRight: 4 }}
                 >
-                  <ContentCopyIcon fontSize="inherit" />
-                </IconButton>
-              </Tooltip>
-              {/* Delivery Challan Download Icon */}
+                  <FontAwesomeIcon
+                    icon={faAnchor}
+                    style={{ fontSize: 12, color: "#7c3aed" }}
+                  />
+                </button>
+              )}
+              <button
+                className="icon-btn"
+                title={`Copy ${getContainerOrPackageLabel(jobData?.mode)} Number`}
+                onClick={(event) => handleCopy(event, container.container_number)}
+              >
+                <FontAwesomeIcon icon={faCopy} size="sm" />
+              </button>
               <DeliveryChallanPdf
                 year={jobData.year}
                 jobNo={jobData.job_no}

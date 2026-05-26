@@ -4,6 +4,7 @@ import React, {
   useEffect,
   useMemo,
   useCallback,
+  useRef,
 } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import "../../styles/job-list.scss";
@@ -15,30 +16,15 @@ import {
 import useFetchJobList from "../../customHooks/useFetchJobList";
 import { detailedStatusOptions } from "../../assets/data/detailedStatusOptions";
 import { UserContext } from "../../contexts/UserContext";
-import {
-  MenuItem,
-  TextField,
-  IconButton,
-  Typography,
-  Pagination,
-  Snackbar,
-  Alert,
-  Autocomplete,
-  Box,
-} from "@mui/material";
-import SearchIcon from "@mui/icons-material/Search";
 import axios from "axios";
-import { MaterialReactTable, useMaterialReactTable } from "material-react-table";
-import { Dialog, DialogContent, DialogTitle, Button } from "@mui/material";
-import MyDocRequests from "../document-collection/MyDocRequests";
-import DownloadIcon from "@mui/icons-material/Download";
-import AssignmentIcon from "@mui/icons-material/Assignment";
 import SelectImporterModal from "./SelectImporterModal";
-import { Tooltip } from "@mui/material";
+import MyDocRequests from "../document-collection/MyDocRequests";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { BranchContext } from "../../contexts/BranchContext.js";
 import useDynamicICDs from "../../customHooks/useDynamicICDs";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faMagnifyingGlass, faDownload, faFileLines } from "@fortawesome/free-solid-svg-icons";
 
 const extractJobNo = (input) => {
   if (!input) return "";
@@ -82,20 +68,32 @@ function JobList(props) {
   const [snackbar, setSnackbar] = useState({ open: false, message: "" });
 
   const [open, setOpen] = useState(false);
-  const [myRequestsOpen, setMyRequestsOpen] = useState(false); // Added state for MyDocRequests dialog
+  const [myRequestsOpen, setMyRequestsOpen] = useState(false);
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
   const navigate = useNavigate();
   const location = useLocation();
 
   const [localInput, setLocalInput] = useState(searchQuery);
+  const [importerDropdownOpen, setImporterDropdownOpen] = useState(false);
+  const [importerFilter, setImporterFilter] = useState("");
+  const importerDropdownRef = useRef(null);
+
+  // Column resize state
+  const [columnWidths, setColumnWidths] = useState({});
+  const resizingRef = useRef(null);
+
+  // Column sort state
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
+
+  // Expanded rows state
+  const [expandedRows, setExpandedRows] = useState(new Set());
 
   // Clear state unless returning from details
   useEffect(() => {
     if (!(location.state && location.state.fromJobDetails)) {
       setSearchQuery("");
       setDetailedStatus("all");
-      setSelectedICD("all");
       setSelectedICD("all");
       setSelectedImporter("");
       setSelectedBeType("all");
@@ -129,7 +127,6 @@ function JobList(props) {
 
       let fetchedImporters = res.data;
 
-      // Filter based on assigned importers if not Admin
       if (user && user.role !== 'Admin') {
         const assignedImporters = user.assigned_importer_name || [];
         fetchedImporters = fetchedImporters.filter(item =>
@@ -158,6 +155,14 @@ function JobList(props) {
     () => [...getUniqueImporterNames(importers)],
     [importers, getUniqueImporterNames]
   );
+
+  const filteredImporterNames = useMemo(() => {
+    const list = importerNames.map((o) => o.label);
+    if (!importerFilter) return list;
+    return list.filter((name) =>
+      name.toLowerCase().includes(importerFilter.toLowerCase())
+    );
+  }, [importerNames, importerFilter]);
 
   // Main jobs hook
   const {
@@ -201,8 +206,6 @@ function JobList(props) {
   useEffect(() => {
     const t = setTimeout(() => {
       const s = String(searchQuery || "").trim();
-      // Only extract if it looks like a formatted label with a separator (hyphen/em-dash)
-      // This prevents corruption of BL numbers that start with digits but have letters (e.g. 100GX...)
       const looksLikeFormattedJob = /^\d+.*[-—]/.test(s);
       setDebouncedSearchQuery(looksLikeFormattedJob ? extractJobNo(s) : s);
     }, 200);
@@ -214,12 +217,28 @@ function JobList(props) {
     [rows]
   );
 
+  // Client-side sort on current page rows
+  const sortedTableData = useMemo(() => {
+    if (!sortConfig.key) return tableData;
+    return [...tableData].sort((a, b) => {
+      const aVal = a[sortConfig.key];
+      const bVal = b[sortConfig.key];
+      if (aVal == null && bVal == null) return 0;
+      if (aVal == null) return 1;
+      if (bVal == null) return -1;
+      const aStr = String(aVal).toLowerCase();
+      const bStr = String(bVal).toLowerCase();
+      if (aStr < bStr) return sortConfig.direction === "asc" ? -1 : 1;
+      if (aStr > bStr) return sortConfig.direction === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [tableData, sortConfig]);
+
   const getRowProps = useMemo(
     () =>
       ({ row }) => ({
         className: getTableRowsClassname(row),
         style: getTableRowInlineStyle(row),
-        sx: { textAlign: "center" },
       }),
     [rows, refreshTrigger]
   );
@@ -238,20 +257,14 @@ function JobList(props) {
       setRows((prev) => {
         const updated = prev.map((r) => {
           if (r._id !== jobId) return r;
-
-          // Start with a shallow copy of the existing row
           const next = { ...r };
 
-          // If updatedData is an object, merge keys into `next`.
-          // Support dotted paths like 'container_nos.0.arrival_date'.
           if (updatedData && typeof updatedData === "object") {
             Object.entries(updatedData).forEach(([k, v]) => {
-              if (k === "__op") return; // ignore op marker
+              if (k === "__op") return;
 
               if (k.includes(".")) {
                 const parts = k.split(".");
-
-                // Ensure top-level array/object exists (common case: container_nos)
                 if (parts[0] === "container_nos") {
                   if (!Array.isArray(next.container_nos)) {
                     next.container_nos = Array.isArray(r.container_nos)
@@ -267,16 +280,13 @@ function JobList(props) {
                   const nextPart = parts[i + 1];
 
                   if (isLast) {
-                    // assign final value
                     if (Array.isArray(cur) && /^\d+$/.test(p)) {
                       cur[parseInt(p, 10)] = v;
                     } else {
                       cur[p] = v;
                     }
                   } else {
-                    // prepare next container
                     if (/^\d+$/.test(nextPart)) {
-                      // next should be an array
                       if (!cur[p]) cur[p] = [];
                       if (!Array.isArray(cur[p])) cur[p] = [];
                       cur = cur[p];
@@ -287,7 +297,6 @@ function JobList(props) {
                   }
                 }
               } else {
-                // simple top-level key
                 if (k === "container_nos" && Array.isArray(v)) {
                   next.container_nos = [...v];
                 } else {
@@ -317,7 +326,6 @@ function JobList(props) {
       });
       setRefreshTrigger((x) => x + 1);
 
-      // Debug info: log update details to help trace disappearing rows
       try {
         console.log(
           "handleRowDataUpdate:",
@@ -332,15 +340,10 @@ function JobList(props) {
         /* ignore */
       }
 
-      // Only refetch page if the job's detailed_status changed (moved between filters).
-      // This avoids immediate refetch that may remove the row if server-side logic briefly
-      // changes data while we're editing simple fields like ETA.
       const shouldRefetch = (() => {
         try {
-          // updatedData may be a full server job or a partial payload
           const newStatus =
             (updatedData && updatedData.detailed_status) || null;
-          // find previous status from current rows (rows state may be stale here; use fetchJobs as fallback)
           const prev = rows.find((r) => r._id === jobId);
           const prevStatus = prev ? prev.detailed_status : null;
           return newStatus && prevStatus && newStatus !== prevStatus;
@@ -365,10 +368,7 @@ function JobList(props) {
   );
 
   const handleSearchClick = () => {
-    // optional: force immediate debounce update or page reset
     setSearchQuery(localInput);
-    // if you want to always go to page 1:
-    // fetchJobs(1, showUnresolvedOnly, true);
   };
 
   // Years initialization
@@ -402,13 +402,62 @@ function JobList(props) {
     getYears();
   }, [selectedYearState, setSelectedYearState]);
 
+  // Close importer dropdown on outside click
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (
+        importerDropdownRef.current &&
+        !importerDropdownRef.current.contains(e.target)
+      ) {
+        setImporterDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Column resize handlers
+  const handleResizeStart = useCallback((e, accessorKey) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const startX = e.clientX;
+    const startWidth = columnWidths[accessorKey] || 150;
+
+    const handleMouseMove = (moveEvent) => {
+      const delta = moveEvent.clientX - startX;
+      const newWidth = Math.max(80, startWidth + delta);
+      setColumnWidths((prev) => ({ ...prev, [accessorKey]: newWidth }));
+    };
+
+    const handleMouseUp = () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      resizingRef.current = null;
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    resizingRef.current = accessorKey;
+  }, [columnWidths]);
+
+  // Column sort handler
+  const handleSort = useCallback((accessorKey) => {
+    setSortConfig((prev) => {
+      if (prev.key === accessorKey) {
+        if (prev.direction === "asc") return { key: accessorKey, direction: "desc" };
+        return { key: null, direction: "asc" };
+      }
+      return { key: accessorKey, direction: "asc" };
+    });
+  }, []);
+
   // Handlers
   const handleICDChange = useCallback(
     (e) => setSelectedICD(e.target.value),
     [setSelectedICD]
   );
   const handleImporterChange = useCallback(
-    (e, v) => setSelectedImporter(v),
+    (val) => setSelectedImporter(val),
     [setSelectedImporter]
   );
   const handleYearChange = useCallback(
@@ -434,152 +483,6 @@ function JobList(props) {
     setSearchQuery("");
   }, [setSearchQuery]);
 
-  const renderTopToolbarCustomActions = useCallback(
-    () => (
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          width: "100%",
-        }}
-      >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <Typography
-            variant="body1"
-            sx={{ fontWeight: "bold", fontSize: "1.5rem" }}
-          >
-          {props.status} Jobs: {total}
-        </Typography>
-      </Box>
-
-        <TextField
-          select
-          size="small"
-          variant="outlined"
-          label="ICD Code"
-          value={selectedICD}
-          onChange={handleICDChange}
-          sx={{ width: "135px", marginRight: "10px" }}
-        >
-          <MenuItem value="all">All ICDs</MenuItem>
-          {dynamicICDs.map((icd, index) => (
-            <MenuItem key={index} value={icd}>{icd}</MenuItem>
-          ))}
-          {/* Fallback for selectedICD if not in dynamic list to prevent MUI warning */}
-          {selectedICD !== "all" && !dynamicICDs.includes(selectedICD) && (
-            <MenuItem value={selectedICD}>{selectedICD}</MenuItem>
-          )}
-        </TextField>
-
-        <TextField
-          select
-          size="small"
-          variant="outlined"
-          label="Type of BE"
-          value={selectedBeType}
-          onChange={handleBeTypeChange}
-          sx={{ width: "135px", marginRight: "10px" }}
-        >
-          <MenuItem value="all">All BE Types</MenuItem>
-          <MenuItem value="Home">Home</MenuItem>
-          <MenuItem value="In-Bond">In-Bond</MenuItem>
-          <MenuItem value="Ex-Bond">Ex-Bond</MenuItem>
-        </TextField>
-
-
-        <Autocomplete
-          sx={{ width: "220px", marginRight: "10px" }}
-          freeSolo
-          options={importerNames.map((o) => o.label)}
-          value={selectedImporter || ""}
-          onInputChange={handleImporterChange}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              variant="outlined"
-              size="small"
-              fullWidth
-              label="Select Importer"
-            />
-          )}
-        />
-
-        {years.length > 0 && (
-          <TextField
-            select
-            size="small"
-            value={selectedYearState}
-            onChange={handleYearChange}
-            sx={{ width: "90px", marginRight: "10px" }}
-          >
-            {years.map((y, i) => (
-              <MenuItem key={`year-${y}-${i}`} value={y}>
-                {y}
-              </MenuItem>
-            ))}
-          </TextField>
-        )}
-
-        <TextField
-          select
-          size="small"
-          value={detailedStatus}
-          onChange={handleDetailedStatusChange}
-          sx={{ width: "220px", marginRight: "10px" }}
-        >
-          {detailedStatusOptions.map((o, i) => (
-            <MenuItem key={`status-${o.id || o.value || i}`} value={o.value}>
-              {o.name}
-            </MenuItem>
-          ))}
-        </TextField>
-
-        {/* Simple search input (no typeahead/suggestions) */}
-        <TextField
-          value={localInput}
-          onChange={handleLocalInputChange}
-          placeholder="Search by Job No, Importer, or AWB/BL Number"
-          size="small"
-          variant="outlined"
-          sx={{ width: "250px", marginRight: "10px" }}
-          InputProps={{
-            endAdornment: (
-              <IconButton size="small" onClick={handleSearchClick}>
-                <SearchIcon fontSize="small" />
-              </IconButton>
-            ),
-          }}
-        />
-
-        <IconButton onClick={handleOpen}>
-          <DownloadIcon titleAccess="Download Excel" />
-        </IconButton>
-      </div>
-    ),
-    [
-      props.status,
-      total,
-      selectedICD,
-      handleICDChange,
-      importerNames,
-      selectedImporter,
-      setSelectedImporter,
-      years,
-      selectedYearState,
-      handleYearChange,
-      detailedStatus,
-      handleDetailedStatusChange,
-      localInput,
-      handleLocalInputChange,
-      handleOpen,
-      selectedBeType, // dependency
-      handleBeTypeChange, // dependency
-      dynamicICDs,
-      myRequestsOpen, // Added myRequestsOpen to dependencies
-    ]
-  );
-
   const columns = useJobColumns(
     (jobId, updatedData) => handleRowDataUpdate(jobId, updatedData),
     (job_no, year) =>
@@ -602,50 +505,268 @@ function JobList(props) {
           detailedStatus,
           selectedICD,
           selectedImporter,
-          selectedBeType, // persist
+          selectedBeType,
           selectedBranch,
           selectedMode
         },
       }),
-    setRows, // <-- pass here
+    setRows,
     invalidateCache,
     selectedYearState
   );
 
-  const table = useMaterialReactTable({
-    columns,
-    data: tableData,
-    enableColumnResizing: true,
-    enableColumnOrdering: true,
-    enablePagination: false,
-    enableBottomToolbar: false,
-    enableDensityToggle: false,
-    enableRowVirtualization: true,
-    rowVirtualizerOptions: { overscan: 8 },
-    initialState: { density: "compact", columnPinning: { left: ["job_no"] } },
-    enableGlobalFilter: false,
-    enableGrouping: true,
-    enableColumnFilters: false,
-    enableColumnActions: false,
-    enableStickyHeader: true,
-    enablePinning: true,
-    muiTableContainerProps: { sx: { maxHeight: "690px", overflowY: "auto" } },
-    muiTableBodyRowProps: getRowProps,
-    muiTableHeadCellProps: { sx: { position: "sticky", top: 0, zIndex: 999 } },
-    renderTopToolbarCustomActions: renderTopToolbarCustomActions,
-  });
+  const renderCell = (col, row, isExpanded) => {
+    const content = (() => {
+      if (!col.Cell) {
+        return row[col.accessorKey] ?? "";
+      }
+      const cell = {
+        getValue: () => row[col.accessorKey],
+        row: { original: row },
+      };
+      return col.Cell({ cell, row: { original: row } });
+    })();
+    return (
+      <div className={`cell-content ${isExpanded ? "expanded" : "collapsed"}`}>
+        {content}
+      </div>
+    );
+  };
+
+  const toggleRowExpand = (rowId) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(rowId)) {
+        next.delete(rowId);
+      } else {
+        next.add(rowId);
+      }
+      return next;
+    });
+  };
 
   return (
-    <div className="table-container">
-      <MaterialReactTable table={table} />
+    <div className="job-list-container">
+      {/* Toolbar */}
+      <div className="job-list-toolbar">
+        <div className="toolbar-left">
+          <h2 className="status-heading">
+            {props.status} Jobs: {total}
+          </h2>
+        </div>
 
-      <Pagination
-        count={totalPages}
-        page={currentPage}
-        onChange={(e, page) => handlePageChange(page)}
-        color="primary"
-        sx={{ mt: 2, display: "flex", justifyContent: "center" }}
-      />
+        <div className="toolbar-filters">
+          <div className="filter-group">
+            <label>ICD Code</label>
+            <select value={selectedICD} onChange={handleICDChange}>
+              <option value="all">All ICDs</option>
+              {dynamicICDs.map((icd, index) => (
+                <option key={index} value={icd}>{icd}</option>
+              ))}
+              {selectedICD !== "all" && !dynamicICDs.includes(selectedICD) && (
+                <option value={selectedICD}>{selectedICD}</option>
+              )}
+            </select>
+          </div>
+
+          <div className="filter-group">
+            <label>Type of BE</label>
+            <select value={selectedBeType} onChange={handleBeTypeChange}>
+              <option value="all">All BE Types</option>
+              <option value="Home">Home</option>
+              <option value="In-Bond">In-Bond</option>
+              <option value="Ex-Bond">Ex-Bond</option>
+            </select>
+          </div>
+
+          <div className="filter-group autocomplete-wrapper" ref={importerDropdownRef}>
+            <label>Importer</label>
+            <input
+              type="text"
+              value={selectedImporter || ""}
+              onChange={(e) => {
+                setImporterFilter(e.target.value);
+                handleImporterChange(e.target.value);
+                setImporterDropdownOpen(true);
+              }}
+              onFocus={() => setImporterDropdownOpen(true)}
+              placeholder="Select Importer"
+            />
+            {importerDropdownOpen && filteredImporterNames.length > 0 && (
+              <ul className="autocomplete-dropdown">
+                {filteredImporterNames.map((name, i) => (
+                  <li
+                    key={i}
+                    onClick={() => {
+                      handleImporterChange(name);
+                      setImporterFilter("");
+                      setImporterDropdownOpen(false);
+                    }}
+                  >
+                    {name}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {years.length > 0 && (
+            <div className="filter-group">
+              <label>Year</label>
+              <select value={selectedYearState} onChange={handleYearChange}>
+                {years.map((y, i) => (
+                  <option key={`year-${y}-${i}`} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="filter-group">
+            <label>Status</label>
+            <select value={detailedStatus} onChange={handleDetailedStatusChange}>
+              {detailedStatusOptions.map((o, i) => (
+                <option key={`status-${o.id || o.value || i}`} value={o.value}>
+                  {o.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="filter-group search-group">
+            <label>Search</label>
+            <div className="search-input-wrapper">
+              <input
+                type="text"
+                value={localInput}
+                onChange={handleLocalInputChange}
+                placeholder="Job No, Importer, or AWB/BL Number"
+              />
+              <button className="icon-btn" onClick={handleSearchClick} title="Search">
+                <FontAwesomeIcon icon={faMagnifyingGlass} />
+              </button>
+              {localInput && (
+                <button className="icon-btn clear-btn" onClick={handleClearSearch} title="Clear">
+                  ×
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="filter-group action-group">
+            <button className="toolbar-btn" onClick={handleOpen} title="Download Excel">
+              <FontAwesomeIcon icon={faDownload} />
+            </button>
+            <button
+              className="toolbar-btn"
+              onClick={() => setMyRequestsOpen(true)}
+              title="My Document Requests"
+            >
+              <FontAwesomeIcon icon={faFileLines} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="table-wrapper">
+        {loading && <div className="loading-overlay">Loading...</div>}
+        <table className="job-table">
+          <thead>
+            <tr>
+              {columns.map((col) => {
+                const width = columnWidths[col.accessorKey] || col.size || 150;
+                const isSorted = sortConfig.key === col.accessorKey;
+                return (
+                  <th
+                    key={col.accessorKey}
+                    style={{ width: `${width}px`, minWidth: `${width}px` }}
+                    onClick={() => handleSort(col.accessorKey)}
+                  >
+                    <div className="th-content">
+                      <span className="th-label">{col.header}</span>
+                      <span className="sort-indicator">
+                        {isSorted ? (
+                          sortConfig.direction === "asc" ? "↑" : "↓"
+                        ) : (
+                          "⇅"
+                        )}
+                      </span>
+                      <span
+                        className="resize-handle"
+                        onMouseDown={(e) => handleResizeStart(e, col.accessorKey)}
+                      />
+                    </div>
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {sortedTableData.length === 0 ? (
+              <tr>
+                <td colSpan={columns.length} className="no-data">
+                  No jobs found
+                </td>
+              </tr>
+            ) : (
+              sortedTableData.map((row) => {
+                const { className, style } = getRowProps({ row });
+                const isExpanded = expandedRows.has(row.id);
+                return (
+                  <tr
+                    key={row.id}
+                    className={`${className || ""} ${isExpanded ? "row-expanded" : ""}`}
+                    style={style}
+                    onClick={(e) => {
+                      if (e.target.closest("a") || e.target.closest("button")) return;
+                      toggleRowExpand(row.id);
+                    }}
+                  >
+                    {columns.map((col) => (
+                      <td key={col.accessorKey}>
+                        {renderCell(col, row, isExpanded)}
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Pagination */}
+      <div className="pagination-bar">
+        <button
+          disabled={currentPage === 1}
+          onClick={() => handlePageChange(1)}
+        >
+          «
+        </button>
+        <button
+          disabled={currentPage === 1}
+          onClick={() => handlePageChange(currentPage - 1)}
+        >
+          ‹
+        </button>
+        <span className="page-info">
+          Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong>
+        </span>
+        <button
+          disabled={currentPage === totalPages}
+          onClick={() => handlePageChange(currentPage + 1)}
+        >
+          ›
+        </button>
+        <button
+          disabled={currentPage === totalPages}
+          onClick={() => handlePageChange(totalPages)}
+        >
+          »
+        </button>
+      </div>
 
       <SelectImporterModal
         open={open}
@@ -654,35 +775,32 @@ function JobList(props) {
         detailedStatus={detailedStatus}
       />
 
-      <Dialog
-        open={myRequestsOpen}
-        onClose={() => setMyRequestsOpen(false)}
-        maxWidth="lg"
-        fullWidth
-      >
-        <DialogTitle sx={{ fontWeight: 700, color: "#1a237e", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          My Document Requests
-          <Button onClick={() => setMyRequestsOpen(false)}>Close</Button>
-        </DialogTitle>
-        <DialogContent sx={{ p: 3 }}>
-          <MyDocRequests />
-        </DialogContent>
-      </Dialog>
+      {/* MyDocRequests Modal */}
+      {myRequestsOpen && (
+        <div className="modal-overlay" onClick={() => setMyRequestsOpen(false)}>
+          <div className="modal-content modal-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>My Document Requests</h3>
+              <button className="modal-close" onClick={() => setMyRequestsOpen(false)}>
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              <MyDocRequests />
+            </div>
+          </div>
+        </div>
+      )}
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={4000}
-        onClose={() => setSnackbar({ open: false, message: "" })}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
-      >
-        <Alert
-          onClose={() => setSnackbar({ open: false, message: "" })}
-          severity="info"
-          sx={{ width: "100%" }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+      {/* Snackbar */}
+      {snackbar.open && (
+        <div className="snackbar">
+          <span>{snackbar.message}</span>
+          <button onClick={() => setSnackbar({ open: false, message: "" })}>
+            ×
+          </button>
+        </div>
+      )}
     </div>
   );
 }

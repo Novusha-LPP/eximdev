@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo, memo } from "react";
 import axios from "axios";
-import { TextField, MenuItem } from "@mui/material";
 import { FcCalendar } from "react-icons/fc";
-import AddIcon from "@mui/icons-material/Add";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faPlus } from "@fortawesome/free-solid-svg-icons";
 import IgstModal from "./IgstModal";
 import { BranchContext, useContext } from "../../contexts/BranchContext";
 import { isAirMode } from "../../utils/modeLogic";
@@ -13,7 +13,6 @@ const isDateOnly = (s) =>
 const isDateTime = (s) =>
   typeof s === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s.trim());
 
-// Accept "YYYY-MM-DD" or "YYYY-MM-DDTHH:mm"
 const validateDateFlexible = (value) => {
   if (value === "" || value === null || value === undefined) return true;
   const s = String(value).trim();
@@ -22,7 +21,6 @@ const validateDateFlexible = (value) => {
   return !isNaN(d.getTime());
 };
 
-// For datetime-local input value
 const toInputDateTime = (value) => {
   if (!value) return "";
   const s = String(value).trim();
@@ -38,7 +36,6 @@ const toInputDateTime = (value) => {
   return `${y}-${m}-${day}T${hh}:${mm}`;
 };
 
-// Display as YYYY-MM-DD
 const formatDateDisplay = (value) => {
   if (!value) return "N/A";
   const s = String(value).trim();
@@ -52,7 +49,6 @@ const formatDateDisplay = (value) => {
   return `${y}-${m}-${day}`;
 };
 
-// Normalize for saving to a datetime schema
 const normalizeDateForSave = (value) => {
   if (!value) return null;
   const s = String(value).trim();
@@ -68,7 +64,6 @@ const normalizeDateForSave = (value) => {
   return `${y}-${m}-${day}T${hh}:${mm}`;
 };
 
-// Date-only math used for detention
 const getDateOnly = (dateString) => {
   if (!dateString) return null;
   const s = String(dateString);
@@ -162,7 +157,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
   const [dateError, setDateError] = useState("");
   const [igstModalOpen, setIgstModalOpen] = useState(false);
 
-  // Rehydrate when parent row changes
   const dataKey = useMemo(() => {
     const cKey = (container_nos || [])
       .map(
@@ -207,7 +201,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
   const isLCL = consignment_type === "LCL";
   const isFactory = type_of_Do === "Factory";
 
-  // Utility
   const getEarliestDetention = (arr) => {
     const list = (arr || [])
       .map((c) => c?.detention_from)
@@ -231,7 +224,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
   };
 
   const buildFieldPayload = (fieldPath, value) => {
-    // value is already normalized or raw; treat "empty" as empty string
     if (value === "" || value === null || value === undefined) {
       return { [fieldPath]: "" };
     }
@@ -243,22 +235,20 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     (idx) => {
       const c = containers[idx];
       if (isExBond) return true;
-      if (isAirMode(mode)) return false; // AIR: arrival always enabled
+      if (isAirMode(mode)) return false;
       if (isLCL) return !c?.by_road_movement_date;
       return !c?.container_rail_out_date;
     },
     [containers, isExBond, isLCL, mode]
   );
 
-  // Click: open editor blank
   const startEditBlank = (field, index = null, guardDisabled = false) => {
     if (guardDisabled && index !== null && isArrivalDateDisabled(index)) return;
     setEditable(index !== null ? `${field}_${index}` : field);
-    setTempDateValue(""); // open picker empty
+    setTempDateValue("");
     setDateError("");
   };
 
-  // Double-click: clear immediately in DB, then open editor blank
   const clearAndEdit = async (field, index = null) => {
     setDateError("");
     const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
@@ -283,8 +273,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         if (field === "arrival_date" && !isLCL) {
           payload[`container_nos.${index}.detention_from`] = "";
         }
-
-
 
         const res = await axios.patch(
           `${process.env.REACT_APP_API_STRING}/jobs/${_id}`,
@@ -321,7 +309,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
     setDateError("");
   };
 
-  // Free time (unchanged except optimizations you had)
   const handleFreeTimeChange = (value) => {
     if (isLCL) return;
     if (parseInt(value, 10) === parseInt(localFreeTime, 10)) return;
@@ -457,7 +444,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
 
   const isIgstFieldsAvailable = Boolean(assessable_ammount && igst_ammount);
 
-  // -------------- UI --------------
   const renderRowDateEditor = (label, value, fieldKey) => (
     <div>
       <strong>{label}:</strong> {formatDateDisplay(value)}{" "}
@@ -553,7 +539,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
 
   return (
     <div style={{ display: "flex", gap: 20 }}>
-      {/* Left */}
       <div>
         {!isExBond && (
           <>
@@ -630,20 +615,17 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
             {!isLCL && !isAirMode(mode) && (
               <div style={{ marginBottom: 10 }}>
                 <strong>Free time:</strong>{" "}
-                <TextField
-                  select
-                  size="small"
-                  variant="outlined"
+                <select
                   value={localFreeTime || 0}
                   onChange={(e) => handleFreeTimeChange(e.target.value)}
-                  sx={{ width: 90, ml: 1 }}
+                  className="free-time-select"
                 >
                   {options.map((n) => (
-                    <MenuItem key={n} value={n}>
+                    <option key={n} value={n}>
                       {n}
-                    </MenuItem>
+                    </option>
                   ))}
-                </TextField>
+                </select>
               </div>
             )}
 
@@ -663,7 +645,6 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
         )}
       </div>
 
-      {/* Right */}
       <div>
         {renderRowDateEditor(
           "Assessment Date",
@@ -686,12 +667,14 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
               onDoubleClick={() => clearAndEdit("duty_paid_date")}
               title="Click: edit • Double-click: clear"
             />
-            <AddIcon
-              fontSize="small"
-              style={{ cursor: "pointer" }}
-              onClick={() => setIgstModalOpen(true)}
+            <button
+              className="icon-btn"
               title="Add Duty Details"
-            />
+              onClick={() => setIgstModalOpen(true)}
+              style={{ padding: 2 }}
+            >
+              <FontAwesomeIcon icon={faPlus} size="sm" />
+            </button>
           </div>
         )}
         {editable === "duty_paid_date" && (
@@ -734,21 +717,17 @@ const EditableDateCell = memo(({ cell, onRowDataUpdate }) => {
 
         {isFactory ? (
           <>
-            {/* Delivery then EmptyOff */}
-            <>
-              <br />
-              {containers.map((c, i) =>
-                renderContainerEditor(
-                  "Delivery",
-                  c.delivery_date,
-                  "delivery_date",
-                  i
-                )
-              )}
-            </>
+            <br />
+            {containers.map((c, i) =>
+              renderContainerEditor(
+                "Delivery",
+                c.delivery_date,
+                "delivery_date",
+                i
+              )
+            )}
 
             <br />
-
 
             {!isLCL &&
               !isExBond &&

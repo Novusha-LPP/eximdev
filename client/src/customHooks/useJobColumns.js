@@ -1,27 +1,19 @@
-import React, { useCallback, useMemo, useState } from "react";
-import { IconButton } from "@mui/material";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import React, { useCallback, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import Tooltip from "@mui/material/Tooltip";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faCopy, faRotate, faAnchor } from "@fortawesome/free-solid-svg-icons";
 import EditableDateCell from "../components/gallery/EditableDateCell";
-import BENumberCell from "../components/gallery/BENumberCell.js"; // adjust path
+import BENumberCell from "../components/gallery/BENumberCell.js";
 import DeliveryChallanPdf from "../components/import-dsr/DeliveryChallanPDF.js";
 import IgstCalculationPDF from "../components/import-dsr/IgstCalculationPDF.js";
 import { useSearchQuery } from "../contexts/SearchQueryContext";
-
 import BLTrackingCell from "./BLTrackingCell.js";
 import axios from "axios";
-import RefreshIcon from "@mui/icons-material/Refresh";
 import InvoiceDisplay from "../components/import-do/InvoiceDisplay";
 import ContainerTrackDialog from "../components/ContainerTrackDialog";
-import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faAnchor } from "@fortawesome/free-solid-svg-icons";
-import { isAirMode, getContainerOrPackageLabel } from "../utils/modeLogic";
+import { isAirMode } from "../utils/modeLogic";
 import ContainerCellContent from "../components/ContainerCellContent";
 
-// Helper components that need internal state
-
-// Custom hook to manage job columns configuration
 function useJobColumns(
   handleRowDataUpdate,
   onRowUpdate,
@@ -46,13 +38,8 @@ function useJobColumns(
     }
   }, []);
 
-
-
   const handleCopy = (event, text) => {
-    // Optimized handleCopy function using useCallback to avoid re-creation on each render
-
     event.stopPropagation();
-
     if (
       navigator.clipboard &&
       typeof navigator.clipboard.writeText === "function"
@@ -67,7 +54,6 @@ function useJobColumns(
           console.error("Failed to copy:", err);
         });
     } else {
-      // Fallback approach for older browsers
       const textArea = document.createElement("textarea");
       textArea.value = text;
       document.body.appendChild(textArea);
@@ -84,7 +70,6 @@ function useJobColumns(
     }
   };
 
-  // Memoized utility functions to avoid unnecessary re-calculations
   const getPortLocation = useMemo(
     () => (portOfReporting) => {
       const portMap = {
@@ -102,12 +87,11 @@ function useJobColumns(
     []
   );
 
-  // Optimized columns array
   const columns = useMemo(
     () => [
       {
         accessorKey: "job_no",
-        header: "Job No", muiTableHeadCellProps: { align: "center" }, muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
+        header: "Job No",
         enableSorting: false,
         size: 250,
         Cell: ({ cell }) => {
@@ -127,7 +111,6 @@ function useJobColumns(
             container_nos,
           } = row;
 
-          // ----- existing color logic -----
           let bgColor = "";
           let textColor = "blue";
           const currentDate = new Date();
@@ -203,7 +186,6 @@ function useJobColumns(
               }
             });
           }
-          // ----- end color logic -----
 
           const handleRefresh = async (e) => {
             e.preventDefault();
@@ -213,15 +195,13 @@ function useJobColumns(
                 `${process.env.REACT_APP_API_STRING}/get-job/${row.branch_code}/${row.trade_type}/${row.mode}/${year}/${job_no}`
               );
               const updatedJob = res.data;
-
-              // update only this row, keep others as-is
               setRows((prev) =>
                 prev.map((r) =>
                   (r._id && updatedJob._id && r._id === updatedJob._id) ||
                     (!r._id &&
                       r.job_no === updatedJob.job_no &&
                       r.year === updatedJob.year)
-                    ? { ...r, ...updatedJob } // merge to keep any client-only fields
+                    ? { ...r, ...updatedJob }
                     : r
                 )
               );
@@ -258,13 +238,14 @@ function useJobColumns(
                 </div>
               )}
               <div style={{ marginTop: 4 }}>
-                <IconButton
-                  size="small"
+                <button
+                  className="icon-btn"
                   onClick={handleRefresh}
+                  title="Refresh job"
                   aria-label="refresh-job"
                 >
-                  <RefreshIcon fontSize="inherit" />
-                </IconButton>
+                  <FontAwesomeIcon icon={faRotate} size="sm" />
+                </button>
               </div>
               {row.obl_telex_bl === "OBL" && (
                 <div style={{ marginTop: 4, color: "red", fontSize: "15px" }}>
@@ -287,9 +268,9 @@ function useJobColumns(
           const saller_name = row?.original?.saller_name || "";
           const fta_Benefit_date_time = row?.original?.fta_Benefit_date_time;
           const hss = row?.original?.hss;
-          const hasHss = !!hss && hss === "Yes"; // tru if not null empty undefined
+          const hasHss = !!hss && hss === "Yes";
           const hssDisplay = hasHss ? `Yes - ${saller_name}` : "No";
-          const hasFTABenefit = !!fta_Benefit_date_time; // true if not null/empty/undefined
+          const hasFTABenefit = !!fta_Benefit_date_time;
           const ftaDisplay = hasFTABenefit ? `Yes - ${origin_country}` : "No";
           const adCode = row?.original?.adCode || "";
           const RMS = row?.original?.RMS || "";
@@ -301,21 +282,17 @@ function useJobColumns(
                 {importer}
               </span>
 
-              <Tooltip title="Supplier/Exporter" arrow>
-                <div style={{ marginTop: "5px" }}>
-                  <strong>Exporter: </strong>
-                  {supplier_exporter}
-                </div>
-              </Tooltip>
+              <div style={{ marginTop: "5px" }} title="Supplier/Exporter">
+                <strong>Exporter: </strong>
+                {supplier_exporter}
+              </div>
 
-              <Tooltip title="FTA Benefit" arrow>
-                <div
-                  style={{ marginTop: "5px", fontWeight: "bold" }}
-                >{`FTA Benefit: ${ftaDisplay}`}</div>
-              </Tooltip>
-              <Tooltip title="Hss" arrow>
-                <span style={{ marginTop: "5px" }}>{`Hss: ${hssDisplay}`}</span>
-              </Tooltip>
+              <div style={{ marginTop: "5px", fontWeight: "bold" }} title="FTA Benefit">
+                {`FTA Benefit: ${ftaDisplay}`}
+              </div>
+              <span style={{ marginTop: "5px" }} title="Hss">
+                {`Hss: ${hssDisplay}`}
+              </span>
               <span style={{ marginTop: "5px" }}>
                 <strong>AD Code: </strong> {adCode ? adCode : "NA"}
               </span>
@@ -353,7 +330,6 @@ function useJobColumns(
               selectedYear={selectedYear}
             />
 
-            {/* REST OF YOUR CUSTOM CONTENT */}
             <div>
               <strong> {row?.original?.shipping_line_airline} </strong>
               <div>
@@ -427,7 +403,6 @@ function useJobColumns(
 
           return (
             <div style={{ textAlign: "left" }}>
-              {/* First: Show OBL received status if available */}
               {isOblRecieved && (
                 <div style={{ marginBottom: "5px" }}>
                   <span style={{ color: "green", fontWeight: "bold" }}>
@@ -441,7 +416,6 @@ function useJobColumns(
                 </div>
               )}
 
-              {/* Second: Show DO document sent status if available */}
               {isDoDocRecieved && (
                 <div style={{ marginBottom: "5px" }}>
                   <span style={{ color: "blue", fontWeight: "bold" }}>
@@ -454,7 +428,6 @@ function useJobColumns(
                   )}
                 </div>
               )}
-              {/* Second: Show DO document sent status if available */}
               {is_og_doc_recieved && (
                 <div style={{ marginBottom: "5px" }}>
                   <span style={{ color: "blue", fontWeight: "bold" }}>
@@ -468,7 +441,6 @@ function useJobColumns(
                 </div>
               )}
 
-              {/* Rest of the content in current order */}
               <div>
                 {doCompleted ? (
                   <strong>DO Completed Date: {doCompleted}</strong>
@@ -529,7 +501,6 @@ function useJobColumns(
         size: 400,
         Cell: ({ row }) => {
           const { cth_documents = [] } = row.original;
-          // Filter out documents that do not have a document_check_date
           const validDocuments = cth_documents.filter(
             (doc) => doc.document_check_date
           );
@@ -573,21 +544,19 @@ function useJobColumns(
                         {`${doc.document_name} - ${doc.irn}`}
                       </a>
 
-                      {/* Copy IRN button; stop propagation to avoid opening the link */}
-                      <IconButton
-                        size="small"
+                      <button
+                        className="icon-btn"
                         onClick={(event) => {
                           event.preventDefault();
                           event.stopPropagation();
                           if (doc.irn) handleCopy(event, doc.irn);
                         }}
+                        title={`Copy IRN`}
                         aria-label={`Copy IRN ${doc.irn}`}
                         style={{ padding: 4 }}
                       >
-                        <abbr title={`Copy IRN`}>
-                          <ContentCopyIcon fontSize="inherit" />
-                        </abbr>
-                      </IconButton>
+                        <FontAwesomeIcon icon={faCopy} size="sm" />
+                      </button>
                     </div>
 
                     <div
@@ -598,7 +567,6 @@ function useJobColumns(
                         padding: 0,
                       }}
                     >
-                      {/* Display the checked date */}
                       {new Date(doc.document_check_date).toLocaleDateString()}
                     </div>
                   </div>
@@ -626,8 +594,8 @@ function useJobColumns(
       formatDate,
       setRows,
       onRowUpdate,
-      invalidateCache, // Add to dependencies
-      selectedYear, // Add to dependencies
+      invalidateCache,
+      selectedYear,
     ]
   );
 

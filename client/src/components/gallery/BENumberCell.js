@@ -1,10 +1,10 @@
 import React, { useCallback, useMemo, useState, useEffect, useContext } from "react";
 import FileUpload from "./FileUpload";
 import { FaUpload } from "react-icons/fa";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faCopy } from "@fortawesome/free-solid-svg-icons";
 import axios from "axios";
-import { IconButton } from "@mui/material";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import BEStatusModal from "../../customHooks/BeStatus"; // Import the modal component
+import BEStatusModal from "../../customHooks/BeStatus";
 import { BranchContext } from "../../contexts/BranchContext";
 
 const BENumberCell = ({ cell, onDocumentsUpdated, module, copyFn }) => {
@@ -24,7 +24,7 @@ const BENumberCell = ({ cell, onDocumentsUpdated, module, copyFn }) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
-    return `${year}${month}${day}`; // Format as YYYYMMDD for API
+    return `${year}${month}${day}`;
   }, []);
 
   const formatDateDisplay = useCallback((dateStr) => {
@@ -32,14 +32,13 @@ const BENumberCell = ({ cell, onDocumentsUpdated, module, copyFn }) => {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
-    return `${year}/${month}/${day}`; // Format as YYYY/MM/DD for display
+    return `${year}/${month}/${day}`;
   }, []);
 
   const { branches } = useContext(BranchContext);
 
   const getCustomHouseLocation = useMemo(
     () => (customHouse) => {
-      // Build a dynamic lookup from all branch port definitions
       for (const branch of branches || []) {
         for (const port of branch.ports || []) {
           if (
@@ -50,23 +49,19 @@ const BENumberCell = ({ cell, onDocumentsUpdated, module, copyFn }) => {
           }
         }
       }
-      // Fallback to original value if not found
       return customHouse;
     },
     [branches]
   );
 
-  // Sync BE Attachments
   useEffect(() => {
     setProcessedBeFiles(cell.row.original.processed_be_attachment || []);
   }, [cell.row.original.processed_be_attachment]);
 
-  // Sync OOC Copies
   useEffect(() => {
     setOocFiles(cell.row.original.ooc_copies || []);
   }, [cell.row.original.ooc_copies]);
 
-  // Sync Gate Pass Copies
   useEffect(() => {
     setGatePassFiles(cell.row.original.gate_pass_copies || []);
   }, [cell.row.original.gate_pass_copies]);
@@ -74,35 +69,30 @@ const BENumberCell = ({ cell, onDocumentsUpdated, module, copyFn }) => {
   const beNumber = cell?.getValue()?.toString();
   const rawBeDate = cell.row.original.be_date;
   const customHouse = cell.row.original.custom_house;
-  const beDate = formatDateDisplay(rawBeDate); // For display
-  const beDateForAPI = formatDate(rawBeDate); // For API (YYYYMMDD)
+  const beDate = formatDateDisplay(rawBeDate);
+  const beDateForAPI = formatDate(rawBeDate);
   const location = getCustomHouseLocation(customHouse);
   const rowId = cell.row.original._id || cell.row.id;
 
-  // Handle BE number click to open modal
   const handleBEClick = (event) => {
     event.preventDefault();
     setSelectedBE({
       beNo: beNumber,
-      beDt: beDateForAPI, // Use YYYYMMDD format
+      beDt: beDateForAPI,
       location: location,
     });
     setModalOpen(true);
   };
 
-  // Handle copy function
   const handleCopy = (event, text) => {
     event.stopPropagation();
     navigator.clipboard.writeText(text);
-    // You can add a toast notification here if needed
     console.log(`Copied: ${text}`);
   };
 
-  // Handle file uploads for different document types
   const handleFilesUploaded = async (newFiles, fieldName) => {
     let updatedFiles;
 
-    // Determine which state to update based on the field
     if (fieldName === "processed_be_attachment") {
       updatedFiles = [...processedBeFiles, ...newFiles];
       setProcessedBeFiles(updatedFiles);
@@ -114,9 +104,7 @@ const BENumberCell = ({ cell, onDocumentsUpdated, module, copyFn }) => {
       setGatePassFiles(updatedFiles);
     }
 
-    // Update the database with the complete array
     try {
-      // Get user info from localStorage for audit trail
       const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
       const headers = {
         "Content-Type": "application/json",
@@ -133,20 +121,16 @@ const BENumberCell = ({ cell, onDocumentsUpdated, module, copyFn }) => {
         { headers }
       );
 
-      // Call parent component's update function if available
       if (onDocumentsUpdated) {
         onDocumentsUpdated(rowId, fieldName, updatedFiles);
       }
     } catch (error) {
       console.error(`Error updating ${fieldName}:`, error);
-      // You might want to show an error message to the user
     }
 
-    // Close the upload popup
     setActiveUpload(null);
   };
 
-  // Component to render the upload button and popup
   const renderUploadButton = (fieldName, title) => {
     const isActive = activeUpload === fieldName;
 
@@ -221,7 +205,6 @@ const BENumberCell = ({ cell, onDocumentsUpdated, module, copyFn }) => {
     );
   };
 
-  // Render document links with proper indexing
   const renderDocumentLinks = (documents, baseLabel) => {
     if (!documents || documents.length === 0) {
       return <span style={{ color: "gray" }}>No {baseLabel}</span>;
@@ -278,22 +261,19 @@ const BENumberCell = ({ cell, onDocumentsUpdated, module, copyFn }) => {
               >
                 {beNumber}
               </a>
-              {/* Copy BE Number */}
-              <IconButton
-                size="small"
+              <button
+                className="icon-btn"
+                title="Copy BE Number"
                 onClick={(event) => copyFn(event, beNumber)}
               >
-                <abbr title="Copy BE Number">
-                  <ContentCopyIcon fontSize="inherit" />
-                </abbr>
-              </IconButton>
+                <FontAwesomeIcon icon={faCopy} size="sm" />
+              </button>
             </div>
 
             <span>{beDate}</span>
           </div>
         )}
 
-        {/* Processed Copy of BOE */}
         <div style={{ marginTop: "10px", display: "flex", alignItems: "center" }}>
           <div style={{ flex: 1 }}>
             {renderDocumentLinks(processedBeFiles, "Processed Copy of BOE")}
@@ -301,7 +281,6 @@ const BENumberCell = ({ cell, onDocumentsUpdated, module, copyFn }) => {
           {renderUploadButton("processed_be_attachment", "BE Copy")}
         </div>
 
-        {/* OOC Copies */}
         {module !== "list" && (
           <>
             <div
@@ -313,7 +292,6 @@ const BENumberCell = ({ cell, onDocumentsUpdated, module, copyFn }) => {
               {renderUploadButton("ooc_copies", "OOC Copy")}
             </div>
 
-            {/* Gate Pass Copies */}
             <div
               style={{ marginTop: "10px", display: "flex", alignItems: "center" }}
             >
@@ -326,7 +304,6 @@ const BENumberCell = ({ cell, onDocumentsUpdated, module, copyFn }) => {
         )}
       </div>
 
-      {/* BE Status Modal */}
       <BEStatusModal
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}

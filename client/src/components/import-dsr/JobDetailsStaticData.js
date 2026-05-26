@@ -17,6 +17,7 @@ import {
   getAirlineOrShippingLineLabel,
   isAirMode,
 } from "../../utils/modeLogic";
+import BLTrackingCell from "../../customHooks/BLTrackingCell";
 
 function JobDetailsStaticData(props) {
   const [expanded, setExpanded] = useState(false);
@@ -754,47 +755,25 @@ function JobDetailsStaticData(props) {
             </Col>
             <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>{getAwbOrBlLabel(props.data?.mode)} No: </span>
-              <span style={valueStyle}>
-                <a
-                  href={`https://enquiry.icegate.gov.in/enquiryatices/blStatusIces?mawbNo=${props.data.awb_bl_no}&HAWB_NO=`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {props.data.awb_bl_no}
-                </a>
+              <span style={{ ...valueStyle, display: "inline-block", verticalAlign: "top" }}>
+                {props.data.awb_bl_no ? (
+                  <BLTrackingCell
+                    blNumber={props.data.awb_bl_no}
+                    shippingLine={props.data.shipping_line_airline}
+                    customHouse={props.data.custom_house}
+                    container_nos={props.data.container_nos}
+                    jobId={props.data._id}
+                    branch_code={props.data.branch_code}
+                    mode={props.data.mode}
+                    portOfReporting={props.data.port_of_reporting}
+                    containerNos={props.data.container_nos}
+                    onCopy={handleCopy}
+                    selectedYear={props.params?.year || props.data?.year}
+                  />
+                ) : (
+                  "N/A"
+                )}
               </span>
-              {props.data.shipping_line_airline && (
-                <>
-                  <Tooltip title={`Track at ${props.data.shipping_line_airline}`}>
-                    <a
-                      href={
-                        getShippingLineUrl(
-                          props.data.shipping_line_airline,
-                          props.data.awb_bl_no,
-                          props.data.container_nos?.[0]?.container_number
-                        ) || "#"
-                      }
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ marginLeft: "6px" }}
-                    >
-                      <FontAwesomeIcon icon={faShip} size="sm" color="blue" />
-                    </a>
-                  </Tooltip>
-                  <Tooltip title="Sea IGM Entry">
-                    <a
-                      href={`https://enquiry.icegate.gov.in/enquiryatices/seaIgmEntry?IGM_loc_Name=${getPortLocation(
-                        props.data.port_of_reporting
-                      )}&MAWB_NO=${props.data.awb_bl_no}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ marginLeft: "6px" }}
-                    >
-                      <FontAwesomeIcon icon={faAnchor} size="sm" color="blue" />
-                    </a>
-                  </Tooltip>
-                </>
-              )}
             </Col>
             <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>{getAwbOrBlLabel(props.data?.mode)} Date: </span>
@@ -806,7 +785,25 @@ function JobDetailsStaticData(props) {
           <Row style={compactRowStyle}>
             <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>H{getAwbOrBlLabel(props.data?.mode)} No: </span>
-              <span style={valueStyle}>{props.data.hawb_hbl_no}</span>
+              <span style={{ ...valueStyle, display: "inline-block", verticalAlign: "top" }}>
+                {props.data.hawb_hbl_no ? (
+                  <BLTrackingCell
+                    hblNumber={props.data.hawb_hbl_no}
+                    shippingLine={props.data.shipping_line_airline}
+                    customHouse={props.data.custom_house}
+                    container_nos={props.data.container_nos}
+                    jobId={props.data._id}
+                    branch_code={props.data.branch_code}
+                    mode={props.data.mode}
+                    portOfReporting={props.data.port_of_reporting}
+                    containerNos={props.data.container_nos}
+                    onCopy={handleCopy}
+                    selectedYear={props.params?.year || props.data?.year}
+                  />
+                ) : (
+                  "N/A"
+                )}
+              </span>
             </Col>
             <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>H{getAwbOrBlLabel(props.data?.mode)} Date: </span>

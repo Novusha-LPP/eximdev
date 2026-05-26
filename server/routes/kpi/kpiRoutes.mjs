@@ -6,6 +6,7 @@ import KPISheet from "../../model/kpi/kpiSheetModel.mjs";
 import KPISettings from "../../model/kpi/kpiSettingsModel.mjs";
 import UserModel from "../../model/userModel.mjs";
 import TeamModel from "../../model/teamModel.mjs";
+import OpenPoint from "../../model/openPoints/openPointModel.mjs";
 import translate from "google-translate-api-x";
 
 const router = express.Router();
@@ -618,8 +619,33 @@ router.get("/api/kpi/sheet/:id", verifyToken, async (req, res) => {
             sheet.markModified('rows');
             await sheet.save();
         }
+        // Calculate open points summary for the user of this sheet
+        const redCount = await OpenPoint.countDocuments({
+            responsible_person: sheet.user,
+            status: 'Red'
+        });
+        const amberCount = await OpenPoint.countDocuments({
+            responsible_person: sheet.user,
+            status: { $in: ['Yellow', 'Orange'] }
+        });
+        const greenCount = await OpenPoint.countDocuments({
+            responsible_person: sheet.user,
+            status: 'Green'
+        });
+        const score = Math.max(0, 10 - redCount);
+        
+        const openPointsSummary = {
+            red: redCount,
+            amber: amberCount,
+            green: greenCount,
+            score: score
+        };
+
+        const sheetObj = sheet.toObject();
+        sheetObj.openPointsSummary = openPointsSummary;
+
         console.log(`GET /api/kpi/sheet/${req.params.id} - Success`);
-        return res.json(sheet);
+        return res.json(sheetObj);
     } catch (err) {
         console.error(`GET /api/kpi/sheet/${req.params.id} ERROR:`, err);
         res.status(500).json({ message: "Server Error" });
@@ -671,7 +697,33 @@ router.get("/api/kpi/sheet", verifyToken, async (req, res) => {
 
         if (sheet) {
             console.log("GET /api/kpi/sheet - Found existing sheet");
-            return res.json(sheet);
+
+            // Calculate open points summary for the user of this sheet
+            const redCount = await OpenPoint.countDocuments({
+                responsible_person: sheet.user,
+                status: 'Red'
+            });
+            const amberCount = await OpenPoint.countDocuments({
+                responsible_person: sheet.user,
+                status: { $in: ['Yellow', 'Orange'] }
+            });
+            const greenCount = await OpenPoint.countDocuments({
+                responsible_person: sheet.user,
+                status: 'Green'
+            });
+            const score = Math.max(0, 10 - redCount);
+            
+            const openPointsSummary = {
+                red: redCount,
+                amber: amberCount,
+                green: greenCount,
+                score: score
+            };
+
+            const sheetObj = sheet.toObject();
+            sheetObj.openPointsSummary = openPointsSummary;
+
+            return res.json(sheetObj);
         } else {
             console.log("GET /api/kpi/sheet - Not Found");
             return res.status(404).json({ message: "Sheet not created yet" });
@@ -1609,6 +1661,253 @@ router.delete("/api/kpi/template/:id", verifyToken, async (req, res) => {
 // ==========================================
 // ANALYTICS / CEO PULSE ROUTES
 // ==========================================
+
+// Get Top 10 Team Members with Red Open Points (Beyond Target Date)
+router.get("/api/kpi/analytics/top-red-open-points", verifyToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'Admin' && req.user.role !== 'Head_of_Department') {
+            return res.status(403).json({ message: "Access Denied: HOD or Admin role required." });
+        }
+
+        // Run auto-update overdue points globally first to ensure accuracy
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        await OpenPoint.updateMany({
+            status: { $nin: ['Green', 'Yellow', 'Orange'] },
+            target_date: { $lt: today }
+        }, {
+            $set: { status: 'Red' }
+        });
+
+        // Aggregate points count grouped by responsible_person
+        const redPointsGrouped = await OpenPoint.aggregate([
+            {
+                $match: {
+                    status: 'Red'
+                }
+            },
+            {
+                $group: {
+                    _id: "$responsible_person",
+                    redCount: { $sum: 1 }
+                }
+            },
+            {
+                $sort: { redCount: -1 }
+            }
+        ]);
+
+        const populatedRecords = [];
+        for (const item of redPointsGrouped) {
+            if (!item._id) continue;
+            
+            const userDetails = await UserModel.findById(item._id)
+                .select('first_name last_name username department email employee_photo');
+            
+            if (userDetails) {
+                // Also get Amber & Green counts for completeness
+                const amberCount = await OpenPoint.countDocuments({
+                    responsible_person: item._id,
+                    status: { $in: ['Yellow', 'Orange'] }
+                });
+                
+                const greenCount = await OpenPoint.countDocuments({
+                    responsible_person: item._id,
+                    status: 'Green'
+                });
+
+                const score = Math.max(0, 10 - item.redCount);
+
+                populatedRecords.push({
+                    user: {
+                        _id: userDetails._id,
+                        name: `${userDetails.first_name} ${userDetails.last_name || ''}`,
+                        username: userDetails.username,
+                        department: userDetails.department || 'General',
+                        email: userDetails.email,
+                        employee_photo: userDetails.employee_photo
+                    },
+                    redCount: item.redCount,
+                    amberCount,
+                    greenCount,
+                    score
+                });
+            }
+        }
+
+        const top10 = populatedRecords
+            .sort((a, b) => b.redCount - a.redCount)
+            .slice(0, 10);
+
+        res.json(top10);
+    } catch (err) {
+        console.error("GET /api/kpi/analytics/top-red-open-points ERROR:", err);
+        res.status(500).json({ message: "Server Error" });
+    }
+});
+
+// Get ALL Team Members with Open Points breakdown (Red / Amber / Green)
+router.get("/api/kpi/analytics/all-open-points", verifyToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'Admin' && req.user.role !== 'Head_of_Department') {
+            return res.status(403).json({ message: "Access Denied: HOD or Admin role required." });
+        }
+
+        // Run auto-update overdue points globally first to ensure accuracy
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        await OpenPoint.updateMany({
+            status: { $nin: ['Green', 'Yellow', 'Orange'] },
+            target_date: { $lt: today }
+        }, {
+            $set: { status: 'Red' }
+        });
+
+        // Aggregate all open point counts by responsible_person and status
+        const allCounts = await OpenPoint.aggregate([
+            {
+                $group: {
+                    _id: "$responsible_person",
+                    redCount: { $sum: { $cond: [{ $eq: ["$status", "Red"] }, 1, 0] } },
+                    amberCount: { $sum: { $cond: [{ $in: ["$status", ["Yellow", "Orange"]] }, 1, 0] } },
+                    greenCount: { $sum: { $cond: [{ $eq: ["$status", "Green"] }, 1, 0] } }
+                }
+            }
+        ]);
+
+        const populatedRecords = [];
+        for (const item of allCounts) {
+            if (!item._id) continue;
+            
+            const userDetails = await UserModel.findById(item._id)
+                .select('first_name last_name username department email employee_photo');
+            
+            if (userDetails) {
+                const score = Math.max(0, 10 - item.redCount);
+                populatedRecords.push({
+                    user: {
+                        _id: userDetails._id,
+                        name: `${userDetails.first_name} ${userDetails.last_name || ''}`,
+                        username: userDetails.username,
+                        department: userDetails.department || 'General',
+                        email: userDetails.email,
+                        employee_photo: userDetails.employee_photo
+                    },
+                    redCount: item.redCount,
+                    amberCount: item.amberCount,
+                    greenCount: item.greenCount,
+                    score
+                });
+            }
+        }
+
+        // Sort by red count desc, then name asc
+        populatedRecords.sort((a, b) => {
+            if (b.redCount !== a.redCount) return b.redCount - a.redCount;
+            return a.user.name.localeCompare(b.user.name);
+        });
+
+        res.json(populatedRecords);
+    } catch (err) {
+        console.error("GET /api/kpi/analytics/all-open-points ERROR:", err);
+        res.status(500).json({ message: "Server Error" });
+    }
+});
+
+// Get Non Submitters for selected period
+router.get("/api/kpi/analytics/non-submitters", verifyToken, async (req, res) => {
+    try {
+        if (req.user.role !== 'Admin' && req.user.role !== 'Head_of_Department') {
+            return res.status(403).json({ message: "Access Denied: HOD or Admin role required." });
+        }
+
+        const { year, month, department, team: teamName } = req.query;
+        if (!year || !month) return res.status(400).json({ message: "Year and Month are required" });
+
+        const iYear = parseInt(year);
+        const iMonth = parseInt(month);
+
+        let targetUserIds = null;
+
+        if (teamName) {
+            const team = await TeamModel.findOne({ name: teamName, isActive: { $ne: false } });
+            if (team) {
+                targetUserIds = team.members.map(m => m.userId.toString());
+                if (team.hodId) targetUserIds.push(team.hodId.toString());
+                targetUserIds = [...new Set(targetUserIds)];
+            }
+        } else if (req.user.role === 'Head_of_Department') {
+            const hodTeam = await TeamModel.findOne({ hodId: req.user._id, isActive: { $ne: false } });
+            if (hodTeam) {
+                targetUserIds = hodTeam.members.map(m => m.userId.toString());
+                targetUserIds.push(req.user._id.toString());
+                targetUserIds = [...new Set(targetUserIds)];
+            }
+        }
+
+        let userQuery = { isActive: { $ne: false } };
+        if (targetUserIds) {
+            userQuery._id = { $in: targetUserIds };
+        } else if (department) {
+            userQuery.department = department;
+        }
+
+        const allUsers = await UserModel.find(userQuery, 'first_name last_name email department username').lean();
+        const allUserIds = allUsers.map(u => u._id);
+
+        const sheets = await KPISheet.find({
+            year: iYear,
+            month: iMonth,
+            user: { $in: allUserIds }
+        }).populate('user', 'first_name last_name username').lean();
+
+        const allTeams = await TeamModel.find({ isActive: { $ne: false } }).lean();
+
+        const nonSubmitters = [];
+        const submitters = [];
+
+        allUsers.forEach(user => {
+            const sheet = sheets.find(s => s.user && s.user._id.toString() === user._id.toString());
+            const userId = user._id.toString();
+            const userTeam = allTeams.find(t =>
+                t.hodId?.toString() === userId || t.members.some(m => m.userId.toString() === userId)
+            );
+
+            const record = {
+                userId: user._id,
+                name: `${user.first_name} ${user.last_name || ''}`,
+                username: user.username,
+                email: user.email,
+                department: user.department,
+                team: userTeam ? userTeam.name : 'No Team',
+                hasSheet: !!sheet,
+                status: sheet ? sheet.status : 'NOT_CREATED',
+                submitted: sheet ? ['SUBMITTED', 'CHECKED', 'VERIFIED', 'APPROVED'].includes(sheet.status) : false,
+                sheetId: sheet ? sheet._id : null
+            };
+
+            if (record.submitted) {
+                submitters.push(record);
+            } else {
+                nonSubmitters.push(record);
+            }
+        });
+
+        res.json({
+            nonSubmitters,
+            submitters,
+            stats: {
+                total: allUsers.length,
+                submitted: submitters.length,
+                nonSubmitted: nonSubmitters.length,
+                submissionRate: allUsers.length ? Math.round((submitters.length / allUsers.length) * 100) : 0
+            }
+        });
+    } catch (err) {
+        console.error("GET /api/kpi/analytics/non-submitters ERROR:", err);
+        res.status(500).json({ message: "Server Error" });
+    }
+});
 
 // Get Pulse Analytics (Delta Variation & 2x2 Matrix)
 router.get("/api/kpi/analytics/pulse", verifyToken, async (req, res) => {

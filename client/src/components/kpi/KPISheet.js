@@ -1114,6 +1114,39 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                                     </tr>
                                 </>
                             )}
+                            {/* Open Points Real-Time Summary (Greyed out & Read-Only) */}
+                            <tr style={{ backgroundColor: '#f1f5f9', opacity: 0.85 }}>
+                                <td style={{ textAlign: 'left', padding: '10px 5px', fontWeight: 600, color: '#475569' }}>
+                                    🔴 {displayLang === 'gu' ? 'રેડ ઓપન પોઈન્ટ્સ (લક્ષ્ય તારીખ પછી)' : displayLang === 'hi' ? 'रेड ओपन पॉइंट्स (लक्ष्य तिथि के बाद)' : 'Red Open Points (Beyond Target Date)'}
+                                </td>
+                                <td style={{ padding: '10px 5px', fontWeight: 700, color: '#dc2626' }}>
+                                    {sheet.openPointsSummary?.red !== undefined ? sheet.openPointsSummary.red : 0}
+                                </td>
+                            </tr>
+                            <tr style={{ backgroundColor: '#f1f5f9', opacity: 0.85 }}>
+                                <td style={{ textAlign: 'left', padding: '10px 5px', fontWeight: 600, color: '#475569' }}>
+                                    🟡 {displayLang === 'gu' ? 'એમ્બર ઓપન પોઈન્ટ્સ (બાકી)' : displayLang === 'hi' ? 'एम्बर ओपन पॉइंट्स (लंबित)' : 'Amber Open Points (Pending)'}
+                                </td>
+                                <td style={{ padding: '10px 5px', fontWeight: 700, color: '#d97706' }}>
+                                    {sheet.openPointsSummary?.amber !== undefined ? sheet.openPointsSummary.amber : 0}
+                                </td>
+                            </tr>
+                            <tr style={{ backgroundColor: '#f1f5f9', opacity: 0.85 }}>
+                                <td style={{ textAlign: 'left', padding: '10px 5px', fontWeight: 600, color: '#475569' }}>
+                                    🟢 {displayLang === 'gu' ? 'ગ્રીન ઓપન પોઈન્ટ્સ (પૂર્ણ)' : displayLang === 'hi' ? 'ग्रीन ओपन पॉइंट्स (पूरा)' : 'Green Open Points (Completed)'}
+                                </td>
+                                <td style={{ padding: '10px 5px', fontWeight: 700, color: '#16a34a' }}>
+                                    {sheet.openPointsSummary?.green !== undefined ? sheet.openPointsSummary.green : 0}
+                                </td>
+                            </tr>
+                            <tr style={{ backgroundColor: '#e2e8f0', borderTop: '2px solid #cbd5e1' }}>
+                                <td style={{ textAlign: 'left', padding: '10px 5px', fontWeight: 'bold', color: '#1e293b' }}>
+                                    🏆 {displayLang === 'gu' ? 'ઓપન પોઈન્ટ્સ AI પર્ફોર્મન્સ સ્કોર (10 માંથી)' : displayLang === 'hi' ? 'ओपन पॉइंट्स एआई प्रदर्शन स्कोर (10 में से)' : 'Open Points AI Performance Score (out of 10)'}
+                                </td>
+                                <td style={{ padding: '10px 5px', fontWeight: 800, color: '#0f172a', fontSize: '1rem' }}>
+                                    {sheet.openPointsSummary?.score !== undefined ? `${sheet.openPointsSummary.score} / 10` : '10 / 10'}
+                                </td>
+                            </tr>
                             <tr>
                                 <td style={{ textAlign: 'left', backgroundColor: '#e8f5e9', padding: '5px' }}>{displayLang === 'gu' ? 'KPI સબમિશન તારીખ' : displayLang === 'hi' ? 'KPI सबमिशन तारीख' : 'KPI Submission Date'}</td>
                                 <td>

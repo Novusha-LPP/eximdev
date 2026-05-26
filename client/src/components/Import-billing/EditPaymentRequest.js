@@ -86,7 +86,7 @@ function EditPaymentRequest() {
         searchQuery,
         selectedImporter,
         jobId,
-        currentTab: currentTab ?? 2,
+        currentTab: currentTab ?? 3,
         currentPage,
       };
 
@@ -96,7 +96,7 @@ function EditPaymentRequest() {
 
   // Handle back click function
   const handleBackClick = () => {
-    const tabIndex = storedSearchParams?.currentTab ?? 2;
+    const tabIndex = storedSearchParams?.currentTab ?? 3;
 
     navigate("/import-billing", {
       state: {
@@ -297,7 +297,7 @@ function EditPaymentRequest() {
         resetForm();
         const currentState = window.history.state || {};
         const scrollPosition = currentState.scrollPosition || 0;
-        const tabIndex = storedSearchParams?.currentTab ?? 2;
+        const tabIndex = storedSearchParams?.currentTab ?? 3;
 
         // Close the tab after successful submit
         setTimeout(() => {

@@ -6,6 +6,7 @@ import mongoose from "mongoose";
 import { getBranchMatch } from "../../utils/branchFilter.mjs";
 import PaymentRequestModel from "../../model/paymentRequestModel.mjs";
 import PurchaseBookEntryModel from "../../model/purchaseBookEntryModel.mjs";
+import JobCounterModel from "../../model/jobCounterModel.mjs";
 
 const router = express.Router();
 
@@ -13,6 +14,7 @@ const router = express.Router();
 const buildSearchQuery = (search) => ({
   $or: [
     { job_no: { $regex: search, $options: "i" } },
+    { job_number: { $regex: search, $options: "i" } },
     { year: { $regex: search, $options: "i" } },
     { importer: { $regex: search, $options: "i" } },
     { custom_house: { $regex: search, $options: "i" } },
@@ -551,8 +553,22 @@ router.get(
         ],
       };
 
+      const branchMatch = getBranchMatch(branchId, category);
+      const regularFilters = [];
       if (req.userIcdFilter) {
-        matchConditions.$and.push(req.userIcdFilter);
+        regularFilters.push(req.userIcdFilter);
+      }
+      if (Object.keys(branchMatch).length > 0) {
+        regularFilters.push(branchMatch);
+      }
+
+      if (regularFilters.length > 0) {
+        matchConditions.$and.push({
+          $or: [
+            { isGeneralJob: true },
+            { $and: regularFilters }
+          ]
+        });
       }
 
       if (selectedYear) {
@@ -570,9 +586,6 @@ router.get(
           importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
         });
       }
-
-      const branchMatch = getBranchMatch(branchId, category);
-      matchConditions.$and.push(branchMatch);
 
       const transTypeField = workMode === 'Purchase Book' ? 'purchase_book_transaction_type' : 'payment_request_transaction_type';
 
@@ -703,7 +716,12 @@ router.get(
       };
 
       if (req.userIcdFilter) {
-        unresolvedMatchConditions.$and.push(req.userIcdFilter);
+        unresolvedMatchConditions.$and.push({
+          $or: [
+            { isGeneralJob: true },
+            req.userIcdFilter
+          ]
+        });
       }
 
       if (selectedYear) {
@@ -720,6 +738,7 @@ router.get(
         unresolvedMatchConditions.$and.push({
           $or: [
             { job_no: { $regex: search, $options: "i" } },
+            { job_number: { $regex: search, $options: "i" } },
             { be_no: { $regex: search, $options: "i" } },
             { importer: { $regex: search, $options: "i" } },
           ],
@@ -742,6 +761,7 @@ router.get(
                           { $ne: [`$$charge.${filterField}`, ""] },
                           { $ne: [`$$charge.${filterField}`, null] },
                           { $ne: [`$$charge.${statusField}`, "Paid"] },
+                          { $ne: [`$$charge.${statusField}`, "Rejected"] },
                           { $ne: [`$$charge.${isApprovedField}`, true] },
                         ],
                       },
@@ -838,8 +858,22 @@ router.get(
         matchConditions.$and.push({ [`charges.${filterField}`]: { $in: requestNos } });
       }
 
+      const branchMatch = getBranchMatch(branchId, category);
+      const regularFilters = [];
       if (req.userIcdFilter) {
-        matchConditions.$and.push(req.userIcdFilter);
+        regularFilters.push(req.userIcdFilter);
+      }
+      if (Object.keys(branchMatch).length > 0) {
+        regularFilters.push(branchMatch);
+      }
+
+      if (regularFilters.length > 0) {
+        matchConditions.$and.push({
+          $or: [
+            { isGeneralJob: true },
+            { $and: regularFilters }
+          ]
+        });
       }
 
       if (selectedYear) {
@@ -851,9 +885,6 @@ router.get(
           importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
         });
       }
-
-      const branchMatch = getBranchMatch(branchId, category);
-      matchConditions.$and.push(branchMatch);
 
       if (search && search.trim()) {
         matchConditions.$and.push(buildSearchQuery(search.trim()));
@@ -979,7 +1010,7 @@ router.get(
 
       const matchConditions = {
         $and: [
-          { status: { $regex: /^pending$/i } },
+          { status: { $in: [/pending/i, /Completed/i] } },
           { charges: { $elemMatch: { [filterField]: { $type: "string", $nin: ["", "undefined", "null"] } } } }
         ],
       };
@@ -1013,8 +1044,22 @@ router.get(
         });
       }
 
+      const branchMatch = getBranchMatch(branchId, category);
+      const regularFilters = [];
       if (req.icdFilterCondition) {
-        matchConditions.$and.push(req.icdFilterCondition);
+        regularFilters.push(req.icdFilterCondition);
+      }
+      if (Object.keys(branchMatch).length > 0) {
+        regularFilters.push(branchMatch);
+      }
+
+      if (regularFilters.length > 0) {
+        matchConditions.$and.push({
+          $or: [
+            { isGeneralJob: true },
+            { $and: regularFilters }
+          ]
+        });
       }
 
       if (selectedYear) {
@@ -1026,9 +1071,6 @@ router.get(
           importer: { $regex: new RegExp(`^${decodedImporter}$`, "i") },
         });
       }
-
-      const branchMatch = getBranchMatch(branchId, category);
-      matchConditions.$and.push(branchMatch);
 
       if (search && search.trim()) {
         matchConditions.$and.push(buildSearchQuery(search.trim()));
@@ -1051,6 +1093,7 @@ router.get(
                           { $gt: [{ $strLenCP: `$$charge.${filterField}` }, 1] },
                           { $ne: [`$$charge.${filterField}`, "undefined"] },
                           { $ne: [`$$charge.${statusField}`, "Paid"] },
+                          { $ne: [`$$charge.${statusField}`, "Rejected"] },
                         ],
                       },
                     },
@@ -1724,6 +1767,112 @@ router.patch("/api/reject-billing-job/:id", async (req, res) => {
     });
   } catch (err) {
     console.error("Error rejecting billing job:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// ==================== GENERAL JOB MODULE ENDPOINTS ====================
+
+router.get("/api/get-general-jobs", async (req, res) => {
+  const { page = 1, limit = 100, search = "", importer, year } = req.query;
+
+  const pageNumber = parseInt(page, 10);
+  const limitNumber = parseInt(limit, 10);
+  const selectedYear = year ? year.toString() : null;
+
+  try {
+    const skip = (pageNumber - 1) * limitNumber;
+
+    const baseQuery = {
+      isGeneralJob: true
+    };
+
+    if (selectedYear) {
+      baseQuery.year = selectedYear;
+    }
+
+    if (importer && importer.trim() && importer !== "Select Importer") {
+      baseQuery.importer = { $regex: new RegExp(`^${importer.trim()}$`, "i") };
+    }
+
+    if (search && search.trim()) {
+      baseQuery.$or = [
+        { job_no: { $regex: search.trim(), $options: "i" } },
+        { job_number: { $regex: search.trim(), $options: "i" } },
+        { importer: { $regex: search.trim(), $options: "i" } },
+        { ie_code_no: { $regex: search.trim(), $options: "i" } },
+        { pan_no: { $regex: search.trim(), $options: "i" } },
+        { gst_no: { $regex: search.trim(), $options: "i" } },
+      ];
+    }
+
+    const totalJobs = await JobModel.countDocuments(baseQuery);
+    const jobs = await JobModel.find(baseQuery)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limitNumber)
+      .lean();
+
+    res.status(200).json({
+      totalJobs,
+      totalPages: Math.ceil(totalJobs / limitNumber),
+      currentPage: pageNumber,
+      jobs,
+    });
+  } catch (err) {
+    console.error("Error fetching general jobs:", err);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+router.post("/api/add-general-job", async (req, res) => {
+  try {
+    const { importer, iecode, pan, gst, year } = req.body;
+
+    if (!importer || !year) {
+      return res.status(400).json({ message: "Importer and Year are required fields" });
+    }
+
+    // Atomic sequence increment using a fixed dummy branch ID for general jobs
+    const dummyBranchId = "000000000000000000000000";
+    let counter = await JobCounterModel.findOneAndUpdate(
+      { branch_id: dummyBranchId, financial_year: year, trade_type: "IMP", mode: "SEA" },
+      { $inc: { last_sequence: 1 } },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+
+    const sequence = counter.last_sequence;
+    const paddedSequence = sequence.toString().padStart(4, '0');
+    const job_number = `GEN/IMP/${paddedSequence}/${year}`;
+
+    const newJob = new JobModel({
+      isGeneralJob: true,
+      importer: importer.trim(),
+      ie_code_no: iecode ? iecode.trim() : "",
+      pan_no: pan ? pan.trim() : "",
+      gst_no: gst ? gst.trim() : "",
+      year: year,
+      financial_year: year,
+      sequence_number: sequence,
+      job_no: paddedSequence,
+      job_number: job_number,
+      branch_code: "GEN",
+      trade_type: "IMP",
+      mode: "SEA",
+      status: "pending",
+      detailed_status: "Billing Pending",
+      row_color: "white"
+    });
+
+    const savedJob = await newJob.save();
+
+    res.status(201).json({
+      success: true,
+      message: "General job created successfully",
+      data: savedJob
+    });
+  } catch (err) {
+    console.error("Error adding general job:", err);
     res.status(500).json({ message: "Internal server error" });
   }
 });

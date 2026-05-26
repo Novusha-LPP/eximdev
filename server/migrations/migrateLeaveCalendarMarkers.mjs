@@ -360,6 +360,7 @@ async function createMissingRecords({ employeeId, companyId, tz, desiredByDate }
         employee_id: employeeId,
         company_id: companyId,
         attendance_date: attendanceDate,
+        attendance_date_str: dateStr,
         year_month: getYearMonth(dateStr),
         status: nextStatus,
         is_on_leave: true,

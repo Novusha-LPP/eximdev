@@ -364,7 +364,10 @@ export const getDashboard = async (req, res) => {
         let employees = [];
         let allTeamsForHOD = [];
 
-        if (isAdminRole(hod.role)) {
+        const actorUsername = String(hod.username || '').toLowerCase();
+        const isAllowedAdmin = ALLOWED_USERNAMES.has(actorUsername);
+
+        if (isAdminRole(hod.role) && isAllowedAdmin) {
             // Admin sees all employees, optionally filtered by teamId
             if (teamId) {
                 // Admin filtered by a specific team
@@ -923,6 +926,8 @@ export const getDashboard = async (req, res) => {
                 pendingRegularization: pendingRegularizations.map(reg => ({
                     id: reg._id,
                     employeeName: reg.employee_id.first_name ? `${reg.employee_id.first_name} ${reg.employee_id.last_name || ''}`.trim() : reg.employee_id.username,
+                    employeeUsername: reg.employee_id.username,
+                    employeeId: reg.employee_id._id,
                     teamName: getTeamNameForMember(reg.employee_id._id),
                     date: reg.attendance_date,
                     type: reg.regularization_type,
@@ -1051,8 +1056,8 @@ export const approveRequest = async (req, res) => {
                 const currentApproverId = toIdString(application.current_approver_id);
 
                 const applyLeaveAttendance = async (processedBy) => {
-                    const start = moment(application.from_date).startOf('day');
-                    const end = moment(application.to_date).startOf('day');
+                    const start = moment(application.from_date_str || application.from_date).startOf('day');
+                    const end = moment(application.to_date_str || application.to_date).startOf('day');
                     let curr = moment(start);
 
                     while (curr.isSameOrBefore(end)) {
@@ -1434,8 +1439,8 @@ export const getDepartmentAttendanceReport = async (req, res) => {
         // Create Lookup Map for Leaves: "empId_YYYY-MM-DD" -> LeaveRecord
         const leaveLookup = new Map();
         approvedLeaves.forEach(l => {
-            let currentDate = moment(l.from_date);
-            const endDate = moment(l.to_date);
+            let currentDate = moment(l.from_date_str || l.from_date);
+            const endDate = moment(l.to_date_str || l.to_date);
             while (currentDate.isSameOrBefore(endDate, 'day')) {
                 const key = `${l.employee_id.toString()}_${currentDate.format('YYYY-MM-DD')}`;
                 leaveLookup.set(key, l);

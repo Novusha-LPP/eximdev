@@ -30,7 +30,7 @@ router.get('/HODDashboard', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']),
 router.get('/department-report', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), hodCtrl.getDepartmentAttendanceReport);
 router.get('/adminDashboard', attendanceAuthBridge, requireRole('ADMIN'), attendanceCtrl.getAdminDashboardData);
 router.post('/lock', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.lockMonthAttendance);
-router.get('/payroll', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.getPayrollData);
+router.get('/payroll', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.getPayrollData);
 router.get('/payroll-employees', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.getPayrollEmployees);
 router.get('/payroll-locks', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.getPayrollLocks);
 router.post('/toggle-lock', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.togglePayrollLock);

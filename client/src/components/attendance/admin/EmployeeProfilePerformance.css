@@ -117,6 +117,7 @@
 .ar-day-badge.absent { background: #c02e2e; color: #fff; }
 .ar-day-badge.late { background: #065f46; color: #fff; }
 .ar-day-badge.leave { background: #1e40af; color: #fff; }
+.ar-day-badge.pending_leave { background: #fef3c7; color: #b45309; }
 .ar-day-badge.half_day { background: #ff9101; color: #fff; }
 .ar-day-badge.weekly_off { background: #475569; color: #fff; }
 .ar-day-badge.holiday { background: #86198f; color: #fff; }
@@ -301,4 +302,5 @@
 .ar-status-weekly_off { background-color: #43585c; } /* Teal/Light Blue */
 .ar-status-holiday { background-color: #9b59b6; }
 .ar-status-leave { background-color: #2563eb; }
+.ar-status-pending-leave { background-color: #f59e0b; }
 .ar-status-default { background-color: #adb5bd; }

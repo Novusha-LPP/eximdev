@@ -123,7 +123,7 @@ const getCalendarStatusClass = (status = '') => {
   const normalized = String(status || '').toLowerCase();
   if (normalized === 'weekly_off' || normalized === 'weekoff' || normalized === 'off') return 'weekly_off';
   if (normalized === 'present_late') return 'late';
-  if (normalized === 'pending_leave') return 'leave';
+  if (normalized === 'pending_leave') return 'pending_leave';
   if (normalized === 'incomplete') return 'missed_punch';
   return normalized || 'none';
 };
@@ -156,7 +156,7 @@ const getCalendarStatusBadge = (status = '') => {
       absent: 'Absent',
       present: 'P',
       incomplete: 'Missed',
-      pending_leave: 'Pending LV'
+      pending_leave: 'Leave'
   };
   return map[normalized] || '';
 };
@@ -177,8 +177,9 @@ const StatusPill = ({ status, session, leaveType, leaveStatus }) => {
 
   if (leaveType) {
     const badge = formatLeaveBadge(leaveType);
-    const isApproved = leaveStatus === 'approved' || status === 'leave';
-    const statusTxt = isApproved ? 'Approved' : 'Applied';
+    const isApproved = leaveStatus === 'approved';
+    const isPending = leaveStatus && leaveStatus !== 'approved' && !['rejected', 'cancelled', 'withdrawn'].includes(leaveStatus);
+    const statusTxt = isApproved ? 'Approved' : (isPending ? 'Pending' : 'Applied');
     
     if (status === 'half_day') {
       label = `${session ? (session.toLowerCase().includes('first') ? '1H' : '2H') : 'HD'} - ${badge} ${statusTxt}`;
@@ -2500,11 +2501,13 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                         const lType = record.leaveType || record.leave_type;
                         const lStatus = record.leaveStatus || record.approval_status;
                         let leaveBadge = null;
+                        let isLeavePending = false;
                         
                         if (lType) {
                           const badge = formatLeaveBadge(lType);
-                          const isApproved = lStatus === 'approved' || record.status === 'leave' || record.leaveStatus === 'approved';
-                          const isPending = lStatus === 'pending' || record.leaveStatus === 'pending';
+                          const isApproved = lStatus === 'approved' || record.leaveStatus === 'approved';
+                          const isPending = lStatus && lStatus !== 'approved' && !['rejected', 'cancelled', 'withdrawn'].includes(lStatus);
+                          isLeavePending = isPending;
                           const statusTxt = isApproved ? 'Approved' : (isPending ? 'Pending' : 'Applied');
                           
                           if (record.status === 'half_day') {
@@ -2525,7 +2528,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                             <span className="ar-day-num">{d}</span>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center', width: '100%' }}>
                               {statusBadge && <span className={`ar-day-badge ${statusClass}`}>{statusBadge}</span>}
-                              {leaveBadge && <span className="ar-day-badge leave">{leaveBadge}</span>}
+                              {leaveBadge && <span className={`ar-day-badge ${isLeavePending ? 'pending_leave' : 'leave'}`}>{leaveBadge}</span>}
                             </div>
                           </div>
                         );
@@ -2601,6 +2604,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                               if (st === 'pending') { sColor = '#d97706'; sBg = '#fffbeb'; sLabel = 'Pending'; }
                               else if (st === 'approved' || st === 'resolved') { sColor = '#059669'; sBg = '#ecfdf5'; sLabel = 'Resolved'; }
                               else if (st === 'rejected') { sColor = '#e11d48'; sBg = '#fff1f2'; sLabel = 'Rejected'; }
+                              else if (st === 'cancelled') { sColor = '#64748b'; sBg = '#f1f5f9'; sLabel = 'Cancelled'; }
                               
                               return (
                                  <div key={request._id || request.id} style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '12px', border: '1px solid #e2e8f0', borderRadius: '8px', marginBottom: '8px' }}>
@@ -2613,42 +2617,20 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                                     <div style={{ fontSize: '11px', color: THEME.text, textTransform: 'capitalize' }}>
                                        {request.regularization_type ? String(request.regularization_type).replace(/_/g, ' ') : (request.reason || 'No details')}
                                     </div>
+                                    {request.reason && request.regularization_type && (
+                                       <div style={{ fontSize: '11px', color: THEME.muted, marginTop: '2px', fontStyle: 'italic', textTransform: 'none' }}>
+                                          "{request.reason}"
+                                       </div>
+                                    )}
                                  </div>
                               );
                            })
                         )}
                      </div>
                   </div>
-
-                  {/* Recent Activity Log */}
-                  <div style={{ ...cardStyle, flex: 1 }}>
-                     <h3 style={{ margin: '0 0 16px 0', fontSize: '14px', fontWeight: '700' }}>Activity Highlights</h3>
-                     <div className="ar-correction-list">
-                        {empHistory.filter(r => r.status && r.status !== 'none').slice(0, 5).map((rec, i) => (
-                          <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '4px', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', marginBottom: '8px' }}>
-                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                 <FiClock size={12} color={THEME.muted} />
-                                 <span style={{ fontSize: '12px', fontWeight: '700', color: THEME.navy }}>{getAttendanceDateLabel(rec.attendance_date)}</span>
-                               </div>
-                               <div style={{ transform: 'scale(0.85)', transformOrigin: 'right center' }}>
-                                 <StatusPill 
-                                   status={getCalendarStatusClass(rec.status)} 
-                                   session={rec.half_day_session} 
-                                   leaveType={rec.leaveType || rec.leave_type}
-                                   leaveStatus={rec.leaveStatus || rec.approval_status}
-                                 />
-                               </div>
-                             </div>
-                             {rec.first_in && <div style={{ fontSize: '11px', color: THEME.text, marginLeft: '20px' }}>In: {moment(rec.first_in).format('h:mm a')}</div>}
-                          </div>
-                        ))}
-                        {empHistory.length === 0 && <div style={{ textAlign: 'center', padding: '20px', color: THEME.muted, fontSize: '12px' }}>No recent activity</div>}
-                     </div>
                   </div>
                </div>
             </div>
-          </div>
         )}
 
         {tab === 'attendance' && (

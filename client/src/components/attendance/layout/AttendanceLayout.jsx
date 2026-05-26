@@ -41,8 +41,7 @@ const ADMIN_BASE_MENU = [
     { section: 'My Attendance & Leave' },
     { path: '/attendance/my-attendance', icon: FiClock, label: 'My Attendance' },
     { path: '/attendance/leave', icon: FiFileText, label: 'Apply Leave' },
-    { section: 'Calendar' },
-    { path: '/attendance/holiday-calendar', icon: FiCalendar, label: 'Holidays', hideForAllowedAdmin: true },
+    
 ];
 
 const ADMIN_PRIVILEGED_MENU = [

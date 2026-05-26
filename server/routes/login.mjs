@@ -2,6 +2,7 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import UserModel from "../model/userModel.mjs";
+import TeamModel from "../model/teamModel.mjs";
 
 const router = express.Router();
 
@@ -22,13 +23,15 @@ router.post("/api/login", async (req, res) => {
         });
     }
 
-    bcrypt.compare(password, user.password, (passwordErr, passwordResult) => {
+    bcrypt.compare(password, user.password, async (passwordErr, passwordResult) => {
       if (passwordErr) {
         console.error(passwordErr);
         return res.status(500).json({ message: "Something went wrong" });
       }
 
       if (passwordResult) {
+        const isHodOfAnyTeam = await TeamModel.exists({ hodId: user._id, isActive: { $ne: false } });
+
         // Create a new object with only the required fields
         const userResponse = {
           _id: user._id,
@@ -48,6 +51,8 @@ router.post("/api/login", async (req, res) => {
           assigned_importer: user.assigned_importer,
           assigned_importer_name: user.assigned_importer_name,
           selected_icd_codes: user.selected_icd_codes,
+          isHOD: !!isHodOfAnyTeam,
+          hodId: isHodOfAnyTeam ? user._id.toString() : undefined
         };
 
         const token = jwt.sign(

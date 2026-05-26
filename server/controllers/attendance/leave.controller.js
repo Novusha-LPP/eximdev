@@ -1294,8 +1294,8 @@ export const cancelLeave = async (req, res) => {
 
         // ── PARTIAL CANCELLATION (Split Approach) ──────────────────────────────
         if (cancel_type === 'partial' && cancel_from && cancel_to) {
-            const origStart = moment(application.from_date).startOf('day');
-            const origEnd   = moment(application.to_date).startOf('day');
+            const origStart = moment(application.from_date_str || application.from_date).startOf('day');
+            const origEnd   = moment(application.to_date_str || application.to_date).startOf('day');
             const cancelStart = moment(cancel_from).startOf('day');
             const cancelEnd   = moment(cancel_to).startOf('day');
 

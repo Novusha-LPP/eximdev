@@ -24,6 +24,8 @@ import { WorkHoursCalculator } from '../../services/attendance/WorkHoursCalculat
 import { AttendanceStatusResolver } from '../../services/attendance/AttendanceStatusResolver.js';
 import { IST_TIMEZONE, nowIST, getISTDayRange, toISTDateStr } from '../../utils/attendance/DateUtils.js';
 
+import { ALLOWED_USERNAMES } from '../../middleware/requireAllowedAdmin.mjs';
+
 // --- HELPERS ---
 const resolveCompanyId = (req) => {
     // If explicit company_id provided in query/body (for admin views)
@@ -1044,7 +1046,8 @@ export const getDashboardData = async (req, res) => {
                     const existing = calendarMap[dateStr];
                     const isHalfLeave = Boolean(leave.is_half_day || leave.is_start_half_day || leave.is_end_half_day);
                     const sessionValue = leave.half_day_session || leave.start_half_session || leave.end_half_session;
-                    const mergedStatus = isHalfLeave ? 'half_day' : 'leave';
+                    const isPending = leave.approval_status !== 'approved';
+                    const mergedStatus = isHalfLeave ? 'half_day' : (isPending ? 'pending_leave' : 'leave');
 
                     if (!existing || ['absent', 'weekly_off'].includes(existing.status)) {
                         calendarMap[dateStr] = {
@@ -1872,8 +1875,19 @@ export const lockMonthAttendance = async (req, res) => {
 
 export const getPayrollData = async (req, res) => {
     try {
-        if (req.user.role !== 'ADMIN') {
-            return res.status(403).json({ message: 'Only admins can view payroll data' });
+        const roleNorm = String(req.user?.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+        const isHOD = roleNorm === 'HOD' || roleNorm === 'HEADOFDEPARTMENT' || !!req.user?.isHOD || !!req.user?.hodId;
+        const isAdmin = roleNorm === 'ADMIN';
+
+        if (!isAdmin && !isHOD) {
+            return res.status(403).json({ message: 'Only admins and HODs can view payroll data' });
+        }
+
+        if (isAdmin) {
+            const username = (req.user?.username || '').toLowerCase();
+            if (!ALLOWED_USERNAMES.has(username)) {
+                return res.status(403).json({ message: 'Admin access restricted to authorized users' });
+            }
         }
         
         const { month, year, company_id } = req.query;
@@ -1890,8 +1904,6 @@ export const getPayrollData = async (req, res) => {
         const targetYear = year || moment().year().toString();
         const yearMonth = `${targetYear}-${targetMonth.toString().padStart(2, '0')}`;
 
-        const isAdmin = req.user.role === 'ADMIN';
-
         // Validate company exists
         const company = await Company.findById(companyId);
         if (!company) {
@@ -1903,14 +1915,37 @@ export const getPayrollData = async (req, res) => {
             isActive: { $ne: false }
         };
         
-        // Add company filter - try both formats
-        if (mongoose.Types.ObjectId.isValid(companyId)) {
-            query.$or = [
-                { company_id: new mongoose.Types.ObjectId(companyId) },
-                { company_id: companyId }
-            ];
+        if (isHOD && !isAdmin) {
+            // HOD sees only their team members
+            const teams = await TeamModel.find({ 
+                hodId: req.user._id,
+                isActive: { $ne: false }
+            });
+            const memberUserIds = new Set();
+            teams.forEach(team => {
+                if (team.members && Array.isArray(team.members)) {
+                    team.members.forEach(member => {
+                        if (member.userId) {
+                            memberUserIds.add(member.userId.toString());
+                        }
+                    });
+                }
+            });
+            const teamMemberIds = Array.from(memberUserIds);
+            if (teamMemberIds.length === 0) {
+                return res.json({ success: true, data: [] });
+            }
+            query._id = { $in: teamMemberIds };
         } else {
-            query.company_id = companyId;
+            // Add company filter - try both formats
+            if (mongoose.Types.ObjectId.isValid(companyId)) {
+                query.$or = [
+                    { company_id: new mongoose.Types.ObjectId(companyId) },
+                    { company_id: companyId }
+                ];
+            } else {
+                query.company_id = companyId;
+            }
         }
         
         const employees = await User.find(query)
@@ -3546,7 +3581,7 @@ export const getEmployeeFullProfile = async (req, res) => {
             const leave = findLeaveForDateLocal(leaves, dayCursor) || findLeaveForDateLocal(pendingLeaves, dayCursor);
 
             if (leave) {
-                const isPending = (leave.approval_status || '').toLowerCase() === 'pending';
+                const isPending = leave.approval_status !== 'approved';
                 const isHalfLeave = !!(leave.is_half_day || leave.is_start_half_day || leave.is_end_half_day);
 
                 if (!existingRecord || String(existingRecord.status).toLowerCase() === 'absent') {
@@ -3558,7 +3593,7 @@ export const getEmployeeFullProfile = async (req, res) => {
                     continuityAttendance.push({
                         _id: `virtual-leave-${dayStr}`,
                         attendance_date: dayCursor.toDate(),
-                        status: isHalfLeave ? 'half_day' : 'leave',
+                        status: isHalfLeave ? 'half_day' : (isPending ? 'pending_leave' : 'leave'),
                         leaveType: leave.leave_type || null,
                         leaveStatus: leave.approval_status || 'pending',
                         half_day_session: leave.half_day_session || null,
@@ -3576,7 +3611,7 @@ export const getEmployeeFullProfile = async (req, res) => {
                     existingRecord.leaveStatus = leave.approval_status || 'pending';
                     existingRecord.is_pending = isPending;
                     if (!isHalfLeave && !isWorkingStatus) {
-                        existingRecord.status = 'leave';
+                        existingRecord.status = isPending ? 'pending_leave' : 'leave';
                     }
                 }
                 dayCursor.add(1, 'day');

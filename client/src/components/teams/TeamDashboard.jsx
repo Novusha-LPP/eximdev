@@ -71,11 +71,11 @@ function TeamDashboard() {
     const [hodModules, setHodModules] = useState([]); // HOD's assigned modules
     const [allUsers, setAllUsers] = useState([]); // All users for Admin to select HOD
     const [moduleTab, setModuleTab] = useState(() => {
-        // If URL contains a teamId or userId, default to the users view
-        // so refreshing stays on the selected employee profile.
+        // If URL contains a userId, default to teams view so we show the member profile tab.
+        if (userId) return "teams";
         return (
             localStorage.getItem("teamDashboard_moduleTab") ||
-            (teamId || userId ? "users" : "teams")
+            "teams"
         );
     });
     const [teamShortcutUserIds, setTeamShortcutUserIds] = useState([]);
@@ -89,6 +89,13 @@ function TeamDashboard() {
             localStorage.setItem("teamDashboard_moduleTab", "users");
         }
     }, [location.state]);
+
+    useEffect(() => {
+        if (userId) {
+            setModuleTab("teams");
+            localStorage.setItem("teamDashboard_moduleTab", "teams");
+        }
+    }, [userId]);
 
     useEffect(() => {
         localStorage.setItem("teamDashboard_moduleTab", moduleTab);

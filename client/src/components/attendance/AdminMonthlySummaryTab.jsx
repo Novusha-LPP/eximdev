@@ -122,20 +122,22 @@ const AdminMonthlySummaryTab = ({ currentMonth, onMonthChange, companies = [], s
 
       <div className="adb-mon-header">
         <div className="adb-mon-controls">
-          <div className="adb-date-picker-wrap">
-            <span className="adb-filter-lbl">Organization</span>
-            <FiUsers className="adb-dp-icon" />
-            <select
-              className="adb-company-select"
-              value={selectedCompanyId || ''}
-              onChange={(e) => onCompanyChange(e.target.value)}
-            >
-              <option value="">All Companies</option>
-              {companies.map(c => (
-                <option key={c._id} value={c._id}>{c.company_name}</option>
-              ))}
-            </select>
-          </div>
+          {companies && companies.length > 0 && (
+            <div className="adb-date-picker-wrap">
+              <span className="adb-filter-lbl">Organization</span>
+              <FiUsers className="adb-dp-icon" />
+              <select
+                className="adb-company-select"
+                value={selectedCompanyId || ''}
+                onChange={(e) => onCompanyChange(e.target.value)}
+              >
+                <option value="">All Companies</option>
+                {companies.map(c => (
+                  <option key={c._id} value={c._id}>{c.company_name}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="adb-date-picker-wrap">
             <span className="adb-filter-lbl">Month</span>

@@ -74,6 +74,24 @@ const getLeaveIcon = (name = '') => {
   return LEAVE_ICONS.find(c => c.keys.some(k => n.includes(k))) || { emoji: '📝', color: '#9ca3af' };
 };
 
+const formatLeaveDates = (from, to) => {
+  if (!from) return '';
+  const f = new Date(from);
+  if (isNaN(f)) return '';
+  const fStr = f.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (!to) return fStr;
+  const t = new Date(to);
+  if (isNaN(t)) return fStr;
+  const tStr = t.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (fStr === tStr) return fStr;
+  if (f.getMonth() === t.getMonth() && f.getFullYear() === t.getFullYear()) {
+    const monthName = f.toLocaleString('en-US', { month: 'short' });
+    return `${monthName} ${f.getDate()} – ${t.getDate()}`;
+  }
+  return `${fStr} – ${tStr}`;
+};
+
+
 const formatSession = (s) => {
   if (!s) return '';
   return s === 'first_half' ? '1st Half' : '2nd Half';
@@ -104,10 +122,10 @@ const calClass = (rec, isCurrentDay, punchStatus) => {
     return rec?.isLate ? 'late' : 'present';
   }
   if (rec.status === 'present') return rec.isLate ? 'late' : 'present';
-  return { absent: 'absent', holiday: 'holiday', weekly_off: 'weekly_off', leave: 'leave', incomplete: 'missed_punch' }[rec.status] || '';
+  return { absent: 'absent', holiday: 'holiday', weekly_off: 'weekly_off', leave: 'leave', pending_leave: 'pending_leave', incomplete: 'missed_punch' }[rec.status] || '';
 };
 
-const DOT_MAP = { present: 'P', absent: 'A', late: 'L', present_late: 'L', half_day: '½', leave: 'LV', holiday: 'HD', weekly_off: 'O', missed_punch: 'M', empty: '' };
+const DOT_MAP = { present: 'P', absent: 'A', late: 'L', present_late: 'L', half_day: '½', leave: 'LV', pending_leave: 'LV', holiday: 'HD', weekly_off: 'O', missed_punch: 'M', empty: '' };
 
 const CAL_LABELS = {
   present: 'Present',
@@ -115,6 +133,7 @@ const CAL_LABELS = {
   absent: 'Absent',
   half_day: 'Half-Day',
   leave: 'Leave',
+  pending_leave: 'Leave',
   weekly_off: 'Weekly Off',
   holiday: 'Holiday',
   missed_punch: 'Missed Punch',
@@ -131,7 +150,7 @@ export default function Dashboard() {
   const normalizeRole = (r) => String(r || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
   const nRole = normalizeRole(user?.role);
   const isAdmin = nRole === 'ADMIN';
-  const isHOD = nRole === 'HOD' || nRole === 'HEADOFDEPARTMENT';
+  const isHOD = nRole === 'HOD' || nRole === 'HEADOFDEPARTMENT' || !!user?.isHOD || !!user?.hodId;
   const isManager = isAdmin || isHOD;
 
   const [loading, setLoading] = useState(true);
@@ -139,6 +158,7 @@ export default function Dashboard() {
   const [approving, setApproving] = useState({});
   const [dash, setDash] = useState(null);
   const [balances, setBalances] = useState([]);
+  const [correctionDatesSet, setCorrectionDatesSet] = useState(new Set()); // dates with correction requests
   const [mgmtData, setMgmtData] = useState(null);
   const [todayTab, setTodayTab] = useState('absent');
   const [pendingTab, setPendingTab] = useState('leave');
@@ -176,21 +196,34 @@ export default function Dashboard() {
       const base = [
         attendanceAPI.getDashboardData(mo, yr),
         leaveAPI.getBalance().catch(() => ({ data: [] })),
+        attendanceAPI.getRegularizations({ limit: 100 }).catch(() => null),
       ];
 
-      if (isAdmin) {
+      if (isAdmin && isAuthorizedAdmin) {
         base.push(attendanceAPI.getAdminDashboard().catch(() => null));
         base.push(masterAPI.getHolidays({ limit: 5 }).catch(() => null));
-      } else if (isHOD) {
+      } else if (isHOD || isAdmin) {
         base.push(attendanceAPI.getHODDashboard().catch(() => null));
       }
 
-      const [dashRes, balRes, extraRes, holRes] = await Promise.all(base);
+      const [dashRes, balRes, corrRes, extraRes, holRes] = await Promise.all(base);
 
       if (dashRes) setDash(dashRes);
       setBalances(balRes?.data || []);
 
-      if (isAdmin && extraRes?.success) {
+      // Build set of dates with correction requests (non-cancelled/rejected)
+      const corrList = Array.isArray(corrRes?.data) ? corrRes.data : Array.isArray(corrRes?.requests) ? corrRes.requests : [];
+      const corrDates = new Set();
+      corrList.forEach(r => {
+        const s = String(r.status || '').toLowerCase();
+        if (s !== 'cancelled') {
+          const d = String(r.date || r.attendance_date || '').slice(0, 10);
+          if (d) corrDates.add(d);
+        }
+      });
+      setCorrectionDatesSet(corrDates);
+
+      if (isAdmin && isAuthorizedAdmin && extraRes?.success) {
         setMgmtData(extraRes.data);
         const today = new Date(); today.setHours(0, 0, 0, 0);
         setHolidays(
@@ -199,11 +232,12 @@ export default function Dashboard() {
             .sort((a, b) => new Date(a.holiday_date) - new Date(b.holiday_date))
             .slice(0, 4)
         );
+      } else if ((isHOD || isAdmin) && extraRes?.data) {
+        setMgmtData(extraRes.data);
       }
-      if (isHOD && extraRes?.data) setMgmtData(extraRes.data);
     } catch { toast.error('Failed to load dashboard'); }
     finally { setLoading(false); }
-  }, [isAdmin, isHOD]);
+  }, [isAdmin, isHOD, isAuthorizedAdmin]);
 
   // Fetch companies for admin filtering
   useEffect(() => {
@@ -222,15 +256,21 @@ export default function Dashboard() {
   useEffect(() => { load(month.getMonth() + 1, month.getFullYear()); }, [month]);
 
   const loadAdminData = useCallback(async (date, companyId, endDate) => {
-    if (!isAuthorizedAdmin) return;
+    if (!isAuthorizedAdmin && !isHOD) return;
     try {
       setAdminLoading(true);
-      const res = await attendanceAPI.getAdminAttendanceReport(
-        date,
-        endDate || date,
-        'all',
-        companyId || undefined
-      );
+      const res = isAuthorizedAdmin
+        ? await attendanceAPI.getAdminAttendanceReport(
+            date,
+            endDate || date,
+            'all',
+            companyId || undefined
+          )
+        : await attendanceAPI.getTeamAttendanceReport(
+            date,
+            endDate || date,
+            'all'
+          );
 
       if (res?.success) {
         const rows = Array.isArray(res.data) ? res.data : [];
@@ -277,17 +317,17 @@ export default function Dashboard() {
         });
       }
     } catch { 
-      toast.error('Failed to load admin analytics'); 
+      toast.error('Failed to load daily analytics'); 
     } finally { 
       setAdminLoading(false); 
     }
-  }, [isAuthorizedAdmin]);
+  }, [isAuthorizedAdmin, isHOD]);
 
   useEffect(() => {
-    if (activeTab === 'daily' && isAuthorizedAdmin) {
+    if (activeTab === 'daily' && (isAuthorizedAdmin || isHOD)) {
       loadAdminData(adminDate, adminCompanyId, adminEndDate);
     }
-  }, [activeTab, adminDate, adminEndDate, adminCompanyId, isAuthorizedAdmin, loadAdminData]);
+  }, [activeTab, adminDate, adminEndDate, adminCompanyId, isAuthorizedAdmin, isHOD, loadAdminData]);
 
   useEffect(() => {
     const h = () => load(month.getMonth() + 1, month.getFullYear());
@@ -421,7 +461,8 @@ export default function Dashboard() {
   const stats = mgmtData?.stats || mgmtData?.summary || dash?.mgmtSnapshot || {};
   // If admin has applied filters and we've loaded adminData, prefer those stats
   const derivedStats = adminData?.stats || stats;
-  const visibleActiveTotal = derivedStats.total || 0;
+  const visibleActiveTotal = derivedStats.total || derivedStats.totalEmployees || 0;
+  const showManagerTiles = isHOD || isAuthorizedAdmin;
   const pendingLeaves = mgmtData?.pendingLeaves || [];
   const pendingRegs = mgmtData?.pendingRegularization || [];
   const teamCalendar = mgmtData?.teamCalendar || mgmtData?.teamAvailability || [];
@@ -437,10 +478,18 @@ export default function Dashboard() {
   const upcomingHolidays = (dash?.upcomingHolidays || []).slice(0, 4);
 
   /* -- Role-aware stat tiles -- */
+  const calendarArray = Object.values(dash?.calendar || {});
+  const myLateCount = calendarArray.filter(rec => rec?.isLate || rec?.status === 'late').length;
+  const myAbsentCount = calendarArray.filter(rec => rec?.status === 'absent').length;
+  const workingDays = calendarArray.filter(
+    rec => rec && !['weekly_off', 'holiday'].includes(rec.status)
+  ).length;
+
   const personalTiles = [
-    { cls: 'green', val: ms?.present ?? 0, lbl: 'Days Present', sub: `of ${ms?.workingDays ?? 0} working days` },
-    { cls: 'blue', val: ms?.leaves ?? 0, lbl: 'Leaves Taken', sub: 'this month' },
-    { cls: 'gray', val: ms?.weeklyAvgHours ? `${Math.floor(ms.weeklyAvgHours)}h${Math.floor((ms.weeklyAvgHours % 1) * 60)}m` : '-', lbl: 'Weekly Avg Hours', sub: 'based on days worked' },
+    { cls: 'green', val: ms?.present ?? 0, lbl: 'Days Present', sub: `of ${workingDays || ms?.workingDays || 0} working days` },
+    { cls: 'red', val: myAbsentCount || ms?.absent || 0, lbl: 'Absent Days', sub: 'unexcused absences' },
+    { cls: 'blue', val: ms?.leaves ?? 0, lbl: 'Leaves Taken', sub: 'approved leaves' },
+    { cls: 'amber', val: myLateCount || ms?.late || 0, lbl: 'Late Arrivals', sub: 'late punch-ins this month' },
   ];
 
   const managerTiles = [
@@ -470,10 +519,10 @@ export default function Dashboard() {
 
   const adminActions = [
     { icon: <FiActivity size={14} />, lbl: 'Attendance Report', sub: 'Company-wide records', path: '/attendance/admin/attendance' },
+    { icon: <FiUsers size={14} />, lbl: 'All User Attendance', sub: 'View team assignments & profiles', path: '/attendance/teams' },
     { icon: <FiCalendar size={14} />, lbl: 'Manage Holidays', sub: 'Add or edit holidays', path: '/attendance/admin/holidays' },
-    { icon: <FiClock size={14} />, lbl: 'Shift Management', sub: 'Reference timings & hour thresholds', path: '/attendance/admin/shifts' },
-    { icon: <FiBookOpen size={14} />, lbl: 'Leave Policies', sub: 'Quotas & accrual rules', path: '/attendance/admin/leave-policies' },
-    { icon: <FiSettings size={14} />, lbl: 'System Settings', sub: 'Company configuration', path: '/attendance/admin/settings' },
+    { icon: <FiClock size={14} />, lbl: 'Shift Management', sub: 'Manage timings & rules', path: '/attendance/admin/shifts' },
+    { icon: <FiBookOpen size={14} />, lbl: 'Leave Policies', sub: 'Create & control rules', path: '/attendance/admin/leave-policies' },
   ];
 
   const employeeActions = [
@@ -492,27 +541,6 @@ export default function Dashboard() {
             <h1>{`${greeting()}, ${displayName}`}</h1>
             <p>{new Date().toLocaleDateString('en', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
           </div>
-          <div className="punch-widget">
-            <div className="punch-times">
-              <span className="punch-label">Today</span>
-              <div className="punch-row">
-                <span className={ps?.firstIn ? 'in' : ''}>
-                  <FiLogIn size={10} /> {ps?.firstIn ? fmtTime(ps.firstIn) : '-'}
-                </span>
-                <span className={ps?.lastOut ? 'out' : ''}>
-                  <FiLogOut size={10} /> {showMiss ? 'Miss' : fmtTime(ps?.lastOut)}
-                </span>
-              </div>
-            </div>
-            <button
-              className={`punch-cta ${isIn ? 'out' : 'in'}`}
-              onClick={handlePunch}
-              disabled={punching}
-            >
-              {isIn ? <FiLogOut size={13} /> : <FiLogIn size={13} />}
-              {punching ? '...' : isIn ? 'Punch Out' : 'Punch In'}
-            </button>
-          </div>
         </div>
       </div>
 
@@ -520,11 +548,11 @@ export default function Dashboard() {
       <div className="db-tiles-wrap">
 
         <div className="db-tiles">
-          {(isManager ? managerTiles : personalTiles).map((t, i) => (
+          {(activeTab === 'calendar' ? personalTiles : managerTiles).map((t, i) => (
             <div 
               key={i} 
-              className={`tile ${t.cls} ${isManager && isAuthorizedAdmin && ['present', 'absent', 'leave', 'late'].includes(t.type) ? 'clickable' : ''}`}
-              onClick={() => isManager && isAuthorizedAdmin && ['present', 'absent', 'leave', 'late'].includes(t.type) && openAnalytics(t.type)}
+              className={`tile ${t.cls} ${activeTab !== 'calendar' && showManagerTiles && (isAuthorizedAdmin || isHOD) && ['present', 'absent', 'leave', 'late'].includes(t.type) ? 'clickable' : ''}`}
+              onClick={() => activeTab !== 'calendar' && showManagerTiles && (isAuthorizedAdmin || isHOD) && ['present', 'absent', 'leave', 'late'].includes(t.type) && openAnalytics(t.type)}
             >
               <div className="tile-val">{t.val}</div>
               <div className="tile-lbl">{t.lbl}</div>
@@ -533,7 +561,7 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {isAuthorizedAdmin && (
+        {(isAuthorizedAdmin || isHOD) && (
           <div className="db-main-tabs">
             <button 
               className={`db-main-tab ${activeTab === 'calendar' ? 'active' : ''}`}
@@ -565,9 +593,9 @@ export default function Dashboard() {
           <>
             <div className="db-main">
 
-          <div className="db-upper-row">
-            {/* Personal punch card – compact for managers */}
-            <div className="ph-card">
+          <div className={`db-upper-row ${(isAuthorizedAdmin || isHOD) ? 'has-pending' : ''}`}>
+            {/* Personal punch card */}
+            <div className="ph-card" style={{ height: '100%' }}>
               <div className="ph-top">
                 <div>
                   <div className={`ph-status ${isIn ? 'on' : 'off'}`}>
@@ -601,236 +629,117 @@ export default function Dashboard() {
                     )}
                   </div>
                 </div>
-                <button
-                  className={`ph-ring ${isIn ? 'out' : ''}`}
-                  onClick={handlePunch}
-                  disabled={punching}
-                >
-                  {isIn
-                    ? <FiLogOut size={22} color="#ef4444" />
-                    : <FiLogIn size={22} color="#10b981" />
-                  }
-                  <span className="ph-ring-lbl">{punching ? '...' : isIn ? 'Out' : 'In'}</span>
-                </button>
               </div>
             </div>
 
-            {/* -- EMPLOYEE: Personal stat tiles beside ph-card for managers -- */}
-            {isManager && (
-              <div className="card personal-summary-card">
-                <div className="card-head">
-                  <span className="card-title">My Monthly Summary</span>
+            {/* -- Pending Approvals -- */}
+            {(isAuthorizedAdmin || isHOD) && (
+              <div className="card pending-approvals-card" style={{ margin: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <div className="card-head" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                    <span className="card-title">Pending Approvals</span>
+                    {allPending.length > 0
+                      ? <span className="card-badge badge-amber">{allPending.length}</span>
+                      : <span className="card-badge badge-green">All clear</span>
+                    }
+                  </div>
+                  <div className="db-tabs-mini" style={{ width: '100%' }}>
+                    <button 
+                      className={`db-tab-mini ${pendingTab === 'leave' ? 'active' : ''}`}
+                      onClick={() => setPendingTab('leave')}
+                      style={{ flex: 1, justifyContent: 'center' }}
+                    >
+                      Leaves {allPending.filter(r => r._kind === 'leave').length > 0 && <span className="tab-count-amber">{allPending.filter(r => r._kind === 'leave').length}</span>}
+                    </button>
+                    <button 
+                      className={`db-tab-mini ${pendingTab === 'reg' ? 'active' : ''}`}
+                      onClick={() => setPendingTab('reg')}
+                      style={{ flex: 1, justifyContent: 'center' }}
+                    >
+                      Corrections {allPending.filter(r => r._kind === 'reg').length > 0 && <span className="tab-count-amber">{allPending.filter(r => r._kind === 'reg').length}</span>}
+                    </button>
+                  </div>
                 </div>
-                <div className="personal-stats-grid">
-                  {personalTiles.map((t, i) => (
-                    <div key={i} className={`personal-stat-box ${t.cls}`}>
-                      <div className="ps-val">{t.val}</div>
-                      <div className="ps-lbl">{t.lbl}</div>
+                <div style={{ overflowY: 'auto', flex: 1 }}>
+                  {allPending.filter(r => r._kind === pendingTab).length === 0 ? (
+                    <div className="empty-msg">Nothing pending right now! ✨</div>
+                  ) : allPending.filter(r => r._kind === pendingTab).slice(0, 4).map((req, i) => (
+                    <div 
+                      key={i} 
+                      className="approval-row" 
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => {
+                        if (req._kind === 'reg') {
+                          if (req.employeeUsername) {
+                            navigate(`/attendance/teams/${req.company_id || 'all'}/user/${req.employeeUsername}/performance`);
+                          } else {
+                            navigate(isHOD ? "/attendance/hod/report" : "/attendance/admin/attendance", { state: { openUserId: req.employeeId || req.employee_id } });
+                          }
+                        } else {
+                          navigate(isHOD ? "/attendance/hod/leave-approval" : "/attendance/admin/leave-approval");
+                        }
+                      }}
+                    >
+                      <div className="approval-left">
+                        <div className="approval-av">{(req.employeeName || "?")[0]}</div>
+                        <div className="approval-body">
+                          <div className="approval-name">
+                            {req.employeeName}{req.teamName ? ` - ${req.teamName}` : ''}
+                          </div>
+                          <div className="approval-meta">
+                            {req._kind === 'leave' ? (
+                              <>
+                                {formatLeaveDates(req.fromDate || req.from_date, req.toDate || req.to_date)}
+                                {req.totalDays ? ` • ${isHalfDayRequest(req) ? 'Half Day' : `${req.totalDays} Day${req.totalDays > 1 ? 's' : ''}`}` : ''}
+                                {` • ${req.leaveType || 'Leave'}`}
+                              </>
+                            ) : (
+                              <>
+                                {req.date ? new Date(req.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : 'Regularization'}
+                                {` • Correction`}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      {req._kind !== 'reg' && (
+                        <div className="approval-actions" onClick={e => e.stopPropagation()}>
+                          <button
+                            className="act approve"
+                            disabled={approving[req.id]}
+                            onClick={() => handleApprove(req.id, req._kind, "approved")}
+                          >
+                            <FiCheck size={10} /> Approve
+                          </button>
+                          <button
+                            className="act reject"
+                            disabled={approving[req.id]}
+                            onClick={() => handleApprove(req.id, req._kind, "rejected")}
+                          >
+                            <FiX size={10} /> Reject
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
+                {allPending.filter(r => r._kind === pendingTab).length > 4 && (
+                  <div style={{ padding: ".75rem 1.25rem", borderTop: "1px solid var(--border)" }}>
+                    <button className="card-link" onClick={() => {
+                        if (pendingTab === 'reg') {
+                            navigate(isHOD ? "/attendance/hod/report" : "/attendance/admin/attendance");
+                        } else {
+                            navigate(isHOD ? "/attendance/hod/leave-approval" : "/attendance/admin/leave-approval");
+                        }
+                    }}>
+                      +{allPending.filter(r => r._kind === pendingTab).length - 4} more <FiArrowRight size={12} />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
-          {/* -- MANAGER: Overview strip -- */}
-          {isManager && !isAuthorizedAdmin && (
-            <div className="card insight-mini">
-              <div className="card-head">
-                <span className="card-title">{isAdmin ? 'Company Overview' : 'Team Overview'}</span>
-                <button className="card-link" onClick={() => navigate(isAdmin ? '/attendance/admin/attendance' : '/attendance/hod/report')}>
-                  Full report <FiArrowRight size={12} />
-                </button>
-              </div>
-              <div className="insight-mini-grid">
-                <div className="insight-mini-item green">
-                  <div className="insight-mini-icon"><FiCheckCircle size={14} /></div>
-                  <div className="insight-mini-body">
-                    <span className="insight-mini-val">{stats.present ?? 0}</span>
-                    <span className="insight-mini-lbl">Present</span>
-                  </div>
-                </div>
-                <div className="insight-mini-item red">
-                  <div className="insight-mini-icon"><FiXCircle size={14} /></div>
-                  <div className="insight-mini-body">
-                    <span className="insight-mini-val">{stats.absent ?? 0}</span>
-                    <span className="insight-mini-lbl">Absent</span>
-                  </div>
-                </div>
-                <div className="insight-mini-item amber">
-                  <div className="insight-mini-icon"><FiClock size={14} /></div>
-                  <div className="insight-mini-body">
-                    <span className="insight-mini-val">{stats.late ?? 0}</span>
-                    <span className="insight-mini-lbl">Late</span>
-                  </div>
-                </div>
-                <div className="insight-mini-item blue">
-                  <div className="insight-mini-icon"><FiSun size={14} /></div>
-                  <div className="insight-mini-body">
-                    <span className="insight-mini-val">{stats.onLeave ?? stats.onLeaveCount ?? 0}</span>
-                    <span className="insight-mini-lbl">On Leave</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-
-
-      
-
-
-          {/* -- MANAGER: Today's Alerts (Late / Absent) -- */}
-          {isManager && !isAuthorizedAdmin && (
-            <div className="card">
-              <div className="card-head">
-                <span className="card-title">Today's Alerts</span>
-                <div className="db-tabs-mini">
-                  <button 
-                    className={`db-tab-mini ${todayTab === 'absent' ? 'active' : ''}`}
-                    onClick={() => setTodayTab('absent')}
-                  >
-                    Absent {absentList.length > 0 && <span className="tab-count-red">{absentList.length}</span>}
-                  </button>
-                  <button 
-                    className={`db-tab-mini ${todayTab === 'late' ? 'active' : ''}`}
-                    onClick={() => setTodayTab('late')}
-                  >
-                    Late {lateList.length > 0 && <span className="tab-count-amber">{lateList.length}</span>}
-                  </button>
-                </div>
-              </div>
-              
-              <div className="db-alerts-list">
-                {todayTab === 'absent' && (
-                  absentList.length === 0 ? (
-                    <div className="empty-msg">No one is absent today! 🎉</div>
-                  ) : absentList.map((emp, i) => (
-                    <div key={i} className="absent-emp-row">
-                      <div className="absent-emp-av">{(emp.name || '?')[0].toUpperCase()}</div>
-                      <div className="absent-emp-info">
-                        <div className="absent-emp-name">{emp.name}</div>
-                        <div className="absent-emp-dept">{emp.status === 'leave' ? 'On Leave' : 'Absent'}</div>
-                      </div>
-                      <span className={`absent-emp-tag ${emp.status === 'leave' ? 'on-leave' : ''}`}>
-                        {emp.status === 'leave' ? 'On Leave' : 'Absent'}
-                      </span>
-                    </div>
-                  ))
-                )}
-                
-                {todayTab === 'late' && (
-                  lateList.length === 0 ? (
-                    <div className="empty-msg">No late arrivals reported.</div>
-                  ) : lateList.map((emp, i) => {
-                     const lMins = emp.late_by ?? emp.lateBy ?? 0;
-                     const iTime = emp.first_in ?? emp.inTime;
-                     return (
-                        <div key={i} className="absent-emp-row">
-                          <div className="absent-emp-av late">{(emp.name || '?')[0].toUpperCase()}</div>
-                          <div className="absent-emp-info">
-                            <div className="absent-emp-name">{emp.name}</div>
-                            <div className="absent-emp-dept">{iTime ? `Arrived ${fmtTime(iTime)}` : 'Logged Late'}</div>
-                          </div>
-                          <span className="absent-emp-tag late">
-                            +{lMins}m
-                          </span>
-                        </div>
-                     );
-                  })
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* -- HOD only: Team calendar -- */}
-          {isHOD && (
-            <div className="card">
-              <div className="card-head">
-                <div>
-                  <div className="card-title">Team Availability</div>
-                  <div style={{ fontSize: '.75rem', color: 'var(--ink4)', marginTop: 2 }}>
-                    {weekDays[0].toLocaleDateString('en', { day: 'numeric', month: 'short' })} –{' '}
-                    {weekDays[6].toLocaleDateString('en', { day: 'numeric', month: 'short', year: 'numeric' })}
-                  </div>
-                </div>
-                <div className="week-nav">
-                  <button className="week-btn" onClick={() => setWeekOff(o => o - 1)}><FiChevronLeft size={13} /></button>
-                  <button className={`week-btn${weekOff === 0 ? ' current' : ''}`} onClick={() => setWeekOff(0)}>Today</button>
-                  <button className="week-btn" onClick={() => setWeekOff(o => o + 1)}><FiChevronRight size={13} /></button>
-                </div>
-              </div>
-              <div className="team-cal">
-                <table className="team-table">
-                  <thead>
-                    <tr>
-                      <th className="name-col">Member</th>
-                      {weekDays.map((d, i) => {
-                        const isT = d.toDateString() === todayStr;
-                        const isW = d.getDay() === 0 || d.getDay() === 6;
-                        return (
-                          <th key={i} className={isT ? 'today-col' : ''} style={{ opacity: isW && !isT ? .5 : 1 }}>
-                            <div>{d.toLocaleDateString('en', { weekday: 'short' })}</div>
-                            <div style={{ fontSize: '.5rem', fontFamily: 'JetBrains Mono,monospace', marginTop: 1, opacity: .7 }}>
-                              {d.toLocaleDateString('en', { day: 'numeric', month: 'short' })}
-                            </div>
-                          </th>
-                        );
-                      })}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {teamCalendar.length === 0
-                      ? <tr><td colSpan={8}><div className="empty-msg">No team members found</div></td></tr>
-                      : teamCalendar.map((emp, ei) => (
-                        <tr key={ei}>
-                          <td>
-                            <div className="emp-cell">
-                              <div className="emp-av">{initials(emp.name)}</div>
-                              <div>
-                                <div className="emp-name">{emp.name}</div>
-                                <div className="emp-role">{emp.role || 'Team Member'}</div>
-                              </div>
-                            </div>
-                          </td>
-                          {weekDays.map((d, di) => {
-                            const ds = getAttendanceDateKey(d);
-                            let status = emp.attendance?.[ds] || 'empty';
-                            const isW = d.getDay() === 0 || d.getDay() === 6;
-                            const isT = d.toDateString() === todayStr;
-                            
-                            if (status === 'empty' && !isW && d <= new Date()) {
-                                status = 'absent';
-                            }
-                            
-                            return (
-                              <td key={di} className={isT ? 'today-col' : ''}>
-                                <div className={`status-dot sd-${isW ? 'weekend' : status}`} title={status === 'empty' ? 'No Data' : status.replace(/_/g, ' ')}>
-                                  {!isW && DOT_MAP[status]}
-                                </div>
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))
-                    }
-                  </tbody>
-                </table>
-              </div>
-              <div className="team-legend">
-                {[
-                  ['Present', '#10b981'],
-                  ['Late', '#f59e0b'],
-                  ['Absent', '#ef4444'],
-                  ['Leave', '#8b5cf6'],
-                  ['Half Day', '#0369a1'],
-                  ['Off', '#e5e7eb']
-                ].map(([l, c]) => (
-                  <span key={l}><span className="tl-dot" style={{ background: c }} />{l}</span>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* -- Attendance calendar – ALL ROLES -- */}
           <div className="card cal-card">
@@ -867,6 +776,7 @@ export default function Dashboard() {
 
                 let statusLabel = CAL_LABELS[cls] || '';
                 let leaveLabel = '';
+                let isLeavePending = false;
 
                 if (cls === 'half_day') {
                   const session = rec?.half_day_session || '';
@@ -875,8 +785,10 @@ export default function Dashboard() {
 
                 if (rec?.leaveType) {
                   const badge = formatLeaveBadge(rec.leaveType);
-                  const isApproved = rec.leaveStatus === 'approved' || cls === 'leave' || rec.status === 'leave';
-                  const statusTxt = isApproved ? 'Approved' : (rec.leaveStatus === 'pending' ? 'Pending' : 'Applied');
+                  const isApproved = rec.leaveStatus === 'approved';
+                  const isPending = rec.leaveStatus && rec.leaveStatus !== 'approved' && !['rejected', 'cancelled', 'withdrawn'].includes(rec.leaveStatus);
+                  isLeavePending = isPending;
+                  const statusTxt = isApproved ? 'Approved' : (isPending ? 'Pending' : 'Applied');
                   
                   if (cls === 'half_day') {
                     statusLabel = `${statusLabel} (${badge})`;
@@ -885,6 +797,10 @@ export default function Dashboard() {
                     leaveLabel = `${badge} ${statusTxt}`;
                   }
                 }
+
+                // Check if this day has a correction request
+                const dayKey = day ? `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` : null;
+                const hasCorrectionDot = dayKey && correctionDatesSet.has(dayKey);
 
                 return (
                   <div
@@ -896,8 +812,11 @@ export default function Dashboard() {
                     {day && (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', width: '100%', alignItems: 'center' }}>
                         {statusLabel && <div className={`cal-status-badge ${cls}`}>{statusLabel}</div>}
-                        {leaveLabel && <div className="cal-status-badge leave">{leaveLabel}</div>}
+                        {leaveLabel && <div className={`cal-status-badge ${isLeavePending ? 'pending_leave' : 'leave'}`}>{leaveLabel}</div>}
                       </div>
+                    )}
+                    {hasCorrectionDot && (
+                      <div className="cal-correction-dot" title="Correction request submitted" />
                     )}
                   </div>
                 );
@@ -915,101 +834,32 @@ export default function Dashboard() {
               ].map(([l, c]) => (
                 <span key={l}><span className="cal-ldot" style={{ background: c }} />{l}</span>
               ))}
+              <span><span className="cal-correction-legend-dot" />Correction</span>
             </div>
           </div>
         </div>
 
         {/* -- RIGHT SIDEBAR -- */}
         <div className="db-side">
-          {isManager && (
+
+          {/* Quick actions – for allowed admins and HODs */}
+          {(isAuthorizedAdmin || isHOD) && (
             <div className="card">
-              <div className="card-head" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '10px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                  <span className="card-title">Pending Approvals</span>
-                  {allPending.length > 0
-                    ? <span className="card-badge badge-amber">{allPending.length}</span>
-                    : <span className="card-badge badge-green">All clear</span>
-                  }
-                </div>
-                <div className="db-tabs-mini" style={{ width: '100%' }}>
-                  <button 
-                    className={`db-tab-mini ${pendingTab === 'leave' ? 'active' : ''}`}
-                    onClick={() => setPendingTab('leave')}
-                    style={{ flex: 1, justifyContent: 'center' }}
-                  >
-                    Leaves {allPending.filter(r => r._kind === 'leave').length > 0 && <span className="tab-count-amber">{allPending.filter(r => r._kind === 'leave').length}</span>}
-                  </button>
-                  <button 
-                    className={`db-tab-mini ${pendingTab === 'reg' ? 'active' : ''}`}
-                    onClick={() => setPendingTab('reg')}
-                    style={{ flex: 1, justifyContent: 'center' }}
-                  >
-                    Corrections {allPending.filter(r => r._kind === 'reg').length > 0 && <span className="tab-count-amber">{allPending.filter(r => r._kind === 'reg').length}</span>}
-                  </button>
-                </div>
+              <div className="card-head">
+                <span className="card-title">Quick Actions</span>
               </div>
-              {allPending.filter(r => r._kind === pendingTab).length === 0 ? (
-                <div className="empty-msg">Nothing pending right now! ✨</div>
-              ) : allPending.filter(r => r._kind === pendingTab).slice(0, 6).map((req, i) => (
-                <div 
-                  key={i} 
-                  className="approval-row" 
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => {
-                    if (req._kind === 'reg') {
-                      if (req.employeeUsername) {
-                        navigate(`/attendance/teams/${req.company_id || 'all'}/user/${req.employeeUsername}/performance`);
-                      } else {
-                        navigate(isHOD ? "/attendance/hod/report" : "/attendance/admin/attendance", { state: { openUserId: req.employeeId || req.employee_id } });
-                      }
-                    } else {
-                      navigate(isHOD ? "/attendance/hod/leave-approval" : "/attendance/admin/leave-approval");
-                    }
-                  }}
-                >
-                  <div className="approval-av">{(req.employeeName || "?")[0]}</div>
-                  <div className="approval-body">
-                    <div className="approval-name">{req.employeeName} · {req.teamName || 'Unassigned'}</div>
-                    <div className="approval-meta">
-                      {req._kind === "leave" ? (req.leaveType || "Leave") : "Regularization"}
-                      {req._kind === "leave" && req.totalDays ? (
-                        isHalfDayRequest(req) ? ` • Half Day (${formatSession(getHalfDaySession(req))})` : ` • ${req.totalDays} day${req.totalDays > 1 ? "s" : ""}`
-                      ) : ""}
-                      {req._kind === "reg" && req.date ? ` • ${new Date(req.date).toLocaleDateString("en", { day: "numeric", month: "short" })}` : ""}
-                    </div>
-                    <div className="approval-actions" onClick={e => e.stopPropagation()}>
-                      <button
-                        className="act approve"
-                        disabled={approving[req.id]}
-                        onClick={() => handleApprove(req.id, req._kind, "approved")}
-                      >
-                        <FiCheck size={10} /> Approve
-                      </button>
-                      <button
-                        className="act reject"
-                        disabled={approving[req.id]}
-                        onClick={() => handleApprove(req.id, req._kind, "rejected")}
-                      >
-                        <FiX size={10} /> Reject
-                      </button>
-                    </div>
-                  </div>
+            {(isAdmin ? adminActions : hodActions).map((item, i) => (
+              <button key={i} className="qa-item" onClick={() => navigate(item.path)}>
+                <div className="qa-icon">{item.icon}</div>
+                <div className="qa-text">
+                  <div className="qa-lbl">{item.lbl}</div>
+                  {item.sub && <div className="qa-sub">{item.sub}</div>}
                 </div>
-              ))}
-              {allPending.filter(r => r._kind === pendingTab).length > 6 && (
-                <div style={{ padding: ".75rem 1.25rem", borderTop: "1px solid var(--border)" }}>
-                  <button className="card-link" onClick={() => {
-                      if (pendingTab === 'reg') {
-                          navigate(isHOD ? "/attendance/hod/report" : "/attendance/admin/attendance");
-                      } else {
-                          navigate(isHOD ? "/attendance/hod/leave-approval" : "/attendance/admin/leave-approval");
-                      }
-                  }}>
-                    +{allPending.filter(r => r._kind === pendingTab).length - 6} more <FiArrowRight size={12} />
-                  </button>
-                </div>
-              )}
-            </div>
+                {item.count > 0 && <span className="qa-count">{item.count}</span>}
+                <FiChevronRight className="qa-arrow" size={13} />
+              </button>
+            ))}
+          </div>
           )}
 
           {/* Leave balance – all roles */}
@@ -1048,25 +898,28 @@ export default function Dashboard() {
             }
           </div>
 
-          {/* Upcoming holidays – and manual refresh */}
+          {/* Upcoming holidays */}
           {!isAuthorizedAdmin && (
             <div className="card">
-              <div className="card-head">
+              <div className="card-head" style={{ cursor: 'pointer' }} onClick={() => navigate('/attendance/holiday-calendar')}>
                 <span className="card-title">Upcoming Holidays</span>
-                {isAdmin && (
-                  <button className="card-link" onClick={() => navigate("/attendance/admin/holidays")}>
-                    Manage <FiArrowRight size={12} />
-                  </button>
-                )}
+                {isAdmin
+                  ? <button className="card-link" onClick={(e) => { e.stopPropagation(); navigate("/attendance/admin/holidays"); }}>
+                      Manage <FiArrowRight size={12} />
+                    </button>
+                  : <button className="card-link" onClick={(e) => { e.stopPropagation(); navigate('/attendance/holiday-calendar'); }}>
+                      View all <FiArrowRight size={12} />
+                    </button>
+                }
               </div>
             {(isAdmin ? holidays : upcomingHolidays).length === 0 ? (
-              <div className="empty-msg">No upcoming holidays</div>
+              <div className="empty-msg" style={{ cursor: 'pointer' }} onClick={() => navigate('/attendance/holiday-calendar')}>No upcoming holidays</div>
             ) : (isAdmin ? holidays : upcomingHolidays).map((h, i) => {
               const d = new Date(h.holiday_date || h.date);
               const name = h.holiday_name || h.name || "";
               const type = h.holiday_type || h.type || "national";
               return (
-                <div key={i} className="upcoming-row">
+                <div key={i} className="upcoming-row" style={{ cursor: 'pointer' }} onClick={() => navigate('/attendance/holiday-calendar')}>
                   <div className="upcoming-badge">
                     <span className="upcoming-month">{d.toLocaleString("default", { month: "short" })}</span>
                     <span className="upcoming-day">{d.getDate()}</span>
@@ -1078,26 +931,6 @@ export default function Dashboard() {
                 </div>
               );
             })}
-          </div>
-          )}
-
-          {/* Quick actions – role-specific */}
-          {!isAuthorizedAdmin && (
-            <div className="card">
-              <div className="card-head">
-                <span className="card-title">Quick Actions</span>
-              </div>
-            {(isAdmin ? adminActions : isHOD ? hodActions : employeeActions).map((item, i) => (
-              <button key={i} className="qa-item" onClick={() => navigate(item.path)}>
-                <div className="qa-icon">{item.icon}</div>
-                <div className="qa-text">
-                  <div className="qa-lbl">{item.lbl}</div>
-                  {item.sub && <div className="qa-sub">{item.sub}</div>}
-                </div>
-                {item.count > 0 && <span className="qa-count">{item.count}</span>}
-                <FiChevronRight className="qa-arrow" size={13} />
-              </button>
-            ))}
           </div>
           )}
         </div>
@@ -1148,7 +981,7 @@ export default function Dashboard() {
         startDate={adminDate}
         endDate={adminEndDate}
         companyId={adminCompanyId}
-        role={user?.role || 'ADMIN'}
+        role={isAuthorizedAdmin ? 'ADMIN' : (isHOD ? 'HOD' : (user?.role || 'ADMIN'))}
       />
 
     </div>

@@ -74,7 +74,7 @@ const getCalendarStatusBadge = (status = '') => {
         present: 'P',
         incomplete: 'MP',
         missed_punch: 'MP',
-        pending_leave: 'PLV'
+        pending_leave: 'LV'
     };
     return map[normalized] || '';
 };
@@ -84,7 +84,7 @@ const StatusPill = ({ status, session, leaveType, leaveStatus }) => {
         present: ['Present', 'present'], 
         absent: ['Absent', 'absent'], 
         leave: ['Leave', 'leave'], 
-        pending_leave: ['Pending Leave', 'pending-leave'],
+        pending_leave: ['Leave', 'pending-leave'],
         half_day: ['Half Day', 'half-day'], 
         weekly_off: ['Off', 'off'], 
         holiday: ['Holiday', 'holiday'],
@@ -95,8 +95,9 @@ const StatusPill = ({ status, session, leaveType, leaveStatus }) => {
 
     if (leaveType) {
         const badge = formatLeaveBadge(leaveType);
-        const isApproved = leaveStatus === 'approved' || status === 'leave';
-        const statusTxt = isApproved ? 'Approved' : 'Applied';
+        const isApproved = leaveStatus === 'approved';
+        const isPending = leaveStatus && leaveStatus !== 'approved' && !['rejected', 'cancelled', 'withdrawn'].includes(leaveStatus);
+        const statusTxt = isApproved ? 'Approved' : (isPending ? 'Pending' : 'Applied');
         
         if (status === 'half_day') {
             label = `${session ? (session.toLowerCase().includes('first') ? '1H' : '2H') : 'HD'} - ${badge} ${statusTxt}`;
@@ -1724,10 +1725,13 @@ if (summarySheet) {
                                                         const lType = rec?.leaveType || rec?.leave_type;
                                                         const lStatus = rec?.leaveStatus || rec?.approval_status;
                                                         let leaveBadge = null;
+                                                        let isLeavePending = false;
                                                         if (lType) {
                                                             const badge = formatLeaveBadge(lType);
-                                                            const isApproved = lStatus === 'approved' || rec?.status === 'leave';
-                                                            const statusTxt = isApproved ? 'Approved' : 'Applied';
+                                                            const isApproved = lStatus === 'approved';
+                                                            const isPending = lStatus && lStatus !== 'approved' && !['rejected', 'cancelled', 'withdrawn'].includes(lStatus);
+                                                            isLeavePending = isPending;
+                                                            const statusTxt = isApproved ? 'Approved' : (isPending ? 'Pending' : 'Applied');
                                                             
                                                             if (rec?.status === 'half_day') {
                                                                 statusBadge = `${statusBadge} (${badge})`;
@@ -1751,7 +1755,7 @@ if (summarySheet) {
                                                                 <span className="ar-day-num">{day}</span>
                                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center', width: '100%' }}>
                                                                     {statusBadge && <span className={`ar-day-badge ${statusClass}`}>{statusBadge}</span>}
-                                                                    {leaveBadge && <span className="ar-day-badge leave">{leaveBadge}</span>}
+                                                                    {leaveBadge && <span className={`ar-day-badge ${isLeavePending ? 'pending_leave' : 'leave'}`}>{leaveBadge}</span>}
                                                                 </div>
                                                             </div>
                                                         );

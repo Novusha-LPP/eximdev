@@ -14,6 +14,7 @@ const buildSearchQuery = (search) => ({
     { job_no: { $regex: search, $options: "i" } },
     { importer: { $regex: search, $options: "i" } },
     { awb_bl_no: { $regex: search, $options: "i" } },
+    { be_no: { $regex: search, $options: "i" } },
     { shipping_line_airline: { $regex: search, $options: "i" } },
     { custom_house: { $regex: search, $options: "i" } },
     { vessel_flight: { $regex: search, $options: "i" } },

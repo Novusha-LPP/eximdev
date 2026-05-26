@@ -403,11 +403,37 @@ const ViewBillingJob = () => {
           </Box>
 
           <form onSubmit={formik.handleSubmit}>
-            <JobDetailsStaticData
-              data={data}
-              bl_no_ref={bl_no_ref}
-              params={{ mode, job_no, year }}
-            />
+            {data?.isGeneralJob ? (
+              <div className="job-details-container" style={{ padding: "20px", background: "white", borderRadius: "8px", border: "1px solid #e0e0e0", boxShadow: "0 2px 4px rgba(0,0,0,0.02)", marginBottom: "20px" }}>
+                <h5 style={{ fontSize: "1.1rem", fontWeight: "700", borderBottom: "1px solid #eee", paddingBottom: "10px", marginBottom: "15px" }}>
+                  General Job Number: {data?.job_number}
+                </h5>
+                <Row style={{ padding: "8px 12px", backgroundColor: "#f8f9fa", borderRadius: "4px", fontSize: "0.875rem", margin: "0px" }}>
+                  <Col xs={12} md={6} style={{ padding: "4px 8px" }}>
+                    <span style={{ color: "#495057", fontWeight: "600", display: "inline-block", minWidth: "120px" }}>Importer:</span>
+                    <span style={{ color: "#212529", fontWeight: "700" }}>{data?.importer}</span>
+                  </Col>
+                  <Col xs={12} md={2} style={{ padding: "4px 8px" }}>
+                    <span style={{ color: "#495057", fontWeight: "600", display: "inline-block", minWidth: "80px" }}>IE Code:</span>
+                    <span style={{ color: "#212529" }}>{data?.ie_code_no || "N/A"}</span>
+                  </Col>
+                  <Col xs={12} md={2} style={{ padding: "4px 8px" }}>
+                    <span style={{ color: "#495057", fontWeight: "600", display: "inline-block", minWidth: "80px" }}>PAN No:</span>
+                    <span style={{ color: "#212529" }}>{data?.pan_no || "N/A"}</span>
+                  </Col>
+                  <Col xs={12} md={2} style={{ padding: "4px 8px" }}>
+                    <span style={{ color: "#495057", fontWeight: "600", display: "inline-block", minWidth: "80px" }}>GST No:</span>
+                    <span style={{ color: "#212529" }}>{data?.gst_no || "N/A"}</span>
+                  </Col>
+                </Row>
+              </div>
+            ) : (
+              <JobDetailsStaticData
+                data={data}
+                bl_no_ref={bl_no_ref}
+                params={{ mode, job_no, year }}
+              />
+            )}
             {data && data.dsr_queries && (
               <div>
                 <QueriesComponent

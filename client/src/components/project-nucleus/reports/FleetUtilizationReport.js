@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { format, parse, isValid, startOfMonth, endOfMonth } from 'date-fns';
 import {
-    ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine
+    ResponsiveContainer, ComposedChart, AreaChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine
 } from 'recharts';
 import { getTransportDates, TRANSPORT_BASE, TRANSPORT_HEADERS } from './reports-helper';
 
@@ -87,7 +87,7 @@ const FleetUtilizationReport = ({
                     selectedQuarter,
                     dateRange
                 );
-                
+
                 const params = {};
                 let start = startDate;
                 let end = endDate;
@@ -267,8 +267,8 @@ const FleetUtilizationReport = ({
             grandTotal += b.total;
         });
 
-        const automoveData = branches['Automove'] || { c20:0, own20:0, hired20:0, c40:0, own40:0, hired40:0, other:0, ownOther:0, hiredOther:0, total:0 };
-        const othersData = { c20:0, own20:0, hired20:0, c40:0, own40:0, hired40:0, other:0, ownOther:0, hiredOther:0, total:0 };
+        const automoveData = branches['Automove'] || { c20: 0, own20: 0, hired20: 0, c40: 0, own40: 0, hired40: 0, other: 0, ownOther: 0, hiredOther: 0, total: 0 };
+        const othersData = { c20: 0, own20: 0, hired20: 0, c40: 0, own40: 0, hired40: 0, other: 0, ownOther: 0, hiredOther: 0, total: 0 };
         Object.keys(branches).forEach(br => {
             if (br !== 'Automove') {
                 const b = branches[br];
@@ -296,13 +296,22 @@ const FleetUtilizationReport = ({
         const own40Pct = calcPct(othersData.own40, othersData.c40);
         const hired40Pct = calcPct(othersData.hired40, othersData.c40);
 
+        const overallOwn = grandOwn20 + grandOwn40 + grandOwnOther;
+        const overallHired = grandHired20 + grandHired40 + grandHiredOther;
+        const overallOwnPct = calcPct(overallOwn, grandTotal);
+        const overallHiredPct = calcPct(overallHired, grandTotal);
+
         return {
             list,
             grandTotals: {
                 c20: grand20, own20: grandOwn20, hired20: grandHired20,
                 c40: grand40, own40: grandOwn40, hired40: grandHired40,
                 other: grandOther, ownOther: grandOwnOther, hiredOther: grandHiredOther,
-                total: grandTotal
+                total: grandTotal,
+                overallOwn,
+                overallHired,
+                overallOwnPct,
+                overallHiredPct
             },
             cards: {
                 automove: {
@@ -314,12 +323,18 @@ const FleetUtilizationReport = ({
                 },
                 srCarriers: {
                     total: othersData.total,
+                    own: othersOwn,
+                    hired: othersHired,
                     ownPct: othersOwnPct,
                     hiredPct: othersHiredPct,
                     c20: othersData.c20,
+                    own20: othersData.own20,
+                    hired20: othersData.hired20,
                     own20Pct,
                     hired20Pct,
                     c40: othersData.c40,
+                    own40: othersData.own40,
+                    hired40: othersData.hired40,
                     own40Pct,
                     hired40Pct
                 }
@@ -340,26 +355,26 @@ const FleetUtilizationReport = ({
             const leave = fleet.filter(v => v.status === 'Driver on Leave').length;
             const accident = fleet.filter(v => v.status === 'Accident' || v.status === 'Accidents').length;
             const noDriver = fleet.filter(v => v.status === 'No Driver').length;
-            const others = fleet.filter(v => !['Breakdown','Maintenance','Driver on Leave','Accident','Accidents','No Driver'].includes(v.status)).length;
-            
+            const others = fleet.filter(v => !['Breakdown', 'Maintenance', 'Driver on Leave', 'Accident', 'Accidents', 'No Driver'].includes(v.status)).length;
+
             const notOnRoadTotal = fleet.length;
             const usedForTrips = Math.max(0, totalFleetNum - notOnRoadTotal);
             const oorPercentVal = totalFleetNum > 0 ? parseFloat(((usedForTrips / totalFleetNum) * 100).toFixed(1)) : 0;
             const oorPercent = `${oorPercentVal.toFixed(1)}%`;
-            
+
             const ownTripsCount = closed.filter(r => (r.own_hired || '').toLowerCase().trim() === 'own').length;
             const idle = Math.max(0, totalFleetNum - notOnRoadTotal - ownTripsCount);
-            
+
             const automove = [...active, ...closed].filter(r => (r.branch || '').toLowerCase().trim() === 'automove').length;
             const snContainer = [...active, ...closed].filter(r => (r.branch || '').toLowerCase().trim() !== 'automove').length;
-            
+
             const ownClosed20 = closed.filter(r => (r.own_hired || '').toLowerCase().trim() === 'own' && ((r.type_of_vehicle || '').includes('20') || (r.type_of_vehicle || '').includes('20ft'))).length;
             const ownClosed40 = closed.filter(r => (r.own_hired || '').toLowerCase().trim() === 'own' && ((r.type_of_vehicle || '').includes('40') || (r.type_of_vehicle || '').includes('40ft'))).length;
-            
+
             const outsourced20 = [...active, ...closed].filter(r => (r.own_hired || '').toLowerCase().trim() === 'hired' && ((r.type_of_vehicle || '').includes('20') || (r.type_of_vehicle || '').includes('20ft'))).length;
             const outsourced40 = [...active, ...closed].filter(r => (r.own_hired || '').toLowerCase().trim() === 'hired' && ((r.type_of_vehicle || '').includes('40') || (r.type_of_vehicle || '').includes('40ft'))).length;
             const outsourcedTotal = outsourced20 + outsourced40;
-            
+
             const ownTrips = [...active, ...closed].filter(r => (r.own_hired || '').toLowerCase().trim() === 'own').length;
             const hiredTrips = [...active, ...closed].filter(r => (r.own_hired || '').toLowerCase().trim() === 'hired').length;
 
@@ -388,7 +403,8 @@ const FleetUtilizationReport = ({
                 hiredTrips,
                 outsourced20,
                 outsourced40,
-                outsourcedTotal
+                outsourcedTotal,
+                totalTrips: closed.length
             };
         }).sort((a, b) => new Date(a.date) - new Date(b.date));
     }, [dispatches, totalFleetNum]);
@@ -791,24 +807,74 @@ const FleetUtilizationReport = ({
             {/* Dashboard View */}
             {activeTab === 'dashboard' && (
                 <>
-                    {/* Metrics Grid */}
+                    {/* Metrics Grid - First Line (Core KPIs) */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                         {[
                             { label: 'Fleet Size', value: metrics.fleetSize, color: '#667eea', gradient: 'linear-gradient(135deg, #667eea10, #764ba210)' },
-                            { label: 'On Road', value: `${metrics.onRoadCount}`, extra: metrics.onRoadPct, color: metrics.onRoadColor, gradient: `linear-gradient(135deg, ${metrics.onRoadColor}15, transparent)` },
+                            { label: 'Vehicle On Road', value: `${metrics.onRoadCount}`, extra: metrics.onRoadPct, color: metrics.onRoadColor, gradient: `linear-gradient(135deg, ${metrics.onRoadColor}15, transparent)` },
                             { label: 'Idle', value: `${metrics.idleVal}`, extra: metrics.idlePct, color: metrics.idleColor, gradient: `linear-gradient(135deg, ${metrics.idleColor}15, transparent)` },
-                            { label: 'Not on Road', value: `${metrics.notOnRoad}`, extra: metrics.notOnRoadPct, color: '#ef4444', gradient: 'linear-gradient(135deg, #ef444415, transparent)' },
-                            { label: 'No Driver', value: `${metrics.noDriver}`, extra: metrics.noDriverPct, color: '#f59e0b', gradient: 'linear-gradient(135deg, #f59e0b15, transparent)' },
-                            { label: 'On Leave', value: `${metrics.onLeave}`, extra: metrics.onLeavePct, color: '#ef4444', gradient: 'linear-gradient(135deg, #ef444415, transparent)' },
-                            { label: 'Maintenance', value: `${metrics.maint}`, extra: metrics.maintPct, color: '#0ea5e9', gradient: 'linear-gradient(135deg, #0ea5e915, transparent)' },
-                            { label: 'Accidents', value: `${metrics.accident}`, extra: metrics.accidentPct, color: '#ef4444', gradient: 'linear-gradient(135deg, #ef444415, transparent)' },
                             { label: 'Total Trips', value: metrics.totalTrips, color: '#64748b', gradient: 'linear-gradient(135deg, #64748b10, transparent)' }
                         ].map((m, idx) => (
-                            <div key={idx} className="nucleus-stats-card" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <div key={idx} className="nucleus-stats-card" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '8px', background: m.gradient || 'rgba(255, 255, 255, 0.8)' }}>
                                 <div style={{ fontSize: '13px', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>{m.label}</div>
                                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
                                     <span style={{ fontSize: '38px', fontWeight: 900, color: '#0f172a' }} className="mono-text">{m.value}</span>
                                     {m.extra && <span style={{ fontSize: '15px', fontWeight: 700, color: m.color }}>{m.extra}</span>}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Metrics Grid - Second Line (Not on Road Breakdown) */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginTop: '16px' }}>
+                        {[
+                            { label: 'Vehicle Not on Road', value: `${metrics.notOnRoad}`, extra: metrics.notOnRoadPct, color: '#ef4444', isHighlighted: true },
+                            { label: 'No Driver', value: `${metrics.noDriver}`, extra: metrics.noDriverPct, color: '#f59e0b' },
+                            { label: 'Driver On Leave', value: `${metrics.onLeave}`, extra: metrics.onLeavePct, color: '#ef4444' },
+                            { label: 'Maintenance', value: `${metrics.maint}`, extra: metrics.maintPct, color: '#0ea5e9' },
+                            { label: 'Accidents', value: `${metrics.accident}`, extra: metrics.accidentPct, color: '#ef4444' }
+                        ].map((m, idx) => (
+                            <div
+                                key={idx}
+                                className="nucleus-stats-card"
+                                style={{
+                                    padding: m.isHighlighted ? '24px 28px' : '20px 24px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '8px',
+                                    background: m.isHighlighted ? 'linear-gradient(135deg, rgba(254, 226, 226, 0.6) 0%, rgba(254, 242, 242, 0.4) 100%)' : 'rgba(255, 255, 255, 0.8)',
+                                    border: m.isHighlighted ? '2px solid rgba(239, 68, 68, 0.5)' : '1px solid rgba(255, 255, 255, 0.5)',
+                                    transform: m.isHighlighted ? 'scale(1.02)' : 'none',
+                                    boxShadow: m.isHighlighted ? '0 10px 25px rgba(239, 68, 68, 0.12)' : '0 8px 32px rgba(0, 0, 0, 0.04)',
+                                    zIndex: m.isHighlighted ? 2 : 1
+                                }}
+                            >
+                                <div style={{
+                                    fontSize: m.isHighlighted ? '14px' : '13px',
+                                    color: m.isHighlighted ? '#b91c1c' : '#475569',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.05em',
+                                    fontWeight: m.isHighlighted ? 900 : 700
+                                }}>
+                                    {m.label}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                                    <span style={{
+                                        fontSize: m.isHighlighted ? '46px' : '38px',
+                                        fontWeight: 900,
+                                        color: m.isHighlighted ? '#991b1b' : '#0f172a'
+                                    }} className="mono-text">
+                                        {m.value}
+                                    </span>
+                                    {m.extra && (
+                                        <span style={{
+                                            fontSize: m.isHighlighted ? '17px' : '15px',
+                                            fontWeight: 800,
+                                            color: m.isHighlighted ? '#dc2626' : m.color
+                                        }}>
+                                            {m.extra}
+                                        </span>
+                                    )}
                                 </div>
                             </div>
                         ))}
@@ -829,20 +895,20 @@ const FleetUtilizationReport = ({
                                     </span>
                                     <span className="status-pill info">{branchSummary.cards.automove.total} trips</span>
                                 </div>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', paddingTop: '12px', borderTop: '1px solid rgba(226, 232, 240, 0.4)' }}>
-                                    <div>
-                                        <div style={{ fontSize: '13px', color: '#475569', fontWeight: 700, marginBottom: '4px' }}>OWN</div>
-                                        <div style={{ fontSize: '30px', fontWeight: 900, color: '#059669' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '12px', borderTop: '1px solid rgba(226, 232, 240, 0.4)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(5, 150, 105, 0.05)', padding: '10px 16px', borderRadius: '8px' }}>
+                                        <span style={{ fontSize: '12px', color: '#047857', fontWeight: 700 }}>OWN</span>
+                                        <span style={{ fontSize: '18px', fontWeight: 800, color: '#059669' }}>
                                             {branchSummary.cards.automove.own}
-                                            <span style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, marginLeft: '4px' }}>{branchSummary.cards.automove.ownPct}%</span>
-                                        </div>
+                                            <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 600, marginLeft: '4px' }}>{branchSummary.cards.automove.ownPct}%</span>
+                                        </span>
                                     </div>
-                                    <div>
-                                        <div style={{ fontSize: '13px', color: '#475569', fontWeight: 700, marginBottom: '4px' }}>HIRED</div>
-                                        <div style={{ fontSize: '30px', fontWeight: 900, color: '#f59e0b' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(245, 158, 11, 0.05)', padding: '10px 16px', borderRadius: '8px' }}>
+                                        <span style={{ fontSize: '12px', color: '#b45309', fontWeight: 700 }}>HIRED</span>
+                                        <span style={{ fontSize: '18px', fontWeight: 800, color: '#f59e0b' }}>
                                             {branchSummary.cards.automove.hired}
-                                            <span style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, marginLeft: '4px' }}>{branchSummary.cards.automove.hiredPct}%</span>
-                                        </div>
+                                            <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 600, marginLeft: '4px' }}>{branchSummary.cards.automove.hiredPct}%</span>
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -851,21 +917,51 @@ const FleetUtilizationReport = ({
                             <div className="branch-summary-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                     <span style={{ fontSize: '16px', fontWeight: 800, color: '#059669', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span>📦</span> SR Container
+                                        <span>📦</span> SR Container Carriers
                                     </span>
                                     <span className="status-pill success">{branchSummary.cards.srCarriers.total} trips</span>
                                 </div>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', paddingTop: '12px', borderTop: '1px solid rgba(226, 232, 240, 0.4)' }}>
                                     <div>
-                                        <div style={{ fontSize: '13px', color: '#475569', fontWeight: 700, marginBottom: '4px' }}>20 FEET ({branchSummary.cards.srCarriers.c20})</div>
-                                        <div style={{ fontSize: '14px', color: '#334155', fontWeight: 600 }}>
-                                            Own: {branchSummary.cards.srCarriers.own20Pct}% · Hired: {branchSummary.cards.srCarriers.hired20Pct}%
+                                        <div style={{ fontSize: '13px', color: '#475569', fontWeight: 700, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                                            20 FEET ({branchSummary.cards.srCarriers.c20})
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(5, 150, 105, 0.05)', padding: '6px 10px', borderRadius: '8px' }}>
+                                                <span style={{ fontSize: '11px', color: '#047857', fontWeight: 700 }}>OWN</span>
+                                                <span style={{ fontSize: '15px', fontWeight: 800, color: '#059669' }}>
+                                                    {branchSummary.cards.srCarriers.own20}
+                                                    <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, marginLeft: '4px' }}>{branchSummary.cards.srCarriers.own20Pct}%</span>
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(245, 158, 11, 0.05)', padding: '6px 10px', borderRadius: '8px' }}>
+                                                <span style={{ fontSize: '11px', color: '#b45309', fontWeight: 700 }}>HIRED</span>
+                                                <span style={{ fontSize: '15px', fontWeight: 800, color: '#f59e0b' }}>
+                                                    {branchSummary.cards.srCarriers.hired20}
+                                                    <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, marginLeft: '4px' }}>{branchSummary.cards.srCarriers.hired20Pct}%</span>
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                     <div>
-                                        <div style={{ fontSize: '13px', color: '#475569', fontWeight: 700, marginBottom: '4px' }}>40 FEET ({branchSummary.cards.srCarriers.c40})</div>
-                                        <div style={{ fontSize: '14px', color: '#334155', fontWeight: 600 }}>
-                                            Own: {branchSummary.cards.srCarriers.own40Pct}% · Hired: {branchSummary.cards.srCarriers.hired40Pct}%
+                                        <div style={{ fontSize: '13px', color: '#475569', fontWeight: 700, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                                            40 FEET ({branchSummary.cards.srCarriers.c40})
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(5, 150, 105, 0.05)', padding: '6px 10px', borderRadius: '8px' }}>
+                                                <span style={{ fontSize: '11px', color: '#047857', fontWeight: 700 }}>OWN</span>
+                                                <span style={{ fontSize: '15px', fontWeight: 800, color: '#059669' }}>
+                                                    {branchSummary.cards.srCarriers.own40}
+                                                    <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, marginLeft: '4px' }}>{branchSummary.cards.srCarriers.own40Pct}%</span>
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(245, 158, 11, 0.05)', padding: '6px 10px', borderRadius: '8px' }}>
+                                                <span style={{ fontSize: '11px', color: '#b45309', fontWeight: 700 }}>HIRED</span>
+                                                <span style={{ fontSize: '15px', fontWeight: 800, color: '#f59e0b' }}>
+                                                    {branchSummary.cards.srCarriers.hired40}
+                                                    <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, marginLeft: '4px' }}>{branchSummary.cards.srCarriers.hired40Pct}%</span>
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -880,7 +976,7 @@ const FleetUtilizationReport = ({
                                         <th>Branch</th>
                                         <th>20 Feet</th>
                                         <th>40 Feet</th>
-                                        <th>Other</th>
+                                        <th>Automove</th>
                                         <th style={{ textAlign: 'right' }}>Total</th>
                                     </tr>
                                 </thead>
@@ -893,13 +989,13 @@ const FleetUtilizationReport = ({
                                                     <tr key={idx}>
                                                         <td style={{ fontWeight: 700, color: '#0f172a' }}>{b.name}</td>
                                                         <td style={{ color: '#2563eb' }}>
-                                                            {b.c20} <span style={{ fontSize: '12.5px', color: '#64748b' }}>(O: {b.own20} H: {b.hired20})</span>
+                                                            {b.c20} <span style={{ fontSize: '12.5px', color: '#64748b' }}>(Own: {b.own20} Hired: {b.hired20})</span>
                                                         </td>
                                                         <td style={{ color: '#d97706' }}>
-                                                            {b.c40} <span style={{ fontSize: '12.5px', color: '#64748b' }}>(O: {b.own40} H: {b.hired40})</span>
+                                                            {b.c40} <span style={{ fontSize: '12.5px', color: '#64748b' }}>(Own: {b.own40} Hired: {b.hired40})</span>
                                                         </td>
                                                         <td>
-                                                            {b.other} <span style={{ fontSize: '12.5px', color: '#64748b' }}>(O: {b.ownOther} H: {b.hiredOther})</span>
+                                                            {b.other} <span style={{ fontSize: '12.5px', color: '#64748b' }}>(Own: {b.ownOther} Hired: {b.hiredOther})</span>
                                                         </td>
                                                         <td style={{ fontWeight: 800, textAlign: 'right', color: '#0f172a' }}>{b.total}</td>
                                                     </tr>
@@ -921,12 +1017,108 @@ const FleetUtilizationReport = ({
                                 </tbody>
                             </table>
                         </div>
+
+                        {/* Our Vehicles vs Outsource Vehicles Percentage Card */}
+                        {(() => {
+                            const ownPctVal = parseInt(branchSummary.grandTotals.overallOwnPct) || 0;
+                            let ownColor = '#ef4444'; // Red
+                            let ownTextClassColor = '#dc2626';
+                            let ownGradient = 'linear-gradient(90deg, #ef4444 0%, #dc2626 100%)';
+
+                            if (ownPctVal >= 85) {
+                                ownColor = '#10b981'; // Green
+                                ownTextClassColor = '#059669';
+                                ownGradient = 'linear-gradient(90deg, #10b981 0%, #059669 100%)';
+                            } else if (ownPctVal >= 70) {
+                                ownColor = '#f59e0b'; // Yellow
+                                ownTextClassColor = '#d97706';
+                                ownGradient = 'linear-gradient(90deg, #f59e0b 0%, #d97706 100%)';
+                            }
+
+                            const hiredPctVal = parseInt(branchSummary.grandTotals.overallHiredPct) || 0;
+                            let hiredColor = '#ef4444'; // Red
+                            let hiredTextClassColor = '#dc2626';
+                            let hiredGradient = 'linear-gradient(90deg, #ef4444 0%, #dc2626 100%)';
+
+                            if (hiredPctVal <= 15) {
+                                hiredColor = '#10b981'; // Green
+                                hiredTextClassColor = '#059669';
+                                hiredGradient = 'linear-gradient(90deg, #10b981 0%, #059669 100%)';
+                            } else if (hiredPctVal <= 30) {
+                                hiredColor = '#f59e0b'; // Yellow
+                                hiredTextClassColor = '#d97706';
+                                hiredGradient = 'linear-gradient(90deg, #f59e0b 0%, #d97706 100%)';
+                            }
+
+                            return (
+                                <div className="branch-summary-card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '4px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                        <span style={{ fontSize: '15px', fontWeight: 800, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px', textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                                            <span>📊</span> Our Vehicles vs Outsource Vehicles Percentage
+                                        </span>
+                                        <span className="status-pill neutral" style={{ fontWeight: 700 }}>
+                                            {branchSummary.grandTotals.total} Total Trips
+                                        </span>
+                                    </div>
+
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', alignItems: 'center' }}>
+                                        {/* Left stats side */}
+                                        <div style={{ display: 'flex', gap: '24px' }}>
+                                            <div>
+                                                <div style={{ fontSize: '11px', color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Our Vehicles (Own)</div>
+                                                <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                                                    <span style={{ fontSize: '28px', fontWeight: 900, color: ownTextClassColor }}>{branchSummary.grandTotals.overallOwn}</span>
+                                                    <span style={{ fontSize: '14px', color: ownTextClassColor, fontWeight: 700 }}>{branchSummary.grandTotals.overallOwnPct}%</span>
+                                                </div>
+                                            </div>
+                                            <div style={{ borderLeft: '1px solid rgba(226, 232, 240, 0.8)', paddingLeft: '24px' }}>
+                                                <div style={{ fontSize: '11px', color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Outsource Vehicles (Hired)</div>
+                                                <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                                                    <span style={{ fontSize: '28px', fontWeight: 900, color: hiredTextClassColor }}>{branchSummary.grandTotals.overallHired}</span>
+                                                    <span style={{ fontSize: '14px', color: hiredTextClassColor, fontWeight: 700 }}>{branchSummary.grandTotals.overallHiredPct}%</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Right progress bar side */}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                            <div style={{ position: 'relative', height: '16px', background: '#f1f5f9', borderRadius: '999px', overflow: 'hidden', display: 'flex' }}>
+                                                <div
+                                                    style={{
+                                                        width: `${branchSummary.grandTotals.overallOwnPct}%`,
+                                                        background: ownGradient,
+                                                        height: '100%'
+                                                    }}
+                                                />
+                                                <div
+                                                    style={{
+                                                        width: `${branchSummary.grandTotals.overallHiredPct}%`,
+                                                        background: hiredGradient,
+                                                        height: '100%'
+                                                    }}
+                                                />
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#64748b', fontWeight: 600 }}>
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: ownColor }}></span>
+                                                    Own ({branchSummary.grandTotals.overallOwnPct}%)
+                                                </span>
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                    <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: hiredColor }}></span>
+                                                    Hired ({branchSummary.grandTotals.overallHiredPct}%)
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })()}
                     </div>
 
                     {/* Out of Service Vehicles */}
                     <div>
                         <div style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                            <span>⚠️</span> Out of Service Vehicles ({fleetStatusList.length})
+                            <span>⚠️</span> Vehicles Not on road ({fleetStatusList.length})
                         </div>
                         <div className="nucleus-table-wrapper">
                             <table className="nucleus-table">
@@ -1015,15 +1207,15 @@ const FleetUtilizationReport = ({
                         </div>
                         <div style={{ width: '100%', height: 300 }}>
                             <ResponsiveContainer>
-                                <AreaChart data={dailyData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                                <ComposedChart data={dailyData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                                     <defs>
                                         <linearGradient id="colorActive" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
-                                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                            <stop offset="5%" stopColor={metrics.onRoadColor} stopOpacity={0.2} />
+                                            <stop offset="95%" stopColor={metrics.onRoadColor} stopOpacity={0} />
                                         </linearGradient>
                                         <linearGradient id="colorIdle" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#667eea" stopOpacity={0.2} />
-                                            <stop offset="95%" stopColor="#667eea" stopOpacity={0} />
+                                            <stop offset="5%" stopColor={metrics.idleColor} stopOpacity={0.2} />
+                                            <stop offset="95%" stopColor={metrics.idleColor} stopOpacity={0} />
                                         </linearGradient>
                                         <linearGradient id="colorOOS" x1="0" y1="0" x2="0" y2="1">
                                             <stop offset="5%" stopColor="#ef4444" stopOpacity={0.15} />
@@ -1035,10 +1227,11 @@ const FleetUtilizationReport = ({
                                     <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} allowDecimals={false} />
                                     <Tooltip content={<FleetTrendTooltip />} />
                                     <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '12px' }} />
-                                    <Area type="monotone" name="Active" dataKey="activeCount" stackId="1" stroke="#10b981" strokeWidth={2} fill="url(#colorActive)" />
-                                    <Area type="monotone" name="Idle" dataKey="idleCount" stackId="1" stroke="#667eea" strokeWidth={2} fill="url(#colorIdle)" />
-                                    <Area type="monotone" name="Out of Service" dataKey="oosCount" stackId="1" stroke="#ef4444" strokeWidth={2} fill="url(#colorOOS)" />
-                                </AreaChart>
+                                    <Area type="monotone" name="Vehicles on road" dataKey="usedForTrips" stackId="1" stroke={metrics.onRoadColor} strokeWidth={2} fill="url(#colorActive)" />
+                                    <Area type="monotone" name="Idle" dataKey="idleCount" stackId="1" stroke={metrics.idleColor} strokeWidth={2} fill="url(#colorIdle)" />
+                                    <Area type="monotone" name="Vehicle Not on road" dataKey="oosCount" stackId="1" stroke="#ef4444" strokeWidth={2} fill="url(#colorOOS)" />
+                                    <Line type="monotone" name="Total Trips" dataKey="totalTrips" stroke="#6366f1" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+                                </ComposedChart>
                             </ResponsiveContainer>
                         </div>
                     </div>

@@ -6,6 +6,7 @@ const buildSearchQuery = (search) => ({
     { importer: { $regex: search, $options: "i" } },
     { shipping_line_airline: { $regex: search, $options: "i" } },
     { awb_bl_no: { $regex: search, $options: "i" } },
+    { be_no: { $regex: search, $options: "i" } },
     { "container_nos.container_number": { $regex: search, $options: "i" } },
     { "container_nos.detention_from": { $regex: search, $options: "i" } },
     { vessel_flight: { $regex: search, $options: "i" } },
@@ -43,18 +44,7 @@ router.get("/api/get-free-days", applyUserIcdFilter, async (req, res) => {
     const skip = (page - 1) * limit;
 
     // Build search query
-    const searchQuery = search
-      ? {
-        $or: [
-          { job_no: { $regex: search, $options: "i" } },
-          { importer: { $regex: search, $options: "i" } },
-          { awb_bl_no: { $regex: search, $options: "i" } },
-          { shipping_line_airline: { $regex: search, $options: "i" } },
-          { vessel_flight: { $regex: search, $options: "i" } },
-          { voyage_no: { $regex: search, $options: "i" } },
-        ],
-      }
-      : {};
+    const searchQuery = search ? buildSearchQuery(search) : {};
 
     // Define job filtering criteria
     const baseQuery = {

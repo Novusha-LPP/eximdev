@@ -23,6 +23,11 @@ export function determineDetailedStatus(job, branchConfig = null) {
     return "Billed";
   }
 
+  // Handle General Jobs early return
+  if (job?.isGeneralJob) {
+    return "Billing Pending";
+  }
+
   const isValidDate = (date) => {
     if (!date) return false;
     const d = new Date(date);

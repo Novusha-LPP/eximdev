@@ -318,6 +318,8 @@ const jobSchema = new mongoose.Schema({
   line_no: { type: String, trim: true },
   ie_code_no: { type: String, trim: true },
   gst_no: { type: String, trim: true },
+  pan_no: { type: String, trim: true },
+  isGeneralJob: { type: Boolean, default: false },
   nfims_no: { type: String, trim: true },
   nfims_date: { type: String, trim: true },
   sims_no: { type: String, trim: true },

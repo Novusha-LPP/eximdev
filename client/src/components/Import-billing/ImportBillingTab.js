@@ -8,6 +8,7 @@ import PaymentRequested from "./PaymentRequested";
 import PaymentPending from "./PaymentPending";
 import PaymentCompleted from "./PaymentCompleted";
 import ImportCompletedBilling from './ImportCompletedBilling.js'
+import GeneralJobs from './GeneralJobs.js';
 
 // Create a context to share tab state between components
 export const TabContext = React.createContext({
@@ -71,10 +72,11 @@ function ImportBillingTab() {
           >
             <Tab label="Import Billing" {...a11yProps(0)} />
             <Tab label="Clearance Completed" {...a11yProps(1)} />
-            <Tab label={workMode === "Payment" ? "Payment Requested" : "Purchase Book Requested"} {...a11yProps(2)} />
-            <Tab label={workMode === "Payment" ? "Payment" : "Purchase Book"} {...a11yProps(3)} />
-            <Tab label={workMode === "Payment" ? "Payment Completed" : "Purchase Book Completed"} {...a11yProps(4)} />
-            <Tab label="Import Completed Billing" {...a11yProps(5)} />
+            <Tab label="General Job" {...a11yProps(2)} />
+            <Tab label={workMode === "Payment" ? "Payment Requested" : "Purchase Book Requested"} {...a11yProps(3)} />
+            <Tab label={workMode === "Payment" ? "Payment" : "Purchase Book"} {...a11yProps(4)} />
+            <Tab label={workMode === "Payment" ? "Payment Completed" : "Purchase Book Completed"} {...a11yProps(5)} />
+            <Tab label="Import Completed Billing" {...a11yProps(6)} />
           </Tabs>
           <Box sx={{ display: 'flex', alignItems: 'center', px: 2, gap: 1 }}>
             <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'text.secondary', textTransform: 'uppercase' }}>Work Mode:</Typography>
@@ -100,15 +102,18 @@ function ImportBillingTab() {
           <ClearanceCompleted workMode={workMode} />
         </CustomTabPanel>
         <CustomTabPanel value={value} index={2}>
-          <PaymentRequested workMode={workMode} />
+          <GeneralJobs />
         </CustomTabPanel>
         <CustomTabPanel value={value} index={3}>
-          <PaymentPending workMode={workMode} />
+          <PaymentRequested workMode={workMode} />
         </CustomTabPanel>
         <CustomTabPanel value={value} index={4}>
-          <PaymentCompleted workMode={workMode} />
+          <PaymentPending workMode={workMode} />
         </CustomTabPanel>
         <CustomTabPanel value={value} index={5}>
+          <PaymentCompleted workMode={workMode} />
+        </CustomTabPanel>
+        <CustomTabPanel value={value} index={6}>
           <ImportCompletedBilling workMode={workMode} />
         </CustomTabPanel>
       </Box>

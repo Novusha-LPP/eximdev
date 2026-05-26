@@ -60,6 +60,8 @@ router.get(
             { shipping_line_airline: { $regex: search, $options: "i" } },
             { vessel_flight: { $regex: search, $options: "i" } },
             { voyage_no: { $regex: search, $options: "i" } },
+            { be_no: { $regex: search, $options: "i" } },
+            { "container_nos.container_number": { $regex: search, $options: "i" } },
           ],
         }
         : {};

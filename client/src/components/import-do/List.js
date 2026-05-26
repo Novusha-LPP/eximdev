@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import axios from "axios";
+import ExcelJS from "exceljs";
 import {
   MaterialReactTable,
   useMaterialReactTable,
@@ -287,6 +288,135 @@ function List() {
   const handleSearchInputChange = (event) => {
     setSearchQuery(event.target.value);
     setCurrentPage(1); // Reset to first page when user types
+  };
+
+  const handleDownloadExcel = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/do-team-list-of-jobs`,
+        {
+          params: {
+            page: 1,
+            limit: 100000,
+            search: debouncedSearchQuery,
+            year: selectedYearState,
+            selectedICD: selectedICD,
+            importer: selectedImporter?.trim() || "",
+            username: user?.username || "",
+            unresolvedOnly: showUnresolvedOnly.toString(),
+            emergency: showEmergencyOnly.toString(),
+            freeTimeFilter,
+            branchId: selectedBranch || "all",
+            category: selectedCategory || "all",
+            beNoFilter,
+          },
+        }
+      );
+
+      const allJobs = res.data.jobs || [];
+      if (allJobs.length === 0) {
+        alert("No jobs found to download.");
+        return;
+      }
+
+      // Create new workbook
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Jobs");
+
+      // Define header structure
+      worksheet.columns = [
+        { header: "IMPORTER", key: "importer", width: 40 },
+        { header: "BOE NO", key: "be_no", width: 25 },
+        { header: "IGM NO", key: "igm_no", width: 25 },
+        { header: "SHIPPING LINE", key: "shipping_line", width: 30 },
+        { header: "BL NO", key: "awb_bl_no", width: 30 },
+        { header: "CONTAINER NO", key: "container_no", width: 40 },
+        { header: "JOB NO", key: "job_no", width: 25 },
+      ];
+
+      // Format header row
+      const headerRow = worksheet.getRow(1);
+      headerRow.font = { bold: true, color: { argb: "000000" } };
+      headerRow.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFE89A74" }, // Orange/salmon color
+      };
+      headerRow.alignment = { horizontal: "center", vertical: "middle" };
+      headerRow.height = 25;
+
+      // Add borders to the header cells
+      headerRow.eachCell({ includeEmpty: true }, (cell) => {
+        cell.border = {
+          top: { style: "thin", color: { argb: "FF000000" } },
+          left: { style: "thin", color: { argb: "FF000000" } },
+          bottom: { style: "thin", color: { argb: "FF000000" } },
+          right: { style: "thin", color: { argb: "FF000000" } },
+        };
+      });
+
+      // Add data rows
+      allJobs.forEach((job) => {
+        const containers = job.container_nos && job.container_nos.length > 0
+          ? job.container_nos.map(c => c.container_number).filter(Boolean).join(", ")
+          : "";
+
+        const row = worksheet.addRow({
+          importer: job.importer || "",
+          be_no: job.be_no || "",
+          igm_no: job.igm_no || "",
+          shipping_line: job.shipping_line_airline || "",
+          awb_bl_no: job.awb_bl_no || "",
+          container_no: containers,
+          job_no: job.job_number || job.job_no || "",
+        });
+
+        // Set row height and cell formatting
+        row.height = 22;
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          cell.border = {
+            top: { style: "thin", color: { argb: "FF000000" } },
+            left: { style: "thin", color: { argb: "FF000000" } },
+            bottom: { style: "thin", color: { argb: "FF000000" } },
+            right: { style: "thin", color: { argb: "FF000000" } },
+          };
+          cell.alignment = { vertical: "middle", horizontal: "center" };
+        });
+      });
+
+      // Adjust column width based on content size
+      worksheet.columns.forEach((column) => {
+        let maxLen = column.header.length;
+        column.eachCell({ includeEmpty: false }, (cell, rowNumber) => {
+          if (rowNumber > 1) {
+            const valLen = cell.value ? String(cell.value).length : 0;
+            if (valLen > maxLen) maxLen = valLen;
+          }
+        });
+        column.width = Math.min(Math.max(maxLen + 4, 15), 50);
+      });
+
+      // Generate Excel download
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Jobs_Export_${selectedYearState || "All"}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+
+    } catch (error) {
+      console.error("Error exporting to Excel:", error);
+      alert("Failed to export jobs to Excel.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handlePageChange = (event, newPage) => {
@@ -913,21 +1043,23 @@ function List() {
       <div
         style={{
           display: "flex",
-          justifyContent: "space-between",
+          flexWrap: "wrap",
           alignItems: "center",
+          gap: "12px",
           width: "100%",
+          padding: "8px 0",
         }}
       >
         {/* Job Count Display */}
         <Typography
           variant="body1"
-          sx={{ fontWeight: "bold", fontSize: "1.5rem", marginRight: "auto" }}
+          sx={{ fontWeight: "bold", fontSize: "1.5rem", marginRight: "10px" }}
         >
           Job Count: {totalJobs}
         </Typography>
         {/* Importer Filter */}
         <Autocomplete
-          sx={{ width: "300px", marginRight: "20px" }}
+          sx={{ width: "240px" }}
           freeSolo
           options={importerNames.map((option) => option.label)}
           value={selectedImporter || ""} // Controlled value
@@ -948,7 +1080,7 @@ function List() {
           size="small"
           value={selectedYearState}
           onChange={(e) => setSelectedYearState(e.target.value)}
-          sx={{ width: "200px", marginRight: "20px" }}
+          sx={{ width: "100px" }}
         >
           {years.map((year, index) => (
             <MenuItem key={`year-${year}-${index}`} value={year}>
@@ -966,7 +1098,7 @@ function List() {
             setFreeTimeFilter(e.target.value);
             setCurrentPage(1);
           }}
-          sx={{ width: "200px", marginRight: "20px" }}
+          sx={{ width: "150px" }}
         >
           <MenuItem value="">All</MenuItem>
           <MenuItem value="zero">Free Time = 0</MenuItem>
@@ -982,7 +1114,7 @@ function List() {
             setBeNoFilter(e.target.value);
             setCurrentPage(1);
           }}
-          sx={{ width: "200px", marginRight: "20px" }}
+          sx={{ width: "140px" }}
         >
           <MenuItem value="">All</MenuItem>
           <MenuItem value="withBeNo">With BE No</MenuItem>
@@ -999,7 +1131,7 @@ function List() {
             setSelectedICD(e.target.value); // Update the selected ICD code
             setCurrentPage(1); // Reset to the first page when the filter changes
           }}
-          sx={{ width: "200px", marginRight: "20px" }}
+          sx={{ width: "150px" }}
         >
           <MenuItem value="">All ICDs</MenuItem>
           {dynamicICDs.map((icd, index) => (
@@ -1028,29 +1160,57 @@ function List() {
               </InputAdornment>
             ),
           }}
-          sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
+          sx={{ width: "260px" }}
         />
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap", marginLeft: "auto" }}>
+          <Button
+            variant="contained"
+            size="small"
+            onClick={handleDownloadExcel}
+            sx={{
+              borderRadius: 2,
+              textTransform: "none",
+              fontWeight: 500,
+              fontSize: "0.78rem",
+              padding: "6px 14px",
+              background: "linear-gradient(135deg, #2e7d32 0%, #4caf50 100%)",
+              color: "#ffffff",
+              border: "none",
+              boxShadow: "0 3px 8px rgba(46, 125, 50, 0.2)",
+              transition: "all 0.3s ease",
+              "&:hover": {
+                background:
+                  "linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%)",
+                boxShadow: "0 5px 12px rgba(46, 125, 50, 0.3)",
+                transform: "translateY(-1px)",
+              },
+              "&:active": {
+                transform: "translateY(0px)",
+              },
+            }}
+          >
+            Download Excel
+          </Button>
           <Box sx={{ position: "relative" }}>
             <Button
               variant="contained"
               size="small"
               onClick={() => setShowUnresolvedOnly((prev) => !prev)}
               sx={{
-                borderRadius: 3,
+                borderRadius: 2,
                 textTransform: "none",
                 fontWeight: 500,
-                fontSize: "0.875rem",
-                padding: "8px 20px",
+                fontSize: "0.78rem",
+                padding: "6px 14px",
                 background: "linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)",
                 color: "#ffffff",
                 border: "none",
-                boxShadow: "0 4px 12px rgba(25, 118, 210, 0.3)",
+                boxShadow: "0 3px 8px rgba(25, 118, 210, 0.2)",
                 transition: "all 0.3s ease",
                 "&:hover": {
                   background:
                     "linear-gradient(135deg, #1565c0 0%, #1976d2 100%)",
-                  boxShadow: "0 6px 16px rgba(25, 118, 210, 0.4)",
+                  boxShadow: "0 5px 12px rgba(25, 118, 210, 0.3)",
                   transform: "translateY(-1px)",
                 },
                 "&:active": {
@@ -1067,13 +1227,13 @@ function List() {
               anchorOrigin={{ vertical: "top", horizontal: "right" }}
               sx={{
                 position: "absolute",
-                top: 4,
-                right: 4,
+                top: 2,
+                right: 2,
                 "& .MuiBadge-badge": {
-                  fontSize: "0.75rem",
-                  minWidth: "18px",
-                  height: "18px",
-                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                  fontSize: "0.7rem",
+                  minWidth: "16px",
+                  height: "16px",
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
                 },
               }}
             />
@@ -1085,20 +1245,20 @@ function List() {
               size="small"
               onClick={() => setShowEmergencyOnly((prev) => !prev)}
               sx={{
-                borderRadius: 3,
+                borderRadius: 2,
                 textTransform: "none",
                 fontWeight: 500,
-                fontSize: "0.875rem",
-                padding: "8px 20px",
+                fontSize: "0.78rem",
+                padding: "6px 14px",
                 background: "linear-gradient(135deg, #d32f2f 0%, #ff5252 100%)", // Red gradient
                 color: "#ffffff",
                 border: "none",
-                boxShadow: "0 4px 12px rgba(211, 47, 47, 0.3)",
+                boxShadow: "0 3px 8px rgba(211, 47, 47, 0.2)",
                 transition: "all 0.3s ease",
                 "&:hover": {
                   background:
                     "linear-gradient(135deg, #c62828 0%, #d32f2f 100%)",
-                  boxShadow: "0 6px 16px rgba(211, 47, 47, 0.4)",
+                  boxShadow: "0 5px 12px rgba(211, 47, 47, 0.3)",
                   transform: "translateY(-1px)",
                 },
                 "&:active": {
@@ -1116,13 +1276,13 @@ function List() {
               anchorOrigin={{ vertical: "top", horizontal: "right" }}
               sx={{
                 position: "absolute",
-                top: 4,
-                right: 4,
+                top: 2,
+                right: 2,
                 "& .MuiBadge-badge": {
-                  fontSize: "0.75rem",
-                  minWidth: "18px",
-                  height: "18px",
-                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                  fontSize: "0.7rem",
+                  minWidth: "16px",
+                  height: "16px",
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
                   backgroundColor: "warning.main", // Removed # prefix
                   color: "white"
                 },

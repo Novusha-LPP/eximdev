@@ -25,21 +25,21 @@ export const navigateToModule = (module, navigate) => {
     case "Inward Register":
       return navigate("/inward-register");
     case "Export":
-      return window.open("https://export.alvision.in", "_blank", "width=1400,height=900,scrollbars=yes,resizable=yes");
+      return window.open("https://export.alvision.in", "_blank");
     case "Export - Directories":
-      return window.open("https://export.alvision.in/export-directories", "_blank", "width=1400,height=900,scrollbars=yes,resizable=yes");
+      return window.open("https://export.alvision.in/export-directories", "_blank");
     case "Export - Audit Trail":
-      return window.open("https://export.alvision.in/export-audit-trail", "_blank", "width=1400,height=900,scrollbars=yes,resizable=yes");
+      return window.open("https://export.alvision.in/export-audit-trail", "_blank");
     case "Export - Charges":
-      return window.open("https://export.alvision.in/export-charges", "_blank", "width=1400,height=900,scrollbars=yes,resizable=yes");
+      return window.open("https://export.alvision.in/export-charges", "_blank");
     case "Export - Documentation":
-      return window.open("https://export.alvision.in/export-documentation", "_blank", "width=1400,height=900,scrollbars=yes,resizable=yes");
+      return window.open("https://export.alvision.in/export-documentation", "_blank");
     case "Export - E-Sanchit":
-      return window.open("https://export.alvision.in/export-esanchit", "_blank", "width=1400,height=900,scrollbars=yes,resizable=yes");
+      return window.open("https://export.alvision.in/export-esanchit", "_blank");
     case "Export - Jobs":
-      return window.open("https://export.alvision.in/export-dsr", "_blank", "width=1400,height=900,scrollbars=yes,resizable=yes");
+      return window.open("https://export.alvision.in/export-dsr", "_blank");
     case "Export - Operation":
-      return window.open("https://export.alvision.in/export-operation", "_blank", "width=1400,height=900,scrollbars=yes,resizable=yes");
+      return window.open("https://export.alvision.in/export-operation", "_blank");
     case "Outward Register":
       return navigate("/outward-register");
     case "Accounts":

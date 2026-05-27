@@ -116,7 +116,8 @@ router.get("/api/teams/all", authMiddleware, async (req, res) => {
         teamsLean.forEach(t => t.members.forEach(m => allMemberUsernames.add(m.username)));
 
         const members = await UserModel.find({ username: { $in: [...allMemberUsernames] } })
-            .select('username first_name last_name department employee_photo role')
+            .select('username first_name last_name department employee_photo role employee_code mobile branch_id designation company isActive current_status')
+            .populate('branch_id', 'branch_name branch_code')
             .lean();
 
         const memberMap = {};
@@ -421,9 +422,11 @@ router.get("/api/teams/hod/:hodUsername/members", authMiddleware, async (req, re
         });
 
         // Fetch full user details for these members
-        const members = await UserModel.find({ username: { $in: Array.from(memberUsernames) } }).select(
-            "username role _id first_name last_name isActive deactivatedAt modules employee_photo assigned_importer_name department"
-        );
+        const members = await UserModel.find({ username: { $in: Array.from(memberUsernames) } })
+            .select(
+                "username role _id first_name last_name isActive deactivatedAt modules employee_photo assigned_importer_name department employee_code mobile branch_id designation company current_status"
+            )
+            .populate("branch_id", "branch_name branch_code");
 
         res.json({ success: true, members });
     } catch (error) {

@@ -366,7 +366,7 @@ const UtilityParent = () => {
                 }
               />
               <Divider sx={{ my: 1 }} />
-              <FormControlLabel
+              {/* <FormControlLabel
                 control={
                   <Checkbox
                     checked={migrationOptions.runMigrateJobs}
@@ -385,7 +385,7 @@ const UtilityParent = () => {
                   />
                 }
                 label="Run Gandhidham Jobs Migration"
-              />
+              /> */}
             </FormGroup>
             {isSyncing && (
               <Box sx={{ display: 'flex', flexDirection: 'column', mt: 3 }}>

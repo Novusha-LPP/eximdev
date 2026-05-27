@@ -31,9 +31,11 @@ router.post("/api/get-users-by-usernames", async (req, res) => {
     const users = await UserModel.find({
       username: { $in: usernames },
       isActive: { $ne: false }
-    }).select(
-      "username role _id first_name last_name isActive deactivatedAt modules employee_photo department"
-    );
+    })
+    .select(
+      "username role _id first_name last_name isActive deactivatedAt modules employee_photo department employee_code mobile branch_id designation company current_status"
+    )
+    .populate("branch_id", "branch_name branch_code");
 
     res.send(users);
   } catch (error) {

@@ -782,6 +782,7 @@ export const getUsers = async (req, res) => {
       .populate('department_id', 'department_name')
       .populate('shift_id', 'shift_name')
       .populate('company_id', 'company_name')
+      .populate('branch_id', 'branch_name branch_code')
       .populate('teamId', 'name');
 
     res.json({ success: true, data: users });

@@ -2737,6 +2737,24 @@ export const updateAttendanceRecord = async (req, res) => {
         const company = await Company.findById(effectiveCompanyId);
         const yearMonth = moment(record.attendance_date).format('YYYY-MM');
 
+        // Some legacy attendance rows were stored without the denormalized date string.
+        // Backfill it here so update saves do not fail schema validation.
+        if (!record.attendance_date_str && record.attendance_date) {
+            record.attendance_date_str = moment.utc(record.attendance_date).format('YYYY-MM-DD');
+        }
+
+        if (record.attendance_date_str) {
+            const duplicateRecord = await AttendanceRecord.findOne({
+                _id: { $ne: record._id },
+                employee_id: record.employee_id,
+                attendance_date_str: record.attendance_date_str
+            }).select('_id attendance_date_str');
+
+            if (duplicateRecord) {
+                await AttendanceRecord.deleteOne({ _id: duplicateRecord._id });
+            }
+        }
+
         if (await PayrollEngine.isLocked(company, yearMonth)) {
             return res.status(403).json({ message: 'Attendance for this month is locked' });
         }
@@ -2893,6 +2911,15 @@ export const updateAttendanceRecord = async (req, res) => {
 
     } catch (err) {
         console.error('Update Alert:', err);
+
+        if (err?.code === 11000) {
+            return res.status(409).json({
+                message: 'Another attendance record already exists for this employee on the same date.',
+                error: 'DUPLICATE_ATTENDANCE_DATE',
+                suggested_action: 'Remove or merge the duplicate attendance row before updating this record.'
+            });
+        }
+
         res.status(500).json({ message: 'Server error', error: err.message });
     }
 };

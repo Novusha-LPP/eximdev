@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { format, addMonths, parse, isValid } from "date-fns";
+import { format, addMonths, parse, parseISO, isValid } from "date-fns";
 
 // ── Icons ─────────────────────────────────────────────────────────
 const IconBack = () => (
@@ -263,6 +263,30 @@ const safeStr = (val) => {
   return String(val);
 };
 
+const parseFlexibleDate = (val) => {
+  if (!val) return null;
+  if (val instanceof Date && isValid(val)) return val;
+
+  const raw = safeStr(val).trim();
+  if (!raw) return null;
+
+  const ddmmyyyy = parse(raw, "dd/MM/yyyy", new Date());
+  if (isValid(ddmmyyyy) && format(ddmmyyyy, "dd/MM/yyyy") === raw) return ddmmyyyy;
+
+  const yyyymmdd = parse(raw, "yyyy-MM-dd", new Date());
+  if (isValid(yyyymmdd) && format(yyyymmdd, "yyyy-MM-dd") === raw) return yyyymmdd;
+
+  const isoDate = parseISO(raw);
+  if (isValid(isoDate)) return isoDate;
+
+  return null;
+};
+
+const toDisplayDate = (val) => {
+  const date = parseFlexibleDate(val);
+  return date ? format(date, "dd/MM/yyyy") : safeStr(val);
+};
+
 // ── Main Component ────────────────────────────────────────────────
 function ViewAuthorizationDetails() {
   const { id } = useParams();
@@ -281,8 +305,8 @@ function ViewAuthorizationDetails() {
       if (found) {
         setRow(found);
         let sub = {
-          import_validity:            safeStr(found.import_validity),
-          export_validity:            safeStr(found.export_validity),
+          import_validity:            toDisplayDate(found.import_validity),
+          export_validity:            toDisplayDate(found.export_validity),
           hs_code_import:             safeStr(found.hs_code_import || found.hs_code),
           export_hs_code:             safeStr(found.export_hs_code),
           import_item_description:    safeStr(found.import_item_description || found.item_description),
@@ -313,7 +337,7 @@ function ViewAuthorizationDetails() {
           accounts_billing_invoice_no: safeStr(found.accounts_billing_invoice_no),
           accounts_billing_invoice_date: safeStr(found.accounts_billing_invoice_date),
           registration_no:            safeStr(found.registration_no || found.licence_no),
-          auth_date:                  safeStr(found.auth_date || found.licence_date),
+          auth_date:                  toDisplayDate(found.auth_date || found.licence_date),
           scheme_code:                safeStr(found.scheme_code),
           notification_number:        safeStr(found.notification_number),
           be_details:                 Array.isArray(found.be_details) ? found.be_details : [],
@@ -346,7 +370,7 @@ function ViewAuthorizationDetails() {
         // Auto-fill validity from licence_date (DD/MM/YYYY)
         if (found.licence_date) {
           try {
-            const authDate = parse(found.licence_date, "dd/MM/yyyy", new Date());
+            const authDate = parseFlexibleDate(found.licence_date);
             if (isValid(authDate)) {
               if (!sub.import_validity) sub.import_validity = format(addMonths(authDate, 12), "dd/MM/yyyy");
               if (!sub.export_validity) sub.export_validity = format(addMonths(authDate, 18), "dd/MM/yyyy");
@@ -495,7 +519,7 @@ function ViewAuthorizationDetails() {
             </div>
             <div className="ap-firm-cell">
               <div className="ap-firm-label">Auth Date</div>
-              <div className="ap-firm-value date">{row.licence_date || "—"}</div>
+              <div className="ap-firm-value date">{toDisplayDate(row.licence_date) || "—"}</div>
             </div>
           </div>
         </div>

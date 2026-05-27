@@ -557,7 +557,7 @@ function TeamDashboard() {
     );
 
     return (
-        <div style={{ minHeight: "calc(100vh - 64px)", background: "#f0f2f5", padding: 16 }}>
+        <div style={{ minHeight: "calc(100vh - 64px)", background: "#f0f2f5" }}>
             {moduleTab === "users" ? (
                 <div style={{ background: '#fff', borderRadius: '8px' }}>
                     <EmployeeProfileWorkspace 

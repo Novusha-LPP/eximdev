@@ -3,6 +3,7 @@ import JobModel from "../../model/jobModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 import { determineDetailedStatus } from "../../utils/determineDetailedStatus.mjs";
 import { getRowColorFromStatus } from "../../utils/statusColorMapper.mjs";
+import AuthorizationRegistrationModel from "../../model/authorizationRegistrationModel.mjs";
 
 const router = express.Router();
 
@@ -84,6 +85,41 @@ router.patch("/api/update-operations-job/:branch_code/:trade_type/:mode/:year/:j
     let job = await JobModel.findOne({ branch_code, trade_type, mode: mode.toUpperCase(), year, job_no }).lean();
     if (!job) {
       return res.status(200).send({ message: "Job not found" });
+    }
+
+    // Synchronize compliance/document tracking fields to DGFT AuthorizationRegistrationModel
+    if (job.be_no || job.ie_code_no) {
+      const authUpdate = {};
+      const convertToDdMmYyyy = (dateStr) => {
+        if (!dateStr || typeof dateStr !== "string") return dateStr;
+        if (dateStr.includes("/")) return dateStr; // Already in DD/MM/YYYY
+        const parts = dateStr.split("-");
+        if (parts.length === 3) {
+          const [yyyy, mm, dd] = parts;
+          return `${dd}/${mm}/${yyyy}`;
+        }
+        return dateStr;
+      };
+
+      if (updateData.bg_number !== undefined) authUpdate.bg_number = updateData.bg_number;
+      if (updateData.bg_expiry_date !== undefined) authUpdate.bg_expiry_date = convertToDdMmYyyy(updateData.bg_expiry_date);
+      if (updateData.bond_number !== undefined) authUpdate.bond_number = updateData.bond_number;
+      if (updateData.bond_expiry_date !== undefined) authUpdate.bond_expiry_date = convertToDdMmYyyy(updateData.bond_expiry_date);
+      if (updateData.documents_received_date !== undefined) authUpdate.documents_received_date = convertToDdMmYyyy(updateData.documents_received_date);
+      if (updateData.documents_send_to_icd !== undefined) authUpdate.documents_send_to_icd = convertToDdMmYyyy(updateData.documents_send_to_icd);
+      if (updateData.documents_send_to_accounts !== undefined) authUpdate.documents_send_to_accounts = convertToDdMmYyyy(updateData.documents_send_to_accounts);
+
+      if (Object.keys(authUpdate).length > 0) {
+        let authRecord = null;
+        if (job.be_no) {
+          authRecord = await AuthorizationRegistrationModel.findOne({ "be_details.be_no": job.be_no });
+        }
+
+        if (authRecord) {
+          await AuthorizationRegistrationModel.findByIdAndUpdate(authRecord._id, { $set: authUpdate });
+          console.log(`✅ Synced operation job compliance fields to AuthorizationRegistration ${authRecord._id}`);
+        }
+      }
     }
 
     const recomputedStatus = determineDetailedStatus(job);

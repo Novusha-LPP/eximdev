@@ -76,6 +76,13 @@ function useFetchOperationTeamJob(params) {
       custodian_gate_pass: [],
       concor_invoice_and_receipt_copy: [],
       dsr_queries: [],
+      bg_number: "",
+      bg_expiry_date: "",
+      bond_number: "",
+      bond_expiry_date: "",
+      documents_received_date: "",
+      documents_send_to_icd: "",
+      documents_send_to_accounts: "",
     },
 
     onSubmit: async (values) => {
@@ -208,6 +215,13 @@ function useFetchOperationTeamJob(params) {
         dsr_queries: data.dsr_queries || [],
         concor_invoice_and_receipt_copy:
           data.concor_invoice_and_receipt_copy || [],
+        bg_number: data.bg_number || "",
+        bg_expiry_date: data.bg_expiry_date || "",
+        bond_number: data.bond_number || "",
+        bond_expiry_date: data.bond_expiry_date || "",
+        documents_received_date: data.documents_received_date || "",
+        documents_send_to_icd: data.documents_send_to_icd || "",
+        documents_send_to_accounts: data.documents_send_to_accounts || "",
       });
     }
   }, [data]); // When data changes, formik values are updated

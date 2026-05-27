@@ -21,6 +21,7 @@ const authorizationRegistrationSchema = new mongoose.Schema(
     bg_date: { type: String },
     bg_expiry_date: { type: String },
     bond_number: { type: String },
+    bond_amount: { type: String },
     bond_date: { type: String },
 
     iec_no: { type: String },

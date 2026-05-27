@@ -1433,4 +1433,207 @@ $ap-radius-lg:  14px;
     text-align: left;
   }
 }
+/* ================================================================
+   LAPTOP RESPONSIVE PATCH (1024px – 1440px)
+   Appended to dgft.scss — no design or layout changes
+   ================================================================ */
 
+/* ── Large laptop (≤ 1440px) ─────────────────────────────────── */
+@media (max-width: 1440px) {
+  .ar-table-scroll {
+    max-height: 520px;
+  }
+
+  .ap-content {
+    padding: 12px 16px;
+  }
+
+  .ap-subheader {
+    padding: 0 20px;
+  }
+}
+
+/* ── Standard laptop (≤ 1280px) ─────────────────────────────── */
+@media (max-width: 1280px) {
+  /* Toolbar: let filters shrink */
+  .ar-toolbar {
+    gap: 6px;
+  }
+
+  .ar-toolbar-left {
+    gap: 5px;
+  }
+
+  .ar-search-wrap {
+    min-width: 170px;
+    max-width: 240px;
+  }
+
+  .ar-filter-select {
+    min-width: 110px;
+    max-width: 160px;
+    font-size: 11px;
+  }
+
+  /* Table: tighter cell padding so more columns fit */
+  .ar-table {
+    font-size: 11px;
+
+    th {
+      padding: 8px 8px;
+      font-size: 11px;
+    }
+
+    td {
+      padding: 7px 8px;
+      font-size: 11px;
+    }
+  }
+
+  /* Pagination: tighter */
+  .ar-pagination {
+    padding: 8px 10px;
+    font-size: 10px;
+    gap: 8px;
+  }
+
+  .ar-page-btn {
+    height: 26px;
+    padding: 0 8px;
+    font-size: 10px;
+  }
+
+  .ar-rows-select {
+    height: 26px;
+    font-size: 10px;
+  }
+
+  /* Details page: 3-col grid instead of 4 */
+  .ap-fields-grid {
+    grid-template-columns: repeat(3, 1fr);
+
+    &.cols-5 { grid-template-columns: repeat(3, 1fr); }
+    &.cols-4 { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  /* Firm strip: 2-col on smaller laptop */
+  .ap-firm-strip {
+    grid-template-columns: 2fr 1fr 1fr;
+  }
+
+  .ap-firm-cell:nth-child(4) {
+    grid-column: 1 / -1;
+    border-top: 1px solid #e2e8f0;
+    border-right: none;
+  }
+
+  .ap-content {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+
+  .ap-subheader {
+    padding: 0 16px;
+    height: 52px;
+  }
+
+  .ap-page-title {
+    font-size: 14px;
+  }
+
+  .ap-btn {
+    height: 32px;
+    padding: 0 14px;
+    font-size: 12.5px;
+  }
+
+  .ap-card-body {
+    padding: 10px 14px;
+  }
+
+  .ap-card-header {
+    padding: 8px 14px;
+  }
+
+  /* Item rows: tighter columns */
+  .ap-item-row-compact {
+    grid-template-columns: 2fr 1fr 1.3fr 1.3fr 1.1fr 1.1fr auto;
+
+    &.cols-6 {
+      grid-template-columns: 2fr 1fr 1.3fr 1.1fr 1.1fr auto;
+    }
+
+    .ap-field-input,
+    .ap-field-textarea {
+      font-size: 11px;
+    }
+  }
+
+  /* Table scroll: slightly reduced height for laptop viewport */
+  .ar-table-scroll {
+    max-height: 480px;
+  }
+}
+
+/* ── Small laptop / large tablet (≤ 1100px) ─────────────────── */
+@media (max-width: 1100px) {
+  /* Firm strip: 2-col even split */
+  .ap-firm-strip {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .ap-firm-cell {
+    &:nth-child(2) { border-right: none; }
+    &:nth-child(3),
+    &:nth-child(4) { border-top: 1px solid #e2e8f0; }
+  }
+
+  /* Fields grid */
+  .ap-fields-grid,
+  .ap-fields-grid.cols-5,
+  .ap-fields-grid.cols-4 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  /* Toolbar: allow wrap, give more space to search */
+  .ar-search-wrap {
+    min-width: 150px;
+    max-width: 220px;
+    flex: 1 1 150px;
+  }
+
+  .ar-filter-select {
+    flex: 1 1 100px;
+    min-width: 90px;
+    max-width: 150px;
+  }
+
+  /* Compact table for tighter viewport */
+  .ar-table th,
+  .ar-table td {
+    padding: 6px 7px;
+  }
+
+  /* Item row: tighter on small laptop */
+  .ap-item-row-compact {
+    grid-template-columns: 1.8fr 1fr 1.2fr 1.2fr 1fr 1fr auto;
+    gap: 5px;
+  }
+
+  /* Floating save */
+  .ap-floating-save {
+    bottom: 16px;
+    right: 16px;
+    padding: 6px 6px 6px 14px;
+
+    .ap-floating-save-meta {
+      font-size: 11px;
+    }
+  }
+
+  /* Table outer: ensure full width usage */
+  .ar-table-outer {
+    width: 100%;
+    overflow: hidden;
+  }
+}

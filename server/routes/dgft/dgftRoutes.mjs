@@ -3,6 +3,7 @@ import multer from "multer";
 import XLSX from "xlsx";
 import DgftRegisterModel from "../../model/dgftRegisterModel.mjs";
 import AuthorizationRegistrationModel from "../../model/authorizationRegistrationModel.mjs";
+import JobModel from "../../model/jobModel.mjs";
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -594,6 +595,47 @@ router.put("/api/update-authorization-registration/:id", async (req, res) => {
       { new: true }
     );
     if (!updated) return res.status(404).json({ message: "Record not found" });
+
+    // Sync compliance details back to JobModel for any linked BE numbers
+    const beNos = [];
+    if (updated.be_details && Array.isArray(updated.be_details)) {
+      updated.be_details.forEach(item => {
+        if (item.be_no) {
+          beNos.push(item.be_no);
+        }
+      });
+    }
+
+    if (beNos.length > 0) {
+      const jobUpdate = {};
+      const convertToYyyyMmDd = (dateStr) => {
+        if (!dateStr || typeof dateStr !== "string") return dateStr;
+        if (dateStr.includes("-")) return dateStr; // Already in YYYY-MM-DD
+        const parts = dateStr.split("/");
+        if (parts.length === 3) {
+          const [dd, mm, yyyy] = parts;
+          return `${yyyy}-${mm.padStart(2, "0")}-${dd.padStart(2, "0")}`;
+        }
+        return dateStr;
+      };
+
+      if (req.body.bg_number !== undefined) jobUpdate.bg_number = req.body.bg_number;
+      if (req.body.bg_expiry_date !== undefined) jobUpdate.bg_expiry_date = convertToYyyyMmDd(req.body.bg_expiry_date);
+      if (req.body.bond_number !== undefined) jobUpdate.bond_number = req.body.bond_number;
+      if (req.body.bond_expiry_date !== undefined) jobUpdate.bond_expiry_date = convertToYyyyMmDd(req.body.bond_expiry_date);
+      if (req.body.documents_received_date !== undefined) jobUpdate.documents_received_date = convertToYyyyMmDd(req.body.documents_received_date);
+      if (req.body.documents_send_to_icd !== undefined) jobUpdate.documents_send_to_icd = convertToYyyyMmDd(req.body.documents_send_to_icd);
+      if (req.body.documents_send_to_accounts !== undefined) jobUpdate.documents_send_to_accounts = convertToYyyyMmDd(req.body.documents_send_to_accounts);
+
+      if (Object.keys(jobUpdate).length > 0) {
+        const result = await JobModel.updateMany(
+          { be_no: { $in: beNos } },
+          { $set: jobUpdate }
+        );
+        console.log(`✅ Synced DGFT authorization changes to ${result.modifiedCount} import operations jobs.`);
+      }
+    }
+
     res
       .status(200)
       .json({ message: "Record updated successfully", data: updated });

@@ -307,7 +307,9 @@ function ViewAuthorizationDetails() {
           documents_send_to_icd:      safeStr(found.documents_send_to_icd),
           documents_send_to_accounts: safeStr(found.documents_send_to_accounts || found.documents_send_to_account),
           bg_number:                  safeStr(found.bg_number),
+          bg_amount:                  safeStr(found.bg_amount),
           bond_number:                safeStr(found.bond_number),
+          bond_amount:                safeStr(found.bond_amount),
           accounts_billing_invoice_no: safeStr(found.accounts_billing_invoice_no),
           accounts_billing_invoice_date: safeStr(found.accounts_billing_invoice_date),
           registration_no:            safeStr(found.registration_no || found.licence_no),
@@ -532,6 +534,11 @@ function ViewAuthorizationDetails() {
                 <label className="ap-field-label">BG Expiry Date</label>
                 <DatePickerInput value={subData.bg_expiry_date} onChange={v => hc("bg_expiry_date", v)} />
               </div>
+              <div className="ap-field-group">
+                <label className="ap-field-label">BG Amount</label>
+                <input type="text" className="ap-field-input" value={subData.bg_amount}
+                  onChange={e => hc("bg_amount", e.target.value)} placeholder="Enter BG amount" />
+              </div>
             </div>
 
             <div className="ap-fields-grid cols-4 mt-12">
@@ -543,6 +550,11 @@ function ViewAuthorizationDetails() {
               <div className="ap-field-group">
                 <label className="ap-field-label">Bond Expiry Date</label>
                 <DatePickerInput value={subData.bond_expiry_date} onChange={v => hc("bond_expiry_date", v)} />
+              </div>
+              <div className="ap-field-group">
+                <label className="ap-field-label">Bond Amount</label>
+                <input type="text" className="ap-field-input" value={subData.bond_amount}
+                  onChange={e => hc("bond_amount", e.target.value)} placeholder="Enter Bond amount" />
               </div>
             </div>
 

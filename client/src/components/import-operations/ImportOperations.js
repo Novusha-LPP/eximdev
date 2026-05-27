@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import OperationsList from "./OperationsList";
 import ExaminationPlanning from "./ExaminationPlanning";
 import CompletedOperation from "./CompletedOperation";
+import DgftOperationTab from "./DgftOperationTab";
 import useTabs from "../../customHooks/useTabs";
 
 // Create a context to share tab state between components
@@ -61,6 +62,7 @@ function ImportOperations() {
             <Tab label="List" {...a11yProps(0)} />
             <Tab label="Examination Planning" {...a11yProps(1)} />
             <Tab label="Completed Operation" {...a11yProps(2)} />
+            <Tab label="DGFT" {...a11yProps(3)} />
           </Tabs>
         </Box>
 
@@ -73,6 +75,9 @@ function ImportOperations() {
         </CustomTabPanel>
         <CustomTabPanel value={value} index={2}>
           <CompletedOperation />
+        </CustomTabPanel>
+        <CustomTabPanel value={value} index={3}>
+          <DgftOperationTab />
         </CustomTabPanel>
       </Box>
     </TabContext.Provider>

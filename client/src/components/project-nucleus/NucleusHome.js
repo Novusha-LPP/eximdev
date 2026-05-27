@@ -13,6 +13,7 @@ import ElockLrCompletedReport from './reports/ElockLrCompletedReport';
 import CustomerUdyamReport from './reports/CustomerUdyamReport';
 import CustomerTrainingReport from './reports/CustomerTrainingReport';
 import ClientLoginAnalyticsReport from './reports/ClientLoginAnalyticsReport';
+import NewCustomersReport from './reports/NewCustomersReport';
 import ElockUtilizationReport from './reports/ElockUtilizationReport';
 import ElockAssignedCountReport from './reports/ElockAssignedCountReport';
 
@@ -47,7 +48,8 @@ const NucleusHome = () => {
             reports: [
                 { id: 'udyam', label: 'Customer UDYAM Registration' },
                 { id: 'training', label: 'Customer Training Records' },
-                { id: 'client_login_analytics', label: 'Client User Login Analytics' }
+                { id: 'client_login_analytics', label: 'Client User Login Analytics' },
+                { id: 'new_customers', label: 'New Customer Added / KYC Report' }
             ]
         },
         { id: 'sharanga', label: 'Sharanga', icon: '🕉️', reports: [] },
@@ -178,6 +180,8 @@ const NucleusHome = () => {
                 return <CustomerTrainingReport />;
             case 'client_login_analytics':
                 return <ClientLoginAnalyticsReport />;
+            case 'new_customers':
+                return <NewCustomersReport />;
             case 'transport_table':
                 return (
                     <Top10TransportersReport
@@ -238,8 +242,8 @@ const NucleusHome = () => {
         }
     };
 
-    // Determine if date controls are needed (udyam, training, client login analytics don't need them)
-    const showDateControls = !['udyam', 'training', 'client_login_analytics'].includes(activeReport);
+    // Determine if date controls are needed (udyam, training, client login analytics, new_customers don't need them)
+    const showDateControls = !['udyam', 'training', 'client_login_analytics', 'new_customers'].includes(activeReport);
 
     return (
         <div className="nucleus-layout">

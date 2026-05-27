@@ -8,75 +8,40 @@ import {
     ResponsiveContainer, ReferenceLine, Cell, ZAxis, BarChart, Bar
 } from 'recharts';
 import {
-    Box, Tabs, Tab, Card, CardContent, Typography, Chip, Avatar,
-    LinearProgress, IconButton, Grid, Paper,
-    Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-    Stack, TextField, MenuItem, InputAdornment, Drawer,
-    Dialog, DialogContent, DialogTitle, Divider
+    TextField, MenuItem, InputAdornment, Dialog, DialogContent, DialogTitle, IconButton, Avatar, Chip, Drawer, Box, Typography, Stack, Grid
 } from '@mui/material';
 import {
     DashboardOutlined, AssessmentOutlined, GroupsOutlined,
     WarningAmberOutlined, ErrorOutlineOutlined, TrendingDownOutlined,
     CloseOutlined, AdminPanelSettingsOutlined,
-    SearchOutlined, ArrowUpwardOutlined, ArrowDownwardOutlined,
-    BlockOutlined, DoneAllOutlined,
+    SearchOutlined, BlockOutlined, DoneAllOutlined,
     FlagOutlined, PersonOutlined, ScoreboardOutlined,
     AttachMoneyOutlined, ChevronRightOutlined,
-    HourglassEmptyOutlined, CheckCircleOutlineOutlined,
-    CancelOutlined, PendingActionsOutlined
+    HourglassEmptyOutlined, CheckCircleOutlineOutlined
 } from '@mui/icons-material';
 import KPISheet from './KPISheet';
 import './kpi.scss';
 
-// ═══════════════════════════════════════════════════════════════
-// NEW DESIGN SYSTEM – Fresh, modern & attractive palette
-// ═══════════════════════════════════════════════════════════════
-const DS = {
-    primary:   '#2D3A54',      // refined navy – still authoritative but softer
-    secondary: '#4F5D75',
-    accent:    '#5B8DEF',      // friendly electric blue
-    accentLight:'#EBF2FF',
-    success:   '#1B998B',      // teal green – more modern
-    successBg: '#E6F7F5',
-    warning:   '#F0A500',      // warm amber
-    warningBg: '#FFF8EB',
-    danger:    '#E15554',      // soft red
-    dangerBg:  '#FDEDEE',
-    surface:   '#FFFFFF',
-    bg:        '#F4F6FA',      // light cool gray
-    text:      '#1E293B',
-    textSec:   '#64748B',
-    textMute:  '#94A3B8',
-    border:    '#E2E8F0',
-};
-
-// Quadrant colours – keep distinct, but softer & more pleasant
+// Quadrants definition (adjusted for cool tones)
 const QUADRANTS = {
-    Star:       { label: 'Star',       emoji: '★', color: '#E9B741', bg: '#FFF7E6', border: '#F7D774', desc: 'High Volume + High Complexity',   action: 'Promote / Empower' },
-    Engine:     { label: 'Engine',     emoji: '⚙', color: '#4D96FF', bg: '#EDF3FF', border: '#A3C6FF', desc: 'High Volume + Low Complexity',    action: 'Automate / Standardise' },
-    Specialist: { label: 'Specialist', emoji: '◆', color: '#9B5DE5', bg: '#F5F0FF', border: '#C8B3F5', desc: 'Low Volume + High Complexity',    action: 'Protect / Consult' },
-    Drainer:    { label: 'Drainer',    emoji: '▲', color: '#EC7063', bg: '#FEF2F1', border: '#F5B7B1', desc: 'Low Volume + Low Complexity',     action: 'Retrain / Review' },
-};
-
-const STATUS_PALETTE = {
-    Red:    { color: '#E15554', bg: '#FDEDEE', border: '#F5B7B1', label: 'Red' },
-    Amber:  { color: '#F0A500', bg: '#FFF8EB', border: '#FDE4A8', label: 'Amber' },
-    Green:  { color: '#1B998B', bg: '#E6F7F5', border: '#8DD3CC', label: 'Green' },
+    Star:       { label: 'Star',       emoji: '★', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', border: 'rgba(16, 185, 129, 0.2)', desc: 'High Volume + High Complexity',   action: 'Promote / Empower' },
+    Engine:     { label: 'Engine',     emoji: '⚙', color: '#3b82f6', bg: 'rgba(59, 130, 246, 0.1)', border: 'rgba(59, 130, 246, 0.2)', desc: 'High Volume + Low Complexity',    action: 'Automate / Standardise' },
+    Specialist: { label: 'Specialist', emoji: '◆', color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.1)', border: 'rgba(139, 92, 246, 0.2)', desc: 'Low Volume + High Complexity',    action: 'Protect / Consult' },
+    Drainer:    { label: 'Drainer',    emoji: '▲', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', border: 'rgba(239, 68, 68, 0.2)', desc: 'Low Volume + Low Complexity',     action: 'Retrain / Review' },
 };
 
 const TAB_CONFIG = [
-    { key: 'overview',      label: 'Executive Overview',  icon: <DashboardOutlined fontSize="small" /> },
-    { key: 'matrix',        label: 'Performance Matrix',  icon: <AssessmentOutlined fontSize="small" /> },
-    { key: 'teams',         label: 'Team Analytics',      icon: <GroupsOutlined fontSize="small" /> },
-    { key: 'blockers',      label: 'Blockers',            icon: <BlockOutlined fontSize="small" /> },
-    { key: 'losses',        label: 'Business Losses',     icon: <AttachMoneyOutlined fontSize="small" /> },
-    { key: 'openpoints',    label: 'Open Points',         icon: <FlagOutlined fontSize="small" /> },
-    { key: 'nonsubmitters', label: 'Non Submitters',      icon: <HourglassEmptyOutlined fontSize="small" /> },
+    { key: 'overview',      label: 'Executive Overview',  icon: '📊' },
+    { key: 'matrix',        label: 'Performance Matrix',  icon: '📈' },
+    { key: 'teams',         label: 'Team Analytics',      icon: '👥' },
+    { key: 'blockers',      label: 'Blockers',            icon: '🚧' },
+    { key: 'losses',        label: 'Business Losses',     icon: '💸' },
+    { key: 'openpoints',    label: 'Open Points',         icon: '🚩' },
+    { key: 'nonsubmitters', label: 'Non Submitters',      icon: '⏳' },
 ];
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 
-// ───── unchanged helpers ─────
 const initials = (fn, ln) => `${(fn || '?')[0]}${(ln || '?')[0]}`.toUpperCase();
 const formatCurrency = (n) => `₹${(n || 0).toLocaleString('en-IN')}`;
 
@@ -112,74 +77,48 @@ const getTeamStats = (pulseData, reportData, nonSubmitterData) => {
     })).sort((a, b) => b.avgScore - a.avgScore);
 };
 
-// ═══════════════════════════════════════════════════════════════
-// MINI COMPONENTS (unchanged, but use DS automatically)
-// ═══════════════════════════════════════════════════════════════
-const KpiCard = ({ title, value, subtext, icon, color = DS.accent, onClick }) => (
-    <Card onClick={onClick} sx={{ borderRadius: 3, border: `1px solid ${DS.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.04)', height: '100%', cursor: onClick ? 'pointer' : 'default', transition: 'all 0.25s', '&:hover': onClick ? { transform: 'translateY(-3px)', boxShadow: '0 8px 24px rgba(0,0,0,0.08)', borderColor: color + '40' } : {} }}>
-        <CardContent sx={{ p: 3, '&:last-child': { pb: 3 } }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-                <Box sx={{ flex: 1 }}>
-                    <Typography variant="caption" sx={{ fontWeight: 700, color: DS.textMute, textTransform: 'uppercase', letterSpacing: 1.2, fontSize: '0.68rem' }}>{title}</Typography>
-                    <Typography variant="h4" sx={{ fontWeight: 800, color: DS.text, mt: 1, fontSize: '1.9rem', letterSpacing: '-0.03em' }}>{value}</Typography>
-                    {subtext && <Typography variant="caption" sx={{ color: DS.textSec, mt: 0.5, display: 'block', fontSize: '0.78rem' }}>{subtext}</Typography>}
-                </Box>
-                <Box sx={{ width: 44, height: 44, borderRadius: 2.5, display: 'flex', alignItems: 'center', justifyContent: 'center', background: `${color}12`, color }}>
-                    {icon}
-                </Box>
-            </Stack>
-        </CardContent>
-    </Card>
-);
-
-const SectionHeader = ({ title, subtitle, action }) => (
-    <Stack direction="row" justifyContent="space-between" alignItems="flex-end" sx={{ mb: 3 }}>
-        <Box>
-            <Typography variant="h6" sx={{ fontWeight: 800, color: DS.primary, fontSize: '1.05rem', letterSpacing: '-0.01em' }}>{title}</Typography>
-            {subtitle && <Typography variant="body2" sx={{ color: DS.textMute, mt: 0.3, fontSize: '0.8rem' }}>{subtitle}</Typography>}
-        </Box>
-        {action}
-    </Stack>
-);
-
-const QuadrantBadge = ({ quadrant }) => {
-    const q = QUADRANTS[quadrant] || QUADRANTS.Drainer;
-    return <Chip size="small" label={q.label} sx={{ fontWeight: 700, background: q.bg, color: q.color, border: `1px solid ${q.border}`, fontSize: '0.68rem', height: 24 }} />;
-};
-
-const StatusDot = ({ color }) => <Box sx={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />;
-
 const CustomScatterTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
         const d = payload[0].payload;
         const q = QUADRANTS[d.quadrant] || QUADRANTS.Drainer;
         return (
-            <Box sx={{ background: 'rgba(45,58,84,0.96)', backdropFilter: 'blur(10px)', p: 2.5, borderRadius: 2, border: '1px solid rgba(255,255,255,0.08)', color: '#fff', minWidth: 200, boxShadow: '0 24px 48px rgba(0,0,0,0.35)' }}>
-                <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1.5, pb: 1, borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-                    <StatusDot color={q.color} />
-                    <Typography sx={{ fontWeight: 700, fontSize: '0.9rem' }}>{d.name}</Typography>
-                </Stack>
-                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, fontSize: '0.78rem' }}>
-                    <Typography sx={{ color: '#94A3B8' }}>Volume</Typography><Typography sx={{ fontWeight: 600, textAlign: 'right' }}>{d.x}</Typography>
-                    <Typography sx={{ color: '#94A3B8' }}>Complexity</Typography><Typography sx={{ fontWeight: 600, textAlign: 'right' }}>{d.y.toFixed(2)}</Typography>
-                    <Typography sx={{ color: '#94A3B8' }}>Score</Typography><Typography sx={{ fontWeight: 800, textAlign: 'right', color: q.color }}>{d.totalValueScore}</Typography>
-                </Box>
-                <Box sx={{ mt: 1.5, px: 1.5, py: 0.5, background: 'rgba(255,255,255,0.08)', borderRadius: 1, textAlign: 'center', fontSize: '0.68rem', fontWeight: 600 }}>{q.label} • {q.action}</Box>
-            </Box>
+            <div className="custom-chart-tooltip">
+                <p className="tooltip-title">{d.name}</p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', fontSize: '13px' }}>
+                    <span style={{ color: '#64748b' }}>Volume</span>
+                    <strong style={{ textAlign: 'right' }}>{d.x}</strong>
+                    <span style={{ color: '#64748b' }}>Complexity</span>
+                    <strong style={{ textAlign: 'right' }}>{d.y.toFixed(2)}</strong>
+                    <span style={{ color: '#64748b' }}>Score</span>
+                    <strong style={{ textAlign: 'right', color: q.color }}>{d.totalValueScore}</strong>
+                </div>
+                <div style={{ marginTop: '12px', padding: '4px 8px', background: 'rgba(0,0,0,0.05)', borderRadius: '4px', textAlign: 'center', fontSize: '11px', fontWeight: 700 }}>
+                    {q.label} • {q.action}
+                </div>
+            </div>
         );
     }
     return null;
 };
 
-// ═══════════════════════════════════════════════════════════════
-// MAIN COMPONENT (unchanged logic, updated styling where needed)
-// ═══════════════════════════════════════════════════════════════
+// Get default previous month and year to prevent day overflow bugs (e.g. March 31st -> Feb 28th)
+const getPreviousMonthAndYear = () => {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() - 1);
+    return {
+        year: d.getFullYear(),
+        month: d.getMonth() + 1
+    };
+};
+const defaultDate = getPreviousMonthAndYear();
+
 const KPIPulseDashboard = () => {
     const { user } = useContext(UserContext);
     const navigate = useNavigate();
 
-    const [year, setYear] = useState(new Date().getFullYear());
-    const [month, setMonth] = useState(new Date().getMonth() + 1);
+    const [year, setYear] = useState(defaultDate.year);
+    const [month, setMonth] = useState(defaultDate.month);
     const [department, setDepartment] = useState('');
     const [team, setTeam] = useState('');
     const [teams, setTeams] = useState([]);
@@ -313,891 +252,932 @@ const KPIPulseDashboard = () => {
         return allOpenPoints.filter(item => item.user.name.toLowerCase().includes(q) || (item.user.department || '').toLowerCase().includes(q));
     }, [allOpenPoints, opSearchQuery]);
 
-    // ─── Access Control ─────────────────────────────────────────
     if (user?.role !== 'Admin' && user?.role !== 'Head_of_Department') {
         return (
-            <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: DS.bg, flexDirection: 'column', gap: 3, p: 4 }}>
-                <Typography sx={{ fontSize: '3.5rem' }}>🔐</Typography>
-                <Typography variant="h3" sx={{ fontWeight: 800, color: DS.primary }}>Access Restricted</Typography>
-                <Typography sx={{ color: DS.textSec, maxWidth: 450, textAlign: 'center' }}>This terminal is reserved for Executive Management and Department Heads.</Typography>
-                <button onClick={() => navigate('/kpi')} style={{ padding: '10px 28px', borderRadius: 2.5, border: 'none', background: DS.primary, color: '#fff', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}>Return to Personnel HQ</button>
-            </Box>
+            <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', flexDirection: 'column', gap: '24px', padding: '32px' }}>
+                <div style={{ fontSize: '3.5rem' }}>🔐</div>
+                <h3 style={{ fontWeight: 800, color: '#334155', margin: 0 }}>Access Restricted</h3>
+                <p style={{ color: '#64748b', maxWidth: 450, textAlign: 'center', margin: 0 }}>This terminal is reserved for Executive Management and Department Heads.</p>
+                <button onClick={() => navigate('/kpi')} style={{ padding: '10px 28px', borderRadius: '8px', border: 'none', background: 'linear-gradient(135deg, #667eea, #764ba2)', color: '#fff', fontWeight: 600, fontSize: '0.85rem', cursor: 'pointer' }}>Return to Personnel HQ</button>
+            </div>
         );
     }
 
     return (
-        <Box sx={{ fontFamily: "'Inter','Segoe UI',system-ui,sans-serif", background: DS.bg, color: DS.text, minHeight: '100vh' }}>
-            {/* ═══ CORPORATE HEADER ═══ */}
-            <Paper elevation={0} sx={{ position: 'sticky', top: 0, zIndex: 50, borderBottom: `1px solid ${DS.border}`, background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(16px)', px: { xs: 2, md: 4, lg: 6 }, py: 2.5 }}>
-                <Stack direction={{ xs: 'column', lg: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', lg: 'center' }} spacing={2}>
-                    <Stack direction="row" alignItems="center" spacing={2}>
-                        <Box sx={{ width: 48, height: 48, borderRadius: 2.5, background: DS.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
-                            <ScoreboardOutlined />
-                        </Box>
-                        <Box>
-                            <Typography variant="h5" sx={{ fontWeight: 800, color: DS.primary, letterSpacing: '-0.02em', fontSize: '1.4rem', lineHeight: 1.2 }}>CEO Pulse Dashboard</Typography>
-                            <Typography variant="body2" sx={{ color: DS.textMute, fontSize: '0.8rem' }}>Strategic Command Center — Performance, Blockers & Accountability</Typography>
-                        </Box>
-                    </Stack>
+        <div className="report-root-container">
+            <style>{`
+                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+                
+                .report-root-container {
+                    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 28px;
+                    padding: 0;
+                    background: transparent;
+                    min-height: 100vh;
+                }
+                
+                .report-header {
+                    position: sticky;
+                    top: 0;
+                    z-index: 50;
+                    background: rgba(255, 255, 255, 0.95);
+                    backdrop-filter: blur(16px);
+                    padding: 20px 40px;
+                    border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    flex-wrap: wrap;
+                    gap: 16px;
+                }
+                
+                /* Smooth Tab Selector */
+                .nucleus-tab-container {
+                    display: flex;
+                    gap: 8px;
+                    padding: 6px;
+                    background: rgba(255, 255, 255, 0.7);
+                    backdrop-filter: blur(20px);
+                    -webkit-backdrop-filter: blur(20px);
+                    border-radius: 16px;
+                    width: fit-content;
+                    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.04);
+                }
+                
+                .nucleus-tab-btn {
+                    padding: 10px 22px;
+                    border-radius: 12px;
+                    font-weight: 600;
+                    font-size: 14px;
+                    cursor: pointer;
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    border: none;
+                    background: transparent;
+                    color: #64748b;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    letter-spacing: -0.01em;
+                }
+                
+                .nucleus-tab-btn.active {
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: #ffffff;
+                    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+                    font-weight: 700;
+                }
+                
+                .nucleus-tab-btn:not(.active):hover {
+                    background: rgba(102, 126, 234, 0.1);
+                    color: #334155;
+                }
+                
+                /* Glass Cards */
+                .nucleus-stats-card {
+                    background: rgba(255, 255, 255, 0.8);
+                    backdrop-filter: blur(20px);
+                    -webkit-backdrop-filter: blur(20px);
+                    border-radius: 20px;
+                    border: 1px solid rgba(255, 255, 255, 0.5);
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04), 0 1px 4px rgba(0, 0, 0, 0.02);
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    overflow: hidden;
+                    position: relative;
+                }
+                
+                .nucleus-stats-card::after {
+                    content: '';
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    height: 1px;
+                    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent);
+                }
+                
+                .nucleus-stats-card:hover {
+                    transform: translateY(-4px);
+                    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+                }
+                
+                /* Tables */
+                .nucleus-table-wrapper {
+                    background: rgba(255, 255, 255, 0.9);
+                    backdrop-filter: blur(20px);
+                    -webkit-backdrop-filter: blur(20px);
+                    border-radius: 20px;
+                    border: 1px solid rgba(255, 255, 255, 0.5);
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
+                    overflow: hidden;
+                }
+                
+                .nucleus-table {
+                    width: 100%;
+                    border-collapse: separate;
+                    border-spacing: 0;
+                }
+                
+                .nucleus-table th {
+                    background: linear-gradient(180deg, rgba(248, 250, 252, 0.9) 0%, rgba(241, 245, 249, 0.9) 100%);
+                    color: #0f172a;
+                    font-weight: 800;
+                    font-size: 13.5px;
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
+                    padding: 16px 20px;
+                    border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+                    white-space: nowrap;
+                    text-align: left;
+                }
+                
+                .nucleus-table td {
+                    color: #1e293b;
+                    font-weight: 600;
+                    font-size: 14.5px;
+                    padding: 14px 20px;
+                    border-bottom: 1px solid rgba(226, 232, 240, 0.4);
+                    transition: background 0.2s;
+                }
+                
+                .nucleus-table tr:hover td {
+                    background: rgba(102, 126, 234, 0.04);
+                }
+                
+                .nucleus-table tr:last-child td {
+                    border-bottom: none;
+                }
+                
+                /* Status Pills */
+                .status-pill {
+                    display: inline-flex;
+                    align-items: center;
+                    padding: 6px 14px;
+                    border-radius: 999px;
+                    font-weight: 600;
+                    font-size: 11.5px;
+                    letter-spacing: 0.02em;
+                    text-transform: uppercase;
+                    transition: all 0.2s;
+                }
+                
+                .status-pill.neutral { background: rgba(148, 163, 184, 0.1); color: #475569; border: 1px solid rgba(148, 163, 184, 0.2); }
+                .status-pill.success { background: rgba(16, 185, 129, 0.1); color: #059669; border: 1px solid rgba(16, 185, 129, 0.2); }
+                .status-pill.warning { background: rgba(245, 158, 11, 0.1); color: #d97706; border: 1px solid rgba(245, 158, 11, 0.2); }
+                .status-pill.info { background: rgba(14, 165, 233, 0.1); color: #0284c7; border: 1px solid rgba(14, 165, 233, 0.2); }
+                .status-pill.error { background: rgba(239, 68, 68, 0.1); color: #dc2626; border: 1px solid rgba(239, 68, 68, 0.2); }
+                
+                /* Charts */
+                .analytics-graph-card {
+                    background: rgba(255, 255, 255, 0.9);
+                    backdrop-filter: blur(20px);
+                    -webkit-backdrop-filter: blur(20px);
+                    border-radius: 20px;
+                    border: 1px solid rgba(255, 255, 255, 0.5);
+                    padding: 28px;
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
+                }
+                
+                .graph-card-header h3 {
+                    color: #1e293b;
+                    font-weight: 700;
+                    font-size: 16px;
+                    margin-bottom: 4px;
+                }
+                
+                .graph-card-header .graph-subtitle {
+                    color: #64748b;
+                    font-weight: 500;
+                    font-size: 13px;
+                }
+                
+                .custom-chart-tooltip {
+                    background: rgba(255, 255, 255, 0.95) !important;
+                    backdrop-filter: blur(10px) !important;
+                    -webkit-backdrop-filter: blur(10px) !important;
+                    border: 1px solid rgba(226, 232, 240, 0.6) !important;
+                    border-radius: 16px !important;
+                    padding: 16px 20px !important;
+                    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08) !important;
+                }
+                
+                .custom-chart-tooltip .tooltip-title {
+                    font-weight: 700;
+                    font-size: 14px;
+                    color: #1e293b;
+                    margin-bottom: 10px;
+                }
+                
+                .mono-text {
+                    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+                }
 
-                    <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
-                        <TextField select size="small" value={month} onChange={e => setMonth(Number(e.target.value))}
-                            sx={{ minWidth: 130, '& .MuiOutlinedInput-root': { borderRadius: 2, background: '#fff', fontWeight: 600, fontSize: '0.82rem', borderColor: DS.border } }}>
-                            {MONTHS.map((m, i) => <MenuItem key={i} value={i + 1}>{m}</MenuItem>)}
-                        </TextField>
-                        <TextField select size="small" value={year} onChange={e => setYear(Number(e.target.value))}
-                            sx={{ minWidth: 100, '& .MuiOutlinedInput-root': { borderRadius: 2, background: '#fff', fontWeight: 600, fontSize: '0.82rem' } }}>
-                            {[2024, 2025, 2026].map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
-                        </TextField>
-                        <TextField select size="small" value={team || 'ALL'} onChange={e => { const v = e.target.value; setTeam(v === 'ALL' ? '' : v); setDepartment(''); }}
-                            sx={{ minWidth: 160, '& .MuiOutlinedInput-root': { borderRadius: 2, background: '#fff', fontWeight: 600, fontSize: '0.82rem' } }}>
-                            <MenuItem value="ALL">All Teams</MenuItem>
-                            {teams.map(t => <MenuItem key={t._id} value={t.name}>{t.name}</MenuItem>)}
-                        </TextField>
-                        <IconButton onClick={() => navigate('/kpi/admin')} sx={{ background: DS.primary, color: '#fff', borderRadius: 2, width: 40, height: 40, '&:hover': { background: DS.secondary } }}>
-                            <AdminPanelSettingsOutlined fontSize="small" />
-                        </IconButton>
-                    </Stack>
-                </Stack>
+                .nucleus-loader {
+                    width: 48px;
+                    height: 48px;
+                    border: 3px solid rgba(102, 126, 234, 0.2);
+                    border-top-color: #667eea;
+                    border-radius: 50%;
+                    animation: spin 0.8s linear infinite;
+                }
+                
+                @keyframes spin {
+                    to { transform: rotate(360deg); }
+                }
+                
+                .section-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: flex-end;
+                    margin-bottom: 24px;
+                }
+                
+                .section-header h3 {
+                    margin: 0;
+                    font-size: 18px;
+                    font-weight: 800;
+                    color: #0f172a;
+                }
+                
+                .section-header p {
+                    margin: 4px 0 0;
+                    font-size: 13px;
+                    color: #64748b;
+                }
+            `}</style>
 
-                <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} textColor="primary" indicatorColor="transparent"
-                    sx={{ mt: 2.5, '& .MuiTabs-flexContainer': { gap: 0.5 } }}>
-                    {TAB_CONFIG.map(t => (
-                        <Tab key={t.key} value={t.key} label={
-                            <Stack direction="row" alignItems="center" spacing={0.8}>
-                                {t.icon}
-                                <Typography sx={{ fontWeight: activeTab === t.key ? 700 : 600, fontSize: '0.78rem', textTransform: 'none' }}>{t.label}</Typography>
-                            </Stack>
-                        } sx={{ textTransform: 'none', minHeight: 38, px: 2, py: 0.75, borderRadius: 2, color: DS.textSec, '&.Mui-selected': { background: DS.accentLight, color: DS.accent } }} />
-                    ))}
-                </Tabs>
-            </Paper>
+            <div className="report-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div style={{ width: 48, height: 48, borderRadius: 12, background: 'linear-gradient(135deg, #667eea, #764ba2)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+                        <ScoreboardOutlined />
+                    </div>
+                    <div>
+                        <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.02em' }}>CEO Pulse Dashboard</h2>
+                        <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>Strategic Command Center — Performance, Blockers & Accountability</p>
+                    </div>
+                </div>
 
-            {/* ═══ CONTENT ═══ */}
-            <Box sx={{ px: { xs: 2, md: 4, lg: 6 }, py: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                    <TextField select size="small" value={month} onChange={e => setMonth(Number(e.target.value))}
+                        sx={{ minWidth: 130, '& .MuiOutlinedInput-root': { borderRadius: 2, background: '#fff', fontWeight: 600, fontSize: '13px' } }}>
+                        {MONTHS.map((m, i) => <MenuItem key={i} value={i + 1}>{m}</MenuItem>)}
+                    </TextField>
+                    <TextField select size="small" value={year} onChange={e => setYear(Number(e.target.value))}
+                        sx={{ minWidth: 100, '& .MuiOutlinedInput-root': { borderRadius: 2, background: '#fff', fontWeight: 600, fontSize: '13px' } }}>
+                        {[2024, 2025, 2026].map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}
+                    </TextField>
+                    <TextField select size="small" value={team || 'ALL'} onChange={e => { const v = e.target.value; setTeam(v === 'ALL' ? '' : v); setDepartment(''); }}
+                        sx={{ minWidth: 160, '& .MuiOutlinedInput-root': { borderRadius: 2, background: '#fff', fontWeight: 600, fontSize: '13px' } }}>
+                        <MenuItem value="ALL">All Teams</MenuItem>
+                        {teams.map(t => <MenuItem key={t._id} value={t.name}>{t.name}</MenuItem>)}
+                    </TextField>
+                    <IconButton onClick={() => navigate('/kpi/admin')} sx={{ background: '#667eea', color: '#fff', borderRadius: 2, width: 40, height: 40, '&:hover': { background: '#764ba2' } }}>
+                        <AdminPanelSettingsOutlined fontSize="small" />
+                    </IconButton>
+                </div>
+
+                <div style={{ width: '100%', marginTop: '8px' }}>
+                    <div className="nucleus-tab-container">
+                        {TAB_CONFIG.map(tab => (
+                            <button key={tab.key} onClick={() => setActiveTab(tab.key)} className={`nucleus-tab-btn ${activeTab === tab.key ? 'active' : ''}`}>
+                                <span>{tab.icon}</span> {tab.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            <div style={{ padding: '0 40px', paddingBottom: '40px' }}>
                 <AnimatePresence mode="wait">
                     <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.25 }}>
 
                         {/* ─────────────────────────────────────────── TAB: OVERVIEW ── */}
                         {activeTab === 'overview' && (
-                            <Stack spacing={4}>
-                                <Grid container spacing={2}>
-                                    <Grid item xs={6} md={4} lg={2}><KpiCard title="Personnel" value={dashboardStats.totalFiltered} subtext={`of ${data.stats.totalUsers} org-wide`} icon={<PersonOutlined />} color={DS.accent} /></Grid>
-                                    <Grid item xs={6} md={4} lg={2}><KpiCard title="Avg Score" value={avgScore} subtext="Mean value score" icon={<ScoreboardOutlined />} color={DS.secondary} /></Grid>
-                                    <Grid item xs={6} md={4} lg={2}><KpiCard title="Business Loss" value={formatCurrency(totalLoss)} subtext={`${reportData.records?.filter(r=>r.businessLoss>0).length || 0} cases`} icon={<AttachMoneyOutlined />} color={DS.danger} /></Grid>
-                                    <Grid item xs={6} md={4} lg={2}><KpiCard title="Blockers" value={totalBlockers} subtext={`${reportData.stats?.blockerDistribution?.length || 0} categories`} icon={<BlockOutlined />} color={DS.warning} /></Grid>
-                                    <Grid item xs={6} md={4} lg={2}><KpiCard title="Submitters" value={`${nonSubmitterData.stats?.submissionRate || 0}%`} subtext={`${nonSubmitterData.stats?.submitted || 0} of ${nonSubmitterData.stats?.total || 0}`} icon={<CheckCircleOutlineOutlined />} color={DS.success} /></Grid>
-                                    <Grid item xs={6} md={4} lg={2}><KpiCard title="Non Submitters" value={nonSubmitterData.stats?.nonSubmitted || 0} subtext="Require follow-up" icon={<HourglassEmptyOutlined />} color="#64748B" onClick={() => setActiveTab('nonsubmitters')} /></Grid>
-                                </Grid>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                                    {[
+                                        { label: 'Personnel', value: dashboardStats.totalFiltered, subtext: `of ${data.stats.totalUsers} org-wide`, color: '#667eea' },
+                                        { label: 'Avg Score', value: avgScore, subtext: 'Mean value score', color: '#3b82f6' },
+                                        { label: 'Business Loss', value: formatCurrency(totalLoss), subtext: `${reportData.records?.filter(r=>r.businessLoss>0).length || 0} cases`, color: '#ef4444' },
+                                        { label: 'Blockers', value: totalBlockers, subtext: `${reportData.stats?.blockerDistribution?.length || 0} categories`, color: '#f59e0b' },
+                                        { label: 'Submitters', value: `${nonSubmitterData.stats?.submissionRate || 0}%`, subtext: `${nonSubmitterData.stats?.submitted || 0} of ${nonSubmitterData.stats?.total || 0}`, color: '#10b981' },
+                                        { label: 'Non Submitters', value: nonSubmitterData.stats?.nonSubmitted || 0, subtext: 'Require follow-up', color: '#64748b' }
+                                    ].map((m, idx) => (
+                                        <div key={idx} className="nucleus-stats-card" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '8px', background: `linear-gradient(135deg, ${m.color}10, transparent)` }}>
+                                            <div style={{ fontSize: '13px', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>{m.label}</div>
+                                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                                                <span style={{ fontSize: '38px', fontWeight: 900, color: '#0f172a' }} className="mono-text">{m.value}</span>
+                                            </div>
+                                            <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>{m.subtext}</div>
+                                        </div>
+                                    ))}
+                                </div>
 
-                                <Grid container spacing={3}>
-                                    <Grid item xs={12} lg={8}>
-                                        <Card sx={{ borderRadius: 3, border: `1px solid ${DS.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                                            <CardContent sx={{ p: 3 }}>
-                                                <SectionHeader title="Team Performance" subtitle="Aggregated KPI metrics per team" />
-                                                <Grid container spacing={2}>
-                                                    {teamStats.slice(0, 4).map(t => (
-                                                        <Grid item xs={12} sm={6} key={t.name}>
-                                                            <Card onClick={() => setTeamDrawer({ open: true, teamData: t })}
-                                                                sx={{ borderRadius: 2.5, border: `1px solid ${DS.border}`, cursor: 'pointer', transition: 'all 0.2s', '&:hover': { borderColor: DS.accent + '60', boxShadow: '0 4px 12px rgba(0,0,0,0.06)' } }}>
-                                                                <CardContent sx={{ p: 2 }}>
-                                                                    <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1.5}>
-                                                                        <Typography sx={{ fontWeight: 800, color: DS.primary, fontSize: '0.95rem' }}>{t.name}</Typography>
-                                                                        <Chip size="small" label={`Avg ${t.avgScore}`} sx={{ fontWeight: 700, background: DS.accentLight, color: DS.accent, fontSize: '0.7rem' }} />
-                                                                    </Stack>
-                                                                    <Stack spacing={0.8}>
-                                                                        {[{k:'stars',l:'Stars',c:QUADRANTS.Star.color,v:t.stars},{k:'engines',l:'Engines',c:QUADRANTS.Engine.color,v:t.engines},{k:'specialists',l:'Specialists',c:QUADRANTS.Specialist.color,v:t.specialists},{k:'drainers',l:'Drainers',c:QUADRANTS.Drainer.color,v:t.drainers}].map(item => (
-                                                                            <Stack key={item.k} direction="row" alignItems="center" spacing={1}>
-                                                                                <StatusDot color={item.c} />
-                                                                                <Typography variant="caption" sx={{ color: DS.textSec, flex: 1 }}>{item.l}</Typography>
-                                                                                <Typography variant="caption" sx={{ fontWeight: 700, color: DS.text }}>{item.v}</Typography>
-                                                                                <LinearProgress variant="determinate" value={t.memberCount ? (item.v/t.memberCount)*100 : 0} sx={{ width: 50, height: 4, borderRadius: 2, backgroundColor: '#F1F5F9', '& .MuiLinearProgress-bar': { backgroundColor: item.c, borderRadius: 2 } }} />
-                                                                            </Stack>
-                                                                        ))}
-                                                                    </Stack>
-                                                                    <Divider sx={{ my: 1.5 }} />
-                                                                    <Stack direction="row" justifyContent="space-between">
-                                                                        <Typography variant="caption" sx={{ color: DS.textMute }}>{t.memberCount} Members</Typography>
-                                                                        {t.totalLoss > 0 && <Typography variant="caption" sx={{ fontWeight: 700, color: DS.danger }}>{formatCurrency(t.totalLoss)}</Typography>}
-                                                                    </Stack>
-                                                                </CardContent>
-                                                            </Card>
-                                                        </Grid>
-                                                    ))}
-                                                </Grid>
-                                            </CardContent>
-                                        </Card>
-                                    </Grid>
-                                    <Grid item xs={12} lg={4}>
-                                        <Stack spacing={2}>
-                                            <Card sx={{ borderRadius: 3, border: `1px solid ${DS.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                                                <CardContent sx={{ p: 3 }}>
-                                                    <SectionHeader title="Rising Stars" subtitle="Top momentum performers" />
-                                                    <Stack spacing={1}>
-                                                        {filteredData.filter(p => (p.current?.quadrant === 'Star') || (p.delta?.qty_change_percent > 20)).sort((a,b) => (b.current?.total_value_score || 0) - (a.current?.total_value_score || 0)).slice(0, 5).map((item, i) => {
-                                                            const q = QUADRANTS[item.current?.quadrant || 'Drainer'];
-                                                            return (
-                                                                <Stack key={i} direction="row" alignItems="center" spacing={1.5} sx={{ p: 1.5, borderRadius: 2, background: q.bg, border: `1px solid ${q.border}`, cursor: 'pointer' }} onClick={() => item.current?.sheetId && setSelectedSheetId(item.current.sheetId)}>
-                                                                    <Avatar sx={{ width: 32, height: 32, fontSize: '0.8rem', fontWeight: 700, background: '#fff', color: q.color, border: `1px solid ${q.border}` }}>{initials(item.user?.first_name, item.user?.last_name)}</Avatar>
-                                                                    <Box sx={{ flex: 1 }}>
-                                                                        <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', color: DS.text }}>{item.user?.first_name} {item.user?.last_name}</Typography>
-                                                                        <Typography sx={{ fontSize: '0.7rem', color: DS.textMute }}>{item.team || item.department}</Typography>
-                                                                    </Box>
-                                                                    <Chip size="small" label={item.current?.total_value_score} sx={{ fontWeight: 800, background: '#fff', border: `1px solid ${DS.border}`, fontSize: '0.72rem' }} />
-                                                                </Stack>
-                                                            );
-                                                        })}
-                                                    </Stack>
-                                                </CardContent>
-                                            </Card>
-                                            <Card sx={{ borderRadius: 3, border: `1px solid ${DS.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                                                <CardContent sx={{ p: 3 }}>
-                                                    <SectionHeader title="Concern Areas" subtitle="Require CEO attention" />
-                                                    <Stack spacing={1}>
-                                                        {filteredData.filter(p => (p.current?.quadrant === 'Drainer') || (p.delta?.qty_change_percent < -15)).slice(0, 5).map((item, i) => {
-                                                            const declining = (item.delta?.qty_change_percent || 0) < -15;
-                                                            return (
-                                                                <Stack key={i} direction="row" alignItems="center" spacing={1.5} sx={{ p: 1.5, borderRadius: 2, background: declining ? DS.dangerBg : '#FAFAFA', border: `1px solid ${declining ? DS.danger+'30' : DS.border}`, cursor: 'pointer' }} onClick={() => item.current?.sheetId && setSelectedSheetId(item.current.sheetId)}>
-                                                                    <Avatar sx={{ width: 32, height: 32, fontSize: '0.8rem', fontWeight: 700, background: '#fff', color: DS.text, border: `1px solid ${DS.border}` }}>{initials(item.user?.first_name, item.user?.last_name)}</Avatar>
-                                                                    <Box sx={{ flex: 1 }}>
-                                                                        <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', color: DS.text }}>{item.user?.first_name} {item.user?.last_name}</Typography>
-                                                                        <Typography sx={{ fontSize: '0.7rem', color: DS.textMute }}>{item.team || item.department}</Typography>
-                                                                    </Box>
-                                                                    {declining && <Chip size="small" icon={<TrendingDownOutlined sx={{fontSize:12}}/>} label={`${item.delta.qty_change_percent}%`} sx={{ fontWeight: 700, background: DS.dangerBg, color: DS.danger, fontSize: '0.68rem' }} />}
-                                                                    <QuadrantBadge quadrant={item.current?.quadrant} />
-                                                                </Stack>
-                                                            );
-                                                        })}
-                                                    </Stack>
-                                                </CardContent>
-                                            </Card>
-                                        </Stack>
-                                    </Grid>
-                                </Grid>
-                            </Stack>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                                    <div className="analytics-graph-card" style={{ gridColumn: '1 / -1' }}>
+                                        <div className="section-header">
+                                            <div>
+                                                <h3>Team Performance</h3>
+                                                <p>Aggregated KPI metrics per team</p>
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                                            {teamStats.slice(0, 4).map(t => (
+                                                <div key={t.name} className="nucleus-stats-card" onClick={() => setTeamDrawer({ open: true, teamData: t })} style={{ padding: '20px', cursor: 'pointer', background: 'rgba(255,255,255,0.6)' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                                        <strong style={{ fontSize: '15px', color: '#0f172a' }}>{t.name}</strong>
+                                                        <span className="status-pill info">Avg {t.avgScore}</span>
+                                                    </div>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                        {[{l:'Stars',c:QUADRANTS.Star.color,v:t.stars},{l:'Engines',c:QUADRANTS.Engine.color,v:t.engines},{l:'Specialists',c:QUADRANTS.Specialist.color,v:t.specialists},{l:'Drainers',c:QUADRANTS.Drainer.color,v:t.drainers}].map(item => (
+                                                            <div key={item.l} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                <div style={{ width: 8, height: 8, borderRadius: '50%', background: item.c }} />
+                                                                <span style={{ flex: 1, fontSize: '12px', color: '#475569' }}>{item.l}</span>
+                                                                <strong style={{ fontSize: '13px' }}>{item.v}</strong>
+                                                                <div style={{ width: 60, height: 4, background: '#f1f5f9', borderRadius: 2, overflow: 'hidden' }}>
+                                                                    <div style={{ width: t.memberCount ? `${(item.v/t.memberCount)*100}%` : '0%', height: '100%', background: item.c }} />
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    <div style={{ borderTop: '1px solid rgba(226,232,240,0.6)', marginTop: '16px', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b' }}>
+                                                        <span>{t.memberCount} Members</span>
+                                                        {t.totalLoss > 0 && <span style={{ color: '#ef4444', fontWeight: 700 }}>{formatCurrency(t.totalLoss)}</span>}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         )}
 
                         {/* ─────────────────────────────────────────── TAB: MATRIX ── */}
                         {activeTab === 'matrix' && (
-                            <Box sx={{ display: 'flex', gap: 3, flexDirection: { xs: 'column', lg: 'row' } }}>
-                                <Paper sx={{ width: { xs: '100%', lg: 320 }, borderRadius: 3, border: `1px solid ${DS.border}`, flexShrink: 0, maxHeight: 'calc(100vh - 200px)', overflow: 'hidden', display: 'flex', flexDirection: 'column', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                                    <Box sx={{ p: 2.5, borderBottom: `1px solid ${DS.border}` }}>
-                                        <Stack direction="row" alignItems="center" spacing={1} mb={2}>
-                                            <GroupsOutlined sx={{ color: DS.accent, fontSize: 20 }} />
-                                            <Typography sx={{ fontWeight: 800, fontSize: '0.95rem', color: DS.primary }}>Personnel</Typography>
-                                        </Stack>
+                            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+                                <div className="nucleus-stats-card" style={{ width: '320px', display: 'flex', flexDirection: 'column', padding: 0, maxHeight: 'calc(100vh - 200px)', overflow: 'hidden' }}>
+                                    <div style={{ padding: '20px', borderBottom: '1px solid rgba(226,232,240,0.6)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', fontWeight: 800, color: '#0f172a' }}>
+                                            👥 Personnel
+                                        </div>
                                         <TextField fullWidth size="small" placeholder="Search members..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                                            InputProps={{ startAdornment: <InputAdornment position="start"><SearchOutlined sx={{ color: DS.textMute, fontSize: 18 }} /></InputAdornment> }}
-                                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, background: DS.bg, fontSize: '0.82rem' } }} />
-                                    </Box>
-                                    <Box sx={{ flex: 1, overflowY: 'auto', p: 1.5 }}>
+                                            InputProps={{ startAdornment: <InputAdornment position="start"><SearchOutlined sx={{ color: '#94a3b8', fontSize: 18 }} /></InputAdornment> }}
+                                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, background: '#f8fafc', fontSize: '13px' } }} />
+                                    </div>
+                                    <div style={{ flex: 1, overflowY: 'auto', padding: '12px' }}>
                                         {filteredData.length > 0 ? filteredData.map((item, i) => {
                                             const q = QUADRANTS[item.current?.quadrant || 'Drainer'];
                                             const isActive = selectedSheetId === item.current?.sheetId;
                                             return (
-                                                <Box key={i} onClick={() => item.current?.sheetId && setSelectedSheetId(item.current.sheetId)}
-                                                    sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1.5, borderRadius: 2, cursor: 'pointer', background: isActive ? DS.accentLight : 'transparent', border: '1px solid', borderColor: isActive ? DS.accent+'30' : 'transparent', mb: 0.5, transition: 'all 0.15s', '&:hover': { background: DS.bg } }}>
-                                                    <Avatar sx={{ width: 34, height: 34, fontSize: '0.78rem', fontWeight: 700, background: q.bg, color: q.color, border: `1px solid ${q.border}` }}>
+                                                <div key={i} onClick={() => item.current?.sheetId && setSelectedSheetId(item.current.sheetId)}
+                                                    style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', borderRadius: '12px', cursor: 'pointer', background: isActive ? 'rgba(102,126,234,0.1)' : 'transparent', marginBottom: '4px', transition: 'all 0.2s' }}>
+                                                    <Avatar sx={{ width: 34, height: 34, fontSize: '12px', fontWeight: 700, background: q.bg, color: q.color, border: `1px solid ${q.border}` }}>
                                                         {initials(item.user?.first_name, item.user?.last_name)}
                                                     </Avatar>
-                                                    <Box sx={{ flex: 1, overflow: 'hidden' }}>
-                                                        <Typography noWrap sx={{ fontWeight: 600, fontSize: '0.82rem', color: DS.text }}>{item.user?.first_name} {item.user?.last_name}</Typography>
-                                                        <Typography noWrap sx={{ fontSize: '0.72rem', color: DS.textMute }}><span style={{ color: q.color, fontWeight: 600 }}>{q.label}</span> • {item.team || item.department}</Typography>
-                                                    </Box>
-                                                    <Chip size="small" label={item.current?.total_value_score || 0} sx={{ fontWeight: 800, fontSize: '0.72rem', background: '#fff', border: `1px solid ${DS.border}` }} />
-                                                </Box>
+                                                    <div style={{ flex: 1, overflow: 'hidden' }}>
+                                                        <div style={{ fontWeight: 600, fontSize: '13px', color: '#0f172a', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{item.user?.first_name} {item.user?.last_name}</div>
+                                                        <div style={{ fontSize: '11px', color: '#64748b' }}><strong style={{ color: q.color }}>{q.label}</strong> • {item.team || item.department}</div>
+                                                    </div>
+                                                    <span className="status-pill neutral">{item.current?.total_value_score || 0}</span>
+                                                </div>
                                             );
-                                        }) : (
-                                            <Box sx={{ p: 4, textAlign: 'center', color: DS.textMute }}><Typography variant="body2">No members found.</Typography></Box>
-                                        )}
-                                    </Box>
-                                </Paper>
+                                        }) : <div style={{ padding: '20px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>No members found.</div>}
+                                    </div>
+                                </div>
 
-                                <Box sx={{ flex: 1, minWidth: 0 }}>
-                                    <Grid container spacing={3}>
-                                        <Grid item xs={12} xl={8}>
-                                            <Card sx={{ borderRadius: 3, border: `1px solid ${DS.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                                                <CardContent sx={{ p: 3 }}>
-                                                    <SectionHeader title="Performance Matrix" subtitle="Volume vs Complexity quadrant analysis" />
-                                                    <Box sx={{ height: 420 }}>
-                                                        {loading ? (
-                                                            <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 2 }}>
-                                                                <Box sx={{ width: 28, height: 28, border: '3px solid #E2E8F0', borderTopColor: DS.accent, borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-                                                                <Typography variant="body2" sx={{ color: DS.textMute, fontWeight: 600 }}>Syncing Analytics...</Typography>
-                                                            </Box>
-                                                        ) : (
-                                                            <ResponsiveContainer width="100%" height="100%">
-                                                                <ScatterChart margin={{ top: 10, right: 20, bottom: 10, left: -10 }}>
-                                                                    <CartesianGrid strokeDasharray="4 4" stroke="#F1F5F9" />
-                                                                    <XAxis type="number" dataKey="x" name="Volume" domain={[0, 'dataMax + 20']} tick={{ fontSize: 11, fill: DS.textMute }} axisLine={{ stroke: DS.border }} tickLine={{ stroke: DS.border }} />
-                                                                    <YAxis type="number" dataKey="y" name="Complexity" domain={[0, 5.5]} tick={{ fontSize: 11, fill: DS.textMute }} axisLine={{ stroke: DS.border }} tickLine={{ stroke: DS.border }} />
-                                                                    <ZAxis type="number" dataKey="z" range={[80, 600]} />
-                                                                    <ReTooltip content={<CustomScatterTooltip />} cursor={{ strokeDasharray: '3 3', stroke: '#94A3B8' }} />
-                                                                    <ReferenceLine x={100} stroke="#CBD5E1" strokeDasharray="4 4" strokeWidth={1.5} />
-                                                                    <ReferenceLine y={3.0} stroke="#CBD5E1" strokeDasharray="4 4" strokeWidth={1.5} />
-                                                                    <Scatter name="Teams" data={scatterData}>
-                                                                        {scatterData.map((entry, index) => (
-                                                                            <Cell key={`cell-${index}`} fill={entry.color} opacity={0.9} stroke="#FFFFFF" strokeWidth={2} />
-                                                                        ))}
-                                                                    </Scatter>
-                                                                </ScatterChart>
-                                                            </ResponsiveContainer>
-                                                        )}
-                                                    </Box>
-                                                </CardContent>
-                                            </Card>
-                                        </Grid>
-                                        <Grid item xs={12} xl={4}>
-                                            <Card sx={{ borderRadius: 3, border: `1px solid ${DS.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.04)', height: '100%' }}>
-                                                <CardContent sx={{ p: 3 }}>
-                                                    <SectionHeader title="Distribution" subtitle="Quadrant breakdown" />
-                                                    <Stack spacing={2}>
-                                                        {Object.entries(QUADRANTS).map(([key, q]) => {
-                                                            const count = dashboardStats[key.toLowerCase() + 's'] || 0;
-                                                            const pct = dashboardStats.totalFiltered > 0 ? Math.round((count / dashboardStats.totalFiltered) * 100) : 0;
-                                                            return (
-                                                                <Box key={key} sx={{ p: 2, borderRadius: 2, background: q.bg, border: `1px solid ${q.border}` }}>
-                                                                    <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
-                                                                        <Stack direction="row" alignItems="center" spacing={1}>
-                                                                            <Typography sx={{ fontSize: '0.85rem' }}>{q.emoji}</Typography>
-                                                                            <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', color: DS.text }}>{q.label}</Typography>
-                                                                        </Stack>
-                                                                        <Typography sx={{ fontSize: '1.15rem', fontWeight: 800, color: q.color }}>{count}</Typography>
-                                                                    </Stack>
-                                                                    <LinearProgress variant="determinate" value={pct} sx={{ height: 6, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.5)', '& .MuiLinearProgress-bar': { backgroundColor: q.color, borderRadius: 3 } }} />
-                                                                    <Typography sx={{ mt: 0.5, fontSize: '0.65rem', fontWeight: 700, color: DS.textMute, textAlign: 'right', textTransform: 'uppercase' }}>{pct}% of view</Typography>
-                                                                </Box>
-                                                            );
-                                                        })}
-                                                    </Stack>
-                                                </CardContent>
-                                            </Card>
-                                        </Grid>
-                                        <Grid item xs={12}>
-                                            <Card sx={{ borderRadius: 3, border: `1px solid ${DS.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                                                <CardContent sx={{ p: 3 }}>
-                                                    <SectionHeader title="Personnel Trajectories" subtitle="Month-over-month movement & delta insights" />
-                                                    <Grid container spacing={2}>
-                                                        {filteredData.slice(0, 8).map((item, i) => {
-                                                            const insight = item.delta?.insight || 'Stable Performance';
-                                                            const q = QUADRANTS[item.current?.quadrant || 'Drainer'];
-                                                            return (
-                                                                <Grid item xs={12} sm={6} md={4} lg={3} key={i}>
-                                                                    <Card onClick={() => item.current?.sheetId && setSelectedSheetId(item.current.sheetId)}
-                                                                        sx={{ borderRadius: 2.5, border: `1px solid ${DS.border}`, background: '#FAFAFA', cursor: 'pointer', transition: 'all 0.2s', '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 6px 16px rgba(0,0,0,0.06)', borderColor: '#CBD5E1' } }}>
-                                                                        <CardContent sx={{ p: 2 }}>
-                                                                            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1}>
-                                                                                <Box>
-                                                                                    <Typography sx={{ fontWeight: 700, fontSize: '0.82rem', color: DS.text }}>{item.user?.first_name} {item.user?.last_name}</Typography>
-                                                                                    <Typography sx={{ fontSize: '0.7rem', color: DS.textMute }}>{item.team || item.department}</Typography>
-                                                                                </Box>
-                                                                                <QuadrantBadge quadrant={item.current?.quadrant} />
-                                                                            </Stack>
-                                                                            <Box sx={{ fontSize: '0.75rem', fontWeight: 500, color: DS.textSec, background: '#F1F5F9', p: 1, borderRadius: 1.5, mb: 1.5, lineHeight: 1.3 }}>{insight}</Box>
-                                                                            <Stack direction="row" spacing={2}>
-                                                                                <Box sx={{ flex: 1 }}>
-                                                                                    <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: DS.textMute, textTransform: 'uppercase' }}>Score</Typography>
-                                                                                    <Typography sx={{ fontSize: '0.95rem', fontWeight: 800, color: DS.text }}>{item.current?.total_value_score}</Typography>
-                                                                                </Box>
-                                                                                <Box sx={{ flex: 1 }}>
-                                                                                    <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: DS.textMute, textTransform: 'uppercase' }}>Qty Δ</Typography>
-                                                                                    <Typography sx={{ fontSize: '0.95rem', fontWeight: 800, color: (item.delta?.qty_change_percent || 0) > 0 ? DS.success : (item.delta?.qty_change_percent || 0) < 0 ? DS.danger : DS.textMute }}>
-                                                                                        {(item.delta?.qty_change_percent || 0) > 0 ? '+' : ''}{item.delta?.qty_change_percent}%
-                                                                                    </Typography>
-                                                                                </Box>
-                                                                            </Stack>
-                                                                        </CardContent>
-                                                                    </Card>
-                                                                </Grid>
-                                                            );
-                                                        })}
-                                                    </Grid>
-                                                </CardContent>
-                                            </Card>
-                                        </Grid>
-                                    </Grid>
-                                </Box>
-                            </Box>
+                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '24px', minWidth: '400px' }}>
+                                    <div className="analytics-graph-card" style={{ padding: '24px' }}>
+                                        <div className="section-header">
+                                            <div>
+                                                <h3>Performance Matrix</h3>
+                                                <p>Volume vs Complexity quadrant analysis</p>
+                                            </div>
+                                        </div>
+                                        <div style={{ height: 420 }}>
+                                            {loading ? (
+                                                <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '16px' }}>
+                                                    <div className="nucleus-loader"></div>
+                                                    <div style={{ color: '#64748b', fontWeight: 600 }}>Syncing Analytics...</div>
+                                                </div>
+                                            ) : (
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <ScatterChart margin={{ top: 10, right: 20, bottom: 10, left: -10 }}>
+                                                        <CartesianGrid strokeDasharray="4 4" stroke="#f1f5f9" />
+                                                        <XAxis type="number" dataKey="x" name="Volume" domain={[0, 'dataMax + 20']} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={{ stroke: '#e2e8f0' }} tickLine={false} />
+                                                        <YAxis type="number" dataKey="y" name="Complexity" domain={[0, 5.5]} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={{ stroke: '#e2e8f0' }} tickLine={false} />
+                                                        <ZAxis type="number" dataKey="z" range={[80, 600]} />
+                                                        <ReTooltip content={<CustomScatterTooltip />} cursor={{ strokeDasharray: '3 3', stroke: '#cbd5e1' }} />
+                                                        <ReferenceLine x={100} stroke="#94a3b8" strokeDasharray="4 4" strokeWidth={1.5} />
+                                                        <ReferenceLine y={3.0} stroke="#94a3b8" strokeDasharray="4 4" strokeWidth={1.5} />
+                                                        <Scatter name="Teams" data={scatterData}>
+                                                            {scatterData.map((entry, index) => (
+                                                                <Cell key={`cell-${index}`} fill={entry.color} opacity={0.9} stroke="#ffffff" strokeWidth={2} />
+                                                            ))}
+                                                        </Scatter>
+                                                    </ScatterChart>
+                                                </ResponsiveContainer>
+                                            )}
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="analytics-graph-card" style={{ padding: '24px' }}>
+                                        <div className="section-header">
+                                            <div>
+                                                <h3>Distribution</h3>
+                                                <p>Quadrant breakdown</p>
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                                            {Object.entries(QUADRANTS).map(([key, q]) => {
+                                                const count = dashboardStats[key.toLowerCase() + 's'] || 0;
+                                                const pct = dashboardStats.totalFiltered > 0 ? Math.round((count / dashboardStats.totalFiltered) * 100) : 0;
+                                                return (
+                                                    <div key={key} style={{ padding: '16px', borderRadius: '12px', background: q.bg, border: `1px solid ${q.border}` }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                                <span style={{ fontSize: '14px' }}>{q.emoji}</span>
+                                                                <strong style={{ fontSize: '13px', color: '#0f172a' }}>{q.label}</strong>
+                                                            </div>
+                                                            <strong style={{ fontSize: '20px', color: q.color }}>{count}</strong>
+                                                        </div>
+                                                        <div style={{ height: 6, background: 'rgba(255,255,255,0.6)', borderRadius: 3, overflow: 'hidden' }}>
+                                                            <div style={{ width: `${pct}%`, height: '100%', background: q.color }} />
+                                                        </div>
+                                                        <div style={{ marginTop: '8px', fontSize: '10px', fontWeight: 700, color: '#64748b', textAlign: 'right', textTransform: 'uppercase' }}>{pct}% of view</div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         )}
 
                         {/* ─────────────────────────────────────────── TAB: TEAMS ── */}
                         {activeTab === 'teams' && (
-                            <Stack spacing={4}>
-                                <Grid container spacing={2}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
                                     {teamStats.map(t => (
-                                        <Grid item xs={12} md={6} lg={4} key={t.name}>
-                                            <Card onClick={() => setTeamDrawer({ open: true, teamData: t })}
-                                                sx={{ borderRadius: 3, border: `1px solid ${DS.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.04)', cursor: 'pointer', transition: 'all 0.25s', '&:hover': { transform: 'translateY(-3px)', boxShadow: '0 12px 28px rgba(0,0,0,0.08)', borderColor: DS.accent+'50' } }}>
-                                                <CardContent sx={{ p: 3 }}>
-                                                    <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-                                                        <Typography variant="h6" sx={{ fontWeight: 800, color: DS.primary, fontSize: '1rem' }}>{t.name}</Typography>
-                                                        <Chip label={`Avg ${t.avgScore}`} sx={{ fontWeight: 700, background: DS.accentLight, color: DS.accent, fontSize: '0.72rem' }} />
-                                                    </Stack>
-                                                    <Grid container spacing={1.5} mb={2}>
-                                                        {[{k:'stars',l:'Stars',c:QUADRANTS.Star.color,v:t.stars},{k:'engines',l:'Engines',c:QUADRANTS.Engine.color,v:t.engines},{k:'specialists',l:'Specialists',c:QUADRANTS.Specialist.color,v:t.specialists},{k:'drainers',l:'Drainers',c:QUADRANTS.Drainer.color,v:t.drainers}].map(item => (
-                                                            <Grid item xs={3} key={item.k}>
-                                                                <Box sx={{ textAlign: 'center', p: 1, borderRadius: 2, background: item.c+'10', border: '1px solid ' + item.c + '20' }}>
-                                                                    <Typography sx={{ fontWeight: 800, color: item.c, fontSize: '1rem' }}>{item.v}</Typography>
-                                                                    <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, color: DS.textMute, textTransform: 'uppercase' }}>{item.l}</Typography>
-                                                                </Box>
-                                                            </Grid>
-                                                        ))}
-                                                    </Grid>
-                                                    <Stack spacing={0.8}>
-                                                        <Stack direction="row" justifyContent="space-between"><Typography variant="caption" sx={{ color: DS.textMute }}>Members</Typography><Typography variant="caption" sx={{ fontWeight: 700, color: DS.text }}>{t.memberCount}</Typography></Stack>
-                                                        <Stack direction="row" justifyContent="space-between"><Typography variant="caption" sx={{ color: DS.textMute }}>Submission Rate</Typography><Typography variant="caption" sx={{ fontWeight: 700, color: t.submissionRate >= 90 ? DS.success : t.submissionRate >= 70 ? DS.warning : DS.danger }}>{t.submissionRate}%</Typography></Stack>
-                                                        {t.totalLoss > 0 && <Stack direction="row" justifyContent="space-between"><Typography variant="caption" sx={{ color: DS.textMute }}>Business Loss</Typography><Typography variant="caption" sx={{ fontWeight: 700, color: DS.danger }}>{formatCurrency(t.totalLoss)}</Typography></Stack>}
-                                                        {t.totalBlockers > 0 && <Stack direction="row" justifyContent="space-between"><Typography variant="caption" sx={{ color: DS.textMute }}>Blockers</Typography><Typography variant="caption" sx={{ fontWeight: 700, color: DS.warning }}>{t.totalBlockers}</Typography></Stack>}
-                                                        {t.nonSubmitters > 0 && <Stack direction="row" justifyContent="space-between"><Typography variant="caption" sx={{ color: DS.textMute }}>Non Submitters</Typography><Typography variant="caption" sx={{ fontWeight: 700, color: DS.danger }}>{t.nonSubmitters}</Typography></Stack>}
-                                                    </Stack>
-                                                    <Box sx={{ mt: 2, pt: 1.5, borderTop: `1px solid ${DS.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 0.5, color: DS.accent, fontSize: '0.78rem', fontWeight: 700 }}>
-                                                        View Team Members <ChevronRightOutlined sx={{ fontSize: 16 }} />
-                                                    </Box>
-                                                </CardContent>
-                                            </Card>
-                                        </Grid>
+                                        <div key={t.name} className="nucleus-stats-card" onClick={() => setTeamDrawer({ open: true, teamData: t })} style={{ padding: '24px', cursor: 'pointer' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>{t.name}</h3>
+                                                <span className="status-pill info">Avg {t.avgScore}</span>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '12px', marginBottom: '20px' }}>
+                                                {[{l:'Stars',c:QUADRANTS.Star.color,v:t.stars},{l:'Engines',c:QUADRANTS.Engine.color,v:t.engines},{l:'Specialists',c:QUADRANTS.Specialist.color,v:t.specialists},{l:'Drainers',c:QUADRANTS.Drainer.color,v:t.drainers}].map(item => (
+                                                    <div key={item.l} style={{ textAlign: 'center', padding: '8px', borderRadius: '8px', background: `${item.c}10`, border: `1px solid ${item.c}30` }}>
+                                                        <div style={{ fontSize: '16px', fontWeight: 800, color: item.c }}>{item.v}</div>
+                                                        <div style={{ fontSize: '10px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', marginTop: '4px' }}>{item.l}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '13px' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#64748b' }}>Members</span><strong style={{ color: '#0f172a' }}>{t.memberCount}</strong></div>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#64748b' }}>Submission Rate</span><strong style={{ color: t.submissionRate >= 90 ? '#10b981' : t.submissionRate >= 70 ? '#f59e0b' : '#ef4444' }}>{t.submissionRate}%</strong></div>
+                                                {t.totalLoss > 0 && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#64748b' }}>Business Loss</span><strong style={{ color: '#ef4444' }}>{formatCurrency(t.totalLoss)}</strong></div>}
+                                                {t.totalBlockers > 0 && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span style={{ color: '#64748b' }}>Blockers</span><strong style={{ color: '#f59e0b' }}>{t.totalBlockers}</strong></div>}
+                                            </div>
+                                        </div>
                                     ))}
-                                    {teamStats.length === 0 && (
-                                        <Grid item xs={12}>
-                                            <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 3, color: DS.textMute }}>No team analytics available for this period.</Paper>
-                                        </Grid>
-                                    )}
-                                </Grid>
+                                </div>
 
                                 {teamStats.length > 0 && (
-                                    <Card sx={{ borderRadius: 3, border: `1px solid ${DS.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                                        <CardContent sx={{ p: 3 }}>
-                                            <SectionHeader title="Team Comparison" subtitle="Side-by-side performance metrics" />
-                                            <TableContainer>
-                                                <Table size="small">
-                                                    <TableHead>
-                                                        <TableRow sx={{ '& th': { fontWeight: 700, color: DS.textMute, textTransform: 'uppercase', fontSize: '0.65rem', letterSpacing: 1, borderBottom: '2px solid ' + DS.border, py: 1.5 } }}>
-                                                            <TableCell>Team</TableCell>
-                                                            <TableCell align="center">Members</TableCell>
-                                                            <TableCell align="center">Avg Score</TableCell>
-                                                            <TableCell align="center">Stars</TableCell>
-                                                            <TableCell align="center">Engines</TableCell>
-                                                            <TableCell align="center">Specialists</TableCell>
-                                                            <TableCell align="center">Drainers</TableCell>
-                                                            <TableCell align="center">Submit Rate</TableCell>
-                                                            <TableCell align="right">Loss</TableCell>
-                                                            <TableCell align="right">Blockers</TableCell>
-                                                        </TableRow>
-                                                    </TableHead>
-                                                    <TableBody>
-                                                        {teamStats.map((t, i) => (
-                                                            <TableRow key={i} onClick={() => setTeamDrawer({ open: true, teamData: t })} sx={{ '& td': { py: 1.5, borderBottom: '1px solid rgba(226,232,240,0.4)', cursor: 'pointer' }, '&:hover': { background: DS.accentLight } }}>
-                                                                <TableCell><Typography sx={{ fontWeight: 700, color: DS.primary, fontSize: '0.82rem' }}>{t.name}</Typography></TableCell>
-                                                                <TableCell align="center">{t.memberCount}</TableCell>
-                                                                <TableCell align="center"><Chip size="small" label={t.avgScore} sx={{ fontWeight: 800, background: DS.accentLight, color: DS.accent }} /></TableCell>
-                                                                <TableCell align="center" sx={{ color: QUADRANTS.Star.color, fontWeight: 700 }}>{t.stars}</TableCell>
-                                                                <TableCell align="center" sx={{ color: QUADRANTS.Engine.color, fontWeight: 700 }}>{t.engines}</TableCell>
-                                                                <TableCell align="center" sx={{ color: QUADRANTS.Specialist.color, fontWeight: 700 }}>{t.specialists}</TableCell>
-                                                                <TableCell align="center" sx={{ color: QUADRANTS.Drainer.color, fontWeight: 700 }}>{t.drainers}</TableCell>
-                                                                <TableCell align="center" sx={{ color: t.submissionRate >= 90 ? DS.success : t.submissionRate >= 70 ? DS.warning : DS.danger, fontWeight: 700 }}>{t.submissionRate}%</TableCell>
-                                                                <TableCell align="right" sx={{ color: t.totalLoss > 0 ? DS.danger : DS.textMute, fontWeight: 700 }}>{formatCurrency(t.totalLoss)}</TableCell>
-                                                                <TableCell align="right" sx={{ color: t.totalBlockers > 0 ? DS.warning : DS.textMute, fontWeight: 700 }}>{t.totalBlockers}</TableCell>
-                                                            </TableRow>
-                                                        ))}
-                                                    </TableBody>
-                                                </Table>
-                                            </TableContainer>
-                                        </CardContent>
-                                    </Card>
+                                    <div className="nucleus-table-wrapper">
+                                        <div style={{ padding: '24px' }}>
+                                            <div className="section-header">
+                                                <div>
+                                                    <h3>Team Comparison</h3>
+                                                    <p>Side-by-side performance metrics</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <table className="nucleus-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Team</th>
+                                                    <th style={{ textAlign: 'center' }}>Members</th>
+                                                    <th style={{ textAlign: 'center' }}>Avg Score</th>
+                                                    <th style={{ textAlign: 'center' }}>Stars</th>
+                                                    <th style={{ textAlign: 'center' }}>Engines</th>
+                                                    <th style={{ textAlign: 'center' }}>Specialists</th>
+                                                    <th style={{ textAlign: 'center' }}>Drainers</th>
+                                                    <th style={{ textAlign: 'center' }}>Submit Rate</th>
+                                                    <th style={{ textAlign: 'right' }}>Loss</th>
+                                                    <th style={{ textAlign: 'right' }}>Blockers</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {teamStats.map((t, i) => (
+                                                    <tr key={i} onClick={() => setTeamDrawer({ open: true, teamData: t })} style={{ cursor: 'pointer' }}>
+                                                        <td style={{ fontWeight: 700, color: '#3b82f6' }}>{t.name}</td>
+                                                        <td style={{ textAlign: 'center' }}>{t.memberCount}</td>
+                                                        <td style={{ textAlign: 'center' }}><span className="status-pill info">{t.avgScore}</span></td>
+                                                        <td style={{ textAlign: 'center', color: QUADRANTS.Star.color }}>{t.stars}</td>
+                                                        <td style={{ textAlign: 'center', color: QUADRANTS.Engine.color }}>{t.engines}</td>
+                                                        <td style={{ textAlign: 'center', color: QUADRANTS.Specialist.color }}>{t.specialists}</td>
+                                                        <td style={{ textAlign: 'center', color: QUADRANTS.Drainer.color }}>{t.drainers}</td>
+                                                        <td style={{ textAlign: 'center', color: t.submissionRate >= 90 ? '#10b981' : t.submissionRate >= 70 ? '#f59e0b' : '#ef4444' }}>{t.submissionRate}%</td>
+                                                        <td style={{ textAlign: 'right', color: t.totalLoss > 0 ? '#ef4444' : '#94a3b8' }}>{formatCurrency(t.totalLoss)}</td>
+                                                        <td style={{ textAlign: 'right', color: t.totalBlockers > 0 ? '#f59e0b' : '#94a3b8' }}>{t.totalBlockers}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 )}
-                            </Stack>
+                            </div>
                         )}
 
                         {/* ─────────────────────────────────────────── TAB: BLOCKERS ── */}
                         {activeTab === 'blockers' && (
-                            <Stack spacing={4}>
-                                <Card sx={{ borderRadius: 3, border: '1px solid ' + DS.warning + '30', background: 'linear-gradient(135deg, ' + DS.warningBg + ' 0%, #FFF7ED 100%)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                                    <CardContent sx={{ p: 3 }}>
-                                        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems="center" spacing={3}>
-                                            <Stack direction="row" alignItems="center" spacing={2}>
-                                                <Box sx={{ width: 56, height: 56, borderRadius: 3, background: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: DS.warning }}>
-                                                    <BlockOutlined sx={{ fontSize: 28 }} />
-                                                </Box>
-                                                <Box>
-                                                    <Typography variant="caption" sx={{ fontWeight: 700, color: '#B45309', textTransform: 'uppercase', letterSpacing: 1 }}>Total Blockers Reported</Typography>
-                                                    <Typography variant="h3" sx={{ fontWeight: 800, color: DS.warning, letterSpacing: '-0.02em' }}>{totalBlockers}</Typography>
-                                                </Box>
-                                            </Stack>
-                                            <Stack direction="row" spacing={4}>
-                                                <Box sx={{ textAlign: 'center' }}><Typography variant="h5" sx={{ fontWeight: 800, color: DS.text }}>{reportData.stats?.blockerDistribution?.length || 0}</Typography><Typography variant="caption" sx={{ color: DS.textMute, fontWeight: 600 }}>Categories</Typography></Box>
-                                                <Box sx={{ textAlign: 'center' }}><Typography variant="h5" sx={{ fontWeight: 800, color: DS.text }}>{reportData.records?.filter(r => r.blocker).length || 0}</Typography><Typography variant="caption" sx={{ color: DS.textMute, fontWeight: 600 }}>Personnel Affected</Typography></Box>
-                                                <Box sx={{ textAlign: 'center' }}><Typography variant="h5" sx={{ fontWeight: 800, color: DS.text }}>{reportData.records?.length || 0}</Typography><Typography variant="caption" sx={{ color: DS.textMute, fontWeight: 600 }}>Total Cases</Typography></Box>
-                                            </Stack>
-                                        </Stack>
-                                    </CardContent>
-                                </Card>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                <div className="nucleus-stats-card" style={{ padding: '24px', background: 'linear-gradient(135deg, #fffbeb 0%, #fff7ed 100%)', border: '1px solid rgba(245, 158, 11, 0.3)' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '24px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                            <div style={{ width: 56, height: 56, borderRadius: '12px', background: '#fef3c7', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#d97706' }}>
+                                                <BlockOutlined style={{ fontSize: 28 }} />
+                                            </div>
+                                            <div>
+                                                <div style={{ fontSize: '11px', fontWeight: 700, color: '#b45309', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Blockers Reported</div>
+                                                <div style={{ fontSize: '32px', fontWeight: 800, color: '#d97706', lineHeight: 1 }}>{totalBlockers}</div>
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '32px' }}>
+                                            <div style={{ textAlign: 'center' }}><div style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a' }}>{reportData.stats?.blockerDistribution?.length || 0}</div><div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>Categories</div></div>
+                                            <div style={{ textAlign: 'center' }}><div style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a' }}>{reportData.records?.filter(r => r.blocker).length || 0}</div><div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>Personnel Affected</div></div>
+                                            <div style={{ textAlign: 'center' }}><div style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a' }}>{reportData.records?.length || 0}</div><div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>Total Cases</div></div>
+                                        </div>
+                                    </div>
+                                </div>
 
-                                <Grid container spacing={3}>
-                                    <Grid item xs={12} lg={6}>
-                                        <Card sx={{ borderRadius: 3, border: `1px solid ${DS.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                                            <CardContent sx={{ p: 3 }}>
-                                                <SectionHeader title="Blocker Distribution" subtitle="By category frequency" />
-                                                <Box sx={{ height: 320 }}>
-                                                    {blockerChartData.length > 0 ? (
-                                                        <ResponsiveContainer width="100%" height="100%">
-                                                            <BarChart data={blockerChartData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
-                                                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#F1F5F9" />
-                                                                <XAxis type="number" tick={{ fontSize: 11, fill: DS.textMute }} axisLine={{ stroke: DS.border }} />
-                                                                <YAxis dataKey="name" type="category" tick={{ fontSize: 11, fill: DS.textMute }} width={120} axisLine={{ stroke: DS.border }} />
-                                                                <ReTooltip contentStyle={{ borderRadius: 12, border: `1px solid ${DS.border}`, fontSize: '0.8rem' }} />
-                                                                <Bar dataKey="count" fill={DS.warning} radius={[0, 6, 6, 0]} barSize={24} />
-                                                            </BarChart>
-                                                        </ResponsiveContainer>
-                                                    ) : (
-                                                        <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: DS.textMute }}><Typography>No blocker data.</Typography></Box>
-                                                    )}
-                                                </Box>
-                                            </CardContent>
-                                        </Card>
-                                    </Grid>
-                                    <Grid item xs={12} lg={6}>
-                                        <Card sx={{ borderRadius: 3, border: `1px solid ${DS.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                                            <CardContent sx={{ p: 3 }}>
-                                                <SectionHeader title="Highest Registered Blockers" subtitle="Ranked by report volume" />
-                                                <Stack spacing={1.5}>
-                                                    {(reportData.stats?.blockerDistribution || []).slice(0, 6).map((stat, i) => (
-                                                        <Box key={i} sx={{ p: 2, borderRadius: 2, background: i === 0 ? '#FFF8EB' : DS.bg, border: `1px solid ${i === 0 ? '#FDE4A8' : DS.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                            <Box>
-                                                                <Typography variant="caption" sx={{ fontWeight: 700, color: i === 0 ? '#B45309' : DS.textMute, textTransform: 'uppercase' }}>{i === 0 ? '🔥 Top Blocker' : `Rank #${i + 1}`}</Typography>
-                                                                <Typography variant="body2" sx={{ fontWeight: 800, color: DS.text, mt: 0.3 }}>{stat.category}</Typography>
-                                                            </Box>
-                                                            <Chip label={`${stat.count} Reports`} sx={{ fontWeight: 700, background: i === 0 ? '#FFF0C4' : '#F1F5F9', color: i === 0 ? '#B45309' : DS.textSec }} />
-                                                        </Box>
-                                                    ))}
-                                                    {(reportData.stats?.blockerDistribution || []).length === 0 && (
-                                                        <Box sx={{ p: 4, textAlign: 'center', color: DS.textMute }}><BlockOutlined sx={{ fontSize: 40, mb: 1, opacity: 0.4 }} /><Typography variant="body2">No blockers registered.</Typography></Box>
-                                                    )}
-                                                </Stack>
-                                            </CardContent>
-                                        </Card>
-                                    </Grid>
-                                </Grid>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                                    <div className="analytics-graph-card">
+                                        <div className="section-header">
+                                            <div>
+                                                <h3>Blocker Distribution</h3>
+                                                <p>By category frequency</p>
+                                            </div>
+                                        </div>
+                                        <div style={{ height: 320 }}>
+                                            {blockerChartData.length > 0 ? (
+                                                <ResponsiveContainer width="100%" height="100%">
+                                                    <BarChart data={blockerChartData} layout="vertical" margin={{ top: 5, right: 30, left: 40, bottom: 5 }}>
+                                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                                                        <XAxis type="number" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={{ stroke: '#e2e8f0' }} tickLine={false} />
+                                                        <YAxis dataKey="name" type="category" tick={{ fontSize: 11, fill: '#94a3b8' }} width={120} axisLine={{ stroke: '#e2e8f0' }} tickLine={false} />
+                                                        <ReTooltip contentStyle={{ borderRadius: 12, border: '1px solid #e2e8f0', fontSize: '13px' }} cursor={{ fill: '#f8fafc' }} />
+                                                        <Bar dataKey="count" fill="#f59e0b" radius={[0, 6, 6, 0]} barSize={24} />
+                                                    </BarChart>
+                                                </ResponsiveContainer>
+                                            ) : <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>No blocker data.</div>}
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="analytics-graph-card">
+                                        <div className="section-header">
+                                            <div>
+                                                <h3>Highest Registered Blockers</h3>
+                                                <p>Ranked by report volume</p>
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                            {(reportData.stats?.blockerDistribution || []).slice(0, 6).map((stat, i) => (
+                                                <div key={i} style={{ padding: '16px', borderRadius: '12px', background: i === 0 ? '#fffbeb' : '#f8fafc', border: `1px solid ${i === 0 ? '#fde68a' : '#e2e8f0'}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                    <div>
+                                                        <div style={{ fontSize: '11px', fontWeight: 700, color: i === 0 ? '#b45309' : '#94a3b8', textTransform: 'uppercase' }}>{i === 0 ? '🔥 Top Blocker' : `Rank #${i + 1}`}</div>
+                                                        <div style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a', marginTop: '4px' }}>{stat.category}</div>
+                                                    </div>
+                                                    <span className={`status-pill ${i === 0 ? 'warning' : 'neutral'}`}>{stat.count} Reports</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
 
-                                <Card sx={{ borderRadius: 3, border: `1px solid ${DS.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                                    <CardContent sx={{ p: 3 }}>
-                                        <SectionHeader title="Blocker Detail Register" subtitle="Individual blocker case breakdown" />
-                                        <TableContainer>
-                                            <Table size="small">
-                                                <TableHead>
-                                                    <TableRow sx={{ '& th': { fontWeight: 700, color: DS.textMute, textTransform: 'uppercase', fontSize: '0.65rem', letterSpacing: 1, borderBottom: `2px solid ${DS.border}` } }}>
-                                                        <TableCell>Personnel</TableCell><TableCell>Team</TableCell><TableCell>Blocker Details</TableCell><TableCell>Category</TableCell>
-                                                    </TableRow>
-                                                </TableHead>
-                                                <TableBody>
-                                                    {reportData.records?.filter(r => r.blocker).length > 0 ? reportData.records.filter(r => r.blocker).map((rec, i) => (
-                                                        <TableRow key={i} sx={{ '& td': { py: 1.5, borderBottom: '1px solid rgba(226,232,240,0.4)' }, '&:hover': { background: DS.bg } }}>
-                                                            <TableCell><Typography sx={{ fontWeight: 700, color: DS.text, fontSize: '0.82rem' }}>{rec.user.name}</Typography></TableCell>
-                                                            <TableCell><Typography sx={{ fontSize: '0.78rem', color: DS.textMute }}>{rec.team}</Typography></TableCell>
-                                                            <TableCell><Typography sx={{ fontSize: '0.78rem', color: DS.textSec, lineHeight: 1.4 }}>{rec.blocker.split(' | ').map(b => b.includes(':') ? b.split(':').slice(1).join(':').trim() : b).join(', ')}</Typography></TableCell>
-                                                            <TableCell><Chip size="small" label={rec.blockerCategory || 'General'} sx={{ fontWeight: 600, fontSize: '0.68rem', background: '#FEF3C7', color: '#92400E' }} /></TableCell>
-                                                        </TableRow>
-                                                    )) : (
-                                                        <TableRow><TableCell colSpan={4} sx={{ py: 6, textAlign: 'center', color: DS.textMute }}>{loading ? 'Analyzing...' : 'No blockers registered.'}</TableCell></TableRow>
-                                                    )}
-                                                </TableBody>
-                                            </Table>
-                                        </TableContainer>
-                                    </CardContent>
-                                </Card>
-                            </Stack>
+                                <div className="nucleus-table-wrapper">
+                                    <div style={{ padding: '24px' }}>
+                                        <div className="section-header" style={{ marginBottom: 0 }}>
+                                            <div>
+                                                <h3>Blocker Detail Register</h3>
+                                                <p>Individual blocker case breakdown</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <table className="nucleus-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Personnel</th>
+                                                <th>Team</th>
+                                                <th>Blocker Details</th>
+                                                <th>Category</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {reportData.records?.filter(r => r.blocker).length > 0 ? reportData.records.filter(r => r.blocker).map((rec, i) => (
+                                                <tr key={i}>
+                                                    <td style={{ fontWeight: 700, color: '#0f172a' }}>{rec.user.name}</td>
+                                                    <td style={{ color: '#64748b' }}>{rec.team}</td>
+                                                    <td style={{ color: '#334155', maxWidth: '400px', whiteSpace: 'normal', lineHeight: 1.5 }}>
+                                                        {rec.blocker.split(' | ').map(b => b.includes(':') ? b.split(':').slice(1).join(':').trim() : b).join(', ')}
+                                                    </td>
+                                                    <td><span className="status-pill warning">{rec.blockerCategory || 'General'}</span></td>
+                                                </tr>
+                                            )) : <tr><td colSpan="4" style={{ textAlign: 'center', color: '#94a3b8', padding: '32px' }}>No blockers registered.</td></tr>}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         )}
 
                         {/* ─────────────────────────────────────────── TAB: LOSSES ── */}
                         {activeTab === 'losses' && (
-                            <Stack spacing={4}>
-                                <Card sx={{ borderRadius: 3, border: '1px solid ' + DS.danger + '30', background: 'linear-gradient(135deg, ' + DS.dangerBg + ' 0%, #FFF5F5 100%)', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                                    <CardContent sx={{ p: 3 }}>
-                                        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems="center" spacing={3}>
-                                            <Stack direction="row" alignItems="center" spacing={2}>
-                                                <Box sx={{ width: 56, height: 56, borderRadius: 3, background: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: DS.danger }}>
-                                                    <AttachMoneyOutlined sx={{ fontSize: 28 }} />
-                                                </Box>
-                                                <Box>
-                                                    <Typography variant="caption" sx={{ fontWeight: 700, color: '#991B1B', textTransform: 'uppercase', letterSpacing: 1 }}>Total Financial Impact</Typography>
-                                                    <Typography variant="h3" sx={{ fontWeight: 800, color: DS.danger, letterSpacing: '-0.02em' }}>{formatCurrency(totalLoss)}</Typography>
-                                                </Box>
-                                            </Stack>
-                                            <Stack direction="row" spacing={4}>
-                                                <Box sx={{ textAlign: 'center' }}><Typography variant="h5" sx={{ fontWeight: 800, color: DS.text }}>{reportData.records?.filter(r => r.businessLoss > 0).length || 0}</Typography><Typography variant="caption" sx={{ color: DS.textMute, fontWeight: 600 }}>Loss Cases</Typography></Box>
-                                                <Box sx={{ textAlign: 'center' }}><Typography variant="h5" sx={{ fontWeight: 800, color: DS.text }}>{formatCurrency(reportData.records?.filter(r=>r.businessLoss>0).length ? totalLoss / reportData.records.filter(r => r.businessLoss > 0).length : 0)}</Typography><Typography variant="caption" sx={{ color: DS.textMute, fontWeight: 600 }}>Avg / Case</Typography></Box>
-                                                <Box sx={{ textAlign: 'center' }}><Typography variant="h5" sx={{ fontWeight: 800, color: DS.text }}>{formatCurrency(Math.max(...(reportData.records?.map(r => r.businessLoss) || [0])))}</Typography><Typography variant="caption" sx={{ color: DS.textMute, fontWeight: 600 }}>Highest</Typography></Box>
-                                            </Stack>
-                                        </Stack>
-                                    </CardContent>
-                                </Card>
-
-                                <Card sx={{ borderRadius: 3, border: `1px solid ${DS.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                                    <CardContent sx={{ p: 3 }}>
-                                        <SectionHeader title="Business Loss Register" subtitle="Individual financial impact breakdown" />
-                                        <TableContainer>
-                                            <Table size="small">
-                                                <TableHead>
-                                                    <TableRow sx={{ '& th': { fontWeight: 700, color: DS.textMute, textTransform: 'uppercase', fontSize: '0.65rem', letterSpacing: 1, borderBottom: `2px solid ${DS.border}` } }}>
-                                                        <TableCell>Personnel</TableCell><TableCell>Team</TableCell><TableCell align="right">Business Loss</TableCell><TableCell>Loss Category</TableCell><TableCell>Root Cause / Description</TableCell>
-                                                    </TableRow>
-                                                </TableHead>
-                                                <TableBody>
-                                                    {reportData.records?.filter(r => r.businessLoss > 0).length > 0 ? reportData.records.filter(r => r.businessLoss > 0).sort((a, b) => b.businessLoss - a.businessLoss).map((rec, i) => (
-                                                        <TableRow key={i} sx={{ '& td': { py: 1.5, borderBottom: '1px solid rgba(226,232,240,0.4)' }, '&:hover': { background: DS.bg } }}>
-                                                            <TableCell><Typography sx={{ fontWeight: 700, color: DS.text, fontSize: '0.82rem' }}>{rec.user.name}</Typography></TableCell>
-                                                            <TableCell><Typography sx={{ fontSize: '0.78rem', color: DS.textMute }}>{rec.team}</Typography></TableCell>
-                                                            <TableCell align="right"><Typography sx={{ fontWeight: 800, color: DS.danger, fontSize: '0.88rem' }}>{formatCurrency(rec.businessLoss)}</Typography></TableCell>
-                                                            <TableCell>
-                                                                {rec.lossCategory ? (
-                                                                    <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                                                                        {rec.lossCategory.split(' | ').map((l, idx) => (
-                                                                            <Chip key={idx} size="small" label={l.includes(':') ? l.split(':').slice(1).join(':').trim() : l} sx={{ fontSize: '0.62rem', fontWeight: 600, background: DS.dangerBg, color: '#B91C1C', my: 0.25 }} />
-                                                                        ))}
-                                                                    </Stack>
-                                                                ) : <Typography sx={{ color: DS.textMute, fontSize: '0.78rem' }}>—</Typography>}
-                                                            </TableCell>
-                                                            <TableCell><Typography sx={{ fontSize: '0.78rem', color: DS.textSec, fontStyle: 'italic' }}>{rec.lossDescription || 'No description'}</Typography></TableCell>
-                                                        </TableRow>
-                                                    )) : (
-                                                        <TableRow><TableCell colSpan={5} sx={{ py: 6, textAlign: 'center', color: DS.textMute }}>{loading ? 'Analyzing...' : 'No business losses registered.'}</TableCell></TableRow>
-                                                    )}
-                                                </TableBody>
-                                            </Table>
-                                        </TableContainer>
-                                    </CardContent>
-                                </Card>
-                            </Stack>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                <div className="nucleus-stats-card" style={{ padding: '24px', background: 'linear-gradient(135deg, #fee2e2 0%, #fff5f5 100%)', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '24px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                            <div style={{ width: 56, height: 56, borderRadius: '12px', background: '#fecaca', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }}>
+                                                <AttachMoneyOutlined style={{ fontSize: 28 }} />
+                                            </div>
+                                            <div>
+                                                <div style={{ fontSize: '11px', fontWeight: 700, color: '#b91c1c', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Financial Impact</div>
+                                                <div style={{ fontSize: '32px', fontWeight: 800, color: '#ef4444', lineHeight: 1 }}>{formatCurrency(totalLoss)}</div>
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '32px' }}>
+                                            <div style={{ textAlign: 'center' }}><div style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a' }}>{reportData.records?.filter(r => r.businessLoss > 0).length || 0}</div><div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>Loss Cases</div></div>
+                                            <div style={{ textAlign: 'center' }}><div style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a' }}>{formatCurrency(reportData.records?.filter(r=>r.businessLoss>0).length ? totalLoss / reportData.records.filter(r => r.businessLoss > 0).length : 0)}</div><div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>Avg / Case</div></div>
+                                            <div style={{ textAlign: 'center' }}><div style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a' }}>{formatCurrency(Math.max(...(reportData.records?.map(r => r.businessLoss) || [0])))}</div><div style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>Highest</div></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div className="nucleus-table-wrapper">
+                                    <div style={{ padding: '24px' }}>
+                                        <div className="section-header" style={{ marginBottom: 0 }}>
+                                            <div>
+                                                <h3>Business Loss Register</h3>
+                                                <p>Individual financial impact breakdown</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <table className="nucleus-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Personnel</th>
+                                                <th>Team</th>
+                                                <th style={{ textAlign: 'right' }}>Business Loss</th>
+                                                <th>Loss Category</th>
+                                                <th>Root Cause / Description</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {reportData.records?.filter(r => r.businessLoss > 0).length > 0 ? reportData.records.filter(r => r.businessLoss > 0).sort((a, b) => b.businessLoss - a.businessLoss).map((rec, i) => (
+                                                <tr key={i}>
+                                                    <td style={{ fontWeight: 700, color: '#0f172a' }}>{rec.user.name}</td>
+                                                    <td style={{ color: '#64748b' }}>{rec.team}</td>
+                                                    <td style={{ textAlign: 'right', fontWeight: 800, color: '#ef4444' }}>{formatCurrency(rec.businessLoss)}</td>
+                                                    <td>
+                                                        {rec.lossCategory ? (
+                                                            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                                                {rec.lossCategory.split(' | ').map((l, idx) => (
+                                                                    <span key={idx} className="status-pill error">{l.includes(':') ? l.split(':').slice(1).join(':').trim() : l}</span>
+                                                                ))}
+                                                            </div>
+                                                        ) : <span style={{ color: '#94a3b8' }}>—</span>}
+                                                    </td>
+                                                    <td style={{ color: '#475569', maxWidth: '300px', whiteSpace: 'normal', fontStyle: 'italic' }}>{rec.lossDescription || 'No description'}</td>
+                                                </tr>
+                                            )) : <tr><td colSpan="5" style={{ textAlign: 'center', color: '#94a3b8', padding: '32px' }}>No business losses registered.</td></tr>}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         )}
 
                         {/* ─────────────────────────────────────────── TAB: OPEN POINTS ── */}
                         {activeTab === 'openpoints' && (
-                            <Stack spacing={4}>
-                                <Grid container spacing={2}>
-                                    <Grid item xs={12} sm={4}>
-                                        <Card sx={{ borderRadius: 3, border: `1px solid ${STATUS_PALETTE.Red.border}`, background: STATUS_PALETTE.Red.bg }}>
-                                            <CardContent sx={{ p: 3, textAlign: 'center' }}>
-                                                <ErrorOutlineOutlined sx={{ fontSize: 32, color: STATUS_PALETTE.Red.color, mb: 1 }} />
-                                                <Typography variant="h4" sx={{ fontWeight: 800, color: STATUS_PALETTE.Red.color }}>{allOpenPoints.reduce((s, p) => s + p.redCount, 0)}</Typography>
-                                                <Typography variant="caption" sx={{ fontWeight: 700, color: '#7F1D1D', textTransform: 'uppercase' }}>Red Open Points</Typography>
-                                            </CardContent>
-                                        </Card>
-                                    </Grid>
-                                    <Grid item xs={12} sm={4}>
-                                        <Card sx={{ borderRadius: 3, border: `1px solid ${STATUS_PALETTE.Amber.border}`, background: STATUS_PALETTE.Amber.bg }}>
-                                            <CardContent sx={{ p: 3, textAlign: 'center' }}>
-                                                <WarningAmberOutlined sx={{ fontSize: 32, color: STATUS_PALETTE.Amber.color, mb: 1 }} />
-                                                <Typography variant="h4" sx={{ fontWeight: 800, color: STATUS_PALETTE.Amber.color }}>{allOpenPoints.reduce((s, p) => s + p.amberCount, 0)}</Typography>
-                                                <Typography variant="caption" sx={{ fontWeight: 700, color: '#92400E', textTransform: 'uppercase' }}>Amber Open Points</Typography>
-                                            </CardContent>
-                                        </Card>
-                                    </Grid>
-                                    <Grid item xs={12} sm={4}>
-                                        <Card sx={{ borderRadius: 3, border: `1px solid ${STATUS_PALETTE.Green.border}`, background: STATUS_PALETTE.Green.bg }}>
-                                            <CardContent sx={{ p: 3, textAlign: 'center' }}>
-                                                <DoneAllOutlined sx={{ fontSize: 32, color: STATUS_PALETTE.Green.color, mb: 1 }} />
-                                                <Typography variant="h4" sx={{ fontWeight: 800, color: STATUS_PALETTE.Green.color }}>{allOpenPoints.reduce((s, p) => s + p.greenCount, 0)}</Typography>
-                                                <Typography variant="caption" sx={{ fontWeight: 700, color: '#065F46', textTransform: 'uppercase' }}>Green Open Points</Typography>
-                                            </CardContent>
-                                        </Card>
-                                    </Grid>
-                                </Grid>
-
-                                <Card sx={{ borderRadius: 3, border: `1px solid ${DS.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                                    <CardContent sx={{ p: 3 }}>
-                                        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2} sx={{ mb: 3 }}>
-                                            <Box>
-                                                <Typography variant="h6" sx={{ fontWeight: 800, color: DS.primary, fontSize: '1.05rem' }}>Accountability Tracker</Typography>
-                                                <Typography variant="body2" sx={{ color: DS.textMute, mt: 0.3, fontSize: '0.8rem' }}>Open points status for all employees — click a name to view details</Typography>
-                                            </Box>
-                                            <TextField size="small" placeholder="Search employee..." value={opSearchQuery} onChange={e => setOpSearchQuery(e.target.value)}
-                                                InputProps={{ startAdornment: <InputAdornment position="start"><SearchOutlined sx={{ color: DS.textMute, fontSize: 18 }} /></InputAdornment> }}
-                                                sx={{ minWidth: 240, '& .MuiOutlinedInput-root': { borderRadius: 2, background: DS.bg, fontSize: '0.82rem' } }} />
-                                        </Stack>
-                                        <TableContainer>
-                                            <Table size="small">
-                                                <TableHead>
-                                                    <TableRow sx={{ '& th': { fontWeight: 700, color: DS.textMute, textTransform: 'uppercase', fontSize: '0.65rem', letterSpacing: 1, borderBottom: `2px solid ${DS.border}` } }}>
-                                                        <TableCell>Personnel</TableCell><TableCell>Department</TableCell><TableCell align="center">Red</TableCell><TableCell align="center">Amber</TableCell><TableCell align="center">Green</TableCell><TableCell align="center">Score</TableCell><TableCell align="center">Status</TableCell>
-                                                    </TableRow>
-                                                </TableHead>
-                                                <TableBody>
-                                                    {opFiltered.length > 0 ? opFiltered.map((item, i) => (
-                                                        <TableRow key={i} sx={{ '& td': { py: 1.5, borderBottom: '1px solid rgba(226,232,240,0.4)' }, '&:hover': { background: DS.bg } }}>
-                                                            <TableCell>
-                                                                <Stack direction="row" alignItems="center" spacing={1.5}>
-                                                                    <Avatar sx={{ width: 32, height: 32, fontSize: '0.78rem', fontWeight: 700, background: item.redCount > 0 ? DS.danger : DS.success, color: '#fff' }}>{item.user.name.charAt(0)}</Avatar>
-                                                                    <Typography onClick={() => { setUserOpDialog({ open: true, user: item.user, points: [] }); fetchUserOpenPoints(item.user.username); }}
-                                                                        sx={{ fontWeight: 700, color: DS.accent, fontSize: '0.85rem', cursor: 'pointer', textDecoration: 'underline', textDecorationColor: DS.accent+'40', '&:hover': { textDecorationColor: DS.accent } }}>
-                                                                        {item.user.name}
-                                                                    </Typography>
-                                                                </Stack>
-                                                            </TableCell>
-                                                            <TableCell><Typography sx={{ fontSize: '0.78rem', color: DS.textMute }}>{item.user.department}</Typography></TableCell>
-                                                            <TableCell align="center"><Chip size="small" label={item.redCount} sx={{ fontWeight: 800, background: item.redCount > 0 ? '#FEE2E2' : '#F1F5F9', color: item.redCount > 0 ? DS.danger : DS.textMute, minWidth: 36 }} /></TableCell>
-                                                            <TableCell align="center"><Chip size="small" label={item.amberCount} sx={{ fontWeight: 800, background: item.amberCount > 0 ? '#FEF3C7' : '#F1F5F9', color: item.amberCount > 0 ? DS.warning : DS.textMute, minWidth: 36 }} /></TableCell>
-                                                            <TableCell align="center"><Chip size="small" label={item.greenCount} sx={{ fontWeight: 800, background: item.greenCount > 0 ? '#D1FAE5' : '#F1F5F9', color: item.greenCount > 0 ? DS.success : DS.textMute, minWidth: 36 }} /></TableCell>
-                                                            <TableCell align="center">
-                                                                <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1 }}>
-                                                                    <LinearProgress variant="determinate" value={(item.score / 10) * 100} sx={{ width: 60, height: 6, borderRadius: 3, backgroundColor: '#F1F5F9', '& .MuiLinearProgress-bar': { backgroundColor: item.score >= 7 ? DS.success : item.score >= 4 ? DS.warning : DS.danger, borderRadius: 3 } }} />
-                                                                    <Typography sx={{ fontWeight: 800, fontSize: '0.78rem', color: DS.text, minWidth: 30 }}>{item.score}/10</Typography>
-                                                                </Box>
-                                                            </TableCell>
-                                                            <TableCell align="center">
-                                                                <Chip size="small" label={item.redCount === 0 ? 'On Track' : item.redCount <= 2 ? 'Attention' : 'Critical'}
-                                                                    sx={{ fontWeight: 700, fontSize: '0.68rem', background: item.redCount === 0 ? '#D1FAE5' : item.redCount <= 2 ? '#FEF3C7' : '#FEE2E2', color: item.redCount === 0 ? DS.success : item.redCount <= 2 ? DS.warning : DS.danger }} />
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    )) : (
-                                                        <TableRow><TableCell colSpan={7} sx={{ py: 6, textAlign: 'center', color: DS.textMute }}><SearchOutlined sx={{ fontSize: 40, mb: 1, opacity: 0.4 }} /><Typography variant="body2" sx={{ fontWeight: 600 }}>No employees match your search.</Typography></TableCell></TableRow>
-                                                    )}
-                                                </TableBody>
-                                            </Table>
-                                        </TableContainer>
-                                    </CardContent>
-                                </Card>
-                            </Stack>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                                    {[
+                                        { label: 'Red Open Points', value: allOpenPoints.reduce((s, p) => s + p.redCount, 0), color: '#ef4444', bg: '#fef2f2', border: '#fecaca', icon: <ErrorOutlineOutlined /> },
+                                        { label: 'Amber Open Points', value: allOpenPoints.reduce((s, p) => s + p.amberCount, 0), color: '#f59e0b', bg: '#fffbeb', border: '#fde68a', icon: <WarningAmberOutlined /> },
+                                        { label: 'Green Open Points', value: allOpenPoints.reduce((s, p) => s + p.greenCount, 0), color: '#10b981', bg: '#ecfdf5', border: '#a7f3d0', icon: <DoneAllOutlined /> }
+                                    ].map((item, idx) => (
+                                        <div key={idx} className="nucleus-stats-card" style={{ padding: '24px', textAlign: 'center', background: item.bg, border: `1px solid ${item.border}` }}>
+                                            <div style={{ color: item.color, marginBottom: '8px' }}>{item.icon}</div>
+                                            <div style={{ fontSize: '32px', fontWeight: 900, color: item.color, lineHeight: 1 }}>{item.value}</div>
+                                            <div style={{ fontSize: '12px', fontWeight: 700, color: item.color, textTransform: 'uppercase', marginTop: '8px', opacity: 0.8 }}>{item.label}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                                
+                                <div className="nucleus-table-wrapper">
+                                    <div style={{ padding: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div className="section-header" style={{ marginBottom: 0 }}>
+                                            <div>
+                                                <h3>Accountability Tracker</h3>
+                                                <p>Open points status for all employees — click a name to view details</p>
+                                            </div>
+                                        </div>
+                                        <TextField size="small" placeholder="Search employee..." value={opSearchQuery} onChange={e => setOpSearchQuery(e.target.value)}
+                                            InputProps={{ startAdornment: <InputAdornment position="start"><SearchOutlined sx={{ color: '#94a3b8', fontSize: 18 }} /></InputAdornment> }}
+                                            sx={{ minWidth: 240, '& .MuiOutlinedInput-root': { borderRadius: 2, background: '#f8fafc', fontSize: '13px' } }} />
+                                    </div>
+                                    <table className="nucleus-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Personnel</th>
+                                                <th>Department</th>
+                                                <th style={{ textAlign: 'center' }}>Red</th>
+                                                <th style={{ textAlign: 'center' }}>Amber</th>
+                                                <th style={{ textAlign: 'center' }}>Green</th>
+                                                <th style={{ textAlign: 'center' }}>Score</th>
+                                                <th style={{ textAlign: 'center' }}>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {opFiltered.length > 0 ? opFiltered.map((item, i) => (
+                                                <tr key={i}>
+                                                    <td>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                            <Avatar sx={{ width: 32, height: 32, fontSize: '12px', fontWeight: 700, background: item.redCount > 0 ? '#ef4444' : '#10b981', color: '#fff' }}>{item.user.name.charAt(0)}</Avatar>
+                                                            <div onClick={() => { setUserOpDialog({ open: true, user: item.user, points: [] }); fetchUserOpenPoints(item.user.username); }}
+                                                                style={{ fontWeight: 700, color: '#3b82f6', fontSize: '13px', cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'rgba(59,130,246,0.3)' }}>
+                                                                {item.user.name}
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td style={{ color: '#64748b' }}>{item.user.department}</td>
+                                                    <td style={{ textAlign: 'center' }}><span className={`status-pill ${item.redCount > 0 ? 'error' : 'neutral'}`}>{item.redCount}</span></td>
+                                                    <td style={{ textAlign: 'center' }}><span className={`status-pill ${item.amberCount > 0 ? 'warning' : 'neutral'}`}>{item.amberCount}</span></td>
+                                                    <td style={{ textAlign: 'center' }}><span className={`status-pill ${item.greenCount > 0 ? 'success' : 'neutral'}`}>{item.greenCount}</span></td>
+                                                    <td style={{ textAlign: 'center' }}><strong style={{ color: item.accountabilityScore >= 90 ? '#10b981' : item.accountabilityScore >= 60 ? '#f59e0b' : '#ef4444' }}>{item.accountabilityScore}%</strong></td>
+                                                    <td style={{ textAlign: 'center' }}>
+                                                        {item.accountabilityScore >= 90 ? <span className="status-pill success">On Track</span> :
+                                                         item.accountabilityScore >= 60 ? <span className="status-pill warning">At Risk</span> :
+                                                         <span className="status-pill error">Critical</span>}
+                                                    </td>
+                                                </tr>
+                                            )) : <tr><td colSpan="7" style={{ textAlign: 'center', color: '#94a3b8', padding: '32px' }}>No records found.</td></tr>}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
                         )}
 
                         {/* ─────────────────────────────────────────── TAB: NON SUBMITTERS ── */}
                         {activeTab === 'nonsubmitters' && (
-                            <Stack spacing={4}>
-                                <Grid container spacing={2}>
-                                    <Grid item xs={12} sm={6} md={3}>
-                                        <KpiCard title="Total Employees" value={nonSubmitterData.stats?.total || 0} subtext="In selected scope" icon={<GroupsOutlined />} color={DS.secondary} />
-                                    </Grid>
-                                    <Grid item xs={12} sm={6} md={3}>
-                                        <KpiCard title="Submitted" value={nonSubmitterData.stats?.submitted || 0} subtext="Sheets received" icon={<CheckCircleOutlineOutlined />} color={DS.success} />
-                                    </Grid>
-                                    <Grid item xs={12} sm={6} md={3}>
-                                        <KpiCard title="Non Submitters" value={nonSubmitterData.stats?.nonSubmitted || 0} subtext="Require follow-up" icon={<HourglassEmptyOutlined />} color={DS.danger} />
-                                    </Grid>
-                                    <Grid item xs={12} sm={6} md={3}>
-                                        <KpiCard title="Submission Rate" value={`${nonSubmitterData.stats?.submissionRate || 0}%`} subtext="Org compliance" icon={<PendingActionsOutlined />} color={DS.warning} />
-                                    </Grid>
-                                </Grid>
-
-                                <Grid container spacing={3}>
-                                    <Grid item xs={12} lg={6}>
-                                        <Card sx={{ borderRadius: 3, border: `1px solid ${DS.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                                            <CardContent sx={{ p: 3 }}>
-                                                <SectionHeader title="Non Submitters" subtitle={`${nonSubmitterData.nonSubmitters?.length || 0} employees have not submitted their KPI sheets`} />
-                                                <Stack spacing={1.5}>
-                                                    {nonSubmitterData.nonSubmitters?.length > 0 ? nonSubmitterData.nonSubmitters.map((ns, i) => (
-                                                        <Card key={i} sx={{ borderRadius: 2, border: '1px solid ' + DS.danger + '25', background: DS.dangerBg, transition: 'all 0.2s', '&:hover': { transform: 'translateX(4px)' } }}>
-                                                            <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
-                                                                <Stack direction="row" alignItems="center" justifyContent="space-between">
-                                                                    <Stack direction="row" alignItems="center" spacing={1.5}>
-                                                                        <Avatar sx={{ width: 34, height: 34, fontSize: '0.8rem', fontWeight: 700, background: '#fff', color: DS.danger, border: `1px solid ${DS.danger}40` }}>{initials(ns.name?.split(' ')[0], ns.name?.split(' ')[1])}</Avatar>
-                                                                        <Box>
-                                                                            <Typography sx={{ fontWeight: 700, fontSize: '0.85rem', color: DS.text }}>{ns.name}</Typography>
-                                                                            <Typography sx={{ fontSize: '0.72rem', color: DS.textMute }}>{ns.team} • {ns.department}</Typography>
-                                                                        </Box>
-                                                                    </Stack>
-                                                                    <Chip size="small" icon={<CancelOutlined sx={{fontSize:14}}/>} label="Not Submitted" sx={{ fontWeight: 700, background: '#FEE2E2', color: DS.danger, fontSize: '0.68rem' }} />
-                                                                </Stack>
-                                                            </CardContent>
-                                                        </Card>
-                                                    )) : (
-                                                        <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 3, color: DS.success, background: DS.successBg, border: '1px solid ' + DS.success + '30' }}>
-                                                            <CheckCircleOutlineOutlined sx={{ fontSize: 40, mb: 1 }} />
-                                                            <Typography variant="h6" sx={{ fontWeight: 700 }}>All Submitted</Typography>
-                                                            <Typography variant="body2">Every employee has submitted their KPI sheet for this period.</Typography>
-                                                        </Paper>
-                                                    )}
-                                                </Stack>
-                                            </CardContent>
-                                        </Card>
-                                    </Grid>
-                                    <Grid item xs={12} lg={6}>
-                                        <Card sx={{ borderRadius: 3, border: `1px solid ${DS.border}`, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                                            <CardContent sx={{ p: 3 }}>
-                                                <SectionHeader title="Submission Overview" subtitle="Status breakdown by employee" />
-                                                <TableContainer>
-                                                    <Table size="small">
-                                                        <TableHead>
-                                                            <TableRow sx={{ '& th': { fontWeight: 700, color: DS.textMute, textTransform: 'uppercase', fontSize: '0.65rem', letterSpacing: 1, borderBottom: `2px solid ${DS.border}` } }}>
-                                                                <TableCell>Personnel</TableCell><TableCell>Team</TableCell><TableCell>Department</TableCell><TableCell align="center">Status</TableCell>
-                                                            </TableRow>
-                                                        </TableHead>
-                                                        <TableBody>
-                                                            {[...(nonSubmitterData.submitters || []), ...(nonSubmitterData.nonSubmitters || [])].sort((a,b) => (a.submitted === b.submitted ? 0 : a.submitted ? 1 : -1)).map((u, i) => (
-                                                                <TableRow key={i} sx={{ '& td': { py: 1.2, borderBottom: '1px solid rgba(226,232,240,0.4)' }, '&:hover': { background: DS.bg } }}>
-                                                                    <TableCell><Typography sx={{ fontWeight: 700, fontSize: '0.82rem', color: DS.text }}>{u.name}</Typography></TableCell>
-                                                                    <TableCell><Typography sx={{ fontSize: '0.78rem', color: DS.textMute }}>{u.team}</Typography></TableCell>
-                                                                    <TableCell><Typography sx={{ fontSize: '0.78rem', color: DS.textMute }}>{u.department}</Typography></TableCell>
-                                                                    <TableCell align="center">
-                                                                        {u.submitted ? (
-                                                                            <Chip size="small" icon={<CheckCircleOutlineOutlined sx={{fontSize:12}}/>} label="Submitted" sx={{ fontWeight: 700, background: '#D1FAE5', color: DS.success, fontSize: '0.68rem' }} />
-                                                                        ) : (
-                                                                            <Chip size="small" icon={<CancelOutlined sx={{fontSize:12}}/>} label="Not Submitted" sx={{ fontWeight: 700, background: '#FEE2E2', color: DS.danger, fontSize: '0.68rem' }} />
-                                                                        )}
-                                                                    </TableCell>
-                                                                </TableRow>
-                                                            ))}
-                                                        </TableBody>
-                                                    </Table>
-                                                </TableContainer>
-                                            </CardContent>
-                                        </Card>
-                                    </Grid>
-                                </Grid>
-                            </Stack>
+                            <div className="nucleus-table-wrapper">
+                                <div style={{ padding: '24px' }}>
+                                    <div className="section-header" style={{ marginBottom: 0 }}>
+                                        <div>
+                                            <h3>Non Submitters List</h3>
+                                            <p>Personnel who missed their daily reporting</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <table className="nucleus-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Personnel</th>
+                                            <th>Team</th>
+                                            <th>Manager / Head</th>
+                                            <th>Last Login</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {nonSubmitterData.nonSubmitters?.length > 0 ? nonSubmitterData.nonSubmitters.map((ns, i) => (
+                                            <tr key={i}>
+                                                <td style={{ fontWeight: 700, color: '#0f172a' }}>{ns.name}</td>
+                                                <td style={{ color: '#64748b' }}>{ns.team || ns.department}</td>
+                                                <td style={{ color: '#475569' }}>{ns.manager || '—'}</td>
+                                                <td style={{ color: '#64748b' }}>{ns.lastActive ? new Date(ns.lastActive).toLocaleDateString('en-IN') : '—'}</td>
+                                                <td><span className="status-pill error">Requires Follow-up</span></td>
+                                            </tr>
+                                        )) : <tr><td colSpan="5" style={{ textAlign: 'center', color: '#94a3b8', padding: '32px' }}>No non-submitters found! All clear. 🎉</td></tr>}
+                                    </tbody>
+                                </table>
+                            </div>
                         )}
                     </motion.div>
                 </AnimatePresence>
-            </Box>
+            </div>
 
-            {/* ═══════════════════════════════════════════════════════════════
-                TEAM DRAWER
-            ═══════════════════════════════════════════════════════════════ */}
+            {/* TEAM DRAWER */}
             <Drawer anchor="right" open={teamDrawer.open} onClose={() => setTeamDrawer({ open: false, teamData: null })}
-                PaperProps={{ sx: { width: { xs: '100%', sm: 520 }, background: DS.bg, borderLeft: `1px solid ${DS.border}` } }}>
+                PaperProps={{ sx: { width: { xs: '100%', sm: 400 }, background: '#f8fafc' } }}>
                 {teamDrawer.teamData && (
-                    <Box sx={{ p: 4 }}>
-                        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
-                            <Box>
-                                <Typography variant="h5" sx={{ fontWeight: 800, color: DS.primary }}>{teamDrawer.teamData.name}</Typography>
-                                <Typography variant="body2" sx={{ color: DS.textMute }}>{teamDrawer.teamData.memberCount} members • Avg Score {teamDrawer.teamData.avgScore}</Typography>
-                            </Box>
-                            <IconButton onClick={() => setTeamDrawer({ open: false, teamData: null })} sx={{ background: DS.surface, border: `1px solid ${DS.border}` }}>
-                                <CloseOutlined sx={{ fontSize: 18 }} />
-                            </IconButton>
-                        </Stack>
-
-                        <Grid container spacing={2} mb={3}>
-                            {[{k:'stars',l:'Stars',c:QUADRANTS.Star.color,v:teamDrawer.teamData.stars},{k:'engines',l:'Engines',c:QUADRANTS.Engine.color,v:teamDrawer.teamData.engines},{k:'specialists',l:'Specialists',c:QUADRANTS.Specialist.color,v:teamDrawer.teamData.specialists},{k:'drainers',l:'Drainers',c:QUADRANTS.Drainer.color,v:teamDrawer.teamData.drainers}].map(item => (
-                                <Grid item xs={3} key={item.k}>
-                                    <Box sx={{ textAlign: 'center', p: 1.5, borderRadius: 2, background: item.c+'10', border: '1px solid ' + item.c + '25' }}>
-                                        <Typography sx={{ fontWeight: 800, color: item.c, fontSize: '1.25rem' }}>{item.v}</Typography>
-                                        <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: DS.textMute, textTransform: 'uppercase' }}>{item.l}</Typography>
-                                    </Box>
-                                </Grid>
-                            ))}
-                        </Grid>
-
-                        <Typography variant="subtitle2" sx={{ fontWeight: 800, color: DS.primary, mb: 2, fontSize: '0.9rem' }}>Team Members</Typography>
-                        <Stack spacing={1.5}>
-                            {teamDrawer.teamData.members.map((m, i) => {
-                                const q = QUADRANTS[m.current?.quadrant || 'Drainer'];
-                                return (
-                                    <Card key={i} onClick={() => m.current?.sheetId && setSelectedSheetId(m.current.sheetId)}
-                                        sx={{ borderRadius: 2, border: `1px solid ${DS.border}`, cursor: 'pointer', transition: 'all 0.2s', '&:hover': { borderColor: DS.accent+'40', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' } }}>
-                                        <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
-                                            <Stack direction="row" alignItems="center" justifyContent="space-between">
-                                                <Stack direction="row" alignItems="center" spacing={1.5}>
-                                                    <Avatar sx={{ width: 36, height: 36, fontSize: '0.82rem', fontWeight: 700, background: q.bg, color: q.color, border: `1px solid ${q.border}` }}>
-                                                        {initials(m.user?.first_name, m.user?.last_name)}
-                                                    </Avatar>
-                                                    <Box>
-                                                        <Typography sx={{ fontWeight: 700, fontSize: '0.85rem', color: DS.text }}>{m.user?.first_name} {m.user?.last_name}</Typography>
-                                                        <Typography sx={{ fontSize: '0.72rem', color: DS.textMute }}>{m.department}</Typography>
-                                                    </Box>
-                                                </Stack>
-                                                <Stack direction="row" alignItems="center" spacing={1}>
-                                                    <Chip size="small" label={m.current?.total_value_score || 0} sx={{ fontWeight: 800, background: '#fff', border: `1px solid ${DS.border}`, fontSize: '0.72rem' }} />
-                                                    <QuadrantBadge quadrant={m.current?.quadrant} />
-                                                    <ChevronRightOutlined sx={{ fontSize: 18, color: DS.textMute }} />
-                                                </Stack>
-                                            </Stack>
-                                        </CardContent>
-                                    </Card>
-                                );
-                            })}
-                            {teamDrawer.teamData.members.length === 0 && (
-                                <Typography sx={{ color: DS.textMute, textAlign: 'center', py: 4 }}>No member data available.</Typography>
-                            )}
-                        </Stack>
-                    </Box>
+                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                        <div style={{ padding: '24px', background: 'linear-gradient(135deg, #667eea, #764ba2)', color: '#fff' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800 }}>{teamDrawer.teamData.name}</h2>
+                                <IconButton onClick={() => setTeamDrawer({ open: false, teamData: null })} sx={{ color: '#fff' }}><CloseOutlined /></IconButton>
+                            </div>
+                            <div style={{ display: 'flex', gap: '8px', fontSize: '13px' }}>
+                                <span style={{ background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: '4px' }}>Avg Score: {teamDrawer.teamData.avgScore}</span>
+                                <span style={{ background: 'rgba(255,255,255,0.2)', padding: '2px 8px', borderRadius: '4px' }}>{teamDrawer.teamData.memberCount} Members</span>
+                            </div>
+                        </div>
+                        <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                {teamDrawer.teamData.members.map((m, i) => {
+                                    const q = QUADRANTS[m.current?.quadrant || 'Drainer'];
+                                    return (
+                                        <div key={i} onClick={() => m.current?.sheetId && setSelectedSheetId(m.current.sheetId)}
+                                            style={{ padding: '16px', background: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                <Avatar sx={{ width: 36, height: 36, fontSize: '13px', fontWeight: 700, background: q.bg, color: q.color, border: `1px solid ${q.border}` }}>{initials(m.user?.first_name, m.user?.last_name)}</Avatar>
+                                                <div>
+                                                    <div style={{ fontWeight: 700, fontSize: '14px', color: '#0f172a' }}>{m.user?.first_name} {m.user?.last_name}</div>
+                                                    <div style={{ fontSize: '12px', color: '#64748b' }}>{m.department}</div>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <span className="status-pill neutral">{m.current?.total_value_score || 0}</span>
+                                                <ChevronRightOutlined sx={{ fontSize: 18, color: '#94a3b8' }} />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
                 )}
             </Drawer>
 
-            {/* ═══════════════════════════════════════════════════════════════
-                USER OPEN POINTS DIALOG
-            ═══════════════════════════════════════════════════════════════ */}
+            {/* USER OPEN POINTS DIALOG */}
             <Dialog open={userOpDialog.open} onClose={() => setUserOpDialog({ open: false, user: null, points: [] })} maxWidth="md" fullWidth
-                PaperProps={{ sx: { borderRadius: 4, border: `1px solid ${DS.border}`, boxShadow: '0 24px 48px rgba(0,0,0,0.18)', overflow: 'hidden' } }}>
+                PaperProps={{ sx: { borderRadius: 4, border: '1px solid #e2e8f0', boxShadow: '0 24px 48px rgba(0,0,0,0.18)', overflow: 'hidden' } }}>
                 {userOpDialog.user && (
                     <>
-                        <DialogTitle sx={{ background: DS.primary, color: '#fff', py: 2.5, px: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <Stack direction="row" alignItems="center" spacing={1.5}>
-                                <Avatar sx={{ width: 36, height: 36, background: '#fff', color: DS.primary, fontWeight: 700, fontSize: '0.9rem' }}>{userOpDialog.user.name?.charAt(0)}</Avatar>
-                                <Box>
-                                    <Typography sx={{ fontWeight: 800, fontSize: '1.05rem' }}>{userOpDialog.user.name}</Typography>
-                                    <Typography sx={{ fontSize: '0.75rem', opacity: 0.85 }}>{userOpDialog.user.department}</Typography>
-                                </Box>
-                            </Stack>
-                            <IconButton onClick={() => setUserOpDialog({ open: false, user: null, points: [] })} sx={{ color: '#fff' }}>
-                                <CloseOutlined />
-                            </IconButton>
+                        <DialogTitle sx={{ background: 'linear-gradient(135deg, #667eea, #764ba2)', color: '#fff', py: 2.5, px: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <Avatar sx={{ width: 36, height: 36, background: '#fff', color: '#667eea', fontWeight: 700, fontSize: '14px' }}>{userOpDialog.user.name?.charAt(0)}</Avatar>
+                                <div>
+                                    <div style={{ fontWeight: 800, fontSize: '16px' }}>{userOpDialog.user.name}</div>
+                                    <div style={{ fontSize: '12px', opacity: 0.85 }}>{userOpDialog.user.department}</div>
+                                </div>
+                            </div>
+                            <IconButton onClick={() => setUserOpDialog({ open: false, user: null, points: [] })} sx={{ color: '#fff' }}><CloseOutlined /></IconButton>
                         </DialogTitle>
                         <DialogContent sx={{ p: 0 }}>
-                            <Box sx={{ p: 3, background: DS.bg, borderBottom: `1px solid ${DS.border}` }}>
-                                <Grid container spacing={2}>
-                                    <Grid item xs={4}>
-                                        <Box sx={{ textAlign: 'center', p: 1.5, borderRadius: 2, background: '#fff', border: `1px solid ${STATUS_PALETTE.Red.border}` }}>
-                                            <Typography variant="h5" sx={{ fontWeight: 800, color: STATUS_PALETTE.Red.color }}>{userOpDialog.points.filter(p => p.status === 'Red').length}</Typography>
-                                            <Typography variant="caption" sx={{ fontWeight: 700, color: '#7F1D1D' }}>Red</Typography>
-                                        </Box>
-                                    </Grid>
-                                    <Grid item xs={4}>
-                                        <Box sx={{ textAlign: 'center', p: 1.5, borderRadius: 2, background: '#fff', border: `1px solid ${STATUS_PALETTE.Amber.border}` }}>
-                                            <Typography variant="h5" sx={{ fontWeight: 800, color: STATUS_PALETTE.Amber.color }}>{userOpDialog.points.filter(p => ['Yellow','Orange'].includes(p.status)).length}</Typography>
-                                            <Typography variant="caption" sx={{ fontWeight: 700, color: '#92400E' }}>Amber</Typography>
-                                        </Box>
-                                    </Grid>
-                                    <Grid item xs={4}>
-                                        <Box sx={{ textAlign: 'center', p: 1.5, borderRadius: 2, background: '#fff', border: `1px solid ${STATUS_PALETTE.Green.border}` }}>
-                                            <Typography variant="h5" sx={{ fontWeight: 800, color: STATUS_PALETTE.Green.color }}>{userOpDialog.points.filter(p => p.status === 'Green').length}</Typography>
-                                            <Typography variant="caption" sx={{ fontWeight: 700, color: '#065F46' }}>Green</Typography>
-                                        </Box>
-                                    </Grid>
-                                </Grid>
-                            </Box>
-                            <Box sx={{ p: 3, maxHeight: 480, overflowY: 'auto' }}>
+                            <div style={{ p: 3, background: '#f8fafc', borderBottom: '1px solid #e2e8f0', padding: '24px' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+                                    {[
+                                        { label: 'Red', count: userOpDialog.points.filter(p => p.status === 'Red').length, color: '#ef4444', border: '#fecaca' },
+                                        { label: 'Amber', count: userOpDialog.points.filter(p => ['Yellow','Orange'].includes(p.status)).length, color: '#f59e0b', border: '#fde68a' },
+                                        { label: 'Green', count: userOpDialog.points.filter(p => p.status === 'Green').length, color: '#10b981', border: '#a7f3d0' }
+                                    ].map(st => (
+                                        <div key={st.label} style={{ textAlign: 'center', padding: '12px', borderRadius: '8px', background: '#fff', border: `1px solid ${st.border}` }}>
+                                            <div style={{ fontSize: '24px', fontWeight: 800, color: st.color }}>{st.count}</div>
+                                            <div style={{ fontSize: '12px', fontWeight: 700, color: st.color }}>{st.label}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div style={{ padding: '24px', maxHeight: 480, overflowY: 'auto' }}>
                                 {userOpLoading ? (
-                                    <Box sx={{ py: 6, textAlign: 'center' }}><Typography sx={{ color: DS.textMute }}>Loading open points...</Typography></Box>
+                                    <div style={{ padding: '48px 0', textAlign: 'center', color: '#94a3b8' }}>Loading open points...</div>
                                 ) : userOpDialog.points.length > 0 ? (
-                                    <Stack spacing={1.5}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                         {userOpDialog.points.sort((a,b) => {
                                             const order = { Red: 0, Orange: 1, Yellow: 2, Green: 3 };
                                             return (order[a.status] ?? 4) - (order[b.status] ?? 4);
                                         }).map((pt, i) => {
                                             const isOverdue = pt.status === 'Red' && pt.target_date && new Date(pt.target_date) < new Date();
-                                            const statusColor = pt.status === 'Red' ? DS.danger : pt.status === 'Green' ? DS.success : DS.warning;
+                                            const statusColor = pt.status === 'Red' ? '#ef4444' : pt.status === 'Green' ? '#10b981' : '#f59e0b';
                                             return (
-                                                <Card key={i} sx={{ borderRadius: 2.5, border: '1px solid ' + statusColor + '25', background: statusColor+'08' }}>
-                                                    <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
-                                                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1}>
-                                                            <Box sx={{ flex: 1 }}>
-                                                                <Typography sx={{ fontWeight: 700, fontSize: '0.85rem', color: DS.text }}>{pt.title}</Typography>
-                                                                <Typography sx={{ fontSize: '0.72rem', color: DS.textMute }}>{pt.project_name} • {pt.unique_id}</Typography>
-                                                            </Box>
-                                                            <Stack direction="row" spacing={0.5} alignItems="center">
-                                                                <Chip size="small" label={pt.status} sx={{ fontWeight: 700, fontSize: '0.65rem', background: statusColor+'15', color: statusColor }} />
-                                                                {isOverdue && <Chip size="small" label="OVERDUE" sx={{ fontWeight: 700, fontSize: '0.6rem', background: DS.dangerBg, color: DS.danger }} />}
-                                                            </Stack>
-                                                        </Stack>
-                                                        <Stack direction="row" spacing={2}>
-                                                            <Typography variant="caption" sx={{ color: DS.textSec }}><strong>Target:</strong> {pt.target_date ? new Date(pt.target_date).toLocaleDateString('en-IN') : '—'}</Typography>
-                                                            <Typography variant="caption" sx={{ color: DS.textSec }}><strong>Priority:</strong> {pt.priority || '—'}</Typography>
-                                                            <Typography variant="caption" sx={{ color: DS.textSec }}><strong>Level:</strong> {pt.level || '—'}</Typography>
-                                                        </Stack>
-                                                        {pt.gap_action && (
-                                                            <Typography variant="caption" sx={{ color: DS.textSec, mt: 0.5, display: 'block' }}><strong>Action:</strong> {pt.gap_action}</Typography>
-                                                        )}
-                                                    </CardContent>
-                                                </Card>
+                                                <div key={i} style={{ padding: '16px', borderRadius: '12px', border: `1px solid ${statusColor}40`, background: `${statusColor}10` }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                                                        <div>
+                                                            <div style={{ fontWeight: 700, fontSize: '14px', color: '#0f172a' }}>{pt.title}</div>
+                                                            <div style={{ fontSize: '12px', color: '#64748b' }}>{pt.project_name} • {pt.unique_id}</div>
+                                                        </div>
+                                                        <div style={{ display: 'flex', gap: '4px' }}>
+                                                            <span className="status-pill" style={{ background: `${statusColor}20`, color: statusColor, border: 'none' }}>{pt.status}</span>
+                                                            {isOverdue && <span className="status-pill error">OVERDUE</span>}
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: '16px', fontSize: '12px' }}>
+                                                        <span style={{ color: '#475569' }}><strong>Target:</strong> {pt.target_date ? new Date(pt.target_date).toLocaleDateString('en-IN') : '—'}</span>
+                                                        <span style={{ color: '#475569' }}><strong>Priority:</strong> {pt.priority || '—'}</span>
+                                                        <span style={{ color: '#475569' }}><strong>Level:</strong> {pt.level || '—'}</span>
+                                                    </div>
+                                                    {pt.gap_action && <div style={{ fontSize: '12px', color: '#475569', marginTop: '4px' }}><strong>Action:</strong> {pt.gap_action}</div>}
+                                                </div>
                                             );
                                         })}
-                                    </Stack>
+                                    </div>
                                 ) : (
-                                    <Box sx={{ py: 6, textAlign: 'center' }}>
-                                        <DoneAllOutlined sx={{ fontSize: 48, color: DS.success, mb: 1, opacity: 0.6 }} />
-                                        <Typography sx={{ fontWeight: 700, color: DS.text }}>All Clear</Typography>
-                                        <Typography sx={{ color: DS.textMute, fontSize: '0.85rem' }}>This employee has no open points assigned.</Typography>
-                                    </Box>
+                                    <div style={{ padding: '48px 0', textAlign: 'center' }}>
+                                        <DoneAllOutlined style={{ fontSize: 48, color: '#10b981', opacity: 0.6, marginBottom: '8px' }} />
+                                        <div style={{ fontWeight: 700, color: '#0f172a' }}>All Clear</div>
+                                        <div style={{ color: '#64748b', fontSize: '13px' }}>This employee has no open points assigned.</div>
+                                    </div>
                                 )}
-                            </Box>
+                            </div>
                         </DialogContent>
                     </>
                 )}
@@ -1205,18 +1185,16 @@ const KPIPulseDashboard = () => {
 
             {/* KPI Sheet Modal */}
             <Dialog open={Boolean(selectedSheetId)} onClose={() => setSelectedSheetId(null)} maxWidth="xl" fullWidth
-                PaperProps={{ sx: { background: DS.bg, borderRadius: 4, boxShadow: '0 24px 48px rgba(0,0,0,0.2)', border: `1px solid ${DS.border}`, minHeight: '85vh', overflow: 'hidden' } }}
-                BackdropProps={{ sx: { backgroundColor: 'rgba(45,58,84,0.5)', backdropFilter: 'blur(4px)' } }}>
+                PaperProps={{ sx: { background: '#f8fafc', borderRadius: 4, boxShadow: '0 24px 48px rgba(0,0,0,0.2)', border: '1px solid #e2e8f0', minHeight: '85vh', overflow: 'hidden' } }}
+                BackdropProps={{ sx: { backgroundColor: 'rgba(15, 23, 42, 0.5)', backdropFilter: 'blur(4px)' } }}>
                 <DialogContent sx={{ p: 0, position: 'relative' }}>
-                    <IconButton onClick={() => setSelectedSheetId(null)} sx={{ position: 'absolute', top: 20, right: 20, zIndex: 1000, background: '#fff', border: `1px solid ${DS.border}`, borderRadius: 10, '&:hover': { background: DS.bg } }}>
+                    <IconButton onClick={() => setSelectedSheetId(null)} sx={{ position: 'absolute', top: 20, right: 20, zIndex: 1000, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, '&:hover': { background: '#f8fafc' } }}>
                         <CloseOutlined sx={{ fontSize: 18 }} />
                     </IconButton>
                     {selectedSheetId && <KPISheet sheetId={selectedSheetId} />}
                 </DialogContent>
             </Dialog>
-
-            <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
-        </Box>
+        </div>
     );
 };
 

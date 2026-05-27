@@ -20,13 +20,25 @@ const Icons = {
     Approve: () => <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z" /></svg>
 };
 
+// Get default previous month and year to prevent day overflow bugs (e.g. March 31st -> Feb 28th)
+const getPreviousMonthAndYear = () => {
+    const d = new Date();
+    d.setDate(1);
+    d.setMonth(d.getMonth() - 1);
+    return {
+        year: d.getFullYear(),
+        month: d.getMonth() + 1
+    };
+};
+const defaultDate = getPreviousMonthAndYear();
+
 const KPIAdminDashboard = () => {
     const { user } = useContext(UserContext);
     const navigate = useNavigate();
 
     // Filters
-    const [year, setYear] = useState(new Date().getFullYear());
-    const [month, setMonth] = useState(new Date().getMonth() + 1);
+    const [year, setYear] = useState(defaultDate.year);
+    const [month, setMonth] = useState(defaultDate.month);
     const [department, setDepartment] = useState('');
 
     const [stats, setStats] = useState([]);
@@ -423,35 +435,59 @@ const KPIAdminDashboard = () => {
                         Team Pulse <span style={{ fontWeight: 400, color: '#64748b', fontSize: '0.9rem' }}>({months[month - 1]} {year})</span>
                     </h3>
                 </div>
-                <div className="modern-stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
-                    {stats.length > 0 ? stats.map((stat) => (
-                        <div
-                            key={stat._id}
-                            className="modern-stat-card"
-                            style={{ background: 'white', cursor: 'pointer', border: '1px solid #f1f5f9' }}
-                            onClick={() => fetchSubmissionDetails(stat._id)}
-                            whileHover={{ scale: 1.02, boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-                        >
-                            <div className="icon-box blue" style={{ width: '40px', height: '40px', fontSize: '1.2rem' }}>
-                                {stat._id.substring(0, 2).toUpperCase()}
+                <div className="modern-stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))' }}>
+                    {stats.length > 0 ? stats.map((stat) => {
+                        const percent = stat.total > 0 ? Math.round((stat.approved / stat.total) * 100) : 0;
+                        const progressColor = percent === 100 ? '#22c55e' : percent > 0 ? '#f59e0b' : '#94a3b8';
+                        return (
+                            <div
+                                key={stat._id}
+                                className="modern-stat-card"
+                                style={{ background: 'white', cursor: 'pointer', border: '1px solid #f1f5f9' }}
+                                onClick={() => fetchSubmissionDetails(stat._id)}
+                                whileHover={{ scale: 1.02, boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                            >
+                                <div className="icon-box blue" style={{ width: '40px', height: '40px', fontSize: '1.2rem' }}>
+                                    {stat._id.substring(0, 2).toUpperCase()}
+                                </div>
+                                <div className="stat-content" style={{ width: '100%', minWidth: 0 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minWidth: 0 }}>
+                                        <h3 
+                                            style={{ 
+                                                fontSize: '1.05rem', 
+                                                fontWeight: 600, 
+                                                margin: 0, 
+                                                overflow: 'hidden', 
+                                                textOverflow: 'ellipsis', 
+                                                whiteSpace: 'nowrap', 
+                                                marginRight: '8px', 
+                                                color: '#1e293b' 
+                                            }} 
+                                            title={stat._id}
+                                        >
+                                            {stat._id}
+                                        </h3>
+                                        <span style={{ fontSize: '0.9rem', fontWeight: 600, color: progressColor, flexShrink: 0 }}>
+                                            {percent}%
+                                        </span>
+                                    </div>
+                                    <div style={{ width: '100%', height: '6px', background: '#e2e8f0', borderRadius: '3px', marginTop: '8px', overflow: 'hidden' }}>
+                                        <div style={{ width: `${percent}%`, height: '100%', background: progressColor }}></div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px', fontSize: '0.75rem', color: '#64748b', borderTop: '1px solid #f1f5f9', paddingTop: '8px' }}>
+                                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                            <span style={{ whiteSpace: 'nowrap' }}>T: <strong style={{ color: '#0f172a' }}>{stat.total}</strong></span>
+                                            <span style={{ color: '#cbd5e1' }}>|</span>
+                                            <span style={{ whiteSpace: 'nowrap' }}>Sub: <strong style={{ color: '#0f172a' }}>{stat.submitted}</strong></span>
+                                            <span style={{ color: '#cbd5e1' }}>|</span>
+                                            <span style={{ whiteSpace: 'nowrap' }}>App: <strong style={{ color: percent > 0 ? '#16a34a' : '#0f172a' }}>{stat.approved}</strong></span>
+                                        </div>
+                                        <span style={{ color: '#6366f1', fontWeight: 600, whiteSpace: 'nowrap' }}>See Details →</span>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="stat-content" style={{ width: '100%' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <h3 style={{ fontSize: '1.2rem' }}>{stat._id}</h3>
-                                    <span style={{ fontSize: '0.9rem', fontWeight: 600, color: '#22c55e' }}>{Math.round((stat.approved / stat.total) * 100)}%</span>
-                                </div>
-                                <div style={{ width: '100%', height: '6px', background: '#f1f5f9', borderRadius: '3px', marginTop: '8px', overflow: 'hidden' }}>
-                                    <div style={{ width: `${(stat.approved / stat.total) * 100}%`, height: '100%', background: '#22c55e' }}></div>
-                                </div>
-                                <div style={{ display: 'flex', gap: '8px', marginTop: '8px', fontSize: '0.75rem', color: '#64748b' }}>
-                                    <span>T: {stat.total}</span>
-                                    <span>Sub: {stat.submitted}</span>
-                                    <span>App: {stat.approved}</span>
-                                    <span style={{ marginLeft: 'auto', color: '#6366f1', fontWeight: 600 }}>See Details →</span>
-                                </div>
-                            </div>
-                        </div>
-                    )) : (
+                        );
+                    }) : (
                         <div style={{ padding: '30px', color: '#94a3b8', gridColumn: '1 / -1', textAlign: 'center', background: 'white', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
                             No statistics available for this period.
                         </div>

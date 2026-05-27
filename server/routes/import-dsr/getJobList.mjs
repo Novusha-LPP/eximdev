@@ -178,45 +178,54 @@ const getSelectedFields = (status, includeExtended = false) => {
 const escapeRegex = (string) =>
   string.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
 
-const buildSearchQuery = (search) => ({
-  $or: [
-    { job_no: { $regex: escapeRegex(search), $options: "i" } },
-    { job_number: { $regex: escapeRegex(search), $options: "i" } },
-    { type_of_b_e: { $regex: escapeRegex(search), $options: "i" } },
-    { supplier_exporter: { $regex: escapeRegex(search), $options: "i" } },
-    { consignment_type: { $regex: escapeRegex(search), $options: "i" } },
-    { importer: { $regex: escapeRegex(search), $options: "i" } },
-    { selectedICD: { $regex: escapeRegex(search), $options: "i" } },
-    { custom_house: { $regex: escapeRegex(search), $options: "i" } },
-    { awb_bl_no: { $regex: escapeRegex(search), $options: "i" } },
-    { vessel_berthing: { $regex: escapeRegex(search), $options: "i" } },
-    { gateway_igm_date: { $regex: escapeRegex(search), $options: "i" } },
-    { discharge_date: { $regex: escapeRegex(search), $options: "i" } },
-    { be_no: { $regex: escapeRegex(search), $options: "i" } },
-    { be_date: { $regex: escapeRegex(search), $options: "i" } },
-    { loading_port: { $regex: escapeRegex(search), $options: "i" } },
-    { port_of_reporting: { $regex: escapeRegex(search), $options: "i" } },
-    { hawb_hbl_no: { $regex: escapeRegex(search), $options: "i" } },
+const buildSearchQuery = (search) => {
+  const cleanSearch = String(search || "").trim();
+  const isHssQuery = cleanSearch.toLowerCase() === "hss";
+
+  const conditions = [
+    { job_no: { $regex: escapeRegex(cleanSearch), $options: "i" } },
+    { job_number: { $regex: escapeRegex(cleanSearch), $options: "i" } },
+    { type_of_b_e: { $regex: escapeRegex(cleanSearch), $options: "i" } },
+    { supplier_exporter: { $regex: escapeRegex(cleanSearch), $options: "i" } },
+    { consignment_type: { $regex: escapeRegex(cleanSearch), $options: "i" } },
+    { importer: { $regex: escapeRegex(cleanSearch), $options: "i" } },
+    { selectedICD: { $regex: escapeRegex(cleanSearch), $options: "i" } },
+    { custom_house: { $regex: escapeRegex(cleanSearch), $options: "i" } },
+    { awb_bl_no: { $regex: escapeRegex(cleanSearch), $options: "i" } },
+    { vessel_berthing: { $regex: escapeRegex(cleanSearch), $options: "i" } },
+    { gateway_igm_date: { $regex: escapeRegex(cleanSearch), $options: "i" } },
+    { discharge_date: { $regex: escapeRegex(cleanSearch), $options: "i" } },
+    { be_no: { $regex: escapeRegex(cleanSearch), $options: "i" } },
+    { be_date: { $regex: escapeRegex(cleanSearch), $options: "i" } },
+    { loading_port: { $regex: escapeRegex(cleanSearch), $options: "i" } },
+    { port_of_reporting: { $regex: escapeRegex(cleanSearch), $options: "i" } },
+    { hawb_hbl_no: { $regex: escapeRegex(cleanSearch), $options: "i" } },
     {
       "container_nos.container_number": {
-        $regex: escapeRegex(search),
+        $regex: escapeRegex(cleanSearch),
         $options: "i",
       },
     },
     {
       "container_nos.arrival_date": {
-        $regex: escapeRegex(search),
+        $regex: escapeRegex(cleanSearch),
         $options: "i",
       },
     },
     {
       "container_nos.detention_from": {
-        $regex: escapeRegex(search),
+        $regex: escapeRegex(cleanSearch),
         $options: "i",
       },
     },
-  ],
-});
+  ];
+
+  if (isHssQuery) {
+    conditions.push({ hss: { $regex: "^yes$", $options: "i" } });
+  }
+
+  return { $or: conditions };
+};
 
 // ---------------- LIST API (unchanged) ----------------
 

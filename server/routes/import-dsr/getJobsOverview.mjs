@@ -6,14 +6,26 @@ import { applyUserBranchFilter } from "../../middleware/branchMiddleware.mjs";
 
 const router = express.Router();
 
+const escapeRegex = (string) =>
+  string.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
+
 // Helper to build search conditions
 const buildSearchQuery = (search) => {
+  const cleanSearch = String(search || "").trim();
+  const isHssQuery = cleanSearch.toLowerCase() === "hss";
+
+  const conditions = [
+    { status: { $regex: escapeRegex(cleanSearch), $options: "i" } },
+    { be_no: { $regex: escapeRegex(cleanSearch), $options: "i" } },
+    { bill_date: { $regex: escapeRegex(cleanSearch), $options: "i" } },
+  ];
+
+  if (isHssQuery) {
+    conditions.push({ hss: { $regex: "^yes$", $options: "i" } });
+  }
+
   return {
-    $or: [
-      { status: { $regex: search, $options: "i" } },
-      { be_no: { $regex: search, $options: "i" } },
-      { bill_date: { $regex: search, $options: "i" } },
-    ],
+    $or: conditions,
   };
 };
 

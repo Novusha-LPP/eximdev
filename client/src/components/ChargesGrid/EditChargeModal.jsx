@@ -39,6 +39,51 @@ const EditChargeModal = ({
   awbBlDate = ''
 }) => {
   const [formData, setFormData] = useState([]);
+  const [localImporterName, setLocalImporterName] = useState(importerName || '');
+
+  useEffect(() => {
+    if (importerName) {
+      setLocalImporterName(importerName);
+    }
+  }, [importerName]);
+
+  useEffect(() => {
+    const fetchJob = async () => {
+      if (!localImporterName && parentId) {
+        try {
+          const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-job-by-id/${parentId}`);
+          if (res.data?.job?.importer) {
+            setLocalImporterName(res.data.job.importer);
+          }
+        } catch (err) {
+          console.error("Error fetching job in EditChargeModal:", err);
+        }
+      }
+    };
+    if (isOpen) {
+      fetchJob();
+    }
+  }, [isOpen, parentId, localImporterName]);
+
+  useEffect(() => {
+    if (localImporterName) {
+      setFormData(prev => {
+        return prev.map(row => {
+          if (!row.revenue?.partyName) {
+            return {
+              ...row,
+              revenue: {
+                ...(row.revenue || {}),
+                partyName: localImporterName
+              }
+            };
+          }
+          return row;
+        });
+      });
+    }
+  }, [localImporterName]);
+
   const [panelOpen, setPanelOpen] = useState({}); // { rowIndex: 'rev' | 'cost' | null }
   const [uploadIndex, setUploadIndex] = useState(null); // index of charge being uploaded for
   const [uploadSection, setUploadSection] = useState(null); // 'revenue' | 'cost'
@@ -174,7 +219,8 @@ const EditChargeModal = ({
           revenue: {
             ...(charge.revenue || {}),
             isGst: (charge.revenue && charge.revenue.isGst !== undefined) ? charge.revenue.isGst : true,
-            partyType: charge.revenue?.partyType || 'Customer'
+            partyType: charge.revenue?.partyType || 'Customer',
+            partyName: charge.revenue?.partyName || localImporterName || importerName || ''
           },
           cost: {
             ...(charge.cost || {}),
@@ -273,8 +319,8 @@ const EditChargeModal = ({
         }
 
         // Auto-populate Payable To if type is 'Importer' in Cost section
-        if (section === 'cost' && field === 'partyType' && value === 'Importer' && importerName) {
-          updated[index][section].partyName = importerName;
+        if (section === 'cost' && field === 'partyType' && value === 'Importer' && (localImporterName || importerName)) {
+          updated[index][section].partyName = localImporterName || importerName;
         }
 
         // Auto-populate Payable To if type is 'Custom Duty' in Cost section
@@ -492,10 +538,10 @@ const EditChargeModal = ({
       isGst: cost.isGst !== undefined ? cost.isGst : true,
       gstRate: cost.gstRate || 18,
       chargeDescription: cost.chargeDescription,
-      partyName: cost.partyName,
-      partyType: cost.partyType,
-      branchIndex: cost.branchIndex,
-      branchCode: cost.branchCode
+      partyName: updated[index].revenue?.partyName || localImporterName || importerName || '',
+      partyType: updated[index].revenue?.partyType || 'Customer',
+      branchIndex: updated[index].revenue?.branchIndex || 0,
+      branchCode: updated[index].revenue?.branchCode || ''
     };
 
     // Recalculate everything for revenue
@@ -534,10 +580,10 @@ const EditChargeModal = ({
       isGst: cost.isGst !== undefined ? cost.isGst : true,
       gstRate: cost.gstRate || 18,
       chargeDescription: cost.chargeDescription,
-      partyName: cost.partyName,
-      partyType: cost.partyType,
-      branchIndex: cost.branchIndex,
-      branchCode: cost.branchCode
+      partyName: updated[index].revenue?.partyName || localImporterName || importerName || '',
+      partyType: updated[index].revenue?.partyType || 'Customer',
+      branchIndex: updated[index].revenue?.branchIndex || 0,
+      branchCode: updated[index].revenue?.branchCode || ''
     };
 
     // Recalculate everything for revenue

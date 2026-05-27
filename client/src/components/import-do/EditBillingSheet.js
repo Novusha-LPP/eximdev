@@ -423,6 +423,7 @@ function EditBillingSheet() {
         initialTab="cost"
         hideTabs={true}
         shippingLineAirline={data?.shipping_line_airline}
+        importerName={data?.importer}
         jobNumber={job_no}
         jobYear={year}
         awbBlNo={data?.awb_bl_no}

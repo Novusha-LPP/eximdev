@@ -394,4 +394,39 @@ router.get("/client-login-analytics", async (req, res) => {
     }
 });
 
+// New Customers Report
+router.get("/new-customers-report", async (req, res) => {
+    try {
+        const customers = await CustomerKycModel.find({
+            approval: { $in: ["Approved", "Approved by HOD"] },
+            draft: { $ne: "true" }
+        })
+        .select("name_of_individual category approval iec_no udyam_no approved_by approvedAt updatedAt createdAt principle_business_address_city principle_business_address_state")
+        .sort({ updatedAt: -1 })
+        .lean();
+
+        const result = customers.map(c => {
+            // Determine the approval date: fallback to updatedAt, then createdAt
+            const approvalDate = c.approvedAt || c.updatedAt || c.createdAt;
+            return {
+                _id: c._id,
+                name_of_individual: c.name_of_individual,
+                category: c.category,
+                approval: c.approval,
+                iec_no: c.iec_no,
+                udyam_no: c.udyam_no,
+                approved_by: c.approved_by,
+                approvalDate: approvalDate,
+                city: c.principle_business_address_city,
+                state: c.principle_business_address_state
+            };
+        });
+
+        res.json(result);
+    } catch (error) {
+        console.error("Error fetching new customers report for Project Nucleus:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
 export default router;

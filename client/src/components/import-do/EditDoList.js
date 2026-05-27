@@ -670,6 +670,7 @@ function EditDoList() {
           initialTab="cost" 
           hideTabs={true} 
           shippingLineAirline={data?.shipping_line_airline} 
+          importerName={jobDetails.importer || data?.importer}
           jobNumber={job_no}
           jobYear={year}
           awbBlNo={data?.awb_bl_no}

@@ -20,6 +20,7 @@ router.post("/api/customer-kyc-approval/:_id", async (req, res) => {
     // Update the approved_by field for approved KYCs
     if (approval === "Approved") {
       data.approved_by = approved_by;
+      data.approvedAt = new Date();
       data.remarks = ""; // Clear remarks for approved KYCs
     } else if (approval === "Sent for revision") {
       data.remarks = remarks;

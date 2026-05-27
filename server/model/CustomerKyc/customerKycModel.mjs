@@ -506,6 +506,10 @@ const customerKycSchema = new Schema({
     required: false,
     trim: true
   },
+  approvedAt: {
+    type: Date,
+    required: false
+  },
   remarks: {
     type: String,
     required: false,

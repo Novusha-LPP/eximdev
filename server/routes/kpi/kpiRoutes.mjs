@@ -641,7 +641,7 @@ router.get("/api/kpi/sheet/:id", verifyToken, async (req, res) => {
             score: score
         };
 
-        const sheetObj = sheet.toObject();
+        const sheetObj = sheet.toJSON();
         sheetObj.openPointsSummary = openPointsSummary;
 
         console.log(`GET /api/kpi/sheet/${req.params.id} - Success`);
@@ -720,7 +720,7 @@ router.get("/api/kpi/sheet", verifyToken, async (req, res) => {
                 score: score
             };
 
-            const sheetObj = sheet.toObject();
+            const sheetObj = sheet.toJSON();
             sheetObj.openPointsSummary = openPointsSummary;
 
             return res.json(sheetObj);

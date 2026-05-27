@@ -6,7 +6,7 @@ import { validationSchema } from "../../schemas/changePasswordSchema";
 import axios from "axios";
 
 function ChangePassword() {
-  const { user } = useContext(UserContext);
+  const { user, setUser } = useContext(UserContext);
 
   const formik = useFormik({
     initialValues: {
@@ -16,12 +16,20 @@ function ChangePassword() {
     },
     validationSchema,
     onSubmit: async (values, { resetForm }) => {
-      const res = await axios.post(
-        `${process.env.REACT_APP_API_STRING}/change-password`,
-        { ...values, username: user.username }
-      );
-      alert(res.data.message);
-      resetForm();
+      try {
+        const res = await axios.post(
+          `${process.env.REACT_APP_API_STRING}/change-password`,
+          { ...values, username: user.username }
+        );
+        alert(res.data.message);
+        if (res.status === 200 && res.data.message === "Password changed successfully") {
+          setUser(prev => ({ ...prev, passwordExpired: false }));
+        }
+        resetForm();
+      } catch (err) {
+        console.error(err);
+        alert(err.response?.data?.message || "Failed to change password. Please check your credentials.");
+      }
     },
   });
 

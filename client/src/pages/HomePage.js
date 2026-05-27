@@ -2,7 +2,10 @@ import React, { useState } from "react";
 import Box from "@mui/material/Box";
 import CssBaseline from "@mui/material/CssBaseline";
 import Toolbar from "@mui/material/Toolbar";
-import { Route, Routes, Navigate } from "react-router-dom";
+import { Route, Routes, Navigate, useNavigate } from "react-router-dom";
+import Snackbar from "@mui/material/Snackbar";
+import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
 import { TabValueContext } from "../contexts/TabValueContext.js";
 import { SearchQueryProvider } from "../contexts/SearchQueryContext.js";
 import ProtectedRoute from "./ProtectedRoute.js";
@@ -206,6 +209,8 @@ const PulseIndex = () => {
 };
 
 function HomePageContent() {
+  const { user } = React.useContext(UserContext);
+  const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [tabValue, setTabValue] = useState(
     JSON.parse(localStorage.getItem("tab_value") || 0)
@@ -245,6 +250,39 @@ function HomePageContent() {
       <SearchQueryProvider>
         <Box sx={{ display: "flex" }}>
           <CssBaseline />
+          <Snackbar
+            open={Boolean(user?.passwordExpired)}
+            anchorOrigin={{ vertical: "top", horizontal: "center" }}
+            sx={{
+              top: "80px !important",
+              zIndex: 1400,
+            }}
+          >
+            <Alert
+              severity="error"
+              variant="filled"
+              action={
+                <Button
+                  color="inherit"
+                  size="small"
+                  onClick={() => navigate("/change-password")}
+                  sx={{ fontWeight: "bold", textDecoration: "underline" }}
+                >
+                  Change Password
+                </Button>
+              }
+              sx={{
+                boxShadow: 3,
+                width: "100%",
+                minWidth: "300px",
+                fontSize: "0.95rem",
+                fontWeight: "500",
+                borderRadius: "8px",
+              }}
+            >
+              Your password is older than 30 days. Please update it immediately.
+            </Alert>
+          </Snackbar>
           <AppbarComponent
             mobileOpen={mobileOpen}
             setMobileOpen={setMobileOpen}

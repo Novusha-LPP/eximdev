@@ -32,6 +32,10 @@ router.post("/api/login", async (req, res) => {
       if (passwordResult) {
         const isHodOfAnyTeam = await TeamModel.exists({ hodId: user._id, isActive: { $ne: false } });
 
+        const passwordChangedAt = user.passwordChangedAt || new Date(0);
+        const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
+        const passwordExpired = (Date.now() - new Date(passwordChangedAt).getTime()) > thirtyDaysInMs;
+
         // Create a new object with only the required fields
         const userResponse = {
           _id: user._id,
@@ -52,7 +56,8 @@ router.post("/api/login", async (req, res) => {
           assigned_importer_name: user.assigned_importer_name,
           selected_icd_codes: user.selected_icd_codes,
           isHOD: !!isHodOfAnyTeam,
-          hodId: isHodOfAnyTeam ? user._id.toString() : undefined
+          hodId: isHodOfAnyTeam ? user._id.toString() : undefined,
+          passwordExpired: passwordExpired
         };
 
         const token = jwt.sign(

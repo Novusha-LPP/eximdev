@@ -335,6 +335,10 @@ const userSchema = new Schema({
     type: Boolean,
     default: false,
   },
+  passwordChangedAt: {
+    type: Date,
+    default: Date.now,
+  },
 });
 
 userSchema.plugin(auditPlugin, { documentType: "User" });

@@ -27,6 +27,7 @@ router.post("/api/change-password", auditMiddleware("User"), async (req, res) =>
 
     // Update the user's password in the database
     user.password = hashedNewPassword;
+    user.passwordChangedAt = new Date();
     await user.save();
 
     // Send a success response
@@ -64,6 +65,7 @@ router.post("/api/admin/change-password", auditMiddleware("User"), async (req, r
     // Hash the new password
     const hashedNewPassword = await bcrypt.hash(newPassword, 10);
     targetUser.password = hashedNewPassword;
+    targetUser.passwordChangedAt = new Date(0);
     await targetUser.save();
 
     // Send success response first

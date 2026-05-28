@@ -91,6 +91,18 @@ function BillingSheet() {
     }
   }, [setSearchQuery, setSelectedImporter, setCurrentPage, location.state]);
 
+  const formatDate = useCallback((dateStr) => {
+    if (dateStr) {
+      const date = new Date(dateStr);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}/${month}/${day}`;
+    } else {
+      return dateStr;
+    }
+  }, []);
+
   // Debounce search input
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -434,10 +446,94 @@ function BillingSheet() {
 
     {
       accessorKey: "Doc",
-      header: "Docs",
+      header: "Do Completed & Validity Date",
       enableSorting: false,
-      size: 220,
-      Cell: ({ cell }) => <InvoiceDisplay row={cell.row.original} />,
+      size: 200,
+      Cell: ({ cell, row }) => {
+        const { do_completed, do_validity, do_copies, cth_documents } =
+          cell.row.original;
+
+        const doCopies = do_copies;
+        const doCompleted = formatDate(do_completed);
+        const doValidity = formatDate(do_validity);
+
+        return (
+          <div style={{ textAlign: "left" }}>
+            {/* Render the "Checklist" link or fallback text */}
+            {cth_documents &&
+              cth_documents.some(
+                (doc) =>
+                  doc.url &&
+                  doc.url.length > 0 &&
+                  doc.document_name === "Bill of Lading"
+              ) ? (
+              cth_documents
+                .filter(
+                  (doc) =>
+                    doc.url &&
+                    doc.url.length > 0 &&
+                    doc.document_name === "Bill of Lading"
+                )
+                .map((doc) => (
+                  <div key={doc._id} style={{ marginBottom: "5px" }}>
+                    <a
+                      href={doc.url[0]}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        color: "blue",
+                        textDecoration: "underline",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {doc.document_name}
+                    </a>
+                  </div>
+                ))
+            ) : (
+              <span style={{ color: "gray" }}>No Bill of Lading </span>
+            )}
+
+            <div>
+              {doCompleted ? (
+                <strong>DO Completed Date: {doCompleted}</strong>
+              ) : (
+                <span style={{ color: "gray" }}>No DO Completed Date</span>
+              )}
+            </div>
+            <div>
+              {doValidity ? (
+                <strong>DO Validity: {doValidity}</strong>
+              ) : (
+                <span style={{ color: "gray" }}>No DO Validity</span>
+              )}
+            </div>
+
+            {Array.isArray(doCopies) && doCopies.length > 0 ? (
+              <div style={{ marginTop: "4px" }}>
+                {doCopies.map((url, index) => (
+                  <div key={index}>
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: "#007bff", textDecoration: "underline" }}
+                    >
+                      DO Copy {index + 1}
+                    </a>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ marginBottom: "5px" }}>
+                <span style={{ color: "gray" }}> No DO copies </span>
+              </div>
+            )}
+
+            <InvoiceDisplay row={cell.row.original} />
+          </div>
+        );
+      },
     },
   ];
 

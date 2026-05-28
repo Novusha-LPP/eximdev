@@ -79,10 +79,14 @@ const S = {
 };
 
 const RABS_ORG_KEY = 'rabs industries india private limited';
+const SPECIAL_GROUP_LABELS = new Set(['No Organization', 'No Team']);
 const getOrgName = (emp) => emp?.company_id?.company_name || 'No Organization';
 const isRabsOrganization = (name = '') => String(name).trim().toLowerCase() === RABS_ORG_KEY;
 const sortGroupNamesWithRabsLast = (names = []) =>
   [...names].sort((a, b) => {
+    const aSpecial = SPECIAL_GROUP_LABELS.has(String(a));
+    const bSpecial = SPECIAL_GROUP_LABELS.has(String(b));
+    if (aSpecial !== bSpecial) return aSpecial ? 1 : -1;
     const aR = isRabsOrganization(a), bR = isRabsOrganization(b);
     if (aR !== bR) return aR ? 1 : -1;
     return String(a).localeCompare(String(b));
@@ -311,6 +315,8 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
 
   const [organizations, setOrganizations] = useState([]);
   const [gridEmployees, setGridEmployees] = useState([]);
+  const [teams, setTeams] = useState([]);
+  const [collapsedGroups, setCollapsedGroups] = useState({});
 
   const idFromParams = userId||idFromRoute;
   const isValidParamId = idFromParams&&/^[0-9a-fA-F]{24}$/.test(idFromParams);
@@ -372,11 +378,55 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     return [...r].sort((a,b)=>{ const aR=isRabsOrganization(getOrgName(a)), bR=isRabsOrganization(getOrgName(b)); if(aR!==bR) return aR?1:-1; return 0; });
   }, [gridEmployees, searchTerm]);
 
+  const teamNameByEmployee = useMemo(() => {
+    const map = new Map();
+
+    teams.forEach(team => {
+      const teamName = team?.name || team?.team_name || team?.teamName || 'No Team';
+      const teamMembers = [
+        ...(Array.isArray(team?.members) ? team.members : []),
+        ...(Array.isArray(team?.membersDetails) ? team.membersDetails : []),
+      ];
+
+      teamMembers.forEach(member => {
+        [member?.userId, member?._id, member?.username].filter(Boolean).forEach(key => {
+          const normalizedKey = String(key).toLowerCase();
+          if (!map.has(normalizedKey)) {
+            map.set(normalizedKey, teamName);
+          }
+        });
+      });
+    });
+
+    return map;
+  }, [teams]);
+
+  const getEmployeeTeamName = (emp) => {
+    const directTeamName = emp?.teamId?.name || emp?.team?.name || emp?.team_name || emp?.teamName || emp?.team;
+    if (directTeamName) return directTeamName;
+
+    const lookupKeys = [emp?._id, emp?.username].filter(Boolean).map(value => String(value).toLowerCase());
+    for (const key of lookupKeys) {
+      if (teamNameByEmployee.has(key)) {
+        return teamNameByEmployee.get(key);
+      }
+    }
+
+    return 'No Team';
+  };
+
+  const toggleGroupCollapse = (groupName) => {
+    setCollapsedGroups(prev => ({
+      ...prev,
+      [groupName]: !prev[groupName],
+    }));
+  };
+
   const groupedEmployeesData = useMemo(() => {
     if (groupBy==='none') return null;
     const g = {};
     filteredEmployees.forEach(emp => {
-      const key = groupBy==='organization'?(emp.company_id?.company_name||'No Organization'):(emp.teamId?.name||'No Team');
+      const key = groupBy==='organization'?(emp.company_id?.company_name||'No Organization'):getEmployeeTeamName(emp);
       if (!g[key]) g[key]=[];
       g[key].push(emp);
     });
@@ -628,6 +678,20 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
 
   useEffect(() => { if (!id) fetchAllEmployees(); }, [id]);
 
+  useEffect(() => {
+    const fetchTeams = async () => {
+      try {
+        const res = await masterAPI.getTeams();
+        const teamList = Array.isArray(res?.teams) ? res.teams : Array.isArray(res) ? res : [];
+        setTeams(teamList);
+      } catch {
+        setTeams([]);
+      }
+    };
+
+    if (!id) fetchTeams();
+  }, [id]);
+
   const handleDeactivateEmployee = async (emp) => {
     try {
       const r = await axios.post(`${process.env.REACT_APP_API_STRING}/toggle-user-status`, { username:emp.username, isActive:false });
@@ -815,6 +879,8 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
           .epw-details { flex:1; min-width:0; }
           .epw-name { font-size:14px; font-weight:800; color:#0f172a; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:6px; }
           .epw-meta { display:flex; align-items:center; gap:6px; font-size:11px; color:#64748b; margin-bottom:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+          .epw-meta-wrap { align-items:flex-start; white-space:normal; overflow:visible; text-overflow:initial; }
+          .epw-meta-wrap .epw-meta-val { white-space:normal; overflow-wrap:anywhere; word-break:break-word; line-height:1.25; }
           .epw-meta-lbl { color:#94a3b8; font-weight:600; min-width:125px; display:flex; align-items:center; gap:4px; }
           .epw-footer { display:flex; align-items:center; justify-content:space-between; border-top:1px solid #f1f5f9; padding-top:10px; margin:0 -20px; padding-left:16px; padding-right:16px; }
           .epw-control { height:38px; border:1px solid #dde5f1; background:#fff; border-radius:7px; box-shadow:0 4px 12px rgba(15,23,42,0.06); }
@@ -884,7 +950,8 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
             {(groupBy==='none'?[{ name:null, items:paginatedEmployees }]:sortGroupNamesWithRabsLast(Object.keys(groupedEmployeesData)).map(n=>({ name:n, items:groupedEmployeesData[n] }))).map((g,gi)=>(
               <div key={g.name||gi}>
                 {g.name && (
-                  <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'14px', paddingBottom:'10px', borderBottom:`2px solid ${THEME.primary}` }}>
+                  <div onClick={() => toggleGroupCollapse(g.name)} style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'14px', paddingBottom:'10px', borderBottom:`2px solid ${THEME.primary}`, cursor:'pointer' }}>
+                    {collapsedGroups[g.name] ? <FiChevronRight size={15} color={THEME.navy} /> : <FiChevronDown size={15} color={THEME.navy} />}
                     <span style={{ fontSize:'16px', fontWeight:'800', color:THEME.navy }}>{g.name}</span>
                     <span style={{ fontSize:'12px', color:THEME.muted, fontWeight:'600', background:'#f1f5f9', padding:'2px 8px', borderRadius:'10px' }}>{g.items.length}</span>
                     {groupBy==='organization' && (
@@ -894,7 +961,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                     )}
                   </div>
                 )}
-                <div className="epw-grid">
+                {!collapsedGroups[g.name] && <div className="epw-grid">
                   {g.items.map(emp=>{
                     const initials = `${emp.first_name?.[0]||''}${emp.last_name?.[0]||''}`.toUpperCase();
                     const go = (e) => { e.stopPropagation(); handleSelectEmployee(emp); };
@@ -912,14 +979,14 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                             <div className="epw-name" title={name}>{name}</div>
                             {[
                               [<FiPhone size={11}/>, 'Contact No', emp.mobile||'--'],
-                              [<FiMapPin size={11}/>, 'Branch', emp.branch_id?.branch_code||emp.branch||'--'],
+                              [<FiMapPin size={11}/>, 'Team', getEmployeeTeamName(emp)],
                               [<FiBriefcase size={11}/>, 'Department', emp.department_id?.department_name||emp.department||'--'],
                               [<FiAward size={11}/>, 'Designation', emp.designation?.designation_name||emp.designation||'--'],
                               [<FiHome size={11}/>, 'Company Name', emp.company_id?.company_name||emp.company||'--'],
                             ].map(([icon, lbl, val], i)=>(
-                              <div key={i} className="epw-meta">
+                              <div key={i} className={`epw-meta ${lbl === 'Company Name' ? 'epw-meta-wrap' : ''}`}>
                                 <span className="epw-meta-lbl">{icon} {lbl} <span style={{ marginLeft:'auto', marginRight:'6px' }}>:</span></span>
-                                <span style={{ color:'#475569', fontWeight:'500', overflow:'hidden', textOverflow:'ellipsis' }}>{val}</span>
+                                <span className="epw-meta-val" style={{ color:'#475569', fontWeight:'500', minWidth:0, flex:1 }}>{val}</span>
                               </div>
                             ))}
                           </div>
@@ -940,7 +1007,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                       </div>
                     );
                   })}
-                </div>
+                </div>}
               </div>
             ))}
           </div>
@@ -949,13 +1016,14 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
             {(groupBy==='none'?[{ name:null, items:paginatedEmployees }]:sortGroupNamesWithRabsLast(Object.keys(groupedEmployeesData)).map(n=>({ name:n, items:groupedEmployeesData[n] }))).map((g,gi)=>(
               <div key={g.name||gi}>
                 {g.name && (
-                  <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'10px' }}>
+                  <div onClick={() => toggleGroupCollapse(g.name)} style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'10px', cursor:'pointer' }}>
+                    {collapsedGroups[g.name] ? <FiChevronRight size={13} color={THEME.navy} /> : <FiChevronDown size={13} color={THEME.navy} />}
                     <span style={{ fontSize:'14px', fontWeight:'700', color:THEME.navy }}>{g.name}</span>
                     <span style={{ fontSize:'11px', color:THEME.muted, background:'#f1f5f9', padding:'1px 7px', borderRadius:'8px' }}>{g.items.length}</span>
                     {groupBy==='organization' && <button onClick={e=>{ e.stopPropagation(); handleDownloadOrgReport(g.name,g.items); }} style={{ ...S.btn('green'), marginLeft:'auto', display:'flex', alignItems:'center', gap:'4px' }}><FiDownload size={12}/> Export Logs</button>}
                   </div>
                 )}
-                <div style={{ background:'#fff', border:`1px solid ${THEME.border}`, borderRadius:'10px', overflow:'hidden' }}>
+                {!collapsedGroups[g.name] && <div style={{ background:'#fff', border:`1px solid ${THEME.border}`, borderRadius:'10px', overflow:'hidden' }}>
                   <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'13px' }}>
                     <thead>
                       <tr style={{ background:'#f8fafc', borderBottom:`1px solid ${THEME.border}` }}>
@@ -1013,7 +1081,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                       })}
                     </tbody>
                   </table>
-                </div>
+                </div>}
               </div>
             ))}
           </div>

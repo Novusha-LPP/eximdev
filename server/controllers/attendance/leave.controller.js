@@ -11,7 +11,7 @@ import PolicyResolver from '../../services/attendance/PolicyResolver.js';
 import Company from '../../model/attendance/Company.js';
 
 const STAGE_2_APPROVER_USERNAME = 'shalini_arun';
-const STAGE_3_FINAL_APPROVER_USERNAMES = new Set(['manu_pillai', 'suraj_rajan', 'rajan_aranamkatte']);
+const STAGE_3_FINAL_APPROVER_USERNAMES = new Set(['manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'uday_zope']);
 
 const normalizeRole = (role) => String(role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
 const isHodRole = (role) => {
@@ -1060,42 +1060,52 @@ export const applyLeave = async (req, res) => {
             ]
         });
 
-        const isHodApplicant = isHodRole(user.role) || isActuallyHodOfSomeTeam;
-        
-        // --- CUSTOM ROUTING FOR ADMINS ---
-        if (actorUsername === STAGE_2_APPROVER_USERNAME) {
-            // Shalini applying -> Goes to Manu Pillai
-            const manuUser = await getApproverByUsername('manu_pillai', companyId);
-            if (!manuUser) {
-                return res.status(400).json({ message: 'Unable to route leave approval: manu_pillai is not configured' });
+        const applicantUsername = String(user.username || '').toLowerCase();
+        // HOD check: any user with HOD role OR who is actually HOD of some team
+        const isHodUser = isHodRole(user.role) || !!isActuallyHodOfSomeTeam;
+
+        // --- CUSTOM ROUTING FOR HOD & ADMINS ---
+        if (applicantUsername === 'uday_zope') {
+            // Uday Zope Exception: goes first to punit_pandey (Stage 1) then Shalini (Stage 2)
+            const punitUser = await UserModel.findOne({ username: 'punit_pandey', isActive: true });
+            if (!punitUser) {
+                return res.status(400).json({ message: 'Unable to route leave approval: punit_pandey is not configured or active' });
             }
+            assignedStage = 'stage_1_hod';
+            currentApproverId = punitUser._id;
+        } else if (applicantUsername === STAGE_2_APPROVER_USERNAME) {
+            // Shalini applying -> Goes to other allowed admins except uday_zope (any of manu, suraj, rajan)
             assignedStage = 'stage_3_final';
-            currentApproverId = manuUser._id;
-        } else if (STAGE_3_FINAL_APPROVER_USERNAMES.has(actorUsername)) {
-            // Manu/Suraj/Rajan applying -> Self-approve at Stage 3
+            currentApproverId = undefined; // Group approval at stage 3
+        } else if (STAGE_3_FINAL_APPROVER_USERNAMES.has(applicantUsername)) {
+            // Other Stage 3 Admins applying -> Self-approve at Stage 3
             assignedStage = 'stage_3_final';
             currentApproverId = user._id;
-        } else if (isHodApplicant) {
-            // HOD applying -> Goes to Shalini (Stage 2)
-            assignedStage = 'stage_2_shalini';
-            currentApproverId = shaliniUser._id;
+        } else if (isHodUser) {
+            // Any HOD (with or without hod_id) -> Bypasses Shalini and goes directly to Stage 3 designated Admin approvers
+            assignedStage = 'stage_3_final';
+            currentApproverId = undefined;
         }
 
-        if (!currentApproverId) {
+        if (!currentApproverId && assignedStage !== 'stage_3_final') {
             return res.status(400).json({
                 message: 'Unable to route leave approval: no active Team HOD assigned for this employee'
             });
         }
 
+        const isBypassedHod = isHodUser && applicantUsername !== 'uday_zope';
+        const isShaliniApplicant = applicantUsername === STAGE_2_APPROVER_USERNAME;
+        const isDirectToStage3 = isBypassedHod || isShaliniApplicant;
+
         approvalChain = [
             {
                 level: 1,
                 stage: 'stage_1_hod',
-                approver_id: isHodApplicant ? actorObjectId : (currentApproverId === shaliniUser._id ? actorObjectId : currentApproverId),
+                approver_id: isDirectToStage3 ? actorObjectId : (currentApproverId === shaliniUser._id ? actorObjectId : currentApproverId),
                 approver_role: 'HOD',
-                action: isHodApplicant ? 'approved' : (assignedStage === 'stage_1_hod' ? 'pending' : 'approved'),
-                action_date: isHodApplicant ? new Date() : (assignedStage === 'stage_1_hod' ? undefined : new Date()),
-                comments: isHodApplicant ? 'Stage skipped for HOD requester' : (assignedStage === 'stage_1_hod' ? undefined : 'Stage skipped for admin requester')
+                action: isDirectToStage3 ? 'approved' : (assignedStage === 'stage_1_hod' ? 'pending' : 'approved'),
+                action_date: isDirectToStage3 ? new Date() : (assignedStage === 'stage_1_hod' ? undefined : new Date()),
+                comments: isDirectToStage3 ? 'Stage skipped for HOD/admin requester' : (assignedStage === 'stage_1_hod' ? undefined : 'Stage skipped for admin requester')
             },
             {
                 level: 2,
@@ -1106,8 +1116,8 @@ export const applyLeave = async (req, res) => {
                 action: assignedStage === 'stage_1_hod' 
                             ? 'pending' 
                             : (assignedStage === 'stage_2_shalini' ? 'pending' : 'approved'),
-                action_date: assignedStage === 'stage_3_final' ? new Date() : undefined,
-                comments: assignedStage === 'stage_3_final' ? 'Stage skipped for senior admin requester' : undefined
+                action_date: (assignedStage === 'stage_3_final' && !isBypassedHod) ? new Date() : (isBypassedHod ? new Date() : undefined),
+                comments: isBypassedHod ? 'Stage skipped for HOD requester' : (assignedStage === 'stage_3_final' ? 'Stage skipped for senior admin requester' : undefined)
             },
             {
                 level: 3,
@@ -1115,7 +1125,7 @@ export const applyLeave = async (req, res) => {
                 approver_id: (assignedStage === 'stage_3_final' ? currentApproverId : undefined),
                 approver_role: 'ADMIN',
                 action: 'pending',
-                comments: 'Final approver group: manu_pillai, suraj_rajan, rajan_aranamkatte'
+                comments: 'Final approver group'
             }
         ]
             .map((step) => ({

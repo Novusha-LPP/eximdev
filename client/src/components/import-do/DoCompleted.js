@@ -904,7 +904,7 @@ function DoCompleted() {
             </div>
             <div>
               {doValidity ? (
-                <strong>DO Validity: {doCompleted}</strong>
+                <strong>DO Validity: {doValidity}</strong>
               ) : (
                 <span style={{ color: "gray" }}>No DO Validity</span>
               )}

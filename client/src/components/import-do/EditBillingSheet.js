@@ -27,6 +27,7 @@ import AttachFileIcon from '@mui/icons-material/AttachFile';
 import { UserContext } from "../../contexts/UserContext";
 import { TabContext } from "./ImportDO";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
+import JobDetailsRowHeading from "../import-dsr/JobDetailsRowHeading";
 import { useSearchParams } from "react-router-dom";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
@@ -368,6 +369,87 @@ function EditBillingSheet() {
     );
   };
 
+  const renderAllDocumentsTable = (docs) => {
+    if (!docs || docs.length === 0) {
+      return (
+        <p style={{ padding: "10px", color: "#666", fontStyle: "italic" }}>
+          No documents available.
+        </p>
+      );
+    }
+
+    const rows = docs.map((url) => ({
+      document_name: extractFileName(url),
+      url: [url],
+    }));
+
+    const renderTable = (tableRows, startIndex) => (
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ ...excelStyles.table, width: "100%" }}>
+          <thead>
+            <tr>
+              <th style={{ ...excelStyles.th, width: "50px", textAlign: "center" }}>
+                SR NO
+              </th>
+              <th style={excelStyles.th}>FILES</th>
+            </tr>
+          </thead>
+          <tbody>
+            {tableRows.map((row, index) => (
+              <tr key={index} style={{ "&:hover": { backgroundColor: "#f8f9fa" } }}>
+                <td
+                  style={{
+                    ...excelStyles.td,
+                    textAlign: "center",
+                    fontWeight: 700,
+                    color: "black",
+                  }}
+                >
+                  {startIndex + index + 1}
+                </td>
+                <td style={excelStyles.td}>
+                  {row.url && row.url.length > 0 ? (
+                    row.url.map((fileUrl, i) => (
+                      <a
+                        key={i}
+                        href={fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          ...excelStyles.link,
+                          "&:hover": { textDecoration: "underline" },
+                        }}
+                      >
+                        {extractFileName(fileUrl)}
+                      </a>
+                    ))
+                  ) : (
+                    <span style={{ color: "#999" }}>No files</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+
+    const midPoint = Math.ceil(rows.length / 2);
+    const leftRows = rows.slice(0, midPoint);
+    const rightRows = rows.slice(midPoint);
+
+    return (
+      <Row>
+        <Col md={6} style={{ paddingRight: "10px" }}>
+          {renderTable(leftRows, 0)}
+        </Col>
+        <Col md={6} style={{ paddingLeft: "10px" }}>
+          {rightRows.length > 0 && renderTable(rightRows, midPoint)}
+        </Col>
+      </Row>
+    );
+  };
+
   if (loading) return <p>Loading data...</p>;
   if (error) return <p style={{ color: "red" }}>{error}</p>;
   return (
@@ -605,6 +687,14 @@ function EditBillingSheet() {
           <Box sx={{ height: "60px" }} />
         </form>
       </div>
+
+      {/* All Documents Section */}
+      {data && data.all_documents && (
+        <div className="job-details-container" style={{ marginTop: "20px" }}>
+          <JobDetailsRowHeading heading="All Documents" />
+          {renderAllDocumentsTable(data.all_documents)}
+        </div>
+      )}
 
       <Button
         type="submit"

@@ -156,37 +156,275 @@ const ElockUtilizationReport = ({
 
     if (loading) {
         return (
-            <div className="nucleus-loading-container">
-                <div className="nucleus-loader"></div>
-                <div style={{ marginTop: '1rem', color: '#6b7280' }}>Loading report details...</div>
+            <div className="report-root-container">
+                <style>{`
+                    .nucleus-loading-container {
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        padding: 80px 20px;
+                        background: rgba(255, 255, 255, 0.5);
+                        backdrop-filter: blur(20px);
+                        border-radius: 24px;
+                    }
+                    .nucleus-loader {
+                        width: 48px;
+                        height: 48px;
+                        border: 3px solid rgba(102, 126, 234, 0.2);
+                        border-top-color: #667eea;
+                        border-radius: 50%;
+                        animation: spin 0.8s linear infinite;
+                    }
+                    @keyframes spin {
+                        to { transform: rotate(360deg); }
+                    }
+                `}</style>
+                <div className="nucleus-loading-container">
+                    <div className="nucleus-loader"></div>
+                    <div style={{ marginTop: '1.5rem', color: '#1e293b', fontWeight: 600 }}>Loading report details...</div>
+                </div>
             </div>
         );
     }
 
+    const getUtilColor = (val) => {
+        if (val === '—') return '#64748b';
+        const n = parseFloat(val);
+        if (n >= 80) return '#10b981';
+        if (n >= 50) return '#f59e0b';
+        return '#ef4444';
+    };
+
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {/* Stats Card */}
-            <div className="nucleus-stats-card" style={{ borderLeft: '4px solid #06b6d4', background: 'linear-gradient(90deg, rgba(6, 182, 212, 0.08) 0%, rgba(6, 182, 212, 0.01) 100%)' }}>
-                <div className="stats-text" style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap', alignItems: 'center', width: '100%' }}>
-                    <div>
-                        Locks Used: <span className="highlight-val" style={{ color: '#3b82f6' }}>{elockSummaryObj.locksUsed}</span>
+        <div className="report-root-container">
+            <style>{`
+                @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+                
+                .report-root-container {
+                    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 28px;
+                    padding: 0;
+                    background: transparent;
+                }
+                
+                .nucleus-stats-card {
+                    background: rgba(255, 255, 255, 0.8);
+                    backdrop-filter: blur(20px);
+                    -webkit-backdrop-filter: blur(20px);
+                    border-radius: 20px;
+                    border: 1px solid rgba(255, 255, 255, 0.5);
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04), 0 1px 4px rgba(0, 0, 0, 0.02);
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    overflow: hidden;
+                    position: relative;
+                }
+                
+                .nucleus-stats-card::after {
+                    content: '';
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    height: 1px;
+                    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.8), transparent);
+                }
+                
+                .nucleus-stats-card:hover {
+                    transform: translateY(-4px);
+                    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+                }
+                
+                .nucleus-table-wrapper {
+                    background: rgba(255, 255, 255, 0.9);
+                    backdrop-filter: blur(20px);
+                    -webkit-backdrop-filter: blur(20px);
+                    border-radius: 20px;
+                    border: 1px solid rgba(255, 255, 255, 0.5);
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
+                    overflow: hidden;
+                }
+                
+                .nucleus-table {
+                    width: 100%;
+                    border-collapse: separate;
+                    border-spacing: 0;
+                }
+                
+                .nucleus-table th {
+                    background: linear-gradient(180deg, rgba(248, 250, 252, 0.9) 0%, rgba(241, 245, 249, 0.9) 100%);
+                    color: #0f172a;
+                    font-weight: 800;
+                    font-size: 13.5px;
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
+                    padding: 16px 20px;
+                    border-bottom: 1px solid rgba(226, 232, 240, 0.6);
+                    white-space: nowrap;
+                }
+                
+                .nucleus-table td {
+                    color: #1e293b;
+                    font-weight: 600;
+                    font-size: 14.5px;
+                    padding: 14px 20px;
+                    border-bottom: 1px solid rgba(226, 232, 240, 0.4);
+                    transition: background 0.2s;
+                }
+                
+                .nucleus-table tr:hover td {
+                    background: rgba(102, 126, 234, 0.04);
+                }
+                
+                .nucleus-table tr:last-child td {
+                    border-bottom: none;
+                }
+                
+                .status-pill {
+                    display: inline-flex;
+                    align-items: center;
+                    padding: 6px 14px;
+                    border-radius: 999px;
+                    font-weight: 600;
+                    font-size: 11.5px;
+                    letter-spacing: 0.02em;
+                    text-transform: uppercase;
+                    transition: all 0.2s;
+                }
+                
+                .status-pill.success {
+                    background: rgba(16, 185, 129, 0.1);
+                    color: #059669;
+                    border: 1px solid rgba(16, 185, 129, 0.2);
+                }
+                
+                .status-pill.info {
+                    background: rgba(14, 165, 233, 0.1);
+                    color: #0284c7;
+                    border: 1px solid rgba(14, 165, 233, 0.2);
+                }
+                
+                .status-pill.warning {
+                    background: rgba(245, 158, 11, 0.1);
+                    color: #d97706;
+                    border: 1px solid rgba(245, 158, 11, 0.2);
+                }
+                
+                .status-pill.error {
+                    background: rgba(239, 68, 68, 0.1);
+                    color: #dc2626;
+                    border: 1px solid rgba(239, 68, 68, 0.2);
+                }
+                
+                .status-pill.neutral {
+                    background: rgba(148, 163, 184, 0.1);
+                    color: #475569;
+                    border: 1px solid rgba(148, 163, 184, 0.2);
+                }
+                
+                .analytics-graphs-container {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+                    gap: 24px;
+                }
+                
+                .analytics-graph-card {
+                    background: rgba(255, 255, 255, 0.9);
+                    backdrop-filter: blur(20px);
+                    -webkit-backdrop-filter: blur(20px);
+                    border-radius: 20px;
+                    border: 1px solid rgba(255, 255, 255, 0.5);
+                    padding: 28px;
+                    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
+                }
+                
+                .graph-card-header h3 {
+                    color: #1e293b;
+                    font-weight: 700;
+                    font-size: 16px;
+                    margin-bottom: 4px;
+                }
+                
+                .graph-card-header .graph-subtitle {
+                    color: #64748b;
+                    font-weight: 500;
+                    font-size: 13px;
+                }
+                
+                .custom-chart-tooltip {
+                    background: rgba(255, 255, 255, 0.95) !important;
+                    backdrop-filter: blur(10px) !important;
+                    -webkit-backdrop-filter: blur(10px) !important;
+                    border: 1px solid rgba(226, 232, 240, 0.6) !important;
+                    border-radius: 16px !important;
+                    padding: 16px 20px !important;
+                    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08) !important;
+                }
+                
+                .custom-chart-tooltip .tooltip-title {
+                    font-weight: 700;
+                    font-size: 14px;
+                    color: #1e293b;
+                    margin-bottom: 10px;
+                }
+                
+                .custom-chart-tooltip .tooltip-value {
+                    font-size: 13px;
+                    font-weight: 500;
+                    color: #475569;
+                    margin: 6px 0;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+                
+                .custom-chart-tooltip .tooltip-bullet {
+                    display: inline-block;
+                    width: 10px;
+                    height: 10px;
+                    border-radius: 50%;
+                }
+                
+                .mono-text {
+                    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+                }
+                
+                .handler-tag {
+                    display: inline-flex;
+                    align-items: center;
+                    padding: 5px 12px;
+                    border-radius: 8px;
+                    font-weight: 600;
+                    font-size: 12px;
+                    background: rgba(102, 126, 234, 0.08);
+                    color: #4f46e5;
+                    border: 1px solid rgba(102, 126, 234, 0.15);
+                }
+                
+                @media (max-width: 768px) {
+                    .analytics-graphs-container {
+                        grid-template-columns: 1fr;
+                    }
+                }
+            `}</style>
+
+            {/* KPI Stats Cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
+                {[
+                    { label: 'Locks Used', value: elockSummaryObj.locksUsed, color: '#3b82f6', gradient: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.02))' },
+                    { label: 'Active Locks', value: elockSummaryObj.activeLocks, color: '#10b981', gradient: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.02))' },
+                    { label: 'Returned', value: elockSummaryObj.returnedLocks, color: '#64748b', gradient: 'linear-gradient(135deg, rgba(100, 116, 139, 0.1), rgba(100, 116, 139, 0.02))' },
+                    { label: 'Under Maint.', value: elockSummaryObj.maintenance, color: '#ef4444', gradient: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.02))' },
+                    { label: 'Asset Util', value: `${elockSummaryObj.assetUtilizationPercent}%`, color: getUtilColor(elockSummaryObj.assetUtilizationPercent), gradient: `linear-gradient(135deg, ${getUtilColor(elockSummaryObj.assetUtilizationPercent)}15, transparent)` },
+                    { label: filterType === 'day' ? 'Total Trans.' : 'Peak Util', value: filterType === 'day' ? elockSummaryObj.totalTransactions : `${elockSummaryObj.highestSingleDay}%`, color: '#f59e0b', gradient: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(245, 158, 11, 0.02))' }
+                ].map((m, idx) => (
+                    <div key={idx} className="nucleus-stats-card" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '8px', background: m.gradient }}>
+                        <div style={{ fontSize: '12px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>{m.label}</div>
+                        <div style={{ fontSize: '32px', fontWeight: 900, color: '#0f172a' }} className="mono-text">{m.value}</div>
                     </div>
-                    <div>
-                        Active Locks: <span className="highlight-val" style={{ color: '#10b981' }}>{elockSummaryObj.activeLocks}</span>
-                    </div>
-                    <div>
-                        Returned: <span className="highlight-val" style={{ color: 'var(--text-color)' }}>{elockSummaryObj.returnedLocks}</span>
-                    </div>
-                    <div>
-                        Under Maint.: <span className="highlight-val" style={{ color: '#ef4444' }}>{elockSummaryObj.maintenance}</span>
-                    </div>
-                    <div>
-                        Asset Util: <span className="highlight-val" style={{ color: elockSummaryObj.assetUtilizationPercent >= 80 ? '#10b981' : elockSummaryObj.assetUtilizationPercent >= 50 ? '#f59e0b' : '#ef4444' }}>{elockSummaryObj.assetUtilizationPercent}%</span>
-                    </div>
-                    <div style={{ marginLeft: 'auto' }}>
-                        {filterType === 'day' ? 'Total Trans.' : 'Peak Util'}: <span className="highlight-val" style={{ color: '#f59e0b' }}>{filterType === 'day' ? elockSummaryObj.totalTransactions : `${elockSummaryObj.highestSingleDay}%`}</span>
-                    </div>
-                </div>
+                ))}
             </div>
 
             {/* Graphs */}
@@ -348,10 +586,10 @@ const ElockUtilizationReport = ({
                         {displayedElockRows.length > 0 ? (
                             displayedElockRows.map((row, index) => (
                                 <tr key={index}>
-                                    <td style={{ fontWeight: 500 }}>{index + 1}</td>
+                                    <td style={{ fontWeight: 500, color: '#64748b' }} className="mono-text">{index + 1}</td>
                                     <td style={{ color: '#3b82f6', fontWeight: 500 }}>{row.tr_no ?? '—'}</td>
-                                    <td style={{ fontWeight: 600 }}>{row.container_number ?? '—'}</td>
-                                    <td className="mono-text">{row.lock_number ?? '—'}</td>
+                                    <td style={{ fontWeight: 700, color: '#0f172a' }}>{row.container_number ?? '—'}</td>
+                                    <td className="mono-text" style={{ fontWeight: 600 }}>{row.lock_number ?? '—'}</td>
                                     <td className="mono-text" style={{ color: '#64748b' }}>{row.lr_no ?? '—'}</td>
                                     <td className="mono-text">{row.date ?? '—'}</td>
                                     <td className="mono-text">{row.elock_return_date ?? '—'}</td>
@@ -360,9 +598,9 @@ const ElockUtilizationReport = ({
                                             {row.elock_assign_status ?? '—'}
                                         </span>
                                     </td>
-                                    <td>{row.available_locks_this_date ?? '—'}</td>
-                                    <td>{row.maintenance_locks_this_date ?? '—'}</td>
-                                    <td style={{ fontWeight: 600 }}>{row.locks_used_this_date ?? '—'}</td>
+                                    <td className="mono-text">{row.available_locks_this_date ?? '—'}</td>
+                                    <td className="mono-text">{row.maintenance_locks_this_date ?? '—'}</td>
+                                    <td className="mono-text" style={{ fontWeight: 800, color: '#0f172a' }}>{row.locks_used_this_date ?? '—'}</td>
                                     <td style={{ color: '#475569' }}>{row.location ?? '—'}</td>
                                     <td style={{ fontWeight: 500 }}>{row.customer_name ?? '—'}</td>
                                     <td>
@@ -372,7 +610,7 @@ const ElockUtilizationReport = ({
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="14" style={{ textAlign: 'center', color: '#6b7280', padding: '30px' }}>
+                                <td colSpan="14" style={{ textAlign: 'center', color: '#64748b', padding: '40px', fontWeight: 500 }}>
                                     No E-Lock data found for the selected period.
                                 </td>
                             </tr>

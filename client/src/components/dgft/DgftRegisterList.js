@@ -163,121 +163,26 @@ const FIELDS = [
 
 // Flat column definitions for the table (no grouping)
 const COLUMNS = [
-  { key: "job_no", label: "JOB Number", width: 110 },
-  { key: "date", label: "Date", width: 85 },
-  { key: "party_name", label: "Firm Name", width: 170 },
-  { key: "licence_no", label: "Authorization No.", width: 140 },
-  { key: "licence_date", label: "Auth Date", width: 100 },
-  { key: "scheme", label: "Scheme", width: 170 },
-  { key: "file_no", label: "File Number", width: 120 },
-  { key: "file_date", label: "File Date", width: 100 },
-  { key: "job_status", label: "Job Status", width: 130 },
-  { key: "_actions", label: "Actions", width: 90 },
+  { key: "job_no", label: "JOB NUMBER", width: 110 },
+  { key: "date", label: "DATE", width: 95 },
+  { key: "party_name", label: "FIRM NAME", width: 220 },
+  { key: "licence_no", label: "AUTHORIZATION NO.", width: 155 },
+  { key: "licence_date", label: "AUTH DATE", width: 100 },
+  { key: "scheme", label: "SCHEME", width: 170 },
+  { key: "file_no", label: "FILE NUMBER", width: 120 },
+  { key: "file_date", label: "FILE DATE", width: 100 },
+  { key: "job_status", label: "JOB STATUS", width: 130 },
+  { key: "_actions", label: "ACTIONS", width: 100 },
 ];
 
-// Inline styles matching the enterprise design
-const s = {
-  toolbar: {
-    display: "flex",
-    gap: "10px",
-    alignItems: "center",
-    marginBottom: "10px",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-  },
-  toolbarLeft: {
-    display: "flex",
-    gap: "8px",
-    alignItems: "center",
-    flexWrap: "wrap",
-  },
-  toolbarRight: {
-    display: "flex",
-    gap: "8px",
-    alignItems: "center",
-  },
-  input: {
-    height: "30px",
-    padding: "0 8px",
-    fontSize: "12px",
-    border: "1px solid #d1d5db",
-    borderRadius: "3px",
-    outline: "none",
-    color: "#333",
-    minWidth: "180px",
-  },
-  filterSelect: {
-    height: "30px",
-    padding: "0 6px",
-    fontSize: "12px",
-    border: "1px solid #d1d5db",
-    borderRadius: "3px",
-    outline: "none",
-    color: "#333",
-    minWidth: "130px",
-    background: "#fff",
-  },
-  btnPrimary: {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: "5px",
-    padding: "5px 14px",
-    border: "none",
-    borderRadius: "3px",
-    fontSize: "12px",
-    fontWeight: "600",
-    cursor: "pointer",
-    background: "#2563eb",
-    color: "#fff",
-  },
-  btnEdit: {
-    padding: "3px 10px",
-    border: "1px solid #2563eb",
-    background: "#fff",
-    color: "#2563eb",
-    borderRadius: "3px",
-    fontSize: "11px",
-    fontWeight: "600",
-    cursor: "pointer",
-  },
-  btnDelete: {
-    padding: "3px 10px",
-    border: "1px solid #dc2626",
-    background: "#fff",
-    color: "#dc2626",
-    borderRadius: "3px",
-    fontSize: "11px",
-    fontWeight: "600",
-    cursor: "pointer",
-  },
-  pagination: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: "10px 4px",
-    flexWrap: "wrap",
-    gap: "8px",
-    fontSize: "12px",
-    color: "#374151",
-  },
-  pageBtn: {
-    padding: "4px 10px",
-    border: "1px solid #d1d5db",
-    borderRadius: "3px",
-    background: "#fff",
-    cursor: "pointer",
-    fontSize: "12px",
-  },
-  pageBtnDisabled: {
-    padding: "4px 10px",
-    border: "1px solid #e5e7eb",
-    borderRadius: "3px",
-    background: "#f9fafb",
-    cursor: "not-allowed",
-    fontSize: "12px",
-    color: "#9ca3af",
-  },
-};
+// Sort icon
+function SortIcon({ dir }) {
+  return (
+    <span className="ar-sort-icon">
+      {dir === "asc" ? "↑" : dir === "desc" ? "↓" : "↕"}
+    </span>
+  );
+}
 
 // ===================== Toast Component =====================
 
@@ -298,6 +203,49 @@ function Toast({ toast, onClose }) {
     </div>
   );
 }
+
+// ===================== Date Helpers =====================
+const toNativeDate = (val) => {
+  if (!val || typeof val !== "string") return val || "";
+  const trimmed = val.trim();
+  if (trimmed.includes("-")) {
+    const parts = trimmed.split("-");
+    if (parts.length === 3) {
+      if (parts[0].length === 4) return trimmed; // YYYY-MM-DD
+      const [d, m, y] = parts;
+      return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+    }
+  }
+  const parts = trimmed.split("/");
+  if (parts.length === 3) {
+    const [d, m, y] = parts;
+    return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+  }
+  return trimmed;
+};
+
+const formatDateToDdMmYyyy = (val) => {
+  if (!val) return "";
+  const raw = String(val).trim();
+  if (!raw) return "";
+
+  // Match YYYY-MM-DD
+  const matchYmd = raw.match(/^(\d{4})[-/.](\d{2})[-/.](\d{2})$/);
+  if (matchYmd) {
+    return `${matchYmd[3]}-${matchYmd[2]}-${matchYmd[1]}`;
+  }
+
+  // Match DD/MM/YYYY or DD-MM-YYYY
+  const matchDmy = raw.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})$/);
+  if (matchDmy) {
+    const dd = matchDmy[1].padStart(2, "0");
+    const mm = matchDmy[2].padStart(2, "0");
+    const yyyy = matchDmy[3].length === 2 ? "20" + matchDmy[3] : matchDmy[3];
+    return `${dd}-${mm}-${yyyy}`;
+  }
+
+  return raw;
+};
 
 // ===================== Main Component =====================
 
@@ -321,6 +269,14 @@ function DgftRegisterList({ onCountChange }) {
   const [availableCategories, setAvailableCategories] = useState(SCHEME_OPTIONS);
   const [categoryInput, setCategoryInput] = useState("");
   const fileInput = useRef(null);
+  const [sort, setSort] = useState({ key: null, dir: null });
+  const containerRef = useRef(null);
+
+  const handleSort = (key) =>
+    setSort((prev) => ({
+      key,
+      dir: prev.key === key ? (prev.dir === "asc" ? "desc" : "asc") : "asc",
+    }));
 
   // Fetch data
   const getData = useCallback(async () => {
@@ -330,8 +286,8 @@ function DgftRegisterList({ onCountChange }) {
       );
       setRows(
         res.data.sort((a, b) => {
-          const s1 = String(a.sr_no || "");
-          const s2 = String(b.sr_no || "");
+          const s1 = String(a.job_no || "");
+          const s2 = String(b.job_no || "");
           return s1.localeCompare(s2, undefined, { numeric: true });
         })
       );
@@ -407,10 +363,15 @@ function DgftRegisterList({ onCountChange }) {
     setEditingId(row._id);
     const data = {};
     FIELDS.forEach((f) => {
-      data[f.key] = row[f.key] || "";
+      let val = row[f.key] || "";
+      if (DATE_FIELDS.has(f.key) && val) {
+        val = toNativeDate(val);
+      }
+      data[f.key] = val;
     });
     setFormData(data);
     setErrors({});
+    setCategoryInput("");
     setDialogOpen(true);
   };
 
@@ -488,6 +449,22 @@ function DgftRegisterList({ onCountChange }) {
     if (errors[key]) setErrors((prev) => ({ ...prev, [key]: undefined }));
   };
 
+  const handleStatusChange = async (id, newStatus) => {
+    try {
+      await axios.put(
+        `${process.env.REACT_APP_API_STRING}/update-dgft-register/${id}`,
+        { job_status: newStatus }
+      );
+      setRows((prev) =>
+        prev.map((r) => (r._id === id ? { ...r, job_status: newStatus } : r))
+      );
+      showToast("Status updated", "success");
+    } catch (err) {
+      console.error(err);
+      showToast("Failed to update status", "error");
+    }
+  };
+
   const showToast = (message, severity) => {
     setToast({ open: true, message, severity });
   };
@@ -514,8 +491,19 @@ function DgftRegisterList({ onCountChange }) {
       }
       return true;
     });
+
+    if (sort.key) {
+      result = [...result].sort((a, b) => {
+        const va = String(a[sort.key] || "").toLowerCase();
+        const vb = String(b[sort.key] || "").toLowerCase();
+        return sort.dir === "asc"
+          ? va.localeCompare(vb, undefined, { numeric: true })
+          : vb.localeCompare(va, undefined, { numeric: true });
+      });
+    }
+
     return { filtered: result, grouped: null };
-  }, [rows, search, categoryFilter, statusFilter]);
+  }, [rows, search, categoryFilter, statusFilter, sort]);
 
   // For pagination with grouping
   const renderRows = useMemo(() => {
@@ -535,7 +523,7 @@ function DgftRegisterList({ onCountChange }) {
   // Reset page when filters change
   useEffect(() => {
     setPage(0);
-  }, [search, categoryFilter, statusFilter]);
+  }, [search, categoryFilter, statusFilter, sort]);
 
   // Pagination
   const totalPages = Math.ceil(renderRows.length / rowsPerPage) || 1;
@@ -549,20 +537,21 @@ function DgftRegisterList({ onCountChange }) {
 
   return (
     <div>
-      {/* Toolbar */}
-      <div style={s.toolbar}>
-        <div style={s.toolbarLeft}>
-          <input
-            type="text"
-            placeholder="Search Job No, Party..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            style={s.input}
-          />
+      {/* ── Toolbar ── */}
+      <div className="ar-toolbar">
+        <div className="ar-toolbar-left">
+          <div className="ar-search-wrap">
+            <input
+              type="text"
+              placeholder="Search Job No, Party..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
           <select
+            className="ar-filter-select"
             value={categoryFilter}
             onChange={(e) => setCategoryFilter(e.target.value)}
-            style={s.filterSelect}
           >
             <option value="">All Schemes</option>
             {availableCategories.map((opt) => (
@@ -572,9 +561,9 @@ function DgftRegisterList({ onCountChange }) {
             ))}
           </select>
           <select
+            className="ar-filter-select"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            style={s.filterSelect}
           >
             <option value="">All Statuses</option>
             {JOB_STATUS_OPTIONS.map((opt) => (
@@ -584,190 +573,264 @@ function DgftRegisterList({ onCountChange }) {
             ))}
           </select>
         </div>
-        <div style={s.toolbarRight}>
-          <button style={s.btnPrimary} onClick={handleOpenAdd}>
+        <div className="ar-toolbar-right">
+          <button className="ar-btn ar-btn-primary" onClick={handleOpenAdd}>
             + Add New
           </button>
-          <label className="dgft-upload-label">
+          <label className="ar-btn ar-btn-upload">
             ↑ Upload Excel
             <input
               ref={fileInput}
               type="file"
               accept=".xlsx,.xls"
               onChange={handleExcelUpload}
+              style={{ display: "none" }}
             />
           </label>
-          <button style={s.btnDelete} onClick={handleDeleteAll}>
+          <button className="ar-btn ar-btn-danger" onClick={handleDeleteAll}>
             🗑 Delete All
           </button>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="dgft-table-wrapper">
-        <table>
-          <thead>
-            {/* Header row with column labels */}
-            <tr className="header-sub">
-              {flatCols.map((col) => (
-                <th
-                  key={col.key}
-                  style={{ width: col.width, minWidth: col.width }}
-                  className={col.key === "_actions" ? "col-actions-head" : ""}
-                >
-                  {col.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedRows.length === 0 ? (
-              <tr className="dgft-empty-row">
-                <td colSpan={flatCols.length}>No records found</td>
-              </tr>
-            ) : (
-              paginatedRows.map((row, idx) => {
-                // Render group header if this is the first row of a group
-                if (row._groupName) {
+      {/* ── Table card ── */}
+      <div className="ar-table-outer">
+        <div 
+          ref={containerRef}
+          className="ar-table-scroll"
+          onMouseDown={(e) => {
+            if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT" || e.target.tagName === "BUTTON") return;
+            const el = containerRef.current;
+            el.dataset.isDown = "true";
+            el.dataset.startX = e.pageX - el.offsetLeft;
+            el.dataset.scrollLeft = el.scrollLeft;
+            el.dataset.dragged = "false";
+          }}
+          onMouseLeave={() => {
+            const el = containerRef.current;
+            el.dataset.isDown = "false";
+          }}
+          onMouseUp={() => {
+            const el = containerRef.current;
+            el.dataset.isDown = "false";
+          }}
+          onMouseMove={(e) => {
+            const el = containerRef.current;
+            if (el.dataset.isDown !== "true") return;
+            const x = e.pageX - el.offsetLeft;
+            const walk = (x - Number(el.dataset.startX)) * 2;
+            if (Math.abs(walk) > 5) {
+              el.dataset.dragged = "true";
+              e.preventDefault();
+              el.scrollLeft = Number(el.dataset.scrollLeft) - walk;
+            }
+          }}
+        >
+          <table className="ar-table">
+            <thead>
+              <tr>
+                {flatCols.map((col) => {
+                  const sorted = sort.key === col.key;
+                  if (col.key === "_actions") {
+                    return (
+                      <th
+                        key="_actions"
+                        className="ar-th-sticky ar-th-actions"
+                        style={{ width: col.width, minWidth: col.width, maxWidth: col.width }}
+                      >
+                        ACTIONS
+                      </th>
+                    );
+                  }
                   return (
-                    <React.Fragment key={`group-${row._groupName}`}>
-                      <tr className="dgft-group-header">
-                        <td colSpan={flatCols.length} style={{ fontWeight: "bold", background: "#f0f4f8", padding: "8px", borderBottom: "2px solid #d1d5db" }}>
-                          {row._groupName}
-                        </td>
-                      </tr>
-                      <tr key={row._id} className="dgft-data-row">
-                        {flatCols.map((col) => {
-                          if (col.key === "_actions") {
-                            return (
-                              <td key="_actions" className="col-actions-cell">
-                                <div className="dgft-actions-cell">
-                                  <button
-                                    style={s.btnEdit}
-                                    onClick={() => handleOpenEdit(row)}
-                                  >
-                                    Edit
-                                  </button>
-                                  <button
-                                    style={s.btnDelete}
-                                    onClick={() => handleDelete(row._id)}
-                                  >
-                                    Del
-                                  </button>
-                                </div>
-                              </td>
-                            );
-                          }
-                          if (col.key === "job_no") {
-                            const raw = row.job_no || "";
-                            const displayJobNo = String(raw).includes("/") ? raw : `DGFT/${raw}`;
-                            return (
-                              <td key={col.key} onClick={() => navigate(`/dgft/register-details/${row._id}`)}>
-                                <span className="ar-job-link">{displayJobNo}</span>
-                              </td>
-                            );
-                          }
-                          if (col.key === "scheme") {
-                            return <td key={col.key}>{row.scheme || row.category || ""}</td>;
-                          }
-                          if (col.key === "file_no") {
-                            return <td key={col.key}>{row.file_no || row.file_no_key_no || ""}</td>;
-                          }
-                          return <td key={col.key}>{row[col.key] || ""}</td>;
-                        })}
-                      </tr>
-                    </React.Fragment>
+                    <th
+                      key={col.key}
+                      className={sorted ? "ar-th-sorted" : undefined}
+                      style={{ width: col.width, minWidth: col.width }}
+                      onClick={() => handleSort(col.key)}
+                    >
+                      {col.label} <SortIcon dir={sorted ? sort.dir : null} />
+                    </th>
                   );
-                }
-
-                return (
-                  <tr key={row._id} className="dgft-data-row">
-                    {flatCols.map((col) => {
-                      if (col.key === "_actions") {
-                        return (
-                          <td key="_actions" className="col-actions-cell">
-                            <div className="dgft-actions-cell">
-                              <button
-                                style={s.btnEdit}
-                                onClick={() => handleOpenEdit(row)}
-                              >
-                                Edit
-                              </button>
-                              <button
-                                style={s.btnDelete}
-                                onClick={() => handleDelete(row._id)}
-                              >
-                                Del
-                              </button>
-                            </div>
+                })}
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedRows.length === 0 ? (
+                <tr className="dgft-empty-row">
+                  <td colSpan={flatCols.length}>
+                    <div className="ar-empty-state">No records found</div>
+                  </td>
+                </tr>
+              ) : (
+                paginatedRows.map((row, idx) => {
+                  // Render group header if this is the first row of a group
+                  if (row._groupName) {
+                    return (
+                      <React.Fragment key={`group-${row._groupName}`}>
+                        <tr className="dgft-group-header">
+                          <td colSpan={flatCols.length} style={{ fontWeight: "bold", background: "#f0f4f8", padding: "8px", borderBottom: "2px solid #d1d5db" }}>
+                            {row._groupName}
                           </td>
-                        );
-                      }
-                      if (col.key === "job_no") {
-                        const raw = row.job_no || "";
-                        const displayJobNo = String(raw).includes("/") ? raw : `DGFT/${raw}`;
-                        return (
-                          <td key={col.key} onClick={() => navigate(`/dgft/register-details/${row._id}`)}>
-                            <span className="ar-job-link">{displayJobNo}</span>
-                          </td>
-                        );
-                      }
-                      if (col.key === "scheme") {
-                        return <td key={col.key}>{row.scheme || row.category || ""}</td>;
-                      }
-                      if (col.key === "file_no") {
-                        return <td key={col.key}>{row.file_no || row.file_no_key_no || ""}</td>;
-                      }
-                      return <td key={col.key}>{row[col.key] || ""}</td>;
-                    })}
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+                        </tr>
+                        <tr key={row._id} className="ar-data-row">
+                          {flatCols.map((col) => {
+                            if (col.key === "_actions") {
+                              return (
+                                <td
+                                  key="_actions"
+                                  className="ar-td-sticky ar-td-actions"
+                                  style={{ width: col.width, minWidth: col.width, maxWidth: col.width }}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <div className="ar-actions-cell">
+                                    <button
+                                      className="ar-btn ar-btn-edit ar-btn-sm"
+                                      onClick={(e) => { e.stopPropagation(); handleOpenEdit(row); }}
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      className="ar-btn ar-btn-danger ar-btn-sm"
+                                      onClick={(e) => { e.stopPropagation(); handleDelete(row._id); }}
+                                    >
+                                      Del
+                                    </button>
+                                  </div>
+                                </td>
+                              );
+                            }
+                            if (col.key === "job_no") {
+                              const raw = row.job_no || "";
+                              const displayJobNo = String(raw).includes("/") ? raw : `DGFT/${raw}`;
+                              return (
+                                <td key={col.key} onClick={() => navigate(`/dgft/register-details/${row._id}`)}>
+                                  <span className="ar-job-link">{displayJobNo}</span>
+                                </td>
+                              );
+                            }
+                            if (col.key === "job_status") {
+                              return (
+                                <td key={col.key} onClick={(e) => e.stopPropagation()}>
+                                  <select
+                                    value={row.job_status || ""}
+                                    onChange={(e) => handleStatusChange(row._id, e.target.value)}
+                                    style={{ padding: "4px 8px", borderRadius: "3px", border: "1px solid #d0d7e2", width: "100%", fontSize: "11px", outline: "none", background: "#fff" }}
+                                  >
+                                    <option value="">-- Select --</option>
+                                    {JOB_STATUS_OPTIONS.map((opt) => (
+                                      <option key={opt} value={opt}>
+                                        {opt}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </td>
+                              );
+                            }
+                            if (col.key === "scheme") {
+                              return <td key={col.key}>{row.scheme || row.category || ""}</td>;
+                            }
+                            if (col.key === "file_no") {
+                              return <td key={col.key}>{row.file_no || row.file_no_key_no || ""}</td>;
+                            }
+                            if (DATE_FIELDS.has(col.key)) {
+                              return <td key={col.key}>{formatDateToDdMmYyyy(row[col.key])}</td>;
+                            }
+                            return <td key={col.key}>{row[col.key] || ""}</td>;
+                          })}
+                        </tr>
+                      </React.Fragment>
+                    );
+                  }
 
-      {/* Pagination */}
-      <div style={s.pagination}>
-        <div>
-          Showing {renderRows.length === 0 ? 0 : page * rowsPerPage + 1}–
-          {Math.min((page + 1) * rowsPerPage, renderRows.length)} of{" "}
-          {renderRows.length} records
+                  return (
+                    <tr key={row._id} className="ar-data-row">
+                      {flatCols.map((col) => {
+                        if (col.key === "_actions") {
+                          return (
+                            <td
+                              key="_actions"
+                              className="ar-td-sticky ar-td-actions"
+                              style={{ width: col.width, minWidth: col.width, maxWidth: col.width }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <div className="ar-actions-cell">
+                                <button
+                                  className="ar-btn ar-btn-edit ar-btn-sm"
+                                  onClick={(e) => { e.stopPropagation(); handleOpenEdit(row); }}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  className="ar-btn ar-btn-danger ar-btn-sm"
+                                  onClick={(e) => { e.stopPropagation(); handleDelete(row._id); }}
+                                >
+                                  Del
+                                </button>
+                              </div>
+                            </td>
+                          );
+                        }
+                        if (col.key === "job_no") {
+                          const raw = row.job_no || "";
+                          const displayJobNo = String(raw).includes("/") ? raw : `DGFT/${raw}`;
+                          return (
+                            <td key={col.key} onClick={() => navigate(`/dgft/register-details/${row._id}`)}>
+                              <span className="ar-job-link">{displayJobNo}</span>
+                            </td>
+                          );
+                        }
+                        if (col.key === "job_status") {
+                          return (
+                            <td key={col.key} onClick={(e) => e.stopPropagation()}>
+                              <select
+                                value={row.job_status || ""}
+                                onChange={(e) => handleStatusChange(row._id, e.target.value)}
+                                style={{ padding: "4px 8px", borderRadius: "3px", border: "1px solid #d0d7e2", width: "100%", fontSize: "11px", outline: "none", background: "#fff" }}
+                              >
+                                <option value="">-- Select --</option>
+                                {JOB_STATUS_OPTIONS.map((opt) => (
+                                  <option key={opt} value={opt}>
+                                    {opt}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                          );
+                        }
+                        if (col.key === "scheme") {
+                          return <td key={col.key}>{row.scheme || row.category || ""}</td>;
+                        }
+                        if (col.key === "file_no") {
+                          return <td key={col.key}>{row.file_no || row.file_no_key_no || ""}</td>;
+                        }
+                        if (DATE_FIELDS.has(col.key)) {
+                          return <td key={col.key}>{formatDateToDdMmYyyy(row[col.key])}</td>;
+                        }
+                        return <td key={col.key}>{row[col.key] || ""}</td>;
+                      })}
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <span>Rows:</span>
-          <select
-            value={rowsPerPage}
-            onChange={(e) => {
-              setRowsPerPage(Number(e.target.value));
-              setPage(0);
-            }}
-            style={{ ...s.filterSelect, minWidth: "60px" }}
-          >
-            {ROWS_PER_PAGE_OPTIONS.map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
-            disabled={page === 0}
-            style={page === 0 ? s.pageBtnDisabled : s.pageBtn}
-          >
-            ‹ Prev
-          </button>
-          <span>
-            Page {page + 1} of {totalPages}
-          </span>
-          <button
-            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-            disabled={page >= totalPages - 1}
-            style={page >= totalPages - 1 ? s.pageBtnDisabled : s.pageBtn}
-          >
-            Next ›
-          </button>
+
+        {/* Pagination inside table card */}
+        <div className="ar-pagination">
+          <div className="ar-pagination-info">
+            Showing {filtered.length === 0 ? 0 : page * rowsPerPage + 1}–{Math.min((page + 1) * rowsPerPage, filtered.length)} of {filtered.length} records
+          </div>
+          <div className="ar-pagination-controls">
+            <span style={{ color: "#000000ff" }}>Rows:</span>
+            <select className="ar-rows-select" value={rowsPerPage} onChange={(e) => { setRowsPerPage(Number(e.target.value)); setPage(0); }}>
+              {ROWS_PER_PAGE_OPTIONS.map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+            <button className="ar-page-btn" onClick={() => setPage((p) => Math.max(0, p - 1))}           disabled={page === 0}              >‹ Prev</button>
+            <span>Page {page + 1} of {totalPages}</span>
+            <button className="ar-page-btn" onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}>Next ›</button>
+          </div>
         </div>
       </div>
 
@@ -818,7 +881,7 @@ function DgftRegisterList({ onCountChange }) {
                           value={categoryInput}
                           onChange={(e) => setCategoryInput(e.target.value)}
                           onKeyPress={(e) => e.key === "Enter" && handleAddCustomCategory()}
-                          style={{ ...s.input, flex: 1, minWidth: "150px" }}
+                          style={{ height: "30px", padding: "0 8px", fontSize: "12px", border: "1px solid #d1d5db", borderRadius: "3px", outline: "none", flex: 1, minWidth: "150px" }}
                         />
                         <button
                           onClick={handleAddCustomCategory}
@@ -855,7 +918,7 @@ function DgftRegisterList({ onCountChange }) {
                       type="text"
                       value={formData[field.key]}
                       readOnly
-                      style={{ ...s.input, background: "#f3f4f6", color: "#666" }}
+                      style={{ height: "30px", padding: "0 8px", fontSize: "12px", border: "1px solid #d1d5db", borderRadius: "3px", outline: "none", background: "#f3f4f6", color: "#666" }}
                     />
                   </div>
                 );
@@ -892,35 +955,9 @@ function DgftRegisterList({ onCountChange }) {
             })}
           </div>
         </DialogContent>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: "8px",
-            padding: "14px 20px",
-            borderTop: "1px solid #e5e7eb",
-          }}
-        >
-          <button
-            style={{
-              ...s.btnEdit,
-              padding: "6px 18px",
-              fontSize: "13px",
-            }}
-            onClick={() => setDialogOpen(false)}
-          >
-            Cancel
-          </button>
-          <button
-            style={{
-              ...s.btnPrimary,
-              padding: "6px 18px",
-              fontSize: "13px",
-            }}
-            onClick={handleSubmit}
-          >
-            {editingId ? "Update" : "Add"}
-          </button>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", padding: "14px 20px", borderTop: "1px solid #e5e7eb" }}>
+          <button className="ar-btn ar-btn-secondary" onClick={() => setDialogOpen(false)}>Cancel</button>
+          <button className="ar-btn ar-btn-primary" onClick={handleSubmit}>{editingId ? "Update" : "Add"}</button>
         </div>
       </Dialog>
 

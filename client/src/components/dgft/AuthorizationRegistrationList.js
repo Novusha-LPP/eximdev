@@ -212,9 +212,28 @@ function CustomSelectField({ label, fieldKey, value, options, onChange, inputVal
 
 // SubRow removed in favor of separate page view
 
+const formatDateToDdMmYyyy = (val) => {
+  if (!val) return "";
+  const raw = String(val).trim();
+  if (!raw) return "";
 
+  // Match YYYY-MM-DD
+  const matchYmd = raw.match(/^(\d{4})[-/.](\d{2})[-/.](\d{2})$/);
+  if (matchYmd) {
+    return `${matchYmd[3]}-${matchYmd[2]}-${matchYmd[1]}`;
+  }
 
+  // Match DD/MM/YYYY or DD-MM-YYYY
+  const matchDmy = raw.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})$/);
+  if (matchDmy) {
+    const dd = matchDmy[1].padStart(2, "0");
+    const mm = matchDmy[2].padStart(2, "0");
+    const yyyy = matchDmy[3].length === 2 ? "20" + matchDmy[3] : matchDmy[3];
+    return `${dd}-${mm}-${yyyy}`;
+  }
 
+  return raw;
+};
 
 // ===================== Main Component =====================
 function AuthorizationRegistrationList({ onCountChange }) {
@@ -627,6 +646,9 @@ function AuthorizationRegistrationList({ onCountChange }) {
                       }
                       if (col.key === "party_name") {
                         return <td key={col.key} style={{ whiteSpace: "normal", wordBreak: "break-word", maxWidth: 180 }}>{val}</td>;
+                      }
+                      if (DATE_FIELDS.has(col.key)) {
+                        return <td key={col.key}>{formatDateToDdMmYyyy(val)}</td>;
                       }
                       return <td key={col.key}>{val}</td>;
                     })}

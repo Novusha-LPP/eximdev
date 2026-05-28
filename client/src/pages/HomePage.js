@@ -212,11 +212,18 @@ function HomePageContent() {
   const { user } = React.useContext(UserContext);
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [passwordAlertDismissed, setPasswordAlertDismissed] = useState(false);
   const [tabValue, setTabValue] = useState(
     JSON.parse(localStorage.getItem("tab_value") || 0)
   );
   
   const { isChangingBranch } = useBranch();
+
+  React.useEffect(() => {
+    if (!user?.passwordExpired) {
+      setPasswordAlertDismissed(false);
+    }
+  }, [user?.passwordExpired]);
 
   if (isChangingBranch) {
     return (
@@ -251,7 +258,7 @@ function HomePageContent() {
         <Box sx={{ display: "flex" }}>
           <CssBaseline />
           <Snackbar
-            open={Boolean(user?.passwordExpired)}
+            open={Boolean(user?.passwordExpired && !passwordAlertDismissed)}
             anchorOrigin={{ vertical: "top", horizontal: "center" }}
             sx={{
               top: "80px !important",
@@ -262,14 +269,24 @@ function HomePageContent() {
               severity="error"
               variant="filled"
               action={
-                <Button
-                  color="inherit"
-                  size="small"
-                  onClick={() => navigate("/change-password")}
-                  sx={{ fontWeight: "bold", textDecoration: "underline" }}
-                >
-                  Change Password
-                </Button>
+                <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                  <Button
+                    color="inherit"
+                    size="small"
+                    onClick={() => navigate("/change-password")}
+                    sx={{ fontWeight: "bold", textDecoration: "underline" }}
+                  >
+                    Change Password
+                  </Button>
+                  <Button
+                    color="inherit"
+                    size="small"
+                    onClick={() => setPasswordAlertDismissed(true)}
+                    sx={{ fontWeight: 700 }}
+                  >
+                    Cancel
+                  </Button>
+                </Box>
               }
               sx={{
                 boxShadow: 3,

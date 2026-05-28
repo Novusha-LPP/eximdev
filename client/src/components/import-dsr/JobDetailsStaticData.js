@@ -571,8 +571,8 @@ function JobDetailsStaticData(props) {
                     Old Docs
                   </Button>
                 )}
-                {isAdmin && (
-                  <Tooltip title="Edit Job Static Data (Admin Only)">
+                {(
+                  <Tooltip title="Edit Job Static Data">
                     <IconButton size="small" onClick={handleEditClick} style={{ marginRight: "10px" }}>
                       <EditIcon />
                     </IconButton>
@@ -960,9 +960,9 @@ function JobDetailsStaticData(props) {
         </div>
       </Collapse>
 
-      {isAdmin && (
+      {(
         <Dialog open={editModalOpen} onClose={() => setEditModalOpen(false)} maxWidth="lg" fullWidth>
-          <DialogTitle>Edit Job Static Data (Admin Only)</DialogTitle>
+          <DialogTitle>Edit Job Static Data </DialogTitle>
           <DialogContent dividers>
             {errorMsg && <Typography color="error" variant="body2" gutterBottom>{errorMsg}</Typography>}
             <Grid container spacing={2} style={{ marginTop: '5px' }}>

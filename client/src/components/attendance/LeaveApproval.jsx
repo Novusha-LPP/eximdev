@@ -481,17 +481,33 @@ const LeaveApproval = () => {
     <div className="ap-page">
       <div className="ap-header">
         <div>
-          <h1><FiCalendar size={28} style={{ color: '#1e293b' }} /> Leave &amp; Holidays</h1>
+          <h1>
+            <span style={{
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 40, height: 40, borderRadius: 12,
+              background: 'linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%)',
+              boxShadow: '0 4px 12px rgba(15,23,42,0.25)', flexShrink: 0
+            }}>
+              <FiCalendar size={20} color="#fff" />
+            </span>
+            Leave &amp; Holidays
+          </h1>
           <p>Manage leave requests, policies, and upcoming holidays</p>
         </div>
         <div className="ap-header-actions">
           {(activeTab === 'approvals' || activeTab === 'history') && (
             <>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff', border: '1px solid #e2e8f0', padding: '4px 12px', borderRadius: '12px', fontSize: '13px', fontWeight: 600 }}>
-                <FiUsers size={14} color="#64748b" />
-                <span style={{ color: '#64748b' }}>Group by</span>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 6,
+                background: '#fff', border: '1.5px solid #e2e8f0',
+                padding: '0 14px', borderRadius: 12, height: 38,
+                fontSize: '12.5px', fontWeight: 600, color: '#64748b',
+                boxShadow: '0 1px 3px rgba(15,23,42,0.05)'
+              }}>
+                <FiUsers size={13} color="#64748b" />
+                <span>Group by</span>
                 <select value={groupBy} onChange={(e) => setGroupBy(e.target.value)}
-                  style={{ border: 'none', background: 'transparent', fontWeight: '700', color: '#0f172a', cursor: 'pointer', outline: 'none' }}>
+                  style={{ border: 'none', background: 'transparent', fontWeight: 700, color: '#0f172a', cursor: 'pointer', outline: 'none', fontSize: '12.5px' }}>
                   <option value="none">None</option>
                   <option value="organization">Organization</option>
                   <option value="team">Team</option>
@@ -499,16 +515,22 @@ const LeaveApproval = () => {
               </div>
               {(isAdmin || isHOD) && teams.length > 0 && (
                 <div style={{ position: 'relative' }}>
-                  <FiFilter size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+                  <FiFilter size={13} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: '#64748b', pointerEvents: 'none' }} />
                   <select value={selectedTeam} onChange={handleTeamChange}
-                    style={{ height: 40, border: '1px solid #e2e8f0', borderRadius: '12px', padding: '0 12px 0 34px', fontSize: '13px', fontWeight: 600, background: '#fff', color: '#0f172a', cursor: 'pointer', minWidth: '140px' }}>
+                    style={{
+                      height: 38, border: '1.5px solid #e2e8f0', borderRadius: 12,
+                      padding: '0 12px 0 30px', fontSize: '12.5px', fontWeight: 600,
+                      background: '#fff', color: '#0f172a', cursor: 'pointer',
+                      minWidth: '130px', outline: 'none',
+                      boxShadow: '0 1px 3px rgba(15,23,42,0.05)'
+                    }}>
                     <option value="all">All Teams</option>
                     {teams.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
                   </select>
                 </div>
               )}
-              <button className="ap-icon-btn" style={{ height: 40, borderRadius: '12px', padding: '0 16px' }} onClick={() => fetchRequests(selectedTeam, historyPage)}>
-                <FiRefreshCw size={14} /> Refresh
+              <button className="ap-icon-btn" onClick={() => fetchRequests(selectedTeam, historyPage)}>
+                <FiRefreshCw size={13} /> Refresh
               </button>
             </>
           )}
@@ -533,39 +555,59 @@ const LeaveApproval = () => {
           <div className="ap-card">
             <div className="ap-card-head">
               <div>
-                <div className="ap-card-title">Pending Approvals</div>
-                <div className="ap-card-sub">{requests.length} requests awaiting decision</div>
+                <div className="ap-card-title">
+                  Pending Approvals
+                  {requests.length > 0 && (
+                    <span style={{
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      minWidth: 24, height: 24, padding: '0 7px',
+                      background: '#fef2f2', color: '#b91c1c',
+                      border: '1px solid #fecaca',
+                      borderRadius: 999, fontSize: '0.6875rem', fontWeight: 800
+                    }}>{requests.length}</span>
+                  )}
+                </div>
+                <div className="ap-card-sub">{requests.length} request{requests.length !== 1 ? 's' : ''} awaiting your decision</div>
               </div>
               <div className="ap-search-wrap">
-                <FiSearch size={16} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
-                <input type="text" placeholder="Search request..." value={approvalsSearch}
+                <FiSearch size={14} style={{ position: 'absolute', left: 13, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                <input type="text" placeholder="Search by name or type..." value={approvalsSearch}
                   onChange={(e) => setApprovalsSearch(e.target.value)} className="ap-search-input" />
               </div>
             </div>
 
             <div className="ap-list-header">
               <span>Employee</span>
-              <span>Type &amp; Duration</span>
+              <span>Stage &amp; Duration</span>
               <span>Date(s)</span>
               <span>Reason</span>
               <span>Applied On</span>
-              <span style={{textAlign: 'center'}}>Meta </span>
-              <span style={{ textAlign: 'right' }}>Action</span>
+              <span>Meta</span>
+              <span style={{ textAlign: 'right' }}>Actions</span>
             </div>
 
             {filteredRequests.length === 0 ? (
               <div className="ap-empty">
-                <div className="ap-empty-icon" style={{ color: '#cbd5e1' }}><FiCheck size={48} /></div>
-                <p style={{ fontWeight: 600, color: '#64748b' }}>All caught up! No pending requests.</p>
+                <div className="ap-empty-icon"><FiCheck size={28} /></div>
+                <p>All caught up! No pending requests.</p>
+                {approvalsSearch && <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: -4 }}>Try clearing your search filter</p>}
               </div>
             ) : (
               <div className="ap-request-list">
                 {Object.keys(groupedRequests).map(group => (
                   <React.Fragment key={group}>
                     {groupBy !== 'none' && (
-                      <div className="ap-org-section-header" onClick={() => toggleGroup(group)} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#0f3357ff', color: 'white' }}>
-                        {collapsedGroups[group] ? <FiChevronRight size={16} /> : <FiChevronDown size={16} />}
-                        <span className="ap-org-name" style={{ color: 'white' }}>{group}</span>
+                      <div
+                        className="ap-org-section-header"
+                        onClick={() => toggleGroup(group)}
+                        style={{
+                          cursor: 'pointer',
+                          background: 'linear-gradient(90deg, #0f172a 0%, #1e3a5f 100%)',
+                          color: 'white', userSelect: 'none'
+                        }}
+                      >
+                        {collapsedGroups[group] ? <FiChevronRight size={15} /> : <FiChevronDown size={15} />}
+                        <span className="ap-org-name" style={{ color: 'white', flex: 1 }}>{group}</span>
                         <span className="ap-org-count">{groupedRequests[group].length}</span>
                       </div>
                     )}
@@ -634,18 +676,23 @@ const LeaveApproval = () => {
 
 
                         {/* ── Col 7: Actions — Approve + Reject side by side ── */}
-                        <div className="ap-req-actions" style={{ justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
-                          <button className="ap-btn-outline approve"
+                        <div className="ap-req-actions">
+                          <button
+                            className="ap-btn-outline approve"
                             onClick={() => handleAction(req.id, 'approved')}
-                            disabled={req.canAct === false}>
-                            <FiCheck size={14} /> Approve
+                            disabled={req.canAct === false}
+                            title={req.canAct === false ? 'You cannot act on this request' : 'Approve this leave'}
+                          >
+                            <FiCheck size={13} /> Approve
                           </button>
-                          <button className="ap-btn-outline reject"
+                          <button
+                            className="ap-btn-outline reject"
                             onClick={() => handleAction(req.id, 'rejected')}
-                            disabled={req.canAct === false}>
-                            <FiX size={14} /> Reject
+                            disabled={req.canAct === false}
+                            title={req.canAct === false ? 'You cannot act on this request' : 'Reject this leave'}
+                          >
+                            <FiX size={13} /> Reject
                           </button>
-                          <FiMoreVertical size={16} color="#94a3b8" style={{ cursor: 'pointer', marginLeft: 4 }} />
                         </div>
 
                       </div>
@@ -661,28 +708,47 @@ const LeaveApproval = () => {
       {activeTab === 'history' && (
         <div className="animation-fade-in">
           <div className="ap-card">
-            <div className="ap-card-head" style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: 16 }}>
+            <div className="ap-card-head">
               <div>
                 <div className="ap-card-title">Leave History</div>
-                <div className="ap-card-sub">Total {totalHistory} leave records</div>
+                <div className="ap-card-sub">{totalHistory} total leave records</div>
               </div>
-              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                <select value={historyFilterBy} onChange={(e) => { setHistoryFilterBy(e.target.value); setHistoryPage(1); }}
-                  style={{ height: 38, border: '1px solid #e2e8f0', borderRadius: '12px', padding: '0 12px', fontSize: '13px', fontWeight: 600, background: '#fff', color: '#0f172a' }}>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <select
+                  value={historyFilterBy}
+                  onChange={(e) => { setHistoryFilterBy(e.target.value); setHistoryPage(1); }}
+                  style={{
+                    height: 38, border: '1.5px solid #e2e8f0', borderRadius: 10,
+                    padding: '0 12px', fontSize: '12.5px', fontWeight: 600,
+                    background: '#fff', color: '#0f172a', outline: 'none', cursor: 'pointer'
+                  }}
+                >
                   <option value="all">All Months</option>
-                  <option value="leaveMonth">Filter By Leave Month</option>
-                  <option value="appliedMonth">Filter By Applied Month</option>
+                  <option value="leaveMonth">By Leave Month</option>
+                  <option value="appliedMonth">By Applied Month</option>
                 </select>
                 {historyFilterBy !== 'all' && (
-                  <input type="month" value={historyMonth}
+                  <input
+                    type="month"
+                    value={historyMonth}
                     onChange={(e) => { setHistoryMonth(e.target.value); setHistoryPage(1); }}
-                    style={{ height: 38, border: '1px solid #e2e8f0', borderRadius: '12px', padding: '0 12px', fontSize: '13px', fontWeight: 600, background: '#fff' }} />
+                    style={{
+                      height: 38, border: '1.5px solid #e2e8f0', borderRadius: 10,
+                      padding: '0 12px', fontSize: '12.5px', fontWeight: 600,
+                      background: '#fff', outline: 'none'
+                    }}
+                  />
                 )}
-                <div className="ap-search-wrap" style={{ width: '240px' }}>
-                  <FiSearch size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
-                  <input type="text" placeholder="Search employee..." value={historySearch}
+                <div className="ap-search-wrap" style={{ width: 220 }}>
+                  <FiSearch size={13} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                  <input
+                    type="text"
+                    placeholder="Search employee..."
+                    value={historySearch}
                     onChange={(e) => { setHistorySearch(e.target.value); setHistoryPage(1); }}
-                    className="ap-search-input" style={{ height: 38, paddingLeft: 36 }} />
+                    className="ap-search-input"
+                    style={{ height: 38, paddingLeft: 34 }}
+                  />
                 </div>
               </div>
             </div>
@@ -691,22 +757,27 @@ const LeaveApproval = () => {
               {Object.keys(groupedHistory).map(groupKey => (
                 <div key={groupKey} style={{ marginBottom: groupBy !== 'none' ? '32px' : '0' }}>
                   {groupBy !== 'none' && (
-                    <div className="ap-org-section-header" 
+                    <div
                       onClick={() => toggleGroup(groupKey)}
-                      style={{ 
-                        margin: '20px 0 12px 0', 
-                        background: '#f8fafc', 
-                        padding: '8px 16px', 
-                        borderRadius: '8px', 
-                        borderLeft: '4px solid #3b82f6',
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        margin: '16px 0 8px 0',
+                        padding: '9px 16px',
+                        background: '#f8fafc',
+                        borderRadius: 10,
+                        borderLeft: '4px solid #4f46e5',
                         cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                      }}>
-                      {collapsedGroups[groupKey] ? <FiChevronRight size={16} /> : <FiChevronDown size={16} />}
-                      <span className="ap-org-name" style={{ fontSize: '14px', fontWeight: '800', color: '#1e293b' }}>{groupKey}</span>
-                      <span className="ap-org-count" style={{ background: '#3b82f6', color: '#fff' }}>{groupedHistory[groupKey].length}</span>
+                        userSelect: 'none'
+                      }}
+                    >
+                      {collapsedGroups[groupKey] ? <FiChevronRight size={15} color="#4f46e5" /> : <FiChevronDown size={15} color="#4f46e5" />}
+                      <span style={{ fontSize: '0.875rem', fontWeight: 800, color: '#1e293b', flex: 1 }}>{groupKey}</span>
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                        minWidth: 24, height: 24, padding: '0 7px',
+                        background: '#4f46e5', color: '#fff',
+                        borderRadius: 999, fontSize: '0.65rem', fontWeight: 800
+                      }}>{groupedHistory[groupKey].length}</span>
                     </div>
                   )}
                   {!collapsedGroups[groupKey] && (

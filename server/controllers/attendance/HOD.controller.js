@@ -23,7 +23,7 @@ const isHodRole = (role) => {
 };
 
 const STAGE_2_APPROVER_USERNAME = 'shalini_arun';
-const FINAL_APPROVER_USERNAMES = new Set(['manu_pillai', 'suraj_rajan', 'rajan_aranamkatte']);
+const FINAL_APPROVER_USERNAMES = new Set(['manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'uday_zope']);
 const REQUIRED_ADMIN_SELF_APPROVAL_USERNAMES = new Set([
     STAGE_2_APPROVER_USERNAME,
     ...FINAL_APPROVER_USERNAMES
@@ -116,7 +116,7 @@ const buildApprovalTrail = (leave) => {
     return trail;
 };
 
-const canActorActOnLeave = (leave, actor) => {
+export const canActorActOnLeave = (leave, actor) => {
     if (String(leave.approval_status || '') !== 'pending') return false;
 
     const stage = leave.approval_stage || LEAVE_STAGE.HOD;
@@ -134,6 +134,26 @@ const canActorActOnLeave = (leave, actor) => {
     }
 
     if (stage === LEAVE_STAGE.FINAL) {
+        const applicant = leave.employee_id;
+        const applicantUsername = String(applicant?.username || '').toLowerCase();
+        const applicantRole = applicant?.role;
+        // Broad HOD check: has HOD role OR has hod_id set
+        const isHodApplicant = isHodRole(applicantRole) || !!applicant?.hod_id;
+
+        // 1. If applicant is shalini_arun, only allow other admins except uday_zope
+        if (applicantUsername === 'shalini_arun') {
+            const allowedAdmins = new Set(['manu_pillai', 'suraj_rajan', 'rajan_aranamkatte']);
+            return allowedAdmins.has(actorUsername);
+        }
+
+        // 2. If applicant is an HOD (with HOD role or hod_id)
+        // uday_zope can VIEW but CANNOT APPROVE HOD leaves
+        if (isHodApplicant && applicantUsername !== 'uday_zope') {
+            const allowedAdmins = new Set(['shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte']);
+            return allowedAdmins.has(actorUsername);
+        }
+
+        // 3. Otherwise (regular employees)
         if (!FINAL_APPROVER_USERNAMES.has(actorUsername)) return false;
         return !currentApproverId || actorId === currentApproverId;
     }
@@ -233,7 +253,7 @@ const getActorPendingLeaveQuery = (actor) => {
     if (actorUsername === STAGE_2_APPROVER_USERNAME) {
         return {
             approval_status: { $in: PENDING_STATUSES },
-            approval_stage: { $in: [LEAVE_STAGE.HOD, LEAVE_STAGE.SHALINI] }
+            approval_stage: { $in: [LEAVE_STAGE.HOD, LEAVE_STAGE.SHALINI, LEAVE_STAGE.FINAL] }
         };
     }
 
@@ -615,7 +635,7 @@ export const getDashboard = async (req, res) => {
             employee_id: { $in: employeeIds },
             ...actorPendingQuery
         })
-            .populate('employee_id', 'first_name last_name username company_id')
+            .populate('employee_id', 'first_name last_name username company_id role hod_id')
             .populate('employee_id.company_id', 'company_name')
             .populate('company_id', 'company_name')
             .populate('current_approver_id', 'first_name last_name username role')
@@ -648,7 +668,7 @@ export const getDashboard = async (req, res) => {
         }
 
         const recentProcessedLeaves = await LeaveApplication.find(recentProcessedLeavesQuery)
-            .populate('employee_id', 'first_name last_name username company_id')
+            .populate('employee_id', 'first_name last_name username company_id role hod_id')
             .populate('employee_id.company_id', 'company_name')
             .populate('current_approver_id', 'first_name last_name username role')
             .populate('leave_policy_id', 'leave_type policy_name')
@@ -990,6 +1010,7 @@ export const approveRequest = async (req, res) => {
             }
 
             const application = await LeaveApplication.findById(id)
+                .populate('employee_id', 'first_name last_name username role hod_id')
                 .populate('current_approver_id', 'first_name last_name username role');
             if (!application) {
                 debug.push(`Application not found: ${id}`);
@@ -999,7 +1020,7 @@ export const approveRequest = async (req, res) => {
 
             debug.push(`Found Application: ${application._id}`);
 
-            const requesterId = application.employee_id?.toString();
+            const requesterId = application.employee_id?._id ? application.employee_id._id.toString() : application.employee_id?.toString();
             const actorId = (actor._id?._id || actor._id).toString();
             const actorRole = normalizeRole(actor.role);
             const actorObjectId = actor._id?._id || actor._id;
@@ -1013,6 +1034,12 @@ export const approveRequest = async (req, res) => {
                 debug.push('SELF APPROVAL DENIED');
                 fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
                 return res.status(403).json({ message: 'Unauthorized: You cannot process your own leave application' });
+            }
+
+            if (!canActorActOnLeave(application, actor)) {
+                debug.push(`ACTOR PERMISSION DENIED for ${actorUsername}`);
+                fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
+                return res.status(403).json({ message: 'Unauthorized: You do not have permission to act on this leave application' });
             }
 
             try {
@@ -1649,7 +1676,7 @@ export const getAdminLeaveRequests = async (req, res) => {
         // console.log(`[DEBUG_LEAVE] Admin: ${adminUsername} | isAllowedAdmin: ${isAllowedAdmin} | Query: ${JSON.stringify(finalQuery)}`);
 
         const pendingLeaves = await LeaveApplication.find(finalQuery)
-            .populate('employee_id', 'first_name last_name username company_id')
+            .populate('employee_id', 'first_name last_name username company_id role hod_id')
             .populate('employee_id.company_id', 'company_name')
             .populate('company_id', 'company_name')
             .populate('current_approver_id', 'first_name last_name username role')
@@ -1710,7 +1737,7 @@ export const getAdminLeaveRequests = async (req, res) => {
         const totalHistory = await LeaveApplication.countDocuments(historyQuery);
 
         const recentProcessedLeaves = await LeaveApplication.find(historyQuery)
-            .populate('employee_id', 'first_name last_name username company_id')
+            .populate('employee_id', 'first_name last_name username company_id role hod_id')
             .populate('employee_id.company_id', 'company_name')
             .populate('current_approver_id', 'first_name last_name username role')
             .populate('leave_policy_id', 'leave_type policy_name')

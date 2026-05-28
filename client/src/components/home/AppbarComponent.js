@@ -60,6 +60,13 @@ function AppbarComponent(props) {
     return result;
   }, [branches]);
 
+  const resolvedSelectedBranchGroup = useMemo(() => {
+    if (selectedBranchGroup === 'all') return 'all';
+    return uniqueBranches.some((b) => b.branch_code === selectedBranchGroup)
+      ? selectedBranchGroup
+      : 'all';
+  }, [selectedBranchGroup, uniqueBranches]);
+
   // Check which categories are available for the selected branch group
   const availableCategories = useMemo(() => {
     if (selectedBranchGroup === 'all') return ['SEA', 'AIR'];
@@ -117,7 +124,7 @@ function AppbarComponent(props) {
           {/* Branch Selector */}
           <FormControl size="small" variant="outlined" sx={{ minWidth: 150 }}>
             <Select
-              value={selectedBranchGroup}
+              value={resolvedSelectedBranchGroup}
               onChange={(e) => setSelectedBranchGroup(e.target.value)}
               displayEmpty
               disabled={isJobView}

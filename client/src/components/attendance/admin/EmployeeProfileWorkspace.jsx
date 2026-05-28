@@ -964,22 +964,53 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                       </tr>
                     </thead>
                     <tbody>
-                      {g.items.map(emp=>(
-                        <tr key={emp._id} onClick={()=>handleSelectEmployee(emp)} style={{ borderBottom:`1px solid ${THEME.border}`, cursor:'pointer' }} onMouseEnter={e=>e.currentTarget.style.background='#f9fafb'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
-                          <td style={{ padding:'12px' }} onClick={e=>e.stopPropagation()}><input type="checkbox" checked={selectedUserIds.includes(emp._id)} onChange={e=>{ if(e.target.checked) setSelectedUserIds(p=>[...p,emp._id]); else setSelectedUserIds(p=>p.filter(v=>v!==emp._id)); }}/></td>
-                          <td style={{ padding:'12px' }}>
-                            <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
-                              <div style={{ width:'28px', height:'28px', borderRadius:'6px', background:'#f1f5f9', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'11px', fontWeight:'700', color:THEME.muted }}>{(emp.first_name?.[0]||'')+(emp.last_name?.[0]||'')}</div>
-                              <span style={{ fontWeight:'600', color:THEME.text }}>{emp.first_name} {emp.last_name}</span>
-                            </div>
-                          </td>
-                          <td style={{ padding:'12px', color:THEME.text }}>{emp.employee_code||'-'}</td>
-                          <td style={{ padding:'12px', color:THEME.muted }}>{emp.designation?.designation_name||emp.designation||'-'}</td>
-                          <td style={{ padding:'12px', color:THEME.muted }}>{emp.company_id?.company_name||'--'}</td>
-                          <td style={{ padding:'12px' }}><span style={{ color:'#10b981', background:'#f0fdf4', padding:'3px 8px', borderRadius:'10px', fontSize:'10px', fontWeight:'700' }}>Active</span></td>
-                          <td style={{ padding:'12px' }}><button onClick={e=>{ e.stopPropagation(); setMigratingEmployeeId(emp._id); setShowMigrationModal(true); }} style={{ padding:'5px', borderRadius:'6px', background:'#f3f4f6', border:'none', cursor:'pointer' }}>🔄</button></td>
-                        </tr>
-                      ))}
+                      {g.items.map(emp=>{
+                        const initials = `${emp.first_name?.[0]||''}${emp.last_name?.[0]||''}`.toUpperCase();
+                        const name = [emp.first_name,emp.last_name].filter(Boolean).join(' ').toUpperCase()||emp.username||'';
+                        return (
+                          <tr key={emp._id} onClick={()=>handleSelectEmployee(emp)} style={{ borderBottom:`1px solid ${THEME.border}`, cursor:'pointer' }} onMouseEnter={e=>e.currentTarget.style.background='#f9fafb'} onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                            <td style={{ padding:'12px' }} onClick={e=>e.stopPropagation()}>
+                              <input type="checkbox" checked={selectedUserIds.includes(emp._id)} onChange={e=>{ if(e.target.checked) setSelectedUserIds(p=>[...p,emp._id]); else setSelectedUserIds(p=>p.filter(v=>v!==emp._id)); }}/>
+                            </td>
+                            <td style={{ padding:'12px' }}>
+                              <div style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+                                {emp.employee_photo ? (
+                                  <img src={emp.employee_photo} style={{ width:'28px', height:'28px', borderRadius:'6px', objectFit:'cover' }} alt=""/>
+                                ) : (
+                                  <div style={{ width:'28px', height:'28px', borderRadius:'6px', background:'#f1f5f9', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'11px', fontWeight:'700', color:THEME.muted }}>
+                                    {initials||'??'}
+                                  </div>
+                                )}
+                                <span style={{ fontWeight:'700', color:THEME.text }}>{name}</span>
+                              </div>
+                            </td>
+                            <td style={{ padding:'12px', color:THEME.text }}>{emp.employee_code||'-'}</td>
+                            <td style={{ padding:'12px', color:THEME.muted }}>{emp.designation?.designation_name||emp.designation||'-'}</td>
+                            <td style={{ padding:'12px', color:THEME.muted }}>{emp.company_id?.company_name||'--'}</td>
+                            <td style={{ padding:'12px' }}>
+                              <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
+                                <span style={{ color:emp.isActive!==false?'#16a34a':'#475569', background:emp.isActive!==false?'#f0fdf4':'#f1f5f9', padding:'2px 7px', borderRadius:'8px', fontSize:'10px', fontWeight:'700' }}>
+                                  {emp.isActive!==false?'Active':'Inactive'}
+                                </span>
+                                {emp.current_status==='in_office' && (
+                                  <span style={{ background:'#dcfce7', color:'#15803d', padding:'2px 7px', borderRadius:'8px', fontSize:'10px', fontWeight:'700' }}>
+                                    Checked In
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td style={{ padding:'12px' }} onClick={e=>e.stopPropagation()}>
+                              <div style={{ display:'flex', gap:'6px', alignItems:'center' }}>
+                                <Button size="small" style={{ borderColor:'#3b82f6', color:'#3b82f6', fontSize:'11px', fontWeight:'600' }} onClick={(e)=>{ e.stopPropagation(); handleSelectEmployee(emp); }}>Edit</Button>
+                                <Popconfirm title="Deactivate this employee?" onConfirm={e=>{ e.stopPropagation(); handleDeactivateEmployee(emp); }} okText="Yes" cancelText="No" onClick={e=>e.stopPropagation()}>
+                                  <Button size="small" danger style={{ fontSize:'11px', fontWeight:'600' }} onClick={e=>e.stopPropagation()}>Delete</Button>
+                                </Popconfirm>
+                                <button onClick={e=>{ e.stopPropagation(); setMigratingEmployeeId(emp._id); setShowMigrationModal(true); }} style={{ padding:'0 8px', height:'24px', borderRadius:'6px', background:'#f3f4f6', border:'none', cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'11px', fontWeight:'600', color:THEME.text }}>Migrate</button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

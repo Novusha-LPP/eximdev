@@ -71,8 +71,6 @@ function TeamDashboard() {
     const [hodModules, setHodModules] = useState([]); // HOD's assigned modules
     const [allUsers, setAllUsers] = useState([]); // All users for Admin to select HOD
     const [moduleTab, setModuleTab] = useState(() => {
-        // If URL contains a userId, default to teams view so we show the member profile tab.
-        if (userId) return "teams";
         return (
             localStorage.getItem("teamDashboard_moduleTab") ||
             "teams"
@@ -89,13 +87,6 @@ function TeamDashboard() {
             localStorage.setItem("teamDashboard_moduleTab", "users");
         }
     }, [location.state]);
-
-    useEffect(() => {
-        if (userId) {
-            setModuleTab("teams");
-            localStorage.setItem("teamDashboard_moduleTab", "teams");
-        }
-    }, [userId]);
 
     useEffect(() => {
         localStorage.setItem("teamDashboard_moduleTab", moduleTab);
@@ -558,11 +549,15 @@ function TeamDashboard() {
 
     return (
         <div style={{ minHeight: "calc(100vh - 64px)", background: "#f0f2f5" }}>
-            {moduleTab === "users" ? (
+            {userId ? (
+                <div style={{ background: '#fff', borderRadius: '8px' }}>
+                    <EmployeeProfileWorkspace />
+                </div>
+            ) : moduleTab === "users" ? (
                 <div style={{ background: '#fff', borderRadius: '8px' }}>
                     <EmployeeProfileWorkspace 
                         preselectedEmployeeIds={teamShortcutUserIds} 
-                        headerActions={toggleButtons} 
+                        headerActions={null} 
                     />
                 </div>
             ) : (

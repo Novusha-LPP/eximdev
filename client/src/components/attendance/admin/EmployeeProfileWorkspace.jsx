@@ -168,9 +168,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
   const [localEmployeeId, setLocalEmployeeId] = useState(null);
   const [pickerModal, setPickerModal] = useState({ open:false, index:-1 });
 
-  const idFromParams = userId||idFromRoute;
-  const isValidParamId = idFromParams&&/^[0-9a-fA-F]{24}$/.test(idFromParams);
-  const id = employeeId||localEmployeeId||(isValidParamId?idFromParams:null);
+
 
   const [currentPage, setCurrentPage] = useState(1);
   const [viewMode, setViewMode] = useState('grid');
@@ -313,6 +311,18 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
 
   const [organizations, setOrganizations] = useState([]);
   const [gridEmployees, setGridEmployees] = useState([]);
+
+  const idFromParams = userId||idFromRoute;
+  const isValidParamId = idFromParams&&/^[0-9a-fA-F]{24}$/.test(idFromParams);
+
+  const resolvedIdFromParams = useMemo(() => {
+    if (!idFromParams) return null;
+    if (isValidParamId) return idFromParams;
+    const found = gridEmployees.find(emp => emp.username === idFromParams);
+    return found ? found._id : null;
+  }, [idFromParams, isValidParamId, gridEmployees]);
+
+  const id = employeeId||localEmployeeId||resolvedIdFromParams;
   const [gridLoading, setGridLoading] = useState(false);
   const [showMigrationModal, setShowMigrationModal] = useState(false);
   const [migratingEmployeeId, setMigratingEmployeeId] = useState(null);
@@ -822,7 +832,6 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
             </span>
           </div>
         </div>
-        <p style={{ margin:'0 0 16px', color:'#64748b', fontSize:'13px' }}>Manage workforce policies and profiles</p>
 
         {/* Controls */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px', flexWrap:'wrap', gap:'10px' }}>
@@ -893,9 +902,9 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                     return (
                       <div key={emp._id} className="epw-card" onClick={go}>
                         <div style={{ position:'absolute', top:'14px', right:'14px', display:'flex', alignItems:'center', gap:'6px', zIndex:1 }}>
-                          <span style={{ color:emp.isActive!==false?'#16a34a':'#475569', background:emp.isActive!==false?'#f0fdf4':'#f1f5f9', padding:'2px 7px', borderRadius:'8px', fontSize:'10px', fontWeight:'700' }}>
-                            {emp.isActive!==false?'Active':'Inactive'}
-                          </span>
+                          {/* <span style={{ color:emp.isActive!==false?'#16a34a':'#475569', background:emp.isActive!==false?'#f0fdf4':'#f1f5f9', padding:'2px 7px', borderRadius:'8px', fontSize:'10px', fontWeight:'700' }}>
+                            {emp.isActive!==false?'Activeee':'Inactive'}
+                          </span> */}
                         </div>
                         <div className="epw-card-body">
                           {emp.employee_photo ? <img src={emp.employee_photo} className="epw-avatar" alt={name}/> : <div className="epw-initials">{initials||'??'}</div>}

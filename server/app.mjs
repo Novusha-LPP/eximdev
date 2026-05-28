@@ -304,10 +304,11 @@ const autoMarkStaleMissedPunchSessions = async () => {
     await AttendanceRecord.findOneAndUpdate(
       {
         employee_id: session.employee_id,
-        attendance_date: attendanceDate,
+        attendance_date_str: sessionDateKey,
       },
       {
         $set: {
+          attendance_date: attendanceDate,
           company_id: session.company_id,
           shift_id: session.shift_id || null,
           first_in: session.punch_in_time,
@@ -745,6 +746,48 @@ if (!disableCluster && cluster.isPrimary) {
   }
   mongoose.set("strictQuery", true);
 
+  const fixCorruptAttendanceRecords = async () => {
+    try {
+      const corruptRecords = await AttendanceRecord.find({
+        $or: [
+          { attendance_date_str: null },
+          { attendance_date_str: { $exists: false } }
+        ]
+      }).lean();
+
+      if (corruptRecords.length > 0) {
+        console.log(`🧹 Found ${corruptRecords.length} corrupt attendance records with null/missing attendance_date_str. Fixing...`);
+        for (const rec of corruptRecords) {
+          if (rec.attendance_date) {
+            const dateStr = new Date(rec.attendance_date).toISOString().slice(0, 10);
+            // Check if another record already exists with this employee_id and dateStr
+            const exists = await AttendanceRecord.findOne({
+              employee_id: rec.employee_id,
+              attendance_date_str: dateStr
+            }).select("_id");
+
+            if (exists) {
+              // Delete the corrupt one to avoid duplicate key error
+              await AttendanceRecord.deleteOne({ _id: rec._id });
+            } else {
+              // Update the corrupt one with the correct dateStr
+              await AttendanceRecord.updateOne(
+                { _id: rec._id },
+                { $set: { attendance_date_str: dateStr } }
+              );
+            }
+          } else {
+            // No attendance_date either, delete it
+            await AttendanceRecord.deleteOne({ _id: rec._id });
+          }
+        }
+        console.log("✅ Finished fixing corrupt attendance records.");
+      }
+    } catch (error) {
+      console.error("❌ Failed to fix corrupt attendance records:", error);
+    }
+  };
+
   // Connect to DB and Start Server (Skipped in Test Mode)
   if (process.env.NODE_ENV !== 'test') {
     mongoose
@@ -761,6 +804,7 @@ if (!disableCluster && cluster.isPrimary) {
       .then(async () => {
         // initialize cron jobs only on the first worker to avoid duplicates
         if (!cluster.worker || cluster.worker.id === 1) {
+          await fixCorruptAttendanceRecords();
           cron.schedule(
             "1 0 * * *",
             async () => {

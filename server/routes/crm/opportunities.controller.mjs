@@ -81,10 +81,11 @@ async function buildOwnerFilter(user, requestedTeamId = null) {
 // GET /api/crm/opportunities
 router.get('/', async (req, res) => {
   try {
-    const { stage, forecastCategory, teamId, startDate, endDate, period, dateField } = req.query;
+    const { stage, forecastCategory, teamId, startDate, endDate, period, dateField, accountId } = req.query;
     const query = { ...(await buildOwnerFilter(req.user, teamId)) };
     if (stage) query.stage = stage;
     if (forecastCategory) query.forecastCategory = forecastCategory;
+    if (accountId) query.accountId = accountId;
 
     const filterField = dateField === 'last_updated' || dateField === 'updatedAt' ? 'updatedAt' : 'createdAt';
 
@@ -95,7 +96,7 @@ router.get('/', async (req, res) => {
       };
     } else if (period) {
       query.period = period;
-    } else {
+    } else if (!accountId) {
       query.period = new Date().toISOString().substring(0, 7);
     }
 

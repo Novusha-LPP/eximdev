@@ -99,7 +99,7 @@ export default function ContactsList() {
                           contact.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           contact.phone?.includes(searchTerm);
     // Handle both populated and unpopulated accountId
-    const accountId = typeof contact.accountId === 'object' ? contact.accountId._id : contact.accountId;
+    const accountId = (contact.accountId && typeof contact.accountId === 'object') ? contact.accountId._id : contact.accountId;
     const matchesAccount = !accountFilter || accountId === accountFilter;
     return matchesSearch && matchesAccount;
   });
@@ -182,7 +182,7 @@ export default function ContactsList() {
               <tr><td colSpan="6" style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>No contacts found.</td></tr>
             ) : filteredContacts.map(contact => {
               // Handle both populated and unpopulated accountId (object or string)
-              const accountId = typeof contact.accountId === 'object' ? contact.accountId._id : contact.accountId;
+              const accountId = (contact.accountId && typeof contact.accountId === 'object') ? contact.accountId._id : contact.accountId;
               const account = contact.accountId && typeof contact.accountId === 'object' 
                 ? contact.accountId 
                 : accounts.find(a => a._id === accountId);

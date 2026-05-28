@@ -6,7 +6,11 @@ const router = express.Router();
 // GET /api/crm/contacts
 router.get('/', async (req, res) => {
   try {
-    const contacts = await Contact.find({}).populate('accountId', 'name');
+    const query = {};
+    if (req.query.accountId) {
+      query.accountId = req.query.accountId;
+    }
+    const contacts = await Contact.find(query).populate('accountId', 'name');
     res.json(contacts);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

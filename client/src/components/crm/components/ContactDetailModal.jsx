@@ -71,7 +71,7 @@ export default function ContactDetailModal({ isOpen, onClose, contact, onEdit, o
 
           <div style={{ marginBottom: '24px' }}>
              <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Account</span>
-             <p style={{ margin: '4px 0 0 0', color: '#334155', fontWeight: 600 }}>{typeof contact.accountId === 'object' ? contact.accountId?.name : 'No linked account'}</p>
+             <p style={{ margin: '4px 0 0 0', color: '#334155', fontWeight: 600 }}>{(contact.accountId && typeof contact.accountId === 'object') ? contact.accountId.name : 'No linked account'}</p>
           </div>
 
           {/* Activity Timeline */}

@@ -16,11 +16,15 @@ router.post("/utility/sync-production", async (req, res) => {
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
+    res.setHeader("X-Accel-Buffering", "no");
 
     const { runSync, runMigrateJobs, runMigrateGandhidham } = req.body;
 
     const sendProgress = (data) => {
         res.write(`data: ${JSON.stringify(data)}\n\n`);
+        if (typeof res.flush === "function") {
+            res.flush();
+        }
     };
 
     try {

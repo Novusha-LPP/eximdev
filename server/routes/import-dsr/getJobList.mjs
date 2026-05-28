@@ -342,16 +342,6 @@ router.get(
               { bill_date: { $nin: [null, ""] } },
               { status: { $regex: "^completed$", $options: "i" } },
             ],
-          },
-          {
-            dsr_queries: {
-              $not: {
-                $elemMatch: {
-                  select_module: "DSR",
-                  resolved: { $ne: true }
-                }
-              }
-            }
           }
         );
       } else if (statusLower === "cancelled") {

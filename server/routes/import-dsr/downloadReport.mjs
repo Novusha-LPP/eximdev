@@ -74,6 +74,36 @@ router.get(
 
       console.log(`Found ${jobs.length} jobs before filtering`);
 
+      // ✅ Additional Security Check: Ensure all jobs have the same ie_code_no to avoid data mismatch
+      if (jobs.length > 0) {
+        const ieCodeCounts = {};
+        jobs.forEach(job => {
+          const ieCode = (job.ie_code_no || "").trim();
+          if (ieCode) {
+            ieCodeCounts[ieCode] = (ieCodeCounts[ieCode] || 0) + 1;
+          }
+        });
+
+        // Find the dominant ie_code_no (the most common non-empty IEC)
+        let dominantIeCode = "";
+        let maxCount = 0;
+        for (const [ieCode, count] of Object.entries(ieCodeCounts)) {
+          if (count > maxCount) {
+            maxCount = count;
+            dominantIeCode = ieCode;
+          }
+        }
+
+        // If a dominant IE Code exists, filter the results strictly to match it
+        if (dominantIeCode) {
+          const initialCount = jobs.length;
+          jobs = jobs.filter(job => (job.ie_code_no || "").trim() === dominantIeCode);
+          if (jobs.length < initialCount) {
+            console.warn(`[Security Check] Mismatched IE Codes detected. Filtered out ${initialCount - jobs.length} jobs that did not match dominant IE Code: ${dominantIeCode}`);
+          }
+        }
+      }
+
       // Filter by detailedStatus if provided, otherwise filter out "Billing Pending" by default
       const statusMapping = {
         billed: "Billed",

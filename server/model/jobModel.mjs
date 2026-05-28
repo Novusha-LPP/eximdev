@@ -749,6 +749,16 @@ const jobSchema = new mongoose.Schema({
 // Automatically update `updatedAt` before saving
 jobSchema.pre("save", async function (next) {
   this.updatedAt = Date.now();
+
+  // Automatically sync importerURL whenever the importer name is modified
+  if (this.isModified('importer') && this.importer) {
+    this.importerURL = this.importer
+      .toLowerCase()
+      .replace(/\s+/g, "_")
+      .replace(/[^\w&.]+/g, "")
+      .replace(/_+/g, "_")
+      .replace(/^_|_$/g, "");
+  }
   
   // Automatically mark job as completed if fully billed (both Agency and Reimbursement)
   const billNos = (this.bill_no || "").split(",");

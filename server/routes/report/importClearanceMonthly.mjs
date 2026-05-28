@@ -117,7 +117,18 @@ router.get("/api/report/import-clearance/:year/:month", async (req, res) => {
             $concat: [
               {
                 $cond: [
-                  { $in: ["$cth_no", SCRAP_HS_CODES] },
+                  {
+                    $or: [
+                      { $in: ["$cth_no", SCRAP_HS_CODES] },
+                      {
+                        $regexMatch: {
+                          input: { $ifNull: ["$description", ""] },
+                          regex: "scrap",
+                          options: "i"
+                        }
+                      }
+                    ]
+                  },
                   "SCRAP",
                   "OTHERS",
                 ],

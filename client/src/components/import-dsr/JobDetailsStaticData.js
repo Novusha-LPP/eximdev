@@ -39,6 +39,21 @@ function JobDetailsStaticData(props) {
   const [editFormData, setEditFormData] = useState({});
   const [isSaving, setIsSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [organizations, setOrganizations] = useState([]);
+
+  React.useEffect(() => {
+    const fetchOrganizations = async () => {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/organization`);
+        setOrganizations(res.data.organizations || []);
+      } catch (err) {
+        console.error("Error fetching organizations:", err);
+      }
+    };
+    if (editModalOpen) {
+      fetchOrganizations();
+    }
+  }, [editModalOpen]);
 
   const handleEditClick = (e) => {
     e.stopPropagation();
@@ -86,6 +101,7 @@ function JobDetailsStaticData(props) {
       importer_type: props.data?.importer_type || "",
       commercial_tax_type: props.data?.commercial_tax_type || "",
       gst_no: props.data?.gst_no || "",
+      pan_no: props.data?.pan_no || "",
       // Flatten hss_address
       hss_address_category: (typeof props.data?.hss_address === 'object' ? props.data?.hss_address?.category : props.data?.hss_address) || "",
       hss_address_details: (typeof props.data?.hss_address === 'object' ? props.data?.hss_address?.details : props.data?.hss_address_details) || "",
@@ -951,6 +967,50 @@ function JobDetailsStaticData(props) {
             {errorMsg && <Typography color="error" variant="body2" gutterBottom>{errorMsg}</Typography>}
             <Grid container spacing={2} style={{ marginTop: '5px' }}>
               {Object.keys(editFormData).map((key) => {
+                if (key === "importer") {
+                  return (
+                    <Grid item xs={12} sm={6} md={4} lg={3} key={key}>
+                      <Autocomplete
+                        freeSolo
+                        options={organizations.map((org) => org.name)}
+                        value={editFormData[key] || ""}
+                        onInputChange={(event, newValue) => {
+                          setEditFormData(prev => ({ ...prev, [key]: newValue }));
+                        }}
+                        onChange={(event, selectedName) => {
+                          if (selectedName) {
+                            const org = organizations.find(o => o.name === selectedName);
+                            if (org) {
+                              const addressStr = [org.addressDetails?.line1, org.addressDetails?.line2]
+                                .filter(Boolean)
+                                .join(", ");
+                              setEditFormData(prev => ({
+                                ...prev,
+                                importer: org.name || prev.importer,
+                                ie_code_no: org.iec_no || prev.ie_code_no,
+                                pan_no: org.pan_no || prev.pan_no,
+                                gst_no: org.gst_no || prev.gst_no,
+                                importer_address_details: addressStr || prev.importer_address_details,
+                                importer_city: org.addressDetails?.city || prev.importer_city,
+                                importer_state: org.addressDetails?.state || prev.importer_state,
+                                importer_postal_code: org.addressDetails?.pinCode || prev.importer_postal_code,
+                                importer_country: "INDIA"
+                              }));
+                            }
+                          }
+                        }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            size="small"
+                            label="Importer"
+                            fullWidth
+                          />
+                        )}
+                      />
+                    </Grid>
+                  );
+                }
                 if (key === "port_of_reporting") {
                   const portReportingOptionsSet = [
                     "(INMUN1) Mundra Sea",

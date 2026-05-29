@@ -2113,9 +2113,15 @@ router.get("/api/kpi/analytics/blockers-losses", verifyToken, async (req, res) =
                 t.members.some(m => m.userId.toString() === userId)
             );
 
+            let finalBlockers = "";
+            let primaryBlockerCategory = "";
+
             // Process Blocker Categories
             if (sheet.summary?.blockers) {
-                const individualBlockers = sheet.summary.blockers.split(' | ').filter(b => b);
+                const individualBlockers = sheet.summary.blockers.split(' | ').filter(b => b && !b.toUpperCase().includes('NONE'));
+                
+                finalBlockers = individualBlockers.join(' | ');
+
                 individualBlockers.forEach(b => {
                     let category = "Others";
                     if (b.includes(":")) {
@@ -2123,26 +2129,27 @@ router.get("/api/kpi/analytics/blockers-losses", verifyToken, async (req, res) =
                     }
                     blockerStats[category] = (blockerStats[category] || 0) + 1;
                 });
+
+                if (finalBlockers && finalBlockers.includes(":")) {
+                    primaryBlockerCategory = finalBlockers.split(":")[0].trim();
+                }
             }
 
-            // Get first category for primary display in table
-            let primaryBlockerCategory = "Others";
-            if (sheet.summary?.blockers && sheet.summary.blockers.includes(":")) {
-                primaryBlockerCategory = sheet.summary.blockers.split(":")[0].trim();
+            // Only push if there's a valid blocker or a business loss
+            if (finalBlockers || sheet.summary?.business_loss > 0) {
+                reportData.push({
+                    user: {
+                        name: `${sheet.user?.first_name} ${sheet.user?.last_name}`,
+                        username: sheet.user?.username
+                    },
+                    team: userTeam ? userTeam.name : (sheet.department || 'N/A'),
+                    blocker: finalBlockers,
+                    blockerCategory: primaryBlockerCategory,
+                    businessLoss: sheet.summary?.business_loss || 0,
+                    lossCategory: sheet.summary?.root_cause || (sheet.summary?.business_loss > 0 ? "Others" : ""),
+                    lossDescription: sheet.summary?.loss_description || sheet.summary?.root_cause_other || ""
+                });
             }
-
-            reportData.push({
-                user: {
-                    name: `${sheet.user?.first_name} ${sheet.user?.last_name}`,
-                    username: sheet.user?.username
-                },
-                team: userTeam ? userTeam.name : (sheet.department || 'N/A'),
-                blocker: sheet.summary?.blockers || "",
-                blockerCategory: sheet.summary?.blockers ? primaryBlockerCategory : "",
-                businessLoss: sheet.summary?.business_loss || 0,
-                lossCategory: sheet.summary?.root_cause || (sheet.summary?.business_loss > 0 ? "Others" : ""),
-                lossDescription: sheet.summary?.loss_description || sheet.summary?.root_cause_other || ""
-            });
         });
 
         // Convert blocker stats to array and sort

@@ -654,7 +654,8 @@ export const punch = async (req, res) => {
             company_id: user.company_id,
             punch_type: type,
             punch_time: now.toDate(),
-            punch_date: today,
+            punch_date: todayDate,
+            punch_date_str: today,
             punch_method: deviceType || 'web'
         });
         await punch.save();

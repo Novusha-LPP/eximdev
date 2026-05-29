@@ -63,7 +63,8 @@ async function verify() {
             company_id: user.company_id,
             punch_type: 'IN',
             punch_time: new Date(),
-            punch_date: today,
+            punch_date: moment.utc(today).startOf('day').toDate(),
+            punch_date_str: today,
             punch_method: 'test_script'
         });
         await punch.save();

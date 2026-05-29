@@ -355,6 +355,7 @@ async function seedTestData() {
         punch_type: 'IN',
         punch_time: punchIn.toDate(),
         punch_date: date.toDate(),
+        punch_date_str: dateStr,
         punch_method: randomChoice(['web', 'mobile', 'web', 'web']), // 75% web
         ip_address: `192.168.1.${randomBetween(100, 199)}`
       });
@@ -366,6 +367,7 @@ async function seedTestData() {
         punch_type: 'OUT',
         punch_time: punchOut.toDate(),
         punch_date: date.toDate(),
+        punch_date_str: dateStr,
         punch_method: randomChoice(['web', 'mobile', 'web', 'web']),
         ip_address: `192.168.1.${randomBetween(100, 199)}`
       });

@@ -16,6 +16,7 @@ import ClientLoginAnalyticsReport from './reports/ClientLoginAnalyticsReport';
 import NewCustomersReport from './reports/NewCustomersReport';
 import ElockUtilizationReport from './reports/ElockUtilizationReport';
 import ElockAssignedCountReport from './reports/ElockAssignedCountReport';
+import TransportAccountsReport from './reports/TransportAccountsReport';
 
 const NucleusHome = () => {
     // Categories Configuration
@@ -60,6 +61,14 @@ const NucleusHome = () => {
             reports: [
                 { id: 'elock_utilization', label: 'E-Lock Utilization' },
                 { id: 'elock_assigned_count', label: 'E-Lock Assigned Count' }
+            ]
+        },
+        {
+            id: 'finance',
+            label: 'Finance Report',
+            icon: '💰',
+            reports: [
+                { id: 'transport_accounts', label: 'Transport Accounts' }
             ]
         }
     ];
@@ -119,7 +128,7 @@ const NucleusHome = () => {
 
     // Force sensible default date filter type for transport/elock reports
     useEffect(() => {
-        if (['fleet_utilization', 'elock_utilization'].includes(activeReport)) {
+        if (['fleet_utilization', 'elock_utilization', 'transport_accounts'].includes(activeReport)) {
             setFilterType('day');
             setSelectedDay(format(new Date(), 'yyyy-MM-dd'));
         } else {
@@ -237,6 +246,17 @@ const NucleusHome = () => {
                         selectedDay={selectedDay}
                     />
                 );
+            case 'transport_accounts':
+                return (
+                    <TransportAccountsReport
+                        filterType={filterType}
+                        selectedMonth={selectedMonth}
+                        selectedYear={selectedYear}
+                        selectedQuarter={selectedQuarter}
+                        dateRange={dateRange}
+                        selectedDay={selectedDay}
+                    />
+                );
             default:
                 return <div style={{ padding: '20px', color: '#64748b' }}>Select a report from the sidebar</div>;
         }
@@ -340,7 +360,7 @@ const NucleusHome = () => {
                                         onChange={(e) => setFilterType(e.target.value)}
                                         className="nucleus-select"
                                     >
-                                        {['fleet_utilization', 'elock_utilization'].includes(activeReport) && (
+                                        {['fleet_utilization', 'elock_utilization', 'transport_accounts'].includes(activeReport) && (
                                             <option value="day">Day Wise</option>
                                         )}
                                         <option value="month">Month Wise</option>

@@ -64,7 +64,8 @@ async function testNightShift() {
         company_id: company._id,
         punch_type: 'IN',
         punch_time: punchInTime,
-        punch_date: attendanceDateStr,
+        punch_date: moment.utc(attendanceDateStr).startOf('day').toDate(),
+        punch_date_str: attendanceDateStr,
         punch_method: 'web'
     });
     await punchIn.save();

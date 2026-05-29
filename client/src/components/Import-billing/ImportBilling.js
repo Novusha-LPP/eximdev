@@ -33,6 +33,7 @@ import ReceiptIcon from "@mui/icons-material/Receipt";
 import ContainerTrackButton from '../ContainerTrackButton';
 import CashVoucher from "./CashVoucher";
 import { downloadInvoiceAsPDF } from "../../utils/invoicePrint.js";
+import * as XLSX from "xlsx";
 
 function ImportBilling({ workMode = 'Payment', isDoView = false }) {
   const { currentTab } = useContext(TabContext); // Access context
@@ -229,6 +230,63 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
   // Handle search input change
   const handleSearchInputChange = (event) => {
     setSearchQuery(event.target.value);
+  };
+
+  const handleDownloadExcel = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/get-billing-import-job`,
+        {
+          params: {
+            page: 1,
+            limit: 10000,
+            search: searchQuery,
+            importer: selectedImporter?.trim() || "",
+            year: selectedYearState || "",
+            username: user?.username || "",
+            unresolvedOnly: showUnresolvedOnly.toString(),
+            branchId: selectedBranch || "all",
+            category: selectedCategory || "all",
+            workMode
+          },
+        }
+      );
+
+      const jobs = res.data?.jobs || [];
+      if (jobs.length === 0) {
+        alert("No data available to download");
+        return;
+      }
+
+      // Map to requested fields
+      const excelData = jobs.map((job) => ({
+        "Job Number": job.job_number || job.job_no || "",
+        "Importer Name": job.importer || "",
+        "BL Number": job.awb_bl_no || ""
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      
+      // Auto-fit column widths
+      const colWidths = [
+        { wch: 25 }, // Job Number
+        { wch: 35 }, // Importer Name
+        { wch: 25 }  // BL Number
+      ];
+      worksheet['!cols'] = colWidths;
+
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Import Billing Jobs");
+      
+      const fileName = `Import_Billing_Jobs_${new Date().toISOString().split("T")[0]}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+    } catch (err) {
+      console.error("Error exporting excel:", err);
+      alert("Failed to download excel. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Handle copy functionality (can be abstracted if used multiple times)
@@ -732,6 +790,32 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
           sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
         />
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          <Button
+            variant="contained"
+            color="success"
+            size="small"
+            onClick={handleDownloadExcel}
+            sx={{
+              borderRadius: 3,
+              textTransform: "none",
+              fontWeight: 500,
+              fontSize: "0.875rem",
+              padding: "8px 20px",
+              boxShadow: "0 4px 12px rgba(46, 125, 50, 0.3)",
+              transition: "all 0.3s ease",
+              "&:hover": {
+                background: "#2e7d32",
+                boxShadow: "0 6px 16px rgba(46, 125, 50, 0.4)",
+                transform: "translateY(-1px)",
+              },
+              "&:active": {
+                transform: "translateY(0px)",
+              },
+            }}
+          >
+            Download Excel
+          </Button>
+
           <Box sx={{ position: "relative" }}>
             <Button
               variant="contained"

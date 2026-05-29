@@ -1131,8 +1131,21 @@ function JobDetails() {
       [field]: value,
     };
 
+    // Auto-calculate freight and insurance if TOI is CIF
+    const toiValue = field === "toi" ? value : (updatedRows[rowIndex].toi || "CIF");
+    if (toiValue === "CIF") {
+      const pv = parseFloat(field === "product_value" ? value : (updatedRows[rowIndex].product_value || 0)) || 0;
+      const calculatedFreight = pv * 0.20;
+      const calculatedInsurance = pv * 0.01125;
+      updatedRows[rowIndex].freight = calculatedFreight > 0 ? calculatedFreight.toFixed(2) : "";
+      updatedRows[rowIndex].insurance = calculatedInsurance > 0 ? calculatedInsurance.toFixed(2) : "";
+    } else if (field === "toi") {
+      updatedRows[rowIndex].freight = "";
+      updatedRows[rowIndex].insurance = "";
+    }
+
     // Auto-calculate total invoice value if any contributing field changes
-    const fieldsToSum = ["product_value", "freight", "insurance", "other_charges"];
+    const fieldsToSum = ["product_value", "freight", "insurance", "other_charges", "toi"];
     if (fieldsToSum.includes(field)) {
       const prod = parseFloat(field === "product_value" ? value : (updatedRows[rowIndex].product_value || 0)) || 0;
       const frt = parseFloat(field === "freight" ? value : (updatedRows[rowIndex].freight || 0)) || 0;
@@ -1149,6 +1162,29 @@ function JobDetails() {
     }
 
     formik.setFieldValue("invoice_details", updatedRows);
+
+    // Also sync F & I Charges tab amounts and rates based on CIF invoices
+    const hasCIF = updatedRows.some(row => row.toi === "CIF");
+    if (hasCIF) {
+      const totalFreight = updatedRows.reduce((sum, row) => sum + (parseFloat(row.freight) || 0), 0);
+      const totalInsurance = updatedRows.reduce((sum, row) => sum + (parseFloat(row.insurance) || 0), 0);
+      
+      formik.setFieldValue("other_charges_details.freight.amount", totalFreight > 0 ? totalFreight.toFixed(2) : "");
+      formik.setFieldValue("other_charges_details.freight.rate", "20");
+      formik.setFieldValue("other_charges_details.insurance.amount", totalInsurance > 0 ? totalInsurance.toFixed(2) : "");
+      formik.setFieldValue("other_charges_details.insurance.rate", "1.125");
+    } else if (field === "toi") {
+      formik.setFieldValue("other_charges_details.freight.amount", "");
+      formik.setFieldValue("other_charges_details.freight.rate", 0);
+      formik.setFieldValue("other_charges_details.insurance.amount", "");
+      formik.setFieldValue("other_charges_details.insurance.rate", 0);
+    }
+
+    // Sync global CIF value (term value) across all rows
+    const totalCif = updatedRows.reduce((sum, row) => sum + (parseFloat(row.total_inv_value) || 0), 0);
+    if (totalCif > 0) {
+      formik.setFieldValue("cifValue", totalCif.toFixed(2));
+    }
   };
 
   const addInvoiceRow = () => {
@@ -2929,7 +2965,7 @@ function JobDetails() {
                           type="number"
                           sx={compactInputSx}
                           style={{ width: "80px" }}
-                          value={formik.values.other_charges_details?.landing_charge?.rate || ""}
+                          value={formik.values.other_charges_details?.landing_charge?.rate ?? 0}
                           onChange={(e) => formik.setFieldValue("other_charges_details.landing_charge.rate", e.target.value)}
                         />
                         <span style={{ fontSize: "0.9rem" }}>%</span>

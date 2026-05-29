@@ -67,6 +67,39 @@ const columns = [
   { label: "REMARKS", key: "remarks", minWidth: 100 },
 ];
 
+const formatDateSafe = (dateVal) => {
+  if (!dateVal) return '';
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) {
+    const str = String(dateVal).trim();
+    const parts = str.split(/[-/]/);
+    if (parts.length === 3) {
+      const p0 = parseInt(parts[0], 10);
+      const p1 = parseInt(parts[1], 10);
+      const p2 = parseInt(parts[2], 10);
+      if (p0 <= 31 && p1 <= 12 && p2 > 1000) {
+        const parsed = new Date(p2, p1 - 1, p0);
+        if (!isNaN(parsed.getTime())) {
+          return parsed.toLocaleDateString('en-GB');
+        }
+      }
+      if (p0 > 1000 && p1 <= 12 && p2 <= 31) {
+        const parsed = new Date(p0, p1 - 1, p2);
+        if (!isNaN(parsed.getTime())) {
+          return parsed.toLocaleDateString('en-GB');
+        }
+      }
+    }
+    return str;
+  }
+  return d.toLocaleDateString('en-GB');
+};
+
+const formatDateSafePDF = (dateVal) => {
+  const formatted = formatDateSafe(dateVal);
+  return formatted ? formatted.replace(/\//g, '-') : '';
+};
+
 const DetailedReport = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -213,6 +246,42 @@ const DetailedReport = () => {
 
   // Generate summary for dialog (with LCL row)
   const generateSummaryRows = () => {
+    const isAir = selectedCategory && selectedCategory.toLowerCase() === 'air';
+    
+    if (isAir) {
+      const locationCounts = {};
+      let grandTotal = 0;
+      
+      data.forEach(row => {
+        const location = row.location || 'Unknown';
+        locationCounts[location] = (locationCounts[location] || 0) + 1;
+        grandTotal += 1;
+      });
+      
+      const rows = [];
+      Object.entries(locationCounts).forEach(([location, count]) => {
+        rows.push({
+          location,
+          details: '',
+          count20: 0,
+          count40: 0,
+          teus: 0,
+          containers: count
+        });
+      });
+      
+      rows.push({
+        location: 'TOTAL',
+        details: '',
+        count20: 0,
+        count40: 0,
+        teus: 0,
+        containers: grandTotal
+      });
+      
+      return rows;
+    }
+
     const summaryData = {};
     let lclContainers = 0, lcl20 = 0, lcl40 = 0, lclTeus = 0;
     let lclTeusSubtract = 0;
@@ -342,7 +411,7 @@ const DetailedReport = () => {
       }
     } catch (error) {
       console.error('Export failed:', error);
-      setError(`Failed to export report as ${format.toUpperCase()}`);
+      setError(`Failed to export report as ${format.toUpperCase()}: ${error.message || error}`);
     } finally {
       setExportLoading(false);
       setExportType('');
@@ -351,6 +420,7 @@ const DetailedReport = () => {
 
   const exportToExcel = async () => {
     const workbook = XLSX.utils.book_new();
+    const isAir = selectedCategory && selectedCategory.toLowerCase() === 'air';
 
     // Prepare main data
     const excelData = data.map((row, index) => {
@@ -361,8 +431,15 @@ const DetailedReport = () => {
         ? `${row.inv_currency} ${(parseFloat(row.cif_amount)).toFixed(2)}`
         : '';
 
-      const visibleCols = columns.filter((col) => !(col.key === 'cif_amount' && !isSrManager));
+      const visibleCols = columns.filter((col) => {
+        if (col.key === 'cif_amount' && !isSrManager) return false;
+        if (isAir && ['containerNumbers', 'totalContainers', 'size', 'teus'].includes(col.key)) {
+          return false;
+        }
+        return true;
+      });
       visibleCols.forEach(col => {
+        const isRowAir = row.mode && row.mode.toLowerCase() === 'air';
         switch (col.key) {
           case 'srlNo':
             excelRow[col.label] = String(index + 1).padStart(3, "0");
@@ -371,16 +448,22 @@ const DetailedReport = () => {
             excelRow[col.label] = invValue;
             break;
           case 'size':
-            excelRow[col.label] = deriveSize(row.noOfContrSize);
+            excelRow[col.label] = isRowAir ? '' : deriveSize(row.noOfContrSize);
             break;
           case 'containerNumbers':
-            excelRow[col.label] = row.containerNumbers ? row.containerNumbers.join('; ') : '';
+            excelRow[col.label] = isRowAir ? '' : (Array.isArray(row.containerNumbers) ? row.containerNumbers.join('; ') : String(row.containerNumbers || ''));
+            break;
+          case 'totalContainers':
+            excelRow[col.label] = isRowAir ? '' : (row.totalContainers || '');
+            break;
+          case 'teus':
+            excelRow[col.label] = isRowAir ? '' : (row.teus || '');
             break;
           case 'be_date':
-            excelRow[col.label] = row.be_date ? new Date(row.be_date).toLocaleDateString('en-GB') : '';
+            excelRow[col.label] = formatDateSafe(row.be_date);
             break;
           case 'out_of_charge':
-            excelRow[col.label] = row.out_of_charge ? new Date(row.out_of_charge).toLocaleDateString('en-GB') : '';
+            excelRow[col.label] = formatDateSafe(row.out_of_charge);
             break;
           case 'remarks':
             excelRow[col.label] = row[col.key] || '';
@@ -396,43 +479,45 @@ const DetailedReport = () => {
     const worksheet = XLSX.utils.json_to_sheet(excelData);
 
     // Auto-fit columns
-    const range = XLSX.utils.decode_range(worksheet['!ref']);
-    const colWidths = [];
-    let remarksColIndex = -1;
+    if (worksheet['!ref']) {
+      const range = XLSX.utils.decode_range(worksheet['!ref']);
+      const colWidths = [];
+      let remarksColIndex = -1;
 
-    for (let col = range.s.c; col <= range.e.c; col++) {
-      let maxWidth = 0;
-      for (let row = range.s.r; row <= range.e.r; row++) {
-        const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
-        const cell = worksheet[cellAddress];
-        if (cell && cell.v) {
-          const cellValue = String(cell.v);
-          maxWidth = Math.max(maxWidth, cellValue.length);
+      for (let col = range.s.c; col <= range.e.c; col++) {
+        let maxWidth = 0;
+        for (let row = range.s.r; row <= range.e.r; row++) {
+          const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+          const cell = worksheet[cellAddress];
+          if (cell && cell.v) {
+            const cellValue = String(cell.v);
+            maxWidth = Math.max(maxWidth, cellValue.length);
+          }
+        }
+        colWidths.push({ wch: Math.min(Math.max(maxWidth + 2, 10), 50) });
+
+        // Find remarks column index
+        if (worksheet[XLSX.utils.encode_cell({ r: 0, c: col })]?.v === 'REMARKS') {
+          remarksColIndex = col;
         }
       }
-      colWidths.push({ wch: Math.min(Math.max(maxWidth + 2, 10), 50) });
+      worksheet['!cols'] = colWidths;
 
-      // Find remarks column index
-      if (worksheet[XLSX.utils.encode_cell({ r: 0, c: col })]?.v === 'REMARKS') {
-        remarksColIndex = col;
-      }
-    }
-    worksheet['!cols'] = colWidths;
-
-    // Apply text wrapping to remarks column cells
-    for (let row = range.s.r; row <= range.e.r; row++) {
-      if (remarksColIndex !== -1) {
-        const cellAddress = XLSX.utils.encode_cell({ r: row, c: remarksColIndex });
-        if (worksheet[cellAddress]) {
-          worksheet[cellAddress].z = '@'; // Text format
-          if (!worksheet[cellAddress].s) {
-            worksheet[cellAddress].s = {};
+      // Apply text wrapping to remarks column cells
+      for (let row = range.s.r; row <= range.e.r; row++) {
+        if (remarksColIndex !== -1) {
+          const cellAddress = XLSX.utils.encode_cell({ r: row, c: remarksColIndex });
+          if (worksheet[cellAddress]) {
+            worksheet[cellAddress].z = '@'; // Text format
+            if (!worksheet[cellAddress].s) {
+              worksheet[cellAddress].s = {};
+            }
+            worksheet[cellAddress].s.alignment = {
+              wrapText: true,
+              vertical: 'top',
+              horizontal: 'center'
+            };
           }
-          worksheet[cellAddress].s.alignment = {
-            wrapText: true,
-            vertical: 'top',
-            horizontal: 'center'
-          };
         }
       }
     }
@@ -441,32 +526,49 @@ const DetailedReport = () => {
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Import Clearance Report');
 
     // Create summary worksheet using generateSummaryRows
-    const monthName = months.find(m => m.value === month)?.label || 'Unknown';
+    const monthName = months.find(m => String(m.value) === String(month))?.label || 'Unknown';
     const summarySheet = [];
     summarySheet.push([`Summary -- ${monthName} --${year}`]);
-    summarySheet.push(['Particulars', 'Details', '20', '40', 'TEUS', 'Containers']);
-    const summaryRows = generateSummaryRows();
-    summaryRows.forEach(row => {
-      summarySheet.push([
-        row.location,
-        row.details,
-        row.count20,
-        row.count40,
-        row.teus,
-        row.containers
-      ]);
-    });
+    
+    if (isAir) {
+      summarySheet.push(['Particulars', 'Total Filed']);
+      const summaryRows = generateSummaryRows();
+      summaryRows.forEach(row => {
+        summarySheet.push([
+          row.location,
+          row.containers
+        ]);
+      });
+    } else {
+      summarySheet.push(['Particulars', 'Details', '20', '40', 'TEUS', 'Containers']);
+      const summaryRows = generateSummaryRows();
+      summaryRows.forEach(row => {
+        summarySheet.push([
+          row.location,
+          row.details,
+          row.count20,
+          row.count40,
+          row.teus,
+          row.containers
+        ]);
+      });
+    }
 
     const summaryWorksheet = XLSX.utils.aoa_to_sheet(summarySheet);
     // Auto-fit summary columns
-    const summaryColWidths = [
-      { wch: 20 }, // Particulars
-      { wch: 12 }, // Details
-      { wch: 8 },  // 20
-      { wch: 8 },  // 40
-      { wch: 10 }, // TEUS
-      { wch: 10 }  // Containers
-    ];
+    const summaryColWidths = isAir
+      ? [
+          { wch: 30 }, // Particulars
+          { wch: 15 }  // Total Filed
+        ]
+      : [
+          { wch: 20 }, // Particulars
+          { wch: 12 }, // Details
+          { wch: 8 },  // 20
+          { wch: 8 },  // 40
+          { wch: 10 }, // TEUS
+          { wch: 10 }  // Containers
+        ];
     summaryWorksheet['!cols'] = summaryColWidths;
 
     XLSX.utils.book_append_sheet(workbook, summaryWorksheet, 'Summary');
@@ -481,7 +583,7 @@ const DetailedReport = () => {
   const exportToPDF = async () => {
     const doc = new jsPDF('l', 'mm', 'a4');
     // Main report page
-    const monthName = months.find(m => m.value === month)?.label || 'Unknown';
+    const monthName = months.find(m => String(m.value) === String(month))?.label || 'Unknown';
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
     const title = `Import Clearing Details of ${monthName}-${year}`;
@@ -491,12 +593,20 @@ const DetailedReport = () => {
     doc.text(title, x, 15);
 
     // Main table - build headers/data based on visible columns and role
-    const visibleCols = columns.filter((col) => !(col.key === 'cif_amount' && !isSrManager));
+    const isAir = selectedCategory && selectedCategory.toLowerCase() === 'air';
+    const visibleCols = columns.filter((col) => {
+      if (col.key === 'cif_amount' && !isSrManager) return false;
+      if (isAir && ['containerNumbers', 'totalContainers', 'size', 'teus'].includes(col.key)) {
+        return false;
+      }
+      return true;
+    });
     const tableHeaders = visibleCols.map(c => c.label);
     const tableData = data.map((row, index) => {
-      const containerNos = row.containerNumbers ? row.containerNumbers.join('\n') : '';
-      const beDate = row.be_date ? new Date(row.be_date).toLocaleDateString('en-GB').replace(/\//g, '-') : '';
-      const clrgDate = row.out_of_charge ? new Date(row.out_of_charge).toLocaleDateString('en-GB').replace(/\//g, '-') : '';
+      const isRowAir = row.mode && row.mode.toLowerCase() === 'air';
+      const containerNos = Array.isArray(row.containerNumbers) ? row.containerNumbers.join('\n') : String(row.containerNumbers || '');
+      const beDate = formatDateSafePDF(row.be_date);
+      const clrgDate = formatDateSafePDF(row.out_of_charge);
       const invValueDisplay = row.cif_amount && row.inv_currency
         ? `${row.inv_currency} ${(parseFloat(row.cif_amount)).toFixed(2)}`
         : '';
@@ -520,15 +630,15 @@ const DetailedReport = () => {
           case 'be_date':
             return beDate;
           case 'containerNumbers':
-            return containerNos;
+            return isRowAir ? '' : containerNos;
           case 'totalContainers':
-            return row.totalContainers || '';
+            return isRowAir ? '' : (row.totalContainers || '');
           case 'noOfContrSize':
-            return row.noOfContrSize || '';
+            return isRowAir ? '' : (row.noOfContrSize || '');
           case 'size':
-            return deriveSize(row.noOfContrSize);
+            return isRowAir ? '' : deriveSize(row.noOfContrSize);
           case 'teus':
-            return row.teus || '';
+            return isRowAir ? '' : (row.teus || '');
           case 'out_of_charge':
             return clrgDate;
           case 'remarks':
@@ -614,15 +724,22 @@ const DetailedReport = () => {
 
     // Prepare summary table data
     const summaryRows = generateSummaryRows();
-    const summaryHeaders = ['Particulars', 'Details', '20', '40', 'TEUS', 'Containers'];
-    const summaryBody = summaryRows.map(row => [
-      row.location,
-      row.details,
-      row.count20,
-      row.count40,
-      row.teus,
-      row.containers
-    ]);
+      
+    const summaryHeaders = isAir
+      ? ['Particulars', 'Total Filed']
+      : ['Particulars', 'Details', '20', '40', 'TEUS', 'Containers'];
+      
+    const summaryBody = summaryRows.map(row => isAir
+      ? [row.location, row.containers]
+      : [
+          row.location,
+          row.details,
+          row.count20,
+          row.count40,
+          row.teus,
+          row.containers
+        ]
+    );
     doc.autoTable({
       head: [summaryHeaders],
       body: summaryBody,
@@ -812,7 +929,7 @@ const DetailedReport = () => {
         {/* Summary Dialog */}
         <Dialog open={summaryOpen} onClose={() => setSummaryOpen(false)} maxWidth="md" fullWidth>
           <DialogTitle sx={{ fontWeight: 'bold', background: 'linear-gradient(90deg, #fdf6f0 0%, #e3f2fd 100%)' }}>
-            Summary - {months.find(m => m.value === month)?.label} {year}
+            Summary - {months.find(m => String(m.value) === String(month))?.label} {year}
           </DialogTitle>
           <DialogContent sx={{ background: '#fff' }}>
             <TableContainer>
@@ -820,22 +937,38 @@ const DetailedReport = () => {
                 <TableHead>
                   <TableRow>
                     <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>Particulars</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>Details</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>20</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>40</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>TEUS</TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>Containers</TableCell>
+                    {!(selectedCategory && selectedCategory.toLowerCase() === 'air') && (
+                      <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>Details</TableCell>
+                    )}
+                    {!(selectedCategory && selectedCategory.toLowerCase() === 'air') ? (
+                      <>
+                        <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>20</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>40</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>TEUS</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>Containers</TableCell>
+                      </>
+                    ) : (
+                      <TableCell align="center" sx={{ fontWeight: 'bold', background: '#ffe0b2', color: '#333' }}>Total Filed</TableCell>
+                    )}
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {generateSummaryRows().map((row, idx) => (
                     <TableRow key={idx} sx={{ background: row.location === 'LCL' ? '#e3f2fd' : (row.details === 'Scrap' ? '#fffde7' : row.details === 'Others' ? '#f7faff' : undefined) }}>
-                      <TableCell align="center" sx={{ fontWeight: row.location === 'LCL' ? 'bold' : 'normal' }}>{row.location}</TableCell>
-                      <TableCell align="center">{row.details}</TableCell>
-                      <TableCell align="center">{row.count20}</TableCell>
-                      <TableCell align="center">{row.count40}</TableCell>
-                      <TableCell align="center">{row.teus}</TableCell>
-                      <TableCell align="center">{row.containers}</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: (row.location === 'LCL' || row.location === 'TOTAL') ? 'bold' : 'normal' }}>{row.location}</TableCell>
+                      {!(selectedCategory && selectedCategory.toLowerCase() === 'air') && (
+                        <TableCell align="center">{row.details}</TableCell>
+                      )}
+                      {!(selectedCategory && selectedCategory.toLowerCase() === 'air') ? (
+                        <>
+                          <TableCell align="center">{row.count20}</TableCell>
+                          <TableCell align="center">{row.count40}</TableCell>
+                          <TableCell align="center">{row.teus}</TableCell>
+                          <TableCell align="center">{row.containers}</TableCell>
+                        </>
+                      ) : (
+                        <TableCell align="center" sx={{ fontWeight: row.location === 'TOTAL' ? 'bold' : 'normal' }}>{row.containers}</TableCell>
+                      )}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -944,7 +1077,7 @@ const DetailedReport = () => {
         <Card elevation={1} sx={{ marginBottom: 2, padding: 1 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-              Report Summary: {data.length} records found for {months.find(m => m.value === month)?.label} {year}
+              Report Summary: {data.length} records found for {months.find(m => String(m.value) === String(month))?.label} {year}
             </Typography>
             <Typography variant="body2" sx={{ color: '#666' }}>
               Total TEUs: {
@@ -974,7 +1107,14 @@ const DetailedReport = () => {
               <TableHead>
                 <TableRow>
                   {columns
-                    .filter((col) => !(col.key === 'cif_amount' && !isSrManager))
+                    .filter((col) => {
+                      if (col.key === 'cif_amount' && !isSrManager) return false;
+                      const isAir = selectedCategory && selectedCategory.toLowerCase() === 'air';
+                      if (isAir && ['containerNumbers', 'totalContainers', 'size', 'teus'].includes(col.key)) {
+                        return false;
+                      }
+                      return true;
+                    })
                     .map((col) => (
                       <TableCell
                         key={col.key}
@@ -1000,7 +1140,14 @@ const DetailedReport = () => {
                   ? Array.from({ length: 8 }).map((_, idx) => (
                     <TableRow key={idx}>
                       {columns
-                        .filter((col) => !(col.key === 'cif_amount' && !isSrManager))
+                        .filter((col) => {
+                          if (col.key === 'cif_amount' && !isSrManager) return false;
+                          const isAir = selectedCategory && selectedCategory.toLowerCase() === 'air';
+                          if (isAir && ['containerNumbers', 'totalContainers', 'size', 'teus'].includes(col.key)) {
+                            return false;
+                          }
+                          return true;
+                        })
                         .map((col) => (
                           <TableCell
                             key={col.key}
@@ -1083,38 +1230,46 @@ const DetailedReport = () => {
 
                       {/* DATE */}
                       <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px" }}>
-                        {row.be_date ? new Date(row.be_date).toLocaleDateString('en-GB') : ''}
+                        {formatDateSafe(row.be_date)}
                       </TableCell>
 
                       {/* CONTAINER NO. */}
-                      <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px" }}>
-                        <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}>
-                          {row.containerNumbers && row.containerNumbers.map((num, i) => (
-                            <Typography key={i} variant="caption" sx={{ fontSize: '0.7rem' }}>
-                              {num}
-                            </Typography>
-                          ))}
-                        </Box>
-                      </TableCell>
+                      {!(selectedCategory && selectedCategory.toLowerCase() === 'air') && (
+                        <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px" }}>
+                          <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 0.5 }}>
+                            {!(row.mode && row.mode.toLowerCase() === 'air') && row.containerNumbers && row.containerNumbers.map((num, i) => (
+                              <Typography key={i} variant="caption" sx={{ fontSize: '0.7rem' }}>
+                                {num}
+                              </Typography>
+                            ))}
+                          </Box>
+                        </TableCell>
+                      )}
 
                       {/* NO. OF CNTR */}
-                      <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px", fontWeight: 'bold' }}>
-                        {row.totalContainers}
-                      </TableCell>
+                      {!(selectedCategory && selectedCategory.toLowerCase() === 'air') && (
+                        <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px", fontWeight: 'bold' }}>
+                          {row.mode && row.mode.toLowerCase() === 'air' ? '' : row.totalContainers}
+                        </TableCell>
+                      )}
 
                       {/* SIZE (separate column) */}
-                      <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px" }}>
-                        {deriveSize(row.noOfContrSize)}
-                      </TableCell>
+                      {!(selectedCategory && selectedCategory.toLowerCase() === 'air') && (
+                        <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px" }}>
+                          {row.mode && row.mode.toLowerCase() === 'air' ? '' : deriveSize(row.noOfContrSize)}
+                        </TableCell>
+                      )}
 
                       {/* Teus */}
-                      <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px", fontWeight: 'bold', color: '#1976d2' }}>
-                        {row.teus}
-                      </TableCell>
+                      {!(selectedCategory && selectedCategory.toLowerCase() === 'air') && (
+                        <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px", fontWeight: 'bold', color: '#1976d2' }}>
+                          {row.mode && row.mode.toLowerCase() === 'air' ? '' : row.teus}
+                        </TableCell>
+                      )}
 
                       {/* CLRG DATE */}
                       <TableCell align="center" sx={{ fontSize: "0.75rem", padding: "6px 8px" }}>
-                        {row.out_of_charge ? new Date(row.out_of_charge).toLocaleDateString('en-GB') : ''}
+                        {formatDateSafe(row.out_of_charge)}
                       </TableCell>
 
                       {/* REMARKS */}
@@ -1144,7 +1299,7 @@ const DetailedReport = () => {
             No Data Available
           </Typography>
           <Typography variant="body2" color="textSecondary">
-            No import clearance records found for {months.find(m => m.value === month)?.label} {year}
+            No import clearance records found for {months.find(m => String(m.value) === String(month))?.label} {year}
           </Typography>
         </Card>
       )}

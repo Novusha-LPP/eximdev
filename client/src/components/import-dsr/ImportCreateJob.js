@@ -2163,7 +2163,7 @@ const ImportCreateJob = () => {
                                 size="small"
                                 type="number"
                                 sx={{ ...compactInput, width: '80px' }}
-                                value={other_charges_details?.landing_charge?.rate || ""}
+                                value={other_charges_details?.landing_charge?.rate ?? 0}
                                 onChange={(e) => setOtherChargesDetails({
                                   ...other_charges_details,
                                   landing_charge: { ...other_charges_details.landing_charge, rate: e.target.value }

@@ -33,7 +33,8 @@ export const getBranchMatch = (branchId, category, authorizedBranchIds = null) =
     }
 
     if (category && category.toString().toLowerCase() !== "all") {
-        match.mode = category;
+        const catStr = category.toString();
+        match.mode = { $in: [catStr, catStr.toLowerCase(), catStr.toUpperCase()] };
     }
 
     return match;

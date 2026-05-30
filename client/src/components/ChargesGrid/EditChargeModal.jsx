@@ -1754,10 +1754,7 @@ const EditChargeModal = ({
             setFormData(updated);
             // PERSIST IMMEDIATELY
             if (updateCharge && updated[activeIndex]._id) {
-              updateCharge(updated[activeIndex]._id, {
-                payment_request_no: requestNo,
-                payment_request_status: initialStatus
-              });
+              updateCharge(updated[activeIndex]._id, updated[activeIndex]);
             }
           }
         }}
@@ -1783,10 +1780,7 @@ const EditChargeModal = ({
             setFormData(updated);
             // PERSIST IMMEDIATELY
             if (updateCharge && updated[activeIndex]._id) {
-              updateCharge(updated[activeIndex]._id, {
-                purchase_book_no: entryNo,
-                purchase_book_status: initialStatus
-              });
+              updateCharge(updated[activeIndex]._id, updated[activeIndex]);
             }
           }
         }}

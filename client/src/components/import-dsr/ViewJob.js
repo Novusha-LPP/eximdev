@@ -1131,9 +1131,9 @@ function JobDetails() {
       [field]: value,
     };
 
-    // Auto-calculate freight and insurance if TOI is CIF
+    // Auto-calculate freight and insurance if TOI is FOB
     const toiValue = field === "toi" ? value : (updatedRows[rowIndex].toi || "CIF");
-    if (toiValue === "CIF") {
+    if (toiValue === "FOB") {
       const pv = parseFloat(field === "product_value" ? value : (updatedRows[rowIndex].product_value || 0)) || 0;
       const calculatedFreight = pv * 0.20;
       const calculatedInsurance = pv * 0.01125;
@@ -1163,9 +1163,9 @@ function JobDetails() {
 
     formik.setFieldValue("invoice_details", updatedRows);
 
-    // Also sync F & I Charges tab amounts and rates based on CIF invoices
-    const hasCIF = updatedRows.some(row => row.toi === "CIF");
-    if (hasCIF) {
+    // Also sync F & I Charges tab amounts and rates based on FOB invoices
+    const hasFOB = updatedRows.some(row => row.toi === "FOB");
+    if (hasFOB) {
       const totalFreight = updatedRows.reduce((sum, row) => sum + (parseFloat(row.freight) || 0), 0);
       const totalInsurance = updatedRows.reduce((sum, row) => sum + (parseFloat(row.insurance) || 0), 0);
       

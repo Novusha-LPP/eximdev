@@ -1637,3 +1637,176 @@ $ap-radius-lg:  14px;
     overflow: hidden;
   }
 }
+
+/* ── KPI cards grid ── */
+.ap-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.ap-kpi-card {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  &.licensed {
+    border-left: 4px solid #3b82f6; // Blue
+  }
+  &.utilized {
+    border-left: 4px solid #ef4444; // Red
+  }
+  &.balance {
+    border-left: 4px solid #10b981; // Green
+  }
+}
+
+.ap-kpi-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ap-kpi-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #64748b !important;
+  letter-spacing: 0.5px;
+}
+
+.ap-kpi-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 12px;
+  background: #f1f5f9;
+  color: #334155 !important;
+}
+
+.ap-kpi-value-group {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.ap-kpi-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ap-kpi-val {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a !important;
+  font-family: 'DM Mono', monospace;
+}
+
+.ap-kpi-unit {
+  font-size: 10px;
+  font-weight: 600;
+  color: #64748b !important;
+  text-transform: uppercase;
+}
+
+/* ── Progress bar section ── */
+.progress-card {
+  padding: 12px 16px !important;
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ap-progress-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 700;
+  color: #334155 !important;
+}
+
+.ap-progress-bar-container {
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.ap-progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ef4444, #f87171);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+/* ── Item-level Status Badges ── */
+.ap-item-status-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  text-align: center;
+
+  &.available {
+    background: #d1fae5 !important;
+    color: #065f46 !important;
+  }
+  &.partially-utilized {
+    background: #eff6ff !important;
+    color: #1e40af !important;
+  }
+  &.fully-utilized {
+    background: #f3f4f6 !important;
+    color: #374151 !important;
+  }
+  &.expired {
+    background: #fee2e2 !important;
+    color: #991b1b !important;
+  }
+}
+
+.ap-item-row-compact.has-status {
+  display: grid;
+  grid-template-columns: 0.5fr 1.1fr 2fr 1.1fr 1.4fr 1.3fr 1.3fr auto;
+  gap: 6px;
+  align-items: end;
+  background: transparent;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  margin-bottom: 6px;
+  box-shadow: none;
+  transition: none;
+
+  .ap-field-group {
+    gap: 3px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .ap-item-row-compact.has-status {
+    grid-template-columns: 0.5fr 1fr 1.8fr 1fr 1.2fr 1.2fr 1.2fr auto;
+  }
+}
+
+@media (max-width: 780px) {
+  .ap-item-row-compact.has-status {
+    grid-template-columns: 1fr;
+  }
+}
+
+

@@ -105,6 +105,15 @@ const descriptionDetailsSchema = new mongoose.Schema(
     unit: { type: String, trim: true },
     unit_price: { type: String, trim: true },
     amount: { type: String, trim: true },
+    foc_item: { type: String, trim: true },
+    // ── DGFT License Utilization Fields ──
+    license_no: { type: String, trim: true },       // Authorization number (user input / selected from list)
+    license_date: { type: String, trim: true },     // Auto-populated from authorization record
+    license_sr: { type: Number },                    // Which import_details_array item (sr_no)
+    utilized_qty: { type: Number },                  // Quantity utilized under this license for this row
+    utilized_unit: { type: String, trim: true },    // Unit for utilized quantity
+    utilized_amount: { type: Number },               // CIF value utilized (in amount_currency)
+    amount_currency: { type: String, trim: true, default: "USD" }, // Currency of utilized_amount (USD or INR)
   },
   { _id: false }
 );

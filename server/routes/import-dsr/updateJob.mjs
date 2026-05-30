@@ -1,10 +1,38 @@
 import express from "express";
+import mongoose from "mongoose";
 import JobModel from "../../model/jobModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import { sanitizeJobPayload } from "../../utils/modeLogic.mjs";
+import { recalculateLicenseUtilizationForJob, validateLicenseUtilization, getUsdImportRate } from "../../services/licenseUtilizationService.mjs";
 
 const router = express.Router();
+
+async function runWithTransaction(fn) {
+  const session = await mongoose.startSession();
+  try {
+    let result;
+    await session.withTransaction(async () => {
+      result = await fn(session);
+    });
+    return result;
+  } catch (error) {
+    if (
+      error.message && (
+        error.message.includes("replica set") ||
+        error.message.includes("does not support sessions") ||
+        error.codeName === "NotAReplicaSet"
+      )
+    ) {
+      console.warn("[Transaction] Falling back to non-transaction execution due to lack of Replica Set support.");
+      return await fn(null);
+    }
+    throw error;
+  } finally {
+    session.endSession();
+  }
+}
+
 
 router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
   authMiddleware,
@@ -43,214 +71,250 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
     }
 
     try {
-      // 1. Retrieve the matching job document with branch specificity
-      const matchingJob = await JobModel.findOne({ 
-        branch_code: branch_code.toUpperCase(),
-        trade_type: trade_type.toUpperCase(),
-        mode: mode.toUpperCase(), 
-        year, 
-        job_no: jobNo 
-      });
+      const updatedJob = await runWithTransaction(async (session) => {
+        // 1. Retrieve the matching job document with branch specificity
+        const matchingJob = await JobModel.findOne({ 
+          branch_code: branch_code.toUpperCase(),
+          trade_type: trade_type.toUpperCase(),
+          mode: mode.toUpperCase(), 
+          year, 
+          job_no: jobNo 
+        }).session(session);
 
-      if (!matchingJob) {
-        return res.status(404).json({ error: "Job not found" });
-      }
+        if (!matchingJob) {
+          throw new Error("Job not found_404");
+        }
 
-      // --- Admin Lock Check ---
-      const billNos = (matchingJob.bill_no || "").split(",");
-      const hasInvoice = billNos.some(no => no && no.trim().length > 0);
-      
-      if (hasInvoice && req.user?.role !== 'Admin') {
-        return res.status(403).json({ error: "Job is locked as a bill has been generated. Please contact an Admin to make changes." });
-      }
+        // --- Admin Lock Check ---
+        const billNos = (matchingJob.bill_no || "").split(",");
+        const hasInvoice = billNos.some(no => no && no.trim().length > 0);
+        
+        if (hasInvoice && req.user?.role !== 'Admin') {
+          throw new Error("Job is locked as a bill has been generated. Please contact an Admin to make changes._403");
+        }
 
-      // 2. Determine the derived branch code based on the custom_house field
-      let derived_branch_code;
-      switch (matchingJob.custom_house) {
-        case "ICD SANAND":
-          derived_branch_code = "SND";
-          break;
-        case "ICD KHODIYAR":
-          derived_branch_code = "KHD";
-          break;
-        case "HAZIRA":
-          derived_branch_code = "HZR";
-          break;
-        case "MUNDRA PORT":
-          derived_branch_code = "MND";
-          break;
-        case "ICD SACHANA":
-          derived_branch_code = "SCH";
-          break;
-        case "BARODA":
-          derived_branch_code = "BRD";
-          break;
-        case "AIRPORT":
-          derived_branch_code = "AIR";
-          break;
-        default:
-          break;
-      }
+        // ✅ Validate license utilization limits & check for duplicates before saving
+        const usdRate = await getUsdImportRate();
+        await validateLicenseUtilization(
+          req.body.description_details,
+          matchingJob._id,
+          req.body.exrate || matchingJob.exrate || 84,
+          usdRate,
+          req.body.be_no || matchingJob.be_no || "",
+          matchingJob.job_no || matchingJob.job_number || "",
+          session
+        );
 
-      // Step 6: Add remaining fields from req.body to matching job
-      if (req.body.arrival_date && req.body.container_nos) {
-        // If arrival_date is not empty and container_nos array exists
-        req.body.container_nos.forEach((container) => {
-          // Apply arrival date to each document in the container_nos array
-          container.arrival_date = req.body.arrival_date;
-        });
-      }
+        // 2. Determine the derived branch code based on the custom_house field
+        let derived_branch_code;
+        switch (matchingJob.custom_house) {
+          case "ICD SANAND":
+            derived_branch_code = "SND";
+            break;
+          case "ICD KHODIYAR":
+            derived_branch_code = "KHD";
+            break;
+          case "HAZIRA":
+            derived_branch_code = "HZR";
+            break;
+          case "MUNDRA PORT":
+            derived_branch_code = "MND";
+            break;
+          case "ICD SACHANA":
+            derived_branch_code = "SCH";
+            break;
+          case "BARODA":
+            derived_branch_code = "BRD";
+            break;
+          case "AIRPORT":
+            derived_branch_code = "AIR";
+            break;
+          default:
+            break;
+        }
 
-      // Convert examinatinPlanning and doPlanning to boolean values
-      const { examinationPlanning, doPlanning, do_revalidation, ...rest } =
-        req.body;
+        // Step 6: Add remaining fields from req.body to matching job
+        if (req.body.arrival_date && req.body.container_nos) {
+          // If arrival_date is not empty and container_nos array exists
+          req.body.container_nos.forEach((container) => {
+            // Apply arrival date to each document in the container_nos array
+            container.arrival_date = req.body.arrival_date;
+          });
+        }
 
-      const updatedFields = {
-        ...rest,
-        examinationPlanning:
-          typeof examinationPlanning === "string"
-            ? examinationPlanning === "true"
-            : !!examinationPlanning,
-        doPlanning:
-          typeof doPlanning === "string" ? doPlanning === "true" : !!doPlanning,
-        do_revalidation:
-          typeof do_revalidation === "string"
-            ? do_revalidation === "true"
-            : do_revalidation !== undefined && do_revalidation !== null && do_revalidation !== ""
-              ? !!do_revalidation
-              : undefined,
-        containers_arrived_on_same_date: checked,
-      };
+        // Convert examinatinPlanning and doPlanning to boolean values
+        const { examinationPlanning, doPlanning, do_revalidation, ...rest } =
+          req.body;
 
-      let shouldUpdateDoProcessed = false;
+        const updatedFields = {
+          ...rest,
+          examinationPlanning:
+            typeof examinationPlanning === "string"
+              ? examinationPlanning === "true"
+              : !!examinationPlanning,
+          doPlanning:
+            typeof doPlanning === "string" ? doPlanning === "true" : !!doPlanning,
+          do_revalidation:
+            typeof do_revalidation === "string"
+              ? do_revalidation === "true"
+              : do_revalidation !== undefined && do_revalidation !== null && do_revalidation !== ""
+                ? !!do_revalidation
+                : undefined,
+          containers_arrived_on_same_date: checked,
+        };
 
-      if (req.body.container_nos && req.body.container_nos.length > 0) {
-        req.body.container_nos.forEach((incomingContainer, index) => {
-          const dbContainer = matchingJob.container_nos[index];
+        let shouldUpdateDoProcessed = false;
 
-          if (dbContainer) {
-            // Check if lengths of do_revalidation arrays are different
-            if (
-              dbContainer.do_revalidation.length !==
-              incomingContainer.do_revalidation.length
-            ) {
-              shouldUpdateDoProcessed = true;
-            }
-            // Check if any do_revalidation_upto values differ
-            for (let i = 0; i < dbContainer.do_revalidation.length; i++) {
+        if (req.body.container_nos && req.body.container_nos.length > 0) {
+          req.body.container_nos.forEach((incomingContainer, index) => {
+            const dbContainer = matchingJob.container_nos[index];
+
+            if (dbContainer) {
+              // Check if lengths of do_revalidation arrays are different
               if (
-                dbContainer.do_revalidation[i].do_revalidation_upto !==
-                incomingContainer.do_revalidation[i].do_revalidation_upto
+                dbContainer.do_revalidation.length !==
+                incomingContainer.do_revalidation.length
               ) {
                 shouldUpdateDoProcessed = true;
-                break;
+              }
+              // Check if any do_revalidation_upto values differ
+              for (let i = 0; i < dbContainer.do_revalidation.length; i++) {
+                if (
+                  dbContainer.do_revalidation[i].do_revalidation_upto !==
+                  incomingContainer.do_revalidation[i].do_revalidation_upto
+                ) {
+                  shouldUpdateDoProcessed = true;
+                  break;
+                }
               }
             }
-          }
-        });
-      }
+          });
+        }
 
-      // Update do_completed based on the check
-      if (shouldUpdateDoProcessed) {
-        matchingJob.do_completed = "No";
-      }
+        // Update do_completed based on the check
+        if (shouldUpdateDoProcessed) {
+          matchingJob.do_completed = "No";
+        }
 
-      const sanitizedUpdate = sanitizeJobPayload(updatedFields);
+        const sanitizedUpdate = sanitizeJobPayload(updatedFields);
 
-      // ✅ Protect critical fields from being overwritten by empty/undefined values
-      delete sanitizedUpdate.branch_code;
-      delete sanitizedUpdate.job_number;
-      delete sanitizedUpdate.branch_id;
-      delete sanitizedUpdate.job_no;
-      delete sanitizedUpdate.year;
-      delete sanitizedUpdate.financial_year;
+        // ✅ Protect critical fields from being overwritten by empty/undefined values
+        delete sanitizedUpdate.branch_code;
+        delete sanitizedUpdate.job_number;
+        delete sanitizedUpdate.branch_id;
+        delete sanitizedUpdate.job_no;
+        delete sanitizedUpdate.year;
+        delete sanitizedUpdate.financial_year;
 
-      // ✅ Support legacy address formats (strings) by converting them to objects before assignment
-      if (typeof sanitizedUpdate.importer_address === 'string') {
-        sanitizedUpdate.importer_address = { details: sanitizedUpdate.importer_address };
-      }
-      if (typeof sanitizedUpdate.hss_address === 'string') {
-        sanitizedUpdate.hss_address = { details: sanitizedUpdate.hss_address };
-      }
+        // ✅ Support legacy address formats (strings) by converting them to objects before assignment
+        if (typeof sanitizedUpdate.importer_address === 'string') {
+          sanitizedUpdate.importer_address = { details: sanitizedUpdate.importer_address };
+        }
+        if (typeof sanitizedUpdate.hss_address === 'string') {
+          sanitizedUpdate.hss_address = { details: sanitizedUpdate.hss_address };
+        }
 
-      Object.assign(matchingJob, sanitizedUpdate);
+        Object.assign(matchingJob, sanitizedUpdate);
 
-      if (checked) {
-        matchingJob.container_nos = container_nos.map((container) => {
-          const detentionDate =
-            arrival_date === ""
-              ? ""
-              : addDaysToDate(arrival_date, parseInt(free_time));
-          return {
-            ...container,
-            arrival_date: arrival_date,
-            detention_from: detentionDate,
-            do_validity_upto_container_level: subtractOneDay(detentionDate),
-          };
-        });
-      } else {
-        matchingJob.container_nos = container_nos.map((container) => {
-          const detentionDate =
-            container.arrival_date === ""
-              ? ""
-              : addDaysToDate(container.arrival_date, parseInt(free_time));
-
-          return {
-            ...container,
-            arrival_date: container.arrival_date,
-            detention_from: detentionDate,
-            do_validity_upto_container_level: subtractOneDay(detentionDate),
-          };
-        });
-      }
-
-      if (cth_documents && cth_documents.length > 0) {
-        cth_documents.forEach((incomingDoc) => {
-          const existingDocIndex = matchingJob.cth_documents.findIndex(
-            (doc) => doc.document_name === incomingDoc.document_name
-          );
-          if (existingDocIndex !== -1) {
-            // Update the existing document
-            matchingJob.cth_documents[existingDocIndex] = {
-              ...matchingJob.cth_documents[existingDocIndex],
-              ...incomingDoc,
+        if (checked) {
+          matchingJob.container_nos = container_nos.map((container) => {
+            const detentionDate =
+              arrival_date === ""
+                ? ""
+                : addDaysToDate(arrival_date, parseInt(free_time));
+            return {
+              ...container,
+              arrival_date: arrival_date,
+              detention_from: detentionDate,
+              do_validity_upto_container_level: subtractOneDay(detentionDate),
             };
-          } else {
-            // Add new document if it doesn't exist
-            matchingJob.cth_documents.push(incomingDoc);
-          }
-        });
-      }
+          });
+        } else {
+          matchingJob.container_nos = container_nos.map((container) => {
+            const detentionDate =
+              container.arrival_date === ""
+                ? ""
+                : addDaysToDate(container.arrival_date, parseInt(free_time));
 
-      // 3. Update documents
-      if (documents && documents.length > 0) {
-        documents.forEach((incomingDoc) => {
-          const existingDocIndex = matchingJob.documents.findIndex(
-            (doc) => doc.document_name === incomingDoc.document_name
-          );
-          if (existingDocIndex !== -1) {
-            // Update the existing document
-            matchingJob.documents[existingDocIndex] = {
-              ...matchingJob.documents[existingDocIndex],
-              ...incomingDoc,
+            return {
+              ...container,
+              arrival_date: container.arrival_date,
+              detention_from: detentionDate,
+              do_validity_upto_container_level: subtractOneDay(detentionDate),
             };
-          } else {
-            // Add new document if it doesn't exist
-            matchingJob.documents.push(incomingDoc);
-          }
-        });
-      }
-      matchingJob.do_validity_upto_job_level = do_validity_upto_job_level;
+          });
+        }
 
-      // Step 8: Save the updated job document
-      await matchingJob.save();
+        if (cth_documents && cth_documents.length > 0) {
+          cth_documents.forEach((incomingDoc) => {
+            const existingDocIndex = matchingJob.cth_documents.findIndex(
+              (doc) => doc.document_name === incomingDoc.document_name
+            );
+            if (existingDocIndex !== -1) {
+              // Update the existing document
+              matchingJob.cth_documents[existingDocIndex] = {
+                ...matchingJob.cth_documents[existingDocIndex],
+                ...incomingDoc,
+              };
+            } else {
+              // Add new document if it doesn't exist
+              matchingJob.cth_documents.push(incomingDoc);
+            }
+          });
+        }
 
-      res.status(200).json(matchingJob);
+        // 3. Update documents
+        if (documents && documents.length > 0) {
+          documents.forEach((incomingDoc) => {
+            const existingDocIndex = matchingJob.documents.findIndex(
+              (doc) => doc.document_name === incomingDoc.document_name
+            );
+            if (existingDocIndex !== -1) {
+              // Update the existing document
+              matchingJob.documents[existingDocIndex] = {
+                ...matchingJob.documents[existingDocIndex],
+                ...incomingDoc,
+              };
+            } else {
+              // Add new document if it doesn't exist
+              matchingJob.documents.push(incomingDoc);
+            }
+          });
+        }
+        matchingJob.do_validity_upto_job_level = do_validity_upto_job_level;
+        // Step 8: Save the updated job document
+        await matchingJob.save({ session });
+
+        await recalculateLicenseUtilizationForJob(matchingJob, session);
+
+        return matchingJob;
+      });
+
+      res.status(200).json(updatedJob);
     } catch (error) {
       console.error(error);
-      res.status(500).send("Server error");
+      if (error.message && error.message.includes("_404")) {
+        return res.status(404).json({ error: "Job not found" });
+      }
+      if (error.message && error.message.includes("_403")) {
+        return res.status(403).json({ error: error.message.replace("_403", "") });
+      }
+      // Return 400 for validation failures
+      if (error.message && (
+        error.message.includes("does not exist") ||
+        error.message.includes("expired") ||
+        error.message.includes("mismatch") ||
+        error.message.includes("exceeded") ||
+        error.message.includes("exceeds") ||
+        error.message.includes("already utilized") ||
+        error.message.includes("already utilized this license item")
+      )) {
+        return res.status(400).json({ error: error.message });
+      }
+      res.status(500).json({ error: error.message || "Server error" });
     }
   });
+
 
 // PATCH route for updating only vessel_berthing and container arrival_date
 router.patch("/api/update-job/fields/:branch_code/:trade_type/:mode/:year/:jobNo",
@@ -291,6 +355,10 @@ router.patch("/api/update-job/fields/:branch_code/:trade_type/:mode/:year/:jobNo
       // Save the updated document
       await matchingJob.save();
 
+      recalculateLicenseUtilizationForJob(matchingJob).catch((err) =>
+        console.error("[PatchJobFields] License utilization recalc error:", err)
+      );
+
       res.status(200).json(matchingJob);
     } catch (error) {
       console.error(error);
@@ -307,78 +375,112 @@ router.put("/api/admin/update-job-static/:branch_code/:trade_type/:mode/:year/:j
     const updateData = req.body;
 
     try {
-      if (updateData.job_no && updateData.job_no !== jobNo) {
-        // Check for duplicate job_no
-        const existingJob = await JobModel.findOne({
+      const updatedJob = await runWithTransaction(async (session) => {
+        if (updateData.job_no && updateData.job_no !== jobNo) {
+          // Check for duplicate job_no
+          const existingJob = await JobModel.findOne({
+            branch_code: branch_code.toUpperCase(),
+            trade_type: trade_type.toUpperCase(),
+            mode: mode.toUpperCase(),
+            year,
+            job_no: updateData.job_no,
+          }).session(session);
+
+          if (existingJob) {
+            throw new Error("Job number already exists for this year._400");
+          }
+        }
+
+        const matchingJob = await JobModel.findOne({ 
           branch_code: branch_code.toUpperCase(),
           trade_type: trade_type.toUpperCase(),
-          mode: mode.toUpperCase(),
-          year,
-          job_no: updateData.job_no,
-        });
+          mode: mode.toUpperCase(), 
+          year, 
+          job_no: jobNo 
+        }).session(session);
 
-        if (existingJob) {
-          return res.status(400).json({ error: "Job number already exists for this year." });
+        if (!matchingJob) {
+          throw new Error("Job not found_404");
         }
-      }
 
-      const matchingJob = await JobModel.findOne({ 
-        branch_code: branch_code.toUpperCase(),
-        trade_type: trade_type.toUpperCase(),
-        mode: mode.toUpperCase(), 
-        year, 
-        job_no: jobNo 
+        // ✅ Validate license utilization limits & check for duplicates before saving
+        const usdRate = await getUsdImportRate();
+        await validateLicenseUtilization(
+          req.body.description_details,
+          matchingJob._id,
+          req.body.exrate || matchingJob.exrate || 84,
+          usdRate,
+          req.body.be_no || matchingJob.be_no || "",
+          matchingJob.job_no || matchingJob.job_number || "",
+          session
+        );
+
+        // ✅ Support legacy address formats (strings) by converting them to objects before assignment
+        if (typeof updateData.importer_address === 'string') {
+          updateData.importer_address = { details: updateData.importer_address };
+        }
+        if (typeof updateData.hss_address === 'string') {
+          updateData.hss_address = { details: updateData.hss_address };
+        }
+
+        // Allow editing anything
+        if (updateData.bill_no !== undefined) {
+          const cleaned = updateData.bill_no.split(",").map(no => no.trim()).filter(Boolean);
+          updateData.bill_no = cleaned.length > 0 ? updateData.bill_no.trim() : "";
+          if (updateData.bill_no === ",") updateData.bill_no = "";
+        }
+        if (updateData.bill_date !== undefined) {
+          const cleanedDate = updateData.bill_date.split(",").map(d => d.trim()).filter(Boolean);
+          updateData.bill_date = cleanedDate.length > 0 ? updateData.bill_date.trim() : "";
+          if (updateData.bill_date === ",") updateData.bill_date = "";
+        }
+        if (updateData.bill_amount !== undefined) {
+            const cleanedAmt = updateData.bill_amount.split(",").map(a => a.trim()).filter(Boolean);
+            updateData.bill_amount = cleanedAmt.length > 0 ? updateData.bill_amount.trim() : "";
+            if (updateData.bill_amount === ",") updateData.bill_amount = "";
+        }
+
+        Object.assign(matchingJob, updateData);
+
+        // ✅ Enhanced Status Reset Logic
+        const currentBillNo = (matchingJob.bill_no || "").trim();
+        if (!currentBillNo || currentBillNo === "," || currentBillNo === "") {
+          matchingJob.status = "Pending";
+          matchingJob.bill_no = "";
+          matchingJob.bill_date = "";
+          matchingJob.bill_amount = "";
+          matchingJob.agency_invoice_no = "";
+          matchingJob.reimbursement_invoice_no = "";
+        }
+
+        await matchingJob.save({ session });
+
+        await recalculateLicenseUtilizationForJob(matchingJob, session);
+
+        return matchingJob;
       });
 
-      if (!matchingJob) {
+      res.status(200).json(updatedJob);
+    } catch (error) {
+      console.error(error);
+      if (error.message && error.message.includes("_404")) {
         return res.status(404).json({ error: "Job not found" });
       }
-
-      // ✅ Support legacy address formats (strings) by converting them to objects before assignment
-      if (typeof updateData.importer_address === 'string') {
-        updateData.importer_address = { details: updateData.importer_address };
+      if (error.message && error.message.includes("_400")) {
+        return res.status(400).json({ error: error.message.replace("_400", "") });
       }
-      if (typeof updateData.hss_address === 'string') {
-        updateData.hss_address = { details: updateData.hss_address };
+      // Return 400 for validation failures
+      if (error.message && (
+        error.message.includes("does not exist") ||
+        error.message.includes("expired") ||
+        error.message.includes("mismatch") ||
+        error.message.includes("exceeded") ||
+        error.message.includes("exceeds") ||
+        error.message.includes("already utilized") ||
+        error.message.includes("already utilized this license item")
+      )) {
+        return res.status(400).json({ error: error.message });
       }
-
-      // Allow editing anything
-      if (updateData.bill_no !== undefined) {
-        const cleaned = updateData.bill_no.split(",").map(no => no.trim()).filter(Boolean);
-        updateData.bill_no = cleaned.length > 0 ? updateData.bill_no.trim() : "";
-        if (updateData.bill_no === ",") updateData.bill_no = "";
-      }
-      if (updateData.bill_date !== undefined) {
-        const cleanedDate = updateData.bill_date.split(",").map(d => d.trim()).filter(Boolean);
-        updateData.bill_date = cleanedDate.length > 0 ? updateData.bill_date.trim() : "";
-        if (updateData.bill_date === ",") updateData.bill_date = "";
-      }
-      if (updateData.bill_amount !== undefined) {
-          const cleanedAmt = updateData.bill_amount.split(",").map(a => a.trim()).filter(Boolean);
-          updateData.bill_amount = cleanedAmt.length > 0 ? updateData.bill_amount.trim() : "";
-          if (updateData.bill_amount === ",") updateData.bill_amount = "";
-      }
-
-      Object.assign(matchingJob, updateData);
-
-      // ✅ Enhanced Status Reset Logic: If Admin clears the bill_no, force move job back to Pending status
-      // We do this AFTER Object.assign so that it overrides the status from the form
-      const currentBillNo = (matchingJob.bill_no || "").trim();
-      if (!currentBillNo || currentBillNo === "," || currentBillNo === "") {
-        matchingJob.status = "Pending";
-        matchingJob.bill_no = "";
-        matchingJob.bill_date = "";
-        matchingJob.bill_amount = "";
-        // Also clear legacy fields to prevent them from triggering "Completed" filters
-        matchingJob.agency_invoice_no = "";
-        matchingJob.reimbursement_invoice_no = "";
-      }
-
-      await matchingJob.save();
-
-      res.status(200).json(matchingJob);
-    } catch (error) {
-      console.error("Error updating job static data:", error);
       res.status(500).json({ error: "Server error" });
     }
   }

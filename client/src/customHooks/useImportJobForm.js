@@ -263,6 +263,13 @@ const useImportJobForm = () => {
       unit_price: "",
       amount: "",
       foc_item: "No",
+      license_no: "",
+      license_date: "",
+      license_sr: "",
+      utilized_qty: "",
+      utilized_unit: "",
+      utilized_amount: "",
+      amount_currency: "USD",
     },
   ]);
 
@@ -426,6 +433,14 @@ const useImportJobForm = () => {
         unit_price: "",
         amount: "",
         foc_item: "No",
+        // License utilization fields
+        license_no: "",
+        license_date: "",
+        license_sr: "",
+        utilized_qty: "",
+        utilized_unit: "",
+        utilized_amount: "",
+        amount_currency: "USD",
       },
     ]);
   };
@@ -480,6 +495,14 @@ const useImportJobForm = () => {
         unit_price: "",
         amount: "",
         foc_item: "No",
+        // License utilization fields
+        license_no: "",
+        license_date: "",
+        license_sr: "",
+        utilized_qty: "",
+        utilized_unit: "",
+        utilized_amount: "",
+        amount_currency: "USD",
       },
     ]);
     setInvoiceDetails([
@@ -644,7 +667,25 @@ const useImportJobForm = () => {
     }
     
     if (job.description_details && job.description_details.length > 0) {
-      setDescriptionDetails(job.description_details);
+      setDescriptionDetails(job.description_details.map(row => ({
+        description: row.description || "",
+        cth_no: row.cth_no || "",
+        clearance_under: row.clearance_under || "",
+        sr_no_invoice: row.sr_no_invoice || "",
+        sr_no_lic: row.sr_no_lic || "",
+        quantity: row.quantity || "",
+        unit: row.unit || "",
+        unit_price: row.unit_price || "",
+        amount: row.amount || "",
+        foc_item: row.foc_item || "No",
+        license_no: row.license_no || "",
+        license_date: row.license_date || "",
+        license_sr: row.license_sr !== undefined && row.license_sr !== null ? row.license_sr : "",
+        utilized_qty: row.utilized_qty !== undefined && row.utilized_qty !== null ? row.utilized_qty : "",
+        utilized_unit: row.utilized_unit || "",
+        utilized_amount: row.utilized_amount !== undefined && row.utilized_amount !== null ? row.utilized_amount : "",
+        amount_currency: row.amount_currency || "USD"
+      })));
     } else if (job.description || job.cth_no) {
       setDescriptionDetails([{
         description: job.description || (job.description_details && job.description_details[0]?.description) || "",
@@ -656,7 +697,14 @@ const useImportJobForm = () => {
         unit: job.unit || "",
         unit_price: job.unit_price || "",
         amount: job.total_inv_value || "",
-        foc_item: job.foc_item || "No"
+        foc_item: job.foc_item || "No",
+        license_no: "",
+        license_date: "",
+        license_sr: "",
+        utilized_qty: "",
+        utilized_unit: "",
+        utilized_amount: "",
+        amount_currency: "USD"
       }]);
     }
 

@@ -4,6 +4,8 @@ import XLSX from "xlsx";
 import DgftRegisterModel from "../../model/dgftRegisterModel.mjs";
 import AuthorizationRegistrationModel from "../../model/authorizationRegistrationModel.mjs";
 import JobModel from "../../model/jobModel.mjs";
+import LicenseUtilizationModel from "../../model/licenseUtilizationModel.mjs";
+import { recalculateLicenseUtilization } from "../../services/licenseUtilizationService.mjs";
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -596,6 +598,10 @@ router.put("/api/update-authorization-registration/:id", async (req, res) => {
     );
     if (!updated) return res.status(404).json({ message: "Record not found" });
 
+    // Recalculate utilization using the newly saved quantities/values to refresh dynamic balances
+    await recalculateLicenseUtilization(updated.registration_no || updated.licence_no);
+    const finalDoc = await AuthorizationRegistrationModel.findById(req.params.id);
+
     // Sync compliance details back to JobModel for any linked BE numbers
     const beNos = [];
     if (updated.be_details && Array.isArray(updated.be_details)) {
@@ -638,7 +644,7 @@ router.put("/api/update-authorization-registration/:id", async (req, res) => {
 
     res
       .status(200)
-      .json({ message: "Record updated successfully", data: updated });
+      .json({ message: "Record updated successfully", data: finalDoc });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal Server Error" });
@@ -654,6 +660,13 @@ router.delete(
         await AuthorizationRegistrationModel.findByIdAndDelete(req.params.id);
       if (!deleted)
         return res.status(404).json({ message: "Record not found" });
+
+      // Clean up associated utilization records
+      const authNo = deleted.registration_no || deleted.licence_no;
+      if (authNo) {
+        await LicenseUtilizationModel.deleteMany({ authorization_no: authNo });
+      }
+
       res.status(200).json({ message: "Record deleted successfully" });
     } catch (error) {
       console.error(error);
@@ -696,4 +709,78 @@ router.get("/api/get-auth-reg-categories", async (req, res) => {
   }
 });
 
+// ── New: GET authorization by authorization number (for DSR license auto-populate) ──
+// Returns the authorization record so DSR can auto-fill license_date, scheme_code, import_details_array
+router.get("/api/get-authorization-by-no", async (req, res) => {
+  try {
+    const { authorization_no } = req.query;
+    if (!authorization_no) {
+      return res.status(400).json({ message: "authorization_no query param is required" });
+    }
+    const record = await AuthorizationRegistrationModel.findOne({
+      $or: [
+        { registration_no: authorization_no },
+        { licence_no: authorization_no },
+      ],
+    })
+      .select("registration_no licence_no auth_date licence_date scheme_code iec_no import_details_array export_details_array party_name")
+      .lean();
+
+    if (!record) {
+      return res.status(404).json({ message: "Authorization not found" });
+    }
+    res.status(200).json(record);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// ── New: GET list of authorizations by IEC (for DSR license dropdown suggestions) ──
+// Returns minimal info for the autocomplete list (auth no, date, scheme_code, party_name)
+router.get("/api/get-authorizations-by-iec", async (req, res) => {
+  try {
+    const { iec_no } = req.query;
+    if (!iec_no) {
+      return res.status(400).json({ message: "iec_no query param is required" });
+    }
+    const records = await AuthorizationRegistrationModel.find({ iec_no })
+      .select("registration_no licence_no auth_date licence_date scheme_code party_name import_details_array")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Map to a simple list format
+    const list = records.map((r) => ({
+      authorization_no: r.registration_no || r.licence_no || "",
+      authorization_date: r.auth_date || r.licence_date || "",
+      scheme_code: r.scheme_code || "",
+      party_name: r.party_name || "",
+      import_details_array: r.import_details_array || [],
+    }));
+
+    res.status(200).json(list);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// ── New: GET license utilization logs loaded from licenseUtilizationModel ──
+router.get("/api/license-utilization/records", async (req, res) => {
+  try {
+    const { authorization_no } = req.query;
+    if (!authorization_no) {
+      return res.status(400).json({ message: "authorization_no query param is required" });
+    }
+    const records = await LicenseUtilizationModel.find({
+      authorization_no
+    }).sort({ created_at: -1 });
+    res.status(200).json(records);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
 export default router;
+

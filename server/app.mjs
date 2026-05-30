@@ -41,6 +41,8 @@ import cookieParser from "cookie-parser";
 import http from "http";
 import { setupJobOverviewWebSocket } from "./setupJobOverviewWebSocket.mjs";
 import { setupAnalyticsWebSocket } from "./setupAnalyticsWebSocket.mjs";
+import { setupDgftWebSocket } from "./setupDgftWebSocket.mjs";
+
 import monthlyContainersRouter from "./routes/report/monthlyContainers.mjs";
 import monthlyClearanceRouter from "./routes/report/importClearanceMonthly.mjs";
 
@@ -848,6 +850,7 @@ if (!disableCluster && cluster.isPrimary) {
         const server = http.createServer(app);
         const wssOverview = setupJobOverviewWebSocket();
         const wssAnalytics = setupAnalyticsWebSocket();
+        const wssDgft = setupDgftWebSocket();
 
         server.on('upgrade', (request, socket, head) => {
           const pathname = new URL(request.url, `http://${request.headers.host}`).pathname;
@@ -855,6 +858,10 @@ if (!disableCluster && cluster.isPrimary) {
           if (pathname === '/analytics') {
             wssAnalytics.handleUpgrade(request, socket, head, (ws) => {
               wssAnalytics.emit('connection', ws, request);
+            });
+          } else if (pathname === '/dgft-license') {
+            wssDgft.handleUpgrade(request, socket, head, (ws) => {
+              wssDgft.emit('connection', ws, request);
             });
           } else {
             // Default to overview for compatibility

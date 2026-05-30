@@ -15,6 +15,10 @@ export const unitCodes = [
   "BAG", "BGS", "BLS", "BRL", "BTL", "BOX", "BLK", "CAN", "CAR", "CRY", "CTN", "CMS", "CHI", "COL", "CON", "CRI", "CCM", "CFT", "CBI", "CBM", "CYL", "DOZ", "DRM", "FLK", "FOT", "FUT", "GMS", "GRS", "FBK", "INC", "NGT", "JTA", "JAL", "KEG", "KLT", "KGS", "KME", "KIT", "LTR", "LOG", "TON", "MTR", "MTS", "MGS", "MOU", "NOS", "NHM", "THD", "PKG", "PAC", "PAI", "PRS", "PLT", "PCS", "PNT", "PND", "QDS", "QTL", "REL", "ROL", "SET", "SKD", "SLB", "SQF", "SQM", "SQY", "BLO", "BUL", "ENV", "TBL", "TNK", "TGM", "TIN", "TRK", "UNT", "UGS", "CSK", "YDS",
 ];
 
+export const SCHEME_CODE_OPTIONS = [
+  "Full Duty", "DEEC", "EPCG", "RODTEP", "ROSCTL", "TQ", "SIL", "SEZ", "EOU", "DFIA", "Jobbing",
+];
+
 const INITIAL_FORM = {
   job_no: "",
   job_status: "",
@@ -71,6 +75,7 @@ const INITIAL_FORM = {
   port_code: "",
   accounts_billing_invoice_no: "",
   accounts_billing_invoice_date: "",
+  scheme_code: "",
 };
 
 const DATE_FIELDS = new Set([
@@ -142,6 +147,7 @@ const FIELDS = [
   { key: "port_code",            label: "Port Code", select: true, options: PORT_CODE_OPTIONS },
   { key: "accounts_billing_invoice_no", label: "Accounts Billing Invoice Number" },
   { key: "accounts_billing_invoice_date", label: "Accounts Billing Invoice Date", type: "date" },
+  { key: "scheme_code",                  label: "Scheme Code", select: true, options: SCHEME_CODE_OPTIONS },
 ];
 
 // Table columns — per image 1 (no Sr No, actions first)
@@ -152,6 +158,7 @@ const TABLE_COLUMNS = [
   { key: "iec_no",       label: "IEC NAME",            width: 150 },
   { key: "licence_no",   label: "AUTHORIZATION NUMBER",width: 180 },
   { key: "licence_date", label: "AUTHORIZATION DATE",  width: 110 },
+  { key: "scheme_code",  label: "SCHEME CODE",         width: 120 },
   { key: "job_type",     label: "JOB CATEGORIES",      width: 170 },
   { key: "port_code",    label: "PORT CODE",           width: 100 },
   { key: "job_status",   label: "JOB STATUS",          width: 140 },

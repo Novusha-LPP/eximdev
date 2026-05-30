@@ -8,6 +8,7 @@ import mongoose from "mongoose";
 import { getBranchMatch } from "../../utils/branchFilter.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import { applyUserBranchFilter } from "../../middleware/branchMiddleware.mjs";
+import { recalculateLicenseUtilizationForJob, validateLicenseUtilization, getUsdImportRate } from "../../services/licenseUtilizationService.mjs";
 
 const router = express.Router();
 
@@ -970,6 +971,23 @@ router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
       return res.status(404).json({ success: false, message: "Job not found" });
     }
 
+    // ✅ Validate license utilization limits & check for duplicates before saving
+    if (updateData.description_details) {
+      const usdRate = await getUsdImportRate();
+      try {
+        await validateLicenseUtilization(
+          updateData.description_details,
+          id,
+          updateData.exrate || existing.exrate || 84,
+          usdRate,
+          updateData.be_no || existing.be_no || "",
+          existing.job_no || existing.job_number || ""
+        );
+      } catch (validationErr) {
+        return res.status(400).json({ success: false, message: validationErr.message });
+      }
+    }
+
     let merged = { ...existing };
 
     // apply dot-notation changes into merged
@@ -1003,6 +1021,13 @@ router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
 
     if (finalDoc?.year) invalidateCache(finalDoc.year);
     else invalidateCache();
+
+    // Recalculate license utilization asynchronously (non-blocking)
+    if (finalDoc) {
+      recalculateLicenseUtilizationForJob(finalDoc).catch(err =>
+        console.error("[PatchJob] License utilization recalc error:", err)
+      );
+    }
 
     return res.status(200).json({
       success: true,

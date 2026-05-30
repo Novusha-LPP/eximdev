@@ -5,6 +5,7 @@ import auditMiddleware from "../../middleware/auditTrail.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import { generateJobNumber } from "../../services/jobNumberService.mjs";
 import { sanitizeJobPayload } from "../../utils/modeLogic.mjs";
+import { recalculateLicenseUtilizationForJob, validateLicenseUtilization, getUsdImportRate } from "../../services/licenseUtilizationService.mjs";
 // Initialize the router
 const router = express.Router();
 
@@ -86,6 +87,21 @@ router.post(
         return res.status(400).json({ message: "Missing required fields." });
       }
 
+      // ✅ Validate license utilization limits & check for duplicates before saving
+      const fallbackUsd = await getUsdImportRate();
+      try {
+        await validateLicenseUtilization(
+          req.body.description_details,
+          null,
+          req.body.exrate || 84,
+          fallbackUsd,
+          req.body.be_no || "",
+          ""
+        );
+      } catch (validationErr) {
+        return res.status(400).json({ message: validationErr.message });
+      }
+
       // ✅ Check for duplicate container numbers **only if mode is NOT 'AIR' and container_nos is provided**
       if (mode !== "AIR" && container_nos && container_nos.length > 0) {
         // Prepare container numbers for checking
@@ -162,6 +178,11 @@ router.post(
 
       // ✅ Save to database
       await newJob.save();
+
+      // ✅ Recalculate license utilization (async, non-blocking)
+      recalculateLicenseUtilizationForJob(newJob.toObject()).catch(err =>
+        console.error("[AddJob] License utilization recalc error:", err)
+      );
 
       // ✅ Update last job update date
       await LastJobsDate.findOneAndUpdate(

@@ -83,7 +83,7 @@ const compactInputSx = {
 };
 
 
-const schemeOptions = ["Full Duty", "DEEC", "EPCG", "SEZ", "EOU", "DFIA", "Jobbing"];
+const schemeOptions = ["Full Duty", "DEEC", "EPCG","RODTEP", "ROSCTL", "TQ", "SIL", "SEZ", "EOU", "DFIA", "Jobbing"];
 
 function JobDetails() {
   const [viewJobTab, setViewJobTab] = useState(0);
@@ -141,6 +141,8 @@ function JobDetails() {
     };
     fetchTransporters();
   }, []);
+
+
 
   const toggleSealExpansion = (index) => {
     setExpandedSealIndices(prev => ({
@@ -516,6 +518,26 @@ function JobDetails() {
     setFileSnackbar,
     storedSearchParams
   );
+
+  // Fetch authorizations by IEC
+  const [authorizationsList, setAuthorizationsList] = useState([]);
+  useEffect(() => {
+    const fetchAuthorizations = async () => {
+      const iec = data?.ie_code_no;
+      if (!iec) return;
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-authorizations-by-iec?iec_no=${iec}`
+        );
+        setAuthorizationsList(res.data || []);
+      } catch (error) {
+        console.error("Error fetching authorizations by IEC:", error);
+      }
+    };
+    if (data?.ie_code_no) {
+      fetchAuthorizations();
+    }
+  }, [data?.ie_code_no]);
 
   const isAdmin = user?.role === "Admin";
   const billNos = (data?.bill_no || "").split(",");
@@ -1056,28 +1078,60 @@ function JobDetails() {
           unit_price: "",
           amount: "",
           foc_item: "No",
+          license_no: "",
+          license_date: "",
+          license_sr: "",
+          utilized_qty: "",
+          utilized_unit: "",
+          utilized_amount: "",
+          amount_currency: "USD",
         },
       ];
   }, [formik.values.description_details, formik.values.clearanceValue]);
 
-  const updateDescriptionRow = (rowIndex, field, value) => {
+  const updateDescriptionRowMultiple = (rowIndex, updates) => {
     const updatedRows = [...descriptionRows];
     updatedRows[rowIndex] = {
       ...updatedRows[rowIndex],
-      [field]: value,
+      ...updates,
     };
 
     // Auto-calculate amount if quantity or unit_price changes
-    if (field === "quantity" || field === "unit_price") {
-      const qValue = field === "quantity" ? value : (updatedRows[rowIndex].quantity || 0);
-      const pValue = field === "unit_price" ? value : (updatedRows[rowIndex].unit_price || 0);
+    if (updates.quantity !== undefined || updates.unit_price !== undefined) {
+      const qValue = updates.quantity !== undefined ? updates.quantity : (updatedRows[rowIndex].quantity || 0);
+      const pValue = updates.unit_price !== undefined ? updates.unit_price : (updatedRows[rowIndex].unit_price || 0);
       const qty = parseFloat(qValue) || 0;
       const price = parseFloat(pValue) || 0;
       updatedRows[rowIndex].amount = (qty * price).toFixed(2);
     }
 
+    // Auto-select license_sr if cth_no changes
+    if (updates.cth_no !== undefined) {
+      const licNum = updatedRows[rowIndex].sr_no_lic || updatedRows[rowIndex].license_no;
+      const cthNoNormalized = updates.cth_no ? String(updates.cth_no).replace(/[^a-zA-Z0-9]/g, "") : "";
+      
+      if (licNum && cthNoNormalized) {
+        const selectedAuth = authorizationsList.find(a => a.authorization_no === licNum);
+        const importItems = selectedAuth?.import_details_array || [];
+        const matchingItems = importItems.filter(item => {
+          const itemNormalizedHs = item.hs_code ? String(item.hs_code).replace(/[^a-zA-Z0-9]/g, "") : "";
+          return itemNormalizedHs === cthNoNormalized;
+        });
+        if (matchingItems.length === 1) {
+          updatedRows[rowIndex].license_sr = Number(matchingItems[0].sr_no) || 1;
+        } else {
+          updatedRows[rowIndex].license_sr = "";
+        }
+      }
+    }
+
     formik.setFieldValue("description_details", updatedRows);
   };
+
+  const updateDescriptionRow = (rowIndex, field, value) => {
+    updateDescriptionRowMultiple(rowIndex, { [field]: value });
+  };
+
 
   const addDescriptionRow = () => {
     formik.setFieldValue("description_details", [
@@ -1093,6 +1147,13 @@ function JobDetails() {
         foc_item: "No",
         clearance_under: formik.values.clearanceValue || "",
         sr_no_lic: "",
+        license_no: "",
+        license_date: "",
+        license_sr: "",
+        utilized_qty: "",
+        utilized_unit: "",
+        utilized_amount: "",
+        amount_currency: "USD",
       },
     ]);
   };
@@ -3125,7 +3186,7 @@ function JobDetails() {
                       <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "1100px" }}>
                         <thead>
                           <tr style={{ background: "#f8f9fa" }}>
-                            {["Sr No", "Inv SR", "Description", "Quantity", "Unit", "Unit Price", "Amount", "CTH", "Clearance", "LIC SR", "FOC Item", "Action"].map((h) => (
+                            {["Sr No", "Inv SR", "Description", "Quantity", "Unit", "Unit Price", "Amount", "Currency", "CTH", "Clearance", "LIC SR", "License Date", "Lic Item No", "FOC Item", "Action"].map((h) => (
                               <th key={h} style={{ borderBottom: "1px solid #dee2e6", padding: "8px", fontSize: "0.82rem", textAlign: "left", whiteSpace: "nowrap" }}>
                                 {h}
                               </th>
@@ -3212,6 +3273,19 @@ function JobDetails() {
                                   disabled={isDescriptionTableReadOnly}
                                 />
                               </td>
+                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", minWidth: "90px" }}>
+                                <TextField
+                                  select
+                                  size="small"
+                                  fullWidth
+                                  value={row.amount_currency || "USD"}
+                                  onChange={(e) => updateDescriptionRow(rowIndex, "amount_currency", e.target.value)}
+                                  disabled={isDescriptionTableReadOnly}
+                                >
+                                  <MenuItem value="USD">USD</MenuItem>
+                                  <MenuItem value="INR">INR</MenuItem>
+                                </TextField>
+                              </td>
                               <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
                                 <TextField
                                   size="small"
@@ -3238,15 +3312,133 @@ function JobDetails() {
                                   ))}
                                 </TextField>
                               </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", minWidth: "180px" }}>
+                                <Autocomplete
+                                  size="small"
+                                  fullWidth
+                                  freeSolo
+                                  options={authorizationsList.map((auth) => auth.authorization_no)}
+                                  value={row.sr_no_lic || row.license_no || ""}
+                                  onChange={async (e, newValue) => {
+                                    if (newValue) {
+                                      const selectedAuth = authorizationsList.find(a => a.authorization_no === newValue);
+                                      let licenseDate = "";
+                                      let importItems = [];
+                                      if (selectedAuth) {
+                                        licenseDate = selectedAuth.authorization_date || "";
+                                        importItems = selectedAuth.import_details_array || [];
+                                      } else {
+                                        try {
+                                          const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-authorization-by-no?authorization_no=${newValue}`);
+                                          if (res.data) {
+                                            licenseDate = res.data.licence_date || res.data.auth_date || "";
+                                            importItems = res.data.import_details_array || [];
+                                          }
+                                        } catch (err) {
+                                          console.error("Error fetching license:", err);
+                                        }
+                                      }
+
+                                      const rowNormalizedHs = row.cth_no ? String(row.cth_no).replace(/[^a-zA-Z0-9]/g, "") : "";
+                                      let autoSr = "";
+                                      if (rowNormalizedHs && importItems.length > 0) {
+                                        const matchingItems = importItems.filter(item => {
+                                          const itemNormalizedHs = item.hs_code ? String(item.hs_code).replace(/[^a-zA-Z0-9]/g, "") : "";
+                                          return itemNormalizedHs === rowNormalizedHs;
+                                        });
+                                        if (matchingItems.length === 1) {
+                                          autoSr = Number(matchingItems[0].sr_no) || 1;
+                                        }
+                                      }
+
+                                      updateDescriptionRowMultiple(rowIndex, {
+                                        sr_no_lic: newValue,
+                                        license_no: newValue,
+                                        license_date: licenseDate,
+                                        license_sr: autoSr
+                                      });
+                                    } else {
+                                      updateDescriptionRowMultiple(rowIndex, {
+                                        sr_no_lic: "",
+                                        license_no: "",
+                                        license_date: "",
+                                        license_sr: ""
+                                      });
+                                    }
+                                  }}
+                                  onInputChange={(e, newInputValue, reason) => {
+                                    if (reason === "input") {
+                                      updateDescriptionRowMultiple(rowIndex, {
+                                        sr_no_lic: newInputValue,
+                                        license_no: newInputValue
+                                      });
+                                    }
+                                  }}
+                                  disabled={isDescriptionTableReadOnly}
+                                  renderInput={(params) => <TextField {...params} size="small" />}
+                                />
+                              </td>
+                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", minWidth: "120px" }}>
                                 <TextField
                                   size="small"
                                   fullWidth
-                                  value={row.sr_no_lic || ""}
-                                  onChange={(e) => updateDescriptionRow(rowIndex, "sr_no_lic", e.target.value)}
+                                  value={row.license_date || ""}
+                                  onChange={(e) => updateDescriptionRow(rowIndex, "license_date", e.target.value)}
                                   disabled={isDescriptionTableReadOnly}
                                 />
                               </td>
+                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", minWidth: "100px" }}>
+                                {(() => {
+                                  const licNum = row.sr_no_lic || row.license_no;
+                                  const selectedAuth = authorizationsList.find(a => a.authorization_no === licNum);
+                                  const importItems = selectedAuth?.import_details_array || [];
+
+                                  const rowNormalizedHs = row.cth_no ? String(row.cth_no).replace(/[^a-zA-Z0-9]/g, "") : "";
+                                  const filteredItems = rowNormalizedHs
+                                    ? importItems.filter(item => {
+                                        const itemNormalizedHs = item.hs_code ? String(item.hs_code).replace(/[^a-zA-Z0-9]/g, "") : "";
+                                        return itemNormalizedHs === rowNormalizedHs;
+                                      })
+                                    : importItems;
+
+                                  if (filteredItems.length > 0) {
+                                    return (
+                                      <TextField
+                                        select
+                                        size="small"
+                                        fullWidth
+                                        value={String(row.license_sr || "")}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          updateDescriptionRow(rowIndex, "license_sr", val ? Number(val) : "");
+                                        }}
+                                        disabled={isDescriptionTableReadOnly}
+                                      >
+                                        <MenuItem value="">Select</MenuItem>
+                                        {filteredItems.map((item) => (
+                                          <MenuItem key={item.sr_no || item.value_usd} value={String(item.sr_no)}>
+                                            {item.sr_no} - {item.item_description || "Item"}
+                                          </MenuItem>
+                                        ))}
+                                      </TextField>
+                                    );
+                                  } else {
+                                    return (
+                                      <TextField
+                                        size="small"
+                                        fullWidth
+                                        value={row.license_sr || ""}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          updateDescriptionRow(rowIndex, "license_sr", val ? Number(val) : "");
+                                        }}
+                                        disabled={isDescriptionTableReadOnly}
+                                      />
+                                    );
+                                  }
+                                })()}
+                              </td>
+
                               <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
                                 <TextField
                                   select

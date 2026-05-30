@@ -1012,7 +1012,10 @@ function useFetchJobDetails(
             ? safeValue(data.invoice_details, []).map(inv => ({
                 ...inv,
                 po_no: inv.po_no || "",
-                po_date: inv.po_date || ""
+                po_date: inv.po_date || "",
+                freight_currency: inv.freight_currency || inv.inv_currency || "",
+                insurance_currency: inv.insurance_currency || inv.inv_currency || "",
+                other_charges_currency: inv.other_charges_currency || "INR",
               }))
             : [
                 {
@@ -1025,6 +1028,9 @@ function useFetchJobDetails(
                   toi: safeValue(data.import_terms) || "CIF",
                   freight: safeValue(data.freight),
                   insurance: safeValue(data.insurance),
+                  freight_currency: safeValue(data.inv_currency),
+                  insurance_currency: safeValue(data.inv_currency),
+                  other_charges_currency: "INR",
                 },
               ],
         bill_date: safeValue(data.bill_date),
@@ -1038,12 +1044,12 @@ function useFetchJobDetails(
         dsr_queries: safeValue(data.dsr_queries, []),
         other_charges_details: {
           is_single_for_all: true,
-          miscellaneous: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+          miscellaneous: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
           agency: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
-          discount: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+          discount: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
           loading: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
-          freight: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
-          insurance: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+          freight: { currency: safeValue(data.inv_currency), exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+          insurance: { currency: safeValue(data.inv_currency), exchange_rate: 1, rate: 0, amount: 0, remark: "" },
           addl_charge: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
           revenue_deposit: { rate: 0, on: "Assessable" },
           landing_charge: { rate: 0 },
@@ -1199,6 +1205,13 @@ function useFetchJobDetails(
       if (firstRow.toi && !formik.values.import_terms) formik.setFieldValue("import_terms", firstRow.toi || "");
       if (firstRow.freight && !formik.values.freight) formik.setFieldValue("freight", firstRow.freight || "");
       if (firstRow.insurance && !formik.values.insurance) formik.setFieldValue("insurance", firstRow.insurance || "");
+
+      // Sync cif_amount and cifValue as sum of all invoice rows total_inv_value
+      const totalCif = formik.values.invoice_details.reduce((sum, r) => sum + (parseFloat(r.total_inv_value) || 0), 0);
+      if (totalCif > 0) {
+        formik.setFieldValue("cif_amount", totalCif.toFixed(2));
+        formik.setFieldValue("cifValue", totalCif.toFixed(2));
+      }
     }
   }, [serializedInvoiceDetails]);
 

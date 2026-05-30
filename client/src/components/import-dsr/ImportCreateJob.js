@@ -1819,7 +1819,7 @@ const ImportCreateJob = () => {
                         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px' }}>
                           <thead>
                             <tr style={{ backgroundColor: '#f8fafc' }}>
-                              {["Sr", "Inv No", "Inv Date", isPoMandatory ? "PO No *" : "PO No", isPoMandatory ? "PO Date *" : "PO Date", "Invoice Value", "Currency", "TOI", "Freight", "Insurance", "Others", "CIF Value", "Action"].map((h) => (
+                              {["Sr", "Inv No", "Inv Date", isPoMandatory ? "PO No *" : "PO No", isPoMandatory ? "PO Date *" : "PO Date", "TOI", "Invoice Value", "Currency", "Freight", "Insurance", "Others", "CIF Value", "Action"].map((h) => (
                                 <th key={h} style={{ borderBottom: '1px solid #dee2e6', padding: '6px 8px', fontSize: '0.65rem', textAlign: 'left', whiteSpace: 'nowrap', fontWeight: 700, textTransform: 'uppercase', color: (h === 'PO No *' || h === 'PO Date *') ? '#ef4444' : '#64748b' }}>
                                   {h}
                                 </th>
@@ -1891,6 +1891,21 @@ const ImportCreateJob = () => {
                                       }}
                                     />
                                   </td>
+                                  <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '90px' }}>
+                                    <TextField
+                                      select
+                                      size="small"
+                                      fullWidth
+                                      value={row.toi || "CIF"}
+                                      onChange={(e) => updateInvoiceRow(rowIndex, "toi", e.target.value)}
+                                      sx={compactInput}
+                                    >
+                                      <MenuItem value="CIF">CIF</MenuItem>
+                                      <MenuItem value="FOB">FOB</MenuItem>
+                                      <MenuItem value="CF">C&F</MenuItem>
+                                      <MenuItem value="CI">C&I</MenuItem>
+                                    </TextField>
+                                  </td>
                                   <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '100px' }}>
                                     <TextField
                                       size="small"
@@ -1920,52 +1935,96 @@ const ImportCreateJob = () => {
                                       )}
                                     />
                                   </td>
-                                  <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '90px' }}>
-                                    <TextField
-                                      select
-                                      size="small"
-                                      fullWidth
-                                      value={row.toi || "CIF"}
-                                      onChange={(e) => updateInvoiceRow(rowIndex, "toi", e.target.value)}
-                                      sx={compactInput}
-                                    >
-                                      <MenuItem value="CIF">CIF</MenuItem>
-                                      <MenuItem value="FOB">FOB</MenuItem>
-                                      <MenuItem value="CF">C&F</MenuItem>
-                                      <MenuItem value="CI">C&I</MenuItem>
-                                    </TextField>
+                                  <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '150px' }}>
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                      <TextField
+                                        size="small"
+                                        fullWidth
+                                        placeholder="Freight"
+                                        value={row.freight || ""}
+                                        onChange={(e) => updateInvoiceRow(rowIndex, "freight", e.target.value)}
+                                        sx={compactInput}
+                                        disabled={!(row.toi === "FOB" || row.toi === "CI")}
+                                      />
+                                      <Autocomplete
+                                        freeSolo
+                                        size="small"
+                                        options={currencyOptions}
+                                        value={row.freight_currency || ""}
+                                        onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "freight_currency", newValue)}
+                                        onChange={(event, newValue) => updateInvoiceRow(rowIndex, "freight_currency", newValue || "")}
+                                        disabled={!(row.toi === "FOB" || row.toi === "CI")}
+                                        renderInput={(params) => (
+                                          <TextField
+                                            {...params}
+                                            variant="outlined"
+                                            size="small"
+                                            placeholder="Cur"
+                                            sx={{ ...compactInput, width: '60px', minWidth: '60px' }}
+                                          />
+                                        )}
+                                      />
+                                    </div>
                                   </td>
-                                  <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '90px' }}>
-                                    <TextField
-                                      size="small"
-                                      fullWidth
-                                      placeholder="Freight"
-                                      value={row.freight || ""}
-                                      onChange={(e) => updateInvoiceRow(rowIndex, "freight", e.target.value)}
-                                      sx={compactInput}
-                                      disabled={!(row.toi === "FOB" || row.toi === "CI")}
-                                    />
+                                  <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '150px' }}>
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                      <TextField
+                                        size="small"
+                                        fullWidth
+                                        placeholder="Insurance"
+                                        value={row.insurance || ""}
+                                        onChange={(e) => updateInvoiceRow(rowIndex, "insurance", e.target.value)}
+                                        sx={compactInput}
+                                        disabled={!(row.toi === "FOB" || row.toi === "CF")}
+                                      />
+                                      <Autocomplete
+                                        freeSolo
+                                        size="small"
+                                        options={currencyOptions}
+                                        value={row.insurance_currency || ""}
+                                        onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "insurance_currency", newValue)}
+                                        onChange={(event, newValue) => updateInvoiceRow(rowIndex, "insurance_currency", newValue || "")}
+                                        disabled={!(row.toi === "FOB" || row.toi === "CF")}
+                                        renderInput={(params) => (
+                                          <TextField
+                                            {...params}
+                                            variant="outlined"
+                                            size="small"
+                                            placeholder="Cur"
+                                            sx={{ ...compactInput, width: '60px', minWidth: '60px' }}
+                                          />
+                                        )}
+                                      />
+                                    </div>
                                   </td>
-                                  <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '90px' }}>
-                                    <TextField
-                                      size="small"
-                                      fullWidth
-                                      placeholder="Insurance"
-                                      value={row.insurance || ""}
-                                      onChange={(e) => updateInvoiceRow(rowIndex, "insurance", e.target.value)}
-                                      sx={compactInput}
-                                      disabled={!(row.toi === "FOB" || row.toi === "CF")}
-                                    />
-                                  </td>
-                                  <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '90px' }}>
-                                    <TextField
-                                      size="small"
-                                      fullWidth
-                                      placeholder="Other Chrgs"
-                                      value={row.other_charges || ""}
-                                      onChange={(e) => updateInvoiceRow(rowIndex, "other_charges", e.target.value)}
-                                      sx={compactInput}
-                                    />
+                                  <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '150px' }}>
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                      <TextField
+                                        size="small"
+                                        fullWidth
+                                        placeholder="Other Chrgs"
+                                        value={row.other_charges || ""}
+                                        onChange={(e) => updateInvoiceRow(rowIndex, "other_charges", e.target.value)}
+                                        sx={compactInput}
+                                      />
+                                      <Autocomplete
+                                        freeSolo
+                                        size="small"
+                                        options={currencyOptions}
+                                        value={row.other_charges_currency || ""}
+                                        onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "other_charges_currency", newValue)}
+                                        onChange={(event, newValue) => updateInvoiceRow(rowIndex, "other_charges_currency", newValue || "")}
+                                        renderInput={(params) => (
+                                          <TextField
+                                            {...params}
+                                            variant="outlined"
+                                            size="small"
+                                            placeholder="Cur"
+                                            sx={{ ...compactInput, width: '60px', minWidth: '60px' }}
+                                          />
+                                        )}
+                                      />
+                                    </div>
                                   </td>
                                   <td style={{ padding: '4px', borderBottom: '1px solid #f1f3f5', width: '100px' }}>
                                     <TextField
@@ -2001,6 +2060,20 @@ const ImportCreateJob = () => {
                             ))}
                           </tbody>
                         </table>
+                        {invoice_details?.map((invRow, idx) => {
+                          const invVal = parseFloat(invRow.product_value) || 0;
+                          const prodSum = description_details?.reduce((sum, dRow) => 
+                            (dRow.sr_no_invoice === String(idx + 1) || (!dRow.sr_no_invoice && idx === 0)) ? sum + (parseFloat(dRow.amount) || 0) : sum, 0
+                          ) || 0;
+                          const hasMismatch = (invVal > 0 || prodSum > 0) && Math.abs(invVal - prodSum) > 0.01;
+                          if (!hasMismatch) return null;
+                          return (
+                            <div key={idx} style={{ marginTop: '8px', padding: '8px 12px', background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '4px', color: '#b45309', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span>⚠️</span>
+                              <span><strong>Note:</strong> Invoice Sr No. {idx + 1} Value ({invVal.toFixed(2)}) and Product Details Amount ({prodSum.toFixed(2)}) do not match!</span>
+                            </div>
+                          );
+                        })}
                       </Grid>
                     )}
 
@@ -2737,8 +2810,8 @@ const ImportCreateJob = () => {
                               fullWidth
                               placeholder="Total"
                               value={row.amount || ""}
-                              InputProps={{ readOnly: true }}
-                              sx={{ ...compactInput, '& .MuiInputBase-root': { ...compactInput['& .MuiInputBase-root'], bgcolor: '#f8fafc', fontWeight: 600 } }}
+                              onChange={(e) => updateDescriptionRow(rowIndex, "amount", e.target.value)}
+                              sx={compactInput}
                             />
                           </td>
                           <td style={{ padding: '8px 4px', borderBottom: '1px solid #f1f5f9' }}>
@@ -2806,6 +2879,20 @@ const ImportCreateJob = () => {
                       ))}
                     </tbody>
                   </table>
+                  {invoice_details?.map((invRow, idx) => {
+                    const invVal = parseFloat(invRow.product_value) || 0;
+                    const prodSum = description_details?.reduce((sum, dRow) => 
+                      (dRow.sr_no_invoice === String(idx + 1) || (!dRow.sr_no_invoice && idx === 0)) ? sum + (parseFloat(dRow.amount) || 0) : sum, 0
+                    ) || 0;
+                    const hasMismatch = (invVal > 0 || prodSum > 0) && Math.abs(invVal - prodSum) > 0.01;
+                    if (!hasMismatch) return null;
+                    return (
+                      <div key={idx} style={{ marginTop: '8px', padding: '8px 12px', background: '#fffbeb', border: '1px solid #fef3c7', borderRadius: '4px', color: '#b45309', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span>⚠️</span>
+                        <span><strong>Note:</strong> Invoice Sr No. {idx + 1} Value ({invVal.toFixed(2)}) and Product Details Amount ({prodSum.toFixed(2)}) do not match!</span>
+                      </div>
+                    );
+                  })}
                 </Box>
               </Paper>
             </Grid>

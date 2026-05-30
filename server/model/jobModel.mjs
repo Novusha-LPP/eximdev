@@ -90,6 +90,9 @@ const invoiceDetailsSchema = new mongoose.Schema(
     toi: { type: String, trim: true },
     freight: { type: String, trim: true },
     insurance: { type: String, trim: true },
+    freight_currency: { type: String, trim: true },
+    insurance_currency: { type: String, trim: true },
+    other_charges_currency: { type: String, trim: true },
   },
   { _id: false }
 );

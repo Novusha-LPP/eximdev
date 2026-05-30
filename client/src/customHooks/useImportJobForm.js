@@ -79,6 +79,7 @@ const useImportJobForm = () => {
   const [freight, setFreight] = useState("");
   const [insurance, setInsurance] = useState("");
   const [term_value, setTermValue] = useState("");
+  const [cif_amount, setCifAmount] = useState("");
   const [description, setDescription] = useState("");
   const [consignment_type, setConsignmentType] = useState("");
   const [isDraftDoc, setIsDraftDoc] = useState(false);
@@ -100,6 +101,9 @@ const useImportJobForm = () => {
       insurance: "",
       po_validation_error: "",
       other_charges: "",
+      freight_currency: "",
+      insurance_currency: "",
+      other_charges_currency: "INR",
     },
   ]);
 
@@ -250,6 +254,44 @@ const useImportJobForm = () => {
     }
     fetchJobDetails();
   }, []);
+
+  // Auto-sync global inv_currency to F&I charges and the first invoice row
+  useEffect(() => {
+    if (inv_currency) {
+      setOtherChargesDetails(prev => {
+        const updated = { ...prev };
+        let changed = false;
+        ["freight", "insurance"].forEach(key => {
+          if (updated[key] && updated[key].currency !== inv_currency) {
+            updated[key] = { ...updated[key], currency: inv_currency };
+            changed = true;
+          }
+        });
+        ["miscellaneous", "agency", "discount", "loading", "addl_charge"].forEach(key => {
+          if (updated[key] && updated[key].currency !== "INR") {
+            updated[key] = { ...updated[key], currency: "INR" };
+            changed = true;
+          }
+        });
+        return changed ? updated : prev;
+      });
+
+      setInvoiceDetails(prev => {
+        if (prev.length > 0 && !prev[0].inv_currency) {
+          const newRows = [...prev];
+          newRows[0] = { 
+            ...newRows[0], 
+            inv_currency: inv_currency,
+            freight_currency: inv_currency,
+            insurance_currency: inv_currency,
+            other_charges_currency: "INR"
+          };
+          return newRows;
+        }
+        return prev;
+      });
+    }
+  }, [inv_currency]);
   //
   const [description_details, setDescriptionDetails] = useState([
     {
@@ -294,6 +336,23 @@ const useImportJobForm = () => {
       ...updatedRows[rowIndex],
       [field]: value,
     };
+    // Auto-sync product_value (Invoice Value) to linked description row(s) amount in product tab
+    if (field === "product_value") {
+      const matchedInvoiceSr = String(rowIndex + 1);
+      const updatedDescRows = description_details.map(dRow => {
+        if (dRow.sr_no_invoice === matchedInvoiceSr || (matchedInvoiceSr === "1" && !dRow.sr_no_invoice)) {
+          let newPrice = dRow.unit_price;
+          const qty = parseFloat(dRow.quantity);
+          const amt = parseFloat(value);
+          if (!isNaN(qty) && qty > 0 && !isNaN(amt)) {
+            newPrice = (amt / qty).toFixed(2);
+          }
+          return { ...dRow, amount: value || "", unit_price: newPrice };
+        }
+        return dRow;
+      });
+      setDescriptionDetails(updatedDescRows);
+    }
 
     // Validate PO fields if updating PO No or PO Date
     if (field === "po_no" || field === "po_date") {
@@ -335,9 +394,11 @@ const useImportJobForm = () => {
     if (totalCif > 0) {
       setTotalInvValue(String(totalCif.toFixed(2)));
       setTermValue(String(totalCif.toFixed(2)));
+      setCifAmount(String(totalCif.toFixed(2)));
     } else if (field === "total_inv_value") {
       setTotalInvValue(value);
       setTermValue(value);
+      setCifAmount(value);
     }
     
     // Also sync the global F & I Charges tab amounts and rates based on FOB invoices
@@ -361,6 +422,10 @@ const useImportJobForm = () => {
     
     // Auto-sync currency for all charge heads in other_charges_details when invoice currency changes
     if (field === "inv_currency") {
+      updatedRows[rowIndex].freight_currency = value || "";
+      updatedRows[rowIndex].insurance_currency = value || "";
+      updatedRows[rowIndex].other_charges_currency = "INR";
+
       setOtherChargesDetails(prev => {
         const updated = { ...prev };
         ["freight", "insurance"].forEach(key => {
@@ -412,6 +477,9 @@ const useImportJobForm = () => {
         insurance: "",
         other_charges: "",
         po_validation_error: "",
+        freight_currency: invoice_details[0]?.inv_currency || "",
+        insurance_currency: invoice_details[0]?.inv_currency || "",
+        other_charges_currency: "INR",
       },
     ]);
   };
@@ -439,12 +507,39 @@ const useImportJobForm = () => {
       ...updatedRows[rowIndex],
       [field]: value,
     };
+    // Auto-populate amount based on matched invoice's value if sr_no_invoice is updated
+    if (field === "sr_no_invoice") {
+      const invoiceNum = parseInt(value) || 0;
+      if (invoiceNum > 0 && invoice_details[invoiceNum - 1]) {
+        updatedRows[rowIndex].amount = invoice_details[invoiceNum - 1].product_value || "";
+      }
+    }
 
-    // Auto-calculate amount if quantity or unit_price changes
-    if (field === "quantity" || field === "unit_price") {
-      const qty = parseFloat(field === "quantity" ? value : (updatedRows[rowIndex].quantity || 0)) || 0;
-      const price = parseFloat(field === "unit_price" ? value : (updatedRows[rowIndex].unit_price || 0)) || 0;
-      updatedRows[rowIndex].amount = (qty * price).toFixed(2);
+    // Auto-calculate amount or unit_price based on what changes
+    if (field === "quantity" || field === "unit_price" || field === "amount") {
+      const qValue = field === "quantity" ? value : updatedRows[rowIndex].quantity;
+      const pValue = field === "unit_price" ? value : updatedRows[rowIndex].unit_price;
+      const aValue = field === "amount" ? value : updatedRows[rowIndex].amount;
+
+      const qty = parseFloat(qValue);
+      const price = parseFloat(pValue);
+      const amt = parseFloat(aValue);
+
+      if (field === "quantity") {
+        if (!isNaN(qty) && qty > 0 && !isNaN(amt)) {
+          updatedRows[rowIndex].unit_price = (amt / qty).toFixed(2);
+        } else if (!isNaN(qty) && !isNaN(price)) {
+          updatedRows[rowIndex].amount = (qty * price).toFixed(2);
+        }
+      } else if (field === "unit_price") {
+        if (!isNaN(qty) && !isNaN(price)) {
+          updatedRows[rowIndex].amount = (qty * price).toFixed(2);
+        }
+      } else if (field === "amount") {
+        if (!isNaN(amt) && !isNaN(qty) && qty > 0) {
+          updatedRows[rowIndex].unit_price = (amt / qty).toFixed(2);
+        }
+      }
     }
 
     setDescriptionDetails(updatedRows);
@@ -554,9 +649,13 @@ const useImportJobForm = () => {
         freight: "",
         insurance: "",
         other_charges: "",
+        freight_currency: "",
+        insurance_currency: "",
+        other_charges_currency: "INR",
       },
     ]);
     setConsignmentType("");
+    setCifAmount("");
     setIsDraftDoc(false);
     setContainerNos([
       {
@@ -673,7 +772,10 @@ const useImportJobForm = () => {
     if (job.invoice_date) setInvoiceDate(job.invoice_date);
     if (job.po_no) setPoNo(job.po_no);
     if (job.po_date) setPoDate(job.po_date);
-    if (job.total_inv_value || job.cifValue) setTermValue(job.total_inv_value || job.cifValue || "");
+    if (job.total_inv_value || job.cifValue || job.cif_amount) {
+      setTermValue(job.total_inv_value || job.cifValue || job.cif_amount || "");
+      setCifAmount(job.cif_amount || job.total_inv_value || job.cifValue || "");
+    }
     if (job.consignment_type) setConsignmentType(job.consignment_type);
     if (job.description) setDescription(job.description);
     if (!job.description && job.description_details && job.description_details.length > 0) {
@@ -684,7 +786,10 @@ const useImportJobForm = () => {
       setInvoiceDetails(job.invoice_details.map(inv => ({
         ...inv,
         po_no: inv.po_no || "",
-        po_date: inv.po_date || ""
+        po_date: inv.po_date || "",
+        freight_currency: inv.freight_currency || inv.inv_currency || "",
+        insurance_currency: inv.insurance_currency || inv.inv_currency || "",
+        other_charges_currency: inv.other_charges_currency || "INR",
       })));
     } else if (job.invoice_number || job.total_inv_value) {
       setInvoiceDetails([{
@@ -698,7 +803,10 @@ const useImportJobForm = () => {
         toi: job.import_terms || "CIF",
         freight: job.freight || "",
         insurance: job.insurance || "",
-        other_charges: job.other_charges || ""
+        other_charges: job.other_charges || "",
+        freight_currency: job.inv_currency || "",
+        insurance_currency: job.inv_currency || "",
+        other_charges_currency: "INR",
       }]);
     }
     
@@ -914,6 +1022,7 @@ const useImportJobForm = () => {
           freight,
           insurance,
           cifValue: term_value,
+          cif_amount: cif_amount || term_value || "",
           description,
           description_details,
           consignment_type,
@@ -1271,6 +1380,8 @@ const useImportJobForm = () => {
     setInsurance,
     term_value,
     setTermValue,
+    cif_amount,
+    setCifAmount,
     isPoMandatory,
     validateAllInvoiceRows,
     validatePoFields,

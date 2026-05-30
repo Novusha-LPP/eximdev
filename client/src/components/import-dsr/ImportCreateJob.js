@@ -1819,7 +1819,7 @@ const ImportCreateJob = () => {
                         <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '16px' }}>
                           <thead>
                             <tr style={{ backgroundColor: '#f8fafc' }}>
-                              {["Sr", "Inv No", "Inv Date", isPoMandatory ? "PO No *" : "PO No", isPoMandatory ? "PO Date *" : "PO Date", "Prod Val", "Currency", "TOI", "Freight", "Insurance", "Others", "Total Value", "Action"].map((h) => (
+                              {["Sr", "Inv No", "Inv Date", isPoMandatory ? "PO No *" : "PO No", isPoMandatory ? "PO Date *" : "PO Date", "Invoice Value", "Currency", "TOI", "Freight", "Insurance", "Others", "CIF Value", "Action"].map((h) => (
                                 <th key={h} style={{ borderBottom: '1px solid #dee2e6', padding: '6px 8px', fontSize: '0.65rem', textAlign: 'left', whiteSpace: 'nowrap', fontWeight: 700, textTransform: 'uppercase', color: (h === 'PO No *' || h === 'PO Date *') ? '#ef4444' : '#64748b' }}>
                                   {h}
                                 </th>
@@ -1895,7 +1895,7 @@ const ImportCreateJob = () => {
                                     <TextField
                                       size="small"
                                       fullWidth
-                                      placeholder="Product Value"
+                                      placeholder="Invoice Value"
                                       value={row.product_value || ""}
                                       onChange={(e) => updateInvoiceRow(rowIndex, "product_value", e.target.value)}
                                       sx={compactInput}
@@ -1971,7 +1971,7 @@ const ImportCreateJob = () => {
                                     <TextField
                                       size="small"
                                       fullWidth
-                                      placeholder="Invoice Value"
+                                      placeholder="CIF Value"
                                       value={row.total_inv_value || ""}
                                       InputProps={{ readOnly: true }}
                                       sx={{ ...compactInput, '& .MuiInputBase-root': { ...compactInput['& .MuiInputBase-root'], bgcolor: '#f5f5f5' } }}

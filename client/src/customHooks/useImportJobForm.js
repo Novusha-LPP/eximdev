@@ -305,11 +305,13 @@ const useImportJobForm = () => {
     // Auto-calculate freight and insurance if TOI is FOB
     const toiValue = field === "toi" ? value : (updatedRows[rowIndex].toi || "CIF");
     if (toiValue === "FOB") {
-      const pv = parseFloat(field === "product_value" ? value : (updatedRows[rowIndex].product_value || 0)) || 0;
-      const calculatedFreight = pv * 0.20;
-      const calculatedInsurance = pv * 0.01125;
-      updatedRows[rowIndex].freight = calculatedFreight > 0 ? calculatedFreight.toFixed(2) : "";
-      updatedRows[rowIndex].insurance = calculatedInsurance > 0 ? calculatedInsurance.toFixed(2) : "";
+      if (field === "product_value" || field === "toi") {
+        const pv = parseFloat(field === "product_value" ? value : (updatedRows[rowIndex].product_value || 0)) || 0;
+        const calculatedFreight = pv * 0.20;
+        const calculatedInsurance = pv * 0.01125;
+        updatedRows[rowIndex].freight = calculatedFreight > 0 ? calculatedFreight.toFixed(2) : "";
+        updatedRows[rowIndex].insurance = calculatedInsurance > 0 ? calculatedInsurance.toFixed(2) : "";
+      }
     } else if (field === "toi") {
       updatedRows[rowIndex].freight = "";
       updatedRows[rowIndex].insurance = "";
@@ -355,6 +357,30 @@ const useImportJobForm = () => {
         freight: { ...prev.freight, amount: "", rate: 0 },
         insurance: { ...prev.insurance, amount: "", rate: 0 }
       }));
+     }
+    
+    // Auto-sync currency for all charge heads in other_charges_details when invoice currency changes
+    if (field === "inv_currency") {
+      setOtherChargesDetails(prev => {
+        const updated = { ...prev };
+        ["freight", "insurance"].forEach(key => {
+          if (updated[key]) {
+            updated[key] = {
+              ...updated[key],
+              currency: value || ""
+            };
+          }
+        });
+        ["miscellaneous", "agency", "discount", "loading", "addl_charge"].forEach(key => {
+          if (updated[key]) {
+            updated[key] = {
+              ...updated[key],
+              currency: "INR"
+            };
+          }
+        });
+        return updated;
+      });
     }
 
     // Sync first row with single fields for backward compatibility

@@ -1134,11 +1134,13 @@ function JobDetails() {
     // Auto-calculate freight and insurance if TOI is FOB
     const toiValue = field === "toi" ? value : (updatedRows[rowIndex].toi || "CIF");
     if (toiValue === "FOB") {
-      const pv = parseFloat(field === "product_value" ? value : (updatedRows[rowIndex].product_value || 0)) || 0;
-      const calculatedFreight = pv * 0.20;
-      const calculatedInsurance = pv * 0.01125;
-      updatedRows[rowIndex].freight = calculatedFreight > 0 ? calculatedFreight.toFixed(2) : "";
-      updatedRows[rowIndex].insurance = calculatedInsurance > 0 ? calculatedInsurance.toFixed(2) : "";
+      if (field === "product_value" || field === "toi") {
+        const pv = parseFloat(field === "product_value" ? value : (updatedRows[rowIndex].product_value || 0)) || 0;
+        const calculatedFreight = pv * 0.20;
+        const calculatedInsurance = pv * 0.01125;
+        updatedRows[rowIndex].freight = calculatedFreight > 0 ? calculatedFreight.toFixed(2) : "";
+        updatedRows[rowIndex].insurance = calculatedInsurance > 0 ? calculatedInsurance.toFixed(2) : "";
+      }
     } else if (field === "toi") {
       updatedRows[rowIndex].freight = "";
       updatedRows[rowIndex].insurance = "";
@@ -1154,11 +1156,6 @@ function JobDetails() {
       const total = (prod + frt + ins + other).toFixed(2);
       
       updatedRows[rowIndex].total_inv_value = total;
-      // Requirement: product value column should display the same as invoice value
-      // But avoid overwriting while typing to preserve UX (cursor position, dots, etc)
-      if (field !== "product_value") {
-        updatedRows[rowIndex].product_value = total;
-      }
     }
 
     formik.setFieldValue("invoice_details", updatedRows);
@@ -1178,6 +1175,16 @@ function JobDetails() {
       formik.setFieldValue("other_charges_details.freight.rate", 0);
       formik.setFieldValue("other_charges_details.insurance.amount", "");
       formik.setFieldValue("other_charges_details.insurance.rate", 0);
+    }
+
+    // Auto-sync currency for all charge heads in other_charges_details when invoice currency changes
+    if (field === "inv_currency") {
+      ["freight", "insurance"].forEach(key => {
+        formik.setFieldValue(`other_charges_details.${key}.currency`, value || "");
+      });
+      ["miscellaneous", "agency", "discount", "loading", "addl_charge"].forEach(key => {
+        formik.setFieldValue(`other_charges_details.${key}.currency`, "INR");
+      });
     }
 
     // Sync global CIF value (term value) across all rows
@@ -2665,7 +2672,7 @@ function JobDetails() {
                       <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "900px" }}>
                         <thead>
                           <tr style={{ background: "#f8f9fa" }}>
-                            {["Sr No", "Invoice Number", "Date", "PO NO", "PO Date", "TOI", "Currency", "Product Value", "Freight", "Insurance", "Other Chrgs", "Invoice Value", "Action"].map((h) => (
+                            {["Sr No", "Invoice Number", "Date", "PO NO", "PO Date", "TOI", "Currency", "Invoice Value", "Freight", "Insurance", "Other Chrgs", "CIF Value", "Action"].map((h) => (
                               <th key={h} style={{ borderBottom: "1px solid #dee2e6", padding: "8px", fontSize: "0.82rem", textAlign: "left", whiteSpace: "nowrap" }}>
                                 {h}
                               </th>
@@ -2763,7 +2770,7 @@ function JobDetails() {
                                   value={row.product_value || ""}
                                   onChange={(e) => updateInvoiceRow(rowIndex, "product_value", e.target.value)}
                                   disabled={isDescriptionTableReadOnly}
-                                  placeholder="Value"
+                                  placeholder="Invoice Value"
                                 />
                               </td>
                               <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
@@ -2803,7 +2810,7 @@ function JobDetails() {
                                   value={row.total_inv_value || ""}
                                   InputProps={{ readOnly: true }}
                                   disabled={isDescriptionTableReadOnly}
-                                  placeholder="Invoice Value"
+                                  placeholder="CIF Value"
                                 />
                               </td>
                               <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", textAlign: "center" }}>

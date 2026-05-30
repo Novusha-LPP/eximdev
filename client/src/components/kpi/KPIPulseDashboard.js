@@ -874,16 +874,32 @@ const KPIPulseDashboard = () => {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {reportData.records?.filter(r => r.blocker).length > 0 ? reportData.records.filter(r => r.blocker).map((rec, i) => (
-                                                <tr key={i}>
-                                                    <td style={{ fontWeight: 700, color: '#0f172a' }}>{rec.user.name}</td>
-                                                    <td style={{ color: '#64748b' }}>{rec.team}</td>
-                                                    <td style={{ color: '#334155', maxWidth: '400px', whiteSpace: 'normal', lineHeight: 1.5 }}>
-                                                        {rec.blocker.split(' | ').map(b => b.includes(':') ? b.split(':').slice(1).join(':').trim() : b).join(', ')}
-                                                    </td>
-                                                    <td><span className="status-pill warning">{rec.blockerCategory || 'General'}</span></td>
-                                                </tr>
-                                            )) : <tr><td colSpan="4" style={{ textAlign: 'center', color: '#94a3b8', padding: '32px' }}>No blockers registered.</td></tr>}
+                                            {reportData.records?.filter(r => r.blocker).length > 0 ? reportData.records.filter(r => r.blocker).flatMap((rec, i) => {
+                                                const individualBlockers = rec.blocker.split(' | ').filter(b => b);
+                                                return individualBlockers.map((b, idx) => {
+                                                    let category = "Others";
+                                                    let detail = b;
+                                                    if (b.includes(":")) {
+                                                        const parts = b.split(":");
+                                                        category = parts[0].trim();
+                                                        detail = parts.slice(1).join(":").trim();
+                                                    }
+                                                    return (
+                                                        <tr key={`${i}-${idx}`}>
+                                                            {idx === 0 && (
+                                                                <>
+                                                                    <td rowSpan={individualBlockers.length} style={{ fontWeight: 700, color: '#0f172a', verticalAlign: 'middle' }}>{rec.user.name}</td>
+                                                                    <td rowSpan={individualBlockers.length} style={{ color: '#64748b', verticalAlign: 'middle' }}>{rec.team}</td>
+                                                                </>
+                                                            )}
+                                                            <td style={{ color: '#334155', maxWidth: '400px', whiteSpace: 'normal', lineHeight: 1.5 }}>
+                                                                {detail}
+                                                            </td>
+                                                            <td><span className="status-pill warning">{category}</span></td>
+                                                        </tr>
+                                                    );
+                                                });
+                                            }) : <tr><td colSpan="4" style={{ textAlign: 'center', color: '#94a3b8', padding: '32px' }}>No blockers registered.</td></tr>}
                                         </tbody>
                                     </table>
                                 </div>

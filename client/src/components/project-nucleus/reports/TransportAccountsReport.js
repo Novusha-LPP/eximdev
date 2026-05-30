@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
+import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
 
 const TransportAccountsReport = ({
     filterType,
@@ -25,7 +26,16 @@ const TransportAccountsReport = ({
     const getReportParams = () => {
         let params = { filterType };
         if (filterType === 'day') {
-            params.date = selectedDay;
+            if (selectedDay) {
+                const dateObj = new Date(selectedDay + 'T00:00:00');
+                dateObj.setDate(dateObj.getDate() - 1);
+                const yyyy = dateObj.getFullYear();
+                const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const dd = String(dateObj.getDate()).padStart(2, '0');
+                params.date = `${yyyy}-${mm}-${dd}`;
+            } else {
+                params.date = selectedDay;
+            }
         } else if (filterType === 'month') {
             const monthStr = String(Number(selectedMonth) + 1).padStart(2, '0');
             params.date = `${selectedYear}-${monthStr}-01`;
@@ -123,6 +133,27 @@ const TransportAccountsReport = ({
             return matchesSearch && matchesType;
         });
     }, [allTransactions, ledgerSearch, ledgerTypeFilter]);
+
+    // Aggregate expenses for the Donut Chart
+    const expenseChartData = useMemo(() => {
+        if (!reportData?.breakdown?.byBranch) return [];
+        const expMap = {};
+        reportData.breakdown.byBranch.forEach(br => {
+            if (br.expenses) {
+                Object.entries(br.expenses).forEach(([k, v]) => {
+                    if (v > 0) {
+                        const name = k === 'mr' ? 'Material Receipt' : k === 'hpDiesel' ? 'HP Diesel' : k === 'visatPump' ? 'Visat Pump' : k;
+                        expMap[name] = (expMap[name] || 0) + v;
+                    }
+                });
+            }
+        });
+        return Object.entries(expMap)
+            .map(([name, value]) => ({ name, value }))
+            .sort((a, b) => b.value - a.value);
+    }, [reportData]);
+
+    const COLORS = ['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#8b5cf6', '#ec4899', '#64748b'];
 
     if (loading) {
         return (
@@ -614,8 +645,40 @@ const TransportAccountsReport = ({
                         </div>
                     </div>
 
+                    {/* Expense Breakdown Donut Chart */}
+                    {expenseChartData.length > 0 && (
+                        <div className="nucleus-stats-card" style={{ marginTop: '16px' }}>
+                            <div className="balance-type-section-title">Expense Breakdown</div>
+                            <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '14px' }}>Distribution of expenses across all branches</div>
+                            <div style={{ height: '300px', width: '100%' }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={expenseChartData}
+                                            cx="50%"
+                                            cy="50%"
+                                            innerRadius={60}
+                                            outerRadius={100}
+                                            paddingAngle={5}
+                                            dataKey="value"
+                                        >
+                                            {expenseChartData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            ))}
+                                        </Pie>
+                                        <RechartsTooltip 
+                                            formatter={(value) => formatCurrency(value)}
+                                            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                        />
+                                        <Legend verticalAlign="bottom" height={36}/>
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Balance Type Breakdowns */}
-                    <div>
+                    <div style={{ marginTop: '16px' }}>
                         <div className="balance-type-section-title">Breakdown by Balance Asset Type</div>
                         <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '14px' }}>Asset allocation, deposits, and fluid cash states</div>
                         

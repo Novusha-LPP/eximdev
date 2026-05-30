@@ -58,19 +58,31 @@ router.put("/update-branch/:id", authMiddleware, async (req, res) => {
             return res.status(404).json({ error: "Branch not found." });
         }
 
-        // Update all categories (SEA/AIR) for this branch code to keep them in sync
-        const result = await BranchModel.updateMany(
-            { branch_code: branch.branch_code },
+        // Update the specific branch (SEA or AIR) for all fields (including is_active)
+        const updatedBranch = await BranchModel.findByIdAndUpdate(
+            id,
             {
                 $set: {
                     branch_name: branch_name !== undefined ? branch_name : branch.branch_name,
                     is_active: is_active !== undefined ? is_active : branch.is_active,
                     configuration: configuration !== undefined ? configuration : branch.configuration
                 }
+            },
+            { new: true }
+        );
+
+        // Keep the other category branch in sync for name and configuration, but NOT is_active
+        const syncResult = await BranchModel.updateMany(
+            { branch_code: branch.branch_code, _id: { $ne: id } },
+            {
+                $set: {
+                    branch_name: branch_name !== undefined ? branch_name : branch.branch_name,
+                    configuration: configuration !== undefined ? configuration : branch.configuration
+                }
             }
         );
 
-        res.status(200).json({ message: "Branch updated successfully.", result });
+        res.status(200).json({ message: "Branch updated successfully.", updatedBranch, syncResult });
     } catch (error) {
         console.error("Error updating branch:", error);
         res.status(500).json({ error: "Internal Server Error" });

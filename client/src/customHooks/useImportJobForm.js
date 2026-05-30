@@ -220,7 +220,7 @@ const useImportJobForm = () => {
     insurance: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
     addl_charge: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
     revenue_deposit: { rate: 0, on: "Assessable" },
-    landing_charge: { rate: 1 }
+    landing_charge: { rate: 0 }
   });
 
   useEffect(() => {
@@ -309,8 +309,23 @@ const useImportJobForm = () => {
       updatedRows[rowIndex].po_validation_error = validationError;
     }
 
+    // Auto-calculate freight and insurance if TOI is FOB
+    const toiValue = field === "toi" ? value : (updatedRows[rowIndex].toi || "CIF");
+    if (toiValue === "FOB") {
+      if (field === "product_value" || field === "toi") {
+        const pv = parseFloat(field === "product_value" ? value : (updatedRows[rowIndex].product_value || 0)) || 0;
+        const calculatedFreight = pv * 0.20;
+        const calculatedInsurance = pv * 0.01125;
+        updatedRows[rowIndex].freight = calculatedFreight > 0 ? calculatedFreight.toFixed(2) : "";
+        updatedRows[rowIndex].insurance = calculatedInsurance > 0 ? calculatedInsurance.toFixed(2) : "";
+      }
+    } else if (field === "toi") {
+      updatedRows[rowIndex].freight = "";
+      updatedRows[rowIndex].insurance = "";
+    }
+
     // Auto-calculate total_inv_value from contributing fields
-    const calcFields = ["product_value", "freight", "insurance", "other_charges"];
+    const calcFields = ["product_value", "freight", "insurance", "other_charges", "toi"];
     if (calcFields.includes(field)) {
       const row = updatedRows[rowIndex];
       const pv = parseFloat(field === "product_value" ? value : (row.product_value || 0)) || 0;
@@ -322,6 +337,59 @@ const useImportJobForm = () => {
 
     setInvoiceDetails(updatedRows);
 
+    // Sync global CIF value (term value) across all rows
+    const totalCif = updatedRows.reduce((sum, row) => sum + (parseFloat(row.total_inv_value) || 0), 0);
+    if (totalCif > 0) {
+      setTotalInvValue(String(totalCif.toFixed(2)));
+      setTermValue(String(totalCif.toFixed(2)));
+    } else if (field === "total_inv_value") {
+      setTotalInvValue(value);
+      setTermValue(value);
+    }
+    
+    // Also sync the global F & I Charges tab amounts and rates based on FOB invoices
+    const hasFOB = updatedRows.some(row => row.toi === "FOB");
+    if (hasFOB) {
+      const totalFreight = updatedRows.reduce((sum, row) => sum + (parseFloat(row.freight) || 0), 0);
+      const totalInsurance = updatedRows.reduce((sum, row) => sum + (parseFloat(row.insurance) || 0), 0);
+      
+      setOtherChargesDetails(prev => ({
+        ...prev,
+        freight: { ...prev.freight, amount: totalFreight > 0 ? totalFreight.toFixed(2) : "", rate: 20 },
+        insurance: { ...prev.insurance, amount: totalInsurance > 0 ? totalInsurance.toFixed(2) : "", rate: 1.125 }
+      }));
+    } else if (field === "toi") {
+       setOtherChargesDetails(prev => ({
+        ...prev,
+        freight: { ...prev.freight, amount: "", rate: 0 },
+        insurance: { ...prev.insurance, amount: "", rate: 0 }
+      }));
+     }
+    
+    // Auto-sync currency for all charge heads in other_charges_details when invoice currency changes
+    if (field === "inv_currency") {
+      setOtherChargesDetails(prev => {
+        const updated = { ...prev };
+        ["freight", "insurance"].forEach(key => {
+          if (updated[key]) {
+            updated[key] = {
+              ...updated[key],
+              currency: value || ""
+            };
+          }
+        });
+        ["miscellaneous", "agency", "discount", "loading", "addl_charge"].forEach(key => {
+          if (updated[key]) {
+            updated[key] = {
+              ...updated[key],
+              currency: "INR"
+            };
+          }
+        });
+        return updated;
+      });
+    }
+
     // Sync first row with single fields for backward compatibility
     if (rowIndex === 0) {
       if (field === "invoice_number") setInvoiceNumber(value);
@@ -332,15 +400,6 @@ const useImportJobForm = () => {
       if (field === "toi") setImportTerms(value);
       if (field === "freight") setFreight(value);
       if (field === "insurance") setInsurance(value);
-      // Sync calculated total
-      const fv = parseFloat(updatedRows[0].total_inv_value) || 0;
-      if (fv > 0) {
-        setTotalInvValue(String(fv));
-        setTermValue(String(fv));
-      } else if (field === "total_inv_value") {
-        setTotalInvValue(value);
-        setTermValue(value);
-      }
     }
   };
 
@@ -590,7 +649,7 @@ const useImportJobForm = () => {
       insurance: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
       addl_charge: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
       revenue_deposit: { rate: 0, on: "Assessable" },
-      landing_charge: { rate: 1 }
+      landing_charge: { rate: 0 }
     });
     setBranchId("");
     setTradeType("IMP");
@@ -773,7 +832,23 @@ const useImportJobForm = () => {
     if (job.trade_type) setTradeType(job.trade_type);
     if (job.mode) setMode(job.mode);
     if (job.other_charges_details) {
-      setOtherChargesDetails(job.other_charges_details);
+      setOtherChargesDetails({
+        is_single_for_all: true,
+        miscellaneous: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+        agency: { currency: "INR", exchange_rate: 1, rate: 0, remark: "" },
+        discount: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+        loading: { currency: "INR", exchange_rate: 1, rate: 0, remark: "" },
+        freight: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+        insurance: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+        addl_charge: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+        revenue_deposit: { rate: 0, on: "Assessable" },
+        landing_charge: { rate: 0 },
+        ...job.other_charges_details,
+        landing_charge: {
+          rate: 0,
+          ...(job.other_charges_details?.landing_charge || {})
+        }
+      });
     }
   };
 

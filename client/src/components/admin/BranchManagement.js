@@ -155,6 +155,24 @@ function BranchManagement() {
         }
     };
 
+    const handleToggleBranchActive = async (branch, newActiveState) => {
+        try {
+            await axios.put(
+                `${process.env.REACT_APP_API_STRING}/admin/update-branch/${branch._id}`,
+                {
+                    branch_name: branch.branch_name,
+                    is_active: newActiveState,
+                    configuration: branch.configuration
+                },
+                { withCredentials: true }
+            );
+            showSnackbar(`${branch.branch_name} (${branch.category}) ${newActiveState ? 'activated' : 'deactivated'} successfully!`, "success");
+            fetchBranches();
+        } catch (error) {
+            showSnackbar(error.response?.data?.error || "Error toggling branch status", "error");
+        }
+    };
+
     const handleAddPortToBranch = async (e) => {
         e.preventDefault();
         if (!selectedBranchId) {
@@ -370,9 +388,18 @@ function BranchManagement() {
                                 <TableCell>{b.branch_name}</TableCell>
                                 <TableCell>{b.category}</TableCell>
                                 <TableCell>
-                                    <Typography variant="body2" color={b.is_active ? "green" : "red"}>
-                                        {b.is_active ? "Active" : "Inactive"}
-                                    </Typography>
+                                    <FormControlLabel
+                                        control={
+                                            <Switch
+                                                checked={b.is_active !== false}
+                                                onChange={(e) => handleToggleBranchActive(b, e.target.checked)}
+                                                color="primary"
+                                                size="small"
+                                            />
+                                        }
+                                        label={b.is_active ? "Active" : "Inactive"}
+                                        componentsProps={{ typography: { fontSize: '0.8rem', color: b.is_active ? 'green' : 'red', fontWeight: 'bold' } }}
+                                    />
                                 </TableCell>
                                 <TableCell>
                                     {b.ports && b.ports.length > 0 ? (
@@ -420,7 +447,7 @@ function BranchManagement() {
                                     color="primary"
                                 />
                             }
-                            label="Is Active"
+                            label={`Is Active (${editingBranch?.category} only)`}
                         />
 
                         <Typography variant="subtitle2" color="textSecondary" sx={{ mt: 1 }}>Feature Configuration</Typography>
@@ -458,7 +485,7 @@ function BranchManagement() {
                             />
                         </Box>
                         <Typography variant="caption" color="textSecondary">
-                            Note: Changes will apply to both SEA and AIR versions of this branch.
+                            Note: Name and configuration changes will apply to both SEA and AIR versions. Status changes apply to {editingBranch?.category} only.
                         </Typography>
                     </Box>
                 </DialogContent>

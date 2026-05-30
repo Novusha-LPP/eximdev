@@ -440,7 +440,7 @@ function useFetchJobDetails(
         insurance: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
         addl_charge: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
         revenue_deposit: { rate: 0, on: "Assessable" },
-        landing_charge: { rate: 1 }
+        landing_charge: { rate: 0 }
       },
       misc_charges: [],
       is_sent_to_submission: false,
@@ -966,7 +966,7 @@ function useFetchJobDetails(
         obl_telex_bl: safeValue(data.obl_telex_bl),
 
         dsr_queries: safeValue(data.dsr_queries, []),
-        other_charges_details: safeValue(data.other_charges_details, {
+        other_charges_details: {
           is_single_for_all: true,
           miscellaneous: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
           agency: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
@@ -976,8 +976,13 @@ function useFetchJobDetails(
           insurance: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
           addl_charge: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
           revenue_deposit: { rate: 0, on: "Assessable" },
-          landing_charge: { rate: 1 }
-        }),
+          landing_charge: { rate: 0 },
+          ...safeValue(data.other_charges_details, {}),
+          landing_charge: {
+            rate: 0,
+            ...safeValue(data.other_charges_details?.landing_charge, {})
+          }
+        },
         misc_charges: safeValue(data.misc_charges, []),
       });
     }

@@ -215,6 +215,7 @@ router.get("/api/report/import-clearance/:year/:month", async (req, res) => {
           consignment_type: 1,
           be_filing_type: 1,
           type_of_b_e: 1,
+          mode: 1,
         },
       },
     ];

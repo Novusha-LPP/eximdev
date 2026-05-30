@@ -46,7 +46,7 @@ const UtilityParent = () => {
   });
   const [migrationOptions, setMigrationOptions] = React.useState({
     runSync: true,
-    runMigrateJobs: true,
+    runMigrateJobs: false,
     runMigrateGandhidham: false,
   });
   const [notification, setNotification] = React.useState({

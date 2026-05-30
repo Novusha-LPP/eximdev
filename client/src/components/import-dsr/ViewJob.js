@@ -91,6 +91,9 @@ function JobDetails() {
     setViewJobTab(newValue);
   };
 
+  const [activeProductIndex, setActiveProductIndex] = useState(0);
+  const [productSubTab, setProductSubTab] = useState("Main");
+
   const [invoiceSubTab, setInvoiceSubTab] = useState(0);
   const handleInvoiceSubTabChange = (event, newValue) => {
     setInvoiceSubTab(newValue);
@@ -1085,6 +1088,41 @@ function JobDetails() {
           utilized_unit: "",
           utilized_amount: "",
           amount_currency: "USD",
+
+          exim_code: "",
+          nfei_category: "",
+          reward_item: false,
+          str_code: "",
+          end_use: "",
+          district_of_origin: "",
+          origin_state: "",
+          pta_fta_code: "",
+          alternate_qty: "",
+          sqc_qty: "",
+          sqc_unit: "",
+          material_code: "",
+          medicinal_plant: "",
+          formulation: "",
+          surface_material: "",
+          lab_grown_diamond: "",
+          per: "1",
+          per_unit: "",
+
+          pmv_currency: "INR",
+          pmv_calc_method: "%AGE",
+          pmv_calc_val: "",
+          pmv_unit: "",
+          pmv_rate: "",
+          total_pmv: "",
+
+          igst_payment_status: "",
+          taxable_value_inr: "",
+          taxable_value_manual: false,
+          igst_rate: "",
+          igst_amount_inr: "",
+          igst_amount_manual: false,
+          comp_cess_percent: "",
+          comp_cess_amount: ""
         },
       ];
   }, [formik.values.description_details, formik.values.clearanceValue]);
@@ -1154,6 +1192,41 @@ function JobDetails() {
         utilized_unit: "",
         utilized_amount: "",
         amount_currency: "USD",
+
+        exim_code: "",
+        nfei_category: "",
+        reward_item: false,
+        str_code: "",
+        end_use: "",
+        district_of_origin: "",
+        origin_state: "",
+        pta_fta_code: "",
+        alternate_qty: "",
+        sqc_qty: "",
+        sqc_unit: "",
+        material_code: "",
+        medicinal_plant: "",
+        formulation: "",
+        surface_material: "",
+        lab_grown_diamond: "",
+        per: "1",
+        per_unit: "",
+
+        pmv_currency: "INR",
+        pmv_calc_method: "%AGE",
+        pmv_calc_val: "",
+        pmv_unit: "",
+        pmv_rate: "",
+        total_pmv: "",
+
+        igst_payment_status: "",
+        taxable_value_inr: "",
+        taxable_value_manual: false,
+        igst_rate: "",
+        igst_amount_inr: "",
+        igst_amount_manual: false,
+        comp_cess_percent: "",
+        comp_cess_amount: ""
       },
     ]);
   };
@@ -3206,31 +3279,125 @@ function JobDetails() {
           {viewJobTab === 3 && (
             <div className="job-details-container">
               <JobDetailsRowHeading heading="Product Details" />
-              <div style={{ background: "#fff", borderRadius: "8px", border: "1px solid #e0e0e0", padding: "20px", marginBottom: "20px", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
-                <Row>
-                  <Col xs={12} className="mb-3">
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                      <label style={{ marginBottom: 0, fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>
-                        Description Details
-                      </label>
-                      {!isDescriptionTableReadOnly && (
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          startIcon={<AddIcon />}
-                          onClick={addDescriptionRow}
-                        >
-                          Add Row
-                        </Button>
-                      )}
-                    </div>
+              
+              {/* Product Circles Selector */}
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px", flexWrap: "wrap", background: "#f8fafc", padding: "12px 16px", borderRadius: "8px", border: "1px solid #cbd5e1" }}>
+                <span style={{ fontSize: "14px", fontWeight: "bold", color: "#334155" }}>Product</span>
+                {descriptionRows.map((_, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setActiveProductIndex(idx)}
+                    style={{
+                      width: "30px",
+                      height: "30px",
+                      borderRadius: "50%",
+                      border: activeProductIndex === idx ? "2px solid #0066cc" : "1px solid #cbd5e1",
+                      background: activeProductIndex === idx ? "#2563eb" : "#ffffff",
+                      color: activeProductIndex === idx ? "#ffffff" : "#334155",
+                      fontWeight: "bold",
+                      fontSize: "12px",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                      transition: "all 0.15s ease"
+                    }}
+                  >
+                    {idx + 1}
+                  </button>
+                ))}
+                {!isDescriptionTableReadOnly && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      addDescriptionRow();
+                      setActiveProductIndex(descriptionRows.length);
+                    }}
+                    style={{
+                      width: "30px",
+                      height: "30px",
+                      borderRadius: "50%",
+                      border: "1px dashed #2563eb",
+                      background: "#f0f7ff",
+                      color: "#2563eb",
+                      fontWeight: "bold",
+                      fontSize: "16px",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      transition: "all 0.15s ease",
+                      marginLeft: "6px"
+                    }}
+                    title="Add New Product"
+                  >
+                    +
+                  </button>
+                )}
+              </div>
 
-                    <div style={{ overflowX: "auto", border: "1px solid #e9ecef", borderRadius: "6px" }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "1100px" }}>
+              {/* Sub Tabs */}
+              <div style={{ display: "flex", gap: "24px", borderBottom: "2px solid #cbd5e1", paddingBottom: "8px", marginBottom: "20px" }}>
+                {["Main", "General", "Drawback", "Re-Export", "Other Details"].map((tabName) => {
+                  const isSelected = productSubTab === tabName;
+                  return (
+                    <button
+                      key={tabName}
+                      type="button"
+                      onClick={() => setProductSubTab(tabName)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        padding: "6px 12px",
+                        fontSize: "14px",
+                        fontWeight: isSelected ? "bold" : "500",
+                        color: isSelected ? "#2563eb" : "#64748b",
+                        borderBottom: isSelected ? "3px solid #2563eb" : "3px solid transparent",
+                        cursor: "pointer",
+                        transition: "all 0.15s ease",
+                        marginBottom: "-11px"
+                      }}
+                    >
+                      {tabName}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Tab Content */}
+              <div style={{ background: "#ffffff", borderRadius: "8px", border: "1px solid #cbd5e1", padding: "20px", marginBottom: "20px", boxShadow: "0 2px 4px rgba(0,0,0,0.02)" }}>
+                
+                {/* 1. Main Tab */}
+                {productSubTab === "Main" && (
+                  <div>
+                    {/* Selected Invoice box */}
+                    {(() => {
+                      const activeRow = descriptionRows[activeProductIndex] || {};
+                      const invIndex = Number(activeRow.sr_no_invoice) - 1;
+                      const activeInvoice = (formik.values.invoice_details || [])[invIndex] || {};
+                      const invoiceNo = activeInvoice.invoice_number || "None";
+                      const invoiceCurr = activeInvoice.inv_currency || "USD";
+                      return (
+                        <div style={{ background: "#f8fafc", border: "1px solid #cbd5e1", borderRadius: "6px", padding: "16px", marginBottom: "16px" }}>
+                          <div style={{ fontSize: "14px", fontWeight: "bold", color: "#1e3a8a" }}>
+                            Selected Invoice: {invoiceNo}
+                          </div>
+                          <div style={{ fontSize: "12px", color: "#64748b", marginTop: "4px" }}>
+                            Active Currency: <strong>{invoiceCurr}</strong> (Used for unit and total price)
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Product Items Table */}
+                    <div style={{ overflowX: "auto", border: "1px solid #cbd5e1", borderRadius: "6px" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "1500px" }}>
                         <thead>
-                          <tr style={{ background: "#f8f9fa" }}>
-                            {["Sr No", "Inv SR", "Description", "Quantity", "Unit", "Unit Price", "Amount", "Currency", "CTH", "Clearance", "LIC SR", "License Date", "Lic Item No", "FOC Item", "Action"].map((h) => (
-                              <th key={h} style={{ borderBottom: "1px solid #dee2e6", padding: "8px", fontSize: "0.82rem", textAlign: "left", whiteSpace: "nowrap" }}>
+                          <tr style={{ background: "#1a3168" }}>
+                            {["Sr No", "Inv SR", "Description", "RITC (HS Code)", "Quantity", "SQC Qty", "Unit Price", "Currency", "Per", "Amount", "License No", "License Date", "License SR", "Action"].map((h) => (
+                              <th key={h} style={{ borderBottom: "2px solid #dee2e6", padding: "10px 8px", fontSize: "0.82rem", fontWeight: "bold", textAlign: "left", whiteSpace: "nowrap", color: "#ffffff" }}>
                                 {h}
                               </th>
                             ))}
@@ -3238,17 +3405,37 @@ function JobDetails() {
                         </thead>
                         <tbody>
                           {descriptionRows.map((row, rowIndex) => (
-                            <tr key={`desc-row-${rowIndex}`}>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", textAlign: "center", width: "40px" }}>
+                            <tr key={`main-desc-row-${rowIndex}`} style={{ borderBottom: "1px solid #cbd5e1", background: activeProductIndex === rowIndex ? "#f0f7ff" : "transparent" }}>
+                              {/* Sr No */}
+                              <td style={{ padding: "6px 8px", textAlign: "center", width: "45px", fontSize: "12px", fontWeight: "bold" }}>
                                 {rowIndex + 1}
                               </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "80px" }}>
+                              {/* Inv SR */}
+                              <td style={{ padding: "6px 8px", width: "80px" }}>
                                 <TextField
                                   select
                                   size="small"
                                   fullWidth
                                   value={row.sr_no_invoice || ""}
-                                  onChange={(e) => updateDescriptionRow(rowIndex, "sr_no_invoice", e.target.value)}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    const invIdx = Number(val) - 1;
+                                    const activeInvoice = (formik.values.invoice_details || [])[invIdx] || {};
+                                    const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
+                                    const qty = parseFloat(row.quantity) || 0;
+                                    const price = parseFloat(row.unit_price) || 0;
+                                    const amount = qty * price;
+                                    
+                                    updateDescriptionRowMultiple(rowIndex, {
+                                      sr_no_invoice: val,
+                                      ...(!row.taxable_value_manual && {
+                                        taxable_value_inr: (amount * exrate).toFixed(2),
+                                        ...(!row.igst_amount_manual && {
+                                          igst_amount_inr: ((amount * exrate * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
+                                        })
+                                      })
+                                    });
+                                  }}
                                   disabled={isDescriptionTableReadOnly}
                                 >
                                   <MenuItem value="">Select</MenuItem>
@@ -3259,7 +3446,8 @@ function JobDetails() {
                                   ))}
                                 </TextField>
                               </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", verticalAlign: "top", minWidth: "250px" }}>
+                              {/* Description */}
+                              <td style={{ padding: "6px 8px", minWidth: "240px" }}>
                                 <TextField
                                   size="small"
                                   fullWidth
@@ -3268,55 +3456,123 @@ function JobDetails() {
                                   value={row.description || ""}
                                   onChange={(e) => updateDescriptionRow(rowIndex, "description", e.target.value)}
                                   disabled={isDescriptionTableReadOnly}
-                                  sx={{
-                                    ...compactInputSx,
-                                    "& .MuiOutlinedInput-root": { ...compactInputSx["& .MuiOutlinedInput-root"], height: "auto" }
-                                  }}
+                                  sx={compactInputSx}
                                 />
                               </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                              {/* RITC (HS Code) */}
+                              <td style={{ padding: "6px 8px", width: "120px" }}>
                                 <TextField
                                   size="small"
                                   fullWidth
-                                  value={row.quantity || ""}
-                                  onChange={(e) => updateDescriptionRow(rowIndex, "quantity", e.target.value)}
+                                  value={row.cth_no || ""}
+                                  onChange={(e) => updateDescriptionRow(rowIndex, "cth_no", e.target.value)}
                                   disabled={isDescriptionTableReadOnly}
+                                  sx={compactInputSx}
                                 />
                               </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                                <Autocomplete
-                                  size="small"
-                                  fullWidth
-                                  freeSolo
-                                  options={unitOptions.map(u => u.code)}
-                                  value={row.unit || ""}
-                                  onChange={(e, newValue) => updateDescriptionRow(rowIndex, "unit", newValue || "")}
-                                  onInputChange={(e, newInputValue, reason) => {
-                                    if (reason === "input") updateDescriptionRow(rowIndex, "unit", newInputValue);
-                                  }}
-                                  disabled={isDescriptionTableReadOnly}
-                                  renderInput={(params) => <TextField {...params} size="small" />}
-                                />
+                              {/* Quantity */}
+                              <td style={{ padding: "6px 8px", width: "190px" }}>
+                                <div style={{ display: "flex", gap: "4px" }}>
+                                  <TextField
+                                    size="small"
+                                    value={row.quantity || ""}
+                                    onChange={(e) => {
+                                      const qty = e.target.value;
+                                      const qtyNum = parseFloat(qty) || 0;
+                                      const price = parseFloat(row.unit_price) || 0;
+                                      const amount = qtyNum * price;
+                                      const invIndex = Number(row.sr_no_invoice) - 1;
+                                      const activeInvoice = (formik.values.invoice_details || [])[invIndex] || {};
+                                      const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
+                                      
+                                      updateDescriptionRowMultiple(rowIndex, {
+                                        quantity: qty,
+                                        amount: amount.toFixed(2),
+                                        ...(!row.taxable_value_manual && {
+                                          taxable_value_inr: (amount * exrate).toFixed(2),
+                                          ...(!row.igst_amount_manual && {
+                                            igst_amount_inr: ((amount * exrate * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
+                                          })
+                                        })
+                                      });
+                                    }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={{ flex: 1.5, ...compactInputSx }}
+                                  />
+                                  <div style={{ flex: 1 }}>
+                                    <Autocomplete
+                                      size="small"
+                                      freeSolo
+                                      options={unitOptions.map(u => u.code)}
+                                      value={row.unit || ""}
+                                      onChange={(e, newValue) => updateDescriptionRow(rowIndex, "unit", newValue || "")}
+                                      onInputChange={(e, newInputValue, reason) => {
+                                        if (reason === "input") updateDescriptionRow(rowIndex, "unit", newInputValue);
+                                      }}
+                                      disabled={isDescriptionTableReadOnly}
+                                      renderInput={(params) => <TextField {...params} size="small" />}
+                                    />
+                                  </div>
+                                </div>
                               </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                              {/* SQC Qty */}
+                              <td style={{ padding: "6px 8px", width: "190px" }}>
+                                <div style={{ display: "flex", gap: "4px" }}>
+                                  <TextField
+                                    size="small"
+                                    value={row.sqc_qty || ""}
+                                    onChange={(e) => updateDescriptionRow(rowIndex, "sqc_qty", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={{ flex: 1.5, ...compactInputSx }}
+                                  />
+                                  <div style={{ flex: 1 }}>
+                                    <Autocomplete
+                                      size="small"
+                                      freeSolo
+                                      options={unitOptions.map(u => u.code)}
+                                      value={row.sqc_unit || ""}
+                                      onChange={(e, newValue) => updateDescriptionRow(rowIndex, "sqc_unit", newValue || "")}
+                                      onInputChange={(e, newInputValue, reason) => {
+                                        if (reason === "input") updateDescriptionRow(rowIndex, "sqc_unit", newInputValue);
+                                      }}
+                                      disabled={isDescriptionTableReadOnly}
+                                      renderInput={(params) => <TextField {...params} size="small" />}
+                                    />
+                                  </div>
+                                </div>
+                              </td>
+                              {/* Unit Price */}
+                              <td style={{ padding: "6px 8px", width: "95px" }}>
                                 <TextField
                                   size="small"
                                   fullWidth
                                   value={row.unit_price || ""}
-                                  onChange={(e) => updateDescriptionRow(rowIndex, "unit_price", e.target.value)}
+                                  onChange={(e) => {
+                                    const price = e.target.value;
+                                    const priceNum = parseFloat(price) || 0;
+                                    const qty = parseFloat(row.quantity) || 0;
+                                    const amount = qty * priceNum;
+                                    const invIndex = Number(row.sr_no_invoice) - 1;
+                                    const activeInvoice = (formik.values.invoice_details || [])[invIndex] || {};
+                                    const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
+
+                                    updateDescriptionRowMultiple(rowIndex, {
+                                      unit_price: price,
+                                      amount: amount.toFixed(2),
+                                      ...(!row.taxable_value_manual && {
+                                        taxable_value_inr: (amount * exrate).toFixed(2),
+                                        ...(!row.igst_amount_manual && {
+                                          igst_amount_inr: ((amount * exrate * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
+                                        })
+                                      })
+                                    });
+                                  }}
                                   disabled={isDescriptionTableReadOnly}
+                                  sx={compactInputSx}
                                 />
                               </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  value={row.amount || ""}
-                                  InputProps={{ readOnly: true }}
-                                  disabled={isDescriptionTableReadOnly}
-                                />
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", minWidth: "90px" }}>
+                              {/* Currency */}
+                              <td style={{ padding: "6px 8px", width: "95px" }}>
                                 <TextField
                                   select
                                   size="small"
@@ -3327,35 +3583,48 @@ function JobDetails() {
                                 >
                                   <MenuItem value="USD">USD</MenuItem>
                                   <MenuItem value="INR">INR</MenuItem>
+                                  <MenuItem value="EUR">EUR</MenuItem>
+                                  <MenuItem value="GBP">GBP</MenuItem>
                                 </TextField>
                               </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                              {/* Per */}
+                              <td style={{ padding: "6px 8px", width: "160px" }}>
+                                <div style={{ display: "flex", gap: "4px" }}>
+                                  <TextField
+                                    size="small"
+                                    value={row.per || "1"}
+                                    onChange={(e) => updateDescriptionRow(rowIndex, "per", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={{ flex: 1, ...compactInputSx }}
+                                  />
+                                  <div style={{ flex: 1.5 }}>
+                                    <Autocomplete
+                                      size="small"
+                                      freeSolo
+                                      options={unitOptions.map(u => u.code)}
+                                      value={row.per_unit || row.unit || ""}
+                                      onChange={(e, newValue) => updateDescriptionRow(rowIndex, "per_unit", newValue || "")}
+                                      onInputChange={(e, newInputValue, reason) => {
+                                        if (reason === "input") updateDescriptionRow(rowIndex, "per_unit", newInputValue);
+                                      }}
+                                      disabled={isDescriptionTableReadOnly}
+                                      renderInput={(params) => <TextField {...params} size="small" />}
+                                    />
+                                  </div>
+                                </div>
+                              </td>
+                              {/* Amount */}
+                              <td style={{ padding: "6px 8px", width: "110px" }}>
                                 <TextField
                                   size="small"
                                   fullWidth
-                                  value={row.cth_no || ""}
-                                  onChange={(e) => updateDescriptionRow(rowIndex, "cth_no", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
+                                  value={row.amount || ""}
+                                  InputProps={{ readOnly: true }}
+                                  sx={{ ...compactInputSx, "& .MuiInputBase-root": { bgcolor: "#f8f9fa" } }}
                                 />
                               </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                                <TextField
-                                  select
-                                  size="small"
-                                  fullWidth
-                                  value={row.clearance_under || ""}
-                                  onChange={(e) => updateDescriptionRow(rowIndex, "clearance_under", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                >
-                                  <MenuItem value="">Select</MenuItem>
-                                  {schemeOptions.map((option, index) => (
-                                    <MenuItem key={index} value={option}>
-                                      {option}
-                                    </MenuItem>
-                                  ))}
-                                </TextField>
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", minWidth: "180px" }}>
+                              {/* License No */}
+                              <td style={{ padding: "6px 8px", width: "180px" }}>
                                 <Autocomplete
                                   size="small"
                                   fullWidth
@@ -3421,16 +3690,19 @@ function JobDetails() {
                                   renderInput={(params) => <TextField {...params} size="small" />}
                                 />
                               </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", minWidth: "120px" }}>
+                              {/* License Date */}
+                              <td style={{ padding: "6px 8px", width: "120px" }}>
                                 <TextField
                                   size="small"
                                   fullWidth
                                   value={row.license_date || ""}
                                   onChange={(e) => updateDescriptionRow(rowIndex, "license_date", e.target.value)}
                                   disabled={isDescriptionTableReadOnly}
+                                  sx={compactInputSx}
                                 />
                               </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", minWidth: "100px" }}>
+                              {/* License SR */}
+                              <td style={{ padding: "6px 8px", width: "120px" }}>
                                 {(() => {
                                   const licNum = row.sr_no_lic || row.license_no;
                                   const selectedAuth = authorizationsList.find(a => a.authorization_no === licNum);
@@ -3476,26 +3748,14 @@ function JobDetails() {
                                           updateDescriptionRow(rowIndex, "license_sr", val ? Number(val) : "");
                                         }}
                                         disabled={isDescriptionTableReadOnly}
+                                        sx={compactInputSx}
                                       />
                                     );
                                   }
                                 })()}
                               </td>
-
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
-                                <TextField
-                                  select
-                                  size="small"
-                                  fullWidth
-                                  value={row.foc_item || "No"}
-                                  onChange={(e) => updateDescriptionRow(rowIndex, "foc_item", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                >
-                                  <MenuItem value="Yes">Yes</MenuItem>
-                                  <MenuItem value="No">No</MenuItem>
-                                </TextField>
-                              </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", textAlign: "center" }}>
+                              {/* Action */}
+                              <td style={{ padding: "6px 8px", textAlign: "center" }}>
                                 {!isDescriptionTableReadOnly && (
                                   <IconButton
                                     size="small"
@@ -3512,8 +3772,632 @@ function JobDetails() {
                         </tbody>
                       </table>
                     </div>
-                  </Col>
-                </Row>
+                    {!isDescriptionTableReadOnly && (
+                      <div style={{ marginTop: "12px", display: "flex", justifyContent: "flex-start" }}>
+                        <Button
+                          variant="contained"
+                          type="button"
+                          onClick={() => {
+                            addDescriptionRow();
+                            setActiveProductIndex(descriptionRows.length);
+                          }}
+                          sx={{
+                            backgroundColor: "#1a3168",
+                            color: "#fff",
+                            "&:hover": {
+                              backgroundColor: "#162854"
+                            },
+                            textTransform: "none",
+                            fontWeight: "bold",
+                            fontSize: "12px",
+                            padding: "6px 16px",
+                            borderRadius: "4px"
+                          }}
+                        >
+                          + Add New Product
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 2. General Tab */}
+                {productSubTab === "General" && (() => {
+                  const row = descriptionRows[activeProductIndex] || {};
+                  const rowIndex = activeProductIndex;
+                  return (
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                        <h3 style={{ fontSize: "15px", fontWeight: "bold", margin: 0, color: "#1e3a8a" }}>
+                          Product {rowIndex + 1} - General Details
+                        </h3>
+                        <span style={{ background: "#e2e8f0", color: "#334155", padding: "2px 8px", borderRadius: "4px", fontSize: "11px", fontWeight: "bold" }}>
+                          S.No: {rowIndex + 1}
+                        </span>
+                      </div>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "16px", marginBottom: "24px" }}>
+                        {/* Exim Code */}
+                        <div className="ap-field-group">
+                          <label className="ap-field-label">Exim Code</label>
+                          <select
+                            className="ap-field-input"
+                            value={row.exim_code || ""}
+                            onChange={(e) => updateDescriptionRow(rowIndex, "exim_code", e.target.value)}
+                            disabled={isDescriptionTableReadOnly}
+                            style={{ height: "32px", padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: "4px" }}
+                          >
+                            <option value="">SELECT EXIM CODE</option>
+                            <option value="19 - DRAWBACK (DBK)">19 - DRAWBACK (DBK)</option>
+                            <option value="00 - FREE OF COST">00 - FREE OF COST</option>
+                          </select>
+                        </div>
+
+                        {/* NFEI Category */}
+                        <div className="ap-field-group">
+                          <label className="ap-field-label">NFEI Category</label>
+                          <select
+                            className="ap-field-input"
+                            value={row.nfei_category || ""}
+                            onChange={(e) => updateDescriptionRow(rowIndex, "nfei_category", e.target.value)}
+                            disabled={isDescriptionTableReadOnly}
+                            style={{ height: "32px", padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: "4px" }}
+                          >
+                            <option value="">SELECT CATEGORY</option>
+                            <option value="Standard">Standard</option>
+                          </select>
+                        </div>
+
+                        {/* REWARD ITEM + STR Code */}
+                        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                          <label style={{ fontSize: "10px", fontWeight: "bold", display: "flex", alignItems: "center", cursor: "pointer", textTransform: "uppercase", color: "#64748b" }}>
+                            <input
+                              type="checkbox"
+                              checked={!!row.reward_item}
+                              onChange={(e) => updateDescriptionRow(rowIndex, "reward_item", e.target.checked)}
+                              disabled={isDescriptionTableReadOnly}
+                              style={{ marginRight: "6px" }}
+                            />
+                            REWARD ITEM
+                          </label>
+                          <div className="ap-field-group" style={{ marginTop: "2px" }}>
+                            <label className="ap-field-label">STR Code</label>
+                            <input
+                              type="text"
+                              className="ap-field-input"
+                              value={row.str_code || ""}
+                              onChange={(e) => updateDescriptionRow(rowIndex, "str_code", e.target.value)}
+                              disabled={isDescriptionTableReadOnly}
+                              style={{ height: "32px", padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: "4px" }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* End Use */}
+                        <div className="ap-field-group">
+                          <label className="ap-field-label">End Use</label>
+                          <input
+                            type="text"
+                            className="ap-field-input"
+                            value={row.end_use || ""}
+                            onChange={(e) => updateDescriptionRow(rowIndex, "end_use", e.target.value)}
+                            disabled={isDescriptionTableReadOnly}
+                            style={{ height: "32px", padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: "4px" }}
+                            placeholder="GNX200 - GENERIC - FOR COMMERCIAL ASSEMBLY OR PROCESS"
+                          />
+                        </div>
+
+                        {/* District of Origin */}
+                        <div className="ap-field-group">
+                          <label className="ap-field-label">District of Origin</label>
+                          <select
+                            className="ap-field-input"
+                            value={row.district_of_origin || ""}
+                            onChange={(e) => updateDescriptionRow(rowIndex, "district_of_origin", e.target.value)}
+                            disabled={isDescriptionTableReadOnly}
+                            style={{ height: "32px", padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: "4px" }}
+                          >
+                            <option value="">SELECT DISTRICT</option>
+                            <option value="446 - GANDHINAGAR">446 - GANDHINAGAR</option>
+                            <option value="447 - AHMEDABAD">447 - AHMEDABAD</option>
+                          </select>
+                        </div>
+
+                        {/* Origin State */}
+                        <div className="ap-field-group">
+                          <label className="ap-field-label">Origin State</label>
+                          <input
+                            type="text"
+                            className="ap-field-input"
+                            value={row.origin_state || ""}
+                            onChange={(e) => updateDescriptionRow(rowIndex, "origin_state", e.target.value)}
+                            disabled={isDescriptionTableReadOnly}
+                            style={{ height: "32px", padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: "4px" }}
+                            placeholder="GUJARAT"
+                          />
+                        </div>
+
+                        {/* PTA / FTA Code */}
+                        <div className="ap-field-group">
+                          <label className="ap-field-label">PTA / FTA Code</label>
+                          <input
+                            type="text"
+                            className="ap-field-input"
+                            value={row.pta_fta_code || ""}
+                            onChange={(e) => updateDescriptionRow(rowIndex, "pta_fta_code", e.target.value)}
+                            disabled={isDescriptionTableReadOnly}
+                            style={{ height: "32px", padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: "4px" }}
+                            placeholder="NCPTI - PREFERENTIAL TRADE BENEFIT NOT CLAIMED AT IMPORT"
+                          />
+                        </div>
+
+                        {/* Alternate Qty */}
+                        <div className="ap-field-group">
+                          <label className="ap-field-label">Alternate Qty</label>
+                          <input
+                            type="text"
+                            className="ap-field-input"
+                            value={row.alternate_qty || ""}
+                            onChange={(e) => updateDescriptionRow(rowIndex, "alternate_qty", e.target.value)}
+                            disabled={isDescriptionTableReadOnly}
+                            style={{ height: "32px", padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: "4px" }}
+                          />
+                        </div>
+
+                        {/* SQC Quantity */}
+                        <div className="ap-field-group">
+                          <label className="ap-field-label">SQC Quantity</label>
+                          <input
+                            type="text"
+                            className="ap-field-input"
+                            value={row.sqc_qty || ""}
+                            onChange={(e) => updateDescriptionRow(rowIndex, "sqc_qty", e.target.value)}
+                            disabled={isDescriptionTableReadOnly}
+                            style={{ height: "32px", padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: "4px" }}
+                          />
+                        </div>
+
+                        {/* SQC Unit */}
+                        <div className="ap-field-group">
+                          <label className="ap-field-label">SQC Unit</label>
+                          <select
+                            className="ap-field-input"
+                            value={row.sqc_unit || ""}
+                            onChange={(e) => updateDescriptionRow(rowIndex, "sqc_unit", e.target.value)}
+                            disabled={isDescriptionTableReadOnly}
+                            style={{ height: "32px", padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: "4px" }}
+                          >
+                            <option value="">SELECT SQC UNIT</option>
+                            {unitOptions.map(u => (
+                              <option key={u.code} value={u.code}>{u.code}</option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Material Code */}
+                        <div className="ap-field-group">
+                          <label className="ap-field-label">Material Code</label>
+                          <input
+                            type="text"
+                            className="ap-field-input"
+                            value={row.material_code || ""}
+                            onChange={(e) => updateDescriptionRow(rowIndex, "material_code", e.target.value)}
+                            disabled={isDescriptionTableReadOnly}
+                            style={{ height: "32px", padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: "4px" }}
+                          />
+                        </div>
+
+                        {/* Medicinal Plant */}
+                        <div className="ap-field-group">
+                          <label className="ap-field-label">Medicinal Plant</label>
+                          <input
+                            type="text"
+                            className="ap-field-input"
+                            value={row.medicinal_plant || ""}
+                            onChange={(e) => updateDescriptionRow(rowIndex, "medicinal_plant", e.target.value)}
+                            disabled={isDescriptionTableReadOnly}
+                            style={{ height: "32px", padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: "4px" }}
+                          />
+                        </div>
+
+                        {/* Formulation */}
+                        <div className="ap-field-group">
+                          <label className="ap-field-label">Formulation</label>
+                          <input
+                            type="text"
+                            className="ap-field-input"
+                            value={row.formulation || ""}
+                            onChange={(e) => updateDescriptionRow(rowIndex, "formulation", e.target.value)}
+                            disabled={isDescriptionTableReadOnly}
+                            style={{ height: "32px", padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: "4px" }}
+                          />
+                        </div>
+
+                        {/* Surface Material in Contact */}
+                        <div className="ap-field-group">
+                          <label className="ap-field-label">Surface Material in Contact</label>
+                          <input
+                            type="text"
+                            className="ap-field-input"
+                            value={row.surface_material || ""}
+                            onChange={(e) => updateDescriptionRow(rowIndex, "surface_material", e.target.value)}
+                            disabled={isDescriptionTableReadOnly}
+                            style={{ height: "32px", padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: "4px" }}
+                          />
+                        </div>
+
+                        {/* Lab Grown Diamond */}
+                        <div className="ap-field-group">
+                          <label className="ap-field-label">Lab Grown Diamond</label>
+                          <select
+                            className="ap-field-input"
+                            value={row.lab_grown_diamond || ""}
+                            onChange={(e) => updateDescriptionRow(rowIndex, "lab_grown_diamond", e.target.value)}
+                            disabled={isDescriptionTableReadOnly}
+                            style={{ height: "32px", padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: "4px" }}
+                          >
+                            <option value="">SELECT</option>
+                            <option value="YES">YES</option>
+                            <option value="NO">NO</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* PMV Info */}
+                      <div style={{ borderTop: "1px solid #cbd5e1", paddingTop: "16px", marginBottom: "20px" }}>
+                        <h4 style={{ fontSize: "13px", fontWeight: "bold", marginBottom: "12px", color: "#1e3a8a" }}>
+                          PMV Info
+                        </h4>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: "16px" }}>
+                          {/* Currency */}
+                          <div className="ap-field-group">
+                            <label className="ap-field-label">Currency</label>
+                            <select
+                              className="ap-field-input"
+                              value={row.pmv_currency || "INR"}
+                              onChange={(e) => updateDescriptionRow(rowIndex, "pmv_currency", e.target.value)}
+                              disabled={isDescriptionTableReadOnly}
+                              style={{ height: "32px", padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: "4px" }}
+                            >
+                              <option value="INR">INR</option>
+                              <option value="USD">USD</option>
+                              <option value="EUR">EUR</option>
+                            </select>
+                          </div>
+
+                          {/* Calc Method */}
+                          <div className="ap-field-group">
+                            <label className="ap-field-label">Calc. Method</label>
+                            <div style={{ display: "flex", gap: "4px" }}>
+                              <select
+                                value={row.pmv_calc_method || "%AGE"}
+                                onChange={(e) => updateDescriptionRow(rowIndex, "pmv_calc_method", e.target.value)}
+                                disabled={isDescriptionTableReadOnly}
+                                style={{ flex: 1.2, height: "32px", padding: "0 4px", border: "1px solid #cbd5e1", borderRadius: "4px" }}
+                              >
+                                <option value="%AGE">%AGE</option>
+                                <option value="QTY">QTY</option>
+                              </select>
+                              <input
+                                type="text"
+                                value={row.pmv_calc_val || ""}
+                                onChange={(e) => updateDescriptionRow(rowIndex, "pmv_calc_val", e.target.value)}
+                                disabled={isDescriptionTableReadOnly}
+                                style={{ flex: 1, height: "32px", padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: "4px" }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* PMV / Unit */}
+                          <div className="ap-field-group">
+                            <label className="ap-field-label">PMV / Unit</label>
+                            <div style={{ display: "flex", alignItems: "center", border: "1px solid #cbd5e1", borderRadius: "4px", background: "#f8f9fa", height: "32px" }}>
+                              <input
+                                type="text"
+                                value={row.pmv_rate || ""}
+                                onChange={(e) => {
+                                  const rate = e.target.value;
+                                  const qtyVal = parseFloat(row.quantity) || 0;
+                                  const rateVal = parseFloat(rate) || 0;
+                                  updateDescriptionRowMultiple(rowIndex, {
+                                    pmv_rate: rate,
+                                    total_pmv: (qtyVal * rateVal).toFixed(2)
+                                  });
+                                }}
+                                disabled={isDescriptionTableReadOnly}
+                                style={{ flex: 1, border: "none", background: "none", outline: "none", padding: "0 8px", fontSize: "12px", height: "100%" }}
+                              />
+                              <span style={{ fontSize: "10px", paddingRight: "8px", color: "#64748b" }}>{row.pmv_currency || "INR"}</span>
+                            </div>
+                          </div>
+
+                          {/* Total PMV */}
+                          <div className="ap-field-group">
+                            <label className="ap-field-label">Total PMV</label>
+                            <div style={{ display: "flex", alignItems: "center", border: "1px solid #cbd5e1", borderRadius: "4px", background: "#f8f9fa", height: "32px" }}>
+                              <input
+                                type="text"
+                                value={row.total_pmv || ""}
+                                readOnly
+                                style={{ flex: 1, border: "none", background: "none", outline: "none", padding: "0 8px", fontSize: "12px", height: "100%" }}
+                              />
+                              <span style={{ fontSize: "10px", paddingRight: "8px", color: "#64748b" }}>{row.pmv_currency || "INR"}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* IGST & Compensation Cess Info */}
+                      <div style={{ borderTop: "1px solid #cbd5e1", paddingTop: "16px" }}>
+                        <h4 style={{ fontSize: "13px", fontWeight: "bold", marginBottom: "12px", color: "#1e3a8a" }}>
+                          IGST &amp; Compensation Cess Info
+                        </h4>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                          {/* Left Column */}
+                          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                            {/* IGST Payment Status */}
+                            <div className="ap-field-group">
+                              <label className="ap-field-label">IGST Pymt Status</label>
+                              <select
+                                className="ap-field-input"
+                                value={row.igst_payment_status || ""}
+                                onChange={(e) => updateDescriptionRow(rowIndex, "igst_payment_status", e.target.value)}
+                                disabled={isDescriptionTableReadOnly}
+                                style={{ height: "32px", padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: "4px" }}
+                              >
+                                <option value="">SELECT STATUS</option>
+                                <option value="EXPORT AGAINST PAYMENT">EXPORT AGAINST PAYMENT</option>
+                                <option value="LUT WITHOUT PAYMENT">LUT WITHOUT PAYMENT</option>
+                              </select>
+                            </div>
+
+                            {/* IGST Rate */}
+                            <div className="ap-field-group">
+                              <label className="ap-field-label">IGST Rate (%)</label>
+                              <select
+                                className="ap-field-input"
+                                value={row.igst_rate || ""}
+                                onChange={(e) => {
+                                  const rate = e.target.value;
+                                  const rateNum = parseFloat(rate) || 0;
+                                  const taxVal = parseFloat(row.taxable_value_inr) || 0;
+                                  updateDescriptionRowMultiple(rowIndex, {
+                                    igst_rate: rate,
+                                    ...(!row.igst_amount_manual && { igst_amount_inr: ((taxVal * rateNum) / 100).toFixed(2) })
+                                  });
+                                }}
+                                disabled={isDescriptionTableReadOnly}
+                                style={{ height: "32px", padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: "4px" }}
+                              >
+                                <option value="">SELECT RATE</option>
+                                <option value="0%">0%</option>
+                                <option value="5%">5%</option>
+                                <option value="12%">12%</option>
+                                <option value="18%">18%</option>
+                                <option value="28%">28%</option>
+                              </select>
+                            </div>
+
+                            {/* Comp Cess % */}
+                            <div className="ap-field-group">
+                              <label className="ap-field-label">Comp. Cess (%)</label>
+                              <input
+                                type="text"
+                                className="ap-field-input"
+                                value={row.comp_cess_percent || ""}
+                                onChange={(e) => {
+                                  const rate = e.target.value;
+                                  const rateNum = parseFloat(rate) || 0;
+                                  const taxVal = parseFloat(row.taxable_value_inr) || 0;
+                                  updateDescriptionRowMultiple(rowIndex, {
+                                    comp_cess_percent: rate,
+                                    comp_cess_amount: ((taxVal * rateNum) / 100).toFixed(2)
+                                  });
+                                }}
+                                disabled={isDescriptionTableReadOnly}
+                                style={{ height: "32px", padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: "4px" }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Right Column */}
+                          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                            {/* Taxable Value INR */}
+                            <div className="ap-field-group">
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <label className="ap-field-label">Taxable Value (INR)</label>
+                                <label style={{ fontSize: "10px", fontWeight: "bold", cursor: "pointer", display: "flex", alignItems: "center" }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={!!row.taxable_value_manual}
+                                    onChange={(e) => updateDescriptionRow(rowIndex, "taxable_value_manual", e.target.checked)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    style={{ marginRight: "4px" }}
+                                  />
+                                  MANUAL
+                                </label>
+                              </div>
+                              <input
+                                type="text"
+                                className="ap-field-input"
+                                value={row.taxable_value_inr || ""}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  const taxVal = parseFloat(val) || 0;
+                                  const igstRateNum = parseFloat(row.igst_rate) || 0;
+                                  const cessRateNum = parseFloat(row.comp_cess_percent) || 0;
+                                  updateDescriptionRowMultiple(rowIndex, {
+                                    taxable_value_inr: val,
+                                    ...(!row.igst_amount_manual && { igst_amount_inr: ((taxVal * igstRateNum) / 100).toFixed(2) }),
+                                    comp_cess_amount: ((taxVal * cessRateNum) / 100).toFixed(2)
+                                  });
+                                }}
+                                readOnly={!row.taxable_value_manual}
+                                disabled={isDescriptionTableReadOnly}
+                                style={{ height: "32px", padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: "4px", background: !row.taxable_value_manual ? "#f1f5f9" : "#ffffff" }}
+                              />
+                            </div>
+
+                            {/* IGST Amount INR */}
+                            <div className="ap-field-group">
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <label className="ap-field-label">IGST Amt (INR)</label>
+                                <label style={{ fontSize: "10px", fontWeight: "bold", cursor: "pointer", display: "flex", alignItems: "center" }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={!!row.igst_amount_manual}
+                                    onChange={(e) => updateDescriptionRow(rowIndex, "igst_amount_manual", e.target.checked)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    style={{ marginRight: "4px" }}
+                                  />
+                                  MANUAL
+                                </label>
+                              </div>
+                              <input
+                                type="text"
+                                className="ap-field-input"
+                                value={row.igst_amount_inr || ""}
+                                onChange={(e) => updateDescriptionRow(rowIndex, "igst_amount_inr", e.target.value)}
+                                readOnly={!row.igst_amount_manual}
+                                disabled={isDescriptionTableReadOnly}
+                                style={{ height: "32px", padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: "4px", background: !row.igst_amount_manual ? "#f1f5f9" : "#ffffff" }}
+                              />
+                            </div>
+
+                            {/* Comp Cess Amt INR */}
+                            <div className="ap-field-group">
+                              <label className="ap-field-label">Comp. Cess Amt (INR)</label>
+                              <input
+                                type="text"
+                                className="ap-field-input"
+                                value={row.comp_cess_amount || ""}
+                                readOnly
+                                style={{ height: "32px", padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: "4px", background: "#f1f5f9" }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* 3. Drawback Tab */}
+                {productSubTab === "Drawback" && (() => {
+                  const row = descriptionRows[activeProductIndex] || {};
+                  const rowIndex = activeProductIndex;
+                  return (
+                    <div>
+                      <h3 style={{ fontSize: "15px", fontWeight: "bold", marginBottom: "16px", color: "#1e3a8a" }}>
+                        Product {rowIndex + 1} - Drawback Details
+                      </h3>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                        <div className="ap-field-group">
+                          <label className="ap-field-label">Drawback Sl No</label>
+                          <input
+                            type="text"
+                            className="ap-field-input"
+                            value={row.dbk_sl_no || ""}
+                            onChange={(e) => updateDescriptionRow(rowIndex, "dbk_sl_no", e.target.value)}
+                            disabled={isDescriptionTableReadOnly}
+                            style={{ height: "32px", padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: "4px" }}
+                          />
+                        </div>
+                        <div className="ap-field-group">
+                          <label className="ap-field-label">Drawback Quantity</label>
+                          <input
+                            type="text"
+                            className="ap-field-input"
+                            value={row.dbk_qty || ""}
+                            onChange={(e) => updateDescriptionRow(rowIndex, "dbk_qty", e.target.value)}
+                            disabled={isDescriptionTableReadOnly}
+                            style={{ height: "32px", padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: "4px" }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* 4. Re-Export Tab */}
+                {productSubTab === "Re-Export" && (() => {
+                  const row = descriptionRows[activeProductIndex] || {};
+                  const rowIndex = activeProductIndex;
+                  return (
+                    <div>
+                      <h3 style={{ fontSize: "15px", fontWeight: "bold", marginBottom: "16px", color: "#1e3a8a" }}>
+                        Product {rowIndex + 1} - Re-Export Details
+                      </h3>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                        <div className="ap-field-group">
+                          <label className="ap-field-label">Re-Export Status</label>
+                          <select
+                            className="ap-field-input"
+                            value={row.re_export_status || ""}
+                            onChange={(e) => updateDescriptionRow(rowIndex, "re_export_status", e.target.value)}
+                            disabled={isDescriptionTableReadOnly}
+                            style={{ height: "32px", padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: "4px" }}
+                          >
+                            <option value="">SELECT</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                          </select>
+                        </div>
+                        <div className="ap-field-group">
+                          <label className="ap-field-label">Original Job Reference</label>
+                          <input
+                            type="text"
+                            className="ap-field-input"
+                            value={row.original_job_ref || ""}
+                            onChange={(e) => updateDescriptionRow(rowIndex, "original_job_ref", e.target.value)}
+                            disabled={isDescriptionTableReadOnly}
+                            style={{ height: "32px", padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: "4px" }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* 5. Other Details Tab */}
+                {productSubTab === "Other Details" && (() => {
+                  const row = descriptionRows[activeProductIndex] || {};
+                  const rowIndex = activeProductIndex;
+                  return (
+                    <div>
+                      <h3 style={{ fontSize: "15px", fontWeight: "bold", marginBottom: "16px", color: "#1e3a8a" }}>
+                        Product {rowIndex + 1} - Other Details
+                      </h3>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
+                        <div className="ap-field-group">
+                          <label className="ap-field-label">FOC Item</label>
+                          <select
+                            className="ap-field-input"
+                            value={row.foc_item || "No"}
+                            onChange={(e) => updateDescriptionRow(rowIndex, "foc_item", e.target.value)}
+                            disabled={isDescriptionTableReadOnly}
+                            style={{ height: "32px", padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: "4px" }}
+                          >
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                          </select>
+                        </div>
+                        <div className="ap-field-group">
+                          <label className="ap-field-label">Remarks</label>
+                          <input
+                            type="text"
+                            className="ap-field-input"
+                            value={row.remarks || ""}
+                            onChange={(e) => updateDescriptionRow(rowIndex, "remarks", e.target.value)}
+                            disabled={isDescriptionTableReadOnly}
+                            style={{ height: "32px", padding: "0 8px", border: "1px solid #cbd5e1", borderRadius: "4px" }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
               </div>
             </div>
           )}
@@ -4596,28 +5480,60 @@ function JobDetails() {
 
           <Row>
             <Col>
-              <Button
-                type="submit"
-                variant="contained"
+              <Box
                 sx={{
                   position: "fixed",
                   bottom: 40,
                   right: 40,
                   zIndex: 1000,
-                  backgroundColor: "#000",
-                  color: "#fff",
-                  "&:hover": {
-                    backgroundColor: "#333",
-                  },
-                  padding: "12px 32px",
-                  fontSize: "16px",
-                  fontWeight: "600",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
-                  borderRadius: "8px"
+                  display: "flex",
+                  gap: "12px",
+                  backgroundColor: "rgba(255, 255, 255, 0.9)",
+                  padding: "8px 16px",
+                  borderRadius: "30px",
+                  boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+                  backdropFilter: "blur(4px)"
                 }}
               >
-                Submit
-              </Button>
+                <Button
+                  type="button"
+                  variant="outlined"
+                  onClick={handleBackClick}
+                  sx={{
+                    borderColor: "#dc2626",
+                    color: "#dc2626",
+                    "&:hover": {
+                      borderColor: "#b91c1c",
+                      backgroundColor: "#fee2e2",
+                    },
+                    padding: "8px 24px",
+                    fontSize: "14px",
+                    fontWeight: "bold",
+                    borderRadius: "20px",
+                    textTransform: "none"
+                  }}
+                >
+                  CLOSE
+                </Button>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  sx={{
+                    backgroundColor: "#2563eb",
+                    color: "#fff",
+                    "&:hover": {
+                      backgroundColor: "#1d4ed8",
+                    },
+                    padding: "8px 24px",
+                    fontSize: "14px",
+                    fontWeight: "bold",
+                    borderRadius: "20px",
+                    textTransform: "none"
+                  }}
+                >
+                  UPDATE JOB
+                </Button>
+              </Box>
             </Col>
           </Row>
         </form >

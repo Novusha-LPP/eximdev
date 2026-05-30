@@ -93,12 +93,12 @@ export async function validateLicenseUtilization(descriptionDetails, currentJobI
       throw new Error(`Row ${i + 1}: Item Serial No. "${licenseSr}" does not exist under Authorization "${licenseNo}".`);
     }
 
-    // D. HS Code matches
-    const dsrHs = normalizeHsCode(row.cth_no || row.hs_code);
-    const licHs = normalizeHsCode(licenseItem.hs_code);
-    if (dsrHs && licHs && dsrHs !== licHs) {
-      throw new Error(`Row ${i + 1}: Selected License Item HS Code does not match Product HS Code. Please verify DGFT Authorization mapping.`);
-    }
+    // D. HS Code matches (Disabled to allow saving when HS codes differ; the product HS code will still populate in utilization logs)
+    // const dsrHs = normalizeHsCode(row.cth_no || row.hs_code);
+    // const licHs = normalizeHsCode(licenseItem.hs_code);
+    // if (dsrHs && licHs && dsrHs !== licHs) {
+    //   throw new Error(`Row ${i + 1}: Selected License Item HS Code does not match Product HS Code. Please verify DGFT Authorization mapping.`);
+    // }
 
     // E. Quantity available (check balance excluding this job)
     const requestedQty = parseFloat(row.quantity) || 0;

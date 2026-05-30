@@ -114,6 +114,42 @@ const descriptionDetailsSchema = new mongoose.Schema(
     utilized_unit: { type: String, trim: true },    // Unit for utilized quantity
     utilized_amount: { type: Number },               // CIF value utilized (in amount_currency)
     amount_currency: { type: String, trim: true, default: "USD" }, // Currency of utilized_amount (USD or INR)
+
+    // ── New Product General Details & PMV / IGST Fields ──
+    exim_code: { type: String, trim: true },
+    nfei_category: { type: String, trim: true },
+    reward_item: { type: Boolean, default: false },
+    str_code: { type: String, trim: true },
+    end_use: { type: String, trim: true },
+    district_of_origin: { type: String, trim: true },
+    origin_state: { type: String, trim: true },
+    pta_fta_code: { type: String, trim: true },
+    alternate_qty: { type: String, trim: true },
+    sqc_qty: { type: String, trim: true },
+    sqc_unit: { type: String, trim: true },
+    material_code: { type: String, trim: true },
+    medicinal_plant: { type: String, trim: true },
+    formulation: { type: String, trim: true },
+    surface_material: { type: String, trim: true },
+    lab_grown_diamond: { type: String, trim: true },
+    per: { type: String, trim: true },
+    per_unit: { type: String, trim: true },
+
+    pmv_currency: { type: String, trim: true },
+    pmv_calc_method: { type: String, trim: true },
+    pmv_calc_val: { type: String, trim: true },
+    pmv_unit: { type: String, trim: true },
+    pmv_rate: { type: String, trim: true },
+    total_pmv: { type: String, trim: true },
+
+    igst_payment_status: { type: String, trim: true },
+    taxable_value_inr: { type: String, trim: true },
+    taxable_value_manual: { type: Boolean, default: false },
+    igst_rate: { type: String, trim: true },
+    igst_amount_inr: { type: String, trim: true },
+    igst_amount_manual: { type: Boolean, default: false },
+    comp_cess_percent: { type: String, trim: true },
+    comp_cess_amount: { type: String, trim: true }
   },
   { _id: false }
 );

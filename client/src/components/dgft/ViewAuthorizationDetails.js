@@ -771,81 +771,99 @@ function ViewAuthorizationDetails() {
             </div>
           </div>
         </div>
-   {/* Compliance & Documents */}
+        {/* Compliance & Documents */}
         <div className="ap-card">
           <div className="ap-card-header">
             <div className="ap-card-title">Compliance &amp; Document Tracking</div>
           </div>
-          <div className="ap-card-body">
-            <div className="ap-fields-grid cols-4">
-              <div className="ap-field-group">
-                <label className="ap-field-label">BG Number</label>
-                <input type="text" className="ap-field-input" value={subData.bg_number}
-                  onChange={e => hc("bg_number", e.target.value)} placeholder="Enter BG number" />
-              </div>
-              <div className="ap-field-group">
-                <label className="ap-field-label">BG Expiry Date</label>
-                <DatePickerInput value={subData.bg_expiry_date} onChange={v => hc("bg_expiry_date", v)} />
-              </div>
-              <div className="ap-field-group">
-                <label className="ap-field-label">BG Amount</label>
-                <input type="text" className="ap-field-input" value={subData.bg_amount}
-                  onChange={e => hc("bg_amount", e.target.value)} placeholder="Enter BG amount" />
-              </div>
-            </div>
-
-            <div className="ap-fields-grid cols-4 mt-12">
-              <div className="ap-field-group">
-                <label className="ap-field-label">Bond Number</label>
-                <input type="text" className="ap-field-input" value={subData.bond_number}
-                  onChange={e => hc("bond_number", e.target.value)} placeholder="Enter Bond number" />
-              </div>
-              <div className="ap-field-group">
-                <label className="ap-field-label">Bond Expiry Date</label>
-                <DatePickerInput value={subData.bond_expiry_date} onChange={v => hc("bond_expiry_date", v)} />
-              </div>
-              <div className="ap-field-group">
-                <label className="ap-field-label">Bond Amount</label>
-                <input type="text" className="ap-field-input" value={subData.bond_amount}
-                  onChange={e => hc("bond_amount", e.target.value)} placeholder="Enter Bond amount" />
+          <div className="ap-card-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            
+            {/* Bank Guarantee Details */}
+            <div>
+              <div className="ap-section-subtitle" style={{ marginBottom: '12px' }}>Bank Guarantee (BG) Details</div>
+              <div className="ap-fields-grid cols-4">
+                <div className="ap-field-group">
+                  <label className="ap-field-label">BG Number</label>
+                  <input type="text" className="ap-field-input" value={subData.bg_number || ""}
+                    onChange={e => hc("bg_number", e.target.value)} placeholder="Enter BG number" />
+                </div>
+                <div className="ap-field-group">
+                  <label className="ap-field-label">BG Expiry Date</label>
+                  <DatePickerInput value={subData.bg_expiry_date} onChange={v => hc("bg_expiry_date", v)} />
+                </div>
+                <div className="ap-field-group">
+                  <label className="ap-field-label">BG Amount</label>
+                  <input type="text" className="ap-field-input" value={subData.bg_amount || ""}
+                    onChange={e => hc("bg_amount", e.target.value)} placeholder="Enter BG amount" />
+                </div>
               </div>
             </div>
 
-            <div className="ap-fields-grid cols-3 mt-12">
-              <div className="ap-field-group">
-                <label className="ap-field-label">Documents Received Date</label>
-                <DatePickerInput value={subData.documents_received_date} onChange={v => hc("documents_received_date", v)} />
-              </div>
-              <div className="ap-field-group">
-                <label className="ap-field-label">Documents Sent to ICD</label>
-                <DatePickerInput value={subData.documents_send_to_icd} onChange={v => hc("documents_send_to_icd", v)} />
-              </div>
-              <div className="ap-field-group">
-                <label className="ap-field-label">Documents Date Send to Accounts</label>
-                <DatePickerInput value={subData.documents_send_to_accounts} onChange={v => hc("documents_send_to_accounts", v)} />
+            {/* Bond Details */}
+            <div style={{ borderTop: "1px solid #cbd5e1", paddingTop: "12px" }}>
+              <div className="ap-section-subtitle" style={{ marginBottom: '12px' }}>Bond Details</div>
+              <div className="ap-fields-grid cols-4">
+                <div className="ap-field-group">
+                  <label className="ap-field-label">Bond Number</label>
+                  <input type="text" className="ap-field-input" value={subData.bond_number || ""}
+                    onChange={e => hc("bond_number", e.target.value)} placeholder="Enter Bond number" />
+                </div>
+                <div className="ap-field-group">
+                  <label className="ap-field-label">Bond Expiry Date</label>
+                  <DatePickerInput value={subData.bond_expiry_date} onChange={v => hc("bond_expiry_date", v)} />
+                </div>
+                <div className="ap-field-group">
+                  <label className="ap-field-label">Bond Amount</label>
+                  <input type="text" className="ap-field-input" value={subData.bond_amount || ""}
+                    onChange={e => hc("bond_amount", e.target.value)} placeholder="Enter Bond amount" />
+                </div>
               </div>
             </div>
 
-            <div className="ap-fields-grid cols-3 mt-12">
-              <div className="ap-field-group">
-                <label className="ap-field-label">Accounts Billing Invoice Number</label>
-                <input type="text" className="ap-field-input" value={subData.accounts_billing_invoice_no || ""}
-                  onChange={e => hc("accounts_billing_invoice_no", e.target.value)} placeholder="Enter billing invoice number" />
-              </div>
-              <div className="ap-field-group">
-                <label className="ap-field-label">Accounts Billing Invoice Date</label>
-                <DatePickerInput value={subData.accounts_billing_invoice_date} onChange={v => hc("accounts_billing_invoice_date", v)} />
-              </div>
-              <div className="ap-field-group">
-                <label className="ap-field-label">Scheme Code</label>
-                <select className="ap-field-input" value={subData.scheme_code || ""} onChange={e => hc("scheme_code", e.target.value)} style={{ padding: '6px' }}>
-                  <option value="">Select Scheme</option>
-                  {["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSCTL", "TQ", "SIL", "SEZ", "EOU", "DFIA", "Jobbing"].map(opt => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
+            {/* Document Tracking Details */}
+            <div style={{ borderTop: "1px solid #cbd5e1", paddingTop: "12px" }}>
+              <div className="ap-section-subtitle" style={{ marginBottom: '12px' }}>Document Tracking &amp; Scheme Info</div>
+              <div className="ap-fields-grid cols-4">
+                <div className="ap-field-group">
+                  <label className="ap-field-label">Documents Received Date</label>
+                  <DatePickerInput value={subData.documents_received_date} onChange={v => hc("documents_received_date", v)} />
+                </div>
+                <div className="ap-field-group">
+                  <label className="ap-field-label">Documents Sent to ICD</label>
+                  <DatePickerInput value={subData.documents_send_to_icd} onChange={v => hc("documents_send_to_icd", v)} />
+                </div>
+                <div className="ap-field-group">
+                  <label className="ap-field-label">Documents Date Send to Accounts</label>
+                  <DatePickerInput value={subData.documents_send_to_accounts} onChange={v => hc("documents_send_to_accounts", v)} />
+                </div>
+                <div className="ap-field-group">
+                  <label className="ap-field-label">Scheme Code</label>
+                  <select className="ap-field-input" value={subData.scheme_code || ""} onChange={e => hc("scheme_code", e.target.value)} style={{ padding: '6px' }}>
+                    <option value="">Select Scheme</option>
+                    {["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSCTL", "TQ", "SIL", "SEZ", "EOU", "DFIA", "Jobbing"].map(opt => (
+                      <option key={opt} value={opt}>{opt}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
+
+            {/* Accounts Billing Details */}
+            <div style={{ borderTop: "1px solid #cbd5e1", paddingTop: "12px" }}>
+              <div className="ap-section-subtitle" style={{ marginBottom: '12px' }}>Accounts &amp; Billing Info</div>
+              <div className="ap-fields-grid cols-3">
+                <div className="ap-field-group">
+                  <label className="ap-field-label">Accounts Billing Invoice Number</label>
+                  <input type="text" className="ap-field-input" value={subData.accounts_billing_invoice_no || ""}
+                    onChange={e => hc("accounts_billing_invoice_no", e.target.value)} placeholder="Enter billing invoice number" />
+                </div>
+                <div className="ap-field-group">
+                  <label className="ap-field-label">Accounts Billing Invoice Date</label>
+                  <DatePickerInput value={subData.accounts_billing_invoice_date} onChange={v => hc("accounts_billing_invoice_date", v)} />
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
         {/* Quantity & Value */}

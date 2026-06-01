@@ -81,11 +81,12 @@ async function buildOwnerFilter(user, requestedTeamId = null) {
 // GET /api/crm/opportunities
 router.get('/', async (req, res) => {
   try {
-    const { stage, forecastCategory, teamId, startDate, endDate, period, dateField, accountId } = req.query;
+    const { stage, forecastCategory, teamId, startDate, endDate, period, dateField, accountId, source } = req.query;
     const query = { ...(await buildOwnerFilter(req.user, teamId)) };
     if (stage) query.stage = stage;
     if (forecastCategory) query.forecastCategory = forecastCategory;
     if (accountId) query.accountId = accountId;
+    if (source) query.source = source;
 
     const filterField = dateField === 'last_updated' || dateField === 'updatedAt' ? 'updatedAt' : 'createdAt';
 
@@ -113,9 +114,10 @@ router.get('/', async (req, res) => {
 // GET /api/crm/opportunities/board
 router.get('/board', async (req, res) => {
   try {
-    const { startDate, endDate, period, dateField } = req.query;
+    const { startDate, endDate, period, dateField, source } = req.query;
     const ownerFilter = await buildOwnerFilter(req.user);
     const query = { ...ownerFilter };
+    if (source) query.source = source;
 
     const filterField = dateField === 'last_updated' || dateField === 'updatedAt' ? 'updatedAt' : 'createdAt';
 
@@ -133,6 +135,7 @@ router.get('/board', async (req, res) => {
     const opportunities = await Opportunity.find(query)
       .populate('accountId', 'name')
       .populate('ownerId', 'username');
+    
     const board = {
       'lead': [],
       'qualified': [],
@@ -143,11 +146,25 @@ router.get('/board', async (req, res) => {
       'lost': []
     };
     
+    const aggregates = {
+      'lead': { totalValue: 0, count: 0 },
+      'qualified': { totalValue: 0, count: 0 },
+      'opportunity': { totalValue: 0, count: 0 },
+      'proposal': { totalValue: 0, count: 0 },
+      'negotiation': { totalValue: 0, count: 0 },
+      'won': { totalValue: 0, count: 0 },
+      'lost': { totalValue: 0, count: 0 }
+    };
+    
     opportunities.forEach(opp => {
       if (board[opp.stage]) {
         board[opp.stage].push(opp);
+        aggregates[opp.stage].totalValue += opp.value || 0;
+        aggregates[opp.stage].count += 1;
       }
     });
+
+    board.aggregates = aggregates;
 
     res.json(board);
   } catch (error) {

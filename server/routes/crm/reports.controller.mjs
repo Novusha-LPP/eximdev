@@ -152,4 +152,129 @@ router.get('/performance', async (req, res) => {
   }
 });
 
+// GET /api/crm/reports/stage-analysis
+router.get('/stage-analysis', async (req, res) => {
+  try {
+    const { stage, startDate, endDate, period, teamId, ownerId, source } = req.query;
+    
+    const query = {};
+    if (stage && stage !== 'all') {
+      query.stage = stage;
+    }
+    if (ownerId) {
+      query.ownerId = ownerId;
+    }
+    if (source) {
+      query.source = source;
+    }
+    
+    // Date/Time Filters
+    let start = null;
+    let end = null;
+    if (startDate && endDate) {
+      start = new Date(`${startDate}T00:00:00.000Z`);
+      end = new Date(`${endDate}T23:59:59.999Z`);
+      query.createdAt = { $gte: start, $lte: end };
+    } else if (period) {
+      query.period = period;
+    } else {
+      query.period = new Date().toISOString().substring(0, 7);
+    }
+
+    const opportunities = await Opportunity.find(query)
+      .populate('accountId', 'name')
+      .populate('primaryContactId', 'firstName lastName email phone')
+      .populate('ownerId', 'username first_name last_name')
+      .lean();
+
+    const deals = opportunities.map(o => {
+      let stageEntryDate = o.createdAt;
+      if (o.stageHistory && o.stageHistory.length > 0) {
+        const currentStageHistory = [...o.stageHistory]
+          .reverse()
+          .find(h => h.stage === o.stage);
+        if (currentStageHistory) {
+          stageEntryDate = currentStageHistory.enteredAt || stageEntryDate;
+        }
+      }
+      
+      const daysInStage = Math.max(0, Math.ceil((new Date() - new Date(stageEntryDate)) / (1000 * 60 * 60 * 24)));
+      const weightedValue = Math.round(((o.value || 0) * (o.probability || 0)) / 100);
+
+      return {
+        ...o,
+        weightedValue,
+        stageEntryDate,
+        daysInStage
+      };
+    });
+
+    const totalDeals = deals.length;
+    const totalValue = deals.reduce((sum, d) => sum + (d.value || 0), 0);
+    const totalWeightedValue = deals.reduce((sum, d) => sum + (d.weightedValue || 0), 0);
+    const averageDaysInStage = totalDeals > 0 
+      ? Math.round(deals.reduce((sum, d) => sum + (d.daysInStage || 0), 0) / totalDeals) 
+      : 0;
+
+    const wonCount = deals.filter(d => d.stage === 'won').length;
+    const conversionRate = totalDeals > 0 ? Math.round((wonCount / totalDeals) * 100) : 0;
+
+    const sourceMap = {};
+    deals.forEach(d => {
+      const src = d.source || 'Unknown';
+      if (!sourceMap[src]) {
+        sourceMap[src] = { count: 0, value: 0 };
+      }
+      sourceMap[src].count += 1;
+      sourceMap[src].value += d.value || 0;
+    });
+
+    const sourceBreakdown = Object.keys(sourceMap).map(src => {
+      return {
+        source: src,
+        count: sourceMap[src].count,
+        value: sourceMap[src].value,
+        percentage: totalValue > 0 ? Math.round((sourceMap[src].value / totalValue) * 100) : 0
+      };
+    });
+
+    const stagesList = ['lead', 'qualified', 'opportunity', 'proposal', 'negotiation', 'won', 'lost'];
+    const allStagesSummary = stagesList.map(st => {
+      const stageDeals = deals.filter(d => d.stage === st);
+      const sCount = stageDeals.length;
+      const sValue = stageDeals.reduce((sum, d) => sum + (d.value || 0), 0);
+      const sWeighted = stageDeals.reduce((sum, d) => sum + (d.weightedValue || 0), 0);
+      const sAvgDays = sCount > 0 
+        ? Math.round(stageDeals.reduce((sum, d) => sum + (d.daysInStage || 0), 0) / sCount)
+        : 0;
+      const sPercent = totalValue > 0 ? Math.round((sValue / totalValue) * 100) : 0;
+
+      return {
+        stage: st,
+        count: sCount,
+        value: sValue,
+        weightedValue: sWeighted,
+        avgDaysInStage: sAvgDays,
+        percentage: sPercent
+      };
+    });
+
+    res.json({
+      success: true,
+      deals,
+      summary: {
+        totalDeals,
+        totalValue,
+        totalWeightedValue,
+        averageDaysInStage,
+        conversionRate
+      },
+      sourceBreakdown,
+      allStagesSummary
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 export default router;

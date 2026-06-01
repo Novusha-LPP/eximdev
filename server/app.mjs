@@ -238,6 +238,7 @@ import cron from "node-cron";
 import { scrapeAndSaveCurrencyRates } from "./services/currencyRateScraper.js";
 import ActiveSession from "./model/attendance/ActiveSession.js";
 import AttendanceRecord from "./model/attendance/AttendanceRecord.js";
+import Opportunity from "./model/crm/Opportunity.mjs";
 
 import currencyRateRoutes from "./routes/currencyRate.js";
 
@@ -835,6 +836,40 @@ if (!disableCluster && cluster.isPrimary) {
                 }
               } catch (error) {
                 console.error("❌ Missed punch auto-mark scheduler failed:", error);
+              }
+            },
+            {
+              timezone: "Asia/Kolkata",
+            }
+          );
+
+          // CRM Pipeline Monthly Carry Forward Cron
+          cron.schedule(
+            "1 0 0 1 * *",
+            async () => {
+              console.log("🕐 Running scheduled Monthly CRM Carry-Forward job...");
+              try {
+                const lastMonthDate = new Date();
+                lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
+                const lastMonthStr = lastMonthDate.toISOString().substring(0, 7);
+                const thisMonthStr = new Date().toISOString().substring(0, 7);
+
+                const result = await Opportunity.updateMany(
+                  {
+                    stage: { $nin: ['won', 'lost'] },
+                    period: lastMonthStr
+                  },
+                  {
+                    $set: {
+                      period: thisMonthStr,
+                      carry_forward: true,
+                      origin_month: lastMonthStr
+                    }
+                  }
+                );
+                console.log(`✅ CRM Month Carry-forward completed. Updated ${result.modifiedCount} deals from ${lastMonthStr} to ${thisMonthStr}.`);
+              } catch (err) {
+                console.error("❌ CRM Month Carry-forward failed:", err);
               }
             },
             {

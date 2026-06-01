@@ -10,6 +10,78 @@ import {
 import { set } from "date-fns";
 import { sanitizeContainerPayload } from "../utils/modeLogic";
 
+const getFormattedDateForRates = (dateInput) => {
+  if (!dateInput) dateInput = new Date();
+  if (dateInput instanceof Date) {
+    const day = String(dateInput.getDate()).padStart(2, '0');
+    const month = String(dateInput.getMonth() + 1).padStart(2, '0');
+    const year = dateInput.getFullYear();
+    return `${day}-${month}-${year}`;
+  }
+  if (typeof dateInput === 'string') {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+      const [y, m, d] = dateInput.split('-');
+      return `${d}-${m}-${y}`;
+    }
+    if (/^\d{2}[-/]\d{2}[-/]\d{4}$/.test(dateInput)) {
+      return dateInput.replace(/\//g, '-');
+    }
+  }
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) {
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    return `${day}-${month}-${year}`;
+  }
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}-${month}-${year}`;
+};
+
+const fetchExrateForCurrency = async (currency, date) => {
+  if (!currency || currency.toUpperCase() === "INR") return 1;
+  const formattedDate = getFormattedDateForRates(date);
+  try {
+    const response = await axios.get(
+      `${process.env.REACT_APP_API_STRING}/currency-rates/by-date/${formattedDate}`
+    );
+    if (response.data.success && response.data.data?.exchange_rates) {
+      const rateObj = response.data.data.exchange_rates.find(
+        r => r.currency_code.toUpperCase() === currency.toUpperCase()
+      );
+      if (rateObj) {
+        return parseFloat(rateObj.import_rate) || 1;
+      }
+    }
+  } catch (err) {
+    console.error("Error fetching exchange rate:", err);
+  }
+  
+  const currentDateFormatted = getFormattedDateForRates(new Date());
+  if (formattedDate !== currentDateFormatted) {
+    try {
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/currency-rates/by-date/${currentDateFormatted}`
+      );
+      if (response.data.success && response.data.data?.exchange_rates) {
+        const rateObj = response.data.data.exchange_rates.find(
+          r => r.currency_code.toUpperCase() === currency.toUpperCase()
+        );
+        if (rateObj) {
+          return parseFloat(rateObj.import_rate) || 1;
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching fallback exchange rate:", err);
+    }
+  }
+  return 1;
+};
+
+
 const useImportJobForm = () => {
   // Get the current date
   const currentDate = new Date();
@@ -61,6 +133,8 @@ const useImportJobForm = () => {
   const [awb_bl_date, setAwbBlDate] = useState("");
   const [hawb_hbl_date, setHawb_hbl_date] = useState("");
   const [hawb_hbl_no, setHawb_hbl_no] = useState("");
+  const [vessel_flight, setVesselFlight] = useState("");
+  const [voyage_no, setVoyageNo] = useState("");
   const [vessel_berthing, setVesselberthing] = useState("");
   const [type_of_b_e, setTypeOfBE] = useState("");
   const [loading_port, setLoadingPort] = useState("");
@@ -80,6 +154,7 @@ const useImportJobForm = () => {
   const [insurance, setInsurance] = useState("");
   const [term_value, setTermValue] = useState("");
   const [cif_amount, setCifAmount] = useState("");
+  const [exrate, setExrate] = useState("");
   const [description, setDescription] = useState("");
   const [consignment_type, setConsignmentType] = useState("");
   const [isDraftDoc, setIsDraftDoc] = useState(false);
@@ -102,7 +177,7 @@ const useImportJobForm = () => {
       po_validation_error: "",
       other_charges: "",
       freight_currency: "",
-      insurance_currency: "",
+      insurance_currency: "INR",
       other_charges_currency: "INR",
     },
   ]);
@@ -261,13 +336,13 @@ const useImportJobForm = () => {
       setOtherChargesDetails(prev => {
         const updated = { ...prev };
         let changed = false;
-        ["freight", "insurance"].forEach(key => {
+        ["freight"].forEach(key => {
           if (updated[key] && updated[key].currency !== inv_currency) {
             updated[key] = { ...updated[key], currency: inv_currency };
             changed = true;
           }
         });
-        ["miscellaneous", "agency", "discount", "loading", "addl_charge"].forEach(key => {
+        ["insurance", "miscellaneous", "agency", "discount", "loading", "addl_charge"].forEach(key => {
           if (updated[key] && updated[key].currency !== "INR") {
             updated[key] = { ...updated[key], currency: "INR" };
             changed = true;
@@ -283,7 +358,7 @@ const useImportJobForm = () => {
             ...newRows[0], 
             inv_currency: inv_currency,
             freight_currency: inv_currency,
-            insurance_currency: inv_currency,
+            insurance_currency: "INR",
             other_charges_currency: "INR"
           };
           return newRows;
@@ -396,12 +471,31 @@ const useImportJobForm = () => {
 
     setInvoiceDetails(updatedRows);
 
-    // Sync global CIF value (term value) across all rows
+    // Sync global CIF value (term value) across all rows converted to INR
     const totalCif = updatedRows.reduce((sum, row) => sum + (parseFloat(row.total_inv_value) || 0), 0);
+    const totalProductVal = updatedRows.reduce((sum, row) => sum + (parseFloat(row.product_value) || 0), 0);
     if (totalCif > 0) {
-      setTotalInvValue(String(totalCif.toFixed(2)));
-      setTermValue(String(totalCif.toFixed(2)));
-      setCifAmount(String(totalCif.toFixed(2)));
+      setTotalInvValue(totalProductVal > 0 ? String(totalProductVal.toFixed(2)) : String(totalCif.toFixed(2)));
+      
+      const invCurrency = updatedRows[rowIndex]?.inv_currency || inv_currency || "";
+      const invDate = updatedRows[rowIndex]?.invoice_date || invoice_date || "";
+      
+      const syncCifValue = async () => {
+        let currentExrate = parseFloat(exrate);
+        if (!currentExrate || isNaN(currentExrate)) {
+          if (invCurrency && invCurrency.toUpperCase() !== "INR") {
+            const fetchedRate = await fetchExrateForCurrency(invCurrency, invDate);
+            currentExrate = fetchedRate > 0 ? fetchedRate : 1;
+            setExrate(String(currentExrate));
+          } else {
+            currentExrate = 1;
+          }
+        }
+        const cifInr = totalCif * currentExrate;
+        setTermValue(String(cifInr.toFixed(2)));
+        setCifAmount(String(cifInr.toFixed(2)));
+      };
+      syncCifValue();
     } else if (field === "total_inv_value") {
       setTotalInvValue(value);
       setTermValue(value);
@@ -430,12 +524,12 @@ const useImportJobForm = () => {
     // Auto-sync currency for all charge heads in other_charges_details when invoice currency changes
     if (field === "inv_currency") {
       updatedRows[rowIndex].freight_currency = value || "";
-      updatedRows[rowIndex].insurance_currency = value || "";
+      updatedRows[rowIndex].insurance_currency = "INR";
       updatedRows[rowIndex].other_charges_currency = "INR";
 
       setOtherChargesDetails(prev => {
         const updated = { ...prev };
-        ["freight", "insurance"].forEach(key => {
+        ["freight"].forEach(key => {
           if (updated[key]) {
             updated[key] = {
               ...updated[key],
@@ -443,7 +537,7 @@ const useImportJobForm = () => {
             };
           }
         });
-        ["miscellaneous", "agency", "discount", "loading", "addl_charge"].forEach(key => {
+        ["insurance", "miscellaneous", "agency", "discount", "loading", "addl_charge"].forEach(key => {
           if (updated[key]) {
             updated[key] = {
               ...updated[key],
@@ -485,7 +579,7 @@ const useImportJobForm = () => {
         other_charges: "",
         po_validation_error: "",
         freight_currency: invoice_details[0]?.inv_currency || "",
-        insurance_currency: invoice_details[0]?.inv_currency || "",
+        insurance_currency: "INR",
         other_charges_currency: "INR",
       },
     ]);
@@ -623,6 +717,8 @@ const useImportJobForm = () => {
     setHawb_hbl_date("");
     setAwbBlDate("");
     setVesselberthing("");
+    setVesselFlight("");
+    setVoyageNo("");
     setTypeOfBE("");
     setLoadingPort("");
     setGrossWeight("");
@@ -673,7 +769,7 @@ const useImportJobForm = () => {
         insurance: "",
         other_charges: "",
         freight_currency: "",
-        insurance_currency: "",
+        insurance_currency: "INR",
         other_charges_currency: "INR",
       },
     ]);
@@ -782,6 +878,8 @@ const useImportJobForm = () => {
     if (job.hawb_hbl_date) setHawb_hbl_date(job.hawb_hbl_date);
     if (job.awb_bl_date) setAwbBlDate(job.awb_bl_date);
     if (job.vessel_berthing) setVesselberthing(job.vessel_berthing);
+    if (job.vessel_flight) setVesselFlight(job.vessel_flight);
+    if (job.voyage_no) setVoyageNo(job.voyage_no);
     if (job.type_of_b_e) setTypeOfBE(job.type_of_b_e);
     if (job.loading_port) setLoadingPort(job.loading_port);
     if (job.gross_weight) setGrossWeight(job.gross_weight);
@@ -799,6 +897,9 @@ const useImportJobForm = () => {
       setTermValue(job.total_inv_value || job.cifValue || job.cif_amount || "");
       setCifAmount(job.cif_amount || job.total_inv_value || job.cifValue || "");
     }
+    if (job.exrate) {
+      setExrate(job.exrate);
+    }
     if (job.consignment_type) setConsignmentType(job.consignment_type);
     if (job.description) setDescription(job.description);
     if (!job.description && job.description_details && job.description_details.length > 0) {
@@ -811,7 +912,7 @@ const useImportJobForm = () => {
         po_no: inv.po_no || "",
         po_date: inv.po_date || "",
         freight_currency: inv.freight_currency || inv.inv_currency || "",
-        insurance_currency: inv.insurance_currency || inv.inv_currency || "",
+        insurance_currency: inv.insurance_currency || "INR",
         other_charges_currency: inv.other_charges_currency || "INR",
       })));
     } else if (job.invoice_number || job.total_inv_value) {
@@ -828,7 +929,7 @@ const useImportJobForm = () => {
         insurance: job.insurance || "",
         other_charges: job.other_charges || "",
         freight_currency: job.inv_currency || "",
-        insurance_currency: job.inv_currency || "",
+        insurance_currency: "INR",
         other_charges_currency: "INR",
       }]);
     }
@@ -1051,6 +1152,8 @@ const useImportJobForm = () => {
           hawb_hbl_date,
           awb_bl_date,
           vessel_berthing,
+          vessel_flight,
+          voyage_no,
           type_of_b_e,
           loading_port,
           gross_weight,
@@ -1069,6 +1172,7 @@ const useImportJobForm = () => {
           import_terms,
           freight,
           insurance,
+          exrate,
           cifValue: term_value,
           cif_amount: cif_amount || term_value || "",
           description,
@@ -1305,6 +1409,10 @@ const useImportJobForm = () => {
     vessel_berthing,
     setAwbBlDate,
     setVesselberthing,
+    vessel_flight,
+    setVesselFlight,
+    voyage_no,
+    setVoyageNo,
     type_of_b_e,
     setTypeOfBE,
     loading_port,
@@ -1430,6 +1538,8 @@ const useImportJobForm = () => {
     setTermValue,
     cif_amount,
     setCifAmount,
+    exrate,
+    setExrate,
     isPoMandatory,
     validateAllInvoiceRows,
     validatePoFields,

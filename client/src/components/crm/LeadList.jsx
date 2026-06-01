@@ -15,9 +15,10 @@ export default function LeadList() {
   const [error, setError] = useState(null);
   const [converting, setConverting] = useState(null);
   
-  // Teams for filtering
+  // Teams & Source for filtering
   const [userTeams, setUserTeams] = useState([]);
   const [selectedTeamId, setSelectedTeamId] = useState('');
+  const [selectedSource, setSelectedSource] = useState('');
 
   const [filters, setFilters] = useState(() => {
     try {
@@ -47,13 +48,14 @@ export default function LeadList() {
     });
   };
 
-  const fetchLeads = async (teamId = selectedTeamId, activeFilters = filters) => {
+  const fetchLeads = async (teamId = selectedTeamId, source = selectedSource, activeFilters = filters) => {
     if (!activeFilters) return;
     setLoading(true);
     setError(null);
     try {
       const queryParams = new URLSearchParams();
       if (teamId) queryParams.append('teamId', teamId);
+      if (source) queryParams.append('source', source);
       
       if (activeFilters.startDate && activeFilters.endDate) {
         queryParams.append('startDate', activeFilters.startDate);
@@ -95,7 +97,6 @@ export default function LeadList() {
         }
       );
       
-      // Filter to only teams where the user is a member or manager
       const myTeams = (res.data.teams || []).filter(team => {
         const isManager = team.managerId === userId || team.managerId?._id === userId;
         const isMember = team.memberIds?.some(m => m === userId || m?._id === userId);
@@ -113,9 +114,9 @@ export default function LeadList() {
 
   useEffect(() => {
     if (filters) {
-      fetchLeads(selectedTeamId, filters);
+      fetchLeads(selectedTeamId, selectedSource, filters);
     }
-  }, [filters, selectedTeamId]);
+  }, [filters, selectedTeamId, selectedSource]);
 
   const handleConvert = async (leadId, leadName) => {
     if (!window.confirm(`Convert "${leadName}" into an Account & Opportunity?\n\nThis will create a new account, contact, and sales opportunity.`)) {
@@ -202,10 +203,7 @@ export default function LeadList() {
           {userTeams.length > 0 && (
             <select
               value={selectedTeamId}
-              onChange={(e) => {
-                setSelectedTeamId(e.target.value);
-                fetchLeads(e.target.value);
-              }}
+              onChange={(e) => setSelectedTeamId(e.target.value)}
               style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontWeight: 500, outline: 'none', cursor: 'pointer' }}
             >
               <option value="">All My Teams</option>
@@ -214,6 +212,20 @@ export default function LeadList() {
               ))}
             </select>
           )}
+
+          {/* Lead Source Dropdown */}
+          <select
+            value={selectedSource}
+            onChange={(e) => setSelectedSource(e.target.value)}
+            style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontWeight: 500, outline: 'none', cursor: 'pointer' }}
+          >
+            <option value="">All Lead Sources</option>
+            <option value="Web / Own Generated Lead">Web / Own Generated Lead</option>
+            <option value="IndiaMart Lead">IndiaMart Lead</option>
+            <option value="Direct Sales Visit">Direct Sales Visit</option>
+            <option value="Referral">Referral</option>
+            <option value="Email Campaign">Email Campaign</option>
+          </select>
           
           <button 
             onClick={() => setIsModalOpen(true)}
@@ -250,7 +262,40 @@ export default function LeadList() {
                 <tr><td colSpan="4" style={{ padding: '3rem', textAlign: 'center', color: '#94a3b8' }}>No leads found in your pipeline.</td></tr>
               ) : leads.map(lead => (
                 <tr key={lead._id} style={{ borderBottom: '1px solid #f1f5f9', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#fafafa'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                  <td style={{ padding: '16px 12px', fontWeight: 600, color: '#334155' }}>{lead.company || 'N/A'}</td>
+                  <td style={{ padding: '16px 12px', fontWeight: 600, color: '#334155' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span>{lead.company || 'N/A'}</span>
+                      {lead.source && (
+                        <span style={{ 
+                          fontSize: '0.65rem', 
+                          background: lead.source === 'IndiaMart Lead' ? '#ffedd5' 
+                                      : lead.source === 'Referral' ? '#dcfce7' 
+                                      : lead.source === 'Direct Sales Visit' ? '#f3e8ff'
+                                      : lead.source === 'Email Campaign' ? '#fce7f3'
+                                      : lead.source === 'Web / Own Generated Lead' ? '#e0f2fe'
+                                      : '#f1f5f9', 
+                          color: lead.source === 'IndiaMart Lead' ? '#c2410c' 
+                                 : lead.source === 'Referral' ? '#15803d' 
+                                 : lead.source === 'Direct Sales Visit' ? '#6b21a8'
+                                 : lead.source === 'Email Campaign' ? '#be185d'
+                                 : lead.source === 'Web / Own Generated Lead' ? '#0369a1'
+                                 : '#475569',
+                          padding: '2px 8px', 
+                          borderRadius: '12px', 
+                          fontWeight: 700,
+                          border: '1px solid',
+                          borderColor: lead.source === 'IndiaMart Lead' ? '#fed7aa' 
+                                       : lead.source === 'Referral' ? '#bbf7d0' 
+                                       : lead.source === 'Direct Sales Visit' ? '#e9d5ff'
+                                       : lead.source === 'Email Campaign' ? '#fbcfe8'
+                                       : lead.source === 'Web / Own Generated Lead' ? '#bae6fd'
+                                       : '#e2e8f0',
+                        }}>
+                          {lead.source}
+                        </span>
+                      )}
+                    </div>
+                  </td>
                   <td style={{ padding: '16px 12px', color: '#475569' }}>{lead.firstName} {lead.lastName}</td>
                   <td style={{ padding: '16px 12px' }}>
                     <span style={{ 

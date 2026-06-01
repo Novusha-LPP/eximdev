@@ -202,6 +202,10 @@ const ImportCreateJob = () => {
     setAwbBlNo,
     awb_bl_date,
     vessel_berthing,
+    vessel_flight,
+    setVesselFlight,
+    voyage_no,
+    setVoyageNo,
     setAwbBlDate,
     hawb_hbl_no,
     setHawb_hbl_no,
@@ -1622,6 +1626,30 @@ const ImportCreateJob = () => {
                         size="small"
                         fullWidth
                         InputLabelProps={{ shrink: true }}
+                        sx={compactInput}
+                      />
+                    </FormField>
+
+                    <FormField label={isAirMode(mode) ? "Flight" : "Vessel"}>
+                      <TextField
+                        value={vessel_flight || ""}
+                        onChange={(e) => setVesselFlight(e.target.value)}
+                        variant="outlined"
+                        size="small"
+                        placeholder={isAirMode(mode) ? "Flight No" : "Vessel Name"}
+                        fullWidth
+                        sx={compactInput}
+                      />
+                    </FormField>
+
+                    <FormField label="Voyage">
+                      <TextField
+                        value={voyage_no || ""}
+                        onChange={(e) => setVoyageNo(e.target.value)}
+                        variant="outlined"
+                        size="small"
+                        placeholder="Voyage No"
+                        fullWidth
                         sx={compactInput}
                       />
                     </FormField>
@@ -3190,7 +3218,8 @@ const ImportCreateJob = () => {
               <Typography variant="overline" color="text.secondary" fontWeight={700}>Shipping</Typography>
               <Typography variant="body2"><b>B/L No:</b> {awb_bl_no}</Typography>
               <Typography variant="body2"><b>B/L Date:</b> {awb_bl_date}</Typography>
-              <Typography variant="body2"><b>Vessel/Flight:</b> {vessel_berthing}</Typography>
+              <Typography variant="body2"><b>{isAirMode(mode) ? "Flight" : "Vessel"}:</b> {vessel_flight || "N/A"}{voyage_no ? ` • Voy: ${voyage_no}` : ""}</Typography>
+              <Typography variant="body2"><b>ETA Date:</b> {vessel_berthing || "N/A"}</Typography>
             </Grid>
 
             {/* Row 2: Cargo & Value */}

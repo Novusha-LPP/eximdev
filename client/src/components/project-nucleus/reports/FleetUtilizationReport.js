@@ -1,10 +1,25 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-import { format, parse, isValid, startOfMonth, endOfMonth } from 'date-fns';
+import { format } from 'date-fns';
 import {
-    ResponsiveContainer, ComposedChart, AreaChart, Area, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine
+    ResponsiveContainer, ComposedChart, AreaChart, Area, BarChart, Bar, Cell, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine
 } from 'recharts';
 import { getTransportDates, TRANSPORT_BASE, TRANSPORT_HEADERS } from './reports-helper';
+
+const monthNames = [
+    { key: '4', name: 'Apr' },
+    { key: '5', name: 'May' },
+    { key: '6', name: 'Jun' },
+    { key: '7', name: 'Jul' },
+    { key: '8', name: 'Aug' },
+    { key: '9', name: 'Sep' },
+    { key: '10', name: 'Oct' },
+    { key: '11', name: 'Nov' },
+    { key: '12', name: 'Dec' },
+    { key: '1', name: 'Jan' },
+    { key: '2', name: 'Feb' },
+    { key: '3', name: 'Mar' }
+];
 
 // --- Sub-components & Helpers for Status and Labels ---
 const StatusPill = ({ status, otherText }) => {
@@ -74,6 +89,13 @@ const FleetUtilizationReport = ({
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('dashboard');
 
+    // Fleet Summary Specific States
+    const [fleetSummaryData, setFleetSummaryData] = useState(null);
+    const [fleetSummaryLoading, setFleetSummaryLoading] = useState(false);
+    const [fleetSummaryError, setFleetSummaryError] = useState(null);
+    const [fleetSearchQuery, setFleetSearchQuery] = useState('');
+    const [fleetSortConfig, setFleetSortConfig] = useState({ key: 'total', direction: 'desc' });
+
     // Fetch report data on filter changes
     useEffect(() => {
         const fetchReport = async () => {
@@ -115,6 +137,35 @@ const FleetUtilizationReport = ({
         };
         fetchReport();
     }, [filterType, selectedMonth, selectedYear, selectedQuarter, dateRange, selectedDay]);
+
+    // Fetch Fleet Summary when activeTab is 'fleet-summary' or selectedYear changes
+    useEffect(() => {
+        if (activeTab !== 'fleet-summary') return;
+
+        const fetchFleetSummary = async () => {
+            setFleetSummaryLoading(true);
+            setFleetSummaryError(null);
+            try {
+                const res = await axios.get(`${TRANSPORT_BASE}/api/vehicle-dsr/fleet-summary`, {
+                    params: { fyStartYear: selectedYear || 2026 },
+                    headers: TRANSPORT_HEADERS,
+                    withCredentials: true
+                });
+                if (res.data && res.data.success) {
+                    setFleetSummaryData(res.data.data);
+                } else {
+                    setFleetSummaryError("Failed to fetch fleet summary details");
+                }
+            } catch (err) {
+                console.error("Error fetching fleet summary:", err);
+                setFleetSummaryError(err.message || "An error occurred while fetching fleet summary");
+            } finally {
+                setFleetSummaryLoading(false);
+            }
+        };
+
+        fetchFleetSummary();
+    }, [selectedYear, activeTab]);
 
     // Format dispatches array safely
     const dispatches = useMemo(() => {
@@ -176,6 +227,7 @@ const FleetUtilizationReport = ({
         const onLeave = fleetStatusList.filter(v => v.status === 'Driver on Leave').length;
         const maint = fleetStatusList.filter(v => v.status === 'Maintenance').length;
         const accident = fleetStatusList.filter(v => v.status === 'Accident').length;
+        const others = fleetStatusList.filter(v => !['No Driver', 'Driver on Leave', 'Maintenance', 'Accident'].includes(v.status)).length;
         const notOnRoad = fleetStatusList.length;
 
         const ownTrips = closedLRsList.filter(r => (r.own_hired || '').toLowerCase().trim() === 'own').length;
@@ -214,6 +266,8 @@ const FleetUtilizationReport = ({
             maintPct: getPctStr(maint),
             accident,
             accidentPct: getPctStr(accident),
+            others,
+            othersPct: getPctStr(others),
             totalTrips: closedLRsList.length
         };
     }, [fleetStatusList, closedLRsList, totalFleetNum]);
@@ -408,6 +462,92 @@ const FleetUtilizationReport = ({
             };
         }).sort((a, b) => new Date(a.date) - new Date(b.date));
     }, [dispatches, totalFleetNum]);
+
+    // --- Fleet Summary Tab Computations ---
+
+    const totalFleetTrips = useMemo(() => {
+        if (!fleetSummaryData || !fleetSummaryData.rows) return 0;
+        return fleetSummaryData.rows.reduce((sum, r) => sum + (r.total || 0), 0);
+    }, [fleetSummaryData]);
+
+    const totalSrccTrips = useMemo(() => {
+        if (!fleetSummaryData || !fleetSummaryData.summary || !fleetSummaryData.summary.srcc) return 0;
+        return Object.values(fleetSummaryData.summary.srcc).reduce((sum, val) => sum + (val || 0), 0);
+    }, [fleetSummaryData]);
+
+    const totalOutsourcedTrips = useMemo(() => {
+        if (!fleetSummaryData || !fleetSummaryData.summary || !fleetSummaryData.summary.outsourced) return 0;
+        return Object.values(fleetSummaryData.summary.outsourced).reduce((sum, val) => sum + (val || 0), 0);
+    }, [fleetSummaryData]);
+
+    const monthlyTrendData = useMemo(() => {
+        if (!fleetSummaryData || !fleetSummaryData.summary) return [];
+        const srcc = fleetSummaryData.summary.srcc || {};
+        const outsourced = fleetSummaryData.summary.outsourced || {};
+        
+        return monthNames.map(m => {
+            const srccVal = srcc[m.key] || 0;
+            const outsourcedVal = outsourced[m.key] || 0;
+            return {
+                month: m.name,
+                'SR Container Carriers (SRCC)': srccVal,
+                'Outsourced': outsourcedVal,
+                'Total': srccVal + outsourcedVal
+            };
+        });
+    }, [fleetSummaryData]);
+
+    const topVehiclesData = useMemo(() => {
+        if (!fleetSummaryData || !fleetSummaryData.rows) return [];
+        return [...fleetSummaryData.rows]
+            .sort((a, b) => (b.total || 0) - (a.total || 0))
+            .slice(0, 10)
+            .map(v => ({
+                vehicleNo: v.vehicleNo,
+                trips: v.total || 0
+            }));
+    }, [fleetSummaryData]);
+
+    const filteredSummaryRows = useMemo(() => {
+        if (!fleetSummaryData || !fleetSummaryData.rows) return [];
+        let result = [...fleetSummaryData.rows];
+        
+        if (fleetSearchQuery) {
+            const query = fleetSearchQuery.toLowerCase().trim();
+            result = result.filter(r => r.vehicleNo.toLowerCase().includes(query));
+        }
+        
+        if (fleetSortConfig.key) {
+            result.sort((a, b) => {
+                let aValue = a[fleetSortConfig.key];
+                let bValue = b[fleetSortConfig.key];
+                
+                if (fleetSortConfig.key === 'vehicleNo') {
+                    aValue = aValue || '';
+                    bValue = bValue || '';
+                    return fleetSortConfig.direction === 'asc' 
+                        ? aValue.localeCompare(bValue)
+                        : bValue.localeCompare(aValue);
+                } else {
+                    aValue = parseFloat(aValue) || 0;
+                    bValue = parseFloat(bValue) || 0;
+                    return fleetSortConfig.direction === 'asc'
+                        ? aValue - bValue
+                        : bValue - aValue;
+                }
+            });
+        }
+        
+        return result;
+    }, [fleetSummaryData, fleetSearchQuery, fleetSortConfig]);
+
+    const requestFleetSort = (key) => {
+        let direction = 'desc';
+        if (fleetSortConfig.key === key && fleetSortConfig.direction === 'desc') {
+            direction = 'asc';
+        }
+        setFleetSortConfig({ key, direction });
+    };
 
     if (loading) {
         return (
@@ -791,8 +931,8 @@ const FleetUtilizationReport = ({
             <div className="nucleus-tab-container">
                 {[
                     { id: 'dashboard', label: '📊 Dashboard', icon: '📊' },
-                    { id: 'trends', label: '📈 Trends', icon: '📈' },
-                    { id: 'spreadsheet', label: '🗂️ Spreadsheet', icon: '🗂️' }
+                    { id: 'spreadsheet', label: '🗂️ Spreadsheet', icon: '🗂️' },
+                    { id: 'fleet-summary', label: '📋 Fleet Summary', icon: '📋' }
                 ].map(tab => (
                     <button
                         key={tab.id}
@@ -832,7 +972,8 @@ const FleetUtilizationReport = ({
                             { label: 'No Driver', value: `${metrics.noDriver}`, extra: metrics.noDriverPct, color: '#f59e0b' },
                             { label: 'Driver On Leave', value: `${metrics.onLeave}`, extra: metrics.onLeavePct, color: '#ef4444' },
                             { label: 'Maintenance', value: `${metrics.maint}`, extra: metrics.maintPct, color: '#0ea5e9' },
-                            { label: 'Accidents', value: `${metrics.accident}`, extra: metrics.accidentPct, color: '#ef4444' }
+                            { label: 'Accidents', value: `${metrics.accident}`, extra: metrics.accidentPct, color: '#ef4444' },
+                            { label: 'Others', value: `${metrics.others}`, extra: metrics.othersPct, color: '#64748b' }
                         ].map((m, idx) => (
                             <div
                                 key={idx}
@@ -984,7 +1125,6 @@ const FleetUtilizationReport = ({
                                     {branchSummary.list.length > 0 ? (
                                         <>
                                             {branchSummary.list.map((b, idx) => {
-                                                const getPctStr = (part, total) => !total || total <= 0 ? '0%' : `${((part / total) * 100).toFixed(0)}%`;
                                                 return (
                                                     <tr key={idx}>
                                                         <td style={{ fontWeight: 700, color: '#0f172a' }}>{b.name}</td>
@@ -1197,79 +1337,7 @@ const FleetUtilizationReport = ({
                 </>
             )}
 
-            {/* Trends View */}
-            {activeTab === 'trends' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                    <div className="analytics-graph-card">
-                        <div className="graph-card-header">
-                            <h3>🚛 Fleet Stock Allocation Trend</h3>
-                            <span className="graph-subtitle">Daily breakdown of active, idle, and out-of-service vehicles</span>
-                        </div>
-                        <div style={{ width: '100%', height: 300 }}>
-                            <ResponsiveContainer>
-                                <ComposedChart data={dailyData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                                    <defs>
-                                        <linearGradient id="colorActive" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor={metrics.onRoadColor} stopOpacity={0.2} />
-                                            <stop offset="95%" stopColor={metrics.onRoadColor} stopOpacity={0} />
-                                        </linearGradient>
-                                        <linearGradient id="colorIdle" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor={metrics.idleColor} stopOpacity={0.2} />
-                                            <stop offset="95%" stopColor={metrics.idleColor} stopOpacity={0} />
-                                        </linearGradient>
-                                        <linearGradient id="colorOOS" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#ef4444" stopOpacity={0.15} />
-                                            <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(226, 232, 240, 0.4)" />
-                                    <XAxis dataKey="dateStr" stroke="#94a3b8" fontSize={11} tickLine={false} />
-                                    <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} allowDecimals={false} />
-                                    <Tooltip content={<FleetTrendTooltip />} />
-                                    <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '12px' }} />
-                                    <Area type="monotone" name="Vehicles on road" dataKey="usedForTrips" stackId="1" stroke={metrics.onRoadColor} strokeWidth={2} fill="url(#colorActive)" />
-                                    <Area type="monotone" name="Idle" dataKey="idleCount" stackId="1" stroke={metrics.idleColor} strokeWidth={2} fill="url(#colorIdle)" />
-                                    <Area type="monotone" name="Vehicle Not on road" dataKey="oosCount" stackId="1" stroke="#ef4444" strokeWidth={2} fill="url(#colorOOS)" />
-                                    <Line type="monotone" name="Total Trips" dataKey="totalTrips" stroke="#6366f1" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-                                </ComposedChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
 
-                    <div className="analytics-graph-card">
-                        <div className="graph-card-header">
-                            <h3>📊 Fleet Utilization Rate</h3>
-                            <span className="graph-subtitle">Percentage of fleet actively utilized per day</span>
-                        </div>
-                        <div style={{ width: '100%', height: 300 }}>
-                            <ResponsiveContainer>
-                                <AreaChart data={dailyData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                                    <defs>
-                                        <linearGradient id="colorUtil" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#667eea" stopOpacity={0.2} />
-                                            <stop offset="95%" stopColor="#667eea" stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(226, 232, 240, 0.4)" />
-                                    <XAxis dataKey="dateStr" stroke="#94a3b8" fontSize={11} tickLine={false} />
-                                    <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} domain={[0, 100]} unit="%" />
-                                    <Tooltip
-                                        contentStyle={{
-                                            backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                            border: '1px solid rgba(226, 232, 240, 0.6)',
-                                            borderRadius: '12px',
-                                            backdropFilter: 'blur(10px)'
-                                        }}
-                                        formatter={(value) => [`${value}%`, 'Utilization']}
-                                    />
-                                    <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '12px' }} />
-                                    <Area type="monotone" name="Utilization %" dataKey="utilPercent" stroke="#667eea" strokeWidth={2} fillOpacity={1} fill="url(#colorUtil)" />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Spreadsheet View */}
             {activeTab === 'spreadsheet' && (
@@ -1342,6 +1410,195 @@ const FleetUtilizationReport = ({
                             </tbody>
                         </table>
                     </div>
+                </div>
+            )}
+
+            {/* Fleet Summary View */}
+            {activeTab === 'fleet-summary' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+                    {fleetSummaryLoading ? (
+                        <div className="nucleus-loading-container">
+                            <div className="nucleus-loader"></div>
+                            <div style={{ marginTop: '1.5rem', color: '#1e293b', fontWeight: 600 }}>Loading Fleet Summary...</div>
+                        </div>
+                    ) : fleetSummaryError ? (
+                        <div className="nucleus-stats-card" style={{ padding: '24px', background: 'rgba(254, 226, 226, 0.4)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#dc2626', fontWeight: 600 }}>
+                            ⚠️ Error: {fleetSummaryError}
+                        </div>
+                    ) : !fleetSummaryData ? (
+                        <div className="nucleus-stats-card" style={{ padding: '24px', color: '#64748b', textAlign: 'center' }}>
+                            No fleet summary data found.
+                        </div>
+                    ) : (
+                        <>
+                            {/* KPI Metrics */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                                {[
+                                    { label: 'Fleet Size', value: fleetSummaryData.rows?.length || 0, color: '#6366f1', gradient: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1), transparent)' },
+                                    { label: 'Total Trips', value: totalFleetTrips, color: '#8b5cf6', gradient: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1), transparent)' }
+                                ].map((m, idx) => (
+                                    <div key={idx} className="nucleus-stats-card" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '8px', background: m.gradient }}>
+                                        <div style={{ fontSize: '12px', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>{m.label}</div>
+                                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                                            <span style={{ fontSize: '36px', fontWeight: 900, color: '#0f172a' }} className="mono-text">{m.value}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Charts Section */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: '20px' }}>
+                                {/* Monthly Trend Chart */}
+                                <div className="analytics-graph-card">
+                                    <div className="graph-card-header">
+                                        <h3>📈 Monthly Trips Overview</h3>
+                                        <span className="graph-subtitle">Total trips recorded per month for FY {selectedYear}</span>
+                                    </div>
+                                    <div style={{ width: '100%', height: 320, marginTop: '20px' }}>
+                                        <ResponsiveContainer>
+                                            <ComposedChart data={monthlyTrendData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                                                <defs>
+                                                    <linearGradient id="colorTotalTrips" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2}/>
+                                                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                                                    </linearGradient>
+                                                </defs>
+                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(226, 232, 240, 0.4)" />
+                                                <XAxis dataKey="month" stroke="#94a3b8" fontSize={11} tickLine={false} />
+                                                <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} allowDecimals={false} />
+                                                <Tooltip
+                                                    contentStyle={{
+                                                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                                        border: '1px solid rgba(226, 232, 240, 0.6)',
+                                                        borderRadius: '16px',
+                                                        boxShadow: '0 12px 40px rgba(0,0,0,0.08)',
+                                                        backdropFilter: 'blur(10px)'
+                                                    }}
+                                                />
+                                                <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '12px' }} />
+                                                <Area type="monotone" name="Total Trips" dataKey="Total" stroke="#8b5cf6" strokeWidth={2} fill="url(#colorTotalTrips)" />
+                                                <Line type="monotone" name="Total Trips Trend" dataKey="Total" stroke="#6366f1" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                                            </ComposedChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+
+                                {/* Top Vehicles Utilization Chart */}
+                                <div className="analytics-graph-card">
+                                    <div className="graph-card-header">
+                                        <h3>🏆 Top 10 Utilized Vehicles</h3>
+                                        <span className="graph-subtitle">Vehicles with highest total trip counts in FY {selectedYear}</span>
+                                    </div>
+                                    <div style={{ width: '100%', height: 320, marginTop: '20px' }}>
+                                        <ResponsiveContainer>
+                                            <ComposedChart layout="vertical" data={topVehiclesData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(226, 232, 240, 0.4)" />
+                                                <XAxis type="number" stroke="#94a3b8" fontSize={11} tickLine={false} allowDecimals={false} />
+                                                <YAxis type="category" dataKey="vehicleNo" stroke="#94a3b8" fontSize={11} tickLine={false} width={85} />
+                                                <Tooltip
+                                                    contentStyle={{
+                                                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                                        border: '1px solid rgba(226, 232, 240, 0.6)',
+                                                        borderRadius: '12px',
+                                                        boxShadow: '0 8px 30px rgba(0,0,0,0.06)'
+                                                    }}
+                                                />
+                                                <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '12px' }} />
+                                                <Bar name="Total Trips" dataKey="trips" radius={[0, 6, 6, 0]} maxBarSize={20}>
+                                                    {topVehiclesData.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={`url(#barGradient-${index % 2})`} />
+                                                    ))}
+                                                </Bar>
+                                                <defs>
+                                                    <linearGradient id="barGradient-0" x1="0" y1="0" x2="1" y2="0">
+                                                        <stop offset="0%" stopColor="#6366f1" />
+                                                        <stop offset="100%" stopColor="#a5b4fc" />
+                                                    </linearGradient>
+                                                    <linearGradient id="barGradient-1" x1="0" y1="0" x2="1" y2="0">
+                                                        <stop offset="0%" stopColor="#3b82f6" />
+                                                        <stop offset="100%" stopColor="#93c5fd" />
+                                                    </linearGradient>
+                                                </defs>
+                                            </ComposedChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Detailed Data Table */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                                    <div style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <span>📋</span> Vehicle Monthly Trip Summary
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                        <input
+                                            type="text"
+                                            placeholder="🔍 Search vehicle number..."
+                                            value={fleetSearchQuery}
+                                            onChange={(e) => setFleetSearchQuery(e.target.value)}
+                                            style={{
+                                                padding: '8px 16px',
+                                                borderRadius: '12px',
+                                                border: '1px solid rgba(226, 232, 240, 0.8)',
+                                                fontSize: '13.5px',
+                                                fontWeight: 600,
+                                                outline: 'none',
+                                                width: '240px',
+                                                background: 'rgba(255, 255, 255, 0.8)',
+                                                boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
+                                            }}
+                                        />
+                                        <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 600 }}>
+                                            Showing <strong className="mono-text">{filteredSummaryRows.length}</strong> of <strong className="mono-text">{fleetSummaryData.rows?.length || 0}</strong> vehicles
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="excel-wrap">
+                                    <table className="excel-table">
+                                        <thead>
+                                            <tr>
+                                                <th onClick={() => requestFleetSort('vehicleNo')} style={{ cursor: 'pointer', userSelect: 'none' }}>
+                                                    Vehicle No {fleetSortConfig.key === 'vehicleNo' ? (fleetSortConfig.direction === 'asc' ? '▲' : '▼') : ''}
+                                                </th>
+                                                {monthNames.map(m => (
+                                                    <th key={m.key}>{m.name}</th>
+                                                ))}
+                                                <th onClick={() => requestFleetSort('total')} style={{ cursor: 'pointer', userSelect: 'none', background: 'rgba(220, 252, 231, 0.2)' }}>
+                                                    Total Trips {fleetSortConfig.key === 'total' ? (fleetSortConfig.direction === 'asc' ? '▲' : '▼') : ''}
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {filteredSummaryRows.length > 0 ? (
+                                                filteredSummaryRows.map((row, idx) => (
+                                                    <tr key={idx}>
+                                                        <td className="mono-text" style={{ fontWeight: 700, color: '#0f172a', textAlign: 'left', paddingLeft: '20px' }}>{row.vehicleNo}</td>
+                                                        {monthNames.map(m => {
+                                                            const val = row.months?.[m.key] || 0;
+                                                            return (
+                                                                <td key={m.key} className={`num ${val > 0 ? 'highlight-blue' : ''}`} style={{ fontWeight: val > 0 ? 700 : 500 }}>
+                                                                    {val || '—'}
+                                                                </td>
+                                                            );
+                                                        })}
+                                                        <td className="num highlight-green" style={{ fontWeight: 800, fontSize: '14px' }}>{row.total || 0}</td>
+                                                    </tr>
+                                                ))
+                                            ) : (
+                                                <tr>
+                                                    <td colSpan="14" style={{ textAlign: 'center', color: '#94a3b8', padding: '40px' }}>
+                                                        No matching vehicles found
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </>
+                    )}
                 </div>
             )}
         </div>

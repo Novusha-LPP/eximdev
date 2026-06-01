@@ -148,7 +148,8 @@ export const BUSINESS_LOSS_CATEGORIES = [
             { type: "GST ITC Lapse", description: "Supplier not filed return; ITC not available", triggers: "GSTR‑2B mismatch" },
             { type: "GST Interest", description: "Interest paid for late GST payment", triggers: "Cash flow issue" },
             { type: "Excess Bank Charges", description: "Unexpected LC/BG or banking fees", triggers: "LC amendments" },
-            { type: "Stock Write‑off", description: "Physical stock less than book stock", triggers: "Damage, theft, counting error" }
+            { type: "Stock Write‑off", description: "Physical stock less than book stock", triggers: "Damage, theft, counting error" },
+            { type: "EMI Return Charges", description: "Charges incurred due to bounced or returned EMI payments", triggers: "Insufficient funds or bank account technical issues" }
         ]
     },
     {

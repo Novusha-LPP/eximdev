@@ -196,7 +196,9 @@ router.post('/:id/convert', async (req, res) => {
       ownerId: lead.ownerId,
       convertedFromLead: lead._id,
       probability: 10,
-      stageHistory: [{ stage: 'lead', enteredAt: new Date() }]
+      stageHistory: [{ stage: 'lead', enteredAt: new Date() }],
+      source: lead.source,
+      crateSize: lead.crateSize
     });
     await opportunity.save();
 

@@ -1300,7 +1300,8 @@ function useFetchJobDetails(
         const syncCifValue = async () => {
           let currentExrate = parseFloat(formik.values.exrate);
           if (!currentExrate || isNaN(currentExrate)) {
-            if (invCurrency && invCurrency.toUpperCase() !== "INR") {
+            const hasBeNo = formik.values.be_no && String(formik.values.be_no).trim().length > 0;
+            if (invCurrency && invCurrency.toUpperCase() !== "INR" && !hasBeNo) {
               const fetchedRate = await fetchExrateForCurrency(invCurrency, invDate);
               currentExrate = fetchedRate > 0 ? fetchedRate : 1;
               formik.setFieldValue("exrate", String(currentExrate));
@@ -1315,7 +1316,7 @@ function useFetchJobDetails(
         syncCifValue();
       }
     }
-  }, [serializedInvoiceDetails]);
+  }, [serializedInvoiceDetails, formik.values.exrate]);
 
   const handleFileChange = async (event, documentName, index, isCth) => {
     const file = event.target.files[0];

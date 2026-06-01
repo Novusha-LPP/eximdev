@@ -1449,33 +1449,55 @@ function JobDetails() {
       ["insurance", "miscellaneous", "agency", "discount", "loading", "addl_charge"].forEach(key => {
         formik.setFieldValue(`other_charges_details.${key}.currency`, "INR");
       });
+
+      // Clear the exrate to force re-fetch only if BE No is NOT present!
+      const hasBeNo = formik.values.be_no && String(formik.values.be_no).trim().length > 0;
+      if (!hasBeNo) {
+        formik.setFieldValue("exrate", "");
+      }
     }
 
     // Sync global CIF value (term value) across all rows converted to INR
     const totalCif = updatedRows.reduce((sum, row) => sum + (parseFloat(row.total_inv_value) || 0), 0);
     const totalProductVal = updatedRows.reduce((sum, row) => sum + (parseFloat(row.product_value) || 0), 0);
+    
+    // Check if we need to force clear exrate in our sync calculation due to currency change
+    let forcedExrate;
+    if (field === "inv_currency") {
+      const hasBeNo = formik.values.be_no && String(formik.values.be_no).trim().length > 0;
+      if (!hasBeNo) {
+        forcedExrate = "";
+      }
+    }
+
     if (totalCif > 0) {
       formik.setFieldValue("total_inv_value", totalProductVal.toFixed(2));
       
       const invCurrency = updatedRows[rowIndex]?.inv_currency || formik.values.inv_currency || "";
       const invDate = updatedRows[rowIndex]?.invoice_date || formik.values.invoice_date || "";
       
-      const syncCifValue = async () => {
-        let currentExrate = parseFloat(formik.values.exrate);
+      const syncCifValue = async (forcedRate) => {
+        let currentExrate = forcedRate !== undefined ? parseFloat(forcedRate) : parseFloat(formik.values.exrate);
         if (!currentExrate || isNaN(currentExrate)) {
-          if (invCurrency && invCurrency.toUpperCase() !== "INR") {
+          const hasBeNo = formik.values.be_no && String(formik.values.be_no).trim().length > 0;
+          if (invCurrency && invCurrency.toUpperCase() !== "INR" && !hasBeNo) {
             const fetchedRate = await fetchExrateForCurrency(invCurrency, invDate);
             currentExrate = fetchedRate > 0 ? fetchedRate : 1;
             formik.setFieldValue("exrate", String(currentExrate));
           } else {
             currentExrate = 1;
+            formik.setFieldValue("exrate", "1");
           }
         }
         const cifInr = totalCif * currentExrate;
         formik.setFieldValue("cif_amount", cifInr.toFixed(2));
         formik.setFieldValue("cifValue", cifInr.toFixed(2));
       };
-      syncCifValue();
+      syncCifValue(forcedExrate);
+    } else {
+      formik.setFieldValue("total_inv_value", "");
+      formik.setFieldValue("cif_amount", "");
+      formik.setFieldValue("cifValue", "");
     }
   };
 
@@ -2947,7 +2969,29 @@ function JobDetails() {
                     <TextField fullWidth size="small" variant="outlined" id="bank_name" name="bank_name" disabled={user?.role !== "Admin" && isSubmissionDate}
                       value={formik.values.bank_name || ""} onChange={formik.handleChange} placeholder="Enter Bank Name" sx={compactInputSx} />
                   </Col>
-                  <Col xs={12} md={2} lg={3} className="mb-3">
+                  <Col xs={12} md={2} lg={2} className="mb-3">
+                    <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Exchange Rate</label>
+                    <TextField fullWidth size="small" variant="outlined" id="exrate" name="exrate" disabled={user?.role !== "Admin" && isSubmissionDate}
+                      value={formik.values.exrate || ""}
+                      onChange={(e) => {
+                        const newExrate = e.target.value;
+                        formik.setFieldValue("exrate", newExrate);
+                        
+                        const exrateNum = parseFloat(newExrate) || 0;
+                        const invoiceDetails = formik.values.invoice_details || [];
+                        const totalCif = invoiceDetails.reduce((sum, r) => sum + (parseFloat(r.total_inv_value) || 0), 0);
+                        const fallbackVal = parseFloat(formik.values.total_inv_value) || 0;
+                        const effectiveCif = totalCif > 0 ? totalCif : fallbackVal;
+                        
+                        if (effectiveCif > 0 && exrateNum > 0) {
+                          const cifInr = effectiveCif * exrateNum;
+                          formik.setFieldValue("cif_amount", cifInr.toFixed(2));
+                          formik.setFieldValue("cifValue", cifInr.toFixed(2));
+                        }
+                      }}
+                      placeholder="Exchange Rate" sx={compactInputSx} />
+                  </Col>
+                  <Col xs={12} md={2} lg={2} className="mb-3">
                     <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>FTA Benefit Date</label>
                     <TextField fullWidth size="small" variant="outlined" type="datetime-local" name="fta_Benefit_date_time"
                       value={formik.values.fta_Benefit_date_time || ""} InputLabelProps={{ shrink: true }}
@@ -3181,7 +3225,11 @@ function JobDetails() {
                                 <TextField
                                   size="small"
                                   fullWidth
-                                  value={row.total_inv_value || ""}
+                                  value={
+                                    row.total_inv_value
+                                      ? (parseFloat(row.total_inv_value) * (parseFloat(formik.values.exrate) || 1)).toFixed(2)
+                                      : ""
+                                  }
                                   InputProps={{ readOnly: true }}
                                   disabled={isDescriptionTableReadOnly}
                                   placeholder="CIF Value"

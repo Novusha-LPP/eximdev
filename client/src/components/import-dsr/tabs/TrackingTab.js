@@ -413,7 +413,10 @@ export default function TrackingTab({
               type="number"
               style={inputStyle}
               value={formik.values.cifValue || ""}
-              onChange={(e) => formik.setFieldValue("cifValue", e.target.value)}
+              onChange={(e) => {
+                formik.setFieldValue("cifValue", e.target.value);
+                formik.setFieldValue("cif_amount", e.target.value);
+              }}
               placeholder="₹"
             />
           </div>

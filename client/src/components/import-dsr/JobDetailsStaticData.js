@@ -112,6 +112,8 @@ function JobDetailsStaticData(props) {
       hss_ad_code: (typeof props.data?.hss_address === 'object' ? props.data?.hss_address?.ad_code : props.data?.hss_ad_code) || "",
       bill_no: props.data?.bill_no || "",
       bill_date: props.data?.bill_date || "",
+      exrate: props.data?.exrate || "",
+      cif_amount: props.data?.cif_amount || "",
     });
     setErrorMsg("");
     setEditModalOpen(true);

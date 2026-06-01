@@ -429,7 +429,10 @@ const markAttendanceAsMissedPunch = async ({ session, reason, source, markedAt }
         { employee_id: session.employee_id, attendance_date: attendanceDate },
         {
             $set: {
+                employee_id: session.employee_id,
                 company_id: session.company_id,
+                attendance_date: attendanceDate,
+                attendance_date_str: sessionDateKey,
                 shift_id: session.shift_id || null,
                 first_in: session.punch_in_time || null,
                 last_out: null,
@@ -2712,6 +2715,7 @@ export const createManualAdjustment = async (req, res) => {
                 employee_id,
                 company_id: effectiveCompanyId,
                 attendance_date: targetDate,
+                attendance_date_str: normalizedDateKey,
                 year_month: moment.utc(targetDate).format('YYYY-MM'),
                 status: status || 'present'
             });
@@ -2932,7 +2936,10 @@ export const calculateDailyAttendance = async (req, res) => {
         const record = await AttendanceRecord.findOneAndUpdate(
             { employee_id, attendance_date: dateObj },
             {
+                employee_id,
                 company_id: companyId,
+                attendance_date: dateObj,
+                attendance_date_str: moment.utc(dateObj).format('YYYY-MM-DD'),
                 shift_id: employee.shift_id,
                 total_work_hours: workData.total_work_hours,
                 work_sessions: workData.sessions,
@@ -3574,7 +3581,9 @@ export const approveRegularization = async (req, res) => {
             record = new AttendanceRecord({
                 employee_id: regularization.employee_id,
                 company_id: companyId,
-                attendance_date: attendanceDateObj
+                attendance_date: attendanceDateObj,
+                attendance_date_str: moment.utc(attendanceDate).format('YYYY-MM-DD'),
+                year_month: moment.utc(attendanceDate).format('YYYY-MM')
             });
         }
 
@@ -4027,6 +4036,7 @@ export const bulkUpdateAttendance = async (req, res) => {
                         employee_id: employee._id,
                         company_id: employee.company_id,
                         attendance_date: attDate,
+                        attendance_date_str: dateStr,
                         status: status,
                         first_in: firstIn,
                         last_out: lastOut,
@@ -4147,6 +4157,7 @@ export const applyFullMonthPresence = async (req, res) => {
                 employee_id: employee._id,
                 company_id: employee.company_id,
                 attendance_date: dayStart,
+                attendance_date_str: dateStr,
                 status: 'present',
                 first_in: moment.tz(`${dateStr}T${inTime}:00`, 'Asia/Kolkata').toDate(),
                 last_out: moment.tz(`${dateStr}T${outTime}:00`, 'Asia/Kolkata').toDate(),

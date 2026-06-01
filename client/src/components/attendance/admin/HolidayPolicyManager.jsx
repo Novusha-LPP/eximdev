@@ -72,6 +72,7 @@ const HolidayPolicyManager = ({ user: userProp }) => {
   }, [filterYear]);
 
   const isOwnerOrUnowned = (policy) => {
+    if (isAllowedAdmin) return true;
     const creatorId = policy?.created_by?._id || policy?.created_by;
     const userId = user?._id?._id || user?._id;
     return !creatorId || String(creatorId) === String(userId);

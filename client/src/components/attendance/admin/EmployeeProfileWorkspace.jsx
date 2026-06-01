@@ -703,14 +703,17 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
   useEffect(() => { if (!id) setSelectedUserIds([]); }, [id]);
   useEffect(() => { if (!id&&Array.isArray(preselectedEmployeeIds)&&preselectedEmployeeIds.length) setSelectedUserIds(preselectedEmployeeIds); }, [id, preselectedEmployeeIds]);
 
+  const empCompanyId = profile?.employee?.company_id?._id || profile?.employee?.company_id;
+
   useEffect(() => {
     const fetchCatalogs = async () => {
       try {
+        const params = empCompanyId ? { company_id: empCompanyId } : {};
         const [lr, wor, hor, sr] = await Promise.all([
-          masterAPI.getLeavePolicies({ limit:500 }).catch(()=>({ data:[] })),
-          masterAPI.getWeekOffPolicies().catch(()=>({ data:[] })),
-          masterAPI.getHolidayPolicies({ year:new Date().getFullYear() }).catch(()=>({ data:[] })),
-          masterAPI.getShifts({ limit:500, all_companies:true }).catch(()=>({ data:[] }))
+          masterAPI.getLeavePolicies({ limit:500, ...params }).catch(()=>({ data:[] })),
+          masterAPI.getWeekOffPolicies(params).catch(()=>({ data:[] })),
+          masterAPI.getHolidayPolicies({ year:new Date().getFullYear(), all_companies:true, ...params }).catch(()=>({ data:[] })),
+          masterAPI.getShifts({ limit:500, all_companies:true, ...params }).catch(()=>({ data:[] }))
         ]);
         setLeavePolicies(Array.isArray(lr?.data)?lr.data:[]);
         setWeekOffPolicies(Array.isArray(wor?.data)?wor.data:[]);
@@ -718,8 +721,9 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
         setShiftPolicies(Array.isArray(sr?.data)?sr.data:[]);
       } catch { setLeavePolicies([]); setWeekOffPolicies([]); setHolidayPolicies([]); setShiftPolicies([]); }
     };
+    if (id && !empCompanyId) return;
     fetchCatalogs();
-  }, [id]);
+  }, [id, empCompanyId]);
 
   const employeeName = useMemo(() => {
     if (!profile?.employee) return 'Employee';

@@ -1098,6 +1098,10 @@ export const approveRequest = async (req, res) => {
                         await AttendanceRecord.findOneAndUpdate(
                             { employee_id: application.employee_id, attendance_date: attDate },
                             {
+                                employee_id: application.employee_id,
+                                company_id: application.company_id,
+                                attendance_date: attDate,
+                                attendance_date_str: dateStr,
                                 status: application.is_half_day ? 'half_day' : 'leave',
                                 is_half_day: application.is_half_day || false,
                                 half_day_session: application.half_day_session,
@@ -1308,9 +1312,18 @@ export const approveRequest = async (req, res) => {
             if (status === 'approved') {
                 const empId = request.employee_id?._id || request.employee_id;
 
+                const dateStr = request.attendance_date;
+                const companyId = request.company_id?._id || request.company_id;
+                const attDate = moment.utc(dateStr, 'YYYY-MM-DD').startOf('day').toDate();
+
                 await AttendanceRecord.findOneAndUpdate(
-                    { employee_id: empId, attendance_date: moment(request.attendance_date).startOf('day').toDate() },
+                    { employee_id: empId, attendance_date: attDate },
                     {
+                        employee_id: empId,
+                        company_id: companyId,
+                        attendance_date: attDate,
+                        attendance_date_str: dateStr,
+                        year_month: moment.utc(dateStr, 'YYYY-MM-DD').format('YYYY-MM'),
                         first_in: request.requested_in_time || request.expected_in,
                         last_out: request.requested_out_time || request.expected_out,
                         status: 'present',

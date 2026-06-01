@@ -76,10 +76,44 @@ import {
 } from "../../utils/modeLogic";
 
 const compactInputSx = {
-  "& .MuiOutlinedInput-root": { height: "32px" },
-  "& .MuiOutlinedInput-input": { padding: "6px 8px", fontSize: "0.95rem", fontWeight: "bold" },
-  "& .MuiInputLabel-root": { fontSize: "0.95rem", fontWeight: "bold", top: "-4px" }, // Adjust label position if needed
-  "& .MuiInputLabel-shrink": { top: "0px" }
+  "& .MuiOutlinedInput-root": {
+    height: "34px",
+    borderRadius: "6px",
+    fontSize: "0.85rem",
+    backgroundColor: "#ffffff",
+    transition: "all 0.2s ease-in-out",
+    "& fieldset": {
+      borderColor: "#cbd5e1",
+      borderWidth: "1px",
+    },
+    "&:hover fieldset": {
+      borderColor: "#94a3b8 !important",
+    },
+    "&.Mui-focused fieldset": {
+      borderColor: "#1e293b !important",
+      borderWidth: "1.5px",
+    },
+    "&.Mui-disabled": {
+      backgroundColor: "#f8fafc",
+      color: "#64748b",
+      "& fieldset": {
+        borderColor: "#e2e8f0 !important",
+      }
+    }
+  },
+  "& .MuiOutlinedInput-input": {
+    padding: "6px 10px",
+    color: "#334155",
+    fontWeight: "500",
+  },
+  "& .MuiSelect-select": {
+    display: "flex",
+    alignItems: "center",
+  },
+  "& .MuiInputLabel-root": {
+    fontSize: "0.85rem",
+    top: "-3px",
+  },
 };
 
 
@@ -2290,8 +2324,22 @@ function JobDetails() {
                         </Col>
                         <Col xs={12} md={12} lg={12} className="mb-3">
                           <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Address Details</label>
-                          <TextField fullWidth multiline rows={2} size="small" variant="outlined" id="hss_address_details" name="hss_address_details"
-                            disabled={user?.role !== "Admin" && isSubmissionDate} value={formik.values.hss_address_details || ""} onChange={formik.handleChange} sx={compactInputSx} />
+                          <TextField fullWidth multiline minRows={2} size="small" variant="outlined" id="hss_address_details" name="hss_address_details"
+                            disabled={user?.role !== "Admin" && isSubmissionDate} value={formik.values.hss_address_details || ""} onChange={formik.handleChange}
+                            sx={{
+                              ...compactInputSx,
+                              "& .MuiOutlinedInput-root": {
+                                ...compactInputSx["& .MuiOutlinedInput-root"],
+                                height: "auto",
+                                minHeight: "54px"
+                              },
+                              "& .MuiOutlinedInput-input": {
+                                ...compactInputSx["& .MuiOutlinedInput-input"],
+                                padding: "4px 8px",
+                                lineHeight: "1.3"
+                              }
+                            }}
+                          />
                         </Col>
                         <Col xs={6} md={2} lg={2} className="mb-3">
                           <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Branch SNo</label>
@@ -2877,34 +2925,82 @@ function JobDetails() {
                       </label>
                       {!isDescriptionTableReadOnly && (
                         <Button
-                          variant="outlined"
-                          size="small"
+                          variant="contained"
+                          type="button"
                           startIcon={<AddIcon />}
                           onClick={addInvoiceRow}
+                          sx={{
+                            backgroundColor: "#1e293b",
+                            color: "#ffffff",
+                            "&:hover": {
+                              backgroundColor: "#0f172a"
+                            },
+                            textTransform: "none",
+                            fontWeight: "600",
+                            fontSize: "0.85rem",
+                            padding: "7px 16px",
+                            borderRadius: "6px",
+                            boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+                            marginBottom: "12px"
+                          }}
                         >
                           Add Invoice
                         </Button>
                       )}
                     </div>
 
-                    <div style={{ overflowX: "auto", border: "1px solid #e9ecef", borderRadius: "6px" }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "900px" }}>
+                    <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: "8px", boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.05)" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "1500px", backgroundColor: "#ffffff" }}>
                         <thead>
-                           <tr style={{ background: "#f8f9fa" }}>
-                            {["Sr No", "Invoice Number", "Date", "PO NO", "PO Date", "TOI", "Invoice Value", "Currency", "Freight", "Insurance", "Other Chrgs", "CIF Value", "Action"].map((h) => (
-                              <th key={h} style={{ borderBottom: "1px solid #dee2e6", padding: "8px", fontSize: "0.82rem", textAlign: "left", whiteSpace: "nowrap" }}>
-                                {h}
+                          <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+                            {[
+                              { label: "Sr No", width: "45px", align: "center" },
+                              { label: "Invoice Number", width: "150px", align: "left" },
+                              { label: "Date", width: "120px", align: "left" },
+                              { label: "PO NO", width: "120px", align: "left" },
+                              { label: "PO Date", width: "120px", align: "left" },
+                              { label: "TOI", width: "90px", align: "left" },
+                              { label: "Invoice Value", width: "130px", align: "left" },
+                              { label: "Currency", width: "95px", align: "left" },
+                              { label: "Freight", width: "170px", align: "left" },
+                              { label: "Insurance", width: "170px", align: "left" },
+                              { label: "Other Chrgs", width: "170px", align: "left" },
+                              { label: "CIF Value", width: "130px", align: "left" },
+                              { label: "Action", width: "50px", align: "center" }
+                            ].map((col) => (
+                              <th
+                                key={col.label}
+                                style={{
+                                  padding: "10px 8px",
+                                  fontSize: "0.8rem",
+                                  fontWeight: "600",
+                                  textAlign: col.align || "left",
+                                  whiteSpace: "nowrap",
+                                  color: "#475569",
+                                  width: col.width || "auto",
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.05em"
+                                }}
+                              >
+                                {col.label}
                               </th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
                           {invoiceRows.map((row, rowIndex) => (
-                            <tr key={`inv-row-${rowIndex}`}>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", textAlign: "center", width: "40px" }}>
+                            <tr
+                              key={`inv-row-${rowIndex}`}
+                              style={{
+                                borderBottom: "1px solid #e2e8f0",
+                                background: "transparent",
+                                transition: "background-color 0.2s"
+                              }}
+                            >
+                              <td style={{ padding: "8px 6px", textAlign: "center", width: "45px", fontSize: "12px", fontWeight: "bold", color: "#64748b", verticalAlign: "middle" }}>
                                 {rowIndex + 1}
                               </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                              <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
                                 <TextField
                                   size="small"
                                   fullWidth
@@ -2912,9 +3008,10 @@ function JobDetails() {
                                   onChange={(e) => updateInvoiceRow(rowIndex, "invoice_number", e.target.value)}
                                   disabled={isDescriptionTableReadOnly}
                                   placeholder="Invoice No"
+                                  sx={compactInputSx}
                                 />
                               </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "110px" }}>
+                              <td style={{ padding: "8px 6px", width: "120px", verticalAlign: "middle" }}>
                                 <TextField
                                   size="small"
                                   fullWidth
@@ -2923,9 +3020,10 @@ function JobDetails() {
                                   onChange={(e) => updateInvoiceRow(rowIndex, "invoice_date", e.target.value)}
                                   disabled={isDescriptionTableReadOnly}
                                   InputLabelProps={{ shrink: true }}
+                                  sx={compactInputSx}
                                 />
                               </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "100px" }}>
+                              <td style={{ padding: "8px 6px", width: "120px", verticalAlign: "middle" }}>
                                 <TextField
                                   size="small"
                                   fullWidth
@@ -2933,9 +3031,10 @@ function JobDetails() {
                                   onChange={(e) => updateInvoiceRow(rowIndex, "po_no", e.target.value)}
                                   disabled={isDescriptionTableReadOnly}
                                   placeholder="PO No"
+                                  sx={compactInputSx}
                                 />
                               </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "110px" }}>
+                              <td style={{ padding: "8px 6px", width: "120px", verticalAlign: "middle" }}>
                                 <TextField
                                   size="small"
                                   fullWidth
@@ -2944,9 +3043,10 @@ function JobDetails() {
                                   onChange={(e) => updateInvoiceRow(rowIndex, "po_date", e.target.value)}
                                   disabled={isDescriptionTableReadOnly}
                                   InputLabelProps={{ shrink: true }}
+                                  sx={compactInputSx}
                                 />
                               </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                              <td style={{ padding: "8px 6px", width: "90px", verticalAlign: "middle" }}>
                                 <TextField
                                   select
                                   size="small"
@@ -2954,6 +3054,7 @@ function JobDetails() {
                                   value={row.toi || "CIF"}
                                   onChange={(e) => updateInvoiceRow(rowIndex, "toi", e.target.value)}
                                   disabled={isDescriptionTableReadOnly}
+                                  sx={compactInputSx}
                                 >
                                   <MenuItem value="CIF">CIF</MenuItem>
                                   <MenuItem value="FOB">FOB</MenuItem>
@@ -2961,7 +3062,7 @@ function JobDetails() {
                                   <MenuItem value="CI">C&I</MenuItem>
                                 </TextField>
                               </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                              <td style={{ padding: "8px 6px", width: "130px", verticalAlign: "middle" }}>
                                 <TextField
                                   size="small"
                                   fullWidth
@@ -2969,14 +3070,14 @@ function JobDetails() {
                                   onChange={(e) => updateInvoiceRow(rowIndex, "product_value", e.target.value)}
                                   disabled={isDescriptionTableReadOnly}
                                   placeholder="Invoice Value"
+                                  sx={compactInputSx}
                                 />
                               </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                              <td style={{ padding: "8px 6px", width: "95px", verticalAlign: "middle" }}>
                                  <Autocomplete
                                    freeSolo
                                    size="small"
                                    options={currencies.map(c => c.code)}
-                                   sx={compactInputSx}
                                    value={row.inv_currency || ""}
                                    onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "inv_currency", newValue)}
                                    onChange={(event, newValue) => updateInvoiceRow(rowIndex, "inv_currency", newValue || "")}
@@ -2992,7 +3093,7 @@ function JobDetails() {
                                    )}
                                  />
                               </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "160px" }}>
+                              <td style={{ padding: "8px 6px", width: "170px", verticalAlign: "middle" }}>
                                 <div style={{ display: 'flex', gap: '4px' }}>
                                   <TextField
                                     size="small"
@@ -3001,6 +3102,7 @@ function JobDetails() {
                                     onChange={(e) => updateInvoiceRow(rowIndex, "freight", e.target.value)}
                                     disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CI")}
                                     placeholder="Freight"
+                                    sx={compactInputSx}
                                   />
                                   <Autocomplete
                                     freeSolo
@@ -3022,7 +3124,7 @@ function JobDetails() {
                                   />
                                 </div>
                               </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "160px" }}>
+                              <td style={{ padding: "8px 6px", width: "170px", verticalAlign: "middle" }}>
                                 <div style={{ display: 'flex', gap: '4px' }}>
                                   <TextField
                                     size="small"
@@ -3031,6 +3133,7 @@ function JobDetails() {
                                     onChange={(e) => updateInvoiceRow(rowIndex, "insurance", e.target.value)}
                                     disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CF")}
                                     placeholder="Insurance"
+                                    sx={compactInputSx}
                                   />
                                   <Autocomplete
                                     freeSolo
@@ -3052,7 +3155,7 @@ function JobDetails() {
                                   />
                                 </div>
                               </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "160px" }}>
+                              <td style={{ padding: "8px 6px", width: "170px", verticalAlign: "middle" }}>
                                 <div style={{ display: 'flex', gap: '4px' }}>
                                   <TextField
                                     size="small"
@@ -3061,6 +3164,7 @@ function JobDetails() {
                                     onChange={(e) => updateInvoiceRow(rowIndex, "other_charges", e.target.value)}
                                     disabled={isDescriptionTableReadOnly}
                                     placeholder="Other"
+                                    sx={compactInputSx}
                                   />
                                   <Autocomplete
                                     freeSolo
@@ -3082,7 +3186,7 @@ function JobDetails() {
                                   />
                                 </div>
                               </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                              <td style={{ padding: "8px 6px", width: "130px", verticalAlign: "middle" }}>
                                 <TextField
                                   size="small"
                                   fullWidth
@@ -3090,15 +3194,31 @@ function JobDetails() {
                                   InputProps={{ readOnly: true }}
                                   disabled={isDescriptionTableReadOnly}
                                   placeholder="CIF Value"
+                                  sx={compactInputSx}
                                 />
                               </td>
-                              <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", textAlign: "center" }}>
+                              <td style={{ padding: "8px 6px", textAlign: "center", width: "50px", verticalAlign: "middle" }}>
                                 {!isDescriptionTableReadOnly && (
                                   <IconButton
                                     size="small"
-                                    color="error"
                                     disabled={invoiceRows.length <= 1}
                                     onClick={() => removeInvoiceRow(rowIndex)}
+                                    sx={{
+                                      border: "1px solid #e2e8f0",
+                                      borderRadius: "6px",
+                                      color: "#94a3b8",
+                                      padding: "6px",
+                                      transition: "all 0.2s",
+                                      "&:hover": {
+                                        color: "#ef4444",
+                                        borderColor: "#fecaca",
+                                        backgroundColor: "#fef2f2"
+                                      },
+                                      "&.Mui-disabled": {
+                                        color: "#cbd5e1",
+                                        borderColor: "#f1f5f9"
+                                      }
+                                    }}
                                   >
                                     <DeleteIcon fontSize="small" />
                                   </IconButton>
@@ -3140,16 +3260,35 @@ function JobDetails() {
                     </label>
                   </div>
 
-                  <div style={{ overflowX: "auto" }}>
-                    <table className="table table-bordered" style={{ fontSize: "0.9rem", minWidth: "900px" }}>
-                      <thead style={{ background: "#f8f9fa" }}>
-                        <tr>
-                          <th style={{ width: "20%", fontWeight: "600" }}>Charge Head</th>
-                          <th style={{ width: "12%", fontWeight: "600" }}>Currency</th>
-                          <th style={{ width: "12%", fontWeight: "600" }}>Exch. Rate</th>
-                          <th style={{ width: "12%", fontWeight: "600" }}>Rate %</th>
-                          <th style={{ width: "12%", fontWeight: "600" }}>Amount</th>
-                          <th style={{ width: "32%", fontWeight: "600" }}>Description/Remark</th>
+                  <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: "8px", boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.05)" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "900px", backgroundColor: "#ffffff" }}>
+                      <thead>
+                        <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+                          {[
+                            { label: "Charge Head", width: "20%" },
+                            { label: "Currency", width: "12%" },
+                            { label: "Exch. Rate", width: "12%" },
+                            { label: "Rate %", width: "12%" },
+                            { label: "Amount", width: "12%" },
+                            { label: "Description/Remark", width: "32%" }
+                          ].map((col) => (
+                            <th
+                              key={col.label}
+                              style={{
+                                padding: "10px 8px",
+                                fontSize: "0.8rem",
+                                fontWeight: "600",
+                                textAlign: "left",
+                                whiteSpace: "nowrap",
+                                color: "#475569",
+                                width: col.width,
+                                textTransform: "uppercase",
+                                letterSpacing: "0.05em"
+                              }}
+                            >
+                              {col.label}
+                            </th>
+                          ))}
                         </tr>
                       </thead>
                       <tbody>
@@ -3162,9 +3301,16 @@ function JobDetails() {
                           { id: "insurance", label: "Insurance" },
                           { id: "addl_charge", label: "Addl Chrg(High Sea)" },
                         ].map((row) => (
-                          <tr key={row.id}>
-                            <td style={{ verticalAlign: "middle", fontWeight: "500" }}>{row.label}</td>
-                            <td>
+                          <tr
+                            key={row.id}
+                            style={{
+                              borderBottom: "1px solid #e2e8f0",
+                              background: "transparent",
+                              transition: "background-color 0.2s"
+                            }}
+                          >
+                            <td style={{ padding: "8px 6px", verticalAlign: "middle", fontWeight: "500", fontSize: "0.85rem", color: "#475569" }}>{row.label}</td>
+                            <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
                                <Autocomplete
                                  freeSolo
                                  size="small"
@@ -3184,7 +3330,7 @@ function JobDetails() {
                                  )}
                                />
                             </td>
-                            <td>
+                            <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
                               <TextField
                                 fullWidth
                                 size="small"
@@ -3194,7 +3340,7 @@ function JobDetails() {
                                 onChange={(e) => formik.setFieldValue(`other_charges_details.${row.id}.exchange_rate`, e.target.value)}
                               />
                             </td>
-                            <td>
+                            <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
                               <TextField
                                 fullWidth
                                 size="small"
@@ -3204,7 +3350,7 @@ function JobDetails() {
                                 onChange={(e) => formik.setFieldValue(`other_charges_details.${row.id}.rate`, e.target.value)}
                               />
                             </td>
-                            <td>
+                            <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
                               <TextField
                                 fullWidth
                                 size="small"
@@ -3214,7 +3360,7 @@ function JobDetails() {
                                 onChange={(e) => formik.setFieldValue(`other_charges_details.${row.id}.amount`, e.target.value)}
                               />
                             </td>
-                            <td>
+                            <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
                               <TextField
                                 fullWidth
                                 size="small"
@@ -3283,34 +3429,77 @@ function JobDetails() {
                     </h6>
                     <Box sx={{ display: 'flex', gap: 1 }}>
                       <Button
-                        variant="outlined"
-                        size="small"
+                        variant="contained"
+                        type="button"
                         startIcon={<AddIcon />}
                         onClick={addMiscChargeRow}
+                        sx={{
+                          backgroundColor: "#1e293b",
+                          color: "#ffffff",
+                          "&:hover": {
+                            backgroundColor: "#0f172a"
+                          },
+                          textTransform: "none",
+                          fontWeight: "600",
+                          fontSize: "0.85rem",
+                          padding: "7px 16px",
+                          borderRadius: "6px",
+                          boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)"
+                        }}
                       >
                         Add Charge
                       </Button>
                     </Box>
                   </div>
 
-                  <div style={{ overflowX: "auto", border: "1px solid #e9ecef", borderRadius: "6px" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "1000px" }}>
+                  <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: "8px", boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.05)" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "1000px", backgroundColor: "#ffffff" }}>
                       <thead>
-                        <tr style={{ background: "#f8f9fa" }}>
-                          {["Sr No", "Charge Type", "Currency", "Ex. Rate", "Rate %", "Amount", "Amount (Rs.)", "Remark", "Action"].map((h) => (
-                            <th key={h} style={{ borderBottom: "1px solid #dee2e6", padding: "8px", fontSize: "0.82rem", textAlign: "left", whiteSpace: "nowrap" }}>
-                              {h}
+                        <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+                          {[
+                            { label: "Sr No", width: "45px", align: "center" },
+                            { label: "Charge Type", width: "220px", align: "left" },
+                            { label: "Currency", width: "100px", align: "left" },
+                            { label: "Ex. Rate", width: "100px", align: "left" },
+                            { label: "Rate %", width: "100px", align: "left" },
+                            { label: "Amount", width: "120px", align: "left" },
+                            { label: "Amount (Rs.)", width: "120px", align: "left" },
+                            { label: "Remark", width: "auto", align: "left" },
+                            { label: "Action", width: "50px", align: "center" }
+                          ].map((col) => (
+                            <th
+                              key={col.label}
+                              style={{
+                                padding: "10px 8px",
+                                fontSize: "0.8rem",
+                                fontWeight: "600",
+                                textAlign: col.align || "left",
+                                whiteSpace: "nowrap",
+                                color: "#475569",
+                                width: col.width,
+                                textTransform: "uppercase",
+                                letterSpacing: "0.05em"
+                              }}
+                            >
+                              {col.label}
                             </th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
                         {miscChargesRows.map((row, rowIndex) => (
-                          <tr key={`misc-row-${rowIndex}`}>
-                            <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", textAlign: "center", width: "40px" }}>
+                          <tr
+                            key={`misc-row-${rowIndex}`}
+                            style={{
+                              borderBottom: "1px solid #e2e8f0",
+                              background: "transparent",
+                              transition: "background-color 0.2s"
+                            }}
+                          >
+                            <td style={{ padding: "8px 6px", textAlign: "center", width: "45px", fontSize: "12px", fontWeight: "bold", color: "#64748b", verticalAlign: "middle" }}>
                               {rowIndex + 1}
                             </td>
-                            <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "220px" }}>
+                            <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
                               <TextField
                                 select
                                 size="small"
@@ -3339,7 +3528,7 @@ function JobDetails() {
                                 ))}
                               </TextField>
                             </td>
-                            <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "100px" }}>
+                            <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
                                <Autocomplete
                                  freeSolo
                                  size="small"
@@ -3357,9 +3546,9 @@ function JobDetails() {
                                      sx={compactInputSx}
                                    />
                                  )}
-                               />
+                                />
                             </td>
-                            <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "100px" }}>
+                            <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
                               <TextField
                                 size="small"
                                 fullWidth
@@ -3369,7 +3558,7 @@ function JobDetails() {
                                 sx={compactInputSx}
                               />
                             </td>
-                            <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "100px" }}>
+                            <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
                               <TextField
                                 size="small"
                                 fullWidth
@@ -3379,7 +3568,7 @@ function JobDetails() {
                                 sx={compactInputSx}
                               />
                             </td>
-                            <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "120px" }}>
+                            <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
                               <TextField
                                 size="small"
                                 fullWidth
@@ -3389,7 +3578,7 @@ function JobDetails() {
                                 sx={compactInputSx}
                               />
                             </td>
-                            <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", width: "120px" }}>
+                            <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
                               <TextField
                                 size="small"
                                 fullWidth
@@ -3399,7 +3588,7 @@ function JobDetails() {
                                 sx={{ ...compactInputSx, "& .MuiInputBase-root": { bgcolor: "#f8f9fa" } }}
                               />
                             </td>
-                            <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5" }}>
+                            <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
                               <TextField
                                 size="small"
                                 fullWidth
@@ -3409,11 +3598,22 @@ function JobDetails() {
                                 sx={compactInputSx}
                               />
                             </td>
-                            <td style={{ padding: "6px", borderBottom: "1px solid #f1f3f5", textAlign: "center", width: "50px" }}>
+                            <td style={{ padding: "8px 6px", textAlign: "center", width: "50px", verticalAlign: "middle" }}>
                               <IconButton
                                 size="small"
-                                color="error"
                                 onClick={() => removeMiscChargeRow(rowIndex)}
+                                sx={{
+                                  border: "1px solid #e2e8f0",
+                                  borderRadius: "6px",
+                                  color: "#94a3b8",
+                                  padding: "6px",
+                                  transition: "all 0.2s",
+                                  "&:hover": {
+                                    color: "#ef4444",
+                                    borderColor: "#fecaca",
+                                    backgroundColor: "#fef2f2"
+                                  }
+                                }}
                               >
                                 <DeleteIcon fontSize="small" />
                               </IconButton>
@@ -3542,26 +3742,60 @@ function JobDetails() {
                     })()}
 
                     {/* Product Items Table */}
-                    <div style={{ overflowX: "auto", border: "1px solid #dee2e6", borderRadius: "4px" }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "1500px" }}>
+                    <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: "8px", boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.05)" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "1500px", backgroundColor: "#ffffff" }}>
                         <thead>
-                          <tr style={{ background: "#f8f9fa" }}>
-                            {["Sr No", "Inv SR", "Description", "RITC (HS Code)", "Quantity", "Unit Price", "Currency", "Amount", "License No", "License Date", "License SR", "Action"].map((h) => (
-                              <th key={h} style={{ borderBottom: "1px solid #dee2e6", padding: "8px 6px", fontSize: "0.82rem", fontWeight: "bold", textAlign: "left", whiteSpace: "nowrap", color: "#333333" }}>
-                                {h}
+                          <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+                            {[
+                              { label: "Sr No", width: "45px", align: "center" },
+                              { label: "Inv SR", width: "80px", align: "left" },
+                              { label: "Description", minWidth: "280px", align: "left" },
+                              { label: "RITC (HS Code)", width: "120px", align: "left" },
+                              { label: "Quantity", width: "240px", align: "left" },
+                              { label: "Unit Price", width: "100px", align: "left" },
+                              { label: "Currency", width: "90px", align: "left" },
+                              { label: "Amount", width: "115px", align: "left" },
+                              { label: "License No", width: "180px", align: "left" },
+                              { label: "License Date", width: "120px", align: "left" },
+                              { label: "License SR", width: "90px", align: "left" },
+                              { label: "Action", width: "50px", align: "center" }
+                            ].map((col) => (
+                              <th
+                                key={col.label}
+                                style={{
+                                  padding: "10px 8px",
+                                  fontSize: "0.8rem",
+                                  fontWeight: "600",
+                                  textAlign: col.align || "left",
+                                  whiteSpace: "nowrap",
+                                  color: "#475569",
+                                  width: col.width || "auto",
+                                  minWidth: col.minWidth || "auto",
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.05em"
+                                }}
+                              >
+                                {col.label}
                               </th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
-                          {descriptionRows.map((row, rowIndex) => (
-                            <tr key={`main-desc-row-${rowIndex}`} style={{ borderBottom: "1px solid #cbd5e1", background: activeProductIndex === rowIndex ? "#f0f7ff" : "transparent" }}>
+                           {descriptionRows.map((row, rowIndex) => (
+                            <tr
+                              key={`main-desc-row-${rowIndex}`}
+                              style={{
+                                borderBottom: "1px solid #e2e8f0",
+                                background: activeProductIndex === rowIndex ? "#f8fafc" : "transparent",
+                                transition: "background-color 0.2s"
+                              }}
+                            >
                               {/* Sr No */}
-                              <td style={{ padding: "6px 8px", textAlign: "center", width: "45px", fontSize: "12px", fontWeight: "bold" }}>
+                              <td style={{ padding: "8px 6px", textAlign: "center", width: "45px", fontSize: "12px", fontWeight: "bold", color: "#64748b", verticalAlign: "middle" }}>
                                 {rowIndex + 1}
                               </td>
                               {/* Inv SR */}
-                              <td style={{ padding: "6px 8px", width: "80px" }}>
+                              <td style={{ padding: "8px 6px", width: "80px", verticalAlign: "middle" }}>
                                 <TextField
                                   select
                                   size="small"
@@ -3587,6 +3821,7 @@ function JobDetails() {
                                     });
                                   }}
                                   disabled={isDescriptionTableReadOnly}
+                                  sx={compactInputSx}
                                 >
                                   <MenuItem value="">Select</MenuItem>
                                   {invoiceRows.map((_, idx) => (
@@ -3597,20 +3832,32 @@ function JobDetails() {
                                 </TextField>
                               </td>
                               {/* Description */}
-                              <td style={{ padding: "6px 8px", minWidth: "240px" }}>
+                              <td style={{ padding: "8px 6px", minWidth: "280px", verticalAlign: "middle" }}>
                                 <TextField
                                   size="small"
                                   fullWidth
                                   multiline
-                                  rows={2}
+                                  minRows={2}
                                   value={row.description || ""}
                                   onChange={(e) => updateDescriptionRow(rowIndex, "description", e.target.value)}
                                   disabled={isDescriptionTableReadOnly}
-                                  sx={compactInputSx}
+                                  sx={{
+                                    ...compactInputSx,
+                                    "& .MuiOutlinedInput-root": {
+                                      ...compactInputSx["& .MuiOutlinedInput-root"],
+                                      height: "auto",
+                                      minHeight: "58px"
+                                    },
+                                    "& .MuiOutlinedInput-input": {
+                                      ...compactInputSx["& .MuiOutlinedInput-input"],
+                                      padding: "4px 8px",
+                                      lineHeight: "1.3"
+                                    }
+                                  }}
                                 />
                               </td>
                               {/* RITC (HS Code) */}
-                              <td style={{ padding: "6px 8px", width: "120px" }}>
+                              <td style={{ padding: "8px 6px", width: "120px", verticalAlign: "middle" }}>
                                 <TextField
                                   size="small"
                                   fullWidth
@@ -3621,8 +3868,8 @@ function JobDetails() {
                                 />
                               </td>
                               {/* Quantity */}
-                              <td style={{ padding: "6px 8px", width: "190px" }}>
-                                <div style={{ display: "flex", gap: "4px" }}>
+                              <td style={{ padding: "8px 6px", width: "240px", verticalAlign: "middle" }}>
+                                <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
                                   <TextField
                                     size="small"
                                     value={row.quantity || ""}
@@ -3671,14 +3918,21 @@ function JobDetails() {
                                         if (reason === "input") updateDescriptionRow(rowIndex, "unit", newInputValue);
                                       }}
                                       disabled={isDescriptionTableReadOnly}
-                                      renderInput={(params) => <TextField {...params} size="small" placeholder="Unit" label="Unit" />}
+                                      renderInput={(params) => (
+                                        <TextField
+                                          {...params}
+                                          size="small"
+                                          placeholder="Unit"
+                                          sx={compactInputSx}
+                                        />
+                                      )}
                                     />
                                   </div>
                                 </div>
                               </td>
 
                               {/* Unit Price */}
-                              <td style={{ padding: "6px 8px", width: "95px" }}>
+                              <td style={{ padding: "8px 6px", width: "100px", verticalAlign: "middle" }}>
                                 <TextField
                                   size="small"
                                   fullWidth
@@ -3708,7 +3962,7 @@ function JobDetails() {
                                 />
                               </td>
                               {/* Currency */}
-                              <td style={{ padding: "6px 8px", width: "95px" }}>
+                              <td style={{ padding: "8px 6px", width: "90px", verticalAlign: "middle" }}>
                                 <TextField
                                   select
                                   size="small"
@@ -3716,6 +3970,7 @@ function JobDetails() {
                                   value={row.amount_currency || "USD"}
                                   onChange={(e) => updateDescriptionRow(rowIndex, "amount_currency", e.target.value)}
                                   disabled={isDescriptionTableReadOnly}
+                                  sx={compactInputSx}
                                 >
                                   <MenuItem value="USD">USD</MenuItem>
                                   <MenuItem value="INR">INR</MenuItem>
@@ -3725,7 +3980,7 @@ function JobDetails() {
                               </td>
 
                               {/* Amount */}
-                              <td style={{ padding: "6px 8px", width: "110px" }}>
+                              <td style={{ padding: "8px 6px", width: "115px", verticalAlign: "middle" }}>
                                 <TextField
                                   size="small"
                                   fullWidth
@@ -3760,7 +4015,7 @@ function JobDetails() {
                                 />
                               </td>
                               {/* License No */}
-                              <td style={{ padding: "6px 8px", width: "180px" }}>
+                              <td style={{ padding: "8px 6px", width: "180px", verticalAlign: "middle" }}>
                                 <Autocomplete
                                   size="small"
                                   fullWidth
@@ -3823,11 +4078,17 @@ function JobDetails() {
                                     }
                                   }}
                                   disabled={isDescriptionTableReadOnly}
-                                  renderInput={(params) => <TextField {...params} size="small" />}
+                                  renderInput={(params) => (
+                                    <TextField
+                                      {...params}
+                                      size="small"
+                                      sx={compactInputSx}
+                                    />
+                                  )}
                                 />
                               </td>
                               {/* License Date */}
-                              <td style={{ padding: "6px 8px", width: "120px" }}>
+                              <td style={{ padding: "8px 6px", width: "120px", verticalAlign: "middle" }}>
                                 <TextField
                                   size="small"
                                   fullWidth
@@ -3838,7 +4099,7 @@ function JobDetails() {
                                 />
                               </td>
                               {/* License SR */}
-                              <td style={{ padding: "6px 8px", width: "120px" }}>
+                              <td style={{ padding: "8px 6px", width: "90px", verticalAlign: "middle" }}>
                                 {(() => {
                                   const licNum = row.sr_no_lic || row.license_no;
                                   const selectedAuth = authorizationsList.find(a => a.authorization_no === licNum);
@@ -3864,11 +4125,12 @@ function JobDetails() {
                                           updateDescriptionRow(rowIndex, "license_sr", val ? Number(val) : "");
                                         }}
                                         disabled={isDescriptionTableReadOnly}
+                                        sx={compactInputSx}
                                       >
                                         <MenuItem value="">Select</MenuItem>
                                         {filteredItems.map((item) => (
                                           <MenuItem key={item.sr_no || item.value_usd} value={String(item.sr_no)}>
-                                            {item.sr_no} - {item.item_description || "Item"}
+                                            {item.sr_no}
                                           </MenuItem>
                                         ))}
                                       </TextField>
@@ -3891,13 +4153,28 @@ function JobDetails() {
                                 })()}
                               </td>
                               {/* Action */}
-                              <td style={{ padding: "6px 8px", textAlign: "center" }}>
+                              <td style={{ padding: "8px 6px", textAlign: "center", width: "50px", verticalAlign: "middle" }}>
                                 {!isDescriptionTableReadOnly && (
                                   <IconButton
                                     size="small"
-                                    color="error"
                                     disabled={descriptionRows.length <= 1}
                                     onClick={() => removeDescriptionRow(rowIndex)}
+                                    sx={{
+                                      border: "1px solid #e2e8f0",
+                                      borderRadius: "6px",
+                                      color: "#94a3b8",
+                                      padding: "6px",
+                                      transition: "all 0.2s",
+                                      "&:hover": {
+                                        color: "#ef4444",
+                                        borderColor: "#fecaca",
+                                        backgroundColor: "#fef2f2"
+                                      },
+                                      "&.Mui-disabled": {
+                                        color: "#cbd5e1",
+                                        borderColor: "#f1f5f9"
+                                      }
+                                    }}
                                   >
                                     <DeleteIcon fontSize="small" />
                                   </IconButton>
@@ -3918,16 +4195,17 @@ function JobDetails() {
                             setActiveProductIndex(descriptionRows.length);
                           }}
                           sx={{
-                            backgroundColor: "#1a3168",
-                            color: "#fff",
+                            backgroundColor: "#1e293b",
+                            color: "#ffffff",
                             "&:hover": {
-                              backgroundColor: "#162854"
+                              backgroundColor: "#0f172a"
                             },
                             textTransform: "none",
-                            fontWeight: "bold",
-                            fontSize: "12px",
-                            padding: "6px 16px",
-                            borderRadius: "4px"
+                            fontWeight: "600",
+                            fontSize: "0.85rem",
+                            padding: "7px 16px",
+                            borderRadius: "6px",
+                            boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)"
                           }}
                         >
                           + Add New Product

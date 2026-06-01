@@ -24,11 +24,11 @@ const formatLeaveBadge = (leaveType) => {
 };
 
 const COLORS = {
-  present: '#36b60f',
-  late: '#b45309',
-  leave: '#1e40af',
-  absent: '#c02e2e',
-  half_day: '#ff9101'
+  present: '#10b981',
+  late: '#f59e0b',
+  leave: '#3b82f6',
+  absent: '#ef4444',
+  half_day: '#8b5cf6'
 };
 
 const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, onEndDateChange, companies = [], selectedCompanyId, onCompanyChange, isHOD = false, isAdmin = false }) => {
@@ -176,19 +176,21 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
                 />
             </div>
 
-            <div className="adb-company-filter-wrap">
-              <FiFilter className="adb-dp-icon" />
-              <select
-                className="adb-company-select"
-                value={groupBy}
-                onChange={(e) => setGroupBy(e.target.value)}
-              >
-                <option value="none">No Grouping</option>
-                <option value="organization">Group by Organization</option>
-                <option value="team">Group by Team</option>
-              </select>
-            </div>
-            {companies.length > 0 && (
+            {!isHOD && (
+              <div className="adb-company-filter-wrap">
+                <FiFilter className="adb-dp-icon" />
+                <select
+                  className="adb-company-select"
+                  value={groupBy}
+                  onChange={(e) => setGroupBy(e.target.value)}
+                >
+                  <option value="none">No Grouping</option>
+                  <option value="organization">Group by Organization</option>
+                  <option value="team">Group by Team</option>
+                </select>
+              </div>
+            )}
+            {!isHOD && companies.length > 0 && (
               <div className="adb-company-filter-wrap">
                 <FiUsers className="adb-dp-icon" />
                 <select 
@@ -208,7 +210,7 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
 
       <div className="adb-analytics-grid">
         <div className="adb-ms-card clickable" onClick={() => openModal('present')}>
-            <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(54, 182, 15, 0.1)', color: COLORS.present }}><FiUsers /></div>
+            <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', color: COLORS.present }}><FiUsers /></div>
             <div className="adb-ms-info">
                 <span className="adb-ms-val">{stats.present}</span>
                 <span className="adb-ms-lbl">Total Present</span>
@@ -216,14 +218,14 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
         </div>
 
         <div className="adb-ms-card clickable" onClick={() => openModal('leave')}>
-            <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(30, 64, 175, 0.1)', color: COLORS.leave }}><FiCalendar /></div>
+            <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: COLORS.leave }}><FiCalendar /></div>
             <div className="adb-ms-info">
                 <span className="adb-ms-val">{stats.onLeave}</span>
                 <span className="adb-ms-lbl">On Leave</span>
             </div>
         </div>
         <div className="adb-ms-card clickable" onClick={() => openModal('absent')}>
-            <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(192, 46, 46, 0.1)', color: COLORS.absent }}><FiXCircle /></div>
+            <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: COLORS.absent }}><FiXCircle /></div>
             <div className="adb-ms-info">
                 <span className="adb-ms-val">{stats.absent}</span>
                 <span className="adb-ms-lbl">Absent</span>
@@ -260,7 +262,17 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
                       </div>
             </div>
             <table className="adb-summary-table">
-            <thead>
+              <colgroup>
+                <col style={{ width: '28%' }} />
+                <col style={{ width: '16%' }} />
+                <col style={{ width: '12%' }} />
+                <col style={{ width: '10%' }} />
+                <col style={{ width: '10%' }} />
+                <col style={{ width: '8%' }} />
+                <col style={{ width: '8%' }} />
+                <col style={{ width: '8%' }} />
+              </colgroup>
+              <thead>
                 <tr>
                 <th>Employee</th>
                       <th>Organization</th>
@@ -383,10 +395,11 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
                         <Pie
                             data={chartData}
                             innerRadius={70}
-                            outerRadius={95}
-                            paddingAngle={8}
+                            outerRadius={92}
+                            paddingAngle={chartData.length > 1 ? 5 : 0}
                             dataKey="value"
                             stroke="none"
+                            cornerRadius={6}
                         >
                             {chartData.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={entry.color} />
@@ -396,6 +409,12 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
                             contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
                         />
                         <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                        <text x="50%" y="45%" textAnchor="middle" dominantBaseline="middle" style={{ fontSize: '24px', fontWeight: '800', fill: '#1e293b' }}>
+                            {dailySummary.length}
+                        </text>
+                        <text x="50%" y="55%" textAnchor="middle" dominantBaseline="middle" style={{ fontSize: '11px', fontWeight: '600', fill: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            Total Staff
+                        </text>
                         </PieChart>
                     </ResponsiveContainer>
                     ) : (

@@ -599,7 +599,7 @@ router.put("/api/update-authorization-registration/:id", async (req, res) => {
     if (!updated) return res.status(404).json({ message: "Record not found" });
 
     // Recalculate utilization using the newly saved quantities/values to refresh dynamic balances
-    await recalculateLicenseUtilization(updated.registration_no || updated.licence_no);
+    await recalculateLicenseUtilization(updated.registration_no || updated.licence_no || updated.job_no);
     const finalDoc = await AuthorizationRegistrationModel.findById(req.params.id);
 
     // Sync compliance details back to JobModel for any linked BE numbers
@@ -662,9 +662,19 @@ router.delete(
         return res.status(404).json({ message: "Record not found" });
 
       // Clean up associated utilization records
-      const authNo = deleted.registration_no || deleted.licence_no;
+      const authNo = deleted.registration_no || deleted.licence_no || deleted.job_no;
       if (authNo) {
-        await LicenseUtilizationModel.deleteMany({ authorization_no: authNo });
+        const cleanedNo = String(authNo).replace(/^LIC\//i, "").trim();
+        const searchNos = [authNo, cleanedNo];
+        if (deleted.registration_no) searchNos.push(deleted.registration_no);
+        if (deleted.licence_no) searchNos.push(deleted.licence_no);
+        if (deleted.job_no) {
+          searchNos.push(deleted.job_no);
+          searchNos.push(`LIC/${deleted.job_no}`);
+          searchNos.push(`lic/${deleted.job_no}`);
+        }
+        const uniqueSearchNos = [...new Set(searchNos.filter(n => n && n.trim() !== ""))];
+        await LicenseUtilizationModel.deleteMany({ authorization_no: { $in: uniqueSearchNos } });
       }
 
       res.status(200).json({ message: "Record deleted successfully" });
@@ -717,13 +727,16 @@ router.get("/api/get-authorization-by-no", async (req, res) => {
     if (!authorization_no) {
       return res.status(400).json({ message: "authorization_no query param is required" });
     }
+    const cleanedNo = String(authorization_no).replace(/^LIC\//i, "").trim();
     const record = await AuthorizationRegistrationModel.findOne({
       $or: [
         { registration_no: authorization_no },
         { licence_no: authorization_no },
+        { job_no: authorization_no },
+        { job_no: cleanedNo }
       ],
     })
-      .select("registration_no licence_no auth_date licence_date scheme_code iec_no import_details_array export_details_array party_name")
+      .select("registration_no licence_no auth_date licence_date scheme_code iec_no import_details_array export_details_array party_name job_no")
       .lean();
 
     if (!record) {
@@ -772,8 +785,30 @@ router.get("/api/license-utilization/records", async (req, res) => {
     if (!authorization_no) {
       return res.status(400).json({ message: "authorization_no query param is required" });
     }
+    const cleanedNo = String(authorization_no).replace(/^LIC\//i, "").trim();
+    const auth = await AuthorizationRegistrationModel.findOne({
+      $or: [
+        { registration_no: authorization_no },
+        { licence_no: authorization_no },
+        { job_no: authorization_no },
+        { job_no: cleanedNo }
+      ]
+    }).lean();
+
+    const searchNos = [authorization_no, cleanedNo];
+    if (auth) {
+      if (auth.registration_no) searchNos.push(auth.registration_no);
+      if (auth.licence_no) searchNos.push(auth.licence_no);
+      if (auth.job_no) {
+        searchNos.push(auth.job_no);
+        searchNos.push(`LIC/${auth.job_no}`);
+        searchNos.push(`lic/${auth.job_no}`);
+      }
+    }
+    const uniqueSearchNos = [...new Set(searchNos.filter(n => n && n.trim() !== ""))];
+
     const records = await LicenseUtilizationModel.find({
-      authorization_no
+      authorization_no: { $in: uniqueSearchNos }
     }).sort({ created_at: -1 });
     res.status(200).json(records);
   } catch (error) {

@@ -60,10 +60,13 @@ export async function validateLicenseUtilization(descriptionDetails, currentJobI
     const licenseSr = Number(row.license_sr) || 1;
 
     // A. Authorization exists
+    const cleanedLicenseNo = String(licenseNo).replace(/^LIC\//i, "").trim();
     const auth = await AuthorizationRegistrationModel.findOne({
       $or: [
         { registration_no: licenseNo },
-        { licence_no: licenseNo }
+        { licence_no: licenseNo },
+        { job_no: licenseNo },
+        { job_no: cleanedLicenseNo }
       ]
     }).session(session);
     if (!auth) {
@@ -100,12 +103,23 @@ export async function validateLicenseUtilization(descriptionDetails, currentJobI
     //   throw new Error(`Row ${i + 1}: Selected License Item HS Code does not match Product HS Code. Please verify DGFT Authorization mapping.`);
     // }
 
+    // Resolve both aliases for authorization record
+    const searchNos = [licenseNo, cleanedLicenseNo];
+    if (auth.registration_no) searchNos.push(auth.registration_no);
+    if (auth.licence_no) searchNos.push(auth.licence_no);
+    if (auth.job_no) {
+      searchNos.push(auth.job_no);
+      searchNos.push(`LIC/${auth.job_no}`);
+      searchNos.push(`lic/${auth.job_no}`);
+    }
+    const uniqueSearchNos = [...new Set(searchNos.filter(n => n && n.trim() !== ""))];
+
     // E. Quantity available (check balance excluding this job)
     const requestedQty = parseFloat(row.quantity) || 0;
     const licensedQty = parseFloat(licenseItem.qty) || 0;
 
     const otherRecords = await LicenseUtilizationModel.find({
-      authorization_no: licenseNo,
+      authorization_no: { $in: uniqueSearchNos },
       license_sr: licenseSr,
       job_id: { $ne: currentJobId }
     }).session(session).lean();
@@ -153,7 +167,7 @@ export async function validateLicenseUtilization(descriptionDetails, currentJobI
 
     if (orConditions.length > 0) {
       const duplicate = await LicenseUtilizationModel.findOne({
-        authorization_no: licenseNo,
+        authorization_no: { $in: uniqueSearchNos },
         license_sr: licenseSr,
         job_id: { $ne: currentJobId },
         $or: orConditions
@@ -174,11 +188,14 @@ export async function recalculateLicenseUtilization(authorizationNo, session = n
   if (!authorizationNo) return;
 
   try {
+    const cleanedNo = String(authorizationNo).replace(/^LIC\//i, "").trim();
     // 1. Find the authorization document
     const authorization = await AuthorizationRegistrationModel.findOne({
       $or: [
         { registration_no: authorizationNo },
-        { licence_no: authorizationNo }
+        { licence_no: authorizationNo },
+        { job_no: authorizationNo },
+        { job_no: cleanedNo }
       ]
     }).session(session);
 
@@ -187,9 +204,19 @@ export async function recalculateLicenseUtilization(authorizationNo, session = n
       return;
     }
 
+    const searchNos = [authorizationNo, cleanedNo];
+    if (authorization.registration_no) searchNos.push(authorization.registration_no);
+    if (authorization.licence_no) searchNos.push(authorization.licence_no);
+    if (authorization.job_no) {
+      searchNos.push(authorization.job_no);
+      searchNos.push(`LIC/${authorization.job_no}`);
+      searchNos.push(`lic/${authorization.job_no}`);
+    }
+    const uniqueSearchNos = [...new Set(searchNos.filter(n => n && n.trim() !== ""))];
+
     // 2. Load all records from licenseUtilizationModel where authorization_no matches
     const records = await LicenseUtilizationModel.find({
-      authorization_no: authorizationNo
+      authorization_no: { $in: uniqueSearchNos }
     }).session(session).lean();
 
     // Group transactions by license_sr

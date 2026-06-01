@@ -205,6 +205,8 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
         delete sanitizedUpdate.job_no;
         delete sanitizedUpdate.year;
         delete sanitizedUpdate.financial_year;
+        delete sanitizedUpdate.cth_documents;
+        delete sanitizedUpdate.documents;
 
         // ✅ Support legacy address formats (strings) by converting them to objects before assignment
         if (typeof sanitizedUpdate.importer_address === 'string') {
@@ -251,11 +253,8 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
               (doc) => doc.document_name === incomingDoc.document_name
             );
             if (existingDocIndex !== -1) {
-              // Update the existing document
-              matchingJob.cth_documents[existingDocIndex] = {
-                ...matchingJob.cth_documents[existingDocIndex],
-                ...incomingDoc,
-              };
+              // Update the existing document using native .set() method
+              matchingJob.cth_documents[existingDocIndex].set(incomingDoc);
             } else {
               // Add new document if it doesn't exist
               matchingJob.cth_documents.push(incomingDoc);
@@ -270,11 +269,8 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
               (doc) => doc.document_name === incomingDoc.document_name
             );
             if (existingDocIndex !== -1) {
-              // Update the existing document
-              matchingJob.documents[existingDocIndex] = {
-                ...matchingJob.documents[existingDocIndex],
-                ...incomingDoc,
-              };
+              // Update the existing document using native .set() method
+              matchingJob.documents[existingDocIndex].set(incomingDoc);
             } else {
               // Add new document if it doesn't exist
               matchingJob.documents.push(incomingDoc);

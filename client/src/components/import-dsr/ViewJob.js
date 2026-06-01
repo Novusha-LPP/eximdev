@@ -75,6 +75,77 @@ import {
   shouldHideField,
 } from "../../utils/modeLogic";
 
+const getFormattedDateForRates = (dateInput) => {
+  if (!dateInput) dateInput = new Date();
+  if (dateInput instanceof Date) {
+    const day = String(dateInput.getDate()).padStart(2, '0');
+    const month = String(dateInput.getMonth() + 1).padStart(2, '0');
+    const year = dateInput.getFullYear();
+    return `${day}-${month}-${year}`;
+  }
+  if (typeof dateInput === 'string') {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+      const [y, m, d] = dateInput.split('-');
+      return `${d}-${m}-${y}`;
+    }
+    if (/^\d{2}[-/]\d{2}[-/]\d{4}$/.test(dateInput)) {
+      return dateInput.replace(/\//g, '-');
+    }
+  }
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) {
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    return `${day}-${month}-${year}`;
+  }
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}-${month}-${year}`;
+};
+
+const fetchExrateForCurrency = async (currency, date) => {
+  if (!currency || currency.toUpperCase() === "INR") return 1;
+  const formattedDate = getFormattedDateForRates(date);
+  try {
+    const response = await axios.get(
+      `${process.env.REACT_APP_API_STRING}/currency-rates/by-date/${formattedDate}`
+    );
+    if (response.data.success && response.data.data?.exchange_rates) {
+      const rateObj = response.data.data.exchange_rates.find(
+        r => r.currency_code.toUpperCase() === currency.toUpperCase()
+      );
+      if (rateObj) {
+        return parseFloat(rateObj.import_rate) || 1;
+      }
+    }
+  } catch (err) {
+    console.error("Error fetching exchange rate:", err);
+  }
+  
+  const currentDateFormatted = getFormattedDateForRates(new Date());
+  if (formattedDate !== currentDateFormatted) {
+    try {
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/currency-rates/by-date/${currentDateFormatted}`
+      );
+      if (response.data.success && response.data.data?.exchange_rates) {
+        const rateObj = response.data.data.exchange_rates.find(
+          r => r.currency_code.toUpperCase() === currency.toUpperCase()
+        );
+        if (rateObj) {
+          return parseFloat(rateObj.import_rate) || 1;
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching fallback exchange rate:", err);
+    }
+  }
+  return 1;
+};
+
 const compactInputSx = {
   "& .MuiOutlinedInput-root": { height: "32px" },
   "& .MuiOutlinedInput-input": { padding: "6px 8px", fontSize: "0.95rem", fontWeight: "bold" },
@@ -1273,7 +1344,7 @@ function JobDetails() {
       ? formik.values.invoice_details.map(inv => ({
           ...inv,
           freight_currency: inv.freight_currency || inv.inv_currency || "",
-          insurance_currency: inv.insurance_currency || inv.inv_currency || "",
+          insurance_currency: inv.insurance_currency || "INR",
           other_charges_currency: inv.other_charges_currency || "INR",
         }))
       : [
@@ -1289,7 +1360,7 @@ function JobDetails() {
           freight: "",
           insurance: "",
           freight_currency: "",
-          insurance_currency: "",
+          insurance_currency: "INR",
           other_charges_currency: "INR",
         },
       ];
@@ -1369,24 +1440,42 @@ function JobDetails() {
     // Auto-sync currency for all charge heads in other_charges_details when invoice currency changes
     if (field === "inv_currency") {
       updatedRows[rowIndex].freight_currency = value || "";
-      updatedRows[rowIndex].insurance_currency = value || "";
+      updatedRows[rowIndex].insurance_currency = "INR";
       updatedRows[rowIndex].other_charges_currency = "INR";
 
-      ["freight", "insurance"].forEach(key => {
+      ["freight"].forEach(key => {
         formik.setFieldValue(`other_charges_details.${key}.currency`, value || "");
       });
-      ["miscellaneous", "agency", "discount", "loading", "addl_charge"].forEach(key => {
+      ["insurance", "miscellaneous", "agency", "discount", "loading", "addl_charge"].forEach(key => {
         formik.setFieldValue(`other_charges_details.${key}.currency`, "INR");
       });
     }
 
-    // Sync global CIF value (term value) across all rows
+    // Sync global CIF value (term value) across all rows converted to INR
     const totalCif = updatedRows.reduce((sum, row) => sum + (parseFloat(row.total_inv_value) || 0), 0);
     const totalProductVal = updatedRows.reduce((sum, row) => sum + (parseFloat(row.product_value) || 0), 0);
     if (totalCif > 0) {
       formik.setFieldValue("total_inv_value", totalProductVal.toFixed(2));
-      formik.setFieldValue("cifValue", totalCif.toFixed(2));
-      formik.setFieldValue("cif_amount", totalCif.toFixed(2));
+      
+      const invCurrency = updatedRows[rowIndex]?.inv_currency || formik.values.inv_currency || "";
+      const invDate = updatedRows[rowIndex]?.invoice_date || formik.values.invoice_date || "";
+      
+      const syncCifValue = async () => {
+        let currentExrate = parseFloat(formik.values.exrate);
+        if (!currentExrate || isNaN(currentExrate)) {
+          if (invCurrency && invCurrency.toUpperCase() !== "INR") {
+            const fetchedRate = await fetchExrateForCurrency(invCurrency, invDate);
+            currentExrate = fetchedRate > 0 ? fetchedRate : 1;
+            formik.setFieldValue("exrate", String(currentExrate));
+          } else {
+            currentExrate = 1;
+          }
+        }
+        const cifInr = totalCif * currentExrate;
+        formik.setFieldValue("cif_amount", cifInr.toFixed(2));
+        formik.setFieldValue("cifValue", cifInr.toFixed(2));
+      };
+      syncCifValue();
     }
   };
 
@@ -1405,7 +1494,7 @@ function JobDetails() {
         freight: "",
         insurance: "",
         freight_currency: invoiceRows[0]?.inv_currency || "",
-        insurance_currency: invoiceRows[0]?.inv_currency || "",
+        insurance_currency: "INR",
         other_charges_currency: "INR",
       },
     ]);

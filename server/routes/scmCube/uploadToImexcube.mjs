@@ -16,7 +16,17 @@ const IMEXCUBE_BASE_URL =
 const IMPEX_USERNAME = process.env.IMPEX_USERNAME || "";
 const IMPEX_PASSWORD = process.env.IMPEX_PASSWORD || "";
 const COMPANY_BR_CODE = process.env.COMPANY_BR_CODE || "";
+const COMPANY_BR_CODE_AMD = process.env.COMPANY_BR_CODE_AMD || "5456AD39-7CE7-4B73-9601-AC1C44138992";
+const COMPANY_BR_CODE_GIM = process.env.COMPANY_BR_CODE_GIM || "6EE3B451-A349-44AD-B49B-A3CD54AEE756";
+const COMPANY_BR_CODE_COK = process.env.COMPANY_BR_CODE_COK || "128DCE89-0B25-4033-9C27-8B6D8C7CE3BF";
 const FYEAR = process.env.FYEAR || "";
+
+const getCompanyBrCode = (branchCode) => {
+  if (branchCode === "AMD") return COMPANY_BR_CODE_AMD;
+  if (branchCode === "GIM") return COMPANY_BR_CODE_GIM;
+  if (branchCode === "COK") return COMPANY_BR_CODE_COK;
+  return COMPANY_BR_CODE;
+};
 
 const ACTION_CREATE = "created";
 const ACTION_UPDATE = "updated";
@@ -366,6 +376,14 @@ router.post("/api/scmCube/upload-to-imexcube", async (req, res) => {
       return res.status(400).json({ error: "job_number is required" });
     }
 
+    const job = await JobModel.findOne({ job_number }).lean();
+    if (!job) {
+      return res.status(404).json({ error: `Job not found for the provided job_number: ${job_number}` });
+    }
+
+    const companyBrCode = getCompanyBrCode(job.branch_code);
+    console.log(`[IMEXCUBE] Resolved CompanyBrCode for branch ${job.branch_code || "N/A"}: ${companyBrCode}`);
+
     // Step 1: Build or parse the job payload
     let jobPayload;
     if (customPayload) {
@@ -390,7 +408,7 @@ router.post("/api/scmCube/upload-to-imexcube", async (req, res) => {
     )}&password=${encodeURIComponent(
       IMPEX_PASSWORD
     )}&CompanyBrCode=${encodeURIComponent(
-      COMPANY_BR_CODE
+      companyBrCode
     )}&Fyear=${encodeURIComponent(FYEAR)}`;
 
     const loginRes = await axios.post(loginUrl, null, {

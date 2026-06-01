@@ -5,6 +5,78 @@ import { convertDateFormatForUI } from "../utils/convertDateFormatForUI";
 import { useNavigate } from "react-router-dom";
 import AWS from "aws-sdk";
 import toast from "react-hot-toast";
+
+const getFormattedDateForRates = (dateInput) => {
+  if (!dateInput) dateInput = new Date();
+  if (dateInput instanceof Date) {
+    const day = String(dateInput.getDate()).padStart(2, '0');
+    const month = String(dateInput.getMonth() + 1).padStart(2, '0');
+    const year = dateInput.getFullYear();
+    return `${day}-${month}-${year}`;
+  }
+  if (typeof dateInput === 'string') {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+      const [y, m, d] = dateInput.split('-');
+      return `${d}-${m}-${y}`;
+    }
+    if (/^\d{2}[-/]\d{2}[-/]\d{4}$/.test(dateInput)) {
+      return dateInput.replace(/\//g, '-');
+    }
+  }
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) {
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    return `${day}-${month}-${year}`;
+  }
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}-${month}-${year}`;
+};
+
+const fetchExrateForCurrency = async (currency, date) => {
+  if (!currency || currency.toUpperCase() === "INR") return 1;
+  const formattedDate = getFormattedDateForRates(date);
+  try {
+    const response = await axios.get(
+      `${process.env.REACT_APP_API_STRING}/currency-rates/by-date/${formattedDate}`
+    );
+    if (response.data.success && response.data.data?.exchange_rates) {
+      const rateObj = response.data.data.exchange_rates.find(
+        r => r.currency_code.toUpperCase() === currency.toUpperCase()
+      );
+      if (rateObj) {
+        return parseFloat(rateObj.import_rate) || 1;
+      }
+    }
+  } catch (err) {
+    console.error("Error fetching exchange rate:", err);
+  }
+  
+  const currentDateFormatted = getFormattedDateForRates(new Date());
+  if (formattedDate !== currentDateFormatted) {
+    try {
+      const response = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/currency-rates/by-date/${currentDateFormatted}`
+      );
+      if (response.data.success && response.data.data?.exchange_rates) {
+        const rateObj = response.data.data.exchange_rates.find(
+          r => r.currency_code.toUpperCase() === currency.toUpperCase()
+        );
+        if (rateObj) {
+          return parseFloat(rateObj.import_rate) || 1;
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching fallback exchange rate:", err);
+    }
+  }
+  return 1;
+};
+
 // import { Dropdown } from "react-bootstrap";
 
 const handleSingleFileUpload = async (file, folderName, setFileSnackbar, shouldCompress = false) => {
@@ -275,9 +347,11 @@ function useFetchJobDetails(
             if (existingDocIndex === -1) {
               return acc.concat([current]);
             } else {
-              if (current.url) {
-                acc[existingDocIndex] = current;
-              }
+              acc[existingDocIndex] = {
+                ...acc[existingDocIndex],
+                ...current,
+                url: current.url && current.url.length > 0 ? current.url : acc[existingDocIndex].url,
+              };
               return acc;
             }
           }, []);
@@ -424,6 +498,8 @@ function useFetchJobDetails(
       client_remark: "",
       DsrCharges: [],
       cifValue: "",
+      cif_amount: "",
+      exrate: "",
       freight: "",
       insurance: "",
       bill_no: "",
@@ -615,6 +691,8 @@ function useFetchJobDetails(
             import_terms: values.import_terms,
             freight: values.freight,
             cifValue: values.cifValue,
+            cif_amount: values.cif_amount,
+            exrate: values.exrate,
             insurance: values.insurance,
             bill_date: values.bill_date,
             bill_no: values.bill_no,
@@ -655,6 +733,8 @@ function useFetchJobDetails(
   // Utility function to handle undefined/null checks
   const safeValue = (value, defaultVal = "") =>
     value === undefined || value === null ? defaultVal : value;
+
+
   const filteredClearanceOptions =
     clearanceOptionsMapping[formik.values.type_of_b_e] || [];
   // When the BE type changes, update Formik's clearanceValue field to the first available option only if no value is set.
@@ -1014,7 +1094,7 @@ function useFetchJobDetails(
                 po_no: inv.po_no || "",
                 po_date: inv.po_date || "",
                 freight_currency: inv.freight_currency || inv.inv_currency || "",
-                insurance_currency: inv.insurance_currency || inv.inv_currency || "",
+                insurance_currency: inv.insurance_currency || "INR",
                 other_charges_currency: inv.other_charges_currency || "INR",
               }))
             : [
@@ -1029,13 +1109,15 @@ function useFetchJobDetails(
                   freight: safeValue(data.freight),
                   insurance: safeValue(data.insurance),
                   freight_currency: safeValue(data.inv_currency),
-                  insurance_currency: safeValue(data.inv_currency),
+                  insurance_currency: "INR",
                   other_charges_currency: "INR",
                 },
               ],
         bill_date: safeValue(data.bill_date),
         bill_no: safeValue(data.bill_no),
         cifValue: safeValue(data.cifValue),
+        cif_amount: safeValue(data.cif_amount),
+        exrate: safeValue(data.exrate),
         out_of_charge: safeValue(data.out_of_charge),
         checked: safeValue(data.checked, false),
         type_of_Do: safeValue(data.type_of_Do),
@@ -1049,7 +1131,7 @@ function useFetchJobDetails(
           discount: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
           loading: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
           freight: { currency: safeValue(data.inv_currency), exchange_rate: 1, rate: 0, amount: 0, remark: "" },
-          insurance: { currency: safeValue(data.inv_currency), exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+          insurance: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
           addl_charge: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
           revenue_deposit: { rate: 0, on: "Assessable" },
           landing_charge: { rate: 0 },
@@ -1209,11 +1291,28 @@ function useFetchJobDetails(
       if (firstRow.freight && !formik.values.freight) formik.setFieldValue("freight", firstRow.freight || "");
       if (firstRow.insurance && !formik.values.insurance) formik.setFieldValue("insurance", firstRow.insurance || "");
 
-      // Sync cif_amount and cifValue as sum of all invoice rows total_inv_value
+      // Sync cif_amount and cifValue as sum of all invoice rows total_inv_value converted to INR
       const totalCif = formik.values.invoice_details.reduce((sum, r) => sum + (parseFloat(r.total_inv_value) || 0), 0);
       if (totalCif > 0) {
-        formik.setFieldValue("cif_amount", totalCif.toFixed(2));
-        formik.setFieldValue("cifValue", totalCif.toFixed(2));
+        const invCurrency = firstRow.inv_currency || formik.values.inv_currency || "";
+        const invDate = firstRow.invoice_date || formik.values.invoice_date || "";
+        
+        const syncCifValue = async () => {
+          let currentExrate = parseFloat(formik.values.exrate);
+          if (!currentExrate || isNaN(currentExrate)) {
+            if (invCurrency && invCurrency.toUpperCase() !== "INR") {
+              const fetchedRate = await fetchExrateForCurrency(invCurrency, invDate);
+              currentExrate = fetchedRate > 0 ? fetchedRate : 1;
+              formik.setFieldValue("exrate", String(currentExrate));
+            } else {
+              currentExrate = 1;
+            }
+          }
+          const cifInr = totalCif * currentExrate;
+          formik.setFieldValue("cif_amount", cifInr.toFixed(2));
+          formik.setFieldValue("cifValue", cifInr.toFixed(2));
+        };
+        syncCifValue();
       }
     }
   }, [serializedInvoiceDetails]);

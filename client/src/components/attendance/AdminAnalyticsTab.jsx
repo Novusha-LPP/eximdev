@@ -31,7 +31,7 @@ const COLORS = {
   half_day: '#ff9101'
 };
 
-const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, onEndDateChange, companies = [], selectedCompanyId, onCompanyChange }) => {
+const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, onEndDateChange, companies = [], selectedCompanyId, onCompanyChange, isHOD = false, isAdmin = false }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
   const [groupBy, setGroupBy] = useState('none');
@@ -448,7 +448,8 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
         type={modalConfig.type}
         initialDate={currentDate}
         companyId={selectedCompanyId}
-        role="ADMIN"
+        isHOD={isHOD}
+        isAdmin={isAdmin}
       />
 
       <EmployeeAttendanceDetailModal 

@@ -51,7 +51,8 @@ const AttendanceAnalyticsModal = ({
   type = 'present',
   initialDate,
   companyId,
-  role = 'ADMIN' // Support role-based API
+  role = 'ADMIN', // Support role-based API
+  isHOD = false
 }) => {
   const today = initialDate ? new Date(initialDate) : new Date();
   const [viewDate, setViewDate] = useState(today);
@@ -70,7 +71,7 @@ const AttendanceAnalyticsModal = ({
       const start = dateObj.clone().startOf('month').format('YYYY-MM-DD');
       const end = dateObj.clone().endOf('month').format('YYYY-MM-DD');
 
-      const apiCall = (role === 'HOD' || role === 'HEADOFDEPARTMENT')
+      const apiCall = (isHOD || role === 'HOD' || role === 'HEADOFDEPARTMENT')
         ? attendanceAPI.getTeamAttendanceReport(start, end, 'all')
         : attendanceAPI.getAdminAttendanceReport(start, end, 'all', companyId);
 
@@ -120,7 +121,7 @@ const AttendanceAnalyticsModal = ({
     } finally {
       setLoading(false);
     }
-  }, [companyId, role]);
+  }, [companyId, role, isHOD]);
 
   useEffect(() => { 
     if (isOpen) loadData(type, new Date(initialDate), 'day'); 

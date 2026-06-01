@@ -178,8 +178,8 @@ const masterAPI = {
   },
 
   // ── Week-Off Policies ────────────────────────────────────────────────────
-  getWeekOffPolicies: async () => {
-      const response = await apiClient.get('/master/weekoff-policies');
+  getWeekOffPolicies: async (params) => {
+      const response = await apiClient.get('/master/weekoff-policies', { params });
       return response.data;
   },
 

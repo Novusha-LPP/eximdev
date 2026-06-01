@@ -83,29 +83,68 @@ router.get('/', async (req, res) => {
   try {
     const { stage, forecastCategory, teamId, startDate, endDate, period, dateField, accountId, source } = req.query;
     const query = { ...(await buildOwnerFilter(req.user, teamId)) };
-    if (stage) query.stage = stage;
-    if (forecastCategory) query.forecastCategory = forecastCategory;
     if (accountId) query.accountId = accountId;
     if (source) query.source = source;
 
     const filterField = dateField === 'last_updated' || dateField === 'updatedAt' ? 'updatedAt' : 'createdAt';
 
+    const dateQuery = {};
     if (startDate && endDate) {
-      query[filterField] = {
+      dateQuery[filterField] = {
         $gte: new Date(`${startDate}T00:00:00.000Z`),
         $lte: new Date(`${endDate}T23:59:59.999Z`)
       };
     } else if (period) {
-      query.period = period;
+      dateQuery.period = period;
     } else if (!accountId) {
-      query.period = new Date().toISOString().substring(0, 7);
+      dateQuery.period = new Date().toISOString().substring(0, 7);
+    }
+
+    if (stage) {
+      query.stage = stage;
+      if (stage === 'won' || stage === 'lost') {
+        Object.assign(query, dateQuery);
+      }
+    } else if (forecastCategory) {
+      query.forecastCategory = forecastCategory;
+      if (forecastCategory === 'closed') {
+        Object.assign(query, dateQuery);
+      }
+    } else {
+      if (Object.keys(dateQuery).length > 0) {
+        query.$or = [
+          { stage: { $in: ['lead', 'qualified', 'opportunity', 'proposal', 'negotiation'] } },
+          { stage: { $in: ['won', 'lost'] }, ...dateQuery }
+        ];
+      }
+    }
+
+    let targetPeriod = period;
+    if (!targetPeriod && startDate) {
+      targetPeriod = startDate.substring(0, 7);
+    }
+    if (!targetPeriod) {
+      targetPeriod = new Date().toISOString().substring(0, 7);
     }
 
     const opportunities = await Opportunity.find(query)
       .populate('accountId', 'name')
       .populate('ownerId', 'username first_name last_name')
-      .sort({ createdAt: -1 });
-    res.json(opportunities);
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const processedOpps = opportunities.map(opp => {
+      if (opp.period && opp.period !== targetPeriod && !['won', 'lost'].includes(opp.stage)) {
+        return {
+          ...opp,
+          carry_forward: true,
+          origin_month: opp.period
+        };
+      }
+      return opp;
+    });
+
+    res.json(processedOpps);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -121,20 +160,48 @@ router.get('/board', async (req, res) => {
 
     const filterField = dateField === 'last_updated' || dateField === 'updatedAt' ? 'updatedAt' : 'createdAt';
 
+    const dateQuery = {};
     if (startDate && endDate) {
-      query[filterField] = {
+      dateQuery[filterField] = {
         $gte: new Date(`${startDate}T00:00:00.000Z`),
         $lte: new Date(`${endDate}T23:59:59.999Z`)
       };
     } else if (period) {
-      query.period = period;
+      dateQuery.period = period;
     } else {
-      query.period = new Date().toISOString().substring(0, 7);
+      dateQuery.period = new Date().toISOString().substring(0, 7);
+    }
+
+    if (Object.keys(dateQuery).length > 0) {
+      query.$or = [
+        { stage: { $in: ['lead', 'qualified', 'opportunity', 'proposal', 'negotiation'] } },
+        { stage: { $in: ['won', 'lost'] }, ...dateQuery }
+      ];
+    }
+
+    let targetPeriod = period;
+    if (!targetPeriod && startDate) {
+      targetPeriod = startDate.substring(0, 7);
+    }
+    if (!targetPeriod) {
+      targetPeriod = new Date().toISOString().substring(0, 7);
     }
 
     const opportunities = await Opportunity.find(query)
       .populate('accountId', 'name')
-      .populate('ownerId', 'username');
+      .populate('ownerId', 'username')
+      .lean();
+    
+    const processedOpps = opportunities.map(opp => {
+      if (opp.period && opp.period !== targetPeriod && !['won', 'lost'].includes(opp.stage)) {
+        return {
+          ...opp,
+          carry_forward: true,
+          origin_month: opp.period
+        };
+      }
+      return opp;
+    });
     
     const board = {
       'lead': [],
@@ -156,7 +223,7 @@ router.get('/board', async (req, res) => {
       'lost': { totalValue: 0, count: 0 }
     };
     
-    opportunities.forEach(opp => {
+    processedOpps.forEach(opp => {
       if (board[opp.stage]) {
         board[opp.stage].push(opp);
         aggregates[opp.stage].totalValue += opp.value || 0;

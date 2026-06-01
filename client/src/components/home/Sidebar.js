@@ -16,10 +16,8 @@ import InsightsIcon from "@mui/icons-material/Insights";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import HubIcon from "@mui/icons-material/Hub";
 import SupervisedUserCircleIcon from "@mui/icons-material/SupervisedUserCircle";
-import PeopleAltIcon from "@mui/icons-material/PeopleAlt";
 import DomainIcon from "@mui/icons-material/Domain";
 import VpnKeyIcon from "@mui/icons-material/VpnKey";
-import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import { UserContext } from "../../contexts/UserContext";
 import CurrencyRateDialog from "./CurrencyRateDialog"; // Import the dialog
@@ -172,19 +170,6 @@ function Sidebar() {
         </Tooltip>
       )}
 
-      {/* CRM Module */}
-      <Tooltip title="CRM Module" enterDelay={0} placement="right">
-        <ListItemButton
-          className="appbar-links"
-          aria-label="list-item"
-          onClick={() => navigate("/crm")}
-        >
-          <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-            <PeopleAltIcon />
-          </IconButton>
-        </ListItemButton>
-      </Tooltip>
-
       {/* NEW: Currency Exchange Rates Icon */}
       <Tooltip title="Currency Exchange Rates" enterDelay={0} placement="right">
         <ListItemButton
@@ -195,20 +180,6 @@ function Sidebar() {
         >
           <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
             <CurrencyExchangeIcon />
-          </IconButton>
-        </ListItemButton>
-      </Tooltip>
-
-      {/* Attendance Module */}
-      <Tooltip title="Attendance & Leave" enterDelay={0} placement="right">
-        <ListItemButton
-          sx={{ textAlign: "left" }}
-          className="appbar-links"
-          aria-label="list-item"
-          onClick={() => navigate("/attendance")}
-        >
-          <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-            <CalendarMonthIcon />
           </IconButton>
         </ListItemButton>
       </Tooltip>

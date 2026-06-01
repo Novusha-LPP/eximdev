@@ -1382,7 +1382,9 @@ function JobDetails() {
 
     // Sync global CIF value (term value) across all rows
     const totalCif = updatedRows.reduce((sum, row) => sum + (parseFloat(row.total_inv_value) || 0), 0);
+    const totalProductVal = updatedRows.reduce((sum, row) => sum + (parseFloat(row.product_value) || 0), 0);
     if (totalCif > 0) {
+      formik.setFieldValue("total_inv_value", totalProductVal.toFixed(2));
       formik.setFieldValue("cifValue", totalCif.toFixed(2));
       formik.setFieldValue("cif_amount", totalCif.toFixed(2));
     }
@@ -1518,7 +1520,11 @@ function JobDetails() {
           {/* Importer info start*/}
           <div style={{ marginTop: "70px" }}>
             <JobDetailsStaticData
-              data={{ ...data, cif_amount: formik.values.cif_amount || data.cif_amount }}
+              data={{ 
+                ...data, 
+                cif_amount: formik.values.cif_amount || data.cif_amount,
+                total_inv_value: formik.values.total_inv_value || data.total_inv_value
+              }}
               params={params}
               bl_no_ref={bl_no_ref}
               setSnackbar={setSnackbar}

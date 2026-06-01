@@ -30,8 +30,7 @@ const leadSchema = new mongoose.Schema({
   }],
   source: { 
     type: String, 
-    enum: ['web', 'referral', 'email', 'social', 'event'],
-    default: 'web'
+    default: 'Web / Own Generated Lead'
   },
   score: { type: Number, default: 0 },
   grade: { type: String, enum: ['A', 'B', 'C', 'D'], default: 'D' },

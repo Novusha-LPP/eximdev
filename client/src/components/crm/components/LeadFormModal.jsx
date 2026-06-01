@@ -15,7 +15,14 @@ const ALLOWED_SERVICES = [
   'auto rack'
 ];
 
-const SOURCES = ['web', 'referral', 'email', 'social', 'event'];
+const SOURCES = [
+  'Web / Own Generated Lead',
+  'IndiaMart Lead',
+  'Direct Sales Visit',
+  'Referral',
+  'Email Campaign',
+  'Other'
+];
 
 export default function LeadFormModal({ isOpen, onClose, onRefresh }) {
   const [formData, setFormData] = useState({
@@ -24,10 +31,11 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh }) {
     lastName: '',
     email: '',
     phone: '',
-    source: 'web',
+    source: 'Web / Own Generated Lead',
     interestedServices: [],
     crateSize: ''
   });
+  const [customSource, setCustomSource] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
@@ -45,10 +53,11 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh }) {
         lastName: '',
         email: '',
         phone: '',
-        source: 'web',
+        source: 'Web / Own Generated Lead',
         interestedServices: [],
         crateSize: ''
       });
+      setCustomSource('');
     } catch (error) {
       message.error("Error creating lead: " + (error.response?.data?.message || error.message));
     } finally {
@@ -194,12 +203,34 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh }) {
             <div>
               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Lead Source</label>
               <select 
-                value={formData.source}
-                onChange={e => setFormData({...formData, source: e.target.value})}
+                value={formData.source && !['Web / Own Generated Lead', 'IndiaMart Lead', 'Direct Sales Visit', 'Referral', 'Email Campaign'].includes(formData.source) ? 'Other' : (formData.source || 'Web / Own Generated Lead')}
+                onChange={e => {
+                  const val = e.target.value;
+                  if (val === 'Other') {
+                    setFormData({...formData, source: customSource || 'Other'});
+                  } else {
+                    setFormData({...formData, source: val});
+                  }
+                }}
                 style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem', background: '#fff' }}
               >
-                {SOURCES.map(s => <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
+                {SOURCES.map(s => <option key={s} value={s}>{s}</option>)}
               </select>
+              {((formData.source && !['Web / Own Generated Lead', 'IndiaMart Lead', 'Direct Sales Visit', 'Referral', 'Email Campaign'].includes(formData.source)) || formData.source === 'Other') && (
+                <div style={{ marginTop: '8px' }}>
+                  <input 
+                    required
+                    type="text"
+                    value={customSource || (formData.source === 'Other' ? '' : formData.source)}
+                    onChange={e => {
+                      setCustomSource(e.target.value);
+                      setFormData({...formData, source: e.target.value});
+                    }}
+                    placeholder="Enter custom source (e.g. LinkedIn, Exhibition)"
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.95rem' }}
+                  />
+                </div>
+              )}
             </div>
 
             {/* Crate Size */}

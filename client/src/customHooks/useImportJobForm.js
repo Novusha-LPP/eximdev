@@ -61,6 +61,8 @@ const useImportJobForm = () => {
   const [awb_bl_date, setAwbBlDate] = useState("");
   const [hawb_hbl_date, setHawb_hbl_date] = useState("");
   const [hawb_hbl_no, setHawb_hbl_no] = useState("");
+  const [vessel_flight, setVesselFlight] = useState("");
+  const [voyage_no, setVoyageNo] = useState("");
   const [vessel_berthing, setVesselberthing] = useState("");
   const [type_of_b_e, setTypeOfBE] = useState("");
   const [loading_port, setLoadingPort] = useState("");
@@ -398,8 +400,9 @@ const useImportJobForm = () => {
 
     // Sync global CIF value (term value) across all rows
     const totalCif = updatedRows.reduce((sum, row) => sum + (parseFloat(row.total_inv_value) || 0), 0);
+    const totalProductVal = updatedRows.reduce((sum, row) => sum + (parseFloat(row.product_value) || 0), 0);
     if (totalCif > 0) {
-      setTotalInvValue(String(totalCif.toFixed(2)));
+      setTotalInvValue(totalProductVal > 0 ? String(totalProductVal.toFixed(2)) : String(totalCif.toFixed(2)));
       setTermValue(String(totalCif.toFixed(2)));
       setCifAmount(String(totalCif.toFixed(2)));
     } else if (field === "total_inv_value") {
@@ -623,6 +626,8 @@ const useImportJobForm = () => {
     setHawb_hbl_date("");
     setAwbBlDate("");
     setVesselberthing("");
+    setVesselFlight("");
+    setVoyageNo("");
     setTypeOfBE("");
     setLoadingPort("");
     setGrossWeight("");
@@ -782,6 +787,8 @@ const useImportJobForm = () => {
     if (job.hawb_hbl_date) setHawb_hbl_date(job.hawb_hbl_date);
     if (job.awb_bl_date) setAwbBlDate(job.awb_bl_date);
     if (job.vessel_berthing) setVesselberthing(job.vessel_berthing);
+    if (job.vessel_flight) setVesselFlight(job.vessel_flight);
+    if (job.voyage_no) setVoyageNo(job.voyage_no);
     if (job.type_of_b_e) setTypeOfBE(job.type_of_b_e);
     if (job.loading_port) setLoadingPort(job.loading_port);
     if (job.gross_weight) setGrossWeight(job.gross_weight);
@@ -1051,6 +1058,8 @@ const useImportJobForm = () => {
           hawb_hbl_date,
           awb_bl_date,
           vessel_berthing,
+          vessel_flight,
+          voyage_no,
           type_of_b_e,
           loading_port,
           gross_weight,
@@ -1305,6 +1314,10 @@ const useImportJobForm = () => {
     vessel_berthing,
     setAwbBlDate,
     setVesselberthing,
+    vessel_flight,
+    setVesselFlight,
+    voyage_no,
+    setVoyageNo,
     type_of_b_e,
     setTypeOfBE,
     loading_port,

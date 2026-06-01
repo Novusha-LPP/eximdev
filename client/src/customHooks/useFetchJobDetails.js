@@ -1201,7 +1201,10 @@ function useFetchJobDetails(
       if (firstRow.invoice_number && !formik.values.invoice_number) formik.setFieldValue("invoice_number", firstRow.invoice_number || "");
       if (firstRow.invoice_date && !formik.values.invoice_date) formik.setFieldValue("invoice_date", firstRow.invoice_date || "");
       if (firstRow.po_no && !formik.values.po_no) formik.setFieldValue("po_no", firstRow.po_no || "");
-      if (firstRow.total_inv_value && !formik.values.total_inv_value) formik.setFieldValue("total_inv_value", firstRow.total_inv_value || "");
+      const totalProductVal = formik.values.invoice_details.reduce((sum, r) => sum + (parseFloat(r.product_value) || 0), 0);
+      if (totalProductVal > 0) {
+        formik.setFieldValue("total_inv_value", totalProductVal.toFixed(2));
+      }
       if (firstRow.toi && !formik.values.import_terms) formik.setFieldValue("import_terms", firstRow.toi || "");
       if (firstRow.freight && !formik.values.freight) formik.setFieldValue("freight", firstRow.freight || "");
       if (firstRow.insurance && !formik.values.insurance) formik.setFieldValue("insurance", firstRow.insurance || "");

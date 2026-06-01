@@ -167,7 +167,11 @@ function JobDetailsStaticData(props) {
     }
   };
   if (props.data) {
-    const inv_value = (props.data.cif_amount / props.data.exrate).toFixed(2);
+    let inv_value = props.data.total_inv_value;
+    if (!inv_value || inv_value === "NaN") {
+      const calcValue = parseFloat(props.data.cif_amount) / parseFloat(props.data.exrate);
+      inv_value = !isNaN(calcValue) ? calcValue.toFixed(2) : "";
+    }
     var invoice_value_and_unit_price = `${props.data.inv_currency} ${inv_value} | ${props.data.unit_price}`;
   }
 

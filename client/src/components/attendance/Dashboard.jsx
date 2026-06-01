@@ -947,6 +947,8 @@ export default function Dashboard() {
           companies={companies}
           selectedCompanyId={adminCompanyId}
           onCompanyChange={setAdminCompanyId}
+          isHOD={isHOD && !isAuthorizedAdmin}
+          isAdmin={isAdmin}
         />
       </div>
     ) : activeTab === "monthly" ? (
@@ -978,10 +980,10 @@ export default function Dashboard() {
         isOpen={analyticsModal.isOpen}
         onClose={() => setAnalyticsModal({ ...analyticsModal, isOpen: false })}
         type={analyticsModal.type}
-        startDate={adminDate}
-        endDate={adminEndDate}
+        initialDate={analyticsModal.initialDate}
         companyId={adminCompanyId}
-        role={isAuthorizedAdmin ? 'ADMIN' : (isHOD ? 'HOD' : (user?.role || 'ADMIN'))}
+        isHOD={isHOD && !isAuthorizedAdmin}
+        isAdmin={isAdmin}
       />
 
     </div>

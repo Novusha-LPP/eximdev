@@ -10,6 +10,7 @@ const PIPELINE_STAGES = [
   { id: 'lead', name: 'Lead', color: '#4f8ef7' },
   { id: 'qualified', name: 'Qualified', color: '#7b8ef7' },
   { id: 'opportunity', name: 'Opportunity', color: '#a47af7' },
+  { id: 'sales_visit', name: 'Sales Visit', color: '#d45af7' },
   { id: 'proposal', name: 'Proposal', color: '#c47af7' },
   { id: 'negotiation', name: 'Negotiation', color: '#f77ac4' },
   { id: 'won', name: 'Won', color: '#00d4aa' },

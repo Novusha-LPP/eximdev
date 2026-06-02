@@ -101,6 +101,7 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
       case 'lost': return { bg: '#fef2f2', text: '#dc2626', border: '#ef4444' };
       case 'negotiation': return { bg: '#fff7ed', text: '#ea580c', border: '#f97316' };
       case 'proposal': return { bg: '#faf5ff', text: '#7c3aed', border: '#8b5cf6' };
+      case 'sales_visit': return { bg: '#fdf4ff', text: '#a21caf', border: '#d946ef' };
       case 'opportunity': return { bg: '#eff6ff', text: '#2563eb', border: '#3b82f6' };
       case 'qualified': return { bg: '#f0fdfa', text: '#0d9488', border: '#14b8a6' };
       default: return { bg: '#f1f5f9', text: '#475569', border: '#64748b' };

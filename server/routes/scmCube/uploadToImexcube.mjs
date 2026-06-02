@@ -795,5 +795,108 @@ router.get("/api/scmCube/job-data-preview", async (req, res) => {
   }
 });
 
+/**
+ * GET /api/scmCube/get-imexcube-job-details
+ * Gets job details from IMEXCUBE for testing/verification.
+ */
+router.get("/api/scmCube/get-imexcube-job-details", async (req, res) => {
+  const { job_number } = req.query;
+  try {
+    if (!job_number) {
+      return res.status(400).json({ error: "job_number is required" });
+    }
+
+    const job = await JobModel.findOne({ job_number }).lean();
+    if (!job) {
+      return res.status(404).json({ error: `Job not found for the provided job_number: ${job_number}` });
+    }
+
+    const companyBrCode = getCompanyBrCode(job.branch_code);
+    console.log(`[IMEXCUBE] Resolved CompanyBrCode for branch ${job.branch_code || "N/A"}: ${companyBrCode}`);
+
+    // Step 1: Authenticate with IMEXCUBE
+    console.log("[IMEXCUBE] Authenticating with IMEXCUBE TEST API for fetching details...");
+    const loginUrl = `${IMEXCUBE_BASE_URL}/api/Authentication/login?username=${encodeURIComponent(
+      IMPEX_USERNAME
+    )}&password=${encodeURIComponent(
+      IMPEX_PASSWORD
+    )}&CompanyBrCode=${encodeURIComponent(
+      companyBrCode
+    )}&Fyear=${encodeURIComponent(FYEAR)}`;
+
+    const loginRes = await axios.post(loginUrl, null, {
+      headers: { accept: "*/*" },
+      timeout: 30000,
+    });
+
+    const loginData = loginRes.data;
+    if (!loginData?.success || !loginData?.data?.accessToken) {
+      console.error("[IMEXCUBE] Login failed:", loginData);
+      return res.status(502).json({
+        error: "IMEXCUBE authentication failed",
+        details: loginData,
+      });
+    }
+
+    const accessToken = loginData.data.accessToken;
+    console.log("[IMEXCUBE] Authentication successful, fetching details for job:", job_number);
+
+    // Step 2: Fetch job details from IMEXCUBE
+    let detailsRes;
+    const getJobUrl = `${IMEXCUBE_BASE_URL}/api/v1/GetJobDetails/getimpdetails`;
+    try {
+      detailsRes = await axios.get(getJobUrl, {
+        params: {
+          Method: "GET",
+          "User Job No.": job_number
+        },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json"
+        },
+        timeout: 30000
+      });
+    } catch (err) {
+      // Fallback 1: Try capitalized GetImpDetails if first attempt returned 404
+      if (err.response?.status === 404) {
+        const fallbackUrl = `${IMEXCUBE_BASE_URL}/api/v1/GetJobDetails/GetImpDetails`;
+        try {
+          detailsRes = await axios.get(fallbackUrl, {
+            params: {
+              Method: "GET",
+              "User Job No.": job_number
+            },
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json"
+            },
+            timeout: 30000
+          });
+        } catch (fallbackErr) {
+          // If fallback also fails, throw original error
+          throw err;
+        }
+      } else {
+        throw err;
+      }
+    }
+
+    console.log("[IMEXCUBE] Details fetched successfully:", detailsRes.data);
+    return res.status(200).json(detailsRes.data);
+  } catch (error) {
+    console.error("[IMEXCUBE Fetch Details Error]:", error?.response?.data || error.message);
+    if (error?.response?.status === 404) {
+      return res.status(404).json({
+        error: "Job not found in IMEXCUBE",
+        details: "This job has likely not been uploaded to IMEXCUBE (TEST) yet. Please upload the job first by clicking the 'Upload to IMEXCUBE (TEST)' button."
+      });
+    }
+    return res.status(error?.response?.status || 500).json({
+      error: "Failed to fetch job details from IMEXCUBE",
+      details: error?.response?.data || error.message
+    });
+  }
+});
+
 export default router;
 

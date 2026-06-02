@@ -20,7 +20,7 @@ const opportunitySchema = new mongoose.Schema({
   value: { type: Number, default: 0 },
   stage: { 
     type: String, 
-    enum: ['lead', 'qualified', 'opportunity', 'proposal', 'negotiation', 'won', 'lost'],
+    enum: ['lead', 'qualified', 'opportunity', 'sales_visit', 'proposal', 'negotiation', 'won', 'lost'],
     default: 'opportunity'
   },
   forecastCategory: {

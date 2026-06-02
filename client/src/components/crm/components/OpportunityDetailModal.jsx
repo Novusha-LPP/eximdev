@@ -5,7 +5,7 @@ import { message, Modal } from 'antd';
 import { UserContext } from '../../../contexts/UserContext';
 import ActivityTimeline from './ActivityTimeline';
 
-const STAGES = ['lead', 'qualified', 'opportunity', 'proposal', 'negotiation', 'won', 'lost'];
+const STAGES = ['lead', 'qualified', 'opportunity', 'sales_visit', 'proposal', 'negotiation', 'won', 'lost'];
 
 const ALLOWED_SERVICES = [
   'custom clearance', 

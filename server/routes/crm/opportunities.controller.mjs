@@ -6,18 +6,19 @@ import UserModel from '../../model/userModel.mjs';
 const router = express.Router();
 
 // Valid pipeline stages
-const VALID_STAGES = ['lead', 'qualified', 'opportunity', 'proposal', 'negotiation', 'won', 'lost'];
+const VALID_STAGES = ['lead', 'qualified', 'opportunity', 'sales_visit', 'proposal', 'negotiation', 'won', 'lost'];
 
 // Stage transition rules (to prevent going backwards after closing)
 const TERMINAL_STAGES = ['won', 'lost'];
 const VALID_TRANSITIONS = {
-  'lead': ['qualified', 'opportunity', 'proposal', 'negotiation', 'won', 'lost'],
-  'qualified': ['lead', 'opportunity', 'proposal', 'negotiation', 'won', 'lost'],
-  'opportunity': ['lead', 'qualified', 'proposal', 'negotiation', 'won', 'lost'],
-  'proposal': ['lead', 'qualified', 'opportunity', 'negotiation', 'won', 'lost'],
-  'negotiation': ['lead', 'qualified', 'opportunity', 'proposal', 'won', 'lost'],
-  'won': ['lead', 'qualified', 'opportunity', 'proposal', 'negotiation', 'lost'],
-  'lost': ['lead', 'qualified', 'opportunity', 'proposal', 'negotiation', 'won']
+  'lead': ['qualified', 'opportunity', 'sales_visit', 'proposal', 'negotiation', 'won', 'lost'],
+  'qualified': ['lead', 'opportunity', 'sales_visit', 'proposal', 'negotiation', 'won', 'lost'],
+  'opportunity': ['lead', 'qualified', 'sales_visit', 'proposal', 'negotiation', 'won', 'lost'],
+  'sales_visit': ['lead', 'qualified', 'opportunity', 'proposal', 'negotiation', 'won', 'lost'],
+  'proposal': ['lead', 'qualified', 'opportunity', 'sales_visit', 'negotiation', 'won', 'lost'],
+  'negotiation': ['lead', 'qualified', 'opportunity', 'sales_visit', 'proposal', 'won', 'lost'],
+  'won': ['lead', 'qualified', 'opportunity', 'sales_visit', 'proposal', 'negotiation', 'lost'],
+  'lost': ['lead', 'qualified', 'opportunity', 'sales_visit', 'proposal', 'negotiation', 'won']
 };
 
 // Probability defaults for each stage
@@ -25,6 +26,7 @@ const STAGE_PROBABILITY = {
   'lead': 10,
   'qualified': 35,
   'opportunity': 60,
+  'sales_visit': 70,
   'proposal': 75,
   'negotiation': 85,
   'won': 100,
@@ -207,6 +209,7 @@ router.get('/board', async (req, res) => {
       'lead': [],
       'qualified': [],
       'opportunity': [],
+      'sales_visit': [],
       'proposal': [],
       'negotiation': [],
       'won': [],
@@ -217,6 +220,7 @@ router.get('/board', async (req, res) => {
       'lead': { totalValue: 0, count: 0 },
       'qualified': { totalValue: 0, count: 0 },
       'opportunity': { totalValue: 0, count: 0 },
+      'sales_visit': { totalValue: 0, count: 0 },
       'proposal': { totalValue: 0, count: 0 },
       'negotiation': { totalValue: 0, count: 0 },
       'won': { totalValue: 0, count: 0 },

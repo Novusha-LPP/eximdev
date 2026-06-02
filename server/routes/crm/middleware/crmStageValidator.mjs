@@ -11,7 +11,7 @@ export const validateStageTransition = async (req, res, next) => {
     return res.status(400).json({ message: 'Target stage is required.' });
   }
 
-  const validStages = ['lead', 'qualified', 'opportunity', 'proposal', 'negotiation', 'won', 'lost'];
+  const validStages = ['lead', 'qualified', 'opportunity', 'sales_visit', 'proposal', 'negotiation', 'won', 'lost'];
   if (!validStages.includes(stage.toLowerCase())) {
     return res.status(400).json({ message: 'Invalid target stage.' });
   }

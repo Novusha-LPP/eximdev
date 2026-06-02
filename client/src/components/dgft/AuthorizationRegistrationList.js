@@ -460,11 +460,11 @@ function AuthorizationRegistrationList({ onCountChange }) {
   // Filter + sort
   const displayed = useMemo(() => {
     let result = rows.filter((row) => {
-      if (filterJobType  && row.job_type   !== filterJobType)  return false;
-      if (filterFirmName && row.party_name !== filterFirmName) return false;
-      if (filterIec      && row.iec_no     !== filterIec)      return false;
-      if (filterStatus   && row.job_status !== filterStatus)   return false;
-      if (filterPortCode && row.port_code  !== filterPortCode) return false;
+      if (filterJobType  && String(row.job_type || "").trim().toLowerCase() !== String(filterJobType).trim().toLowerCase())  return false;
+      if (filterFirmName && String(row.party_name || "").trim().toLowerCase() !== String(filterFirmName).trim().toLowerCase()) return false;
+      if (filterIec      && String(row.iec_no || "").trim().toLowerCase() !== String(filterIec).trim().toLowerCase())      return false;
+      if (filterStatus   && String(row.job_status || "").trim().toLowerCase() !== String(filterStatus).trim().toLowerCase())   return false;
+      if (filterPortCode && String(row.port_code || "").trim().toLowerCase() !== String(filterPortCode).trim().toLowerCase()) return false;
       if (search.trim()) {
         const q = search.toLowerCase();
         if (

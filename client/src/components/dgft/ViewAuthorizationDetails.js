@@ -24,6 +24,14 @@ const IconCalendar = () => (
     <line x1="3" y1="10" x2="21" y2="10"/>
   </svg>
 );
+const IconTrash = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="3 6 5 6 21 6"/>
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+    <line x1="10" y1="11" x2="10" y2="17"/>
+    <line x1="14" y1="11" x2="14" y2="17"/>
+  </svg>
+);
 
 // ── DatePickerInput ───────────────────────────────────────────────
 function DatePickerInput({ value, onChange, placeholder = "dd/mm/yyyy" }) {
@@ -95,7 +103,7 @@ export const unitCodes = [
   "BAG","BGS","BLS","BRL","BTL","BOX","BLK","CAN","CAR","CRY","CTN","CMS","CHI","COL","CON","CRI","CCM","CFT","CBI","CBM","CYL","DOZ","DRM","FLK","FOT","FUT","GMS","GRS","FBK","INC","NGT","JTA","JAL","KEG","KLT","KGS","KME","KIT","LTR","LOG","TON","MTR","MTS","MGS","MOU","NOS","NHM","THD","PKG","PAC","PAI","PRS","PLT","PCS","PNT","PND","QDS","QTL","REL","ROL","SET","SKD","SLB","SQF","SQM","SQY","BLO","BUL","ENV","TBL","TNK","TGM","TIN","TRK","UNT","UGS","CSK","YDS",
 ];
 
-function UnitAutocomplete({ value, onChange }) {
+function UnitAutocomplete({ value, onChange, className = "ap-field-input" }) {
   const [query, setQuery] = useState(value || "");
   const [results, setResults] = useState([]);
   const [showResults, setShowResults] = useState(false);
@@ -132,7 +140,7 @@ function UnitAutocomplete({ value, onChange }) {
     <div className="ap-autocomplete-wrapper" ref={wrapperRef}>
       <input
         type="text"
-        className="ap-field-input"
+        className={className}
         value={query}
         onChange={handleInputChange}
         onFocus={() => {
@@ -157,7 +165,7 @@ function UnitAutocomplete({ value, onChange }) {
 }
 
 // ── HS Code Autocomplete ──────────────────────────────────────────
-function HSCodeAutocomplete({ value, onChange }) {
+function HSCodeAutocomplete({ value, onChange, className = "ap-field-input" }) {
   const [query, setQuery] = useState(value || "");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -207,7 +215,7 @@ function HSCodeAutocomplete({ value, onChange }) {
       <div className="ap-field-input-wrap">
         <input
           type="text"
-          className="ap-field-input"
+          className={className}
           value={query}
           onChange={handleInputChange}
           onFocus={() => query.length >= 3 && setShowResults(true)}
@@ -703,124 +711,270 @@ function ViewAuthorizationDetails() {
           <div className="ap-card-body">
 
             {/* Export Details */}
-            <div className="ap-section-subtitle">Export Details</div>
-            {(subData.export_details_array || []).map((expRow, idx) => (
-              <div key={idx} className="ap-item-row-compact">
-                <div className="ap-field-group ap-field-sr">
-                  <label className="ap-field-label">Sr</label>
-                  <input type="text" className="ap-field-input" value={idx + 1} readOnly style={{ textAlign: 'center', background: '#f1f5f9', fontWeight: 600, cursor: 'default' }} />
-                </div>
-                <div className="ap-field-group ap-field-desc">
-                  <label className="ap-field-label">Item Description</label>
-                  <textarea className="ap-field-textarea" value={expRow.item_description}
-                    onChange={e => handleExportDetailChange(idx, "item_description", e.target.value)}
-                    placeholder="Export description..." rows={2} />
-                </div>
-                <div className="ap-field-group ap-field-hs">
-                  <label className="ap-field-label">HS Code</label>
-                  <HSCodeAutocomplete value={expRow.hs_code} onChange={v => handleExportDetailChange(idx, "hs_code", v)} />
-                </div>
-                <div className="ap-field-group ap-field-qty">
-                  <label className="ap-field-label">Qty / Unit</label>
-                  <div style={{ display: "flex", gap: 4 }}>
-                    <input type="text" className="ap-field-input" value={expRow.qty}
-                      onChange={e => handleExportDetailChange(idx, "qty", e.target.value)} placeholder="0.00" style={{ flex: 2 }} />
-                    <div style={{ flex: 1.5 }}>
-                      <UnitAutocomplete value={expRow.unit} onChange={v => handleExportDetailChange(idx, "unit", v)} />
-                    </div>
-                  </div>
-                </div>
-                <div className="ap-field-group ap-field-val">
-                  <label className="ap-field-label">FOB USD</label>
-                  <input type="text" className="ap-field-input" value={expRow.value_usd}
-                    onChange={e => handleExportDetailChange(idx, "value_usd", e.target.value)} placeholder="0.00" />
-                </div>
-                <div className="ap-field-group ap-field-val">
-                  <label className="ap-field-label">FOB Rs</label>
-                  <input type="text" className="ap-field-input" value={expRow.value_rs}
-                    onChange={e => handleExportDetailChange(idx, "value_rs", e.target.value)} placeholder="0.00" />
-                </div>
-                {idx > 0
-                  ? <button type="button" className="ap-remove-row-btn" onClick={() => removeExportDetail(idx)} title="Remove">✕</button>
-                  : <div style={{ width: 22 }} />
-                }
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', marginTop: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1e3a8a', fontWeight: '700', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '.4px' }}>
+               
+                <span>Export Details</span>
               </div>
-            ))}
-            <div style={{ marginTop: 6, marginBottom: 18 }}>
-              <button type="button" className="ap-add-row-btn" onClick={addExportDetail}>+ Add Export Item</button>
+              <button type="button" className="ap-btn-add-item-outline" onClick={addExportDetail}>
+                + Add Export Item
+              </button>
+            </div>
+
+            <div className="ap-table-responsive" style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', background: '#fff', marginBottom: '20px' }}>
+              <table className="ap-table" style={{ margin: 0, width: '100%' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                    <th style={{ textAlign: 'center', width: '4%', minWidth: '40px', padding: '10px 8px', fontSize: '10.5px' }}>SR.</th>
+                    <th style={{ textAlign: 'left', width: '35%', minWidth: '220px', padding: '10px 8px', fontSize: '10.5px' }}>ITEM DESCRIPTION</th>
+                    <th style={{ textAlign: 'left', width: '12%', minWidth: '110px', padding: '10px 8px', fontSize: '10.5px' }}>HS CODE</th>
+                    <th style={{ textAlign: 'left', width: '18%', minWidth: '150px', padding: '10px 8px', fontSize: '10.5px' }}>QTY / UNIT</th>
+                    <th style={{ textAlign: 'left', width: '13%', minWidth: '110px', padding: '10px 8px', fontSize: '10.5px' }}>FOB USD</th>
+                    <th style={{ textAlign: 'left', width: '13%', minWidth: '110px', padding: '10px 8px', fontSize: '10.5px' }}>FOB INR</th>
+                    <th style={{ textAlign: 'center', width: '5%', minWidth: '60px', padding: '10px 8px', fontSize: '10.5px' }}>ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(subData.export_details_array || []).map((expRow, idx) => (
+                    <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ textAlign: 'center', padding: '8px', fontWeight: 600, color: '#64748b', verticalAlign: 'middle' }}>
+                        {idx + 1}
+                      </td>
+                      <td style={{ padding: '8px', verticalAlign: 'middle' }}>
+                        <textarea 
+                          className="ap-field-textarea" 
+                          value={expRow.item_description}
+                          onChange={e => handleExportDetailChange(idx, "item_description", e.target.value)}
+                          placeholder="Export description..." 
+                          rows={1}
+                          style={{ minHeight: '32px', margin: 0, padding: '6px 8px' }}
+                        />
+                      </td>
+                      <td style={{ padding: '8px', verticalAlign: 'middle' }}>
+                        <HSCodeAutocomplete 
+                          value={expRow.hs_code} 
+                          onChange={v => handleExportDetailChange(idx, "hs_code", v)} 
+                        />
+                      </td>
+                      <td style={{ padding: '8px', verticalAlign: 'middle' }}>
+                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                          <input 
+                            type="text" 
+                            className="ap-field-input" 
+                            value={expRow.qty}
+                            onChange={e => handleExportDetailChange(idx, "qty", e.target.value)} 
+                            placeholder="0.00" 
+                            style={{ flex: 2, margin: 0 }} 
+                          />
+                          <div style={{ flex: 1.5 }}>
+                            <UnitAutocomplete 
+                              value={expRow.unit} 
+                              onChange={v => handleExportDetailChange(idx, "unit", v)} 
+                            />
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ padding: '8px', verticalAlign: 'middle' }}>
+                        <input 
+                          type="text" 
+                          className="ap-field-input" 
+                          value={expRow.value_usd}
+                          onChange={e => handleExportDetailChange(idx, "value_usd", e.target.value)} 
+                          placeholder="0.00" 
+                          style={{ margin: 0 }}
+                        />
+                      </td>
+                      <td style={{ padding: '8px', verticalAlign: 'middle' }}>
+                        <input 
+                          type="text" 
+                          className="ap-field-input" 
+                          value={expRow.value_rs}
+                          onChange={e => handleExportDetailChange(idx, "value_rs", e.target.value)} 
+                          placeholder="0.00" 
+                          style={{ margin: 0 }}
+                        />
+                      </td>
+                      <td style={{ textAlign: 'center', padding: '8px', verticalAlign: 'middle' }}>
+                        {idx > 0 ? (
+                          <button 
+                            type="button" 
+                            className="ap-remove-row-btn-new" 
+                            onClick={() => removeExportDetail(idx)} 
+                            title="Remove"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: '28px',
+                              height: '28px',
+                              background: '#fff',
+                              border: '1px solid #fee2e2',
+                              borderRadius: '6px',
+                              color: '#ef4444',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s'
+                            }}
+                            onMouseOver={e => { e.currentTarget.style.background = '#fee2e2'; }}
+                            onMouseOut={e => { e.currentTarget.style.background = '#fff'; }}
+                          >
+                            <IconTrash />
+                          </button>
+                        ) : (
+                          <div style={{ width: '28px', height: '28px' }} />
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {(!subData.export_details_array || subData.export_details_array.length === 0) && (
+                    <tr>
+                      <td colSpan="7" className="ap-table-empty">No export details found</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
 
             {/* Import Details */}
-            <div className="ap-section-divider" />
-            <div className="ap-section-subtitle" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>Import Details
-         
-              </span>
-            </div>
-            {(subData.import_details_array || []).map((impRow, idx) => (
-              <div key={idx} className="ap-item-row-compact has-status" style={{ paddingBottom: 8, borderBottom: '1px solid #f1f5f9', marginBottom: 10 }}>
-                <div className="ap-field-group ap-field-sr">
-                  <label className="ap-field-label">Sr</label>
-                  <input type="text" className="ap-field-input" value={idx + 1} readOnly style={{ textAlign: 'center', background: '#f1f5f9', fontWeight: 600, cursor: 'default' }} />
-                </div>
-                <div className="ap-field-group" style={{ flex: '0 0 90px' }}>
-                  <label className="ap-field-label">Status</label>
-                  <div style={{ display: 'flex', alignItems: 'center', height: 26 }}>
-                    <span className={`ap-item-status-badge ${getItemStatus(impRow).toLowerCase().replace(" ", "-")}`}>
-                      {getItemStatus(impRow)}
-                    </span>
-                  </div>
-                </div>
-                <div className="ap-field-group ap-field-desc">
-                  <label className="ap-field-label">Item Description</label>
-                  <textarea className="ap-field-textarea" value={impRow.item_description}
-                    onChange={e => handleImportDetailChange(idx, "item_description", e.target.value)}
-                    placeholder="Import description..." rows={2} />
-                </div>
-                <div className="ap-field-group ap-field-hs">
-                  <label className="ap-field-label">HS Code</label>
-                  <HSCodeAutocomplete value={impRow.hs_code} onChange={v => handleImportDetailChange(idx, "hs_code", v)} />
-                </div>
-                <div className="ap-field-group ap-field-qty">
-                  <label className="ap-field-label">Qty / Unit</label>
-                  <div style={{ display: "flex", gap: 4 }}>
-                    <input type="text" className="ap-field-input" value={impRow.qty}
-                      onChange={e => handleImportDetailChange(idx, "qty", e.target.value)} placeholder="0.00" style={{ flex: 2 }} />
-                    <div style={{ flex: 1.5 }}>
-                      <UnitAutocomplete value={impRow.unit} onChange={v => handleImportDetailChange(idx, "unit", v)} />
-                    </div>
-                  </div>
-                  <div className="ap-sub-meta">
-                    <span>Used: <strong>{impRow.total_utilized_qty ?? 0}</strong></span>
-                    <span>Bal: <strong className="green">{impRow.balance_qty ?? (parseFloat(impRow.qty) || 0)}</strong></span>
-                  </div>
-                </div>
-                <div className="ap-field-group ap-field-val">
-                  <label className="ap-field-label">CIF USD</label>
-                  <input type="text" className="ap-field-input" value={impRow.value_usd}
-                    onChange={e => handleImportDetailChange(idx, "value_usd", e.target.value)} placeholder="0.00" />
-                  <div className="ap-sub-meta">
-                    <span>Used: <strong>${impRow.total_utilized_usd ?? 0}</strong></span>
-                    <span>Bal: <strong className="green">${impRow.balance_cif_usd ?? (parseFloat(impRow.value_usd) || 0)}</strong></span>
-                  </div>
-                </div>
-                <div className="ap-field-group ap-field-val">
-                  <label className="ap-field-label">CIF Rs</label>
-                  <input type="text" className="ap-field-input" value={impRow.value_rs}
-                    onChange={e => handleImportDetailChange(idx, "value_rs", e.target.value)} placeholder="0.00" />
-                  <div className="ap-sub-meta">
-                    <span>Used: <strong>₹{impRow.total_utilized_inr ?? 0}</strong></span>
-                    <span>Bal: <strong className="green">₹{impRow.balance_cif_inr ?? (parseFloat(impRow.value_rs) || 0)}</strong></span>
-                  </div>
-                </div>
-                {idx > 0
-                  ? <button type="button" className="ap-remove-row-btn" onClick={() => removeImportDetail(idx)} title="Remove">✕</button>
-                  : <div style={{ width: 22 }} />
-                }
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', marginTop: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1e3a8a', fontWeight: '700', fontSize: '12px', textTransform: 'uppercase', letterSpacing: '.4px' }}>
+             
+                <span>Import Details</span>
               </div>
-            ))}
-            <div style={{ marginTop: 6 }}>
-              <button type="button" className="ap-add-row-btn" onClick={addImportDetail}>+ Add Import Item</button>
+              <button type="button" className="ap-btn-add-item-outline" onClick={addImportDetail}>
+                + Add Import Item
+              </button>
+            </div>
+
+            <div className="ap-table-responsive" style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', background: '#fff', marginBottom: '12px' }}>
+              <table className="ap-table" style={{ margin: 0, width: '100%' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                    <th style={{ textAlign: 'center', width: '4%', minWidth: '40px', padding: '10px 8px', fontSize: '10.5px' }}>SR.</th>
+                    <th style={{ textAlign: 'left', width: '10%', minWidth: '110px', padding: '10px 8px', fontSize: '10.5px' }}>STATUS</th>
+                    <th style={{ textAlign: 'left', width: '32%', minWidth: '250px', padding: '10px 8px', fontSize: '10.5px' }}>ITEM DESCRIPTION</th>
+                    <th style={{ textAlign: 'left', width: '10%', minWidth: '100px', padding: '10px 8px', fontSize: '10.5px' }}>HS CODE</th>
+                    <th style={{ textAlign: 'left', width: '17%', minWidth: '150px', padding: '10px 8px', fontSize: '10.5px' }}>QTY / UNIT</th>
+                    <th style={{ textAlign: 'left', width: '11%', minWidth: '110px', padding: '10px 8px', fontSize: '10.5px' }}>CIF USD</th>
+                    <th style={{ textAlign: 'left', width: '11%', minWidth: '110px', padding: '10px 8px', fontSize: '10.5px' }}>CIF INR</th>
+                    <th style={{ textAlign: 'center', width: '5%', minWidth: '60px', padding: '10px 8px', fontSize: '10.5px' }}>ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(subData.import_details_array || []).map((impRow, idx) => (
+                    <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ textAlign: 'center', padding: '8px', fontWeight: 600, color: '#64748b', verticalAlign: 'top' }}>
+                        {idx + 1}
+                      </td>
+                      <td style={{ padding: '8px', verticalAlign: 'top' }}>
+                        <span className={`ap-item-status-badge ${getItemStatus(impRow).toLowerCase().replace(" ", "-")}`}>
+                          {getItemStatus(impRow)}
+                        </span>
+                      </td>
+                      <td style={{ padding: '8px', verticalAlign: 'top' }}>
+                        <textarea 
+                          className="ap-field-textarea-borderless" 
+                          value={impRow.item_description}
+                          onChange={e => handleImportDetailChange(idx, "item_description", e.target.value)}
+                          placeholder="Import description..." 
+                          rows={2}
+                          style={{ margin: 0, padding: 0 }}
+                        />
+                      </td>
+                      <td style={{ padding: '8px', verticalAlign: 'top' }}>
+                        <HSCodeAutocomplete 
+                          value={impRow.hs_code} 
+                          onChange={v => handleImportDetailChange(idx, "hs_code", v)} 
+                          className="ap-field-input-borderless"
+                        />
+                      </td>
+                      <td style={{ padding: '8px', verticalAlign: 'top' }}>
+                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                          <input 
+                            type="text" 
+                            className="ap-field-input-borderless" 
+                            value={impRow.qty}
+                            onChange={e => handleImportDetailChange(idx, "qty", e.target.value)} 
+                            placeholder="0.00" 
+                            style={{ margin: 0, fontWeight: 'normal', width: '80px' }} 
+                          />
+                          <span className="ap-unit-badge">
+                            {impRow.unit || '—'}
+                          </span>
+                        </div>
+                        <div className="ap-sub-meta" style={{ marginTop: '4px', gap: '6px' }}>
+                          <span>Used: <strong>{impRow.total_utilized_qty ?? 0}</strong></span>
+                          <span>|</span>
+                          <span>Bal: <strong className="green">{impRow.balance_qty ?? (parseFloat(impRow.qty) || 0)}</strong></span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '8px', verticalAlign: 'top' }}>
+                        <input 
+                          type="text" 
+                          className="ap-field-input-borderless" 
+                          value={impRow.value_usd}
+                          onChange={e => handleImportDetailChange(idx, "value_usd", e.target.value)} 
+                          placeholder="0.00" 
+                          style={{ margin: 0 }}
+                        />
+                        <div className="ap-sub-meta" style={{ marginTop: '4px', gap: '6px' }}>
+                          <span>Used: <strong>${impRow.total_utilized_usd ?? 0}</strong></span>
+                          <span>|</span>
+                          <span>Bal: <strong className="green">${impRow.balance_cif_usd ?? (parseFloat(impRow.value_usd) || 0)}</strong></span>
+                        </div>
+                      </td>
+                      <td style={{ padding: '8px', verticalAlign: 'top' }}>
+                        <input 
+                          type="text" 
+                          className="ap-field-input-borderless" 
+                          value={impRow.value_rs}
+                          onChange={e => handleImportDetailChange(idx, "value_rs", e.target.value)} 
+                          placeholder="0.00" 
+                          style={{ margin: 0 }}
+                        />
+                        <div className="ap-sub-meta" style={{ marginTop: '4px', gap: '6px' }}>
+                          <span>Used: <strong>₹{impRow.total_utilized_inr ?? 0}</strong></span>
+                          <span>|</span>
+                          <span>Bal: <strong className="green">₹{impRow.balance_cif_inr ?? (parseFloat(impRow.value_rs) || 0)}</strong></span>
+                        </div>
+                      </td>
+                      <td style={{ textAlign: 'center', padding: '8px', verticalAlign: 'top' }}>
+                        {idx > 0 ? (
+                          <button 
+                            type="button" 
+                            className="ap-remove-row-btn-new" 
+                            onClick={() => removeImportDetail(idx)} 
+                            title="Remove"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              width: '28px',
+                              height: '28px',
+                              background: '#fff',
+                              border: '1px solid #fee2e2',
+                              borderRadius: '6px',
+                              color: '#ef4444',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s'
+                            }}
+                            onMouseOver={e => { e.currentTarget.style.background = '#fee2e2'; }}
+                            onMouseOut={e => { e.currentTarget.style.background = '#fff'; }}
+                          >
+                            <IconTrash />
+                          </button>
+                        ) : (
+                          <div style={{ width: '28px', height: '28px' }} />
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {(!subData.import_details_array || subData.import_details_array.length === 0) && (
+                    <tr>
+                      <td colSpan="8" className="ap-table-empty">No import details found</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -833,11 +987,7 @@ function ViewAuthorizationDetails() {
           <div className="ap-card-body">
 
             <div className="ap-fields-grid cols-6" style={{ marginBottom: 12 }}>
-              <div className="ap-field-group" style={{ gridColumn: 'span 2' }}>
-                <label className="ap-field-label">Utilisation Details (BOE from DSR Import)</label>
-                <input type="text" className="ap-field-input" value={subData.utilisation_details_import}
-                  onChange={e => hc("utilisation_details_import", e.target.value)} placeholder="Enter utilisation details..." />
-              </div>
+             
               <div className="ap-field-group">
                 <label className="ap-field-label">Registration No.</label>
                 <input type="text" className="ap-field-input" value={subData.registration_no}
@@ -847,7 +997,7 @@ function ViewAuthorizationDetails() {
                 <label className="ap-field-label">Auth Date</label>
                 <DatePickerInput value={subData.auth_date} onChange={v => hc("auth_date", v)} />
               </div>
-              <div className="ap-field-group">
+              <div className="ap-field-group" style={{ gridColumn: "span 4" }}>
                 <label className="ap-field-label">Notification No.</label>
                 <input type="text" className="ap-field-input" value={subData.notification_number}
                   onChange={e => hc("notification_number", e.target.value)} placeholder="Notification No." />

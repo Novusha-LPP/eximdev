@@ -13,19 +13,28 @@ const router = express.Router();
 // IMEXCUBE TEST credentials from env
 const IMEXCUBE_BASE_URL =
   process.env.IMEXCUBE_BASE_URL || "https://impexapi.impexcube.in";
-const IMPEX_USERNAME = process.env.IMPEX_USERNAME || "";
-const IMPEX_PASSWORD = process.env.IMPEX_PASSWORD || "";
-const COMPANY_BR_CODE = process.env.COMPANY_BR_CODE || "";
-const COMPANY_BR_CODE_AMD = process.env.COMPANY_BR_CODE_AMD || "5456AD39-7CE7-4B73-9601-AC1C44138992";
-const COMPANY_BR_CODE_GIM = process.env.COMPANY_BR_CODE_GIM || "6EE3B451-A349-44AD-B49B-A3CD54AEE756";
-const COMPANY_BR_CODE_COK = process.env.COMPANY_BR_CODE_COK || "128DCE89-0B25-4033-9C27-8B6D8C7CE3BF";
-const FYEAR = process.env.FYEAR || "";
+const IMPEX_USERNAME = (process.env.IMPEX_USERNAME || "").trim();
+const IMPEX_PASSWORD = (process.env.IMPEX_PASSWORD || "").trim();
+const COMPANY_BR_CODE = (process.env.COMPANY_BR_CODE || "").trim();
+const COMPANY_BR_CODE_AMD = (process.env.COMPANY_BR_CODE_AMD || "").trim() || "5456AD39-7CE7-4B73-9601-AC1C44138992";
+const COMPANY_BR_CODE_GIM = (process.env.COMPANY_BR_CODE_GIM || "").trim() || "6EE3B451-A349-44AD-B49B-A3CD54AEE756";
+const COMPANY_BR_CODE_COK = (process.env.COMPANY_BR_CODE_COK || "").trim() || "128DCE89-0B25-4033-9C27-8B6D8C7CE3BF";
+const FYEAR = (process.env.FYEAR || "").trim();
 
 const getCompanyBrCode = (branchCode) => {
-  if (branchCode === "AMD") return COMPANY_BR_CODE_AMD;
-  if (branchCode === "GIM") return COMPANY_BR_CODE_GIM;
-  if (branchCode === "COK") return COMPANY_BR_CODE_COK;
-  return COMPANY_BR_CODE;
+  const code = (branchCode || "").toUpperCase().trim();
+  if (["AMD", "SND", "KHD", "SCH", "BRD", "AIR"].includes(code)) return COMPANY_BR_CODE_AMD;
+  if (["GIM", "MND", "HZR"].includes(code)) return COMPANY_BR_CODE_GIM;
+  if (code === "COK") return COMPANY_BR_CODE_COK;
+  return COMPANY_BR_CODE_AMD;
+};
+
+const getChaBranchCode = (branchCode) => {
+  const code = (branchCode || "").toUpperCase().trim();
+  if (["AMD", "SND", "KHD", "SCH", "BRD", "AIR"].includes(code)) return "NOVUAMD";
+  if (["GIM", "MND", "HZR"].includes(code)) return "NOVUGDM";
+  if (code === "COK") return "NOVUCOK";
+  return "NOVUAMD";
 };
 
 const ACTION_CREATE = "created";
@@ -191,10 +200,7 @@ async function buildJobPayload(job_number, isPreview = false) {
     CHADetails: {
       "CHA Code": validateChar("NOVU", 5, true, "CHA Code"),
       "CHA Branch Code": (() => {
-        let brCode = "";
-        if (job.branch_code === "AMD") brCode = "NOVUAMD";
-        else if (job.branch_code === "GIM") brCode = "NOVUGDM";
-        else if (job.branch_code === "COK") brCode = "NOVUCOK";
+        const brCode = getChaBranchCode(job.branch_code);
         return validateChar(brCode, 10, true, "CHA Branch Code");
       })(),
       "Financial Year": (() => {
@@ -620,12 +626,7 @@ router.get("/api/scmCube/job-data-preview", async (req, res) => {
       else if (match) resolvedPortOfOriginCode = match[1].trim();
     }
 
-    const brCode = (() => {
-      if (job.branch_code === "AMD") return "NOVUAMD";
-      if (job.branch_code === "GIM") return "NOVUGDM";
-      if (job.branch_code === "COK") return "NOVUCOK";
-      return "";
-    })();
+    const brCode = getChaBranchCode(job.branch_code);
 
     const fy = (() => {
       const raw = job.financial_year || job.year;

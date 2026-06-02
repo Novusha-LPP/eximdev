@@ -16,6 +16,7 @@ import ClientLoginAnalyticsReport from './reports/ClientLoginAnalyticsReport';
 import NewCustomersReport from './reports/NewCustomersReport';
 import ElockUtilizationReport from './reports/ElockUtilizationReport';
 import ElockAssignedCountReport from './reports/ElockAssignedCountReport';
+import ElockBillingReport from './reports/ElockBillingReport';
 import TransportAccountsReport from './reports/TransportAccountsReport';
 
 const NucleusHome = () => {
@@ -60,7 +61,8 @@ const NucleusHome = () => {
             icon: '🔒',
             reports: [
                 { id: 'elock_utilization', label: 'E-Lock Utilization' },
-                { id: 'elock_assigned_count', label: 'E-Lock Assigned Count' }
+                { id: 'elock_assigned_count', label: 'E-Lock Assigned Count' },
+                { id: 'elock_billing', label: 'E-Lock Billing' }
             ]
         },
         {
@@ -128,7 +130,7 @@ const NucleusHome = () => {
 
     // Force sensible default date filter type for transport/elock reports
     useEffect(() => {
-        if (['fleet_utilization', 'elock_utilization', 'transport_accounts'].includes(activeReport)) {
+        if (['fleet_utilization', 'elock_utilization', 'elock_billing', 'transport_accounts'].includes(activeReport)) {
             setFilterType('day');
             setSelectedDay(format(new Date(), 'yyyy-MM-dd'));
         } else {
@@ -238,6 +240,17 @@ const NucleusHome = () => {
             case 'elock_assigned_count':
                 return (
                     <ElockAssignedCountReport
+                        filterType={filterType}
+                        selectedMonth={selectedMonth}
+                        selectedYear={selectedYear}
+                        selectedQuarter={selectedQuarter}
+                        dateRange={dateRange}
+                        selectedDay={selectedDay}
+                    />
+                );
+            case 'elock_billing':
+                return (
+                    <ElockBillingReport
                         filterType={filterType}
                         selectedMonth={selectedMonth}
                         selectedYear={selectedYear}
@@ -360,7 +373,7 @@ const NucleusHome = () => {
                                         onChange={(e) => setFilterType(e.target.value)}
                                         className="nucleus-select"
                                     >
-                                        {['fleet_utilization', 'elock_utilization', 'transport_accounts'].includes(activeReport) && (
+                                        {['fleet_utilization', 'elock_utilization', 'elock_billing', 'transport_accounts'].includes(activeReport) && (
                                             <option value="day">Day Wise</option>
                                         )}
                                         <option value="month">Month Wise</option>

@@ -30,7 +30,8 @@ export const checkStagePermission = async (req, res, next) => {
     case 'lead':
     case 'qualified':
     case 'opportunity':
-      // Sales Reps can manage up to opportunity
+    case 'sales_visit':
+      // Sales Reps can manage up to sales_visit
       break;
     
     case 'proposal':

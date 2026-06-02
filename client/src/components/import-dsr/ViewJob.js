@@ -54,6 +54,7 @@ import {
   Box,
   Tabs,
   Tab,
+  CircularProgress,
 } from "@mui/material";
 import { Edit, Delete } from "@mui/icons-material";
 import FileUpload from "../../components/gallery/FileUpload.js";
@@ -124,7 +125,7 @@ const fetchExrateForCurrency = async (currency, date) => {
   } catch (err) {
     console.error("Error fetching exchange rate:", err);
   }
-  
+
   const currentDateFormatted = getFormattedDateForRates(new Date());
   if (formattedDate !== currentDateFormatted) {
     try {
@@ -188,7 +189,7 @@ const compactInputSx = {
 };
 
 
-const schemeOptions = ["Full Duty", "DEEC", "EPCG","RODTEP", "ROSCTL", "TQ", "SIL", "SEZ", "EOU", "DFIA", "Jobbing"];
+const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSCTL", "TQ", "SIL", "SEZ", "EOU", "DFIA", "Jobbing"];
 
 function JobDetails() {
   const [viewJobTab, setViewJobTab] = useState(0);
@@ -453,7 +454,12 @@ function JobDetails() {
   const [imexcubeDialogOpen, setImexcubeDialogOpen] = useState(false);
   const [imexcubePreviewData, setImexcubePreviewData] = useState(null);
   const [imexcubePreviewLoading, setImexcubePreviewLoading] = useState(false);
-  
+
+  // IMEXCUBE details state
+  const [imexcubeDetailsLoading, setImexcubeDetailsLoading] = useState(false);
+  const [imexcubeDetailsDialogOpen, setImexcubeDetailsDialogOpen] = useState(false);
+  const [imexcubeDetailsData, setImexcubeDetailsData] = useState(null);
+
   // JSON Editor state
   const [imexcubeShowEditor, setImexcubeShowEditor] = useState(false);
   const [imexcubeErrorDialog, setImexcubeErrorDialog] = useState({ open: false, title: "", message: "", details: null });
@@ -490,12 +496,38 @@ function JobDetails() {
     }
   };
 
+  // Fetch job details directly from IMEXCUBE
+  const handleGetImexcubeDetails = async () => {
+    const jobNumber = data?.job_number;
+    if (!jobNumber) {
+      setImexcubeSnackbar({ open: true, message: "Job number not found", severity: "error" });
+      setTimeout(() => setImexcubeSnackbar(prev => ({ ...prev, open: false })), 4000);
+      return;
+    }
+    setImexcubeDetailsLoading(true);
+    setImexcubeDetailsDialogOpen(true);
+    setImexcubeDetailsData(null);
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/scmCube/get-imexcube-job-details`,
+        { params: { job_number: jobNumber } }
+      );
+      setImexcubeDetailsData(res.data);
+    } catch (err) {
+      console.error(err);
+      const errMsg = err?.response?.data?.error || err?.response?.data?.details || err.message || "Failed to fetch job details from IMEXCUBE";
+      setImexcubeDetailsData({ error: errMsg });
+    } finally {
+      setImexcubeDetailsLoading(false);
+    }
+  };
+
   // Step 2: Confirm and push to IMEXCUBE
   const handleConfirmImexcubeUpload = async () => {
     const jobNumber = data?.job_number;
     setImexcubeDialogOpen(false);
     setImexcubeUploading(true);
-    
+
     // Check if JSON is valid before sending
     let parsedPayload = null;
     if (imexcubeShowEditor) {
@@ -512,7 +544,7 @@ function JobDetails() {
     try {
       const res = await axios.post(
         `${process.env.REACT_APP_API_STRING}/scmCube/upload-to-imexcube`,
-        { 
+        {
           job_number: jobNumber,
           ...(parsedPayload && { customPayload: parsedPayload })
         }
@@ -527,7 +559,7 @@ function JobDetails() {
         message: res.data?.message || successMsg,
         severity: "success",
       });
-      
+
       // Mark uploaded only for successful create/update actions.
       if (setData) {
         setData(prev => ({
@@ -544,7 +576,7 @@ function JobDetails() {
       let errMsg = "Upload failed";
       let errDetails = null;
       const resData = err?.response?.data;
-      
+
       if (resData) {
         if (resData.action === "duplicate" || err?.response?.status === 409) {
           errMsg = resData.message || "Job already exists in IMEXCUBE";
@@ -561,7 +593,7 @@ function JobDetails() {
       } else if (err.message) {
         errMsg = err.message;
       }
-      
+
       setImexcubeErrorDialog({
         open: true,
         title: (resData?.action === "duplicate" || err?.response?.status === 409) ? "Duplicate Job" : "Upload Failed",
@@ -1154,8 +1186,8 @@ function JobDetails() {
     } catch (error) {
       console.error("Error autosaving duty data:", error);
     }
-  }; 
-  
+  };
+
   // Check if duty_paid_date should be disabled
   const isDutyPaidDateDisabled =
     !formik.values.assessment_date || !formik.values.igst_ammount;
@@ -1281,7 +1313,7 @@ function JobDetails() {
     if (updates.cth_no !== undefined) {
       const licNum = updatedRows[rowIndex].sr_no_lic || updatedRows[rowIndex].license_no;
       const cthNoNormalized = updates.cth_no ? String(updates.cth_no).replace(/[^a-zA-Z0-9]/g, "") : "";
-      
+
       if (licNum && cthNoNormalized) {
         const selectedAuth = authorizationsList.find(a => a.authorization_no === licNum);
         const importItems = selectedAuth?.import_details_array || [];
@@ -1376,11 +1408,11 @@ function JobDetails() {
     return Array.isArray(formik.values.invoice_details) &&
       formik.values.invoice_details.length > 0
       ? formik.values.invoice_details.map(inv => ({
-          ...inv,
-          freight_currency: inv.freight_currency || inv.inv_currency || "",
-          insurance_currency: inv.insurance_currency || "INR",
-          other_charges_currency: inv.other_charges_currency || "INR",
-        }))
+        ...inv,
+        freight_currency: inv.freight_currency || inv.inv_currency || "",
+        insurance_currency: inv.insurance_currency || "INR",
+        other_charges_currency: inv.other_charges_currency || "INR",
+      }))
       : [
         {
           invoice_number: "",
@@ -1448,7 +1480,7 @@ function JobDetails() {
       const ins = parseFloat(field === "insurance" ? value : (updatedRows[rowIndex].insurance || 0)) || 0;
       const other = parseFloat(field === "other_charges" ? value : (updatedRows[rowIndex].other_charges || 0)) || 0;
       const total = (prod + frt + ins + other).toFixed(2);
-      
+
       updatedRows[rowIndex].total_inv_value = total;
     }
 
@@ -1459,7 +1491,7 @@ function JobDetails() {
     if (hasFOB) {
       const totalFreight = updatedRows.reduce((sum, row) => sum + (parseFloat(row.freight) || 0), 0);
       const totalInsurance = updatedRows.reduce((sum, row) => sum + (parseFloat(row.insurance) || 0), 0);
-      
+
       formik.setFieldValue("other_charges_details.freight.amount", totalFreight > 0 ? totalFreight.toFixed(2) : "");
       formik.setFieldValue("other_charges_details.freight.rate", "20");
       formik.setFieldValue("other_charges_details.insurance.amount", totalInsurance > 0 ? totalInsurance.toFixed(2) : "");
@@ -1494,7 +1526,7 @@ function JobDetails() {
     // Sync global CIF value (term value) across all rows converted to INR
     const totalCif = updatedRows.reduce((sum, row) => sum + (parseFloat(row.total_inv_value) || 0), 0);
     const totalProductVal = updatedRows.reduce((sum, row) => sum + (parseFloat(row.product_value) || 0), 0);
-    
+
     // Check if we need to force clear exrate in our sync calculation due to currency change
     let forcedExrate;
     if (field === "inv_currency") {
@@ -1506,10 +1538,10 @@ function JobDetails() {
 
     if (totalCif > 0) {
       formik.setFieldValue("total_inv_value", totalProductVal.toFixed(2));
-      
+
       const invCurrency = updatedRows[rowIndex]?.inv_currency || formik.values.inv_currency || "";
       const invDate = updatedRows[rowIndex]?.invoice_date || formik.values.invoice_date || "";
-      
+
       const syncCifValue = async (forcedRate) => {
         let currentExrate = forcedRate !== undefined ? parseFloat(forcedRate) : parseFloat(formik.values.exrate);
         if (!currentExrate || isNaN(currentExrate)) {
@@ -1627,28 +1659,50 @@ function JobDetails() {
             </Button>
           </Box>
           {user?.role === "Admin" && (
-            <Box sx={{ position: "fixed", top: 80, right: 30, zIndex: 999 }}>
-              <Button
-                variant="contained"
-                startIcon={imexcubeUploading ? null : <CloudUploadIcon />}
-                onClick={handleUploadToImexcube}
-                disabled={imexcubeUploading}
-                sx={{
-                  backgroundColor: data?.imexcube_uploaded ? "#2e7d32" : "#1565c0",
-                  color: "white",
-                  "&:hover": {
-                    backgroundColor: data?.imexcube_uploaded ? "#1b5e20" : "#0d47a1",
-                  },
-                  "&.Mui-disabled": {
-                    backgroundColor: data?.imexcube_uploaded ? "#a5d6a7" : "#90caf9",
+            <Box sx={{ position: "fixed", top: 80, right: 30, zIndex: 999, display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+              <Box sx={{ display: "flex", gap: 1 }}>
+                <Button
+                  variant="contained"
+                  startIcon={imexcubeUploading ? null : <CloudUploadIcon />}
+                  onClick={handleUploadToImexcube}
+                  disabled={imexcubeUploading}
+                  sx={{
+                    backgroundColor: data?.imexcube_uploaded ? "#2e7d32" : "#1565c0",
                     color: "white",
-                  },
-                }}
-              >
-                {imexcubeUploading ? "Uploading..." : data?.imexcube_uploaded ? "Job Uploaded to IMEXCUBE" : "Upload to IMEXCUBE (TEST)"}
-              </Button>
+                    "&:hover": {
+                      backgroundColor: data?.imexcube_uploaded ? "#1b5e20" : "#0d47a1",
+                    },
+                    "&.Mui-disabled": {
+                      backgroundColor: data?.imexcube_uploaded ? "#a5d6a7" : "#90caf9",
+                      color: "white",
+                    },
+                  }}
+                >
+                  {imexcubeUploading ? "Uploading..." : data?.imexcube_uploaded ? "Job Uploaded to IMEXCUBE" : "Upload to IMEXCUBE (TEST)"}
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={handleGetImexcubeDetails}
+                  disabled={imexcubeDetailsLoading}
+                  sx={{
+                    borderColor: "#1565c0",
+                    color: "#1565c0",
+                    backgroundColor: "white",
+                    "&:hover": {
+                      borderColor: "#0d47a1",
+                      backgroundColor: "rgba(21, 101, 192, 0.04)"
+                    },
+                    "&.Mui-disabled": {
+                      borderColor: "#90caf9",
+                      color: "#90caf9"
+                    }
+                  }}
+                >
+                  {imexcubeDetailsLoading ? "Fetching..." : "Get Job Data from IMEXCUBE"}
+                </Button>
+              </Box>
               {data?.imexcube_uploaded && data?.imexcube_uploaded_at && (
-                <Typography variant="caption" sx={{ display: 'block', textAlign: 'center', mt: 0.5, color: '#2e7d32', fontWeight: 700 }}>
+                <Typography variant="caption" sx={{ display: 'block', textAlign: 'center', mt: 0.5, color: '#2e7d32', fontWeight: 700, width: "100%" }}>
                   Uploaded on: {new Date(data.imexcube_uploaded_at).toLocaleString("en-IN", {
                     day: "2-digit",
                     month: "short",
@@ -1665,8 +1719,8 @@ function JobDetails() {
           {/* Importer info start*/}
           <div style={{ marginTop: "70px" }}>
             <JobDetailsStaticData
-              data={{ 
-                ...data, 
+              data={{
+                ...data,
                 cif_amount: formik.values.cif_amount || data.cif_amount,
                 total_inv_value: formik.values.total_inv_value || data.total_inv_value
               }}
@@ -3003,391 +3057,391 @@ function JobDetails() {
 
               {invoiceSubTab === 0 && (
                 <div style={{ background: "#ffffff", border: "1px solid #dee2e6", borderRadius: "4px", padding: "16px", marginBottom: "20px" }}>
-                <h6 style={{ fontSize: "0.95rem", fontWeight: "700", color: "#495057", marginBottom: "16px", borderBottom: "1px solid #eee", paddingBottom: "8px" }}>
-                  Invoice Terms & Priority
-                </h6>
-                <Row>
-                  <Col xs={12} md={2} lg={2} className="mb-3">
-                    <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>AD Code</label>
-                    <TextField fullWidth size="small" variant="outlined" id="adCode" name="adCode" disabled={user?.role !== "Admin" && isSubmissionDate}
-                      value={formik.values.adCode || ""} onChange={formik.handleChange} placeholder="Enter AD Code" sx={compactInputSx} />
-                  </Col>
-                  <Col xs={12} md={2} lg={2} className="mb-3">
-                    <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Bank Name</label>
-                    <TextField fullWidth size="small" variant="outlined" id="bank_name" name="bank_name" disabled={user?.role !== "Admin" && isSubmissionDate}
-                      value={formik.values.bank_name || ""} onChange={formik.handleChange} placeholder="Enter Bank Name" sx={compactInputSx} />
-                  </Col>
-                  <Col xs={12} md={2} lg={2} className="mb-3">
-                    <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Exchange Rate</label>
-                    <TextField fullWidth size="small" variant="outlined" id="exrate" name="exrate" disabled={user?.role !== "Admin" && isSubmissionDate}
-                      value={formik.values.exrate || ""}
-                      onChange={(e) => {
-                        const newExrate = e.target.value;
-                        formik.setFieldValue("exrate", newExrate);
-                        
-                        const exrateNum = parseFloat(newExrate) || 0;
-                        const invoiceDetails = formik.values.invoice_details || [];
-                        const totalCif = invoiceDetails.reduce((sum, r) => sum + (parseFloat(r.total_inv_value) || 0), 0);
-                        const fallbackVal = parseFloat(formik.values.total_inv_value) || 0;
-                        const effectiveCif = totalCif > 0 ? totalCif : fallbackVal;
-                        
-                        if (effectiveCif > 0 && exrateNum > 0) {
-                          const cifInr = effectiveCif * exrateNum;
-                          formik.setFieldValue("cif_amount", cifInr.toFixed(2));
-                          formik.setFieldValue("cifValue", cifInr.toFixed(2));
-                        }
-                      }}
-                      placeholder="Exchange Rate" sx={compactInputSx} />
-                  </Col>
-                  <Col xs={12} md={2} lg={2} className="mb-3">
-                    <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>FTA Benefit Date</label>
-                    <TextField fullWidth size="small" variant="outlined" type="datetime-local" name="fta_Benefit_date_time"
-                      value={formik.values.fta_Benefit_date_time || ""} InputLabelProps={{ shrink: true }}
-                      onChange={(e) => formik.setFieldValue("fta_Benefit_date_time", e.target.value)}
-                      disabled={user?.role !== "Admin" && isSubmissionDate} sx={{ bgcolor: "white", ...compactInputSx }} />
-                  </Col>
-                  <Col xs={12} lg={4} className="mb-3 d-flex align-items-center" style={{ paddingTop: '22px' }}>
-                    <div style={{ marginRight: "8px", fontWeight: "600", fontSize: "0.9rem", color: "#6c757d" }}>Payment:</div>
-                    <RadioGroup row name="payment_method" value={formik.values.payment_method || ""} onChange={formik.handleChange}>
-                      <FormControlLabel value="Transaction" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: "0.9rem" }}>Transaction</span>} />
-                      <FormControlLabel value="Deferred" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: "0.9rem" }}>Deferred</span>} />
-                    </RadioGroup>
-                  </Col>
-                </Row>
+                  <h6 style={{ fontSize: "0.95rem", fontWeight: "700", color: "#495057", marginBottom: "16px", borderBottom: "1px solid #eee", paddingBottom: "8px" }}>
+                    Invoice Terms & Priority
+                  </h6>
+                  <Row>
+                    <Col xs={12} md={2} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>AD Code</label>
+                      <TextField fullWidth size="small" variant="outlined" id="adCode" name="adCode" disabled={user?.role !== "Admin" && isSubmissionDate}
+                        value={formik.values.adCode || ""} onChange={formik.handleChange} placeholder="Enter AD Code" sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={2} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Bank Name</label>
+                      <TextField fullWidth size="small" variant="outlined" id="bank_name" name="bank_name" disabled={user?.role !== "Admin" && isSubmissionDate}
+                        value={formik.values.bank_name || ""} onChange={formik.handleChange} placeholder="Enter Bank Name" sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={2} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Exchange Rate</label>
+                      <TextField fullWidth size="small" variant="outlined" id="exrate" name="exrate" disabled={user?.role !== "Admin" && isSubmissionDate}
+                        value={formik.values.exrate || ""}
+                        onChange={(e) => {
+                          const newExrate = e.target.value;
+                          formik.setFieldValue("exrate", newExrate);
 
-                {/* Invoice Details Table */}
-                <Row>
-                  <Col xs={12} className="mb-3">
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                      <label style={{ marginBottom: 0, fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>
-                        Invoice Details
-                      </label>
-                      {!isDescriptionTableReadOnly && (
-                        <Button
-                          variant="contained"
-                          type="button"
-                          startIcon={<AddIcon />}
-                          onClick={addInvoiceRow}
-                          sx={{
-                            backgroundColor: "#1e293b",
-                            color: "#ffffff",
-                            "&:hover": {
-                              backgroundColor: "#0f172a"
-                            },
-                            textTransform: "none",
-                            fontWeight: "600",
-                            fontSize: "0.85rem",
-                            padding: "7px 16px",
-                            borderRadius: "6px",
-                            boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
-                            marginBottom: "12px"
-                          }}
-                        >
-                          Add Invoice
-                        </Button>
-                      )}
-                    </div>
+                          const exrateNum = parseFloat(newExrate) || 0;
+                          const invoiceDetails = formik.values.invoice_details || [];
+                          const totalCif = invoiceDetails.reduce((sum, r) => sum + (parseFloat(r.total_inv_value) || 0), 0);
+                          const fallbackVal = parseFloat(formik.values.total_inv_value) || 0;
+                          const effectiveCif = totalCif > 0 ? totalCif : fallbackVal;
 
-                    <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: "8px", boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.05)" }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "1500px", backgroundColor: "#ffffff" }}>
-                        <thead>
-                          <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                            {[
-                              { label: "Sr No", width: "45px", align: "center" },
-                              { label: "Invoice Number", width: "150px", align: "left" },
-                              { label: "Date", width: "120px", align: "left" },
-                              { label: "PO NO", width: "120px", align: "left" },
-                              { label: "PO Date", width: "120px", align: "left" },
-                              { label: "TOI", width: "90px", align: "left" },
-                              { label: "Invoice Value", width: "130px", align: "left" },
-                              { label: "Currency", width: "95px", align: "left" },
-                              { label: "Freight", width: "170px", align: "left" },
-                              { label: "Insurance", width: "170px", align: "left" },
-                              { label: "Other Chrgs", width: "170px", align: "left" },
-                              { label: "CIF Value", width: "130px", align: "left" },
-                              { label: "Action", width: "50px", align: "center" }
-                            ].map((col) => (
-                              <th
-                                key={col.label}
+                          if (effectiveCif > 0 && exrateNum > 0) {
+                            const cifInr = effectiveCif * exrateNum;
+                            formik.setFieldValue("cif_amount", cifInr.toFixed(2));
+                            formik.setFieldValue("cifValue", cifInr.toFixed(2));
+                          }
+                        }}
+                        placeholder="Exchange Rate" sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={2} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>FTA Benefit Date</label>
+                      <TextField fullWidth size="small" variant="outlined" type="datetime-local" name="fta_Benefit_date_time"
+                        value={formik.values.fta_Benefit_date_time || ""} InputLabelProps={{ shrink: true }}
+                        onChange={(e) => formik.setFieldValue("fta_Benefit_date_time", e.target.value)}
+                        disabled={user?.role !== "Admin" && isSubmissionDate} sx={{ bgcolor: "white", ...compactInputSx }} />
+                    </Col>
+                    <Col xs={12} lg={4} className="mb-3 d-flex align-items-center" style={{ paddingTop: '22px' }}>
+                      <div style={{ marginRight: "8px", fontWeight: "600", fontSize: "0.9rem", color: "#6c757d" }}>Payment:</div>
+                      <RadioGroup row name="payment_method" value={formik.values.payment_method || ""} onChange={formik.handleChange}>
+                        <FormControlLabel value="Transaction" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: "0.9rem" }}>Transaction</span>} />
+                        <FormControlLabel value="Deferred" control={<Radio size="small" disabled={user?.role !== "Admin" && isSubmissionDate} />} label={<span style={{ fontSize: "0.9rem" }}>Deferred</span>} />
+                      </RadioGroup>
+                    </Col>
+                  </Row>
+
+                  {/* Invoice Details Table */}
+                  <Row>
+                    <Col xs={12} className="mb-3">
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                        <label style={{ marginBottom: 0, fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>
+                          Invoice Details
+                        </label>
+                        {!isDescriptionTableReadOnly && (
+                          <Button
+                            variant="contained"
+                            type="button"
+                            startIcon={<AddIcon />}
+                            onClick={addInvoiceRow}
+                            sx={{
+                              backgroundColor: "#1e293b",
+                              color: "#ffffff",
+                              "&:hover": {
+                                backgroundColor: "#0f172a"
+                              },
+                              textTransform: "none",
+                              fontWeight: "600",
+                              fontSize: "0.85rem",
+                              padding: "7px 16px",
+                              borderRadius: "6px",
+                              boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)",
+                              marginBottom: "12px"
+                            }}
+                          >
+                            Add Invoice
+                          </Button>
+                        )}
+                      </div>
+
+                      <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: "8px", boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.05)" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "1500px", backgroundColor: "#ffffff" }}>
+                          <thead>
+                            <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+                              {[
+                                { label: "Sr No", width: "45px", align: "center" },
+                                { label: "Invoice Number", width: "150px", align: "left" },
+                                { label: "Date", width: "120px", align: "left" },
+                                { label: "PO NO", width: "120px", align: "left" },
+                                { label: "PO Date", width: "120px", align: "left" },
+                                { label: "TOI", width: "90px", align: "left" },
+                                { label: "Invoice Value", width: "130px", align: "left" },
+                                { label: "Currency", width: "95px", align: "left" },
+                                { label: "Freight", width: "170px", align: "left" },
+                                { label: "Insurance", width: "170px", align: "left" },
+                                { label: "Other Chrgs", width: "170px", align: "left" },
+                                { label: "CIF Value", width: "130px", align: "left" },
+                                { label: "Action", width: "50px", align: "center" }
+                              ].map((col) => (
+                                <th
+                                  key={col.label}
+                                  style={{
+                                    padding: "10px 8px",
+                                    fontSize: "0.8rem",
+                                    fontWeight: "600",
+                                    textAlign: col.align || "left",
+                                    whiteSpace: "nowrap",
+                                    color: "#475569",
+                                    width: col.width || "auto",
+                                    textTransform: "uppercase",
+                                    letterSpacing: "0.05em"
+                                  }}
+                                >
+                                  {col.label}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {invoiceRows.map((row, rowIndex) => (
+                              <tr
+                                key={`inv-row-${rowIndex}`}
                                 style={{
-                                  padding: "10px 8px",
-                                  fontSize: "0.8rem",
-                                  fontWeight: "600",
-                                  textAlign: col.align || "left",
-                                  whiteSpace: "nowrap",
-                                  color: "#475569",
-                                  width: col.width || "auto",
-                                  textTransform: "uppercase",
-                                  letterSpacing: "0.05em"
+                                  borderBottom: "1px solid #e2e8f0",
+                                  background: "transparent",
+                                  transition: "background-color 0.2s"
                                 }}
                               >
-                                {col.label}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {invoiceRows.map((row, rowIndex) => (
-                            <tr
-                              key={`inv-row-${rowIndex}`}
-                              style={{
-                                borderBottom: "1px solid #e2e8f0",
-                                background: "transparent",
-                                transition: "background-color 0.2s"
-                              }}
-                            >
-                              <td style={{ padding: "8px 6px", textAlign: "center", width: "45px", fontSize: "12px", fontWeight: "bold", color: "#64748b", verticalAlign: "middle" }}>
-                                {rowIndex + 1}
-                              </td>
-                              <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  value={row.invoice_number || ""}
-                                  onChange={(e) => updateInvoiceRow(rowIndex, "invoice_number", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                  placeholder="Invoice No"
-                                  sx={compactInputSx}
-                                />
-                              </td>
-                              <td style={{ padding: "8px 6px", width: "120px", verticalAlign: "middle" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  type="date"
-                                  value={row.invoice_date || ""}
-                                  onChange={(e) => updateInvoiceRow(rowIndex, "invoice_date", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                  InputLabelProps={{ shrink: true }}
-                                  sx={compactInputSx}
-                                />
-                              </td>
-                              <td style={{ padding: "8px 6px", width: "120px", verticalAlign: "middle" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  value={row.po_no || ""}
-                                  onChange={(e) => updateInvoiceRow(rowIndex, "po_no", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                  placeholder="PO No"
-                                  sx={compactInputSx}
-                                />
-                              </td>
-                              <td style={{ padding: "8px 6px", width: "120px", verticalAlign: "middle" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  type="date"
-                                  value={row.po_date || ""}
-                                  onChange={(e) => updateInvoiceRow(rowIndex, "po_date", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                  InputLabelProps={{ shrink: true }}
-                                  sx={compactInputSx}
-                                />
-                              </td>
-                              <td style={{ padding: "8px 6px", width: "90px", verticalAlign: "middle" }}>
-                                <TextField
-                                  select
-                                  size="small"
-                                  fullWidth
-                                  value={row.toi || "CIF"}
-                                  onChange={(e) => updateInvoiceRow(rowIndex, "toi", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                  sx={compactInputSx}
-                                >
-                                  <MenuItem value="CIF">CIF</MenuItem>
-                                  <MenuItem value="FOB">FOB</MenuItem>
-                                  <MenuItem value="CF">C&F</MenuItem>
-                                  <MenuItem value="CI">C&I</MenuItem>
-                                </TextField>
-                              </td>
-                              <td style={{ padding: "8px 6px", width: "130px", verticalAlign: "middle" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  value={row.product_value || ""}
-                                  onChange={(e) => updateInvoiceRow(rowIndex, "product_value", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                  placeholder="Invoice Value"
-                                  sx={compactInputSx}
-                                />
-                              </td>
-                              <td style={{ padding: "8px 6px", width: "95px", verticalAlign: "middle" }}>
-                                 <Autocomplete
-                                   freeSolo
-                                   size="small"
-                                   options={currencies.map(c => c.code)}
-                                   value={row.inv_currency || ""}
-                                   onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "inv_currency", newValue)}
-                                   onChange={(event, newValue) => updateInvoiceRow(rowIndex, "inv_currency", newValue || "")}
-                                   disabled={isDescriptionTableReadOnly}
-                                   renderInput={(params) => (
-                                     <TextField
-                                       {...params}
-                                       variant="outlined"
-                                       size="small"
-                                       placeholder="Currency"
-                                       sx={compactInputSx}
-                                     />
-                                   )}
-                                 />
-                              </td>
-                              <td style={{ padding: "8px 6px", width: "170px", verticalAlign: "middle" }}>
-                                <div style={{ display: 'flex', gap: '4px' }}>
+                                <td style={{ padding: "8px 6px", textAlign: "center", width: "45px", fontSize: "12px", fontWeight: "bold", color: "#64748b", verticalAlign: "middle" }}>
+                                  {rowIndex + 1}
+                                </td>
+                                <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
                                   <TextField
                                     size="small"
                                     fullWidth
-                                    value={row.freight || ""}
-                                    onChange={(e) => updateInvoiceRow(rowIndex, "freight", e.target.value)}
-                                    disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CI")}
-                                    placeholder="Freight"
-                                    sx={compactInputSx}
-                                  />
-                                  <Autocomplete
-                                    freeSolo
-                                    size="small"
-                                    options={currencies.map(c => c.code)}
-                                    value={row.freight_currency || ""}
-                                    onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "freight_currency", newValue)}
-                                    onChange={(event, newValue) => updateInvoiceRow(rowIndex, "freight_currency", newValue || "")}
-                                    disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CI")}
-                                    renderInput={(params) => (
-                                      <TextField
-                                        {...params}
-                                        variant="outlined"
-                                        size="small"
-                                        placeholder="Cur"
-                                        sx={{ ...compactInputSx, width: '60px', minWidth: '60px' }}
-                                      />
-                                    )}
-                                  />
-                                </div>
-                              </td>
-                              <td style={{ padding: "8px 6px", width: "170px", verticalAlign: "middle" }}>
-                                <div style={{ display: 'flex', gap: '4px' }}>
-                                  <TextField
-                                    size="small"
-                                    fullWidth
-                                    value={row.insurance || ""}
-                                    onChange={(e) => updateInvoiceRow(rowIndex, "insurance", e.target.value)}
-                                    disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CF")}
-                                    placeholder="Insurance"
-                                    sx={compactInputSx}
-                                  />
-                                  <Autocomplete
-                                    freeSolo
-                                    size="small"
-                                    options={currencies.map(c => c.code)}
-                                    value={row.insurance_currency || ""}
-                                    onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "insurance_currency", newValue)}
-                                    onChange={(event, newValue) => updateInvoiceRow(rowIndex, "insurance_currency", newValue || "")}
-                                    disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CF")}
-                                    renderInput={(params) => (
-                                      <TextField
-                                        {...params}
-                                        variant="outlined"
-                                        size="small"
-                                        placeholder="Cur"
-                                        sx={{ ...compactInputSx, width: '60px', minWidth: '60px' }}
-                                      />
-                                    )}
-                                  />
-                                </div>
-                              </td>
-                              <td style={{ padding: "8px 6px", width: "170px", verticalAlign: "middle" }}>
-                                <div style={{ display: 'flex', gap: '4px' }}>
-                                  <TextField
-                                    size="small"
-                                    fullWidth
-                                    value={row.other_charges || ""}
-                                    onChange={(e) => updateInvoiceRow(rowIndex, "other_charges", e.target.value)}
+                                    value={row.invoice_number || ""}
+                                    onChange={(e) => updateInvoiceRow(rowIndex, "invoice_number", e.target.value)}
                                     disabled={isDescriptionTableReadOnly}
-                                    placeholder="Other"
+                                    placeholder="Invoice No"
                                     sx={compactInputSx}
                                   />
-                                  <Autocomplete
-                                    freeSolo
+                                </td>
+                                <td style={{ padding: "8px 6px", width: "120px", verticalAlign: "middle" }}>
+                                  <TextField
                                     size="small"
-                                    options={currencies.map(c => c.code)}
-                                    value={row.other_charges_currency || ""}
-                                    onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "other_charges_currency", newValue)}
-                                    onChange={(event, newValue) => updateInvoiceRow(rowIndex, "other_charges_currency", newValue || "")}
+                                    fullWidth
+                                    type="date"
+                                    value={row.invoice_date || ""}
+                                    onChange={(e) => updateInvoiceRow(rowIndex, "invoice_date", e.target.value)}
                                     disabled={isDescriptionTableReadOnly}
-                                    renderInput={(params) => (
-                                      <TextField
-                                        {...params}
-                                        variant="outlined"
-                                        size="small"
-                                        placeholder="Cur"
-                                        sx={{ ...compactInputSx, width: '60px', minWidth: '60px' }}
-                                      />
-                                    )}
+                                    InputLabelProps={{ shrink: true }}
+                                    sx={compactInputSx}
                                   />
-                                </div>
-                              </td>
-                              <td style={{ padding: "8px 6px", width: "130px", verticalAlign: "middle" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  value={
-                                    row.total_inv_value
-                                      ? (parseFloat(row.total_inv_value) * (parseFloat(formik.values.exrate) || 1)).toFixed(2)
-                                      : ""
-                                  }
-                                  InputProps={{ readOnly: true }}
-                                  disabled={isDescriptionTableReadOnly}
-                                  placeholder="CIF Value"
-                                  sx={compactInputSx}
-                                />
-                              </td>
-                              <td style={{ padding: "8px 6px", textAlign: "center", width: "50px", verticalAlign: "middle" }}>
-                                {!isDescriptionTableReadOnly && (
-                                  <IconButton
+                                </td>
+                                <td style={{ padding: "8px 6px", width: "120px", verticalAlign: "middle" }}>
+                                  <TextField
                                     size="small"
-                                    disabled={invoiceRows.length <= 1}
-                                    onClick={() => removeInvoiceRow(rowIndex)}
-                                    sx={{
-                                      border: "1px solid #e2e8f0",
-                                      borderRadius: "6px",
-                                      color: "#94a3b8",
-                                      padding: "6px",
-                                      transition: "all 0.2s",
-                                      "&:hover": {
-                                        color: "#ef4444",
-                                        borderColor: "#fecaca",
-                                        backgroundColor: "#fef2f2"
-                                      },
-                                      "&.Mui-disabled": {
-                                        color: "#cbd5e1",
-                                        borderColor: "#f1f5f9"
-                                      }
-                                    }}
+                                    fullWidth
+                                    value={row.po_no || ""}
+                                    onChange={(e) => updateInvoiceRow(rowIndex, "po_no", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    placeholder="PO No"
+                                    sx={compactInputSx}
+                                  />
+                                </td>
+                                <td style={{ padding: "8px 6px", width: "120px", verticalAlign: "middle" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    type="date"
+                                    value={row.po_date || ""}
+                                    onChange={(e) => updateInvoiceRow(rowIndex, "po_date", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    InputLabelProps={{ shrink: true }}
+                                    sx={compactInputSx}
+                                  />
+                                </td>
+                                <td style={{ padding: "8px 6px", width: "90px", verticalAlign: "middle" }}>
+                                  <TextField
+                                    select
+                                    size="small"
+                                    fullWidth
+                                    value={row.toi || "CIF"}
+                                    onChange={(e) => updateInvoiceRow(rowIndex, "toi", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={compactInputSx}
                                   >
-                                    <DeleteIcon fontSize="small" />
-                                  </IconButton>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    {invoiceRows.map((invRow, idx) => {
-                      const invVal = parseFloat(invRow.product_value) || 0;
-                      const prodSum = descriptionRows.reduce((sum, dRow) => 
-                        (dRow.sr_no_invoice === String(idx + 1) || (!dRow.sr_no_invoice && idx === 0)) ? sum + (parseFloat(dRow.amount) || 0) : sum, 0
-                      );
-                      const hasMismatch = (invVal > 0 || prodSum > 0) && Math.abs(invVal - prodSum) > 0.01;
-                      if (!hasMismatch) return null;
-                      return (
-                        <div key={idx} style={{ marginTop: "8px", padding: "8px 12px", background: "#fffbeb", border: "1px solid #fef3c7", borderRadius: "4px", color: "#b45309", fontSize: "0.85rem", display: "flex", alignItems: "center", gap: "6px" }}>
-                          <span>⚠️</span>
-                          <span><strong>Note:</strong> Invoice Sr No. {idx + 1} Value ({invVal.toFixed(2)}) and Product Details Amount ({prodSum.toFixed(2)}) do not match!</span>
-                        </div>
-                      );
-                    })}
-                  </Col>
-                </Row>
+                                    <MenuItem value="CIF">CIF</MenuItem>
+                                    <MenuItem value="FOB">FOB</MenuItem>
+                                    <MenuItem value="CF">C&F</MenuItem>
+                                    <MenuItem value="CI">C&I</MenuItem>
+                                  </TextField>
+                                </td>
+                                <td style={{ padding: "8px 6px", width: "130px", verticalAlign: "middle" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={row.product_value || ""}
+                                    onChange={(e) => updateInvoiceRow(rowIndex, "product_value", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    placeholder="Invoice Value"
+                                    sx={compactInputSx}
+                                  />
+                                </td>
+                                <td style={{ padding: "8px 6px", width: "95px", verticalAlign: "middle" }}>
+                                  <Autocomplete
+                                    freeSolo
+                                    size="small"
+                                    options={currencies.map(c => c.code)}
+                                    value={row.inv_currency || ""}
+                                    onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "inv_currency", newValue)}
+                                    onChange={(event, newValue) => updateInvoiceRow(rowIndex, "inv_currency", newValue || "")}
+                                    disabled={isDescriptionTableReadOnly}
+                                    renderInput={(params) => (
+                                      <TextField
+                                        {...params}
+                                        variant="outlined"
+                                        size="small"
+                                        placeholder="Currency"
+                                        sx={compactInputSx}
+                                      />
+                                    )}
+                                  />
+                                </td>
+                                <td style={{ padding: "8px 6px", width: "170px", verticalAlign: "middle" }}>
+                                  <div style={{ display: 'flex', gap: '4px' }}>
+                                    <TextField
+                                      size="small"
+                                      fullWidth
+                                      value={row.freight || ""}
+                                      onChange={(e) => updateInvoiceRow(rowIndex, "freight", e.target.value)}
+                                      disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CI")}
+                                      placeholder="Freight"
+                                      sx={compactInputSx}
+                                    />
+                                    <Autocomplete
+                                      freeSolo
+                                      size="small"
+                                      options={currencies.map(c => c.code)}
+                                      value={row.freight_currency || ""}
+                                      onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "freight_currency", newValue)}
+                                      onChange={(event, newValue) => updateInvoiceRow(rowIndex, "freight_currency", newValue || "")}
+                                      disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CI")}
+                                      renderInput={(params) => (
+                                        <TextField
+                                          {...params}
+                                          variant="outlined"
+                                          size="small"
+                                          placeholder="Cur"
+                                          sx={{ ...compactInputSx, width: '60px', minWidth: '60px' }}
+                                        />
+                                      )}
+                                    />
+                                  </div>
+                                </td>
+                                <td style={{ padding: "8px 6px", width: "170px", verticalAlign: "middle" }}>
+                                  <div style={{ display: 'flex', gap: '4px' }}>
+                                    <TextField
+                                      size="small"
+                                      fullWidth
+                                      value={row.insurance || ""}
+                                      onChange={(e) => updateInvoiceRow(rowIndex, "insurance", e.target.value)}
+                                      disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CF")}
+                                      placeholder="Insurance"
+                                      sx={compactInputSx}
+                                    />
+                                    <Autocomplete
+                                      freeSolo
+                                      size="small"
+                                      options={currencies.map(c => c.code)}
+                                      value={row.insurance_currency || ""}
+                                      onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "insurance_currency", newValue)}
+                                      onChange={(event, newValue) => updateInvoiceRow(rowIndex, "insurance_currency", newValue || "")}
+                                      disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CF")}
+                                      renderInput={(params) => (
+                                        <TextField
+                                          {...params}
+                                          variant="outlined"
+                                          size="small"
+                                          placeholder="Cur"
+                                          sx={{ ...compactInputSx, width: '60px', minWidth: '60px' }}
+                                        />
+                                      )}
+                                    />
+                                  </div>
+                                </td>
+                                <td style={{ padding: "8px 6px", width: "170px", verticalAlign: "middle" }}>
+                                  <div style={{ display: 'flex', gap: '4px' }}>
+                                    <TextField
+                                      size="small"
+                                      fullWidth
+                                      value={row.other_charges || ""}
+                                      onChange={(e) => updateInvoiceRow(rowIndex, "other_charges", e.target.value)}
+                                      disabled={isDescriptionTableReadOnly}
+                                      placeholder="Other"
+                                      sx={compactInputSx}
+                                    />
+                                    <Autocomplete
+                                      freeSolo
+                                      size="small"
+                                      options={currencies.map(c => c.code)}
+                                      value={row.other_charges_currency || ""}
+                                      onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "other_charges_currency", newValue)}
+                                      onChange={(event, newValue) => updateInvoiceRow(rowIndex, "other_charges_currency", newValue || "")}
+                                      disabled={isDescriptionTableReadOnly}
+                                      renderInput={(params) => (
+                                        <TextField
+                                          {...params}
+                                          variant="outlined"
+                                          size="small"
+                                          placeholder="Cur"
+                                          sx={{ ...compactInputSx, width: '60px', minWidth: '60px' }}
+                                        />
+                                      )}
+                                    />
+                                  </div>
+                                </td>
+                                <td style={{ padding: "8px 6px", width: "130px", verticalAlign: "middle" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={
+                                      row.total_inv_value
+                                        ? (parseFloat(row.total_inv_value) * (parseFloat(formik.values.exrate) || 1)).toFixed(2)
+                                        : ""
+                                    }
+                                    InputProps={{ readOnly: true }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    placeholder="CIF Value"
+                                    sx={compactInputSx}
+                                  />
+                                </td>
+                                <td style={{ padding: "8px 6px", textAlign: "center", width: "50px", verticalAlign: "middle" }}>
+                                  {!isDescriptionTableReadOnly && (
+                                    <IconButton
+                                      size="small"
+                                      disabled={invoiceRows.length <= 1}
+                                      onClick={() => removeInvoiceRow(rowIndex)}
+                                      sx={{
+                                        border: "1px solid #e2e8f0",
+                                        borderRadius: "6px",
+                                        color: "#94a3b8",
+                                        padding: "6px",
+                                        transition: "all 0.2s",
+                                        "&:hover": {
+                                          color: "#ef4444",
+                                          borderColor: "#fecaca",
+                                          backgroundColor: "#fef2f2"
+                                        },
+                                        "&.Mui-disabled": {
+                                          color: "#cbd5e1",
+                                          borderColor: "#f1f5f9"
+                                        }
+                                      }}
+                                    >
+                                      <DeleteIcon fontSize="small" />
+                                    </IconButton>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                      {invoiceRows.map((invRow, idx) => {
+                        const invVal = parseFloat(invRow.product_value) || 0;
+                        const prodSum = descriptionRows.reduce((sum, dRow) =>
+                          (dRow.sr_no_invoice === String(idx + 1) || (!dRow.sr_no_invoice && idx === 0)) ? sum + (parseFloat(dRow.amount) || 0) : sum, 0
+                        );
+                        const hasMismatch = (invVal > 0 || prodSum > 0) && Math.abs(invVal - prodSum) > 0.01;
+                        if (!hasMismatch) return null;
+                        return (
+                          <div key={idx} style={{ marginTop: "8px", padding: "8px 12px", background: "#fffbeb", border: "1px solid #fef3c7", borderRadius: "4px", color: "#b45309", fontSize: "0.85rem", display: "flex", alignItems: "center", gap: "6px" }}>
+                            <span>⚠️</span>
+                            <span><strong>Note:</strong> Invoice Sr No. {idx + 1} Value ({invVal.toFixed(2)}) and Product Details Amount ({prodSum.toFixed(2)}) do not match!</span>
+                          </div>
+                        );
+                      })}
+                    </Col>
+                  </Row>
                 </div>
               )}
 
@@ -3454,24 +3508,24 @@ function JobDetails() {
                           >
                             <td style={{ padding: "8px 6px", verticalAlign: "middle", fontWeight: "500", fontSize: "0.85rem", color: "#475569" }}>{row.label}</td>
                             <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
-                               <Autocomplete
-                                 freeSolo
-                                 size="small"
-                                 options={currencies.map(c => c.code)}
-                                 sx={compactInputSx}
-                                 value={formik.values.other_charges_details?.[row.id]?.currency || ""}
-                                 onInputChange={(event, newValue) => formik.setFieldValue(`other_charges_details.${row.id}.currency`, newValue)}
-                                 onChange={(event, newValue) => formik.setFieldValue(`other_charges_details.${row.id}.currency`, newValue || "")}
-                                 renderInput={(params) => (
-                                   <TextField
-                                     {...params}
-                                     variant="outlined"
-                                     size="small"
-                                     placeholder="Currency"
-                                     sx={compactInputSx}
-                                   />
-                                 )}
-                               />
+                              <Autocomplete
+                                freeSolo
+                                size="small"
+                                options={currencies.map(c => c.code)}
+                                sx={compactInputSx}
+                                value={formik.values.other_charges_details?.[row.id]?.currency || ""}
+                                onInputChange={(event, newValue) => formik.setFieldValue(`other_charges_details.${row.id}.currency`, newValue)}
+                                onChange={(event, newValue) => formik.setFieldValue(`other_charges_details.${row.id}.currency`, newValue || "")}
+                                renderInput={(params) => (
+                                  <TextField
+                                    {...params}
+                                    variant="outlined"
+                                    size="small"
+                                    placeholder="Currency"
+                                    sx={compactInputSx}
+                                  />
+                                )}
+                              />
                             </td>
                             <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
                               <TextField
@@ -3672,24 +3726,24 @@ function JobDetails() {
                               </TextField>
                             </td>
                             <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
-                               <Autocomplete
-                                 freeSolo
-                                 size="small"
-                                 options={currencies.map(c => c.code)}
-                                 sx={compactInputSx}
-                                 value={row.currency || "USD"}
-                                 onInputChange={(event, newValue) => updateMiscChargeRow(rowIndex, "currency", newValue)}
-                                 onChange={(event, newValue) => updateMiscChargeRow(rowIndex, "currency", newValue || "")}
-                                 renderInput={(params) => (
-                                   <TextField
-                                     {...params}
-                                     variant="outlined"
-                                     size="small"
-                                     placeholder="Currency"
-                                     sx={compactInputSx}
-                                   />
-                                 )}
-                                />
+                              <Autocomplete
+                                freeSolo
+                                size="small"
+                                options={currencies.map(c => c.code)}
+                                sx={compactInputSx}
+                                value={row.currency || "USD"}
+                                onInputChange={(event, newValue) => updateMiscChargeRow(rowIndex, "currency", newValue)}
+                                onChange={(event, newValue) => updateMiscChargeRow(rowIndex, "currency", newValue || "")}
+                                renderInput={(params) => (
+                                  <TextField
+                                    {...params}
+                                    variant="outlined"
+                                    size="small"
+                                    placeholder="Currency"
+                                    sx={compactInputSx}
+                                  />
+                                )}
+                              />
                             </td>
                             <td style={{ padding: "8px 6px", verticalAlign: "middle" }}>
                               <TextField
@@ -3803,7 +3857,7 @@ function JobDetails() {
                   </div>
                 </div>
               )}
-              
+
               {/* Product Circles Selector */}
               <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px", flexWrap: "wrap", background: "#f8fafc", padding: "12px 16px", borderRadius: "8px", border: "1px solid #cbd5e1" }}>
                 <span style={{ fontSize: "14px", fontWeight: "bold", color: "#334155" }}>Product</span>
@@ -3865,497 +3919,497 @@ function JobDetails() {
               {/* Tab Content */}
               <div style={{ background: "#ffffff", border: "1px solid #dee2e6", borderRadius: "4px", padding: "16px", marginBottom: "20px" }}>
                 <div>
-                    {/* Selected Invoice box */}
-                    {(() => {
-                      const activeRow = descriptionRows[activeProductIndex] || {};
-                      const invIndex = Number(activeRow.sr_no_invoice) - 1;
-                      const activeInvoice = (formik.values.invoice_details || [])[invIndex] || {};
-                      const invoiceNo = activeInvoice.invoice_number || "None";
-                      const invoiceCurr = activeInvoice.inv_currency || "USD";
-                      return (
-                        <div style={{ background: "#f8f9fa", border: "1px solid #dee2e6", borderRadius: "4px", padding: "12px", marginBottom: "16px" }}>
-                          <div style={{ fontSize: "14px", fontWeight: "bold", color: "#333333" }}>
-                            Selected Invoice: {invoiceNo}
-                          </div>
-                          <div style={{ fontSize: "12px", color: "#666666", marginTop: "4px" }}>
-                            Active Currency: <strong>{invoiceCurr}</strong> (Used for unit and total price)
-                          </div>
+                  {/* Selected Invoice box */}
+                  {(() => {
+                    const activeRow = descriptionRows[activeProductIndex] || {};
+                    const invIndex = Number(activeRow.sr_no_invoice) - 1;
+                    const activeInvoice = (formik.values.invoice_details || [])[invIndex] || {};
+                    const invoiceNo = activeInvoice.invoice_number || "None";
+                    const invoiceCurr = activeInvoice.inv_currency || "USD";
+                    return (
+                      <div style={{ background: "#f8f9fa", border: "1px solid #dee2e6", borderRadius: "4px", padding: "12px", marginBottom: "16px" }}>
+                        <div style={{ fontSize: "14px", fontWeight: "bold", color: "#333333" }}>
+                          Selected Invoice: {invoiceNo}
                         </div>
-                      );
-                    })()}
+                        <div style={{ fontSize: "12px", color: "#666666", marginTop: "4px" }}>
+                          Active Currency: <strong>{invoiceCurr}</strong> (Used for unit and total price)
+                        </div>
+                      </div>
+                    );
+                  })()}
 
-                    {/* Product Items Table */}
-                    <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: "8px", boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.05)" }}>
-                      <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "1500px", backgroundColor: "#ffffff" }}>
-                        <thead>
-                          <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                            {[
-                              { label: "Sr No", width: "45px", align: "center" },
-                              { label: "Inv SR", width: "80px", align: "left" },
-                              { label: "Description", minWidth: "280px", align: "left" },
-                              { label: "RITC (HS Code)", width: "120px", align: "left" },
-                              { label: "Quantity", width: "240px", align: "left" },
-                              { label: "Unit Price", width: "100px", align: "left" },
-                              { label: "Currency", width: "90px", align: "left" },
-                              { label: "Amount", width: "115px", align: "left" },
-                              { label: "License No", width: "180px", align: "left" },
-                              { label: "License Date", width: "120px", align: "left" },
-                              { label: "License SR", width: "90px", align: "left" },
-                              { label: "Action", width: "50px", align: "center" }
-                            ].map((col) => (
-                              <th
-                                key={col.label}
-                                style={{
-                                  padding: "10px 8px",
-                                  fontSize: "0.8rem",
-                                  fontWeight: "600",
-                                  textAlign: col.align || "left",
-                                  whiteSpace: "nowrap",
-                                  color: "#475569",
-                                  width: col.width || "auto",
-                                  minWidth: col.minWidth || "auto",
-                                  textTransform: "uppercase",
-                                  letterSpacing: "0.05em"
-                                }}
-                              >
-                                {col.label}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                           {descriptionRows.map((row, rowIndex) => (
-                            <tr
-                              key={`main-desc-row-${rowIndex}`}
+                  {/* Product Items Table */}
+                  <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: "8px", boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.05)" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "1500px", backgroundColor: "#ffffff" }}>
+                      <thead>
+                        <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+                          {[
+                            { label: "Sr No", width: "45px", align: "center" },
+                            { label: "Inv SR", width: "80px", align: "left" },
+                            { label: "Description", minWidth: "280px", align: "left" },
+                            { label: "RITC (HS Code)", width: "120px", align: "left" },
+                            { label: "Quantity", width: "240px", align: "left" },
+                            { label: "Unit Price", width: "100px", align: "left" },
+                            { label: "Currency", width: "90px", align: "left" },
+                            { label: "Amount", width: "115px", align: "left" },
+                            { label: "License No", width: "180px", align: "left" },
+                            { label: "License Date", width: "120px", align: "left" },
+                            { label: "License SR", width: "90px", align: "left" },
+                            { label: "Action", width: "50px", align: "center" }
+                          ].map((col) => (
+                            <th
+                              key={col.label}
                               style={{
-                                borderBottom: "1px solid #e2e8f0",
-                                background: activeProductIndex === rowIndex ? "#f8fafc" : "transparent",
-                                transition: "background-color 0.2s"
+                                padding: "10px 8px",
+                                fontSize: "0.8rem",
+                                fontWeight: "600",
+                                textAlign: col.align || "left",
+                                whiteSpace: "nowrap",
+                                color: "#475569",
+                                width: col.width || "auto",
+                                minWidth: col.minWidth || "auto",
+                                textTransform: "uppercase",
+                                letterSpacing: "0.05em"
                               }}
                             >
-                              {/* Sr No */}
-                              <td style={{ padding: "8px 6px", textAlign: "center", width: "45px", fontSize: "12px", fontWeight: "bold", color: "#64748b", verticalAlign: "middle" }}>
-                                {rowIndex + 1}
-                              </td>
-                              {/* Inv SR */}
-                              <td style={{ padding: "8px 6px", width: "80px", verticalAlign: "middle" }}>
+                              {col.label}
+                            </th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {descriptionRows.map((row, rowIndex) => (
+                          <tr
+                            key={`main-desc-row-${rowIndex}`}
+                            style={{
+                              borderBottom: "1px solid #e2e8f0",
+                              background: activeProductIndex === rowIndex ? "#f8fafc" : "transparent",
+                              transition: "background-color 0.2s"
+                            }}
+                          >
+                            {/* Sr No */}
+                            <td style={{ padding: "8px 6px", textAlign: "center", width: "45px", fontSize: "12px", fontWeight: "bold", color: "#64748b", verticalAlign: "middle" }}>
+                              {rowIndex + 1}
+                            </td>
+                            {/* Inv SR */}
+                            <td style={{ padding: "8px 6px", width: "80px", verticalAlign: "middle" }}>
+                              <TextField
+                                select
+                                size="small"
+                                fullWidth
+                                value={row.sr_no_invoice || ""}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  const invIdx = Number(val) - 1;
+                                  const activeInvoice = (formik.values.invoice_details || [])[invIdx] || {};
+                                  const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
+                                  const qty = parseFloat(row.quantity) || 0;
+                                  const price = parseFloat(row.unit_price) || 0;
+                                  const amount = qty * price;
+
+                                  updateDescriptionRowMultiple(rowIndex, {
+                                    sr_no_invoice: val,
+                                    ...(!row.taxable_value_manual && {
+                                      taxable_value_inr: (amount * exrate).toFixed(2),
+                                      ...(!row.igst_amount_manual && {
+                                        igst_amount_inr: ((amount * exrate * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
+                                      })
+                                    })
+                                  });
+                                }}
+                                disabled={isDescriptionTableReadOnly}
+                                sx={compactInputSx}
+                              >
+                                <MenuItem value="">Select</MenuItem>
+                                {invoiceRows.map((_, idx) => (
+                                  <MenuItem key={idx + 1} value={String(idx + 1)}>
+                                    {idx + 1}
+                                  </MenuItem>
+                                ))}
+                              </TextField>
+                            </td>
+                            {/* Description */}
+                            <td style={{ padding: "8px 6px", minWidth: "280px", verticalAlign: "middle" }}>
+                              <TextField
+                                size="small"
+                                fullWidth
+                                multiline
+                                minRows={2}
+                                value={row.description || ""}
+                                onChange={(e) => updateDescriptionRow(rowIndex, "description", e.target.value)}
+                                disabled={isDescriptionTableReadOnly}
+                                sx={{
+                                  ...compactInputSx,
+                                  "& .MuiOutlinedInput-root": {
+                                    ...compactInputSx["& .MuiOutlinedInput-root"],
+                                    height: "auto",
+                                    minHeight: "58px"
+                                  },
+                                  "& .MuiOutlinedInput-input": {
+                                    ...compactInputSx["& .MuiOutlinedInput-input"],
+                                    padding: "4px 8px",
+                                    lineHeight: "1.3"
+                                  }
+                                }}
+                              />
+                            </td>
+                            {/* RITC (HS Code) */}
+                            <td style={{ padding: "8px 6px", width: "120px", verticalAlign: "middle" }}>
+                              <TextField
+                                size="small"
+                                fullWidth
+                                value={row.cth_no || ""}
+                                onChange={(e) => updateDescriptionRow(rowIndex, "cth_no", e.target.value)}
+                                disabled={isDescriptionTableReadOnly}
+                                sx={compactInputSx}
+                              />
+                            </td>
+                            {/* Quantity */}
+                            <td style={{ padding: "8px 6px", width: "240px", verticalAlign: "middle" }}>
+                              <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
                                 <TextField
-                                  select
                                   size="small"
-                                  fullWidth
-                                  value={row.sr_no_invoice || ""}
+                                  value={row.quantity || ""}
                                   onChange={(e) => {
-                                    const val = e.target.value;
-                                    const invIdx = Number(val) - 1;
-                                    const activeInvoice = (formik.values.invoice_details || [])[invIdx] || {};
-                                    const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
-                                    const qty = parseFloat(row.quantity) || 0;
+                                    const qty = e.target.value;
+                                    const qtyNum = parseFloat(qty) || 0;
+                                    const existingAmt = parseFloat(row.amount) || 0;
                                     const price = parseFloat(row.unit_price) || 0;
-                                    const amount = qty * price;
-                                    
+
+                                    let calculatedPrice = price;
+                                    let calculatedAmount = existingAmt;
+
+                                    if (qtyNum > 0 && existingAmt > 0) {
+                                      calculatedPrice = existingAmt / qtyNum;
+                                    } else if (qtyNum > 0 && price > 0) {
+                                      calculatedAmount = qtyNum * price;
+                                    }
+
+                                    const invIndex = Number(row.sr_no_invoice) - 1;
+                                    const activeInvoice = (formik.values.invoice_details || [])[invIndex] || {};
+                                    const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
+
                                     updateDescriptionRowMultiple(rowIndex, {
-                                      sr_no_invoice: val,
+                                      quantity: qty,
+                                      unit_price: calculatedPrice > 0 ? calculatedPrice.toFixed(4) : "",
+                                      amount: calculatedAmount > 0 ? calculatedAmount.toFixed(2) : "",
                                       ...(!row.taxable_value_manual && {
-                                        taxable_value_inr: (amount * exrate).toFixed(2),
+                                        taxable_value_inr: (calculatedAmount * exrate).toFixed(2),
                                         ...(!row.igst_amount_manual && {
-                                          igst_amount_inr: ((amount * exrate * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
+                                          igst_amount_inr: ((calculatedAmount * exrate * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
                                         })
                                       })
                                     });
                                   }}
                                   disabled={isDescriptionTableReadOnly}
-                                  sx={compactInputSx}
-                                >
-                                  <MenuItem value="">Select</MenuItem>
-                                  {invoiceRows.map((_, idx) => (
-                                    <MenuItem key={idx + 1} value={String(idx + 1)}>
-                                      {idx + 1}
-                                    </MenuItem>
-                                  ))}
-                                </TextField>
-                              </td>
-                              {/* Description */}
-                              <td style={{ padding: "8px 6px", minWidth: "280px", verticalAlign: "middle" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  multiline
-                                  minRows={2}
-                                  value={row.description || ""}
-                                  onChange={(e) => updateDescriptionRow(rowIndex, "description", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                  sx={{
-                                    ...compactInputSx,
-                                    "& .MuiOutlinedInput-root": {
-                                      ...compactInputSx["& .MuiOutlinedInput-root"],
-                                      height: "auto",
-                                      minHeight: "58px"
-                                    },
-                                    "& .MuiOutlinedInput-input": {
-                                      ...compactInputSx["& .MuiOutlinedInput-input"],
-                                      padding: "4px 8px",
-                                      lineHeight: "1.3"
-                                    }
-                                  }}
+                                  sx={{ flex: 1.5, ...compactInputSx }}
                                 />
-                              </td>
-                              {/* RITC (HS Code) */}
-                              <td style={{ padding: "8px 6px", width: "120px", verticalAlign: "middle" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  value={row.cth_no || ""}
-                                  onChange={(e) => updateDescriptionRow(rowIndex, "cth_no", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                  sx={compactInputSx}
-                                />
-                              </td>
-                              {/* Quantity */}
-                              <td style={{ padding: "8px 6px", width: "240px", verticalAlign: "middle" }}>
-                                <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
-                                  <TextField
+                                <div style={{ flex: 1 }}>
+                                  <Autocomplete
                                     size="small"
-                                    value={row.quantity || ""}
-                                    onChange={(e) => {
-                                      const qty = e.target.value;
-                                      const qtyNum = parseFloat(qty) || 0;
-                                      const existingAmt = parseFloat(row.amount) || 0;
-                                      const price = parseFloat(row.unit_price) || 0;
-
-                                      let calculatedPrice = price;
-                                      let calculatedAmount = existingAmt;
-
-                                      if (qtyNum > 0 && existingAmt > 0) {
-                                        calculatedPrice = existingAmt / qtyNum;
-                                      } else if (qtyNum > 0 && price > 0) {
-                                        calculatedAmount = qtyNum * price;
-                                      }
-
-                                      const invIndex = Number(row.sr_no_invoice) - 1;
-                                      const activeInvoice = (formik.values.invoice_details || [])[invIndex] || {};
-                                      const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
-                                      
-                                      updateDescriptionRowMultiple(rowIndex, {
-                                        quantity: qty,
-                                        unit_price: calculatedPrice > 0 ? calculatedPrice.toFixed(4) : "",
-                                        amount: calculatedAmount > 0 ? calculatedAmount.toFixed(2) : "",
-                                        ...(!row.taxable_value_manual && {
-                                          taxable_value_inr: (calculatedAmount * exrate).toFixed(2),
-                                          ...(!row.igst_amount_manual && {
-                                            igst_amount_inr: ((calculatedAmount * exrate * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
-                                          })
-                                        })
-                                      });
+                                    freeSolo
+                                    options={unitOptions.map(u => u.code)}
+                                    value={row.unit || ""}
+                                    onChange={(e, newValue) => updateDescriptionRow(rowIndex, "unit", newValue || "")}
+                                    onInputChange={(e, newInputValue, reason) => {
+                                      if (reason === "input") updateDescriptionRow(rowIndex, "unit", newInputValue);
                                     }}
                                     disabled={isDescriptionTableReadOnly}
-                                    sx={{ flex: 1.5, ...compactInputSx }}
-                                  />
-                                  <div style={{ flex: 1 }}>
-                                    <Autocomplete
-                                      size="small"
-                                      freeSolo
-                                      options={unitOptions.map(u => u.code)}
-                                      value={row.unit || ""}
-                                      onChange={(e, newValue) => updateDescriptionRow(rowIndex, "unit", newValue || "")}
-                                      onInputChange={(e, newInputValue, reason) => {
-                                        if (reason === "input") updateDescriptionRow(rowIndex, "unit", newInputValue);
-                                      }}
-                                      disabled={isDescriptionTableReadOnly}
-                                      renderInput={(params) => (
-                                        <TextField
-                                          {...params}
-                                          size="small"
-                                          placeholder="Unit"
-                                          sx={compactInputSx}
-                                        />
-                                      )}
-                                    />
-                                  </div>
-                                </div>
-                              </td>
-
-                              {/* Unit Price */}
-                              <td style={{ padding: "8px 6px", width: "100px", verticalAlign: "middle" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  value={row.unit_price || ""}
-                                  onChange={(e) => {
-                                    const price = e.target.value;
-                                    const priceNum = parseFloat(price) || 0;
-                                    const qty = parseFloat(row.quantity) || 0;
-                                    const amount = qty * priceNum;
-                                    const invIndex = Number(row.sr_no_invoice) - 1;
-                                    const activeInvoice = (formik.values.invoice_details || [])[invIndex] || {};
-                                    const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
-
-                                    updateDescriptionRowMultiple(rowIndex, {
-                                      unit_price: price,
-                                      amount: amount.toFixed(2),
-                                      ...(!row.taxable_value_manual && {
-                                        taxable_value_inr: (amount * exrate).toFixed(2),
-                                        ...(!row.igst_amount_manual && {
-                                          igst_amount_inr: ((amount * exrate * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
-                                        })
-                                      })
-                                    });
-                                  }}
-                                  disabled={isDescriptionTableReadOnly}
-                                  sx={compactInputSx}
-                                />
-                              </td>
-                              {/* Currency */}
-                              <td style={{ padding: "8px 6px", width: "90px", verticalAlign: "middle" }}>
-                                <TextField
-                                  select
-                                  size="small"
-                                  fullWidth
-                                  value={row.amount_currency || "USD"}
-                                  onChange={(e) => updateDescriptionRow(rowIndex, "amount_currency", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                  sx={compactInputSx}
-                                >
-                                  <MenuItem value="USD">USD</MenuItem>
-                                  <MenuItem value="INR">INR</MenuItem>
-                                  <MenuItem value="EUR">EUR</MenuItem>
-                                  <MenuItem value="GBP">GBP</MenuItem>
-                                </TextField>
-                              </td>
-
-                              {/* Amount */}
-                              <td style={{ padding: "8px 6px", width: "115px", verticalAlign: "middle" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  value={row.amount || ""}
-                                  onChange={(e) => {
-                                    const amt = e.target.value;
-                                    const amtNum = parseFloat(amt) || 0;
-                                    const qty = parseFloat(row.quantity) || 0;
-                                    
-                                    let calculatedPrice = parseFloat(row.unit_price) || 0;
-                                    if (qty > 0 && amtNum > 0) {
-                                      calculatedPrice = amtNum / qty;
-                                    }
-
-                                    const invIndex = Number(row.sr_no_invoice) - 1;
-                                    const activeInvoice = (formik.values.invoice_details || [])[invIndex] || {};
-                                    const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
-
-                                    updateDescriptionRowMultiple(rowIndex, {
-                                      amount: amt,
-                                      unit_price: calculatedPrice > 0 ? calculatedPrice.toFixed(4) : "",
-                                      ...(!row.taxable_value_manual && {
-                                        taxable_value_inr: (amtNum * exrate).toFixed(2),
-                                        ...(!row.igst_amount_manual && {
-                                          igst_amount_inr: ((amtNum * exrate * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
-                                        })
-                                      })
-                                    });
-                                  }}
-                                  disabled={isDescriptionTableReadOnly}
-                                  sx={compactInputSx}
-                                />
-                              </td>
-                              {/* License No */}
-                              <td style={{ padding: "8px 6px", width: "180px", verticalAlign: "middle" }}>
-                                <Autocomplete
-                                  size="small"
-                                  fullWidth
-                                  freeSolo
-                                  options={authorizationsList.map((auth) => auth.authorization_no)}
-                                  value={row.sr_no_lic || row.license_no || ""}
-                                  onChange={async (e, newValue) => {
-                                    if (newValue) {
-                                      const selectedAuth = authorizationsList.find(a => a.authorization_no === newValue);
-                                      let licenseDate = "";
-                                      let importItems = [];
-                                      if (selectedAuth) {
-                                        licenseDate = selectedAuth.authorization_date || "";
-                                        importItems = selectedAuth.import_details_array || [];
-                                      } else {
-                                        try {
-                                          const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-authorization-by-no?authorization_no=${newValue}`);
-                                          if (res.data) {
-                                            licenseDate = res.data.licence_date || res.data.auth_date || "";
-                                            importItems = res.data.import_details_array || [];
-                                          }
-                                        } catch (err) {
-                                          console.error("Error fetching license:", err);
-                                        }
-                                      }
-
-                                      const rowNormalizedHs = row.cth_no ? String(row.cth_no).replace(/[^a-zA-Z0-9]/g, "") : "";
-                                      let autoSr = "";
-                                      if (rowNormalizedHs && importItems.length > 0) {
-                                        const matchingItems = importItems.filter(item => {
-                                          const itemNormalizedHs = item.hs_code ? String(item.hs_code).replace(/[^a-zA-Z0-9]/g, "") : "";
-                                          return itemNormalizedHs === rowNormalizedHs;
-                                        });
-                                        if (matchingItems.length === 1) {
-                                          autoSr = Number(matchingItems[0].sr_no) || 1;
-                                        }
-                                      }
-
-                                      updateDescriptionRowMultiple(rowIndex, {
-                                        sr_no_lic: newValue,
-                                        license_no: newValue,
-                                        license_date: licenseDate,
-                                        license_sr: autoSr
-                                      });
-                                    } else {
-                                      updateDescriptionRowMultiple(rowIndex, {
-                                        sr_no_lic: "",
-                                        license_no: "",
-                                        license_date: "",
-                                        license_sr: ""
-                                      });
-                                    }
-                                  }}
-                                  onInputChange={(e, newInputValue, reason) => {
-                                    if (reason === "input") {
-                                      updateDescriptionRowMultiple(rowIndex, {
-                                        sr_no_lic: newInputValue,
-                                        license_no: newInputValue
-                                      });
-                                    }
-                                  }}
-                                  disabled={isDescriptionTableReadOnly}
-                                  renderInput={(params) => (
-                                    <TextField
-                                      {...params}
-                                      size="small"
-                                      sx={compactInputSx}
-                                    />
-                                  )}
-                                />
-                              </td>
-                              {/* License Date */}
-                              <td style={{ padding: "8px 6px", width: "120px", verticalAlign: "middle" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  value={row.license_date || ""}
-                                  onChange={(e) => updateDescriptionRow(rowIndex, "license_date", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                  sx={compactInputSx}
-                                />
-                              </td>
-                              {/* License SR */}
-                              <td style={{ padding: "8px 6px", width: "90px", verticalAlign: "middle" }}>
-                                {(() => {
-                                  const licNum = row.sr_no_lic || row.license_no;
-                                  const selectedAuth = authorizationsList.find(a => a.authorization_no === licNum);
-                                  const importItems = selectedAuth?.import_details_array || [];
-
-                                  const rowNormalizedHs = row.cth_no ? String(row.cth_no).replace(/[^a-zA-Z0-9]/g, "") : "";
-                                  const filteredItems = rowNormalizedHs
-                                    ? importItems.filter(item => {
-                                        const itemNormalizedHs = item.hs_code ? String(item.hs_code).replace(/[^a-zA-Z0-9]/g, "") : "";
-                                        return itemNormalizedHs === rowNormalizedHs;
-                                      })
-                                    : importItems;
-
-                                  if (filteredItems.length > 0) {
-                                    return (
+                                    renderInput={(params) => (
                                       <TextField
-                                        select
+                                        {...params}
                                         size="small"
-                                        fullWidth
-                                        value={String(row.license_sr || "")}
-                                        onChange={(e) => {
-                                          const val = e.target.value;
-                                          updateDescriptionRow(rowIndex, "license_sr", val ? Number(val) : "");
-                                        }}
-                                        disabled={isDescriptionTableReadOnly}
-                                        sx={compactInputSx}
-                                      >
-                                        <MenuItem value="">Select</MenuItem>
-                                        {filteredItems.map((item) => (
-                                          <MenuItem key={item.sr_no || item.value_usd} value={String(item.sr_no)}>
-                                            {item.sr_no}
-                                          </MenuItem>
-                                        ))}
-                                      </TextField>
-                                    );
-                                  } else {
-                                    return (
-                                      <TextField
-                                        size="small"
-                                        fullWidth
-                                        value={row.license_sr || ""}
-                                        onChange={(e) => {
-                                          const val = e.target.value;
-                                          updateDescriptionRow(rowIndex, "license_sr", val ? Number(val) : "");
-                                        }}
-                                        disabled={isDescriptionTableReadOnly}
+                                        placeholder="Unit"
                                         sx={compactInputSx}
                                       />
-                                    );
+                                    )}
+                                  />
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Unit Price */}
+                            <td style={{ padding: "8px 6px", width: "100px", verticalAlign: "middle" }}>
+                              <TextField
+                                size="small"
+                                fullWidth
+                                value={row.unit_price || ""}
+                                onChange={(e) => {
+                                  const price = e.target.value;
+                                  const priceNum = parseFloat(price) || 0;
+                                  const qty = parseFloat(row.quantity) || 0;
+                                  const amount = qty * priceNum;
+                                  const invIndex = Number(row.sr_no_invoice) - 1;
+                                  const activeInvoice = (formik.values.invoice_details || [])[invIndex] || {};
+                                  const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
+
+                                  updateDescriptionRowMultiple(rowIndex, {
+                                    unit_price: price,
+                                    amount: amount.toFixed(2),
+                                    ...(!row.taxable_value_manual && {
+                                      taxable_value_inr: (amount * exrate).toFixed(2),
+                                      ...(!row.igst_amount_manual && {
+                                        igst_amount_inr: ((amount * exrate * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
+                                      })
+                                    })
+                                  });
+                                }}
+                                disabled={isDescriptionTableReadOnly}
+                                sx={compactInputSx}
+                              />
+                            </td>
+                            {/* Currency */}
+                            <td style={{ padding: "8px 6px", width: "90px", verticalAlign: "middle" }}>
+                              <TextField
+                                select
+                                size="small"
+                                fullWidth
+                                value={row.amount_currency || "USD"}
+                                onChange={(e) => updateDescriptionRow(rowIndex, "amount_currency", e.target.value)}
+                                disabled={isDescriptionTableReadOnly}
+                                sx={compactInputSx}
+                              >
+                                <MenuItem value="USD">USD</MenuItem>
+                                <MenuItem value="INR">INR</MenuItem>
+                                <MenuItem value="EUR">EUR</MenuItem>
+                                <MenuItem value="GBP">GBP</MenuItem>
+                              </TextField>
+                            </td>
+
+                            {/* Amount */}
+                            <td style={{ padding: "8px 6px", width: "115px", verticalAlign: "middle" }}>
+                              <TextField
+                                size="small"
+                                fullWidth
+                                value={row.amount || ""}
+                                onChange={(e) => {
+                                  const amt = e.target.value;
+                                  const amtNum = parseFloat(amt) || 0;
+                                  const qty = parseFloat(row.quantity) || 0;
+
+                                  let calculatedPrice = parseFloat(row.unit_price) || 0;
+                                  if (qty > 0 && amtNum > 0) {
+                                    calculatedPrice = amtNum / qty;
                                   }
-                                })()}
-                              </td>
-                              {/* Action */}
-                              <td style={{ padding: "8px 6px", textAlign: "center", width: "50px", verticalAlign: "middle" }}>
-                                {!isDescriptionTableReadOnly && (
-                                  <IconButton
-                                    size="small"
-                                    disabled={descriptionRows.length <= 1}
-                                    onClick={() => removeDescriptionRow(rowIndex)}
-                                    sx={{
-                                      border: "1px solid #e2e8f0",
-                                      borderRadius: "6px",
-                                      color: "#94a3b8",
-                                      padding: "6px",
-                                      transition: "all 0.2s",
-                                      "&:hover": {
-                                        color: "#ef4444",
-                                        borderColor: "#fecaca",
-                                        backgroundColor: "#fef2f2"
-                                      },
-                                      "&.Mui-disabled": {
-                                        color: "#cbd5e1",
-                                        borderColor: "#f1f5f9"
+
+                                  const invIndex = Number(row.sr_no_invoice) - 1;
+                                  const activeInvoice = (formik.values.invoice_details || [])[invIndex] || {};
+                                  const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
+
+                                  updateDescriptionRowMultiple(rowIndex, {
+                                    amount: amt,
+                                    unit_price: calculatedPrice > 0 ? calculatedPrice.toFixed(4) : "",
+                                    ...(!row.taxable_value_manual && {
+                                      taxable_value_inr: (amtNum * exrate).toFixed(2),
+                                      ...(!row.igst_amount_manual && {
+                                        igst_amount_inr: ((amtNum * exrate * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
+                                      })
+                                    })
+                                  });
+                                }}
+                                disabled={isDescriptionTableReadOnly}
+                                sx={compactInputSx}
+                              />
+                            </td>
+                            {/* License No */}
+                            <td style={{ padding: "8px 6px", width: "180px", verticalAlign: "middle" }}>
+                              <Autocomplete
+                                size="small"
+                                fullWidth
+                                freeSolo
+                                options={authorizationsList.map((auth) => auth.authorization_no)}
+                                value={row.sr_no_lic || row.license_no || ""}
+                                onChange={async (e, newValue) => {
+                                  if (newValue) {
+                                    const selectedAuth = authorizationsList.find(a => a.authorization_no === newValue);
+                                    let licenseDate = "";
+                                    let importItems = [];
+                                    if (selectedAuth) {
+                                      licenseDate = selectedAuth.authorization_date || "";
+                                      importItems = selectedAuth.import_details_array || [];
+                                    } else {
+                                      try {
+                                        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-authorization-by-no?authorization_no=${newValue}`);
+                                        if (res.data) {
+                                          licenseDate = res.data.licence_date || res.data.auth_date || "";
+                                          importItems = res.data.import_details_array || [];
+                                        }
+                                      } catch (err) {
+                                        console.error("Error fetching license:", err);
                                       }
-                                    }}
-                                  >
-                                    <DeleteIcon fontSize="small" />
-                                  </IconButton>
+                                    }
+
+                                    const rowNormalizedHs = row.cth_no ? String(row.cth_no).replace(/[^a-zA-Z0-9]/g, "") : "";
+                                    let autoSr = "";
+                                    if (rowNormalizedHs && importItems.length > 0) {
+                                      const matchingItems = importItems.filter(item => {
+                                        const itemNormalizedHs = item.hs_code ? String(item.hs_code).replace(/[^a-zA-Z0-9]/g, "") : "";
+                                        return itemNormalizedHs === rowNormalizedHs;
+                                      });
+                                      if (matchingItems.length === 1) {
+                                        autoSr = Number(matchingItems[0].sr_no) || 1;
+                                      }
+                                    }
+
+                                    updateDescriptionRowMultiple(rowIndex, {
+                                      sr_no_lic: newValue,
+                                      license_no: newValue,
+                                      license_date: licenseDate,
+                                      license_sr: autoSr
+                                    });
+                                  } else {
+                                    updateDescriptionRowMultiple(rowIndex, {
+                                      sr_no_lic: "",
+                                      license_no: "",
+                                      license_date: "",
+                                      license_sr: ""
+                                    });
+                                  }
+                                }}
+                                onInputChange={(e, newInputValue, reason) => {
+                                  if (reason === "input") {
+                                    updateDescriptionRowMultiple(rowIndex, {
+                                      sr_no_lic: newInputValue,
+                                      license_no: newInputValue
+                                    });
+                                  }
+                                }}
+                                disabled={isDescriptionTableReadOnly}
+                                renderInput={(params) => (
+                                  <TextField
+                                    {...params}
+                                    size="small"
+                                    sx={compactInputSx}
+                                  />
                                 )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                    {!isDescriptionTableReadOnly && (
-                      <div style={{ marginTop: "12px", display: "flex", justifyContent: "flex-start" }}>
-                        <Button
-                          variant="contained"
-                          type="button"
-                          onClick={() => {
-                            addDescriptionRow();
-                            setActiveProductIndex(descriptionRows.length);
-                          }}
-                          sx={{
-                            backgroundColor: "#1e293b",
-                            color: "#ffffff",
-                            "&:hover": {
-                              backgroundColor: "#0f172a"
-                            },
-                            textTransform: "none",
-                            fontWeight: "600",
-                            fontSize: "0.85rem",
-                            padding: "7px 16px",
-                            borderRadius: "6px",
-                            boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)"
-                          }}
-                        >
-                          + Add New Product
-                        </Button>
-                      </div>
-                    )}
+                              />
+                            </td>
+                            {/* License Date */}
+                            <td style={{ padding: "8px 6px", width: "120px", verticalAlign: "middle" }}>
+                              <TextField
+                                size="small"
+                                fullWidth
+                                value={row.license_date || ""}
+                                onChange={(e) => updateDescriptionRow(rowIndex, "license_date", e.target.value)}
+                                disabled={isDescriptionTableReadOnly}
+                                sx={compactInputSx}
+                              />
+                            </td>
+                            {/* License SR */}
+                            <td style={{ padding: "8px 6px", width: "90px", verticalAlign: "middle" }}>
+                              {(() => {
+                                const licNum = row.sr_no_lic || row.license_no;
+                                const selectedAuth = authorizationsList.find(a => a.authorization_no === licNum);
+                                const importItems = selectedAuth?.import_details_array || [];
+
+                                const rowNormalizedHs = row.cth_no ? String(row.cth_no).replace(/[^a-zA-Z0-9]/g, "") : "";
+                                const filteredItems = rowNormalizedHs
+                                  ? importItems.filter(item => {
+                                    const itemNormalizedHs = item.hs_code ? String(item.hs_code).replace(/[^a-zA-Z0-9]/g, "") : "";
+                                    return itemNormalizedHs === rowNormalizedHs;
+                                  })
+                                  : importItems;
+
+                                if (filteredItems.length > 0) {
+                                  return (
+                                    <TextField
+                                      select
+                                      size="small"
+                                      fullWidth
+                                      value={String(row.license_sr || "")}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        updateDescriptionRow(rowIndex, "license_sr", val ? Number(val) : "");
+                                      }}
+                                      disabled={isDescriptionTableReadOnly}
+                                      sx={compactInputSx}
+                                    >
+                                      <MenuItem value="">Select</MenuItem>
+                                      {filteredItems.map((item) => (
+                                        <MenuItem key={item.sr_no || item.value_usd} value={String(item.sr_no)}>
+                                          {item.sr_no}
+                                        </MenuItem>
+                                      ))}
+                                    </TextField>
+                                  );
+                                } else {
+                                  return (
+                                    <TextField
+                                      size="small"
+                                      fullWidth
+                                      value={row.license_sr || ""}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        updateDescriptionRow(rowIndex, "license_sr", val ? Number(val) : "");
+                                      }}
+                                      disabled={isDescriptionTableReadOnly}
+                                      sx={compactInputSx}
+                                    />
+                                  );
+                                }
+                              })()}
+                            </td>
+                            {/* Action */}
+                            <td style={{ padding: "8px 6px", textAlign: "center", width: "50px", verticalAlign: "middle" }}>
+                              {!isDescriptionTableReadOnly && (
+                                <IconButton
+                                  size="small"
+                                  disabled={descriptionRows.length <= 1}
+                                  onClick={() => removeDescriptionRow(rowIndex)}
+                                  sx={{
+                                    border: "1px solid #e2e8f0",
+                                    borderRadius: "6px",
+                                    color: "#94a3b8",
+                                    padding: "6px",
+                                    transition: "all 0.2s",
+                                    "&:hover": {
+                                      color: "#ef4444",
+                                      borderColor: "#fecaca",
+                                      backgroundColor: "#fef2f2"
+                                    },
+                                    "&.Mui-disabled": {
+                                      color: "#cbd5e1",
+                                      borderColor: "#f1f5f9"
+                                    }
+                                  }}
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
+                  {!isDescriptionTableReadOnly && (
+                    <div style={{ marginTop: "12px", display: "flex", justifyContent: "flex-start" }}>
+                      <Button
+                        variant="contained"
+                        type="button"
+                        onClick={() => {
+                          addDescriptionRow();
+                          setActiveProductIndex(descriptionRows.length);
+                        }}
+                        sx={{
+                          backgroundColor: "#1e293b",
+                          color: "#ffffff",
+                          "&:hover": {
+                            backgroundColor: "#0f172a"
+                          },
+                          textTransform: "none",
+                          fontWeight: "600",
+                          fontSize: "0.85rem",
+                          padding: "7px 16px",
+                          borderRadius: "6px",
+                          boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)"
+                        }}
+                      >
+                        + Add New Product
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -4517,11 +4571,11 @@ function JobDetails() {
               {/* NEW CHARGES COMPONENT */}
               <div style={{ marginTop: '40px' }}>
                 <JobDetailsRowHeading heading="Charges Management (New)" />
-                <ChargesGrid 
-                  parentId={data?._id} 
-                  parentModule="Job" 
-                  shippingLineAirline={data?.shipping_line_airline} 
-                  importerName={data?.importer} 
+                <ChargesGrid
+                  parentId={data?._id}
+                  parentModule="Job"
+                  shippingLineAirline={data?.shipping_line_airline}
+                  importerName={data?.importer}
                   jobNumber={data?.job_no}
                   jobDisplayNumber={data?.job_number}
                   jobYear={data?.year}
@@ -5032,91 +5086,91 @@ function JobDetails() {
                               </Col>
                             )}
                             {!isAirMode(data?.mode) && (
-                            <Col xs={12} md={3} lg={2} className="mb-3">
-                              <label style={labelStyle}>
-                                {InBondflag
-                                  ? "Destuffing Date"
-                                  : "Empty Off-Load Date"}
-                              </label>
-                              <TextField
-                                fullWidth
-                                size="small"
-                                type="datetime-local"
-                                variant="outlined"
-                                name={`container_nos[${index}].emptyContainerOffLoadDate`}
-                                value={formatDateForInput(
-                                  container.emptyContainerOffLoadDate
-                                )}
-                                disabled={LCLFlag}
-                                onChange={formik.handleChange}
-                                InputLabelProps={{ shrink: true }}
-                                sx={compactInputSx}
-                              />
-                            </Col>
+                              <Col xs={12} md={3} lg={2} className="mb-3">
+                                <label style={labelStyle}>
+                                  {InBondflag
+                                    ? "Destuffing Date"
+                                    : "Empty Off-Load Date"}
+                                </label>
+                                <TextField
+                                  fullWidth
+                                  size="small"
+                                  type="datetime-local"
+                                  variant="outlined"
+                                  name={`container_nos[${index}].emptyContainerOffLoadDate`}
+                                  value={formatDateForInput(
+                                    container.emptyContainerOffLoadDate
+                                  )}
+                                  disabled={LCLFlag}
+                                  onChange={formik.handleChange}
+                                  InputLabelProps={{ shrink: true }}
+                                  sx={compactInputSx}
+                                />
+                              </Col>
                             )}
                           </Row>
 
                           {/* Row 3: DO & Detention (hidden for AIR) */}
                           {!isAirMode(data?.mode) && (
-                          <Row className="mb-3">
-                            <Col xs={12} md={3} lg={2} className="mb-3">
-                              <label style={labelStyle}>Detention From</label>
-                              <div style={readOnlyStyle}>
-                                {detentionFrom[index]}
-                              </div>
-                            </Col>
-                            <Col xs={12} md={3} lg={2} className="mb-3">
-                              <label style={labelStyle}>DO Validity</label>
-                              <div style={readOnlyStyle}>
-                                {subtractOneDay(detentionFrom[index])}
-                              </div>
-                            </Col>
-                            <Col xs={12} md={3} lg={2} className="mb-3">
-                              <label style={labelStyle}>
-                                Required DO Validity Upto
-                              </label>
-                              <TextField
-                                fullWidth
-                                size="small"
-                                type="date"
-                                variant="outlined"
-                                name={`container_nos[${index}].required_do_validity_upto`}
-                                value={container.required_do_validity_upto}
-                                onChange={(e) => handleDateChange(e.target.value, index)}
-                                InputLabelProps={{ shrink: true }}
-                                disabled={user.role !== "Admin"}
-                                sx={compactInputSx}
-                              />
-                            </Col>
-                            <Col
-                              xs={12}
-                              md={3}
-                              lg={6}
-                              className="mb-3"
-                              style={{
-                                display: "flex",
-                                gap: "10px",
-                                alignItems: "center",
-                              }}
-                            >
-                              <DeliveryChallanPdf
-                                year={params.selected_year}
-                                jobNo={params.job_no}
-                                branch_code={params.branch_code}
-                                trade_type={params.trade_type}
-                                mode={params.mode}
-                                containerIndex={index}
-                              />
-                              <IgstCalculationPDF
-                                year={params.selected_year}
-                                jobNo={params.job_no}
-                                branch_code={params.branch_code}
-                                trade_type={params.trade_type}
-                                mode={params.mode}
-                                containerIndex={index}
-                              />
-                            </Col>
-                          </Row>
+                            <Row className="mb-3">
+                              <Col xs={12} md={3} lg={2} className="mb-3">
+                                <label style={labelStyle}>Detention From</label>
+                                <div style={readOnlyStyle}>
+                                  {detentionFrom[index]}
+                                </div>
+                              </Col>
+                              <Col xs={12} md={3} lg={2} className="mb-3">
+                                <label style={labelStyle}>DO Validity</label>
+                                <div style={readOnlyStyle}>
+                                  {subtractOneDay(detentionFrom[index])}
+                                </div>
+                              </Col>
+                              <Col xs={12} md={3} lg={2} className="mb-3">
+                                <label style={labelStyle}>
+                                  Required DO Validity Upto
+                                </label>
+                                <TextField
+                                  fullWidth
+                                  size="small"
+                                  type="date"
+                                  variant="outlined"
+                                  name={`container_nos[${index}].required_do_validity_upto`}
+                                  value={container.required_do_validity_upto}
+                                  onChange={(e) => handleDateChange(e.target.value, index)}
+                                  InputLabelProps={{ shrink: true }}
+                                  disabled={user.role !== "Admin"}
+                                  sx={compactInputSx}
+                                />
+                              </Col>
+                              <Col
+                                xs={12}
+                                md={3}
+                                lg={6}
+                                className="mb-3"
+                                style={{
+                                  display: "flex",
+                                  gap: "10px",
+                                  alignItems: "center",
+                                }}
+                              >
+                                <DeliveryChallanPdf
+                                  year={params.selected_year}
+                                  jobNo={params.job_no}
+                                  branch_code={params.branch_code}
+                                  trade_type={params.trade_type}
+                                  mode={params.mode}
+                                  containerIndex={index}
+                                />
+                                <IgstCalculationPDF
+                                  year={params.selected_year}
+                                  jobNo={params.job_no}
+                                  branch_code={params.branch_code}
+                                  trade_type={params.trade_type}
+                                  mode={params.mode}
+                                  containerIndex={index}
+                                />
+                              </Col>
+                            </Row>
                           )}
 
                           {/* Row 4: DO Revalidations */}
@@ -5528,7 +5582,35 @@ function JobDetails() {
         message={
           isEditMode
             ? undefined // No message for edit
-            : `Are you sure you want to delete the document "${currentDocument?.document_name}"?`
+            : (() => {
+              if (!currentDocument) return "";
+              const hasUrls = Array.isArray(currentDocument.url)
+                ? currentDocument.url.length > 0
+                : !!currentDocument.url;
+              const isSent = currentDocument.is_sent_to_esanchit;
+              const isVerified = !!currentDocument.document_check_date;
+
+              const warnings = [];
+              if (hasUrls) warnings.push("contains uploaded files");
+              if (isSent) warnings.push("has been marked as sent to e-Sanchit");
+              if (isVerified) warnings.push("has been verified/checked");
+
+              if (warnings.length > 0) {
+                return (
+                  <Box sx={{ mt: 1 }}>
+                    <Alert severity="warning" sx={{ mb: 2, borderRadius: "6px" }}>
+                      <AlertTitle sx={{ fontWeight: "700" }}>Critical Warning</AlertTitle>
+                      This document <strong>{warnings.join(", and ")}</strong>.
+                      Deleting it will permanently remove it along with all associated files and data.
+                    </Alert>
+                    <Typography variant="body1">
+                      Are you sure you want to delete the document <strong>"{currentDocument.document_name}"</strong>? This action cannot be undone.
+                    </Typography>
+                  </Box>
+                );
+              }
+              return `Are you sure you want to delete the document "${currentDocument.document_name}"?`;
+            })()
         }
         isEdit={isEditMode}
         editValues={editValues}
@@ -5798,24 +5880,63 @@ function JobDetails() {
                   />
                 ) : (
                   Object.entries(imexcubePreviewData.annotated || {}).map(([sectionName, sectionData]) => (
-                  <Box key={sectionName} sx={{ mb: 2 }}>
-                    <Typography variant="subtitle1" sx={{
-                      fontWeight: 700, bgcolor: "#1565c0", color: "#fff",
-                      px: 1.5, py: 0.5, borderRadius: "4px 4px 0 0", fontSize: "0.85rem"
-                    }}>
-                      {sectionName}
-                    </Typography>
-                    {Array.isArray(sectionData) ? (
-                      sectionData.map((item, idx) => (
-                        <Box key={idx} sx={{ border: "1px solid #e0e0e0", borderTop: idx > 0 ? "2px solid #1565c0" : "none", mb: idx < sectionData.length - 1 ? 0 : 0 }}>
-                          {idx > 0 && (
-                            <Typography sx={{ bgcolor: "#e3f2fd", px: 1.5, py: 0.3, fontSize: "0.75rem", fontWeight: 600, color: "#1565c0" }}>
-                              #{idx + 1}
-                            </Typography>
-                          )}
+                    <Box key={sectionName} sx={{ mb: 2 }}>
+                      <Typography variant="subtitle1" sx={{
+                        fontWeight: 700, bgcolor: "#1565c0", color: "#fff",
+                        px: 1.5, py: 0.5, borderRadius: "4px 4px 0 0", fontSize: "0.85rem"
+                      }}>
+                        {sectionName}
+                      </Typography>
+                      {Array.isArray(sectionData) ? (
+                        sectionData.map((item, idx) => (
+                          <Box key={idx} sx={{ border: "1px solid #e0e0e0", borderTop: idx > 0 ? "2px solid #1565c0" : "none", mb: idx < sectionData.length - 1 ? 0 : 0 }}>
+                            {idx > 0 && (
+                              <Typography sx={{ bgcolor: "#e3f2fd", px: 1.5, py: 0.3, fontSize: "0.75rem", fontWeight: 600, color: "#1565c0" }}>
+                                #{idx + 1}
+                              </Typography>
+                            )}
+                            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                              <tbody>
+                                {Object.entries(item).map(([fieldName, fieldData]) => {
+                                  const isMandatory = fieldData?.mandatory;
+                                  const isValid = fieldData?.valid;
+                                  const value = fieldData?.value;
+                                  const displayVal = value === null || value === undefined || value === "" ? "—" : String(value);
+                                  const bgColor = isMandatory
+                                    ? (isValid ? "#e8f5e9" : "#ffebee")
+                                    : (displayVal !== "—" ? "#f1f8e9" : "#fafafa");
+                                  return (
+                                    <tr key={fieldName}>
+                                      <td style={{
+                                        padding: "4px 10px", borderBottom: "1px solid #f0f0f0",
+                                        width: "45%", fontSize: "0.8rem", fontWeight: 600, color: "#333",
+                                        whiteSpace: "nowrap"
+                                      }}>
+                                        {fieldName}
+                                        {isMandatory && <span style={{ color: "#d32f2f", marginLeft: 2, fontWeight: 800 }}>*</span>}
+                                      </td>
+                                      <td style={{
+                                        padding: "4px 10px", borderBottom: "1px solid #f0f0f0",
+                                        fontSize: "0.8rem", fontFamily: "monospace",
+                                        backgroundColor: bgColor,
+                                        color: displayVal === "—" ? "#bbb" : "#222",
+                                        fontWeight: displayVal === "—" ? 400 : 500,
+                                        wordBreak: "break-word",
+                                      }}>
+                                        {displayVal}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </Box>
+                        ))
+                      ) : (
+                        <Box sx={{ border: "1px solid #e0e0e0", borderTop: "none" }}>
                           <table style={{ width: "100%", borderCollapse: "collapse" }}>
                             <tbody>
-                              {Object.entries(item).map(([fieldName, fieldData]) => {
+                              {Object.entries(sectionData).map(([fieldName, fieldData]) => {
                                 const isMandatory = fieldData?.mandatory;
                                 const isValid = fieldData?.valid;
                                 const value = fieldData?.value;
@@ -5849,48 +5970,9 @@ function JobDetails() {
                             </tbody>
                           </table>
                         </Box>
-                      ))
-                    ) : (
-                      <Box sx={{ border: "1px solid #e0e0e0", borderTop: "none" }}>
-                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                          <tbody>
-                            {Object.entries(sectionData).map(([fieldName, fieldData]) => {
-                              const isMandatory = fieldData?.mandatory;
-                              const isValid = fieldData?.valid;
-                              const value = fieldData?.value;
-                              const displayVal = value === null || value === undefined || value === "" ? "—" : String(value);
-                              const bgColor = isMandatory
-                                ? (isValid ? "#e8f5e9" : "#ffebee")
-                                : (displayVal !== "—" ? "#f1f8e9" : "#fafafa");
-                              return (
-                                <tr key={fieldName}>
-                                  <td style={{
-                                    padding: "4px 10px", borderBottom: "1px solid #f0f0f0",
-                                    width: "45%", fontSize: "0.8rem", fontWeight: 600, color: "#333",
-                                    whiteSpace: "nowrap"
-                                  }}>
-                                    {fieldName}
-                                    {isMandatory && <span style={{ color: "#d32f2f", marginLeft: 2, fontWeight: 800 }}>*</span>}
-                                  </td>
-                                  <td style={{
-                                    padding: "4px 10px", borderBottom: "1px solid #f0f0f0",
-                                    fontSize: "0.8rem", fontFamily: "monospace",
-                                    backgroundColor: bgColor,
-                                    color: displayVal === "—" ? "#bbb" : "#222",
-                                    fontWeight: displayVal === "—" ? 400 : 500,
-                                    wordBreak: "break-word",
-                                  }}>
-                                    {displayVal}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </Box>
-                    )}
-                  </Box>
-                ))
+                      )}
+                    </Box>
+                  ))
                 )}
               </Box>
             </Box>
@@ -5904,8 +5986,8 @@ function JobDetails() {
             onClick={handleConfirmImexcubeUpload}
             variant="contained"
             disabled={
-              imexcubePreviewLoading || 
-              imexcubePreviewData?.error || 
+              imexcubePreviewLoading ||
+              imexcubePreviewData?.error ||
               (() => {
                 if (!imexcubePreviewData?.annotated) return false;
                 let found = false;
@@ -5952,10 +6034,10 @@ function JobDetails() {
             {imexcubeErrorDialog.message}
           </Typography>
           {imexcubeErrorDialog.details && (
-            <Box sx={{ 
-              p: 1.5, 
-              bgcolor: "#f5f5f5", 
-              borderRadius: 1, 
+            <Box sx={{
+              p: 1.5,
+              bgcolor: "#f5f5f5",
+              borderRadius: 1,
               border: "1px solid #e0e0e0",
               fontFamily: "monospace",
               fontSize: "0.85rem",
@@ -5978,6 +6060,83 @@ function JobDetails() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setImexcubeErrorDialog({ ...imexcubeErrorDialog, open: false })} variant="contained">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* IMEXCUBE Job Details Dialog */}
+      <Dialog
+        open={imexcubeDetailsDialogOpen}
+        onClose={() => setImexcubeDetailsDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+        aria-labelledby="imexcube-details-dialog-title"
+      >
+        <DialogTitle id="imexcube-details-dialog-title" sx={{ fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <CloudUploadIcon color="primary" />
+            <Typography variant="h6" sx={{ fontWeight: 700 }}>IMEXCUBE Job Details</Typography>
+          </Box>
+          {imexcubeDetailsData && !imexcubeDetailsData.error && (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => {
+                navigator.clipboard.writeText(JSON.stringify(imexcubeDetailsData, null, 2));
+                setImexcubeSnackbar({ open: true, message: "JSON copied to clipboard", severity: "success" });
+                setTimeout(() => setImexcubeSnackbar(prev => ({ ...prev, open: false })), 3000);
+              }}
+              sx={{ textTransform: "none", fontSize: "0.75rem" }}
+            >
+              Copy JSON
+            </Button>
+          )}
+        </DialogTitle>
+        <DialogContent dividers>
+          {imexcubeDetailsLoading ? (
+            <Box sx={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", minHeight: 250, gap: 2 }}>
+              <CircularProgress />
+              <Typography variant="body1" color="text.secondary">Fetching details from IMEXCUBE...</Typography>
+            </Box>
+          ) : imexcubeDetailsData?.error ? (
+            <Box sx={{ p: 2, bgcolor: "#fff3f3", borderRadius: 1, border: "1px solid #ffcdd2" }}>
+              <Typography variant="body1" color="error" fontWeight={600} sx={{ mb: 1 }}>
+                Failed to Fetch Job Details
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ fontFamily: "monospace", whiteSpace: "pre-wrap" }}>
+                {typeof imexcubeDetailsData.error === "object" ? JSON.stringify(imexcubeDetailsData.error, null, 2) : String(imexcubeDetailsData.error)}
+              </Typography>
+            </Box>
+          ) : imexcubeDetailsData ? (
+            <Box>
+              <Typography variant="subtitle2" sx={{ color: "#666", mb: 2 }}>
+                Raw response from IMEXCUBE for Job Number: <strong>{data?.job_number}</strong>
+              </Typography>
+              <Box sx={{
+                p: 2,
+                bgcolor: "#1e1e1e",
+                color: "#d4d4d4",
+                borderRadius: 1,
+                fontFamily: "Fira Code, Consolas, Monaco, monospace",
+                fontSize: "0.85rem",
+                maxHeight: "500px",
+                overflow: "auto",
+                boxShadow: "inset 0 2px 4px rgba(0,0,0,0.3)"
+              }}>
+                <pre style={{ margin: 0, color: "#9cdcfe" }}>
+                  {JSON.stringify(imexcubeDetailsData, null, 2)}
+                </pre>
+              </Box>
+            </Box>
+          ) : (
+            <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 150 }}>
+              <Typography variant="body1" color="text.secondary">No data available.</Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setImexcubeDetailsDialogOpen(false)} variant="contained" sx={{ backgroundColor: "#1565c0", "&:hover": { backgroundColor: "#0d47a1" } }}>
             Close
           </Button>
         </DialogActions>

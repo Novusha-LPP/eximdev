@@ -387,15 +387,19 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
 
         <div className="adb-side-content">
             <div className="adb-chart-card">
-                <h3 className="adb-card-title"><FiClock /> Attendance Distribution</h3>
+                <h3 className="adb-card-title">
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <FiClock /> Attendance Distribution
+                    </span>
+                </h3>
                 <div className="adb-chart-container">
                     {chartData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={260}>
+                    <ResponsiveContainer width="100%" height={238}>
                         <PieChart>
                         <Pie
                             data={chartData}
-                            innerRadius={70}
-                            outerRadius={92}
+                            innerRadius={62}
+                            outerRadius={84}
                             paddingAngle={chartData.length > 1 ? 5 : 0}
                             dataKey="value"
                             stroke="none"
@@ -438,7 +442,7 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
                   <div key={emp.id} className="adb-leave-table-row">
                     <div className="adb-lr-name-wrap">
                       <div className="adb-lr-avatar">{emp.name?.split(' ').map(n => n.charAt(0)).join('').slice(0, 2).toUpperCase()}</div>
-                      <div>
+                      <div className="adb-lr-info">
                         <div className="adb-lr-name">{emp.name}</div>
                         <div className="adb-lr-meta">{emp.leave?.type?.charAt(0).toUpperCase() + emp.leave?.type?.slice(1)}</div>
                       </div>

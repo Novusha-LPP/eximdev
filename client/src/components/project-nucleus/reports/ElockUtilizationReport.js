@@ -1,45 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { format } from 'date-fns';
-import {
-    ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ReferenceLine
-} from 'recharts';
 import { getTransportDates, TRANSPORT_BASE, TRANSPORT_HEADERS } from './reports-helper';
-
-const ElockTrendTooltip = ({ active, payload }) => {
-    if (active && payload && payload.length) {
-        const data = payload[0].payload;
-        let formattedDate = data.date || '';
-        try {
-            if (data.date) {
-                formattedDate = format(new Date(data.date), 'dd MMMM yyyy');
-            }
-        } catch (e) {
-            console.error("Invalid date in ElockTrendTooltip", e);
-        }
-        return (
-            <div className="custom-chart-tooltip">
-                <p className="tooltip-title">{formattedDate}</p>
-                <p className="tooltip-value">
-                    <span className="tooltip-bullet" style={{ backgroundColor: '#06b6d4' }}></span>
-                    Locks Used: <strong>{data.locksUsed ?? 0}</strong>
-                </p>
-                <p className="tooltip-value">
-                    <span className="tooltip-bullet" style={{ backgroundColor: '#f43f5e' }}></span>
-                    Under Maint.: <strong>{data.maintenanceLocks ?? 0}</strong>
-                </p>
-                <p className="tooltip-value">
-                    <span className="tooltip-bullet" style={{ backgroundColor: '#10b981' }}></span>
-                    Available: <strong>{data.availableLocks ?? 0}</strong>
-                </p>
-                <p className="tooltip-value" style={{ borderTop: '1px solid #f1f5f9', paddingTop: '4px', marginTop: '4px', fontWeight: 600 }}>
-                    Total Capacity: <strong>{data.totalLocks ?? 0}</strong>
-                </p>
-            </div>
-        );
-    }
-    return null;
-};
 
 const ElockUtilizationReport = ({
     filterType,
@@ -110,42 +72,84 @@ const ElockUtilizationReport = ({
         return Object.values(dateMap).sort((a, b) => new Date(a.date) - new Date(b.date));
     }, [elockData.rows]);
 
-    // Calculate smart KPI card statistics for elock report, handling single-day versus multi-day ranges
+    // Calculate smart KPI card statistics for elock report, handling single-day versus multi-day ranges (CR-006)
     const elockSummaryObj = useMemo(() => {
         if (filterType === 'day') {
-            const dayRows = elockData.rows?.filter(r => r.date === selectedDay) || [];
-            if (dayRows.length > 0) {
-                const locksUsed = dayRows[0].locks_used_this_date ?? 0;
-                const availableLocks = dayRows[0].available_locks_this_date ?? 0;
-                const maintenanceLocks = dayRows[0].maintenance_locks_this_date ?? 0;
-                const totalLocks = locksUsed + availableLocks + maintenanceLocks;
-                const assetUtilPercent = totalLocks > 0 ? ((locksUsed / totalLocks) * 100).toFixed(1) : '—';
-                
-                const activeLocksCount = dayRows.filter(r => r.elock_assign_status === 'ACTIVE' || r.elock_assign_status === 'ASSIGNED' || r.is_active).length;
-                const returnedLocksCount = dayRows.filter(r => r.elock_assign_status === 'RETURNED' || r.is_returned).length;
-                const maintenanceCount = dayRows.filter(r => r.elock_assign_status === 'MAINTENANCE' || r.is_maintenance).length;
+            const found = elockDailyTrendData.find(d => d.date === selectedDay);
+            if (found) {
+                const totalLocks = found.totalLocks;
+                const usedLocks = found.locksUsed;
+                const idleLocks = found.availableLocks;
+                const maintenanceLocks = found.maintenanceLocks;
+                const assignedLocks = idleLocks + maintenanceLocks;
+                const assetUtilizationPercent = totalLocks > 0 ? ((usedLocks / totalLocks) * 100).toFixed(1) : '0.0';
 
                 return {
-                    locksUsed: locksUsed,
-                    activeLocks: activeLocksCount,
-                    returnedLocks: returnedLocksCount,
-                    maintenance: maintenanceCount || maintenanceLocks,
-                    assetUtilizationPercent: assetUtilPercent,
-                    totalTransactions: dayRows.length
+                    totalLocks,
+                    assignedLocks,
+                    usedLocks,
+                    idleLocks,
+                    maintenanceLocks,
+                    assetUtilizationPercent
                 };
             }
-            return { locksUsed: '—', activeLocks: '—', returnedLocks: '—', maintenance: '—', assetUtilizationPercent: '—', totalTransactions: 0 };
+            // Fallback to first day row if not found in trend
+            const dayRows = elockData.rows?.filter(r => r.date === selectedDay) || [];
+            if (dayRows.length > 0) {
+                const usedLocks = dayRows[0].locks_used_this_date ?? 0;
+                const idleLocks = dayRows[0].available_locks_this_date ?? 0;
+                const maintenanceLocks = dayRows[0].maintenance_locks_this_date ?? 0;
+                const totalLocks = usedLocks + idleLocks + maintenanceLocks;
+                const assignedLocks = idleLocks + maintenanceLocks;
+                const assetUtilizationPercent = totalLocks > 0 ? ((usedLocks / totalLocks) * 100).toFixed(1) : '0.0';
+
+                return {
+                    totalLocks,
+                    assignedLocks,
+                    usedLocks,
+                    idleLocks,
+                    maintenanceLocks,
+                    assetUtilizationPercent
+                };
+            }
+            return { totalLocks: 0, assignedLocks: 0, usedLocks: 0, idleLocks: 0, maintenanceLocks: 0, assetUtilizationPercent: '0.0' };
         } else {
+            // For range (multi-day): compute cumulative sums of daily statuses in alignment with user preference
+            if (elockDailyTrendData.length > 0) {
+                let totalSum = 0;
+                let usedSum = 0;
+                let idleSum = 0;
+                let maintSum = 0;
+
+                elockDailyTrendData.forEach(d => {
+                    totalSum += d.totalLocks || 0;
+                    usedSum += d.locksUsed || 0;
+                    idleSum += d.availableLocks || 0;
+                    maintSum += d.maintenanceLocks || 0;
+                });
+
+                const assignedSum = idleSum + maintSum;
+                const assetUtilizationPercent = totalSum > 0 ? ((usedSum / totalSum) * 100).toFixed(1) : '0.0';
+
+                return {
+                    totalLocks: totalSum,
+                    assignedLocks: assignedSum,
+                    usedLocks: usedSum,
+                    idleLocks: idleSum,
+                    maintenanceLocks: maintSum,
+                    assetUtilizationPercent
+                };
+            }
             return {
-                locksUsed: elockData.summary?.locks_used ?? '—',
-                activeLocks: elockData.summary?.active_locks ?? '—',
-                returnedLocks: elockData.summary?.returned_locks ?? '—',
-                maintenance: elockData.summary?.elock_under_maintenance ?? '—',
-                assetUtilizationPercent: elockData.summary?.asset_utilization_percent ?? '—',
-                highestSingleDay: elockData.summary?.highest_single_day_utilization ?? '—'
+                totalLocks: elockData.summary?.total_locks ?? 0,
+                assignedLocks: (elockData.summary?.available_locks || 0) + (elockData.summary?.elock_under_maintenance || 0) || 0,
+                usedLocks: elockData.summary?.locks_used ?? 0,
+                idleLocks: elockData.summary?.available_locks ?? 0,
+                maintenanceLocks: elockData.summary?.elock_under_maintenance ?? 0,
+                assetUtilizationPercent: elockData.summary?.asset_utilization_percent ?? '0.0'
             };
         }
-    }, [elockData, filterType, selectedDay]);
+    }, [elockData, elockDailyTrendData, filterType, selectedDay]);
 
     const displayedElockRows = useMemo(() => {
         if (filterType === 'day') {
@@ -413,12 +417,12 @@ const ElockUtilizationReport = ({
             {/* KPI Stats Cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
                 {[
-                    { label: 'Locks Used', value: elockSummaryObj.locksUsed, color: '#3b82f6', gradient: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(59, 130, 246, 0.02))' },
-                    { label: 'Active Locks', value: elockSummaryObj.activeLocks, color: '#10b981', gradient: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(16, 185, 129, 0.02))' },
-                    { label: 'Returned', value: elockSummaryObj.returnedLocks, color: '#64748b', gradient: 'linear-gradient(135deg, rgba(100, 116, 139, 0.1), rgba(100, 116, 139, 0.02))' },
-                    { label: 'Under Maint.', value: elockSummaryObj.maintenance, color: '#ef4444', gradient: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.02))' },
-                    { label: 'Asset Util', value: `${elockSummaryObj.assetUtilizationPercent}%`, color: getUtilColor(elockSummaryObj.assetUtilizationPercent), gradient: `linear-gradient(135deg, ${getUtilColor(elockSummaryObj.assetUtilizationPercent)}15, transparent)` },
-                    { label: filterType === 'day' ? 'Total Trans.' : 'Peak Util', value: filterType === 'day' ? elockSummaryObj.totalTransactions : `${elockSummaryObj.highestSingleDay}%`, color: '#f59e0b', gradient: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(245, 158, 11, 0.02))' }
+                    { label: 'Total Locks', value: elockSummaryObj.totalLocks, color: '#6366f1', gradient: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(99, 102, 241, 0.02))' },
+                    { label: 'Assigned Locks', value: elockSummaryObj.assignedLocks, color: '#8b5cf6', gradient: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(139, 92, 246, 0.02))' },
+                    { label: 'Used Locks', value: elockSummaryObj.usedLocks, color: '#06b6d4', gradient: 'linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(6, 182, 212, 0.02))' },
+                    { label: 'Idle Locks', value: elockSummaryObj.idleLocks, color: '#f59e0b', gradient: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(245, 158, 11, 0.02))' },
+                    { label: 'Maintenance Locks', value: elockSummaryObj.maintenanceLocks, color: '#ef4444', gradient: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(239, 68, 68, 0.02))' },
+                    { label: 'Asset Utilization %', value: `${elockSummaryObj.assetUtilizationPercent}%`, color: getUtilColor(elockSummaryObj.assetUtilizationPercent), gradient: `linear-gradient(135deg, ${getUtilColor(elockSummaryObj.assetUtilizationPercent)}15, transparent)` }
                 ].map((m, idx) => (
                     <div key={idx} className="nucleus-stats-card" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '8px', background: m.gradient }}>
                         <div style={{ fontSize: '12px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>{m.label}</div>
@@ -427,196 +431,101 @@ const ElockUtilizationReport = ({
                 ))}
             </div>
 
-            {/* Graphs */}
-            <div className="analytics-graphs-container">
-                <div className="analytics-graph-card">
-                    <div className="graph-card-header">
-                        <h3>E-Lock Stock Allocation Trend</h3>
-                        <span className="graph-subtitle">Daily stock status breakdown</span>
-                    </div>
-                    <div style={{ width: '100%', height: 280 }}>
-                        <ResponsiveContainer>
-                            <AreaChart
-                                data={elockDailyTrendData}
-                                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-                            >
-                                <defs>
-                                    <linearGradient id="colorUsed" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.4}/>
-                                        <stop offset="95%" stopColor="#06b6d4" stopOpacity={0.05}/>
-                                    </linearGradient>
-                                    <linearGradient id="colorMaint" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#f43f5e" stopOpacity={0.3}/>
-                                        <stop offset="95%" stopColor="#f43f5e" stopOpacity={0.02}/>
-                                    </linearGradient>
-                                    <linearGradient id="colorAvail" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
-                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.02}/>
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(226, 232, 240, 0.5)"/>
-                                <XAxis 
-                                    dataKey="date" 
-                                    tickFormatter={(str) => {
-                                        if (!str) return '';
-                                        try {
-                                            const d = new Date(str);
-                                            return format(d, 'dd MMM');
-                                        } catch (e) {
-                                            return str;
-                                        }
-                                    }}
-                                    stroke="#94a3b8"
-                                    fontSize={11}
-                                    tickLine={false}
-                                />
-                                <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} allowDecimals={false}/>
-                                <Tooltip content={<ElockTrendTooltip />} />
-                                <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-                                {filterType === 'day' && selectedDay && (
-                                    <ReferenceLine 
-                                        x={selectedDay} 
-                                        stroke="#f59e0b" 
-                                        strokeWidth={2} 
-                                        strokeDasharray="5 5" 
-                                        label={{ value: 'Selected', position: 'top', fill: '#d97706', fontSize: 10, fontWeight: 600 }}
-                                    />
-                                )}
-                                <Area type="monotone" name="Locks Used" dataKey="locksUsed" stackId="1" stroke="#06b6d4" strokeWidth={2} fill="url(#colorUsed)"/>
-                                <Area type="monotone" name="Under Maintenance" dataKey="maintenanceLocks" stackId="1" stroke="#f43f5e" strokeWidth={2} fill="url(#colorMaint)"/>
-                                <Area type="monotone" name="Available Locks" dataKey="availableLocks" stackId="1" stroke="#10b981" strokeWidth={2} fill="url(#colorAvail)"/>
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-                
-                <div className="analytics-graph-card">
-                    <div className="graph-card-header">
-                        <h3>E-Lock Inventory Utilization Efficiency</h3>
-                        <span className="graph-subtitle">Daily asset usage rate as a percentage of total stock</span>
-                    </div>
-                    <div style={{ width: '100%', height: 280 }}>
-                        <ResponsiveContainer>
-                            <AreaChart
-                                data={elockDailyTrendData.map(d => {
-                                    const total = d.totalLocks || 0;
-                                    const util = total > 0 ? parseFloat(((d.locksUsed / total) * 100).toFixed(1)) : 0;
-                                    return { ...d, utilPercent: util };
-                                })}
-                                margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-                            >
-                                <defs>
-                                    <linearGradient id="colorUtilEff" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#0891b2" stopOpacity={0.25}/>
-                                        <stop offset="95%" stopColor="#0891b2" stopOpacity={0}/>
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(226, 232, 240, 0.5)"/>
-                                <XAxis 
-                                    dataKey="date" 
-                                    tickFormatter={(str) => {
-                                        if (!str) return '';
-                                        try {
-                                            const d = new Date(str);
-                                            return format(d, 'dd MMM');
-                                        } catch (e) {
-                                            return str;
-                                        }
-                                    }}
-                                    stroke="#94a3b8"
-                                    fontSize={11}
-                                    tickLine={false}
-                                />
-                                <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} domain={[0, 100]} unit="%"/>
-                                <Tooltip 
-                                    contentStyle={{ 
-                                        backgroundColor: 'rgba(255, 255, 255, 0.98)', 
-                                        border: '1px solid #e2e8f0', 
-                                        borderRadius: '8px'
-                                    }}
-                                    labelFormatter={(str) => {
-                                        if (!str) return '';
-                                        try {
-                                            return format(new Date(str), 'dd MMMM yyyy');
-                                        } catch (e) {
-                                            return str;
-                                        }
-                                    }}
-                                    formatter={(value) => [`${value}%`, 'Utilization Efficiency']}
-                                />
-                                <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-                                {filterType === 'day' && selectedDay && (
-                                    <ReferenceLine 
-                                        x={selectedDay} 
-                                        stroke="#f59e0b" 
-                                        strokeWidth={2} 
-                                        strokeDasharray="5 5" 
-                                        label={{ value: 'Selected', position: 'top', fill: '#d97706', fontSize: 10, fontWeight: 600 }}
-                                    />
-                                )}
-                                <Area type="monotone" name="Utilization Efficiency" dataKey="utilPercent" stroke="#0891b2" strokeWidth={2.5} fillOpacity={1} fill="url(#colorUtilEff)"/>
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-            </div>
-
             {/* Table */}
             <div className="nucleus-table-wrapper">
-                <table className="nucleus-table">
-                    <thead>
-                        <tr>
-                            <th>S.No</th>
-                            <th>TR No</th>
-                            <th>Container No</th>
-                            <th>Lock No</th>
-                            <th>LR No</th>
-                            <th>Assign Date</th>
-                            <th>Return Date</th>
-                            <th>Assign Status</th>
-                            <th>Avail Locks</th>
-                            <th>Maint Locks</th>
-                            <th>Used Locks</th>
-                            <th>Location</th>
-                            <th>Customer Name</th>
-                            <th>Assignee</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {displayedElockRows.length > 0 ? (
-                            displayedElockRows.map((row, index) => (
-                                <tr key={index}>
-                                    <td style={{ fontWeight: 500, color: '#64748b' }} className="mono-text">{index + 1}</td>
-                                    <td style={{ color: '#3b82f6', fontWeight: 500 }}>{row.tr_no ?? '—'}</td>
-                                    <td style={{ fontWeight: 700, color: '#0f172a' }}>{row.container_number ?? '—'}</td>
-                                    <td className="mono-text" style={{ fontWeight: 600 }}>{row.lock_number ?? '—'}</td>
-                                    <td className="mono-text" style={{ color: '#64748b' }}>{row.lr_no ?? '—'}</td>
-                                    <td className="mono-text">{row.date ?? '—'}</td>
-                                    <td className="mono-text">{row.elock_return_date ?? '—'}</td>
-                                    <td>
-                                        <span className={`status-pill ${row.elock_assign_status === 'ACTIVE' ? 'success' : row.elock_assign_status === 'RETURNED' ? 'info' : row.elock_assign_status === 'MAINTENANCE' ? 'error' : 'warning'}`}>
-                                            {row.elock_assign_status ?? '—'}
-                                        </span>
-                                    </td>
-                                    <td className="mono-text">{row.available_locks_this_date ?? '—'}</td>
-                                    <td className="mono-text">{row.maintenance_locks_this_date ?? '—'}</td>
-                                    <td className="mono-text" style={{ fontWeight: 800, color: '#0f172a' }}>{row.locks_used_this_date ?? '—'}</td>
-                                    <td style={{ color: '#475569' }}>{row.location ?? '—'}</td>
-                                    <td style={{ fontWeight: 500 }}>{row.customer_name ?? '—'}</td>
-                                    <td>
-                                        <span className="handler-tag">{row.elock_assign ?? '—'}</span>
+                {filterType !== 'day' ? (
+                    <table className="nucleus-table">
+                        <thead>
+                            <tr>
+                                <th style={{ width: '80px' }}>S.No</th>
+                                <th>Date</th>
+                                <th style={{ textAlign: 'right' }}>Available Locks (Idle)</th>
+                                <th style={{ textAlign: 'right' }}>Maintenance Locks</th>
+                                <th style={{ textAlign: 'right' }}>Used Locks</th>
+                                <th style={{ textAlign: 'right' }}>Total Stock Capacity</th>
+                                <th style={{ textAlign: 'right' }}>Utilization %</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {elockDailyTrendData.length > 0 ? (
+                                elockDailyTrendData.map((d, index) => {
+                                    const utilPercent = d.totalLocks > 0 ? ((d.locksUsed / d.totalLocks) * 100).toFixed(1) : '0.0';
+                                    let formattedDate = d.date;
+                                    try {
+                                        formattedDate = format(new Date(d.date), 'dd-MM-yyyy');
+                                    } catch (e) {}
+
+                                    return (
+                                        <tr key={index}>
+                                            <td style={{ fontWeight: 500, color: '#64748b' }} className="mono-text">{index + 1}</td>
+                                            <td style={{ fontWeight: 700, color: '#0f172a' }}>{formattedDate}</td>
+                                            <td style={{ textAlign: 'right', fontWeight: 600, color: '#475569' }} className="mono-text">{d.availableLocks}</td>
+                                            <td style={{ textAlign: 'right', fontWeight: 600, color: '#ef4444' }} className="mono-text">{d.maintenanceLocks}</td>
+                                            <td style={{ textAlign: 'right', fontWeight: 600, color: '#06b6d4' }} className="mono-text">{d.locksUsed}</td>
+                                            <td style={{ textAlign: 'right', fontWeight: 700, color: '#0f172a' }} className="mono-text">{d.totalLocks}</td>
+                                            <td style={{ textAlign: 'right', fontWeight: 800, color: getUtilColor(utilPercent) }} className="mono-text">{utilPercent}%</td>
+                                        </tr>
+                                    );
+                                })
+                            ) : (
+                                <tr>
+                                    <td colSpan="7" style={{ textAlign: 'center', color: '#64748b', padding: '40px', fontWeight: 500 }}>
+                                        No E-Lock trend data found for the selected period.
                                     </td>
                                 </tr>
-                            ))
-                        ) : (
+                            )}
+                        </tbody>
+                    </table>
+                ) : (
+                    <table className="nucleus-table">
+                        <thead>
                             <tr>
-                                <td colSpan="14" style={{ textAlign: 'center', color: '#64748b', padding: '40px', fontWeight: 500 }}>
-                                    No E-Lock data found for the selected period.
-                                </td>
+                                <th style={{ width: '80px' }}>S.No</th>
+                                <th>TR No</th>
+                                <th>Container No</th>
+                                <th>Lock No</th>
+                                <th>LR No</th>
+                                <th>Assign Date</th>
+                                <th>Return Date</th>
+                                <th>Assign Status</th>
+                                <th>Location</th>
+                                <th>Customer Name</th>
+                                <th>Assignee</th>
                             </tr>
-                        )}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {displayedElockRows.length > 0 ? (
+                                displayedElockRows.map((row, index) => (
+                                    <tr key={index}>
+                                        <td style={{ fontWeight: 500, color: '#64748b' }} className="mono-text">{index + 1}</td>
+                                        <td style={{ color: '#3b82f6', fontWeight: 500 }}>{row.tr_no ?? '—'}</td>
+                                        <td style={{ fontWeight: 700, color: '#0f172a' }}>{row.container_number ?? '—'}</td>
+                                        <td className="mono-text" style={{ fontWeight: 600 }}>{row.lock_number ?? '—'}</td>
+                                        <td className="mono-text" style={{ color: '#64748b' }}>{row.lr_no ?? '—'}</td>
+                                        <td className="mono-text">{row.date ?? '—'}</td>
+                                        <td className="mono-text">{row.elock_return_date ?? '—'}</td>
+                                        <td>
+                                            <span className={`status-pill ${row.elock_assign_status === 'ACTIVE' ? 'success' : row.elock_assign_status === 'RETURNED' ? 'info' : row.elock_assign_status === 'MAINTENANCE' ? 'error' : 'warning'}`}>
+                                                {row.elock_assign_status ?? '—'}
+                                            </span>
+                                        </td>
+                                        <td style={{ color: '#475569' }}>{row.location ?? '—'}</td>
+                                        <td style={{ fontWeight: 500 }}>{row.customer_name ?? '—'}</td>
+                                        <td>
+                                            <span className="handler-tag">{row.elock_assign ?? '—'}</span>
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan="11" style={{ textAlign: 'center', color: '#64748b', padding: '40px', fontWeight: 500 }}>
+                                        No E-Lock data found for the selected period.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                )}
             </div>
         </div>
     );

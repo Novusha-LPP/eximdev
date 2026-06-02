@@ -50,8 +50,30 @@ export const printAuthorizationPDF = (row, subData) => {
   currentY += 5;
 
   drawGeneralInfoCell('Scheme Code', subData.scheme_code, margin, currentY);
-  drawGeneralInfoCell('Notification No', subData.notification_number, margin + (contentWidth / 2), currentY);
-  currentY += 8;
+
+  // --- Notification No with wrapping & indentation ---
+  const notifLabel = 'Notification No:';
+  const notifVal = String(subData.notification_number || '—');
+  doc.setFont('helvetica', 'bold');
+  const notifX = margin + (contentWidth / 2);
+  doc.text(notifLabel, notifX, currentY);
+
+  doc.setFont('helvetica', 'normal');
+  const valX = notifX + 35;
+  const maxValWidth = (pageWidth - margin) - valX; // 60mm
+
+  const notifLines = doc.splitTextToSize(notifVal, maxValWidth);
+  let notifY = currentY;
+  notifLines.forEach((line, index) => {
+    // If it's not the first line, add indentation (e.g., 4mm)
+    const indent = index > 0 ? 4 : 0;
+    doc.text(line, valX + indent, notifY);
+    if (index < notifLines.length - 1) {
+      notifY += 4; // Move to next line
+    }
+  });
+
+  currentY = Math.max(currentY, notifY) + 8;
 
   // --- Compliance & Documents ---
   doc.setFontSize(10);
@@ -75,7 +97,6 @@ export const printAuthorizationPDF = (row, subData) => {
   currentY += 5;
 
   // Suppressed Docs Recv Date and Docs Sent to ICD per request. Display Sent to Accounts.
-  drawGeneralInfoCell('Docs to Accounts', subData.documents_send_to_accounts, margin, currentY);
   currentY += 8;
 
   // --- Summary cards in a table-like structure ---
@@ -114,9 +135,9 @@ export const printAuthorizationPDF = (row, subData) => {
       ],
       [
         'CIF Value (INR)',
-        `₹${totalLicensedINR.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`,
-        `₹${totalUtilizedINR.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`,
-        `₹${totalBalanceINR.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
+        `Rs. ${totalLicensedINR.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`,
+        `Rs. ${totalUtilizedINR.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`,
+        `Rs. ${totalBalanceINR.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
       ]
     ],
     theme: 'grid',
@@ -186,7 +207,7 @@ export const printAuthorizationPDF = (row, subData) => {
       item.item_description || '—',
       `${qtyVal.toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${item.unit || ''}`,
       `$${usdVal.toLocaleString('en-US', { maximumFractionDigits: 2 })}`,
-      `₹${inrVal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
+      `Rs. ${inrVal.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
     ];
   });
 
@@ -239,7 +260,7 @@ export const printAuthorizationPDF = (row, subData) => {
       item.job_no || '—',
       `${(item.qty || 0).toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${item.unit || ''}`,
       `$${(item.cif_usd || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-      `₹${(item.cif_inr || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      `Rs. ${(item.cif_inr || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
     ];
   });
 

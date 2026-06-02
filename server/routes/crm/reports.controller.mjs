@@ -72,7 +72,7 @@ router.get('/performance', async (req, res) => {
       createdAt: { $gte: start, $lte: end }
     }).lean();
 
-    const stages = ['lead', 'qualified', 'opportunity', 'proposal', 'negotiation', 'won', 'lost'];
+    const stages = ['lead', 'qualified', 'opportunity', 'sales_visit', 'proposal', 'negotiation', 'won', 'lost'];
     const performanceData = stages.map(stage => {
       const stageDeals = opportunities.filter(o => o.stage === stage);
       const count = stageDeals.length;
@@ -238,7 +238,7 @@ router.get('/stage-analysis', async (req, res) => {
       };
     });
 
-    const stagesList = ['lead', 'qualified', 'opportunity', 'proposal', 'negotiation', 'won', 'lost'];
+    const stagesList = ['lead', 'qualified', 'opportunity', 'sales_visit', 'proposal', 'negotiation', 'won', 'lost'];
     const allStagesSummary = stagesList.map(st => {
       const stageDeals = deals.filter(d => d.stage === st);
       const sCount = stageDeals.length;

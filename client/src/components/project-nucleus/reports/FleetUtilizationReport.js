@@ -85,6 +85,7 @@ const FleetUtilizationReport = ({
     dateRange,
     selectedDay
 }) => {
+    const isSingleDay = filterType === 'day' || (filterType === 'custom' && dateRange?.start && dateRange?.end && dateRange.start === dateRange.end);
     const [reportData, setReportData] = useState({ totalFleet: 'NA', dispatch: [] });
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('dashboard');
@@ -95,6 +96,12 @@ const FleetUtilizationReport = ({
     const [fleetSummaryError, setFleetSummaryError] = useState(null);
     const [fleetSearchQuery, setFleetSearchQuery] = useState('');
     const [fleetSortConfig, setFleetSortConfig] = useState({ key: 'total', direction: 'desc' });
+    const [comparisonData, setComparisonData] = useState({
+        prevTotalTrips: 0,
+        prevMundraTrips: 0,
+        prevAvgTrips: 0,
+        prevMundraAvg: 0
+    });
 
     // Fetch report data on filter changes
     useEffect(() => {
@@ -113,22 +120,177 @@ const FleetUtilizationReport = ({
                 const params = {};
                 let start = startDate;
                 let end = endDate;
-                if (filterType === 'day' && selectedDay) {
-                    start = selectedDay;
-                    end = selectedDay;
-                }
                 if (start) params.startDate = start;
                 if (end) params.endDate = end;
 
-                const res = await axios.get(`${TRANSPORT_BASE}/api/fleet/utilization-report`, {
-                    params,
-                    headers: TRANSPORT_HEADERS,
-                    withCredentials: true
-                });
+                let rawDispatch = null;
+                let totalFleet = 'NA';
 
-                if (res.data && res.data.success) {
-                    setReportData(res.data.data || { totalFleet: 'NA', dispatch: [] });
+                // Fetch previous month's data for comparison if filterType is month or day
+                let prevTotalTrips = 0;
+                let prevMundraTrips = 0;
+                let prevAvgTrips = 0;
+                let prevMundraAvg = 0;
+
+                if (filterType === 'month' || filterType === 'day') {
+                    try {
+                        const selYear = parseInt(selectedYear) || 2026;
+                        const selMonth = parseInt(selectedMonth) || 5;
+                        const prevYear = selMonth === 0 ? selYear - 1 : selYear;
+                        const prevMonth = selMonth === 0 ? 11 : selMonth - 1;
+                        
+                        const prevDays = new Date(prevYear, prevMonth + 1, 0).getDate();
+                        const prevStart = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-01`;
+                        const prevEnd = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-${String(prevDays).padStart(2, '0')}`;
+
+                        const prevParams = { startDate: prevStart, endDate: prevEnd };
+                        const resPrev = await axios.get(`${TRANSPORT_BASE}/api/vehicle-dsr/dispatch-range`, {
+                            params: prevParams,
+                            headers: TRANSPORT_HEADERS,
+                            withCredentials: true
+                        });
+
+                        if (resPrev && resPrev.data && resPrev.data.success) {
+                            const prevClosed = resPrev.data.closedLRs || [];
+                            prevTotalTrips = prevClosed.length;
+                            prevMundraTrips = prevClosed.filter(r => (r.branch || '').toLowerCase().includes('mundra')).length;
+                            
+                            prevAvgTrips = prevTotalTrips / prevDays;
+                            prevMundraAvg = prevMundraTrips / prevDays;
+                        }
+                    } catch (prevErr) {
+                        console.error("Error fetching previous month data for KPI comparison:", prevErr);
+                    }
                 }
+                setComparisonData({ prevTotalTrips, prevMundraTrips, prevAvgTrips, prevMundraAvg });
+
+                // 1. Fetch dispatch data from new API (returns fleetStatus, activeLRs, closedLRs, exceptions directly)
+                try {
+                    const resDispatch = await axios.get(`${TRANSPORT_BASE}/api/vehicle-dsr/dispatch-range`, {
+                        params,
+                        headers: TRANSPORT_HEADERS,
+                        withCredentials: true
+                    });
+                    if (resDispatch && resDispatch.data && resDispatch.data.success) {
+                        rawDispatch = resDispatch.data;
+                    }
+                } catch (err) {
+                    console.error("Error fetching dispatch range from new API:", err);
+                }
+
+                // 2. Fetch fleet size from old API
+                try {
+                    const resFleet = await axios.get(`${TRANSPORT_BASE}/api/fleet/utilization-report`, {
+                        params,
+                        headers: TRANSPORT_HEADERS,
+                        withCredentials: true
+                    });
+                    if (resFleet && resFleet.data && resFleet.data.success && resFleet.data.data) {
+                        totalFleet = resFleet.data.data.totalFleet || 'NA';
+                    }
+                } catch (err) {
+                    console.error("Error fetching fleet size from old API:", err);
+                }
+
+                // Fallback for totalFleet if old API failed but new API has it
+                if (totalFleet === 'NA' && rawDispatch && rawDispatch.totalFleet && rawDispatch.totalFleet !== 'NA') {
+                    totalFleet = rawDispatch.totalFleet;
+                }
+
+                // Map the flat range data back into the daily dispatch objects expected by the UI
+                let dailyDispatches = [];
+                if (rawDispatch) {
+                    let datesList = [];
+                    if (params.startDate && params.endDate) {
+                        try {
+                            let current = new Date(params.startDate);
+                            const end = new Date(params.endDate);
+                            current.setHours(12, 0, 0, 0);
+                            end.setHours(12, 0, 0, 0);
+                            while (current <= end) {
+                                datesList.push(current.toISOString().slice(0, 10));
+                                current.setDate(current.getDate() + 1);
+                            }
+                        } catch (e) {
+                            console.error("Error generating dates list", e);
+                        }
+                    }
+
+                    const rawFleet = rawDispatch.fleetStatus || [];
+                    const rawClosed = rawDispatch.closedLRs || [];
+                    const rawActive = rawDispatch.activeLRs || [];
+                    const rawExceptions = rawDispatch.exceptions || [];
+
+                    // Fallback to unique dates in the data if range is invalid/empty
+                    if (datesList.length === 0) {
+                        const uniqueDates = new Set();
+                        if (params.startDate) uniqueDates.add(params.startDate);
+                        if (params.endDate) uniqueDates.add(params.endDate);
+                        rawFleet.forEach(x => { if (x.date) uniqueDates.add(x.date.slice(0, 10)); });
+                        rawClosed.forEach(x => { if (x.dispatchClosedDate) uniqueDates.add(x.dispatchClosedDate.slice(0, 10)); });
+                        rawActive.forEach(x => { if (x.lr_date) uniqueDates.add(x.lr_date.slice(0, 10)); });
+                        rawExceptions.forEach(x => { if (x.date) uniqueDates.add(x.date.slice(0, 10)); });
+                        datesList = Array.from(uniqueDates).sort();
+                    }
+
+                    if (datesList.length === 0) {
+                        datesList = [new Date().toISOString().slice(0, 10)];
+                    }
+
+                    const firstDateStr = datesList[0];
+                    const lastDateStr = datesList[datesList.length - 1];
+
+                    dailyDispatches = datesList.map(dateStr => {
+                        const dayFleet = rawFleet.filter(x => {
+                            if (!x.date) return false;
+                            const itemDateStr = x.date.slice(0, 10);
+                            if (itemDateStr === dateStr) return true;
+                            if (dateStr === firstDateStr && itemDateStr < firstDateStr) return true;
+                            if (dateStr === lastDateStr && itemDateStr > lastDateStr) return true;
+                            return false;
+                        });
+
+                        const dayClosed = rawClosed.filter(x => {
+                            if (!x.dispatchClosedDate) return false;
+                            const itemDateStr = x.dispatchClosedDate.slice(0, 10);
+                            if (itemDateStr === dateStr) return true;
+                            if (dateStr === firstDateStr && itemDateStr < firstDateStr) return true;
+                            if (dateStr === lastDateStr && itemDateStr > lastDateStr) return true;
+                            return false;
+                        });
+
+                        const dayActive = rawActive.filter(x => {
+                            if (!x.lr_date) return false;
+                            const itemDateStr = x.lr_date.slice(0, 10);
+                            if (itemDateStr === dateStr) return true;
+                            if (dateStr === firstDateStr && itemDateStr < firstDateStr) return true;
+                            if (dateStr === lastDateStr && itemDateStr > lastDateStr) return true;
+                            return false;
+                        });
+
+                        const dayExceptions = rawExceptions.filter(x => {
+                            if (!x.date) return false;
+                            const itemDateStr = x.date.slice(0, 10);
+                            if (itemDateStr === dateStr) return true;
+                            if (dateStr === firstDateStr && itemDateStr < firstDateStr) return true;
+                            if (dateStr === lastDateStr && itemDateStr > lastDateStr) return true;
+                            return false;
+                        });
+
+                        return {
+                            date: `${dateStr}T00:00:00.000Z`,
+                            fleetStatus: dayFleet,
+                            activeLRs: dayActive,
+                            closedLRs: dayClosed,
+                            exceptions: dayExceptions
+                        };
+                    });
+                }
+
+                setReportData({
+                    totalFleet,
+                    dispatch: dailyDispatches
+                });
             } catch (err) {
                 console.error("Error fetching fleet utilization report:", err);
             } finally {
@@ -178,6 +340,73 @@ const FleetUtilizationReport = ({
         return parseInt(reportData.totalFleet) || 0;
     }, [reportData.totalFleet]);
 
+    // 4. Daily Aggregation for Trend & Spreadsheet Analysis (Moved up to prevent TDZ error in metrics)
+    const dailyData = useMemo(() => {
+        return dispatches.map(d => {
+            const dateStr = d.date ? d.date.slice(0, 10) : '—';
+            const fleet = d.fleetStatus || [];
+            const active = d.activeLRs || [];
+            const closed = d.closedLRs || [];
+
+            const breakdown = fleet.filter(v => v.status === 'Breakdown').length;
+            const maintenance = fleet.filter(v => v.status === 'Maintenance').length;
+            const leave = fleet.filter(v => v.status === 'Driver on Leave').length;
+            const accident = fleet.filter(v => v.status === 'Accident' || v.status === 'Accidents').length;
+            const noDriver = fleet.filter(v => v.status === 'No Driver').length;
+            const others = fleet.filter(v => !['Breakdown', 'Maintenance', 'Driver on Leave', 'Accident', 'Accidents', 'No Driver'].includes(v.status)).length;
+
+            const notOnRoadTotal = fleet.length;
+            const usedForTrips = Math.max(0, totalFleetNum - notOnRoadTotal);
+            const oorPercentVal = totalFleetNum > 0 ? parseFloat(((usedForTrips / totalFleetNum) * 100).toFixed(1)) : 0;
+            const oorPercent = `${oorPercentVal.toFixed(1)}%`;
+
+            const ownTripsCount = closed.filter(r => (r.own_hired || '').toLowerCase().trim() === 'own').length;
+            const idle = Math.max(0, totalFleetNum - notOnRoadTotal - ownTripsCount);
+
+            const automove = [...active, ...closed].filter(r => (r.branch || '').toLowerCase().trim() === 'automove').length;
+            const snContainer = [...active, ...closed].filter(r => (r.branch || '').toLowerCase().trim() !== 'automove').length;
+
+            const ownClosed20 = closed.filter(r => (r.own_hired || '').toLowerCase().trim() === 'own' && ((r.type_of_vehicle || '').includes('20') || (r.type_of_vehicle || '').includes('20ft'))).length;
+            const ownClosed40 = closed.filter(r => (r.own_hired || '').toLowerCase().trim() === 'own' && ((r.type_of_vehicle || '').includes('40') || (r.type_of_vehicle || '').includes('40ft'))).length;
+
+            const outsourced20 = [...active, ...closed].filter(r => (r.own_hired || '').toLowerCase().trim() === 'hired' && ((r.type_of_vehicle || '').includes('20') || (r.type_of_vehicle || '').includes('20ft'))).length;
+            const outsourced40 = [...active, ...closed].filter(r => (r.own_hired || '').toLowerCase().trim() === 'hired' && ((r.type_of_vehicle || '').includes('40') || (r.type_of_vehicle || '').includes('40ft'))).length;
+            const outsourcedTotal = outsourced20 + outsourced40;
+
+            const ownTrips = [...active, ...closed].filter(r => (r.own_hired || '').toLowerCase().trim() === 'own').length;
+            const hiredTrips = [...active, ...closed].filter(r => (r.own_hired || '').toLowerCase().trim() === 'hired').length;
+
+            return {
+                date: d.date,
+                dateStr,
+                totalFleet: totalFleetNum,
+                activeCount: ownTripsCount,
+                idleCount: idle,
+                oosCount: notOnRoadTotal,
+                utilPercent: oorPercentVal,
+                breakdown,
+                maintenance,
+                leave,
+                accident,
+                noDriver,
+                others,
+                usedForTrips,
+                oorPercent,
+                automove,
+                snContainer,
+                activeLRs: active.length,
+                ownClosed20,
+                ownClosed40,
+                ownTrips,
+                hiredTrips,
+                outsourced20,
+                outsourced40,
+                outsourcedTotal,
+                totalTrips: closed.length
+            };
+        }).sort((a, b) => new Date(a.date) - new Date(b.date));
+    }, [dispatches, totalFleetNum]);
+
     // 1. Dashboard specific aggregates
     const activeDispatch = useMemo(() => {
         if (!dispatches.length) return null;
@@ -221,56 +450,408 @@ const FleetUtilizationReport = ({
     const activeLRsList = useMemo(() => activeDispatch?.activeLRs || [], [activeDispatch]);
     const closedLRsList = useMemo(() => activeDispatch?.closedLRs || [], [activeDispatch]);
 
-    // 2. Metrics & KPI computation
-    const metrics = useMemo(() => {
-        const noDriver = fleetStatusList.filter(v => v.status === 'No Driver').length;
-        const onLeave = fleetStatusList.filter(v => v.status === 'Driver on Leave').length;
-        const maint = fleetStatusList.filter(v => v.status === 'Maintenance').length;
-        const accident = fleetStatusList.filter(v => v.status === 'Accident').length;
-        const others = fleetStatusList.filter(v => !['No Driver', 'Driver on Leave', 'Maintenance', 'Accident'].includes(v.status)).length;
-        const notOnRoad = fleetStatusList.length;
+    // Estimate/Project monthly trips for Month, Quarter, or Year selection
+    const projectedMonthlyTrips = useMemo(() => {
+        if (filterType !== 'month' && filterType !== 'quarter' && filterType !== 'year') return null;
 
-        const ownTrips = closedLRsList.filter(r => (r.own_hired || '').toLowerCase().trim() === 'own').length;
-        const idleVal = totalFleetNum > 0 ? Math.max(0, totalFleetNum - notOnRoad - ownTrips) : 'NA';
-        const onRoadCount = Math.max(0, totalFleetNum - notOnRoad);
+        const today = new Date('2026-06-02T12:56:07+05:30'); // Using current local time
+        const todayYear = 2026;
+        const todayMonth = 5; // June is 5 (0-indexed)
+        const todayDate = 2;
 
-        const getPctStr = (val) => {
-            if (totalFleetNum <= 0) return '';
-            return `(${((val / totalFleetNum) * 100).toFixed(0)}%)`;
-        };
+        const totalTrips = closedLRsList.length;
 
-        const onRoadPct = totalFleetNum > 0 ? (onRoadCount / totalFleetNum) * 100 : 0;
-        const onRoadColor = onRoadPct >= 90 ? '#10b981' : onRoadPct >= 75 ? '#f59e0b' : '#ef4444';
+        if (filterType === 'month') {
+            const selYear = parseInt(selectedYear) || todayYear;
+            const selMonth = parseInt(selectedMonth); // 0-indexed
+            
+            const daysInMonth = new Date(selYear, selMonth + 1, 0).getDate();
 
-        let idleColor = '#374151';
-        if (idleVal !== 'NA') {
-            const idleInt = parseInt(idleVal);
-            idleColor = idleInt === 0 ? '#10b981' : idleInt <= 2 ? '#f59e0b' : '#ef4444';
+            let elapsedDays = daysInMonth;
+            if (selYear === todayYear && selMonth === todayMonth) {
+                elapsedDays = Math.max(1, todayDate);
+            } else if (selYear > todayYear || (selYear === todayYear && selMonth > todayMonth)) {
+                elapsedDays = 0; // Future month
+            }
+
+            if (elapsedDays === 0) return 0;
+            if (elapsedDays === daysInMonth) return totalTrips; // Month in the past is already completed
+            
+            return Math.round((totalTrips / elapsedDays) * daysInMonth);
         }
 
-        return {
-            fleetSize: totalFleetNum || 'NA',
-            onRoadCount,
-            onRoadPct: getPctStr(onRoadCount),
-            onRoadColor,
-            idleVal,
-            idlePct: idleVal !== 'NA' ? getPctStr(idleVal) : '',
-            idleColor,
-            notOnRoad,
-            notOnRoadPct: getPctStr(notOnRoad),
-            noDriver,
-            noDriverPct: getPctStr(noDriver),
-            onLeave,
-            onLeavePct: getPctStr(onLeave),
-            maint,
-            maintPct: getPctStr(maint),
-            accident,
-            accidentPct: getPctStr(accident),
-            others,
-            othersPct: getPctStr(others),
-            totalTrips: closedLRsList.length
+        if (filterType === 'quarter') {
+            const selYear = parseInt(selectedYear) || todayYear;
+            const q = parseInt(selectedQuarter) || 2;
+            const startMonthOfQ = (q - 1) * 3;
+            const endMonthOfQ = startMonthOfQ + 2;
+
+            const qStart = new Date(selYear, startMonthOfQ, 1);
+            const qEnd = new Date(selYear, endMonthOfQ + 1, 0);
+            
+            const totalDaysInQ = Math.round((qEnd - qStart) / (1000 * 60 * 60 * 24)) + 1;
+
+            let elapsedDays = totalDaysInQ;
+
+            if (selYear === todayYear) {
+                if (todayMonth >= startMonthOfQ && todayMonth <= endMonthOfQ) {
+                    const elapsedInQ = Math.round((today - qStart) / (1000 * 60 * 60 * 24)) + 1;
+                    elapsedDays = Math.max(1, elapsedInQ);
+                } else if (todayMonth < startMonthOfQ) {
+                    elapsedDays = 0; // Future quarter
+                }
+            } else if (selYear > todayYear) {
+                elapsedDays = 0; // Future year
+            }
+
+            if (elapsedDays === 0) return 0;
+
+            const projectedTotalQTrips = (totalTrips / elapsedDays) * totalDaysInQ;
+            return Math.round(projectedTotalQTrips / 3); // Average monthly trips in the quarter
+        }
+
+        if (filterType === 'year') {
+            const selYear = parseInt(selectedYear) || todayYear;
+            
+            const yStart = new Date(selYear, 0, 1);
+            const yEnd = new Date(selYear, 12, 0);
+            
+            const totalDaysInYear = Math.round((yEnd - yStart) / (1000 * 60 * 60 * 24)) + 1;
+
+            let elapsedDays = totalDaysInYear;
+
+            if (selYear === todayYear) {
+                const elapsedInYear = Math.round((today - yStart) / (1000 * 60 * 60 * 24)) + 1;
+                elapsedDays = Math.max(1, elapsedInYear);
+            } else if (selYear > todayYear) {
+                elapsedDays = 0; // Future year
+            }
+
+            if (elapsedDays === 0) return 0;
+
+            const projectedTotalYTrips = (totalTrips / elapsedDays) * totalDaysInYear;
+            return Math.round(projectedTotalYTrips / 12); // Average monthly trips in the year
+        }
+
+        return null;
+    }, [filterType, selectedYear, selectedMonth, selectedQuarter, closedLRsList]);
+
+    // Dynamic KPI Calculations for Average Trips Per Day & Projections (CR-003)
+    const kpiMetricsObj = useMemo(() => {
+        const today = new Date();
+        const todayYear = today.getFullYear();
+        const todayMonth = today.getMonth(); // 0-indexed
+        const todayDate = today.getDate();
+
+        let totalDays = 30;
+        let elapsedDays = 30;
+
+        const selYear = parseInt(selectedYear) || todayYear;
+
+        if (filterType === 'month') {
+            const selMonth = parseInt(selectedMonth); // 0-indexed
+            totalDays = new Date(selYear, selMonth + 1, 0).getDate();
+            if (selYear === todayYear && selMonth === todayMonth) {
+                elapsedDays = Math.max(1, todayDate);
+            } else if (selYear > todayYear || (selYear === todayYear && selMonth > todayMonth)) {
+                elapsedDays = 0; // Future month
+            } else {
+                elapsedDays = totalDays; // Past month
+            }
+        } else if (filterType === 'quarter') {
+            const q = parseInt(selectedQuarter) || 2;
+            const startMonthOfQ = (q - 1) * 3;
+            const endMonthOfQ = startMonthOfQ + 2;
+            
+            const qStart = new Date(selYear, startMonthOfQ, 1);
+            const qEnd = new Date(selYear, endMonthOfQ + 1, 0);
+            totalDays = Math.round((qEnd - qStart) / (1000 * 60 * 60 * 24)) + 1;
+
+            if (selYear === todayYear) {
+                if (todayMonth >= startMonthOfQ && todayMonth <= endMonthOfQ) {
+                    const elapsedInQ = Math.round((today - qStart) / (1000 * 60 * 60 * 24)) + 1;
+                    elapsedDays = Math.max(1, elapsedInQ);
+                } else if (todayMonth < startMonthOfQ) {
+                    elapsedDays = 0; // Future quarter
+                } else {
+                    elapsedDays = totalDays; // Past quarter
+                }
+            } else if (selYear > todayYear) {
+                elapsedDays = 0; // Future year
+            } else {
+                elapsedDays = totalDays; // Past year
+            }
+        } else if (filterType === 'year') {
+            const yStart = new Date(selYear, 0, 1);
+            const yEnd = new Date(selYear, 12, 0);
+            totalDays = Math.round((yEnd - yStart) / (1000 * 60 * 60 * 24)) + 1;
+
+            if (selYear === todayYear) {
+                const elapsedInYear = Math.round((today - yStart) / (1000 * 60 * 60 * 24)) + 1;
+                elapsedDays = Math.max(1, elapsedInYear);
+            } else if (selYear > todayYear) {
+                elapsedDays = 0; // Future year
+            } else {
+                elapsedDays = totalDays; // Past year
+            }
+        } else if (filterType === 'day') {
+            totalDays = 1;
+            elapsedDays = 1;
+        } else { // Custom range
+            if (dateRange && dateRange.start && dateRange.end) {
+                const start = new Date(dateRange.start);
+                const end = new Date(dateRange.end);
+                totalDays = Math.max(1, Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1);
+                elapsedDays = totalDays;
+            } else if (dailyData.length > 0) {
+                totalDays = dailyData.length;
+                elapsedDays = totalDays;
+            }
+        }
+
+        const totalTrips = closedLRsList.length;
+        const mundraTrips = closedLRsList.filter(r => (r.branch || '').toLowerCase().includes('mundra')).length;
+
+        const avgTripsPerDay = elapsedDays > 0 ? totalTrips / elapsedDays : 0;
+        const mundraAvgTripsPerDay = elapsedDays > 0 ? mundraTrips / elapsedDays : 0;
+
+        const projectionAllPorts = avgTripsPerDay * totalDays;
+        const projectionMundra = mundraAvgTripsPerDay * totalDays;
+
+        // Compute performance percentages against previous month (comparisonData)
+        const avgTripsPerf = comparisonData.prevAvgTrips > 0 ? (avgTripsPerDay / comparisonData.prevAvgTrips) * 100 : 100;
+        const projectionAllPerf = comparisonData.prevTotalTrips > 0 ? (projectionAllPorts / comparisonData.prevTotalTrips) * 100 : 100;
+        const projectionMundraPerf = comparisonData.prevMundraTrips > 0 ? (projectionMundra / comparisonData.prevMundraTrips) * 100 : 100;
+
+        // Apply HSL color themes based on CR logic (Green >= 100%, Yellow >= 90%, Red < 90%)
+        const getColorTheme = (perfVal) => {
+            if (perfVal >= 100) {
+                return {
+                    color: '#059669',
+                    bg: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, transparent 100%)',
+                    border: '1px solid rgba(16, 185, 129, 0.2)',
+                    badgeBg: 'rgba(16, 185, 129, 0.1)',
+                    performanceLabel: `↑ ${perfVal.toFixed(0)}% vs Last Month`
+                };
+            } else if (perfVal >= 90) {
+                return {
+                    color: '#d97706',
+                    bg: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, transparent 100%)',
+                    border: '1px solid rgba(245, 158, 11, 0.2)',
+                    badgeBg: 'rgba(245, 158, 11, 0.1)',
+                    performanceLabel: `↓ ${perfVal.toFixed(0)}% vs Last Month`
+                };
+            } else {
+                return {
+                    color: '#dc2626',
+                    bg: 'linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, transparent 100%)',
+                    border: '1px solid rgba(239, 68, 68, 0.2)',
+                    badgeBg: 'rgba(239, 68, 68, 0.1)',
+                    performanceLabel: `↓ ${perfVal.toFixed(0)}% vs Last Month`
+                };
+            }
         };
-    }, [fleetStatusList, closedLRsList, totalFleetNum]);
+
+        return {
+            avgTripsPerDay: avgTripsPerDay.toFixed(1),
+            projectionAllPorts: Math.round(projectionAllPorts),
+            projectionMundra: Math.round(projectionMundra),
+            avgTripsTheme: getColorTheme(avgTripsPerf),
+            projectionAllTheme: getColorTheme(projectionAllPerf),
+            projectionMundraTheme: getColorTheme(projectionMundraPerf)
+        };
+    }, [filterType, selectedYear, selectedMonth, selectedQuarter, dateRange, closedLRsList, comparisonData, dailyData]);
+
+    // Spreadsheet Totals/Summary Row (CR-004)
+    const spreadsheetTotals = useMemo(() => {
+        if (dailyData.length === 0) return null;
+        let sumFleet = 0;
+        let sumUsed = 0;
+        let sumIdle = 0;
+        let sumNotOnRoad = 0;
+        let sumBrk = 0;
+        let sumMaint = 0;
+        let sumLeave = 0;
+        let sumAcc = 0;
+        let sumNoDrv = 0;
+        let sumOth = 0;
+        let sumAuto = 0;
+        let sumSnc = 0;
+        let sumActLr = 0;
+        let sumOwn20 = 0;
+        let sumOwn40 = 0;
+        let sumOwnTr = 0;
+        let sumHirTr = 0;
+        let sumOut20 = 0;
+        let sumOut40 = 0;
+        let sumOutTot = 0;
+
+        dailyData.forEach(d => {
+            sumFleet += d.totalFleet || 0;
+            sumUsed += d.usedForTrips || 0;
+            sumIdle += d.idleCount || 0;
+            sumNotOnRoad += d.oosCount || 0;
+            sumBrk += d.breakdown || 0;
+            sumMaint += d.maintenance || 0;
+            sumLeave += d.leave || 0;
+            sumAcc += d.accident || 0;
+            sumNoDrv += d.noDriver || 0;
+            sumOth += d.others || 0;
+            sumAuto += d.automove || 0;
+            sumSnc += d.snContainer || 0;
+            sumActLr += d.activeLRs || 0;
+            sumOwn20 += d.ownClosed20 || 0;
+            sumOwn40 += d.ownClosed40 || 0;
+            sumOwnTr += d.ownTrips || 0;
+            sumHirTr += d.hiredTrips || 0;
+            sumOut20 += d.outsourced20 || 0;
+            sumOut40 += d.outsourced40 || 0;
+            sumOutTot += d.outsourcedTotal || 0;
+        });
+
+        // Compute average On Road %
+        const avgOnRoadPct = sumFleet > 0 ? ((sumUsed / sumFleet) * 100).toFixed(1) + '%' : '0.0%';
+
+        return {
+            totalFleet: Math.round(sumFleet / dailyData.length), // Average size
+            usedForTrips: sumUsed,
+            oorPercent: avgOnRoadPct,
+            idleCount: sumIdle,
+            oosCount: sumNotOnRoad,
+            breakdown: sumBrk,
+            maintenance: sumMaint,
+            leave: sumLeave,
+            accident: sumAcc,
+            noDriver: sumNoDrv,
+            others: sumOth,
+            automove: sumAuto,
+            snContainer: sumSnc,
+            activeLRs: sumActLr,
+            ownClosed20: sumOwn20,
+            ownClosed40: sumOwn40,
+            ownTrips: sumOwnTr,
+            hiredTrips: sumHirTr,
+            outsourced20: sumOut20,
+            outsourced40: sumOut40,
+            outsourcedTotal: sumOutTot
+        };
+    }, [dailyData]);
+
+
+
+    // 2. Metrics & KPI computation
+    const metrics = useMemo(() => {
+        const totalTrips = closedLRsList.length;
+
+        if (filterType === 'day' || dailyData.length <= 1) {
+            const noDriver = fleetStatusList.filter(v => v.status === 'No Driver').length;
+            const onLeave = fleetStatusList.filter(v => v.status === 'Driver on Leave').length;
+            const maint = fleetStatusList.filter(v => v.status === 'Maintenance').length;
+            const accident = fleetStatusList.filter(v => v.status === 'Accident').length;
+            const others = fleetStatusList.filter(v => !['No Driver', 'Driver on Leave', 'Maintenance', 'Accident'].includes(v.status)).length;
+            const notOnRoad = fleetStatusList.length;
+
+            const ownTrips = closedLRsList.filter(r => (r.own_hired || '').toLowerCase().trim() === 'own').length;
+            const idleVal = totalFleetNum > 0 ? Math.max(0, totalFleetNum - notOnRoad - ownTrips) : 'NA';
+            const onRoadCount = Math.max(0, totalFleetNum - notOnRoad);
+
+            const getPctStr = (val) => {
+                if (totalFleetNum <= 0) return '';
+                return `(${((val / totalFleetNum) * 100).toFixed(0)}%)`;
+            };
+
+            const onRoadPct = totalFleetNum > 0 ? (onRoadCount / totalFleetNum) * 100 : 0;
+            const onRoadColor = onRoadPct >= 90 ? '#10b981' : onRoadPct >= 75 ? '#f59e0b' : '#ef4444';
+
+            let idleColor = '#374151';
+            if (idleVal !== 'NA') {
+                const idleInt = parseInt(idleVal);
+                idleColor = idleInt === 0 ? '#10b981' : idleInt <= 2 ? '#f59e0b' : '#ef4444';
+            }
+
+            return {
+                fleetSize: totalFleetNum || 'NA',
+                onRoadCount,
+                onRoadPct: getPctStr(onRoadCount),
+                onRoadColor,
+                idleVal,
+                idlePct: idleVal !== 'NA' ? getPctStr(idleVal) : '',
+                idleColor,
+                notOnRoad,
+                notOnRoadPct: getPctStr(notOnRoad),
+                noDriver,
+                noDriverPct: getPctStr(noDriver),
+                onLeave,
+                onLeavePct: getPctStr(onLeave),
+                maint,
+                maintPct: getPctStr(maint),
+                accident,
+                accidentPct: getPctStr(accident),
+                others,
+                othersPct: getPctStr(others),
+                totalTrips
+            };
+        } else {
+            // Range calculation: cumulative sum of each day's status
+            let sumFleetSize = 0;
+            let sumOnRoad = 0;
+            let sumIdle = 0;
+            let sumNotOnRoad = 0;
+            let sumNoDriver = 0;
+            let sumLeave = 0;
+            let sumMaint = 0;
+            let sumAccident = 0;
+            let sumOthers = 0;
+
+            dailyData.forEach(d => {
+                sumFleetSize += d.totalFleet;
+                sumOnRoad += d.usedForTrips;
+                sumIdle += d.idleCount;
+                sumNotOnRoad += d.oosCount;
+                sumNoDriver += d.noDriver;
+                sumLeave += d.leave;
+                sumMaint += d.maintenance;
+                sumAccident += d.accident;
+                sumOthers += d.others;
+            });
+
+            const getPctStr = (val) => {
+                if (sumFleetSize <= 0) return '';
+                return `(${((val / sumFleetSize) * 100).toFixed(0)}%)`;
+            };
+
+            const onRoadPct = sumFleetSize > 0 ? (sumOnRoad / sumFleetSize) * 100 : 0;
+            const onRoadColor = onRoadPct >= 90 ? '#10b981' : onRoadPct >= 75 ? '#f59e0b' : '#ef4444';
+
+            // Custom idle color logic for range cumulative sum (e.g. idle status count)
+            let idleColor = '#374151';
+            const idleInt = sumIdle;
+            idleColor = idleInt === 0 ? '#10b981' : '#f59e0b';
+
+            return {
+                fleetSize: sumFleetSize || 'NA',
+                onRoadCount: sumOnRoad,
+                onRoadPct: getPctStr(sumOnRoad),
+                onRoadColor,
+                idleVal: sumIdle,
+                idlePct: getPctStr(sumIdle),
+                idleColor,
+                notOnRoad: sumNotOnRoad,
+                notOnRoadPct: getPctStr(sumNotOnRoad),
+                noDriver: sumNoDriver,
+                noDriverPct: getPctStr(sumNoDriver),
+                onLeave: sumLeave,
+                onLeavePct: getPctStr(sumLeave),
+                maint: sumMaint,
+                maintPct: getPctStr(sumMaint),
+                accident: sumAccident,
+                accidentPct: getPctStr(sumAccident),
+                others: sumOthers,
+                othersPct: getPctStr(sumOthers),
+                totalTrips
+            };
+        }
+    }, [fleetStatusList, closedLRsList, totalFleetNum, filterType, dailyData]);
 
     // 3. Branch Wise Analytics Aggregates
     const branchSummary = useMemo(() => {
@@ -396,72 +977,7 @@ const FleetUtilizationReport = ({
         };
     }, [closedLRsList]);
 
-    // 4. Daily Aggregation for Trend & Spreadsheet Analysis
-    const dailyData = useMemo(() => {
-        return dispatches.map(d => {
-            const dateStr = d.date ? d.date.slice(0, 10) : '—';
-            const fleet = d.fleetStatus || [];
-            const active = d.activeLRs || [];
-            const closed = d.closedLRs || [];
 
-            const breakdown = fleet.filter(v => v.status === 'Breakdown').length;
-            const maintenance = fleet.filter(v => v.status === 'Maintenance').length;
-            const leave = fleet.filter(v => v.status === 'Driver on Leave').length;
-            const accident = fleet.filter(v => v.status === 'Accident' || v.status === 'Accidents').length;
-            const noDriver = fleet.filter(v => v.status === 'No Driver').length;
-            const others = fleet.filter(v => !['Breakdown', 'Maintenance', 'Driver on Leave', 'Accident', 'Accidents', 'No Driver'].includes(v.status)).length;
-
-            const notOnRoadTotal = fleet.length;
-            const usedForTrips = Math.max(0, totalFleetNum - notOnRoadTotal);
-            const oorPercentVal = totalFleetNum > 0 ? parseFloat(((usedForTrips / totalFleetNum) * 100).toFixed(1)) : 0;
-            const oorPercent = `${oorPercentVal.toFixed(1)}%`;
-
-            const ownTripsCount = closed.filter(r => (r.own_hired || '').toLowerCase().trim() === 'own').length;
-            const idle = Math.max(0, totalFleetNum - notOnRoadTotal - ownTripsCount);
-
-            const automove = [...active, ...closed].filter(r => (r.branch || '').toLowerCase().trim() === 'automove').length;
-            const snContainer = [...active, ...closed].filter(r => (r.branch || '').toLowerCase().trim() !== 'automove').length;
-
-            const ownClosed20 = closed.filter(r => (r.own_hired || '').toLowerCase().trim() === 'own' && ((r.type_of_vehicle || '').includes('20') || (r.type_of_vehicle || '').includes('20ft'))).length;
-            const ownClosed40 = closed.filter(r => (r.own_hired || '').toLowerCase().trim() === 'own' && ((r.type_of_vehicle || '').includes('40') || (r.type_of_vehicle || '').includes('40ft'))).length;
-
-            const outsourced20 = [...active, ...closed].filter(r => (r.own_hired || '').toLowerCase().trim() === 'hired' && ((r.type_of_vehicle || '').includes('20') || (r.type_of_vehicle || '').includes('20ft'))).length;
-            const outsourced40 = [...active, ...closed].filter(r => (r.own_hired || '').toLowerCase().trim() === 'hired' && ((r.type_of_vehicle || '').includes('40') || (r.type_of_vehicle || '').includes('40ft'))).length;
-            const outsourcedTotal = outsourced20 + outsourced40;
-
-            const ownTrips = [...active, ...closed].filter(r => (r.own_hired || '').toLowerCase().trim() === 'own').length;
-            const hiredTrips = [...active, ...closed].filter(r => (r.own_hired || '').toLowerCase().trim() === 'hired').length;
-
-            return {
-                date: d.date,
-                dateStr,
-                totalFleet: totalFleetNum,
-                activeCount: ownTripsCount,
-                idleCount: idle,
-                oosCount: notOnRoadTotal,
-                utilPercent: oorPercentVal,
-                breakdown,
-                maintenance,
-                leave,
-                accident,
-                noDriver,
-                others,
-                usedForTrips,
-                oorPercent,
-                automove,
-                snContainer,
-                activeLRs: active.length,
-                ownClosed20,
-                ownClosed40,
-                ownTrips,
-                hiredTrips,
-                outsourced20,
-                outsourced40,
-                outsourcedTotal,
-                totalTrips: closed.length
-            };
-        }).sort((a, b) => new Date(a.date) - new Date(b.date));
-    }, [dispatches, totalFleetNum]);
 
     // --- Fleet Summary Tab Computations ---
 
@@ -932,12 +1448,12 @@ const FleetUtilizationReport = ({
                 {[
                     { id: 'dashboard', label: '📊 Dashboard', icon: '📊' },
                     { id: 'spreadsheet', label: '🗂️ Spreadsheet', icon: '🗂️' },
-                    { id: 'fleet-summary', label: '📋 Fleet Summary', icon: '📋' }
+                    { id: 'trend', label: '📈 Trend', icon: '📈' }
                 ].map(tab => (
                     <button
                         key={tab.id}
-                        onClick={() => setActiveTab(tab.id)}
-                        className={`nucleus-tab-btn ${activeTab === tab.id ? 'active' : ''}`}
+                        onClick={() => setActiveTab(tab.id === 'fleet-summary' ? 'trend' : tab.id)}
+                        className={`nucleus-tab-btn ${activeTab === tab.id || (tab.id === 'trend' && activeTab === 'fleet-summary') ? 'active' : ''}`}
                     >
                         <span>{tab.icon}</span> {tab.label}
                     </button>
@@ -948,7 +1464,7 @@ const FleetUtilizationReport = ({
             {activeTab === 'dashboard' && (
                 <>
                     {/* Metrics Grid - First Line (Core KPIs) */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
                         {[
                             { label: 'Fleet Size', value: metrics.fleetSize, color: '#667eea', gradient: 'linear-gradient(135deg, #667eea10, #764ba210)' },
                             { label: 'Vehicle On Road', value: `${metrics.onRoadCount}`, extra: metrics.onRoadPct, color: metrics.onRoadColor, gradient: `linear-gradient(135deg, ${metrics.onRoadColor}15, transparent)` },
@@ -964,6 +1480,53 @@ const FleetUtilizationReport = ({
                             </div>
                         ))}
                     </div>
+
+                    {/* Metrics Grid - CR-003 Additional KPI Cards with Dynamic Colors */}
+                    {!isSingleDay && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginTop: '16px' }}>
+                            {[
+                                { 
+                                    label: 'Average Trips Per Day', 
+                                    value: kpiMetricsObj.avgTripsPerDay, 
+                                    extra: kpiMetricsObj.avgTripsTheme.performanceLabel, 
+                                    color: kpiMetricsObj.avgTripsTheme.color,
+                                    gradient: kpiMetricsObj.avgTripsTheme.bg,
+                                    border: kpiMetricsObj.avgTripsTheme.border,
+                                    badgeBg: kpiMetricsObj.avgTripsTheme.badgeBg
+                                },
+                                { 
+                                    label: 'Projection Trips – All Ports', 
+                                    value: kpiMetricsObj.projectionAllPorts, 
+                                    extra: kpiMetricsObj.projectionAllTheme.performanceLabel, 
+                                    color: kpiMetricsObj.projectionAllTheme.color,
+                                    gradient: kpiMetricsObj.projectionAllTheme.bg,
+                                    border: kpiMetricsObj.projectionAllTheme.border,
+                                    badgeBg: kpiMetricsObj.projectionAllTheme.badgeBg
+                                },
+                                { 
+                                    label: 'Projection Trips – Mundra', 
+                                    value: kpiMetricsObj.projectionMundra, 
+                                    extra: kpiMetricsObj.projectionMundraTheme.performanceLabel, 
+                                    color: kpiMetricsObj.projectionMundraTheme.color,
+                                    gradient: kpiMetricsObj.projectionMundraTheme.bg,
+                                    border: kpiMetricsObj.projectionMundraTheme.border,
+                                    badgeBg: kpiMetricsObj.projectionMundraTheme.badgeBg
+                                }
+                            ].map((m, idx) => (
+                                <div key={idx} className="nucleus-stats-card" style={{ padding: '22px 26px', display: 'flex', flexDirection: 'column', gap: '10px', background: m.gradient, border: m.border, boxShadow: '0 8px 32px rgba(0, 0, 0, 0.03)' }}>
+                                    <div style={{ fontSize: '13px', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 800 }}>{m.label}</div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                                            <span style={{ fontSize: '42px', fontWeight: 900, color: '#0f172a' }} className="mono-text">{m.value}</span>
+                                        </div>
+                                        <div style={{ display: 'inline-flex', padding: '6px 12px', borderRadius: '8px', background: m.badgeBg, color: m.color, fontWeight: 700, fontSize: '12.5px', width: 'fit-content' }}>
+                                            {m.extra}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
 
                     {/* Metrics Grid - Second Line (Not on Road Breakdown) */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginTop: '16px' }}>
@@ -1400,7 +1963,34 @@ const FleetUtilizationReport = ({
                                             <td className="num highlight-yellow">{d.outsourcedTotal}</td>
                                         </tr>
                                     ))
-                                ) : (
+                                ) : null}
+                                {dailyData.length > 0 && spreadsheetTotals && (
+                                    <tr style={{ background: 'rgba(102, 126, 234, 0.08)', fontWeight: 800, borderTop: '2px solid rgba(102, 126, 234, 0.3)' }}>
+                                        <td style={{ fontWeight: 800, color: '#0f172a' }}>Total / Avg</td>
+                                        <td className="num highlight-yellow" style={{ fontWeight: 800 }}>{spreadsheetTotals.totalFleet}</td>
+                                        <td className="num" style={{ fontWeight: 800 }}>{spreadsheetTotals.usedForTrips}</td>
+                                        <td className="num" style={{ color: '#059669', fontWeight: 800 }}>{spreadsheetTotals.oorPercent}</td>
+                                        <td className="num highlight-yellow" style={{ fontWeight: 800 }}>{spreadsheetTotals.idleCount}</td>
+                                        <td className="num highlight-red" style={{ fontWeight: 800 }}>{spreadsheetTotals.oosCount}</td>
+                                        <td className="num" style={{ fontWeight: 800 }}>{spreadsheetTotals.breakdown}</td>
+                                        <td className="num" style={{ fontWeight: 800 }}>{spreadsheetTotals.maintenance}</td>
+                                        <td className="num" style={{ fontWeight: 800 }}>{spreadsheetTotals.leave}</td>
+                                        <td className="num" style={{ fontWeight: 800 }}>{spreadsheetTotals.accident}</td>
+                                        <td className="num" style={{ fontWeight: 800 }}>{spreadsheetTotals.noDriver}</td>
+                                        <td className="num" style={{ fontWeight: 800 }}>{spreadsheetTotals.others}</td>
+                                        <td className="num" style={{ fontWeight: 800 }}>{spreadsheetTotals.automove}</td>
+                                        <td className="num" style={{ fontWeight: 800 }}>{spreadsheetTotals.snContainer}</td>
+                                        <td className="num highlight-green" style={{ fontWeight: 800 }}>{spreadsheetTotals.activeLRs}</td>
+                                        <td className="num" style={{ color: '#2563eb', fontWeight: 800 }}>{spreadsheetTotals.ownClosed20}</td>
+                                        <td className="num" style={{ color: '#d97706', fontWeight: 800 }}>{spreadsheetTotals.ownClosed40}</td>
+                                        <td className="num" style={{ fontWeight: 800 }}>{spreadsheetTotals.ownTrips}</td>
+                                        <td className="num" style={{ fontWeight: 800 }}>{spreadsheetTotals.hiredTrips}</td>
+                                        <td className="num" style={{ fontWeight: 800 }}>{spreadsheetTotals.outsourced20}</td>
+                                        <td className="num" style={{ fontWeight: 800 }}>{spreadsheetTotals.outsourced40}</td>
+                                        <td className="num highlight-yellow" style={{ fontWeight: 800 }}>{spreadsheetTotals.outsourcedTotal}</td>
+                                    </tr>
+                                )}
+                                {dailyData.length === 0 && (
                                     <tr>
                                         <td colSpan="22" style={{ textAlign: 'center', color: '#94a3b8', padding: '40px' }}>
                                             No data available for the selected period
@@ -1413,191 +2003,172 @@ const FleetUtilizationReport = ({
                 </div>
             )}
 
-            {/* Fleet Summary View */}
-            {activeTab === 'fleet-summary' && (
+            {/* Trend View (CR-002) */}
+            {(activeTab === 'trend' || activeTab === 'fleet-summary') && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-                    {fleetSummaryLoading ? (
-                        <div className="nucleus-loading-container">
-                            <div className="nucleus-loader"></div>
-                            <div style={{ marginTop: '1.5rem', color: '#1e293b', fontWeight: 600 }}>Loading Fleet Summary...</div>
-                        </div>
-                    ) : fleetSummaryError ? (
-                        <div className="nucleus-stats-card" style={{ padding: '24px', background: 'rgba(254, 226, 226, 0.4)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#dc2626', fontWeight: 600 }}>
-                            ⚠️ Error: {fleetSummaryError}
-                        </div>
-                    ) : !fleetSummaryData ? (
-                        <div className="nucleus-stats-card" style={{ padding: '24px', color: '#64748b', textAlign: 'center' }}>
-                            No fleet summary data found.
-                        </div>
-                    ) : (
-                        <>
-                            {/* KPI Metrics */}
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                                {[
-                                    { label: 'Fleet Size', value: fleetSummaryData.rows?.length || 0, color: '#6366f1', gradient: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1), transparent)' },
-                                    { label: 'Total Trips', value: totalFleetTrips, color: '#8b5cf6', gradient: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1), transparent)' }
-                                ].map((m, idx) => (
-                                    <div key={idx} className="nucleus-stats-card" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '8px', background: m.gradient }}>
-                                        <div style={{ fontSize: '12px', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>{m.label}</div>
-                                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                                            <span style={{ fontSize: '36px', fontWeight: 900, color: '#0f172a' }} className="mono-text">{m.value}</span>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            {/* Charts Section */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: '20px' }}>
-                                {/* Monthly Trend Chart */}
-                                <div className="analytics-graph-card">
-                                    <div className="graph-card-header">
-                                        <h3>📈 Monthly Trips Overview</h3>
-                                        <span className="graph-subtitle">Total trips recorded per month for FY {selectedYear}</span>
-                                    </div>
-                                    <div style={{ width: '100%', height: 320, marginTop: '20px' }}>
-                                        <ResponsiveContainer>
-                                            <ComposedChart data={monthlyTrendData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                                                <defs>
-                                                    <linearGradient id="colorTotalTrips" x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2}/>
-                                                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
-                                                    </linearGradient>
-                                                </defs>
-                                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(226, 232, 240, 0.4)" />
-                                                <XAxis dataKey="month" stroke="#94a3b8" fontSize={11} tickLine={false} />
-                                                <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} allowDecimals={false} />
-                                                <Tooltip
-                                                    contentStyle={{
-                                                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                                        border: '1px solid rgba(226, 232, 240, 0.6)',
-                                                        borderRadius: '16px',
-                                                        boxShadow: '0 12px 40px rgba(0,0,0,0.08)',
-                                                        backdropFilter: 'blur(10px)'
-                                                    }}
-                                                />
-                                                <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '12px' }} />
-                                                <Area type="monotone" name="Total Trips" dataKey="Total" stroke="#8b5cf6" strokeWidth={2} fill="url(#colorTotalTrips)" />
-                                                <Line type="monotone" name="Total Trips Trend" dataKey="Total" stroke="#6366f1" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
-                                            </ComposedChart>
-                                        </ResponsiveContainer>
-                                    </div>
-                                </div>
-
-                                {/* Top Vehicles Utilization Chart */}
-                                <div className="analytics-graph-card">
-                                    <div className="graph-card-header">
-                                        <h3>🏆 Top 10 Utilized Vehicles</h3>
-                                        <span className="graph-subtitle">Vehicles with highest total trip counts in FY {selectedYear}</span>
-                                    </div>
-                                    <div style={{ width: '100%', height: 320, marginTop: '20px' }}>
-                                        <ResponsiveContainer>
-                                            <ComposedChart layout="vertical" data={topVehiclesData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-                                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(226, 232, 240, 0.4)" />
-                                                <XAxis type="number" stroke="#94a3b8" fontSize={11} tickLine={false} allowDecimals={false} />
-                                                <YAxis type="category" dataKey="vehicleNo" stroke="#94a3b8" fontSize={11} tickLine={false} width={85} />
-                                                <Tooltip
-                                                    contentStyle={{
-                                                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                                        border: '1px solid rgba(226, 232, 240, 0.6)',
-                                                        borderRadius: '12px',
-                                                        boxShadow: '0 8px 30px rgba(0,0,0,0.06)'
-                                                    }}
-                                                />
-                                                <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '12px' }} />
-                                                <Bar name="Total Trips" dataKey="trips" radius={[0, 6, 6, 0]} maxBarSize={20}>
-                                                    {topVehiclesData.map((entry, index) => (
-                                                        <Cell key={`cell-${index}`} fill={`url(#barGradient-${index % 2})`} />
-                                                    ))}
-                                                </Bar>
-                                                <defs>
-                                                    <linearGradient id="barGradient-0" x1="0" y1="0" x2="1" y2="0">
-                                                        <stop offset="0%" stopColor="#6366f1" />
-                                                        <stop offset="100%" stopColor="#a5b4fc" />
-                                                    </linearGradient>
-                                                    <linearGradient id="barGradient-1" x1="0" y1="0" x2="1" y2="0">
-                                                        <stop offset="0%" stopColor="#3b82f6" />
-                                                        <stop offset="100%" stopColor="#93c5fd" />
-                                                    </linearGradient>
-                                                </defs>
-                                            </ComposedChart>
-                                        </ResponsiveContainer>
-                                    </div>
+                    {/* KPI Metrics */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                        {[
+                            { label: 'Fleet Size', value: metrics.fleetSize, color: '#6366f1', gradient: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1), transparent)' },
+                            { label: 'Total Trips', value: metrics.totalTrips, color: '#8b5cf6', gradient: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1), transparent)' }
+                        ].map((m, idx) => (
+                            <div key={idx} className="nucleus-stats-card" style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '8px', background: m.gradient }}>
+                                <div style={{ fontSize: '12px', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>{m.label}</div>
+                                <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                                    <span style={{ fontSize: '36px', fontWeight: 900, color: '#0f172a' }} className="mono-text">{m.value}</span>
                                 </div>
                             </div>
+                        ))}
+                    </div>
 
-                            {/* Detailed Data Table */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                                    <div style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span>📋</span> Vehicle Monthly Trip Summary
-                                    </div>
-                                    <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                                        <input
-                                            type="text"
-                                            placeholder="🔍 Search vehicle number..."
-                                            value={fleetSearchQuery}
-                                            onChange={(e) => setFleetSearchQuery(e.target.value)}
-                                            style={{
-                                                padding: '8px 16px',
-                                                borderRadius: '12px',
-                                                border: '1px solid rgba(226, 232, 240, 0.8)',
-                                                fontSize: '13.5px',
-                                                fontWeight: 600,
-                                                outline: 'none',
-                                                width: '240px',
-                                                background: 'rgba(255, 255, 255, 0.8)',
-                                                boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
+                    {/* Dynamic Line Charts Section */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: '24px' }}>
+                        {/* Fleet Utilization % Trend Chart */}
+                        <div className="analytics-graph-card">
+                            <div className="graph-card-header">
+                                <h3>📈 Fleet Utilization % Trend</h3>
+                                <span className="graph-subtitle">Daily stock utilization percentage rate over time</span>
+                            </div>
+                            <div style={{ width: '100%', height: 320, marginTop: '20px' }}>
+                                <ResponsiveContainer>
+                                    <ComposedChart data={dailyData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                                        <defs>
+                                            <linearGradient id="colorUtilTrend" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.2}/>
+                                                <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0}/>
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(226, 232, 240, 0.4)" />
+                                        <XAxis dataKey="dateStr" stroke="#94a3b8" fontSize={11} tickLine={false} />
+                                        <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} domain={[0, 100]} tickFormatter={(val) => `${val}%`} />
+                                        <Tooltip
+                                            contentStyle={{
+                                                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                                border: '1px solid rgba(226, 232, 240, 0.6)',
+                                                borderRadius: '16px',
+                                                boxShadow: '0 12px 40px rgba(0,0,0,0.08)',
+                                                backdropFilter: 'blur(10px)'
                                             }}
+                                            formatter={(value) => [`${value}%`, 'Utilization']}
                                         />
-                                        <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 600 }}>
-                                            Showing <strong className="mono-text">{filteredSummaryRows.length}</strong> of <strong className="mono-text">{fleetSummaryData.rows?.length || 0}</strong> vehicles
-                                        </span>
-                                    </div>
-                                </div>
+                                        <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '12px' }} />
+                                        <Area type="monotone" name="Utilization Rate" dataKey="utilPercent" stroke="#0ea5e9" strokeWidth={2.5} fill="url(#colorUtilTrend)" />
+                                        <Line type="monotone" name="Trend Line" dataKey="utilPercent" stroke="#2563eb" strokeWidth={3.5} dot={false} activeDot={{ r: 6 }} />
+                                    </ComposedChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
 
-                                <div className="excel-wrap">
-                                    <table className="excel-table">
-                                        <thead>
-                                            <tr>
-                                                <th onClick={() => requestFleetSort('vehicleNo')} style={{ cursor: 'pointer', userSelect: 'none' }}>
-                                                    Vehicle No {fleetSortConfig.key === 'vehicleNo' ? (fleetSortConfig.direction === 'asc' ? '▲' : '▼') : ''}
-                                                </th>
-                                                {monthNames.map(m => (
-                                                    <th key={m.key}>{m.name}</th>
-                                                ))}
-                                                <th onClick={() => requestFleetSort('total')} style={{ cursor: 'pointer', userSelect: 'none', background: 'rgba(220, 252, 231, 0.2)' }}>
-                                                    Total Trips {fleetSortConfig.key === 'total' ? (fleetSortConfig.direction === 'asc' ? '▲' : '▼') : ''}
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {filteredSummaryRows.length > 0 ? (
-                                                filteredSummaryRows.map((row, idx) => (
-                                                    <tr key={idx}>
-                                                        <td className="mono-text" style={{ fontWeight: 700, color: '#0f172a', textAlign: 'left', paddingLeft: '20px' }}>{row.vehicleNo}</td>
-                                                        {monthNames.map(m => {
-                                                            const val = row.months?.[m.key] || 0;
-                                                            return (
-                                                                <td key={m.key} className={`num ${val > 0 ? 'highlight-blue' : ''}`} style={{ fontWeight: val > 0 ? 700 : 500 }}>
-                                                                    {val || '—'}
-                                                                </td>
-                                                            );
-                                                        })}
-                                                        <td className="num highlight-green" style={{ fontWeight: 800, fontSize: '14px' }}>{row.total || 0}</td>
-                                                    </tr>
-                                                ))
-                                            ) : (
-                                                <tr>
-                                                    <td colSpan="14" style={{ textAlign: 'center', color: '#94a3b8', padding: '40px' }}>
-                                                        No matching vehicles found
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </tbody>
-                                    </table>
+                        {/* Total Trips Trend Chart */}
+                        <div className="analytics-graph-card">
+                            <div className="graph-card-header">
+                                <h3>📈 Total Trips Trend</h3>
+                                <span className="graph-subtitle">Daily completed dispatches count trend</span>
+                            </div>
+                            <div style={{ width: '100%', height: 320, marginTop: '20px' }}>
+                                <ResponsiveContainer>
+                                    <ComposedChart data={dailyData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                                        <defs>
+                                            <linearGradient id="colorTripsTrend" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.2}/>
+                                                <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0}/>
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(226, 232, 240, 0.4)" />
+                                        <XAxis dataKey="dateStr" stroke="#94a3b8" fontSize={11} tickLine={false} />
+                                        <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} allowDecimals={false} />
+                                        <Tooltip
+                                            contentStyle={{
+                                                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                                                border: '1px solid rgba(226, 232, 240, 0.6)',
+                                                borderRadius: '16px',
+                                                boxShadow: '0 12px 40px rgba(0,0,0,0.08)',
+                                                backdropFilter: 'blur(10px)'
+                                            }}
+                                            formatter={(value) => [value, 'Trips']}
+                                        />
+                                        <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '12px' }} />
+                                        <Area type="monotone" name="Trips Count" dataKey="totalTrips" stroke="#8b5cf6" strokeWidth={2.5} fill="url(#colorTripsTrend)" />
+                                        <Line type="monotone" name="Trend Line" dataKey="totalTrips" stroke="#6d28d9" strokeWidth={3.5} dot={false} activeDot={{ r: 6 }} />
+                                    </ComposedChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Detailed Data Table */}
+                    {fleetSummaryData && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                                <div style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span>📋</span> Vehicle Monthly Trip Summary
+                                </div>
+                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                                    <input
+                                        type="text"
+                                        placeholder="🔍 Search vehicle number..."
+                                        value={fleetSearchQuery}
+                                        onChange={(e) => setFleetSearchQuery(e.target.value)}
+                                        style={{
+                                            padding: '8px 16px',
+                                            borderRadius: '12px',
+                                            border: '1px solid rgba(226, 232, 240, 0.8)',
+                                            fontSize: '13.5px',
+                                            fontWeight: 600,
+                                            outline: 'none',
+                                            width: '240px',
+                                            background: 'rgba(255, 255, 255, 0.8)',
+                                            boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
+                                        }}
+                                    />
+                                    <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 600 }}>
+                                        Showing <strong className="mono-text">{filteredSummaryRows.length}</strong> of <strong className="mono-text">{fleetSummaryData.rows?.length || 0}</strong> vehicles
+                                    </span>
                                 </div>
                             </div>
-                        </>
+
+                            <div className="excel-wrap">
+                                <table className="excel-table">
+                                    <thead>
+                                        <tr>
+                                            <th onClick={() => requestFleetSort('vehicleNo')} style={{ cursor: 'pointer', userSelect: 'none' }}>
+                                                Vehicle No {fleetSortConfig.key === 'vehicleNo' ? (fleetSortConfig.direction === 'asc' ? '▲' : '▼') : ''}
+                                            </th>
+                                            {monthNames.map(m => (
+                                                <th key={m.key}>{m.name}</th>
+                                            ))}
+                                            <th onClick={() => requestFleetSort('total')} style={{ cursor: 'pointer', userSelect: 'none', background: 'rgba(220, 252, 231, 0.2)' }}>
+                                                Total Trips {fleetSortConfig.key === 'total' ? (fleetSortConfig.direction === 'asc' ? '▲' : '▼') : ''}
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {filteredSummaryRows.length > 0 ? (
+                                            filteredSummaryRows.map((row, idx) => (
+                                                <tr key={idx}>
+                                                    <td className="mono-text" style={{ fontWeight: 700, color: '#0f172a', textAlign: 'left', paddingLeft: '20px' }}>{row.vehicleNo}</td>
+                                                    {monthNames.map(m => {
+                                                        const val = row.months?.[m.key] || 0;
+                                                        return (
+                                                            <td key={m.key} className={`num ${val > 0 ? 'highlight-blue' : ''}`} style={{ fontWeight: val > 0 ? 700 : 500 }}>
+                                                                {val || '—'}
+                                                            </td>
+                                                        );
+                                                    })}
+                                                    <td className="num highlight-green" style={{ fontWeight: 800, fontSize: '14px' }}>{row.total || 0}</td>
+                                                </tr>
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan="14" style={{ textAlign: 'center', color: '#94a3b8', padding: '40px' }}>
+                                                    No matching vehicles found
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     )}
                 </div>
             )}

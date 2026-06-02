@@ -247,32 +247,44 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
           });
         }
 
-        if (cth_documents && cth_documents.length > 0) {
+        if (Array.isArray(cth_documents)) {
+          const incomingDocNames = cth_documents.map((doc) => doc.document_name);
+          const docsToRemove = matchingJob.cth_documents.filter(
+            (doc) => !incomingDocNames.includes(doc.document_name)
+          );
+          docsToRemove.forEach((doc) => {
+            matchingJob.cth_documents.pull({ _id: doc._id });
+          });
+
           cth_documents.forEach((incomingDoc) => {
             const existingDocIndex = matchingJob.cth_documents.findIndex(
               (doc) => doc.document_name === incomingDoc.document_name
             );
             if (existingDocIndex !== -1) {
-              // Update the existing document using native .set() method
               matchingJob.cth_documents[existingDocIndex].set(incomingDoc);
             } else {
-              // Add new document if it doesn't exist
               matchingJob.cth_documents.push(incomingDoc);
             }
           });
         }
 
         // 3. Update documents
-        if (documents && documents.length > 0) {
+        if (Array.isArray(documents)) {
+          const incomingDocNames = documents.map((doc) => doc.document_name);
+          const docsToRemove = matchingJob.documents.filter(
+            (doc) => !incomingDocNames.includes(doc.document_name)
+          );
+          docsToRemove.forEach((doc) => {
+            matchingJob.documents.pull({ _id: doc._id });
+          });
+
           documents.forEach((incomingDoc) => {
             const existingDocIndex = matchingJob.documents.findIndex(
               (doc) => doc.document_name === incomingDoc.document_name
             );
             if (existingDocIndex !== -1) {
-              // Update the existing document using native .set() method
               matchingJob.documents[existingDocIndex].set(incomingDoc);
             } else {
-              // Add new document if it doesn't exist
               matchingJob.documents.push(incomingDoc);
             }
           });

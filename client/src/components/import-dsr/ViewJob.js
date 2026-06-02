@@ -5528,7 +5528,35 @@ function JobDetails() {
         message={
           isEditMode
             ? undefined // No message for edit
-            : `Are you sure you want to delete the document "${currentDocument?.document_name}"?`
+            : (() => {
+                if (!currentDocument) return "";
+                const hasUrls = Array.isArray(currentDocument.url)
+                  ? currentDocument.url.length > 0
+                  : !!currentDocument.url;
+                const isSent = currentDocument.is_sent_to_esanchit;
+                const isVerified = !!currentDocument.document_check_date;
+
+                const warnings = [];
+                if (hasUrls) warnings.push("contains uploaded files");
+                if (isSent) warnings.push("has been marked as sent to e-Sanchit");
+                if (isVerified) warnings.push("has been verified/checked");
+
+                if (warnings.length > 0) {
+                  return (
+                    <Box sx={{ mt: 1 }}>
+                      <Alert severity="warning" sx={{ mb: 2, borderRadius: "6px" }}>
+                        <AlertTitle sx={{ fontWeight: "700" }}>Critical Warning</AlertTitle>
+                        This document <strong>{warnings.join(", and ")}</strong>. 
+                        Deleting it will permanently remove it along with all associated files and data.
+                      </Alert>
+                      <Typography variant="body1">
+                        Are you sure you want to delete the document <strong>"{currentDocument.document_name}"</strong>? This action cannot be undone.
+                      </Typography>
+                    </Box>
+                  );
+                }
+                return `Are you sure you want to delete the document "${currentDocument.document_name}"?`;
+              })()
         }
         isEdit={isEditMode}
         editValues={editValues}

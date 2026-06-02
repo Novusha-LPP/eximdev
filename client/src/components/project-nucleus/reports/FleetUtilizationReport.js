@@ -85,6 +85,7 @@ const FleetUtilizationReport = ({
     dateRange,
     selectedDay
 }) => {
+    const isSingleDay = filterType === 'day' || (filterType === 'custom' && dateRange?.start && dateRange?.end && dateRange.start === dateRange.end);
     const [reportData, setReportData] = useState({ totalFleet: 'NA', dispatch: [] });
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('dashboard');
@@ -1481,49 +1482,51 @@ const FleetUtilizationReport = ({
                     </div>
 
                     {/* Metrics Grid - CR-003 Additional KPI Cards with Dynamic Colors */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginTop: '16px' }}>
-                        {[
-                            { 
-                                label: 'Average Trips Per Day', 
-                                value: kpiMetricsObj.avgTripsPerDay, 
-                                extra: kpiMetricsObj.avgTripsTheme.performanceLabel, 
-                                color: kpiMetricsObj.avgTripsTheme.color,
-                                gradient: kpiMetricsObj.avgTripsTheme.bg,
-                                border: kpiMetricsObj.avgTripsTheme.border,
-                                badgeBg: kpiMetricsObj.avgTripsTheme.badgeBg
-                            },
-                            { 
-                                label: 'Projection Trips – All Ports', 
-                                value: kpiMetricsObj.projectionAllPorts, 
-                                extra: kpiMetricsObj.projectionAllTheme.performanceLabel, 
-                                color: kpiMetricsObj.projectionAllTheme.color,
-                                gradient: kpiMetricsObj.projectionAllTheme.bg,
-                                border: kpiMetricsObj.projectionAllTheme.border,
-                                badgeBg: kpiMetricsObj.projectionAllTheme.badgeBg
-                            },
-                            { 
-                                label: 'Projection Trips – Mundra', 
-                                value: kpiMetricsObj.projectionMundra, 
-                                extra: kpiMetricsObj.projectionMundraTheme.performanceLabel, 
-                                color: kpiMetricsObj.projectionMundraTheme.color,
-                                gradient: kpiMetricsObj.projectionMundraTheme.bg,
-                                border: kpiMetricsObj.projectionMundraTheme.border,
-                                badgeBg: kpiMetricsObj.projectionMundraTheme.badgeBg
-                            }
-                        ].map((m, idx) => (
-                            <div key={idx} className="nucleus-stats-card" style={{ padding: '22px 26px', display: 'flex', flexDirection: 'column', gap: '10px', background: m.gradient, border: m.border, boxShadow: '0 8px 32px rgba(0, 0, 0, 0.03)' }}>
-                                <div style={{ fontSize: '13px', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 800 }}>{m.label}</div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                                        <span style={{ fontSize: '42px', fontWeight: 900, color: '#0f172a' }} className="mono-text">{m.value}</span>
-                                    </div>
-                                    <div style={{ display: 'inline-flex', padding: '6px 12px', borderRadius: '8px', background: m.badgeBg, color: m.color, fontWeight: 700, fontSize: '12.5px', width: 'fit-content' }}>
-                                        {m.extra}
+                    {!isSingleDay && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginTop: '16px' }}>
+                            {[
+                                { 
+                                    label: 'Average Trips Per Day', 
+                                    value: kpiMetricsObj.avgTripsPerDay, 
+                                    extra: kpiMetricsObj.avgTripsTheme.performanceLabel, 
+                                    color: kpiMetricsObj.avgTripsTheme.color,
+                                    gradient: kpiMetricsObj.avgTripsTheme.bg,
+                                    border: kpiMetricsObj.avgTripsTheme.border,
+                                    badgeBg: kpiMetricsObj.avgTripsTheme.badgeBg
+                                },
+                                { 
+                                    label: 'Projection Trips – All Ports', 
+                                    value: kpiMetricsObj.projectionAllPorts, 
+                                    extra: kpiMetricsObj.projectionAllTheme.performanceLabel, 
+                                    color: kpiMetricsObj.projectionAllTheme.color,
+                                    gradient: kpiMetricsObj.projectionAllTheme.bg,
+                                    border: kpiMetricsObj.projectionAllTheme.border,
+                                    badgeBg: kpiMetricsObj.projectionAllTheme.badgeBg
+                                },
+                                { 
+                                    label: 'Projection Trips – Mundra', 
+                                    value: kpiMetricsObj.projectionMundra, 
+                                    extra: kpiMetricsObj.projectionMundraTheme.performanceLabel, 
+                                    color: kpiMetricsObj.projectionMundraTheme.color,
+                                    gradient: kpiMetricsObj.projectionMundraTheme.bg,
+                                    border: kpiMetricsObj.projectionMundraTheme.border,
+                                    badgeBg: kpiMetricsObj.projectionMundraTheme.badgeBg
+                                }
+                            ].map((m, idx) => (
+                                <div key={idx} className="nucleus-stats-card" style={{ padding: '22px 26px', display: 'flex', flexDirection: 'column', gap: '10px', background: m.gradient, border: m.border, boxShadow: '0 8px 32px rgba(0, 0, 0, 0.03)' }}>
+                                    <div style={{ fontSize: '13px', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 800 }}>{m.label}</div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                                            <span style={{ fontSize: '42px', fontWeight: 900, color: '#0f172a' }} className="mono-text">{m.value}</span>
+                                        </div>
+                                        <div style={{ display: 'inline-flex', padding: '6px 12px', borderRadius: '8px', background: m.badgeBg, color: m.color, fontWeight: 700, fontSize: '12.5px', width: 'fit-content' }}>
+                                            {m.extra}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
+                    )}
 
                     {/* Metrics Grid - Second Line (Not on Road Breakdown) */}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginTop: '16px' }}>

@@ -1,0 +1,494 @@
+// Premium Design variables for Supplier Evaluation Scorecard
+$slate-50: #f8fafc;
+$slate-100: #f1f5f9;
+$slate-200: #e2e8f0;
+$slate-300: #cbd5e1;
+$slate-700: #334155;
+$slate-800: #1e293b;
+$slate-900: #0f172a;
+
+$primary: #4f46e5;
+$primary-hover: #4338ca;
+$primary-light: rgba(79, 70, 229, 0.1);
+
+$success: #10b981;
+$success-hover: #059669;
+$success-light: rgba(16, 185, 129, 0.1);
+
+$info: #3b82f6;
+$info-hover: #2563eb;
+$info-light: rgba(59, 130, 246, 0.1);
+
+$warning: #f59e0b;
+$warning-hover: #d97706;
+$warning-light: rgba(245, 158, 11, 0.1);
+
+$danger: #ef4444;
+$danger-hover: #dc2626;
+$danger-light: rgba(239, 68, 68, 0.1);
+
+$border-radius: 12px;
+$shadow-sm: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+$shadow-md: 0 4px 6px -1px rgba(0,0,0,0.08), 0 2px 4px -1px rgba(0,0,0,0.04);
+$shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 24px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid $slate-200;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  margin-bottom: 24px;
+
+  .topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    .btn-icon {
+      border: 1px solid $slate-200;
+      background: white;
+      border-radius: 50%;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 18px;
+      font-weight: bold;
+      color: $slate-700;
+      transition: all 0.2s ease;
+      box-shadow: $shadow-sm;
+
+      &:hover {
+        background: $slate-100;
+        transform: translateX(-2px);
+        color: $slate-900;
+      }
+    }
+  }
+
+  .topbar-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: $slate-900;
+    letter-spacing: -0.2px;
+    margin: 0;
+  }
+
+  .topbar-breadcrumb {
+    font-size: 12px;
+    color: $slate-700;
+    margin-top: 2px;
+  }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+}
+
+.page-body {
+  padding: 0 24px 40px;
+  font-family: 'Outfit', 'Inter', sans-serif;
+  color: $slate-800;
+}
+
+// Cards
+.card {
+  background: white;
+  border-radius: $border-radius;
+  border: 1px solid rgba($slate-200, 0.8);
+  box-shadow: $shadow-md;
+  margin-bottom: 24px;
+  overflow: hidden;
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
+
+  &:hover {
+    box-shadow: $shadow-lg;
+  }
+
+  .card-header {
+    padding: 18px 24px;
+    border-bottom: 1px solid $slate-100;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(to right, $slate-50, white);
+
+    .card-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: $slate-900;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+  }
+
+  .card-body {
+    padding: 24px;
+  }
+}
+
+// Grids & Forms
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  label {
+    font-size: 13px;
+    font-weight: 600;
+    color: $slate-700;
+  }
+
+  input[type="text"],
+  input[type="date"],
+  input[type="month"],
+  select,
+  textarea {
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid $slate-200;
+    font-size: 14px;
+    font-weight: 500;
+    color: $slate-900;
+    background-color: $slate-50;
+    transition: all 0.2s ease;
+    width: 100%;
+    outline: none;
+
+    &:focus {
+      border-color: $primary;
+      background-color: white;
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+    }
+  }
+
+  textarea {
+    resize: vertical;
+    font-family: inherit;
+  }
+}
+
+// Stats & Highlights
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
+}
+
+.stat-card {
+  padding: 12px 16px;
+  background: $slate-50;
+  border: 1px solid $slate-200;
+  border-radius: 8px;
+  text-align: center;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: white;
+    border-color: $slate-300;
+    transform: translateY(-2px);
+  }
+
+  .stat-val {
+    font-size: 20px;
+    font-weight: 800;
+    color: $slate-900;
+  }
+
+  .stat-lbl {
+    font-size: 11px;
+    font-weight: 600;
+    color: $slate-700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 2px;
+  }
+}
+
+// Tables & Wraps
+.table-wrap {
+  overflow-x: auto;
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-size: 14px;
+
+    th {
+      background: $slate-50;
+      color: $slate-700;
+      font-weight: 700;
+      padding: 14px 20px;
+      border-bottom: 2px solid $slate-200;
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.5px;
+    }
+
+    td {
+      padding: 12px 20px;
+      border-bottom: 1px solid $slate-100;
+      color: $slate-800;
+      vertical-align: middle;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tbody tr {
+      transition: background 0.2s ease;
+
+      &:hover {
+        background: rgba($slate-50, 0.6);
+      }
+    }
+  }
+}
+
+// Score Badges
+.score-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  text-transform: uppercase;
+
+  &.badge-excellent {
+    background-color: $success-light;
+    color: $success;
+  }
+
+  &.badge-good {
+    background-color: $info-light;
+    color: $info;
+  }
+
+  &.badge-satisfactory {
+    background-color: $warning-light;
+    color: $warning;
+  }
+
+  &.badge-warning {
+    background-color: rgba(136, 14, 79, 0.1);
+    color: #880e4f;
+  }
+
+  &.badge-danger {
+    background-color: $danger-light;
+    color: $danger;
+  }
+
+  &.badge-primary {
+    background-color: $primary-light;
+    color: $primary;
+  }
+
+  &.badge-secondary {
+    background-color: $slate-100;
+    color: $slate-700;
+  }
+
+  &.badge-empty {
+    background-color: $slate-50;
+    color: $slate-700;
+    border: 1px dashed $slate-300;
+  }
+}
+
+// Input Fields inside Tables
+.rating-input {
+  width: 70px;
+  text-align: center;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid $slate-200;
+  font-weight: 700;
+  font-size: 14px;
+  background-color: $slate-50;
+  outline: none;
+  transition: all 0.2s ease;
+
+  &:focus {
+    border-color: $primary;
+    background-color: white;
+    box-shadow: 0 0 0 2px rgba($primary, 0.2);
+  }
+}
+
+.cell-input {
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid $slate-200;
+  font-size: 13px;
+  font-weight: 500;
+  background-color: $slate-50;
+  outline: none;
+  transition: all 0.2s ease;
+
+  &:focus {
+    border-color: $primary;
+    background-color: white;
+    box-shadow: 0 0 0 2px rgba($primary, 0.2);
+  }
+}
+
+// Footer Row inside tables
+.tfoot-row {
+  background: $slate-50;
+  td {
+    border-top: 2px solid $slate-200 !important;
+    border-bottom: none !important;
+  }
+}
+
+// Rating Legend Grid
+.legend-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: $slate-700;
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+}
+
+// General Flex layouts
+.flex {
+  display: flex;
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+}
+
+.gap-8 {
+  gap: 8px;
+}
+
+.gap-12 {
+  gap: 12px;
+}
+
+.fw-600 {
+  font-weight: 600;
+}
+
+.text-muted {
+  color: $slate-700 !important;
+}
+
+.mb-16 {
+  margin-bottom: 16px;
+}
+
+// Premium Buttons
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid $slate-200;
+  background: white !important;
+  color: $slate-900 !important;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: $shadow-sm !important;
+  margin-top: 0 !important;
+
+  &:hover {
+    background: $slate-50 !important;
+    border-color: $slate-300;
+    transform: translateY(-1px);
+    box-shadow: $shadow-md !important;
+  }
+
+  &.btn-primary {
+    background: $primary !important;
+    border-color: $primary;
+    color: white !important;
+
+    &:hover {
+      background: $primary-hover !important;
+      border-color: $primary-hover;
+      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25) !important;
+    }
+  }
+
+  &.btn-danger {
+    background: $danger !important;
+    border-color: $danger;
+    color: white !important;
+
+    &:hover {
+      background: $danger-hover !important;
+      border-color: $danger-hover;
+      box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25) !important;
+    }
+  }
+
+  &.btn-icon {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border-radius: 50%;
+    border: none;
+    box-shadow: none !important;
+
+    &.btn-danger {
+      background: rgba($danger, 0.1) !important;
+      color: $danger !important;
+
+      &:hover {
+        background: $danger !important;
+        color: white !important;
+      }
+    }
+  }
+
+  &.btn-sm {
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 6px;
+  }
+}

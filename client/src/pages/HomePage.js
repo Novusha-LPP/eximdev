@@ -26,7 +26,7 @@ import DocumentationJob from "../components/documentation/DocumentationJob.js";
 
 // Attendance
 import AttendanceLayout from "../components/attendance/layout/AttendanceLayout.jsx";
-import AttendanceDashboard from "../components/attendance/Dashboard.jsx";
+// import AttendanceDashboard from "../components/attendance/Dashboard.jsx";
 import DashboardSwitch from "../components/attendance/DashboardSwitch.jsx";
 import AttendancePage from "../components/attendance/Attendance.jsx";
 import LeaveManagement from "../components/attendance/LeaveManagement.jsx";
@@ -160,6 +160,15 @@ import OpenPointsHome from "../components/open-points/OpenPointsHome.js";
 import ProjectWorkspace from "../components/open-points/ProjectWorkspace.js";
 import AnalyticsDashboard from "../components/open-points/AnalyticsDashboard.js";
 import MyOpenPoints from "../components/open-points/MyOpenPoints.js";
+
+// Scorecard Module
+import ScorecardList from "./ScorecardList.jsx";
+import ScorecardForm from "./ScorecardForm.jsx";
+
+// AMC Suppliers Renewal Module
+import AmcRenewalList from "./AmcRenewalList.jsx";
+import AmcVisitorList from "./AmcVisitorList.jsx";
+import AdminEquipmentChecklist from "./AdminEquipmentChecklist.jsx";
 
 // Project Nucleus
 import NucleusHome from "../components/project-nucleus/NucleusHome.js";
@@ -956,6 +965,32 @@ function HomePageContent() {
                   <Route path="team-pulse" element={<TeamPulseDashboard />} />
                 </Route>
 
+                {/* AMC Suppliers Renewal Module */}
+                <Route
+                  path="/amc-renewals"
+                  element={
+                    <ProtectedRoute requiredModule="AMC Suppliers Renewal">
+                      <AmcRenewalList />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/amc-visitor-logs"
+                  element={
+                    <ProtectedRoute requiredModule="AMC Visitor Logs">
+                      <AmcVisitorList />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/equipment-checklist"
+                  element={
+                    <ProtectedRoute requiredModule="Admin Equipment Checklist">
+                      <AdminEquipmentChecklist />
+                    </ProtectedRoute>
+                  }
+                />
+
                 {/* MRM Module */}
                 <Route
                   path="/mrm"
@@ -996,6 +1031,32 @@ function HomePageContent() {
                 <Route
                   path="/open-points/user/:username"
                   element={<MyOpenPoints />}
+                />
+
+                {/* Supplier Scorecard Module */}
+                <Route
+                  path="/scorecards"
+                  element={
+                    <ProtectedRoute requiredModule="Supplier Scorecard">
+                      <ScorecardList />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/scorecards/new"
+                  element={
+                    <ProtectedRoute requiredModule="Supplier Scorecard">
+                      <ScorecardForm />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/scorecards/:id/edit"
+                  element={
+                    <ProtectedRoute requiredModule="Supplier Scorecard">
+                      <ScorecardForm />
+                    </ProtectedRoute>
+                  }
                 />
 
                 {/* KPI Module */}

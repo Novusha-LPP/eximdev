@@ -30,10 +30,13 @@ export const moduleCategories = {
   "CRM": "CRM",
   "DGFT": "DGFT",
   "Open Points": "Project Management",
+  "Supplier Scorecard": "Supplier’s Maintenance/Service Score Card",
+  "AMC Suppliers Renewal": "AMC Suppliers Renewal Sheet",
+  "AMC Visitor Logs": "AMC Suppliers Renewal Sheet",
+  "Admin Equipment Checklist": "AMC Suppliers Renewal Sheet",
   "KPI": "Project Management",
   "MRM": "Project Management",
   "Pulse": "Analytics & Reports",
   "Team Pulse": "Analytics & Reports",
   "MasterDirectory": "Masters",
 };
-

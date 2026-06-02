@@ -62,6 +62,14 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/crm");
     case "Open Points":
       return navigate("/open-points");
+    case "Supplier Scorecard":
+      return navigate("/scorecards");
+    case "AMC Suppliers Renewal":
+      return navigate("/amc-renewals");
+    case "AMC Visitor Logs":
+      return navigate("/amc-visitor-logs");
+    case "Admin Equipment Checklist":
+      return navigate("/equipment-checklist");
     case "KPI":
       return navigate("/kpi");
     case "MRM":

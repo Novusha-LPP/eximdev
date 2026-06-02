@@ -265,8 +265,15 @@ import crmRoutes from "./routes/crm/crmRoutes.mjs";
 import branchRoutes from "./routes/admin/branchRoutes.mjs";
 import jobMigrationRouter from "./routes/admin/jobMigration.mjs";
 
-// HR Asset Module
 import userAssetsRoutes from "./routes/hr/userAssetsRoutes.mjs";
+
+// Scorecard Module
+import scorecardRoutes from "./routes/scorecards/scorecards.js";
+
+// AMC Suppliers Renewal Module
+import amcRenewalRoutes from "./routes/amc-renewals/amcRenewalRoutes.mjs";
+import amcVisitorLogRoutes from "./routes/amc-renewals/amcVisitorLogRoutes.mjs";
+import adminEquipmentChecklistRoutes from "./routes/amc-renewals/adminEquipmentChecklistRoutes.mjs";
 
 const MISSED_PUNCH_LIMIT_HOURS = 12;
 
@@ -681,6 +688,14 @@ app.use("/api/admin", branchRoutes);
 app.use("/api/admin/job-migration", jobMigrationRouter);
 
 app.use(userAssetsRoutes);
+
+// Scorecard Module
+app.use("/api/scorecards", scorecardRoutes);
+
+// AMC Suppliers Renewal Module
+app.use("/api/amc-renewals", amcRenewalRoutes);
+app.use("/api/amc-visitor", amcVisitorLogRoutes);
+app.use("/api/equipment-checklist", adminEquipmentChecklistRoutes);
 
 // Document Collection Module
 app.use(documentCollectionRoutes);

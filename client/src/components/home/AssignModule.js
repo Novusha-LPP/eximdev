@@ -33,6 +33,10 @@ const allModules = [
   "Document Collection",
   "KPI",
   "Open Points",
+  "Supplier Scorecard",
+  "AMC Suppliers Renewal",
+  "AMC Visitor Logs",
+  "Admin Equipment Checklist",
   "MRM",
   "DGFT",
   "Pulse",
@@ -82,7 +86,7 @@ function AssignModule({ selectedUser, allowedModules, allowInactive = false }) {
     }
 
     getUserModules();
-  }, [selectedUser]);
+  }, [selectedUser, allowInactive]);
 
   const onChange = async (nextTargetKeys, direction, moveKeys) => {
     // innovative UI: optimistic update

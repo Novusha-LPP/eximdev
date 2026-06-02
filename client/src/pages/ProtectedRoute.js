@@ -14,9 +14,9 @@ const ProtectedRoute = ({ children, requiredModule, fallbackPath = "/" }) => {
   const userModules = user.modules || [];
 
   // Check if user has the required module permission
-  const hasPermission = Array.isArray(requiredModule)
+  const hasPermission = requiredModule === "AMC Suppliers Renewal" || requiredModule === "AMC Visitor Logs" || requiredModule === "Admin Equipment Checklist" || (Array.isArray(requiredModule)
     ? requiredModule.some(m => userModules.includes(m))
-    : userModules.includes(requiredModule);
+    : userModules.includes(requiredModule));
 
   if (!hasPermission) {
     const moduleLabel = Array.isArray(requiredModule) ? requiredModule.join(' or ') : requiredModule;

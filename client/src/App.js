@@ -8,6 +8,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, Routes, Route } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
+import AmcPublicForm from "./pages/AmcPublicForm";
 
 import { Toaster } from "react-hot-toast";
 
@@ -78,7 +79,7 @@ function App() {
       <LocalizationProvider dateAdapter={AdapterDateFns}>
         <div className="App">
           <Routes>
-            
+            <Route path="/amc-entry" element={<AmcPublicForm />} />
             <Route path="*" element={user ? <HomePage /> : <LoginPage />} />
           </Routes>
         </div>

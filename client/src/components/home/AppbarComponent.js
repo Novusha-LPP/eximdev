@@ -13,13 +13,19 @@ import {
   FormControl,
   ToggleButton,
   ToggleButtonGroup,
+  Chip,
+  Badge,
+  Tooltip,
 } from "@mui/material";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import axios from "axios";
 import { useEffect, useState, useContext, useMemo } from "react";
 import { BranchContext } from "../../contexts/BranchContext.js";
+import { useLayoutConfig } from "../../contexts/LayoutConfigContext.js";
+import NavbarPromoBanner from "./NavbarPromoBanner";
 
-const drawerWidth = 60;
+// MUI icon mapping for dynamic extra content
+import * as MuiIcons from "@mui/icons-material";
 
 function AppbarComponent(props) {
   const navigate = useNavigate();
@@ -32,6 +38,19 @@ function AppbarComponent(props) {
     branches,
     isAdmin,
   } = useContext(BranchContext);
+
+  const { layoutConfig } = useLayoutConfig();
+  const appbarConfig = layoutConfig?.appbar || {};
+  const sidebarConfig = layoutConfig?.sidebar || {};
+
+  const [bannerHeight, setBannerHeight] = useState(0);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--navbar-banner-height', `${bannerHeight}px`);
+    return () => {
+      document.documentElement.style.setProperty('--navbar-banner-height', '0px');
+    };
+  }, [bannerHeight]);
 
   // Determine if we are in a job-specific view to disable branch switching
   const isJobView = useMemo(() => {
@@ -75,36 +94,118 @@ function AppbarComponent(props) {
       .map(b => b.category);
   }, [branches, selectedBranchGroup]);
 
+  // If appbar is disabled, render nothing
+  if (appbarConfig.enabled === false) {
+    return null;
+  }
+
+  const drawerWidth = sidebarConfig.enabled !== false ? (sidebarConfig.width || 60) : 0;
+
+  // Build dynamic AppBar styles from config
+  const appbarStyles = {
+    width: { lg: `calc(100% - ${drawerWidth}px)` },
+    ml: { lg: `${drawerWidth}px` },
+    backgroundColor: appbarConfig.backgroundColor || "rgba(249, 250, 251, 0.3)",
+    backdropFilter: `blur(${appbarConfig.blurIntensity || 6}px) !important`,
+    boxShadow: appbarConfig.shadow || "none",
+    borderBottom: appbarConfig.borderBottom || "none",
+    color: appbarConfig.textColor || "#000000",
+    transition: "all 0.3s ease",
+  };
+
+  const toolbarStyles = {
+    minHeight: appbarConfig.height || 64,
+    height: appbarConfig.height || 64,
+    transition: "height 0.3s ease",
+  };
+
+  // Helper to render extra content
+  const renderExtraContent = (item, index) => {
+    const IconComp = MuiIcons[item.icon] || null;
+    const key = `extra-${index}`;
+
+    if (item.type === "badge" && IconComp) {
+      return (
+        <Tooltip key={key} title={item.label || ""}>
+          <IconButton
+            size="small"
+            onClick={() => item.href && navigate(item.href)}
+            sx={{ color: appbarConfig.textColor || "#000" }}
+          >
+            <Badge variant="dot" color="error" invisible={!item.badgeColor}>
+              <IconComp sx={{ fontSize: "1.25rem" }} />
+            </Badge>
+          </IconButton>
+        </Tooltip>
+      );
+    }
+
+    if (item.type === "link" && IconComp) {
+      return (
+        <Tooltip key={key} title={item.label || ""}>
+          <IconButton
+            size="small"
+            onClick={() => item.href && navigate(item.href)}
+            sx={{ color: appbarConfig.textColor || "#000" }}
+          >
+            <IconComp sx={{ fontSize: "1.25rem" }} />
+          </IconButton>
+        </Tooltip>
+      );
+    }
+
+    if (item.type === "text") {
+      return (
+        <Chip
+          key={key}
+          label={item.label}
+          size="small"
+          onClick={() => item.href && navigate(item.href)}
+          sx={{
+            fontWeight: 600,
+            fontSize: "0.75rem",
+            cursor: item.href ? "pointer" : "default",
+            color: appbarConfig.textColor || "#000",
+            borderColor: appbarConfig.textColor || "#000",
+          }}
+          variant="outlined"
+        />
+      );
+    }
+
+    return null;
+  };
+
   return (
-    <AppBar
-      position="fixed"
-      sx={{
-        width: { lg: `calc(100% - ${drawerWidth}px)` },
-        ml: { lg: `${drawerWidth}px` },
-        backgroundColor: "rgba(249, 250, 251, 0.3)",
-        backdropFilter: "blur(6px) !important",
-        boxShadow: "none",
-      }}
-    >
-      <Toolbar>
+    <>
+      {layoutConfig?.customCss && (
+        <style dangerouslySetInnerHTML={{ __html: layoutConfig.customCss }} />
+      )}
+      <AppBar
+        id="appbar-main"
+        position="fixed"
+        sx={appbarStyles}
+      >
+      <NavbarPromoBanner onHeightChange={setBannerHeight} bannerConfig={layoutConfig?.banner} />
+      <Toolbar id="appbar-toolbar" sx={toolbarStyles}>
         <IconButton
           color="inherit"
           aria-label="open drawer"
           edge="start"
           onClick={() => props.setMobileOpen(!props.mobileOpen)}
-          sx={{ mr: 2, display: { lg: "none" } }}
+          sx={{ mr: 2, display: { lg: "none" }, color: appbarConfig.textColor || "#000" }}
         >
-          <MenuIcon sx={{ color: "#000" }} />
+          <MenuIcon sx={{ color: appbarConfig.textColor || "#000" }} />
         </IconButton>
 
         <IconButton
           color="inherit"
-          aria-label="open drawer"
+          aria-label="go back"
           edge="start"
           onClick={() => window.history.back()}
-          sx={{ mr: 1 }}
+          sx={{ mr: 1, color: appbarConfig.textColor || "#000" }}
         >
-          <ArrowBackIcon sx={{ color: "#000" }} />
+          <ArrowBackIcon sx={{ color: appbarConfig.textColor || "#000" }} />
         </IconButton>
 
         <div>
@@ -186,19 +287,24 @@ function AppbarComponent(props) {
           </ToggleButtonGroup>
         </Box>
 
+        {/* Extra Content from Layout Config */}
+        {appbarConfig.extraContent && appbarConfig.extraContent.length > 0 && (
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mr: 2 }}>
+            {appbarConfig.extraContent.map(renderExtraContent)}
+          </Box>
+        )}
+
         <Box sx={{ textAlign: "center", mt: 2 }}>
           <Typography
             variant="body1"
-            sx={{ fontWeight: "bold", color: "#000" }}
+            sx={{ fontWeight: "bold", color: appbarConfig.textColor || "#000" }}
           >
             Version: {process.env.REACT_APP_VERSION}
           </Typography>
         </Box>
-        {/* <Typography variant="body2" sx={{ color: "#666", mt: 0.5 }}>
-            {process.env.REACT_APP_VERSION_DATE}
-          </Typography> */}
       </Toolbar>
     </AppBar>
+    </>
   );
 }
 

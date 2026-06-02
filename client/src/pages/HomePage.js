@@ -18,6 +18,7 @@ import UserProfile from "../components/userProfile/UserProfile.js";
 import BranchManagement from "../components/admin/BranchManagement.js";
 import ApiKeyManagement from "../components/admin/ApiKeyManagement.js";
 import JobMigrationUtility from "../components/admin/JobMigrationUtility.js";
+import LayoutStudio from "../components/admin/LayoutStudio.js";
 
 // Accounts
 import Accounts from "../components/accounts/Accounts.js";
@@ -192,9 +193,8 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
 
 import { useBranch } from "../contexts/BranchContext.js";
+import { LayoutConfigProvider, useLayoutConfig } from "../contexts/LayoutConfigContext.js";
 import TeamDashboard from "../components/teams/TeamDashboard";
-
-const drawerWidth = 60;
 
 const PulseIndex = () => {
   const { user } = React.useContext(UserContext);
@@ -218,6 +218,12 @@ function HomePageContent() {
   );
   
   const { isChangingBranch } = useBranch();
+  const { layoutConfig } = useLayoutConfig();
+  const sidebarConfig = layoutConfig?.sidebar || {};
+  const appbarConfig = layoutConfig?.appbar || {};
+  
+  const drawerWidth = sidebarConfig.enabled !== false ? (sidebarConfig.width || 60) : 0;
+  const appbarEnabled = appbarConfig.enabled !== false;
 
   React.useEffect(() => {
     if (!user?.passwordExpired) {
@@ -316,15 +322,16 @@ function HomePageContent() {
               flexGrow: 1,
               width: {
                 lg: `calc(100% - ${drawerWidth}px)`,
-                backgroundColor: "#F9FAFB",
-                height: "100vh",
-                overflow: "scroll",
-                padding: "20px",
-                paddingTop: 0,
               },
+              backgroundColor: "#F9FAFB",
+              height: "100vh",
+              overflow: "scroll",
+              padding: "20px",
+              paddingTop: appbarEnabled ? "var(--navbar-banner-height, 0px)" : "20px",
+              transition: "padding-top 0.3s ease, width 0.3s ease",
             }}
           >
-            <Toolbar />
+            {appbarEnabled && <Toolbar sx={{ minHeight: appbarConfig.height || 64 }} />}
             <Routes>
               {/* ... routes ... */}
                 {/* Public Routes - No protection needed */}
@@ -337,6 +344,7 @@ function HomePageContent() {
                 <Route path="/admin/branches" element={<BranchManagement />} />
                 <Route path="/admin/api-keys" element={<ApiKeyManagement />} />
                 <Route path="/admin/job-migration" element={<JobMigrationUtility />} />
+                <Route path="/admin/layout-studio" element={<LayoutStudio />} />
 
 
                 {/* HOD Management - For Head of Department users */}
@@ -1106,9 +1114,11 @@ function HomePageContent() {
 
 function HomePage() {
   return (
-    <BranchProvider>
-      <HomePageContent />
-    </BranchProvider>
+    <LayoutConfigProvider>
+      <BranchProvider>
+        <HomePageContent />
+      </BranchProvider>
+    </LayoutConfigProvider>
   );
 }
 

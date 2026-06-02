@@ -3,31 +3,61 @@ import Drawer from "@mui/material/Drawer";
 import Box from "@mui/material/Box";
 import { SwipeableDrawer } from "@mui/material";
 import Sidebar from "./Sidebar";
-import sidebarBg from "../../assets/images/sidebar-bg.webp";
-
-const drawerWidth = 60;
-
-const drawerPaperStyles = {
-  backgroundColor: "#111b21",
-  backgroundImage: `url(${sidebarBg})`,
-  backgroundAttachment: "fixed",
-  backgroundPosition: "left 0 bottom 0 !important",
-  backgroundSize: "250px !important",
-  backgroundRepeat: "no-repeat",
-  padding: "0 10px",
-};
-const drawerStyles = {
-  "& .MuiDrawer-paper": {
-    boxSizing: "border-box",
-    width: drawerWidth,
-  },
-};
+import { useLayoutConfig } from "../../contexts/LayoutConfigContext.js";
 
 function DrawerComponent(props) {
+  const { layoutConfig } = useLayoutConfig();
+  const sidebarConfig = layoutConfig?.sidebar || {};
+
+  if (sidebarConfig.enabled === false) {
+    return null;
+  }
+
+  const drawerWidth = sidebarConfig.width || 60;
+  const bgColor = sidebarConfig.backgroundColor || "#111b21";
+  const glassEffect = sidebarConfig.glassEffect || false;
+  const borderRight = sidebarConfig.borderRight || "none";
+
+  // Build background styles dynamically
+  const backgroundStyles = {
+    backgroundColor: glassEffect
+      ? `${bgColor}cc`
+      : bgColor,
+    backdropFilter: glassEffect ? "blur(12px)" : "none",
+    borderRight: borderRight,
+  };
+
+  // Only use background image if it's set and not "none"
+  if (sidebarConfig.backgroundImage && sidebarConfig.backgroundImage !== "none") {
+    try {
+      const img = require(`../../assets/images/${sidebarConfig.backgroundImage}`);
+      backgroundStyles.backgroundImage = `url(${img})`;
+      backgroundStyles.backgroundAttachment = "fixed";
+      backgroundStyles.backgroundPosition = "left 0 bottom 0 !important";
+      backgroundStyles.backgroundSize = "250px !important";
+      backgroundStyles.backgroundRepeat = "no-repeat";
+    } catch {
+      // Image not found, skip background image
+    }
+  }
+
+  const drawerPaperStyles = {
+    ...backgroundStyles,
+    padding: drawerWidth > 80 ? "0 4px" : "0 10px",
+  };
+
+  const drawerStyles = {
+    "& .MuiDrawer-paper": {
+      boxSizing: "border-box",
+      width: drawerWidth,
+      transition: "width 0.3s ease",
+    },
+  };
+
   return (
     <Box
       component="nav"
-      sx={{ width: { lg: drawerWidth }, flexShrink: { lg: 0 } }}
+      sx={{ width: { lg: drawerWidth }, flexShrink: { lg: 0 }, transition: "width 0.3s ease" }}
       aria-label="mailbox folders"
     >
       {/* Drawer mobile */}
@@ -44,7 +74,7 @@ function DrawerComponent(props) {
         }}
         sx={{ ...drawerStyles, display: { xs: "block", lg: "none" } }}
       >
-        <Sidebar />
+        <Sidebar drawerWidth={drawerWidth} />
       </SwipeableDrawer>
 
       {/* Drawer desktop */}
@@ -59,7 +89,7 @@ function DrawerComponent(props) {
         }}
         open
       >
-        <Sidebar />
+        <Sidebar drawerWidth={drawerWidth} />
       </Drawer>
     </Box>
   );

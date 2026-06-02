@@ -1,8 +1,8 @@
 import React, { useContext, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import "../../styles/sidebar.scss";
-import { Avatar, IconButton, ListItemButton, Tooltip, Badge } from "@mui/material";
+import { Avatar, IconButton, ListItemButton, Tooltip, Badge, Typography, Box } from "@mui/material";
 import VerifiedIcon from "@mui/icons-material/Verified";
 import LogoutRoundedIcon from "@mui/icons-material/LogoutRounded";
 
@@ -19,16 +19,30 @@ import SupervisedUserCircleIcon from "@mui/icons-material/SupervisedUserCircle";
 import DomainIcon from "@mui/icons-material/Domain";
 import VpnKeyIcon from "@mui/icons-material/VpnKey";
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
+import CampaignIcon from "@mui/icons-material/Campaign";
+import DashboardCustomizeIcon from "@mui/icons-material/DashboardCustomize";
 import { UserContext } from "../../contexts/UserContext";
-import CurrencyRateDialog from "./CurrencyRateDialog"; // Import the dialog
+import { useLayoutConfig } from "../../contexts/LayoutConfigContext.js";
+import CurrencyRateDialog from "./CurrencyRateDialog";
 
-function Sidebar() {
+function Sidebar({ drawerWidth = 60 }) {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { user, setUser } = useContext(UserContext);
+  const { layoutConfig } = useLayoutConfig();
+  const sidebarConfig = layoutConfig?.sidebar || {};
   const [currencyDialogOpen, setCurrencyDialogOpen] = useState(false);
 
+  const isWide = drawerWidth > 80 || sidebarConfig.mode === "icon-label";
+
+  // Dynamic colors from config
+  const iconColor = sidebarConfig.iconColor || "#ffffff9f";
+  const activeColor = sidebarConfig.activeItemColor || "#ffffff";
+  const hoverColor = sidebarConfig.hoverColor || "#ffffff";
+  const hoverBgColor = sidebarConfig.hoverBgColor || "rgba(255,255,255,0.08)";
+  const itemSpacing = sidebarConfig.itemSpacing || 0;
+
   const clearClientAuthData = () => {
-    // Remove user/auth-related client state from storage.
     [
       "exim_user",
       "user",
@@ -40,7 +54,6 @@ function Sidebar() {
       "tab_value",
     ].forEach((key) => localStorage.removeItem(key));
 
-    // Remove all non-HttpOnly cookies available to JS.
     document.cookie.split(";").forEach((cookie) => {
       const eqPos = cookie.indexOf("=");
       const name = eqPos > -1 ? cookie.substring(0, eqPos).trim() : cookie.trim();
@@ -53,7 +66,6 @@ function Sidebar() {
     try {
       await axios.post(`${process.env.REACT_APP_API_STRING}/logout`, {}, { withCredentials: true });
     } catch (error) {
-      // Proceed with client cleanup even if server logout call fails.
       console.warn("Server logout failed, continuing with local cleanup.", error);
     } finally {
       clearClientAuthData();
@@ -62,14 +74,91 @@ function Sidebar() {
     }
   };
 
-  return (
-    <div className="sidebar">
-      <Tooltip
-        title={`Welcome ${user.first_name}`}
-        enterDelay={0}
-        placement="right"
+  // Helper to determine if a route is active
+  const isActive = (route) => {
+    if (route === "/") return pathname === "/";
+    return pathname.startsWith(route);
+  };
+
+  // Shared styles for nav items
+  const getItemStyles = (route) => {
+    const active = isActive(route);
+    return {
+      py: isWide ? 1 : 0.5,
+      px: isWide ? 1.5 : 0,
+      mb: itemSpacing / 8,
+      borderRadius: isWide ? 2 : 0,
+      justifyContent: isWide ? "flex-start" : "center",
+      bgcolor: active ? hoverBgColor : "transparent",
+      color: active ? activeColor : iconColor,
+      transition: "all 0.2s ease",
+      "&:hover": {
+        bgcolor: hoverBgColor,
+        color: hoverColor,
+      },
+    };
+  };
+
+  const iconStyles = (route) => ({
+    color: isActive(route) ? activeColor : iconColor,
+    transition: "color 0.2s ease",
+  });
+
+  // Reusable nav item renderer
+  const NavItem = ({ route, title, icon: Icon, onClick, condition = true }) => {
+    if (!condition) return null;
+    const handleClick = onClick || (() => navigate(route));
+    const content = (
+      <ListItemButton
+        className="appbar-links"
+        aria-label="list-item"
+        onClick={handleClick}
+        sx={getItemStyles(route)}
       >
-        <IconButton onClick={() => navigate(`/profile/${user.username}`)}>
+        <IconButton
+          sx={{
+            color: iconStyles(route).color,
+            mr: isWide ? 1.5 : 0,
+            p: isWide ? 0.5 : 1,
+          }}
+          aria-label="icon"
+        >
+          <Icon />
+        </IconButton>
+        {isWide && (
+          <Typography
+            variant="body2"
+            sx={{
+              fontWeight: isActive(route) ? 600 : 400,
+              fontSize: "0.85rem",
+              color: isActive(route) ? activeColor : iconColor,
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
+            {title}
+          </Typography>
+        )}
+      </ListItemButton>
+    );
+
+    if (isWide) return content;
+    return (
+      <Tooltip title={title} enterDelay={0} placement="right">
+        {content}
+      </Tooltip>
+    );
+  };
+
+  return (
+    <div className="sidebar" style={{ alignItems: isWide ? "stretch" : "center", px: isWide ? 1 : 0 }}>
+      {/* User Avatar */}
+      <Tooltip title={`Welcome ${user.first_name}`} enterDelay={0} placement="right">
+        <IconButton
+          onClick={() => navigate(`/profile/${user.username}`)}
+          sx={{ alignSelf: isWide ? "flex-start" : "center", ml: isWide ? 1 : 0, mb: 1 }}
+        >
           <Badge
             overlap="circular"
             anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
@@ -91,169 +180,56 @@ function Sidebar() {
         </IconButton>
       </Tooltip>
 
-      <Tooltip title="Home" enterDelay={0} placement="right">
-        <ListItemButton
-          className="appbar-links"
-          aria-label="list-item"
-          onClick={() => navigate("/")}
+      {isWide && (
+        <Typography
+          variant="caption"
+          sx={{
+            color: iconColor,
+            px: 1.5,
+            mb: 1,
+            fontWeight: 600,
+            whiteSpace: "nowrap",
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+          }}
         >
-          <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-            <HomeRoundedIcon />
-          </IconButton>
-        </ListItemButton>
-      </Tooltip>
-
-      {user.role === "Admin" && (
-        <>
-          <Tooltip title="Admin" enterDelay={0} placement="right">
-            <ListItemButton
-              className="appbar-links"
-              aria-label="list-item"
-              onClick={() => navigate("/assign")}
-            >
-              <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-                <AssignmentIndIcon />
-              </IconButton>
-            </ListItemButton>
-          </Tooltip>
-
-          <Tooltip title="Branch Management" enterDelay={0} placement="right">
-            <ListItemButton
-              className="appbar-links"
-              aria-label="list-item"
-              onClick={() => navigate("/admin/branches")}
-            >
-              <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-                <DomainIcon />
-              </IconButton>
-            </ListItemButton>
-          </Tooltip>
-
-          <Tooltip title="API Key Management" enterDelay={0} placement="right">
-            <ListItemButton
-              className="appbar-links"
-              aria-label="list-item"
-              onClick={() => navigate("/admin/api-keys")}
-            >
-              <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-                <VpnKeyIcon />
-              </IconButton>
-            </ListItemButton>
-          </Tooltip>
-
-          <Tooltip title="Job Migration Utility" enterDelay={0} placement="right">
-            <ListItemButton
-              className="appbar-links"
-              aria-label="list-item"
-              onClick={() => navigate("/admin/job-migration")}
-            >
-              <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-                <SwapHorizIcon />
-              </IconButton>
-            </ListItemButton>
-          </Tooltip>
-        </>
+          {user.first_name} {user.last_name}
+        </Typography>
       )}
 
-      {/* HOD Management - For Head of Department users */}
-      {user.role === "Head_of_Department" && (
-        <Tooltip title="HoD - Team Management" enterDelay={0} placement="right">
-          <ListItemButton
-            className="appbar-links"
-            aria-label="list-item"
-            onClick={() => navigate("/hod-management")}
-          >
-            <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-              <SupervisedUserCircleIcon />
-            </IconButton>
-          </ListItemButton>
-        </Tooltip>
-      )}
+      <Box sx={{ width: "100%", flexGrow: 1, display: "flex", flexDirection: "column" }}>
+        <NavItem route="/" title="Home" icon={HomeRoundedIcon} />
 
-      {/* NEW: Currency Exchange Rates Icon */}
-      <Tooltip title="Currency Exchange Rates" enterDelay={0} placement="right">
-        <ListItemButton
-          sx={{ textAlign: "left" }}
-          className="appbar-links"
-          aria-label="list-item"
+        {user.role === "Admin" && (
+          <>
+            <NavItem route="/assign" title="Admin" icon={AssignmentIndIcon} />
+            <NavItem route="/admin/branches" title="Branch Management" icon={DomainIcon} />
+            <NavItem route="/admin/api-keys" title="API Key Management" icon={VpnKeyIcon} />
+            <NavItem route="/admin/job-migration" title="Job Migration Utility" icon={SwapHorizIcon} />
+            <NavItem route="/admin/layout-studio" title="Layout Studio" icon={DashboardCustomizeIcon} />
+          </>
+        )}
+
+        {user.role === "Head_of_Department" && (
+          <NavItem route="/hod-management" title="HoD - Team Management" icon={SupervisedUserCircleIcon} />
+        )}
+
+        <NavItem
+          route="#"
+          title="Currency Exchange Rates"
+          icon={CurrencyExchangeIcon}
           onClick={() => setCurrencyDialogOpen(true)}
-        >
-          <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-            <CurrencyExchangeIcon />
-          </IconButton>
-        </ListItemButton>
-      </Tooltip>
+        />
 
+        {['suraj_rajan', 'uday_zope', 'geethanjali_b'].includes(user.username) && (
+          <NavItem route="/project-nucleus" title="Project Nucleus" icon={HubIcon} />
+        )}
 
-
-
-      {
-        ['suraj_rajan', 'uday_zope', 'geethanjali_b'].includes(user.username) && (
-          <Tooltip title="Project Nucleus" enterDelay={0} placement="right">
-            <ListItemButton
-              className="appbar-links"
-              aria-label="list-item"
-              onClick={() => navigate("/project-nucleus")}
-            >
-              <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-                <HubIcon />
-              </IconButton>
-            </ListItemButton>
-          </Tooltip>
-        )
-      }
-
-      <Tooltip title="Release Notes" enterDelay={0} placement="right">
-        <ListItemButton
-          sx={{ textAlign: "left" }}
-          className="appbar-links"
-          aria-label="list-item"
-          onClick={() => navigate("/release-notes")}
-        >
-          <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-            <DescriptionIcon />
-          </IconButton>
-        </ListItemButton>
-      </Tooltip>
-
-      <Tooltip title="Feedback" enterDelay={0} placement="right">
-        <ListItemButton
-          sx={{ textAlign: "left" }}
-          className="appbar-links"
-          aria-label="list-item"
-          onClick={() => navigate("/feedback")}
-        >
-          <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-            <FeedbackIcon />
-          </IconButton>
-        </ListItemButton>
-      </Tooltip>
-
-      <Tooltip title="Change Password" enterDelay={0} placement="right">
-        <ListItemButton
-          sx={{ textAlign: "left" }}
-          className="appbar-links"
-          aria-label="list-item"
-          onClick={() => navigate("/change-password")}
-        >
-          <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-            <LockResetIcon />
-          </IconButton>
-        </ListItemButton>
-      </Tooltip>
-
-      <Tooltip title="Logout" enterDelay={0} placement="right">
-        <ListItemButton
-          sx={{ textAlign: "left" }}
-          className="appbar-links"
-          aria-label="list-item"
-          onClick={handleLogout}
-        >
-          <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-            <LogoutRoundedIcon />
-          </IconButton>
-        </ListItemButton>
-      </Tooltip>
+        <NavItem route="/release-notes" title="Release Notes" icon={DescriptionIcon} />
+        <NavItem route="/feedback" title="Feedback" icon={FeedbackIcon} />
+        <NavItem route="/change-password" title="Change Password" icon={LockResetIcon} />
+        <NavItem route="#" title="Logout" icon={LogoutRoundedIcon} onClick={handleLogout} />
+      </Box>
 
       {/* Currency Rate Dialog */}
       <CurrencyRateDialog

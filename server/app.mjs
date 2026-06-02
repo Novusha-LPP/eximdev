@@ -265,6 +265,7 @@ import crmRoutes from "./routes/crm/crmRoutes.mjs";
 // Admin Branch Module
 import branchRoutes from "./routes/admin/branchRoutes.mjs";
 import jobMigrationRouter from "./routes/admin/jobMigration.mjs";
+import layoutStudioRouter from "./routes/admin/layoutStudioRoutes.mjs";
 
 // HR Asset Module
 import userAssetsRoutes from "./routes/hr/userAssetsRoutes.mjs";
@@ -680,6 +681,7 @@ app.use("/api/crm", crmRoutes);
 // Admin Branch Module
 app.use("/api/admin", branchRoutes);
 app.use("/api/admin/job-migration", jobMigrationRouter);
+app.use("/api", layoutStudioRouter);
 
 app.use(userAssetsRoutes);
 

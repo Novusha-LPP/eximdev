@@ -26,7 +26,9 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
   const [newRemark, setNewRemark] = useState('');
   const [editingRemarkId, setEditingRemarkId] = useState(null);
   const [editingRemarkText, setEditingRemarkText] = useState('');
-  
+  const [newVisitDate, setNewVisitDate] = useState('');
+  const [completingVisitId, setCompletingVisitId] = useState(null);
+
   const { user } = useContext(UserContext);
   const fullUserName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username : 'Unknown User';
 
@@ -156,6 +158,53 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
       // Update local state to show change immediately if possible, but onRefresh is safer
     } catch (error) {
       message.error('Error updating remark');
+    }
+  };
+
+  const handleAddVisit = async () => {
+    if (!newVisitDate) {
+      message.error('Please select a visit date');
+      return;
+    }
+    try {
+      await axios.post(
+        `${process.env.REACT_APP_API_STRING}/crm/opportunities/${opportunity._id}/planned-visits`,
+        { visitDate: newVisitDate },
+        { withCredentials: true }
+      );
+      message.success('Visit planned successfully');
+      setNewVisitDate('');
+      onRefresh();
+      // Refresh local form data to show new visit
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/crm/opportunities/${opportunity._id}`,
+        { withCredentials: true }
+      );
+      setFormData(res.data);
+    } catch (error) {
+      message.error('Error planning visit: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  const handleCompleteVisit = async (visitId) => {
+    setCompletingVisitId(visitId);
+    try {
+      await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/crm/opportunities/${opportunity._id}/planned-visits/${visitId}/complete`,
+        {},
+        { withCredentials: true }
+      );
+      message.success('Visit marked as completed');
+      onRefresh();
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/crm/opportunities/${opportunity._id}`,
+        { withCredentials: true }
+      );
+      setFormData(res.data);
+    } catch (error) {
+      message.error('Error completing visit: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setCompletingVisitId(null);
     }
   };
 
@@ -431,6 +480,73 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                 />
               </div>
 
+              {/* Planned Visits Section */}
+              <div style={{ marginBottom: '16px', background: '#fff7ed', padding: '16px', borderRadius: '12px', border: '1px solid #fed7aa' }}>
+                <label style={{ display: 'block', marginBottom: '10px', color: '#9a3412', fontWeight: 600, fontSize: '0.9rem' }}>
+                  📅 Planned Visits
+                </label>
+
+                {/* Existing visits */}
+                {formData.plannedVisits && formData.plannedVisits.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                    {formData.plannedVisits.map((visit, idx) => (
+                      <div key={visit._id || idx} style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        background: visit.isCompleted ? '#f0fdf4' : '#ffffff',
+                        padding: '10px 12px', borderRadius: '8px',
+                        border: visit.isCompleted ? '1px solid #bbf7d0' : '1px solid #fed7aa'
+                      }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <input
+                            type="checkbox"
+                            checked={visit.isCompleted}
+                            onChange={() => !visit.isCompleted && handleCompleteVisit(visit._id)}
+                            disabled={visit.isCompleted || completingVisitId === visit._id}
+                            style={{ cursor: visit.isCompleted ? 'default' : 'pointer', width: '16px', height: '16px' }}
+                          />
+                          <div>
+                            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: visit.isCompleted ? '#15803d' : '#9a3412' }}>
+                              {visit.visitDate ? new Date(visit.visitDate).toLocaleDateString('en-IN') : 'No date'}
+                            </div>
+                            {visit.isCompleted && visit.completedAt && (
+                              <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                                Completed on {new Date(visit.completedAt).toLocaleDateString('en-IN')}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        {visit.isCompleted && (
+                          <span style={{ fontSize: '0.7rem', background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: '12px', fontWeight: 700, border: '1px solid #bbf7d0' }}>
+                            ✓ Done
+                          </span>
+                        )}
+                        {completingVisitId === visit._id && (
+                          <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Saving...</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p style={{ color: '#94a3b8', fontSize: '0.85rem', fontStyle: 'italic', marginBottom: '16px' }}>No visits planned yet.</p>
+                )}
+
+                {/* Add new visit */}
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                  <input
+                    type="date"
+                    value={newVisitDate}
+                    onChange={(e) => setNewVisitDate(e.target.value)}
+                    style={{ flex: 1, padding: '8px 12px', border: '1px solid #fdba74', borderRadius: '8px', fontSize: '0.9rem', color: '#7c2d12' }}
+                  />
+                  <button
+                    onClick={handleAddVisit}
+                    style={{ padding: '8px 16px', background: '#f97316', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}
+                  >
+                    Add Visit
+                  </button>
+                </div>
+              </div>
+
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', paddingTop: '20px', borderTop: '1px solid #f1f5f9' }}>
                 <button
                   onClick={() => setIsEditMode(false)}
@@ -514,6 +630,43 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                   </div>
                 )}
               </div>
+
+              {/* Planned Visits Display (View Mode) */}
+              {formData.plannedVisits && formData.plannedVisits.length > 0 && (
+                <div style={{ marginBottom: '24px' }}>
+                  <h4 style={{ color: '#475569', fontWeight: 700, marginBottom: '12px', fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Planned Visits</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {formData.plannedVisits.map((visit, idx) => (
+                      <div key={visit._id || idx} style={{
+                        background: visit.isCompleted ? '#f0fdf4' : '#fff7ed',
+                        padding: '12px', borderRadius: '8px',
+                        borderLeft: visit.isCompleted ? '4px solid #22c55e' : '4px solid #f97316',
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                      }}>
+                        <div>
+                          <div style={{ fontSize: '0.9rem', fontWeight: 600, color: visit.isCompleted ? '#15803d' : '#9a3412' }}>
+                            📅 {visit.visitDate ? new Date(visit.visitDate).toLocaleDateString('en-IN') : 'No date'}
+                          </div>
+                          {visit.isCompleted && visit.completedAt && (
+                            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>
+                              Completed on {new Date(visit.completedAt).toLocaleDateString('en-IN')}
+                            </div>
+                          )}
+                        </div>
+                        <span style={{
+                          fontSize: '0.7rem',
+                          background: visit.isCompleted ? '#dcfce7' : '#ffedd5',
+                          color: visit.isCompleted ? '#15803d' : '#c2410c',
+                          padding: '2px 10px', borderRadius: '12px', fontWeight: 700,
+                          border: visit.isCompleted ? '1px solid #bbf7d0' : '1px solid #fed7aa'
+                        }}>
+                          {visit.isCompleted ? '✓ Completed' : '⏳ Pending'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Remarks History */}
               <div style={{ marginBottom: '24px' }}>

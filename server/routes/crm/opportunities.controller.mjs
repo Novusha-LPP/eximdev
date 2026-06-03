@@ -103,9 +103,16 @@ router.get('/', async (req, res) => {
     }
 
     if (stage) {
-      query.stage = stage;
-      if (stage === 'won' || stage === 'lost') {
-        Object.assign(query, dateQuery);
+      if (stage === 'sales_visit') {
+        query.$or = [
+          { stage: 'sales_visit' },
+          { plannedVisits: { $elemMatch: { isCompleted: false } } }
+        ];
+      } else {
+        query.stage = stage;
+        if (stage === 'won' || stage === 'lost') {
+          Object.assign(query, dateQuery);
+        }
       }
     } else if (forecastCategory) {
       query.forecastCategory = forecastCategory;
@@ -115,7 +122,7 @@ router.get('/', async (req, res) => {
     } else {
       if (Object.keys(dateQuery).length > 0) {
         query.$or = [
-          { stage: { $in: ['lead', 'qualified', 'opportunity', 'proposal', 'negotiation'] } },
+          { stage: { $in: ['lead', 'qualified', 'opportunity', 'sales_visit', 'proposal', 'negotiation'] } },
           { stage: { $in: ['won', 'lost'] }, ...dateQuery }
         ];
       }
@@ -176,7 +183,7 @@ router.get('/board', async (req, res) => {
 
     if (Object.keys(dateQuery).length > 0) {
       query.$or = [
-        { stage: { $in: ['lead', 'qualified', 'opportunity', 'proposal', 'negotiation'] } },
+        { stage: { $in: ['lead', 'qualified', 'opportunity', 'sales_visit', 'proposal', 'negotiation'] } },
         { stage: { $in: ['won', 'lost'] }, ...dateQuery }
       ];
     }
@@ -215,7 +222,7 @@ router.get('/board', async (req, res) => {
       'won': [],
       'lost': []
     };
-    
+
     const aggregates = {
       'lead': { totalValue: 0, count: 0 },
       'qualified': { totalValue: 0, count: 0 },
@@ -226,12 +233,18 @@ router.get('/board', async (req, res) => {
       'won': { totalValue: 0, count: 0 },
       'lost': { totalValue: 0, count: 0 }
     };
-    
+
     processedOpps.forEach(opp => {
       if (board[opp.stage]) {
         board[opp.stage].push(opp);
         aggregates[opp.stage].totalValue += opp.value || 0;
         aggregates[opp.stage].count += 1;
+      }
+      const hasIncompleteVisit = (opp.plannedVisits || []).some(v => !v.isCompleted);
+      if (hasIncompleteVisit && opp.stage !== 'sales_visit') {
+        board['sales_visit'].push(opp);
+        aggregates['sales_visit'].totalValue += opp.value || 0;
+        aggregates['sales_visit'].count += 1;
       }
     });
 
@@ -323,7 +336,7 @@ router.put('/:id', async (req, res) => {
     }
 
     // Update other allowed fields
-    const { newRemark, closeReason, closeNotes, ...otherDataToAssign } = otherData;
+    const { newRemark, closeReason, closeNotes, plannedVisits, ...otherDataToAssign } = otherData;
     Object.assign(opportunity, otherDataToAssign);
     if (closeReason) opportunity.closeReason = closeReason;
     if (closeNotes !== undefined) opportunity.closeNotes = closeNotes;
@@ -467,6 +480,49 @@ router.delete('/:id/remarks/:remarkId', async (req, res) => {
     opportunity.remarks.pull({ _id: req.params.remarkId });
     await opportunity.save();
 
+    res.json({ success: true, data: opportunity });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// POST /api/crm/opportunities/:id/planned-visits
+router.post('/:id/planned-visits', async (req, res) => {
+  try {
+    const { visitDate } = req.body;
+    if (!visitDate) {
+      return res.status(400).json({ success: false, message: 'Visit date is required' });
+    }
+
+    const opportunity = await Opportunity.findById(req.params.id);
+    if (!opportunity) return res.status(404).json({ success: false, message: 'Opportunity not found' });
+
+    opportunity.plannedVisits.push({
+      visitDate: new Date(visitDate),
+      isCompleted: false,
+      createdAt: new Date()
+    });
+
+    await opportunity.save();
+    res.json({ success: true, data: opportunity });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// PATCH /api/crm/opportunities/:id/planned-visits/:visitId/complete
+router.patch('/:id/planned-visits/:visitId/complete', async (req, res) => {
+  try {
+    const opportunity = await Opportunity.findById(req.params.id);
+    if (!opportunity) return res.status(404).json({ success: false, message: 'Opportunity not found' });
+
+    const visit = opportunity.plannedVisits.id(req.params.visitId);
+    if (!visit) return res.status(404).json({ success: false, message: 'Planned visit not found' });
+
+    visit.isCompleted = true;
+    visit.completedAt = new Date();
+
+    await opportunity.save();
     res.json({ success: true, data: opportunity });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

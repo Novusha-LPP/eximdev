@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { format, addMonths, parse, parseISO, isValid } from "date-fns";
@@ -108,15 +109,51 @@ function UnitAutocomplete({ value, onChange, className = "ap-field-input" }) {
   const [results, setResults] = useState([]);
   const [showResults, setShowResults] = useState(false);
   const wrapperRef = useRef(null);
+  const dropdownRef = useRef(null);
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
 
   useEffect(() => { setQuery(value || ""); }, [value]);
 
+  const updateCoords = () => {
+    if (wrapperRef.current) {
+      const rect = wrapperRef.current.getBoundingClientRect();
+      setCoords({
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX,
+        width: rect.width
+      });
+    }
+  };
+
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setShowResults(false);
+      if (
+        wrapperRef.current && !wrapperRef.current.contains(e.target) &&
+        (!dropdownRef.current || !dropdownRef.current.contains(e.target))
+      ) {
+        setShowResults(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+
+    const handleScroll = (e) => {
+      if (dropdownRef.current && dropdownRef.current.contains(e.target)) {
+        return;
+      }
+      setShowResults(false);
+    };
+    window.addEventListener("scroll", handleScroll, true);
+
+    const handleResize = () => {
+      setShowResults(false);
+    };
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("resize", handleResize);
+    };
   }, []);
 
   const handleInputChange = (e) => {
@@ -127,6 +164,7 @@ function UnitAutocomplete({ value, onChange, className = "ap-field-input" }) {
       ? unitCodes.filter(c => c.includes(val)).slice(0, 10)
       : unitCodes.slice(0, 10);
     setResults(filtered);
+    updateCoords();
     setShowResults(true);
   };
 
@@ -147,18 +185,30 @@ function UnitAutocomplete({ value, onChange, className = "ap-field-input" }) {
           const val = query.trim().toUpperCase();
           const filtered = val ? unitCodes.filter(c => c.includes(val)).slice(0, 10) : unitCodes.slice(0, 10);
           setResults(filtered);
+          updateCoords();
           setShowResults(true);
         }}
         placeholder="Unit"
       />
-      {showResults && results.length > 0 && (
-        <ul className="ap-autocomplete-results">
+      {showResults && results.length > 0 && createPortal(
+        <ul 
+          ref={dropdownRef}
+          className="ap-autocomplete-results"
+          style={{
+            position: "absolute",
+            top: `${coords.top}px`,
+            left: `${coords.left}px`,
+            width: `${coords.width}px`,
+            zIndex: 99999,
+          }}
+        >
           {results.map((code, idx) => (
             <li key={idx} onClick={() => handleSelect(code)}>
               <div className="ap-res-code">{code}</div>
             </li>
           ))}
-        </ul>
+        </ul>,
+        document.body
       )}
     </div>
   );
@@ -171,15 +221,51 @@ function HSCodeAutocomplete({ value, onChange, className = "ap-field-input" }) {
   const [loading, setLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const wrapperRef = useRef(null);
+  const dropdownRef = useRef(null);
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
 
   useEffect(() => { setQuery(value || ""); }, [value]);
 
+  const updateCoords = () => {
+    if (wrapperRef.current) {
+      const rect = wrapperRef.current.getBoundingClientRect();
+      setCoords({
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX,
+        width: rect.width
+      });
+    }
+  };
+
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setShowResults(false);
+      if (
+        wrapperRef.current && !wrapperRef.current.contains(e.target) &&
+        (!dropdownRef.current || !dropdownRef.current.contains(e.target))
+      ) {
+        setShowResults(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+
+    const handleScroll = (e) => {
+      if (dropdownRef.current && dropdownRef.current.contains(e.target)) {
+        return;
+      }
+      setShowResults(false);
+    };
+    window.addEventListener("scroll", handleScroll, true);
+
+    const handleResize = () => {
+      setShowResults(false);
+    };
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("resize", handleResize);
+    };
   }, []);
 
   const searchHS = async (q) => {
@@ -187,7 +273,11 @@ function HSCodeAutocomplete({ value, onChange, className = "ap-field-input" }) {
     setLoading(true);
     try {
       const res = await axios.get(`${process.env.REACT_APP_API_STRING}/search?query=${q}&addToRecent=false`);
-      if (res.data?.results) { setResults(res.data.results.slice(0, 10)); setShowResults(true); }
+      if (res.data?.results) { 
+        setResults(res.data.results.slice(0, 10)); 
+        updateCoords();
+        setShowResults(true); 
+      }
     } catch (err) {
       if (err?.response?.status !== 404) console.error(err);
       setResults([]);
@@ -218,20 +308,36 @@ function HSCodeAutocomplete({ value, onChange, className = "ap-field-input" }) {
           className={className}
           value={query}
           onChange={handleInputChange}
-          onFocus={() => query.length >= 3 && setShowResults(true)}
+          onFocus={() => {
+            if (query.length >= 3) {
+              updateCoords();
+              setShowResults(true);
+            }
+          }}
           placeholder="Search HS Code..."
         />
         {loading && <div className="ap-field-loader"></div>}
       </div>
-      {showResults && results.length > 0 && (
-        <ul className="ap-autocomplete-results">
+      {showResults && results.length > 0 && createPortal(
+        <ul 
+          ref={dropdownRef}
+          className="ap-autocomplete-results"
+          style={{
+            position: "absolute",
+            top: `${coords.top}px`,
+            left: `${coords.left}px`,
+            width: `${coords.width}px`,
+            zIndex: 99999,
+          }}
+        >
           {results.map((item, idx) => (
             <li key={idx} onClick={() => handleSelect(item)}>
               <div className="ap-res-code">{item.hs_code}</div>
               <div className="ap-res-desc">{item.item_description}</div>
             </li>
           ))}
-        </ul>
+        </ul>,
+        document.body
       )}
     </div>
   );
@@ -888,18 +994,22 @@ function ViewAuthorizationDetails() {
                         />
                       </td>
                       <td style={{ padding: '8px', verticalAlign: 'top' }}>
-                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                           <input 
                             type="text" 
                             className="ap-field-input-borderless" 
                             value={impRow.qty}
                             onChange={e => handleImportDetailChange(idx, "qty", e.target.value)} 
                             placeholder="0.00" 
-                            style={{ margin: 0, fontWeight: 'normal', width: '80px' }} 
+                            style={{ flex: 2, margin: 0, fontWeight: 'normal' }} 
                           />
-                          <span className="ap-unit-badge">
-                            {impRow.unit || '—'}
-                          </span>
+                          <div style={{ flex: 1.5 }}>
+                            <UnitAutocomplete 
+                              value={impRow.unit} 
+                              onChange={v => handleImportDetailChange(idx, "unit", v)} 
+                              className="ap-field-input-borderless"
+                            />
+                          </div>
                         </div>
                         <div className="ap-sub-meta" style={{ marginTop: '4px', gap: '6px' }}>
                           <span>Used: <strong>{impRow.total_utilized_qty ?? 0}</strong></span>

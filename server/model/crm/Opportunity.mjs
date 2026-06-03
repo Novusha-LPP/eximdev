@@ -51,7 +51,13 @@ const opportunitySchema = new mongoose.Schema({
     userName: String,
     createdAt: { type: Date, default: Date.now }
   }],
-  convertedFromLead: { type: mongoose.Schema.Types.ObjectId, ref: 'Lead' }
+  convertedFromLead: { type: mongoose.Schema.Types.ObjectId, ref: 'Lead' },
+  plannedVisits: [{
+    visitDate: { type: Date },
+    isCompleted: { type: Boolean, default: false },
+    completedAt: { type: Date },
+    createdAt: { type: Date, default: Date.now }
+  }]
 }, { timestamps: true });
 
 export default mongoose.model('Opportunity', opportunitySchema);

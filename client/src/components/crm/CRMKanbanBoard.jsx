@@ -93,6 +93,7 @@ export default function CRMKanbanBoard() {
       }
 
       if (selectedStage !== 'all') {
+        params.stage = selectedStage;
         if (selectedTimePeriod === 'daily') {
           params.startDate = selectedDate;
           params.endDate = selectedDate;
@@ -121,19 +122,18 @@ export default function CRMKanbanBoard() {
           `${process.env.REACT_APP_API_STRING}/crm/opportunities/board`,
           { params, withCredentials: true }
         );
-        
+
         const realBoard = res.data || {};
         const aggs = realBoard.aggregates || {};
         PIPELINE_STAGES.forEach(s => {
           if (!realBoard[s.id]) realBoard[s.id] = [];
           if (!aggs[s.id]) aggs[s.id] = { totalValue: 0, count: 0 };
         });
-        
+
         setBoard(realBoard);
         setAggregates(aggs);
         setDealsList([]);
       } else {
-        params.stage = selectedStage;
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/crm/opportunities`,
           { params, withCredentials: true }
@@ -526,7 +526,7 @@ export default function CRMKanbanBoard() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <h3 style={{ margin: 0, color: '#1e293b', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', textTransform: 'capitalize' }}>
               <span style={{ width: '12px', height: '12px', borderRadius: '50%', background: PIPELINE_STAGES.find(s => s.id === selectedStage)?.color }}></span>
-              {selectedStage} Stage Deals
+              {PIPELINE_STAGES.find(s => s.id === selectedStage)?.name || selectedStage} Deals
             </h3>
             <span style={{ background: '#f1f5f9', color: '#475569', padding: '4px 12px', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 700 }}>
               {dealsList.length} {dealsList.length === 1 ? 'Deal' : 'Deals'} found
@@ -645,8 +645,8 @@ export default function CRMKanbanBoard() {
         {PIPELINE_STAGES.map(stage => {
           const opps = board[stage.id] || [];
           return (
-            <div key={stage.id} style={{ 
-              width: '320px', flexShrink: 0, background: '#ebf1f7', borderRadius: '12px', 
+            <div key={stage.id} style={{
+              width: '320px', flexShrink: 0, background: '#ebf1f7', borderRadius: '12px',
               padding: '16px', display: 'flex', flexDirection: 'column',
               border: '2px dashed transparent', transition: 'border-color 0.2s'
             }}
@@ -682,38 +682,77 @@ export default function CRMKanbanBoard() {
               </div>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', minHeight: '300px' }}>
-                {opps.map(opp => (
-                  <div 
-                    key={opp._id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, opp, stage.id)}
-                    onClick={() => {
-                      setSelectedOpportunity(opp);
-                      setIsDetailOpen(true);
-                    }}
-                    style={{ 
-                      background: '#ffffff', padding: '16px', borderRadius: '10px', 
-                      border: '1px solid #e2e8f0', cursor: 'grab', transition: 'all 0.2s',
-                      position: 'relative', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                      opacity: draggedOpportunity?.opportunity._id === opp._id ? 0.5 : 1
-                    }} 
-                    onMouseEnter={e => {
-                      if (draggedOpportunity?.opportunity._id !== opp._id) {
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                        e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.07)';
-                      }
-                    }} 
-                    onMouseLeave={e => {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
-                    }}
-                  >
-                    <div style={{ position: 'absolute', top: 0, left: 0, width: '3px', height: '100%', background: stage.color }}></div>
-                    <h4 style={{ margin: '0 0 6px 0', fontSize: '0.95rem', color: '#1e293b', fontWeight: 600 }}>{opp.name}</h4>
-                    <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '8px' }}>
-                      {typeof opp.accountId === 'object' ? (opp.accountId?.name || 'No Account') : (opp.accountId || 'No Account')}
-                    </div>
-                    
+                {opps.map(opp => {
+                  const isVirtualSalesVisit = stage.id === 'sales_visit' && opp.stage !== 'sales_visit';
+                  return (
+                    <div
+                      key={opp._id + '-' + stage.id}
+                      draggable={!isVirtualSalesVisit}
+                      onDragStart={(e) => !isVirtualSalesVisit && handleDragStart(e, opp, stage.id)}
+                      onClick={() => {
+                        setSelectedOpportunity(opp);
+                        setIsDetailOpen(true);
+                      }}
+                      style={{
+                        background: isVirtualSalesVisit ? '#fff7ed' : '#ffffff',
+                        padding: '16px', borderRadius: '10px',
+                        border: isVirtualSalesVisit ? '1px solid #fdba74' : '1px solid #e2e8f0',
+                        cursor: isVirtualSalesVisit ? 'default' : 'grab',
+                        transition: 'all 0.2s',
+                        position: 'relative', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                        opacity: draggedOpportunity?.opportunity._id === opp._id ? 0.5 : 1
+                      }}
+                      onMouseEnter={e => {
+                        if (draggedOpportunity?.opportunity._id !== opp._id && !isVirtualSalesVisit) {
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.07)';
+                        }
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
+                      }}
+                    >
+                      <div style={{ position: 'absolute', top: 0, left: 0, width: '3px', height: '100%', background: stage.color }}></div>
+                      {isVirtualSalesVisit && (
+                        <div style={{ marginBottom: '8px', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                          <span style={{
+                            fontSize: '0.65rem', background: '#fed7aa', color: '#c2410c',
+                            padding: '2px 8px', borderRadius: '12px', fontWeight: 700,
+                            border: '1px solid #fdba74'
+                          }}>
+                            📅 Planned Visit
+                          </span>
+                          {opp.stage && (
+                            <span style={{
+                              fontSize: '0.65rem', background: '#e2e8f0', color: '#475569',
+                              padding: '2px 8px', borderRadius: '12px', fontWeight: 700,
+                              border: '1px solid #cbd5e1', textTransform: 'capitalize'
+                            }}>
+                              From: {opp.stage.replace('_', ' ')}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      <h4 style={{ margin: '0 0 6px 0', fontSize: '0.95rem', color: '#1e293b', fontWeight: 600 }}>{opp.name}</h4>
+                      <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '8px' }}>
+                        {typeof opp.accountId === 'object' ? (opp.accountId?.name || 'No Account') : (opp.accountId || 'No Account')}
+                      </div>
+
+                      {isVirtualSalesVisit && opp.plannedVisits && (
+                        <div style={{ marginBottom: '12px' }}>
+                          {(opp.plannedVisits || []).filter(v => !v.isCompleted).map((visit, idx) => (
+                            <div key={idx} style={{
+                              fontSize: '0.7rem', color: '#9a3412', fontWeight: 600,
+                              background: '#ffedd5', padding: '4px 8px', borderRadius: '6px',
+                              border: '1px solid #fed7aa', width: 'fit-content', marginBottom: '4px'
+                            }}>
+                              Visit: {visit.visitDate ? new Date(visit.visitDate).toLocaleDateString('en-IN') : 'No date'}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
                     {opp.services && opp.services.length > 0 && (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '12px' }}>
                         {opp.services.slice(0, 3).map((service, i) => (
@@ -777,24 +816,20 @@ export default function CRMKanbanBoard() {
                       </div>
                     )}
 
-                    {/* CR-009 Carry Forward labeled badge on deal card */}
-                    {opp.carry_forward && opp.origin_month && (
+                    {!isVirtualSalesVisit && (
                       <div style={{ marginBottom: '8px' }}>
-                        <span style={{ 
-                          fontSize: '0.65rem', 
-                          background: '#fef3c7', 
-                          color: '#b45309', 
-                          padding: '2px 8px', 
-                          borderRadius: '12px', 
-                          fontWeight: 700,
-                          border: '1px solid #fde68a',
-                          display: 'inline-block'
-                        }}>
-                          🔄 Carried from: {opp.origin_month}
-                        </span>
+                        {opp.plannedVisits && (opp.plannedVisits || []).filter(v => !v.isCompleted).length > 0 && (
+                          <div style={{
+                            fontSize: '0.7rem', color: '#9a3412', fontWeight: 600,
+                            background: '#ffedd5', padding: '4px 8px', borderRadius: '6px',
+                            border: '1px solid #fed7aa', width: 'fit-content', marginBottom: '4px'
+                          }}>
+                            📅 Visit: {new Date(opp.plannedVisits.find(v => !v.isCompleted).visitDate).toLocaleDateString('en-IN')}
+                          </div>
+                        )}
                       </div>
                     )}
-                    
+
                     <div style={{ 
                       marginTop: 'auto', display: 'flex', justifyContent: 'space-between', 
                       alignItems: 'baseline', borderTop: '1px solid #f1f5f9', paddingTop: '12px'
@@ -810,7 +845,7 @@ export default function CRMKanbanBoard() {
                        </div>
                     </div>
                   </div>
-                ))}
+                );})}
                 {opps.length === 0 && (
                   <div style={{ padding: '32px 16px', textAlign: 'center', color: '#94a3b8', fontSize: '0.8rem', border: '1px dashed #cbd5e1', borderRadius: '10px' }}>
                     No deals

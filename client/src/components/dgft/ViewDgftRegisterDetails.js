@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 
@@ -11,29 +12,64 @@ function UnitAutocomplete({ value, onChange }) {
   const [results, setResults] = useState([]);
   const [showResults, setShowResults] = useState(false);
   const wrapperRef = useRef(null);
+  const dropdownRef = useRef(null);
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
 
   useEffect(() => {
     setQuery(value || "");
   }, [value]);
 
+  const updateCoords = () => {
+    if (wrapperRef.current) {
+      const rect = wrapperRef.current.getBoundingClientRect();
+      setCoords({
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX,
+        width: rect.width
+      });
+    }
+  };
+
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setShowResults(false);
+      if (
+        wrapperRef.current && !wrapperRef.current.contains(e.target) &&
+        (!dropdownRef.current || !dropdownRef.current.contains(e.target))
+      ) {
+        setShowResults(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+
+    const handleScroll = (e) => {
+      if (dropdownRef.current && dropdownRef.current.contains(e.target)) {
+        return;
+      }
+      setShowResults(false);
+    };
+    window.addEventListener("scroll", handleScroll, true);
+
+    const handleResize = () => {
+      setShowResults(false);
+    };
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("resize", handleResize);
+    };
   }, []);
 
   const handleInputChange = (e) => {
     const val = e.target.value.toUpperCase();
     setQuery(val);
     onChange(val);
-    if (val.trim()) {
-      setResults(unitCodes.filter((c) => c.includes(val)).slice(0, 10));
-      setShowResults(true);
-      return;
-    }
-    setResults(unitCodes.slice(0, 10));
+    const filtered = val.trim()
+      ? unitCodes.filter((c) => c.includes(val)).slice(0, 10)
+      : unitCodes.slice(0, 10);
+    setResults(filtered);
+    updateCoords();
     setShowResults(true);
   };
 
@@ -53,18 +89,30 @@ function UnitAutocomplete({ value, onChange }) {
         onFocus={() => {
           const val = query.trim().toUpperCase();
           setResults(val ? unitCodes.filter((c) => c.includes(val)).slice(0, 10) : unitCodes.slice(0, 10));
+          updateCoords();
           setShowResults(true);
         }}
         placeholder="Unit"
       />
-      {showResults && results.length > 0 && (
-        <ul className="ap-autocomplete-results">
+      {showResults && results.length > 0 && createPortal(
+        <ul 
+          ref={dropdownRef}
+          className="ap-autocomplete-results"
+          style={{
+            position: "absolute",
+            top: `${coords.top}px`,
+            left: `${coords.left}px`,
+            width: `${coords.width}px`,
+            zIndex: 99999,
+          }}
+        >
           {results.map((code, idx) => (
             <li key={idx} onClick={() => handleSelect(code)}>
               <div className="ap-res-code">{code}</div>
             </li>
           ))}
-        </ul>
+        </ul>,
+        document.body
       )}
     </div>
   );
@@ -76,17 +124,53 @@ function HSCodeAutocomplete({ value, onChange, onSelect }) {
   const [loading, setLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const wrapperRef = useRef(null);
+  const dropdownRef = useRef(null);
+  const [coords, setCoords] = useState({ top: 0, left: 0, width: 0 });
 
   useEffect(() => {
     setQuery(value || "");
   }, [value]);
 
+  const updateCoords = () => {
+    if (wrapperRef.current) {
+      const rect = wrapperRef.current.getBoundingClientRect();
+      setCoords({
+        top: rect.bottom + window.scrollY,
+        left: rect.left + window.scrollX,
+        width: rect.width
+      });
+    }
+  };
+
   useEffect(() => {
     const handleClickOutside = (e) => {
-      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setShowResults(false);
+      if (
+        wrapperRef.current && !wrapperRef.current.contains(e.target) &&
+        (!dropdownRef.current || !dropdownRef.current.contains(e.target))
+      ) {
+        setShowResults(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+
+    const handleScroll = (e) => {
+      if (dropdownRef.current && dropdownRef.current.contains(e.target)) {
+        return;
+      }
+      setShowResults(false);
+    };
+    window.addEventListener("scroll", handleScroll, true);
+
+    const handleResize = () => {
+      setShowResults(false);
+    };
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", handleScroll, true);
+      window.removeEventListener("resize", handleResize);
+    };
   }, []);
 
   const searchHS = async (q) => {
@@ -99,6 +183,7 @@ function HSCodeAutocomplete({ value, onChange, onSelect }) {
       const res = await axios.get(`${process.env.REACT_APP_API_STRING}/search?query=${q}&addToRecent=false`);
       if (res.data?.results) {
         setResults(res.data.results.slice(0, 10));
+        updateCoords();
         setShowResults(true);
       }
     } catch (err) {
@@ -134,20 +219,36 @@ function HSCodeAutocomplete({ value, onChange, onSelect }) {
           className="ap-field-input"
           value={query}
           onChange={handleInputChange}
-          onFocus={() => query.length >= 3 && setShowResults(true)}
+          onFocus={() => {
+            if (query.length >= 3) {
+              updateCoords();
+              setShowResults(true);
+            }
+          }}
           placeholder="Search HS Code..."
         />
         {loading && <div className="ap-field-loader"></div>}
       </div>
-      {showResults && results.length > 0 && (
-        <ul className="ap-autocomplete-results">
+      {showResults && results.length > 0 && createPortal(
+        <ul 
+          ref={dropdownRef}
+          className="ap-autocomplete-results"
+          style={{
+            position: "absolute",
+            top: `${coords.top}px`,
+            left: `${coords.left}px`,
+            width: `${coords.width}px`,
+            zIndex: 99999,
+          }}
+        >
           {results.map((item, idx) => (
             <li key={idx} onClick={() => handleSelect(item)}>
               <div className="ap-res-code">{item.hs_code}</div>
               <div className="ap-res-desc">{item.item_description}</div>
             </li>
           ))}
-        </ul>
+        </ul>,
+        document.body
       )}
     </div>
   );

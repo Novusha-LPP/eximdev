@@ -6,6 +6,7 @@ AlVision Exim is a comprehensive application designed to streamline export-impor
 
 ## Features
 
+
 - **Admin Accounts**: Creation of two initial admin accounts with capabilities to onboard new employees and manage their access to different modules.
 - **Employee Management**: Admins can onboard new employees by providing details such as name, email, company, and designation. Employees receive credentials via email and can subsequently complete their profiles.
 - **Module-Based Access**: Specific modules can be assigned to or removed from employees by admins. Employees will have access only to the modules assigned to them.

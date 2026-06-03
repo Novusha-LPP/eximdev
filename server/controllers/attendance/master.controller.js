@@ -169,13 +169,18 @@ export const getShifts = async (req, res) => {
     const roleNorm = String(req.user?.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
     const isAdmin = roleNorm === 'ADMIN';
 
+    const queryParams = { ...req.query };
+    if (allCompanies && isAdmin) {
+      delete queryParams.company_id;
+    }
+
     const baseFilters = allCompanies && isAdmin
       ? {}
       : { company_id: companyId };
 
     const result = await QueryBuilder.build(
       Shift,
-      req.query,
+      queryParams,
       baseFilters,
       ['shift_name', 'shift_code'],
       ['applicability.teams.list', 'created_by', 'updated_by']
@@ -497,7 +502,7 @@ export const listCompanies = async (req, res) => {
       return res.status(403).json({ message: 'Only admins can list companies' });
     }
     const companies = await Company.find({})
-      .select('company_name company_code shift_policy branch_ids attendance_config settings status createdAt updatedAt')
+      .select('company_name company_code shift_policy shift_policy_id weekoff_policy_id holiday_policy_id branch_ids attendance_config settings status createdAt updatedAt')
       .populate('branch_ids', 'branch_name branch_code category');
     res.json({ success: true, data: companies });
   } catch (err) {
@@ -576,7 +581,7 @@ export const createCompany = async (req, res) => {
 export const updateCompany = async (req, res) => {
   try {
     const { id } = req.params;
-    const { selected_user_ids, default_shift_id, branch_ids } = req.body;
+    const { selected_user_ids, default_shift_id, branch_ids, propagate_to_employees } = req.body;
     const sanitizedBranchIds = Array.isArray(branch_ids) ? [...new Set(branch_ids.map(String))] : undefined;
 
     const updatePayload = {
@@ -595,6 +600,25 @@ export const updateCompany = async (req, res) => {
     );
 
     if (!company) return res.status(404).json({ message: 'Company not found' });
+
+    // Propagate company-level policies to all company users if requested
+    if (propagate_to_employees) {
+      const userUpdate = {};
+      if (company.shift_policy_id) {
+        userUpdate.shift_id = company.shift_policy_id;
+        userUpdate.shift_ids = [company.shift_policy_id];
+      }
+      if (company.weekoff_policy_id) {
+        userUpdate.weekoff_policy_id = company.weekoff_policy_id;
+      }
+      if (company.holiday_policy_id) {
+        userUpdate.holiday_policy_id = company.holiday_policy_id;
+      }
+
+      if (Object.keys(userUpdate).length > 0) {
+        await User.updateMany({ company_id: id }, { $set: userUpdate });
+      }
+    }
 
     await assignUsersToCompany({
       selectedUserIds: selected_user_ids,

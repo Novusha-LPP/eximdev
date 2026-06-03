@@ -32,6 +32,9 @@ const companySchema = new mongoose.Schema({
   currency: { type: String, default: 'INR' },
   financial_year_start: { type: Date },
   shift_policy: { type: String, enum: ['fixed', 'rotational', 'flexible'], default: 'fixed' },
+  shift_policy_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Shift' },
+  weekoff_policy_id: { type: mongoose.Schema.Types.ObjectId, ref: 'WeekOffPolicy' },
+  holiday_policy_id: { type: mongoose.Schema.Types.ObjectId, ref: 'HolidayPolicy' },
   branch_ids: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Branch' }],
 
   // === STATUS & SUBSCRIPTION ===

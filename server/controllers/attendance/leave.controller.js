@@ -946,21 +946,42 @@ export const applyLeave = async (req, res) => {
         }
 
         if (!balanceRecord) {
-            const quota = getDefaultOpeningBalance(policy);
-            
-            balanceRecord = new LeaveBalance({
-                company_id: companyId,
-                employee_id: user._id,
-                leave_policy_id: policy._id,
-                leave_type: policy.leave_type,
-                year: currentYear,
-                opening_balance: quota,
-                used: 0,
-                pending_approval: 0,
-                closing_balance: quota
-            });
-            await balanceRecord.save();
-            // console.log(`[DEBUG] Created new balance record: opening=${quota}, pending=0, leave_type=${policy.leave_type}`);
+            // Before creating a brand-new record, do one final check by leave_type alone
+            // (covers the case where the employee has a balance under a DIFFERENT policy_id
+            // for the same idempotent leave type, e.g. after a policy was re-assigned).
+            const leaveTypeNorm = String(policy.leave_type || '').toLowerCase().trim();
+            if (isIdempotentLeaveType(leaveTypeNorm)) {
+                balanceRecord = await LeaveBalance.findOne({
+                    employee_id: user._id,
+                    year: currentYear,
+                    leave_type: leaveTypeNorm
+                }).sort({ updatedAt: -1, createdAt: -1 });
+
+                if (balanceRecord) {
+                    // Align the policy_id on the existing record so future lookups succeed
+                    if (String(balanceRecord.leave_policy_id) !== String(policy._id)) {
+                        balanceRecord.leave_policy_id = policy._id;
+                        await balanceRecord.save();
+                    }
+                }
+            }
+
+            if (!balanceRecord) {
+                const quota = getDefaultOpeningBalance(policy);
+                balanceRecord = new LeaveBalance({
+                    company_id: companyId,
+                    employee_id: user._id,
+                    leave_policy_id: policy._id,
+                    leave_type: policy.leave_type,
+                    year: currentYear,
+                    opening_balance: quota,
+                    used: 0,
+                    pending_approval: 0,
+                    closing_balance: quota
+                });
+                await balanceRecord.save();
+                // console.log(`[DEBUG] Created new balance record: opening=${quota}, pending=0, leave_type=${policy.leave_type}`);
+            }
         }
 
         let isUnpaidLeave = String(policy.leave_type || '').toLowerCase() === 'lwp';
@@ -1554,33 +1575,70 @@ export const updateBalance = async (req, res) => {
             );
         }
 
-        // Use atomic findOneAndUpdate with upsert to avoid duplicate key errors
-        const balanceRecord = await LeaveBalance.findOneAndUpdate(
-            {
+        // For idempotent leave types (privilege, lwp), find by leave_type first to prevent
+        // creating a second record when the admin re-assigns a different policy_id.
+        const policyLeaveType = String(policy.leave_type || '').toLowerCase().trim();
+        const isIdempotentType = IDEMPOTENT_LEAVE_TYPES.has(policyLeaveType);
+
+        let balanceRecord;
+        if (isIdempotentType) {
+            // Try to find any existing record for this employee+year+leave_type
+            const existingByType = await LeaveBalance.findOne({
                 employee_id: employee_id,
-                leave_policy_id: leave_policy_id,
-                year: currentYear
-            },
-            {
-                $set: {
+                year: currentYear,
+                leave_type: policyLeaveType
+            }).sort({ updatedAt: -1, createdAt: -1 });
+
+            if (existingByType) {
+                // Update it in-place (even if leave_policy_id differs)
+                balanceRecord = await LeaveBalance.findOneAndUpdate(
+                    { _id: existingByType._id },
+                    {
+                        $set: {
+                            leave_policy_id: leave_policy_id,
+                            leave_type: policy.leave_type,
+                            opening_balance: openingNum,
+                            used: nextUsed,
+                            pending_approval: nextPending,
+                            closing_balance: actualRemaining,
+                            last_updated: new Date(),
+                            ...(resolvedCompanyId ? { company_id: resolvedCompanyId } : {})
+                        }
+                    },
+                    { new: true, runValidators: true }
+                );
+            }
+        }
+
+        if (!balanceRecord) {
+            // Fallback: standard upsert by (employee_id + leave_policy_id + year)
+            balanceRecord = await LeaveBalance.findOneAndUpdate(
+                {
                     employee_id: employee_id,
                     leave_policy_id: leave_policy_id,
-                    leave_type: policy.leave_type,
-                    year: currentYear,
-                    opening_balance: openingNum,
-                    used: nextUsed,
-                    pending_approval: nextPending,
-                    closing_balance: actualRemaining,
-                    last_updated: new Date(),
-                    ...(resolvedCompanyId ? { company_id: resolvedCompanyId } : {})
+                    year: currentYear
+                },
+                {
+                    $set: {
+                        employee_id: employee_id,
+                        leave_policy_id: leave_policy_id,
+                        leave_type: policy.leave_type,
+                        year: currentYear,
+                        opening_balance: openingNum,
+                        used: nextUsed,
+                        pending_approval: nextPending,
+                        closing_balance: actualRemaining,
+                        last_updated: new Date(),
+                        ...(resolvedCompanyId ? { company_id: resolvedCompanyId } : {})
+                    }
+                },
+                {
+                    new: true,
+                    upsert: true,
+                    runValidators: true
                 }
-            },
-            { 
-                new: true,
-                upsert: true,
-                runValidators: true
-            }
-        );
+            );
+        }
 
         res.json({
             message: 'Leave balance updated successfully',

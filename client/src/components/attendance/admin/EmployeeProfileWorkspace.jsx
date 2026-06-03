@@ -1515,6 +1515,67 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
         {/* ══ POLICIES TAB ══════════════════════════════════════════════════ */}
         {tab==='policies' && (
           <div>
+            {/* Company Global Policy Banner */}
+            {profile.employee?.company_id && (
+              <div style={{ marginBottom:'20px', padding:'14px 18px', background:'linear-gradient(135deg,#f0f4ff,#e8f0fe)', border:'1px solid #c7d2fe', borderRadius:'12px', borderLeft:'4px solid #4f46e5' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:'8px', marginBottom:'10px' }}>
+                  <span style={{ fontSize:'14px' }}>🏢</span>
+                  <span style={{ fontSize:'13px', fontWeight:'800', color:'#312e81' }}>
+                    Company Global Policies
+                  </span>
+                  <span style={{ fontSize:'11px', color:'#6366f1', background:'#eef2ff', padding:'2px 8px', borderRadius:'10px', fontWeight:'600' }}>
+                    {profile.employee.company_id.company_name || profile.employee.company_id.name || 'Organization'}
+                  </span>
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))', gap:'8px' }}>
+                  {[
+                    ['Shift Policy', (() => {
+                      const compShift = profile.employee.company_id?.shift_policy_id;
+                      if (!compShift) return null;
+                      return typeof compShift === 'object' ? (compShift.shift_name || compShift.name) : policyShiftOptions?.find?.(s => String(s._id) === String(compShift))?.shift_name || String(compShift).slice(-6);
+                    })(), '🕐'],
+                    ['Week-Off', (() => {
+                      const wo = profile.employee.company_id?.weekoff_policy_id;
+                      if (!wo) return null;
+                      return typeof wo === 'object' ? (wo.policy_name || wo.name) : weekOffPolicies?.find?.(p => String(p._id) === String(wo))?.policy_name || null;
+                    })(), '📅'],
+                    ['Holiday Policy', (() => {
+                      const hp = profile.employee.company_id?.holiday_policy_id;
+                      if (!hp) return null;
+                      return typeof hp === 'object' ? (hp.policy_name || hp.name) : holidayPolicies?.find?.(p => String(p._id) === String(hp))?.policy_name || null;
+                    })(), '🎉'],
+                  ].filter(([,val]) => val).map(([label, val, icon]) => (
+                    <div key={label} style={{ display:'flex', alignItems:'center', gap:'6px', padding:'6px 10px', background:'rgba(255,255,255,0.7)', borderRadius:'8px', border:'1px solid #c7d2fe' }}>
+                      <span style={{ fontSize:'12px' }}>{icon}</span>
+                      <div>
+                        <div style={{ fontSize:'9px', fontWeight:'700', color:'#6366f1', textTransform:'uppercase', letterSpacing:'0.06em' }}>{label}</div>
+                        <div style={{ fontSize:'12px', fontWeight:'600', color:'#1e1b4b' }}>{val}</div>
+                      </div>
+                    </div>
+                  ))}
+                  {[
+                    ['Shift Policy', (() => {
+                      const compShift = profile.employee.company_id?.shift_policy_id;
+                      if (!compShift) return null;
+                      return typeof compShift === 'object' ? (compShift.shift_name || compShift.name) : policyShiftOptions?.find?.(s => String(s._id) === String(compShift))?.shift_name || String(compShift).slice(-6);
+                    })(), '🕐'],
+                    ['Week-Off', (() => {
+                      const wo = profile.employee.company_id?.weekoff_policy_id;
+                      if (!wo) return null;
+                      return typeof wo === 'object' ? (wo.policy_name || wo.name) : weekOffPolicies?.find?.(p => String(p._id) === String(wo))?.policy_name || null;
+                    })(), '📅'],
+                    ['Holiday Policy', (() => {
+                      const hp = profile.employee.company_id?.holiday_policy_id;
+                      if (!hp) return null;
+                      return typeof hp === 'object' ? (hp.policy_name || hp.name) : holidayPolicies?.find?.(p => String(p._id) === String(hp))?.policy_name || null;
+                    })(), '🎉'],
+                  ].every(([,val]) => !val) && (
+                    <div style={{ fontSize:'12px', color:'#6366f1', fontStyle:'italic' }}>No global policies set for this organization. Set them from Manage Companies.</div>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'16px' }}>
               <div>
                 <div style={{ fontSize:'15px', fontWeight:'700', color:THEME.navy }}>🛡️ Individual Policy Management</div>
@@ -1524,27 +1585,66 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
             </div>
 
             <form onSubmit={handleUpdateIndividualPolicies} style={{ display:'flex', flexDirection:'column', gap:'16px' }}>
-              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))', gap:'12px' }}>
+              {/* Policy Cards Grid */}
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit,minmax(280px,1fr))', gap:'12px' }}>
                 {[
-                  ['Week-Off Policy', policyForm.weekoff_policy_id, v=>setPolicyForm(p=>({ ...p, weekoff_policy_id:v })), weekOffPolicies, 'policy_name'],
-                  ['Shift Policy', policyForm.shift_id, v=>setPolicyForm(p=>({ ...p, shift_id:v })), policyShiftOptions, 'shift_name'],
-                  ['Holiday Policy', policyForm.holiday_policy_id, v=>setPolicyForm(p=>({ ...p, holiday_policy_id:v })), holidayPolicies, 'policy_name'],
-                ].map(([lbl,val,onChange,opts,nameKey],i)=>(
-                  <div key={i} style={{ display:'flex', alignItems:'center', gap:'10px' }}>
-                    <label style={{ fontWeight:'700', fontSize:'12px', color:'#000', whiteSpace:'nowrap', minWidth:'100px' }}>{lbl}:</label>
-                    <select disabled={!isEditingPolicy} value={val} onChange={e=>onChange(e.target.value)} style={{ ...S.input, background:isEditingPolicy?'#fff':'#f8fafc', cursor:isEditingPolicy?'default':'not-allowed', flex:1 }}>
-                      {!val&&<option value="">Select {lbl}…</option>}
-                      {opts.map(p=><option key={p._id} value={p._id}>{p[nameKey]}</option>)}
-                    </select>
-                  </div>
-                ))}
+                  { label:'Week-Off Policy', val:policyForm.weekoff_policy_id, onChange:v=>setPolicyForm(p=>({...p,weekoff_policy_id:v})), opts:weekOffPolicies, nameKey:'policy_name', icon:'📅', color:'#0ea5e9', bg:'#f0f9ff' },
+                  { label:'Shift Policy', val:policyForm.shift_id, onChange:v=>setPolicyForm(p=>({...p,shift_id:v})), opts:policyShiftOptions, nameKey:'shift_name', icon:'🕐', color:'#8b5cf6', bg:'#f5f3ff' },
+                  { label:'Holiday Policy', val:policyForm.holiday_policy_id, onChange:v=>setPolicyForm(p=>({...p,holiday_policy_id:v})), opts:holidayPolicies, nameKey:'policy_name', icon:'🎉', color:'#f59e0b', bg:'#fffbeb' },
+                ].map(({label, val, onChange, opts, nameKey, icon, color, bg}) => {
+                  const selected = (opts||[]).find(o => String(o._id) === String(val));
+                  return (
+                    <div key={label} style={{ background:'#fff', border:`1px solid ${THEME.border}`, borderRadius:'10px', overflow:'hidden' }}>
+                      <div style={{ padding:'10px 14px', background:bg, borderBottom:`1px solid ${THEME.border}`, display:'flex', alignItems:'center', gap:'8px' }}>
+                        <span style={{ fontSize:'16px' }}>{icon}</span>
+                        <span style={{ fontSize:'12px', fontWeight:'700', color:color }}>{label}</span>
+                        {selected && <span style={{ marginLeft:'auto', fontSize:'10px', background:`${color}20`, color, padding:'2px 7px', borderRadius:'8px', fontWeight:'700' }}>Set</span>}
+                        {!val && <span style={{ marginLeft:'auto', fontSize:'10px', background:'#f1f5f9', color:THEME.muted, padding:'2px 7px', borderRadius:'8px', fontWeight:'600' }}>Not Set</span>}
+                      </div>
+                      <div style={{ padding:'12px 14px' }}>
+                        {selected && !isEditingPolicy ? (
+                          <div style={{ fontSize:'13px', fontWeight:'700', color:THEME.navy }}>{selected[nameKey] || selected.name || 'Selected'}</div>
+                        ) : (
+                          <select disabled={!isEditingPolicy} value={val} onChange={e=>onChange(e.target.value)}
+                            style={{ ...S.input, background:isEditingPolicy?'#fff':'#f8fafc', cursor:isEditingPolicy?'default':'not-allowed' }}>
+                            <option value="">Select {label}…</option>
+                            {(opts||[]).map(p=><option key={p._id} value={p._id}>{p[nameKey] || p.name}</option>)}
+                          </select>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+
+              {/* Leave Policies - Read Only Display */}
+              {(profile.balances||[]).length > 0 && (
+                <div style={{ background:'#fff', border:`1px solid ${THEME.border}`, borderRadius:'10px', overflow:'hidden' }}>
+                  <div style={{ padding:'10px 14px', background:'#f0fdf4', borderBottom:`1px solid ${THEME.border}`, display:'flex', alignItems:'center', gap:'8px' }}>
+                    <span style={{ fontSize:'16px' }}>📋</span>
+                    <span style={{ fontSize:'12px', fontWeight:'700', color:'#15803d' }}>Leave Policies Assigned</span>
+                    <span style={{ marginLeft:'auto', fontSize:'11px', background:'#dcfce7', color:'#15803d', padding:'2px 8px', borderRadius:'8px', fontWeight:'700' }}>
+                      {(profile.balances||[]).length} active
+                    </span>
+                  </div>
+                  <div style={{ padding:'12px 14px', display:'flex', flexWrap:'wrap', gap:'8px' }}>
+                    {(profile.balances||[]).map((b, i) => (
+                      <div key={i} style={{ display:'flex', alignItems:'center', gap:'6px', padding:'5px 10px', background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:'8px' }}>
+                        <span style={{ fontSize:'11px', fontWeight:'700', color:'#166534' }}>{b.leave_policy_id?.policy_name || b.leave_type || 'Policy'}</span>
+                        <span style={{ fontSize:'10px', color:'#22c55e', background:'#dcfce7', padding:'1px 5px', borderRadius:'5px' }}>
+                          {((b.pending ?? b.pending_approval ?? Math.max(0,(b.opening_balance||0)-(b.used??b.consumed??0))))} left
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Geofencing */}
               <div style={{ paddingTop:'16px', borderTop:`1px solid ${THEME.border}` }}>
                 <div style={{ fontSize:'13px', fontWeight:'700', color:THEME.navy, marginBottom:'10px' }}>📍 Geofencing Configuration</div>
                 <label style={{ display:'flex', alignItems:'center', gap:'8px', cursor:isEditingPolicy?'pointer':'not-allowed', fontSize:'13px', fontWeight:'600', marginBottom:'12px' }}>
-                  <input type="checkbox" disabled={!isEditingPolicy} checked={policyForm.attendance_settings?.geo_fencing_required??false} onChange={e=>setPolicyForm(p=>({ ...p, attendance_settings:{ ...(p.attendance_settings||{}), geo_fencing_required:e.target.checked } }))} style={{ width:'16px', height:'16px' }}/>
+                  <input type="checkbox" disabled={!isEditingPolicy} checked={policyForm.attendance_settings?.geo_fencing_required??false} onChange={e=>setPolicyForm(p=>({...p, attendance_settings:{...(p.attendance_settings||{}), geo_fencing_required:e.target.checked}}))} style={{ width:'16px', height:'16px' }}/>
                   Geo-fencing Required
                   {policyForm.attendance_settings?.geo_fencing_required===undefined&&profile?.employee?.company_id?.settings?.geo_fencing_enabled&&<span style={{ fontSize:'11px', color:THEME.indigo, fontWeight:'600', marginLeft:'4px' }}>(Inherited)</span>}
                 </label>
@@ -1552,7 +1652,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                   <div>
                     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px' }}>
                       <span style={{ fontSize:'12px', fontWeight:'700', color:THEME.navy }}>Allowed Locations</span>
-                      {isEditingPolicy && <button type="button" onClick={()=>setPolicyForm(p=>({ ...p, attendance_settings:{ ...(p.attendance_settings||{}), allowed_locations:[...(p.attendance_settings?.allowed_locations||[]),{ name:'', latitude:0, longitude:0, radius_meters:200 }] } }))} style={{ ...S.btn('ghost'), fontSize:'11px' }}>+ Add Location</button>}
+                      {isEditingPolicy && <button type="button" onClick={()=>setPolicyForm(p=>({...p, attendance_settings:{...(p.attendance_settings||{}), allowed_locations:[...(p.attendance_settings?.allowed_locations||[]),{name:'',latitude:0,longitude:0,radius_meters:200}]}}))} style={{ ...S.btn('ghost'), fontSize:'11px' }}>+ Add Location</button>}
                     </div>
                     {!(policyForm.attendance_settings?.allowed_locations||[]).length ? (
                       <p style={{ fontSize:'12px', color:THEME.muted, fontStyle:'italic' }}>No individual locations. Falls back to org-level locations.</p>
@@ -1562,18 +1662,18 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                           <div key={idx} style={{ display:'grid', gridTemplateColumns:'1.5fr 1fr 1fr 80px 36px', gap:'8px', alignItems:'start', padding:'10px', background:'#f8fafc', borderRadius:'7px', border:`1px solid ${THEME.border}` }}>
                             <div style={{ display:'flex', flexDirection:'column', gap:'4px' }}>
                               <LocationDirectorySelect currentName={loc.name} onSelect={l=>handleDirectorySelect(idx,l)}/>
-                              <input placeholder="Custom name…" disabled={!isEditingPolicy} value={loc.name} onChange={e=>setPolicyForm(p=>{ const nl=(p.attendance_settings?.allowed_locations||[]).map((x,i)=>i===idx?{ ...x, name:e.target.value }:x); return { ...p, attendance_settings:{ ...p.attendance_settings, allowed_locations:nl } }; })} style={{ ...S.input, fontSize:'11px' }}/>
+                              <input placeholder="Custom name…" disabled={!isEditingPolicy} value={loc.name} onChange={e=>setPolicyForm(p=>{ const nl=(p.attendance_settings?.allowed_locations||[]).map((x,i)=>i===idx?{...x,name:e.target.value}:x); return {...p,attendance_settings:{...p.attendance_settings,allowed_locations:nl}}; })} style={{ ...S.input, fontSize:'11px' }}/>
                             </div>
                             <div style={{ display:'flex', gap:'4px' }}>
-                              <input type="number" step="any" placeholder="Lat" disabled={!isEditingPolicy} value={loc.latitude} onChange={e=>setPolicyForm(p=>{ const nl=(p.attendance_settings?.allowed_locations||[]).map((x,i)=>i===idx?{ ...x, latitude:e.target.value===''?0:parseFloat(e.target.value) }:x); return { ...p, attendance_settings:{ ...p.attendance_settings, allowed_locations:nl } }; })} style={{ ...S.input }}/>
-                              {isEditingPolicy && <button type="button" onClick={()=>setPickerModal({ open:true, index:idx })} style={{ padding:'6px', background:'#f1f5f9', border:`1px solid ${THEME.border}`, borderRadius:'6px', color:THEME.indigo, cursor:'pointer' }}><FiGlobe size={13}/></button>}
+                              <input type="number" step="any" placeholder="Lat" disabled={!isEditingPolicy} value={loc.latitude} onChange={e=>setPolicyForm(p=>{ const nl=(p.attendance_settings?.allowed_locations||[]).map((x,i)=>i===idx?{...x,latitude:e.target.value===''?0:parseFloat(e.target.value)}:x); return {...p,attendance_settings:{...p.attendance_settings,allowed_locations:nl}}; })} style={{ ...S.input }}/>
+                              {isEditingPolicy && <button type="button" onClick={()=>setPickerModal({open:true,index:idx})} style={{ padding:'6px', background:'#f1f5f9', border:`1px solid ${THEME.border}`, borderRadius:'6px', color:THEME.indigo, cursor:'pointer' }}><FiGlobe size={13}/></button>}
                             </div>
-                            <input type="number" step="any" placeholder="Lng" disabled={!isEditingPolicy} value={loc.longitude} onChange={e=>setPolicyForm(p=>{ const nl=(p.attendance_settings?.allowed_locations||[]).map((x,i)=>i===idx?{ ...x, longitude:e.target.value===''?0:parseFloat(e.target.value) }:x); return { ...p, attendance_settings:{ ...p.attendance_settings, allowed_locations:nl } }; })} style={{ ...S.input }}/>
+                            <input type="number" step="any" placeholder="Lng" disabled={!isEditingPolicy} value={loc.longitude} onChange={e=>setPolicyForm(p=>{ const nl=(p.attendance_settings?.allowed_locations||[]).map((x,i)=>i===idx?{...x,longitude:e.target.value===''?0:parseFloat(e.target.value)}:x); return {...p,attendance_settings:{...p.attendance_settings,allowed_locations:nl}}; })} style={{ ...S.input }}/>
                             <div style={{ position:'relative' }}>
-                              <input type="number" placeholder="Radius" disabled={!isEditingPolicy} value={loc.radius_meters} onChange={e=>setPolicyForm(p=>{ const nl=(p.attendance_settings?.allowed_locations||[]).map((x,i)=>i===idx?{ ...x, radius_meters:e.target.value===''?0:parseInt(e.target.value) }:x); return { ...p, attendance_settings:{ ...p.attendance_settings, allowed_locations:nl } }; })} style={{ ...S.input, paddingRight:'20px' }}/>
+                              <input type="number" placeholder="Radius" disabled={!isEditingPolicy} value={loc.radius_meters} onChange={e=>setPolicyForm(p=>{ const nl=(p.attendance_settings?.allowed_locations||[]).map((x,i)=>i===idx?{...x,radius_meters:e.target.value===''?0:parseInt(e.target.value)}:x); return {...p,attendance_settings:{...p.attendance_settings,allowed_locations:nl}}; })} style={{ ...S.input, paddingRight:'20px' }}/>
                               <span style={{ position:'absolute', right:'5px', top:'50%', transform:'translateY(-50%)', fontSize:'10px', color:THEME.muted }}>m</span>
                             </div>
-                            {isEditingPolicy && <button type="button" onClick={()=>setPolicyForm(p=>{ const nl=p.attendance_settings.allowed_locations.filter((_,i)=>i!==idx); return { ...p, attendance_settings:{ ...p.attendance_settings, allowed_locations:nl } }; })} style={{ border:'none', background:'transparent', color:'#ef4444', cursor:'pointer', fontSize:'16px' }}>🗑️</button>}
+                            {isEditingPolicy && <button type="button" onClick={()=>setPolicyForm(p=>{ const nl=p.attendance_settings.allowed_locations.filter((_,i)=>i!==idx); return {...p,attendance_settings:{...p.attendance_settings,allowed_locations:nl}}; })} style={{ border:'none', background:'transparent', color:'#ef4444', cursor:'pointer', fontSize:'16px' }}>🗑️</button>}
                           </div>
                         ))}
                       </div>
@@ -1584,7 +1684,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
 
               {isEditingPolicy && (
                 <div style={{ display:'flex', gap:'10px', paddingTop:'8px' }}>
-                  <button type="button" onClick={()=>{ setIsEditingPolicy(false); const e=profile.employee,ov=e.policy_overrides||{}; setPolicyForm({ weekoff_policy_id:e.weekoff_policy_id?._id||e.weekoff_policy_id||ov.weekoff_policy_id?._id||ov.weekoff_policy_id||'', holiday_policy_id:e.holiday_policy_id?._id||e.holiday_policy_id||ov.holiday_policy_id?._id||ov.holiday_policy_id||'', shift_id:resolveShiftPolicyId(e,ov.shift_id), attendance_settings:e.attendance_settings||{ geo_fencing_required:true, allowed_locations:[] } }); }} style={{ ...S.btn('ghost'), padding:'8px 20px' }}>Discard</button>
+                  <button type="button" onClick={()=>{ setIsEditingPolicy(false); const e=profile.employee,ov=e.policy_overrides||{}; setPolicyForm({ weekoff_policy_id:e.weekoff_policy_id?._id||e.weekoff_policy_id||ov.weekoff_policy_id?._id||ov.weekoff_policy_id||'', holiday_policy_id:e.holiday_policy_id?._id||e.holiday_policy_id||ov.holiday_policy_id?._id||ov.holiday_policy_id||'', shift_id:resolveShiftPolicyId(e,ov.shift_id), attendance_settings:e.attendance_settings||{geo_fencing_required:true,allowed_locations:[]} }); }} style={{ ...S.btn('ghost'), padding:'8px 20px' }}>Discard</button>
                   <button type="submit" disabled={policySaving} style={{ ...S.btn('primary'), padding:'8px 24px', opacity:policySaving?0.7:1 }}>{policySaving?'Saving…':'💾 Save Policy Overrides'}</button>
                 </div>
               )}

@@ -19,6 +19,7 @@ import SupervisedUserCircleIcon from "@mui/icons-material/SupervisedUserCircle";
 import DomainIcon from "@mui/icons-material/Domain";
 import VpnKeyIcon from "@mui/icons-material/VpnKey";
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
+import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import { UserContext } from "../../contexts/UserContext";
 import CurrencyRateDialog from "./CurrencyRateDialog"; // Import the dialog
 
@@ -99,6 +100,18 @@ function Sidebar() {
         >
           <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
             <HomeRoundedIcon />
+          </IconButton>
+        </ListItemButton>
+      </Tooltip>
+
+      <Tooltip title="Attendance" enterDelay={0} placement="right">
+        <ListItemButton
+          className="appbar-links"
+          aria-label="list-item"
+          onClick={() => navigate("/attendance/dashboard")}
+        >
+          <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
+            <AccessTimeIcon />
           </IconButton>
         </ListItemButton>
       </Tooltip>

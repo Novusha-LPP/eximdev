@@ -133,23 +133,26 @@
 /* Company Card */
 .cm-card {
     background: white;
-    border-radius: 12px;
-    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.025);
     overflow: hidden;
-    transition: all 0.2s;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .cm-card:hover {
-    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.05);
-    border-color: #d1d5db;
+    transform: translateY(-4px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    border-color: #bfdbfe;
 }
 
 .cm-card-header {
     padding: 20px;
-    border-bottom: 1px solid #f3f4f6;
+    border-bottom: 1px solid #f1f5f9;
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
+    background: linear-gradient(135deg, #f8fafc, #f1f5f9);
 }
 
 .cm-card-title h3 {
@@ -980,6 +983,95 @@
 
 .cm-empty-state h3 { margin: 0; color: #0f172a; font-size: 1rem; }
 .cm-empty-state p { margin: 6px 0 0; color: #64748b; font-size: 0.875rem; }
+
+/* Policies layout inside Company Card */
+.cm-card-policies {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 14px 0;
+    margin-bottom: 14px;
+    border-top: 1px solid #f1f5f9;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.cm-card-policy-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.cm-policy-icon {
+    font-size: 1.15rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: #f8fafc;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+}
+
+.cm-policy-detail {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+}
+
+.cm-policy-label {
+    font-size: 0.72rem;
+    color: #64748b;
+    font-weight: 500;
+}
+
+.cm-policy-val {
+    font-size: 0.82rem;
+    color: #1e293b;
+    font-weight: 600;
+}
+
+/* Propagation section in Modal */
+.cm-propagate-section {
+    margin-top: 20px;
+    background: linear-gradient(135deg, #fef3c7, #fffbeb);
+    border: 1px solid #fde68a;
+    border-radius: 10px;
+    padding: 12px 16px;
+    border-left: 4px solid #d97706;
+}
+
+.cm-checkbox-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    cursor: pointer;
+}
+
+.cm-checkbox-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin-top: 3px;
+    accent-color: #d97706;
+}
+
+.cm-checkbox-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.cm-checkbox-text strong {
+    font-size: 0.875rem;
+    color: #92400e;
+    font-weight: 700;
+}
+
+.cm-checkbox-text p {
+    margin: 4px 0 0;
+    font-size: 0.78rem;
+    color: #b45309;
+    line-height: 1.3;
+}
 
 /* ─── Responsive ─────────────────────────────────────────── */
 

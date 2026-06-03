@@ -9,8 +9,12 @@ import UserMigrationModal from './UserMigrationModal';
 import axios from 'axios';
 import './CompanyManagement.css';
 
-const CompanyCard = ({ company, onEdit, onDelete, onMigrateUser, onViewHistory, users = [], expanded, onToggleExpand }) => {
+const CompanyCard = ({ company, onEdit, onDelete, onMigrateUser, onViewHistory, users = [], expanded, onToggleExpand, shifts = [], weekOffPolicies = [], holidayPolicies = [] }) => {
     const branchCount = Array.isArray(company.branch_ids) ? company.branch_ids.length : 0;
+    const activeShift = shifts.find(s => String(s._id) === String(company.shift_policy_id));
+    const activeWeekoff = weekOffPolicies.find(p => String(p._id) === String(company.weekoff_policy_id));
+    const activeHoliday = holidayPolicies.find(p => String(p._id) === String(company.holiday_policy_id));
+
     return (
         <div className="cm-card">
             <div className="cm-card-header">
@@ -27,7 +31,7 @@ const CompanyCard = ({ company, onEdit, onDelete, onMigrateUser, onViewHistory, 
             <div className="cm-card-body">
                 <div className="cm-stats-row">
                     <div className="cm-stat-item">
-                        <span className="cm-stat-label">Shift Policy</span>
+                        <span className="cm-stat-label">Shift Mode</span>
                         <span className="cm-stat-value cm-stat-tag">{company.shift_policy || 'fixed'}</span>
                     </div>
                     <div className="cm-stat-item" style={{ textAlign: 'center' }}>
@@ -39,6 +43,31 @@ const CompanyCard = ({ company, onEdit, onDelete, onMigrateUser, onViewHistory, 
                         <span className="cm-stat-value">{users.length}</span>
                     </div>
                 </div>
+
+                <div className="cm-card-policies">
+                    <div className="cm-card-policy-item">
+                        <span className="cm-policy-icon">🕐</span>
+                        <div className="cm-policy-detail">
+                            <span className="cm-policy-label">Default Shift</span>
+                            <span className="cm-policy-val">{activeShift ? `${activeShift.shift_name} (${activeShift.shift_code})` : 'Not Set'}</span>
+                        </div>
+                    </div>
+                    <div className="cm-card-policy-item">
+                        <span className="cm-policy-icon">📅</span>
+                        <div className="cm-policy-detail">
+                            <span className="cm-policy-label">Week-Off Policy</span>
+                            <span className="cm-policy-val">{activeWeekoff ? activeWeekoff.policy_name : 'Not Set'}</span>
+                        </div>
+                    </div>
+                    <div className="cm-card-policy-item">
+                        <span className="cm-policy-icon">🎉</span>
+                        <div className="cm-policy-detail">
+                            <span className="cm-policy-label">Holiday Policy</span>
+                            <span className="cm-policy-val">{activeHoliday ? activeHoliday.policy_name : 'Not Set'}</span>
+                        </div>
+                    </div>
+                </div>
+
                 {branchCount > 0 && (
                     <div className="cm-branch-tags">
                         {company.branch_ids.slice(0, 3).map((b) => (
@@ -84,6 +113,8 @@ const CompanyManagement = () => {
     const [users, setUsers] = useState([]);
     const [branches, setBranches] = useState([]);
     const [shifts, setShifts] = useState([]);
+    const [weekOffPolicies, setWeekOffPolicies] = useState([]);
+    const [holidayPolicies, setHolidayPolicies] = useState([]);
     const [loading, setLoading] = useState(true);
     const [expandedCompany, setExpandedCompany] = useState(null);
     const [pickerModal, setPickerModal] = useState({ open: false, index: -1 });
@@ -97,6 +128,9 @@ const CompanyManagement = () => {
         company_name: '',
         company_code: '',
         shift_policy_id: '',
+        weekoff_policy_id: '',
+        holiday_policy_id: '',
+        propagate_to_employees: false,
         branch_ids: [],
         selected_user_ids: [],
         settings: { geo_fencing_enabled: false, allowed_locations: [] }
@@ -108,16 +142,20 @@ const CompanyManagement = () => {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [cRes, uRes, branchRes, shiftRes] = await Promise.all([
+            const [cRes, uRes, branchRes, shiftRes, weekoffRes, holidayRes] = await Promise.all([
                 masterAPI.getCompanies(),
                 masterAPI.getUsers({ limit: 2000, all_companies: true, isActive: true }),
                 axios.get(`${process.env.REACT_APP_API_STRING}/admin/get-branches`, { withCredentials: true }),
-                masterAPI.getShifts({ all_companies: true })
+                masterAPI.getShifts({ all_companies: true }),
+                masterAPI.getWeekOffPolicies({ all_companies: true }),
+                masterAPI.getHolidayPolicies({ all_companies: true })
             ]);
             setCompanies(cRes?.data || []);
             setUsers(uRes?.data || []);
             setBranches(branchRes?.data || []);
             setShifts(shiftRes?.data || []);
+            setWeekOffPolicies(weekoffRes?.data || []);
+            setHolidayPolicies(holidayRes?.data || []);
         } catch (err) {
             toast.error("Failed to load company data");
         } finally {
@@ -180,6 +218,9 @@ const CompanyManagement = () => {
                 company_name: record.company_name,
                 company_code: record.company_code,
                 shift_policy_id: record.shift_policy_id || '',
+                weekoff_policy_id: record.weekoff_policy_id || '',
+                holiday_policy_id: record.holiday_policy_id || '',
+                propagate_to_employees: false,
                 branch_ids: (record.branch_ids || []).map((b) => b._id || b),
                 selected_user_ids: userIdsInCompany,
                 settings: {
@@ -191,6 +232,8 @@ const CompanyManagement = () => {
         } else {
             setForm({
                 company_name: '', company_code: '', shift_policy_id: '',
+                weekoff_policy_id: '', holiday_policy_id: '',
+                propagate_to_employees: false,
                 branch_ids: [], selected_user_ids: [],
                 settings: { geo_fencing_enabled: false, allowed_locations: [] }
             });
@@ -313,6 +356,9 @@ const CompanyManagement = () => {
                                 setHistoryModal(prev => ({ ...prev, loading: false }));
                             }
                         }}
+                        shifts={shifts}
+                        weekOffPolicies={weekOffPolicies}
+                        holidayPolicies={holidayPolicies}
                     />
                 ))}
             </div>
@@ -374,19 +420,49 @@ const CompanyManagement = () => {
                                                             onChange={e => setForm({ ...form, company_code: e.target.value.toUpperCase() })}
                                                             placeholder="e.g. ACME_IND" required />
                                                     </div>
+                                                    <div className="cm-form-group">
+                                                        <label>Week-Off Policy</label>
+                                                        <select value={form.weekoff_policy_id}
+                                                            onChange={e => setForm({ ...form, weekoff_policy_id: e.target.value })}>
+                                                            <option value="">Select a Week-Off Policy...</option>
+                                                            {weekOffPolicies.map(p => (
+                                                                <option key={p._id} value={p._id}>{p.policy_name}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
                                                 </div>
                                                 <div className="cm-modal-column">
                                                     <div className="cm-form-group">
-                                                        <label>Shift Policy</label>
+                                                        <label>Default Shift Policy</label>
                                                         <select value={form.shift_policy_id}
-                                                            onChange={e => setForm({ ...form, shift_policy_id: e.target.value })} required>
+                                                            onChange={e => setForm({ ...form, shift_policy_id: e.target.value })}>
                                                             <option value="">Select a Shift Policy...</option>
                                                             {shifts.map(s => (
                                                                 <option key={s._id} value={s._id}>{s.shift_name} ({s.shift_code})</option>
                                                             ))}
                                                         </select>
                                                     </div>
+                                                    <div className="cm-form-group">
+                                                        <label>Holiday Policy</label>
+                                                        <select value={form.holiday_policy_id}
+                                                            onChange={e => setForm({ ...form, holiday_policy_id: e.target.value })}>
+                                                            <option value="">Select a Holiday Policy...</option>
+                                                            {holidayPolicies.map(p => (
+                                                                <option key={p._id} value={p._id}>{p.policy_name} ({p.year})</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
                                                 </div>
+                                            </div>
+                                            <div className="cm-propagate-section">
+                                                <label className="cm-checkbox-label">
+                                                    <input type="checkbox" checked={form.propagate_to_employees}
+                                                        onChange={e => setForm({ ...form, propagate_to_employees: e.target.checked })} />
+                                                    <span className="cm-checkbox-text">
+                                                        <strong>Propagate policies to all current employees</strong>
+                                                        <p>Apply these defaults to overwrite active configurations for all members in this organization.</p>
+                                                    </span>
+                                                </label>
                                             </div>
                                             <div className="cm-divider" />
                                             <div className="cm-form-group">

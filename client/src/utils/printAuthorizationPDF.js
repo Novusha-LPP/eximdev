@@ -257,7 +257,7 @@ export const printAuthorizationPDF = (row, subData) => {
     return [
       item.be_no || '—',
       formatDate(item.be_date),
-      item.job_no || '—',
+      item.port || '—',
       `${(item.qty || 0).toLocaleString('en-IN', { maximumFractionDigits: 3 })} ${item.unit || ''}`,
       `$${(item.cif_usd || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
       `Rs. ${(item.cif_inr || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -266,7 +266,7 @@ export const printAuthorizationPDF = (row, subData) => {
 
   doc.autoTable({
     startY: currentY,
-    head: [['BE No', 'BE Date', 'Job No', 'Qty Utilized', 'CIF USD', 'CIF INR']],
+    head: [['BE No', 'BE Date', 'Port No', 'Qty Utilized', 'CIF USD', 'CIF INR']],
     body: txBody.length > 0 ? txBody : [['No utilization records found', '', '', '', '', '']],
     theme: 'grid',
     styles: { fontSize: 8, textColor: [0, 0, 0] },

@@ -888,18 +888,22 @@ function ViewAuthorizationDetails() {
                         />
                       </td>
                       <td style={{ padding: '8px', verticalAlign: 'top' }}>
-                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                           <input 
                             type="text" 
                             className="ap-field-input-borderless" 
                             value={impRow.qty}
                             onChange={e => handleImportDetailChange(idx, "qty", e.target.value)} 
                             placeholder="0.00" 
-                            style={{ margin: 0, fontWeight: 'normal', width: '80px' }} 
+                            style={{ flex: 2, margin: 0, fontWeight: 'normal' }} 
                           />
-                          <span className="ap-unit-badge">
-                            {impRow.unit || '—'}
-                          </span>
+                          <div style={{ flex: 1.5 }}>
+                            <UnitAutocomplete 
+                              value={impRow.unit} 
+                              onChange={v => handleImportDetailChange(idx, "unit", v)} 
+                              className="ap-field-input-borderless"
+                            />
+                          </div>
                         </div>
                         <div className="ap-sub-meta" style={{ marginTop: '4px', gap: '6px' }}>
                           <span>Used: <strong>{impRow.total_utilized_qty ?? 0}</strong></span>

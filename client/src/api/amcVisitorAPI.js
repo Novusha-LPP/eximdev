@@ -1,10 +1,20 @@
 import axios from "axios";
 
-let apiBaseURL = process.env.REACT_APP_API_STRING || "http://localhost:9006";
+// Build baseURL: use env variable but replace localhost with current hostname
+// so mobile devices scanning QR can reach the backend server
+let apiBaseURL = process.env.REACT_APP_API_STRING || "http://localhost:9006/api";
 
-// If accessing the development site from a mobile phone via PC IP, dynamically point backend to PC IP
-if (apiBaseURL.includes("localhost") && typeof window !== "undefined" && window.location.hostname !== "localhost") {
-  apiBaseURL = `http://${window.location.hostname}:9006`;
+if (
+  typeof window !== "undefined" &&
+  apiBaseURL.includes("localhost") &&
+  window.location.hostname !== "localhost" &&
+  window.location.hostname !== "127.0.0.1"
+) {
+  // Replace localhost with the PC's actual IP, preserving the /api prefix
+  apiBaseURL = apiBaseURL.replace(
+    /localhost|127\.0\.0\.1/,
+    window.location.hostname
+  );
 }
 
 const api = axios.create({

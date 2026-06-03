@@ -422,18 +422,32 @@ app.use((req, res, next) => {
 });
 app.use(
   cors({
-    origin: [
-      "null",
-      "http://eximdev.s3-website.ap-south-1.amazonaws.com",
-      "http://localhost:3000",
-      "http://localhost:3001",
-      "http://localhost:9007",
-      "http://192.168.1.105:3000",
-      "http://192.168.1.105:3001",
-      "http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com",
-      "https://import.alvision.in",
-      "https://test-frontend.alvision.in"
-    ],
+    origin: function (origin, callback) {
+      // Allow requests with no origin (mobile apps, curl, etc.)
+      if (!origin) return callback(null, true);
+
+      const allowedStaticOrigins = [
+        "null",
+        "http://eximdev.s3-website.ap-south-1.amazonaws.com",
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:9007",
+        "http://192.168.1.105:3000",
+        "http://192.168.1.105:3001",
+        "http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com",
+        "https://import.alvision.in",
+        "https://test-frontend.alvision.in"
+      ];
+
+      // Allow any local network IP (192.168.x.x, 10.x.x.x, 172.16-31.x.x) on any port
+      const localNetworkPattern = /^http:\/\/(192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})(:\d+)?$/;
+
+      if (allowedStaticOrigins.includes(origin) || localNetworkPattern.test(origin)) {
+        return callback(null, true);
+      }
+
+      callback(null, true); // Allow all origins for now (AMC public form needs it)
+    },
     credentials: true,
     // Allow custom headers for audit trail
     exposedHeaders: ["Content-Type", "Authorization"],

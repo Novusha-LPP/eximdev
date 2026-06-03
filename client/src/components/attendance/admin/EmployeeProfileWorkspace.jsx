@@ -310,6 +310,15 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
         if (prev.opening_balance===existing.opening_balance&&prev.used===(existing.used??existing.consumed??0)&&prev.pending===(existing.pending??existing.pending_approval??0)) return prev;
         return { ...prev, opening_balance:existing.opening_balance||0, used:existing.used??existing.consumed??0, pending:existing.pending??existing.pending_approval??0 };
       });
+    } else {
+      const sel = (leavePolicies||[]).find(p=>String(p._id)===String(balanceForm.leave_policy_id));
+      if (sel) {
+        setBalanceForm(prev => {
+          const defaultQuota = sel.leave_type === 'lwp' ? 0 : (sel.annual_quota || 0);
+          if (prev.opening_balance === defaultQuota && prev.used === 0 && prev.pending === 0) return prev;
+          return { ...prev, opening_balance: defaultQuota, used: 0, pending: 0 };
+        });
+      }
     }
   }, [balanceForm.leave_policy_id, profile?.balances, showLeaveBalanceForm, leavePolicies]);
 
@@ -1427,7 +1436,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                       <option value="">Select policy</option>
                       {availablePolicies.map(p=><option key={p._id} value={String(p._id)}>{p.policy_name||p.leave_type}</option>)}
                     </select>],
-                    ['Opening', <input key="ob" type="number" step="1" style={{ ...S.input, width:'90px' }} value={balanceForm.opening_balance} onChange={e=>setBalanceForm(p=>({ ...p, opening_balance:e.target.value, pending:e.target.value }))}/>],
+                    ['Opening', <input key="ob" type="number" step="1" style={{ ...S.input, width:'90px' }} value={balanceForm.opening_balance} onChange={e=>setBalanceForm(p=>({ ...p, opening_balance:e.target.value }))}/>],
                     ['Used', <input key="u" type="number" step="1" style={{ ...S.input, width:'80px' }} value={balanceForm.used} onChange={e=>setBalanceForm({ ...balanceForm, used:e.target.value })}/>],
                     ['Pending', <input key="pd" type="number" step="1" style={{ ...S.input, width:'80px' }} value={balanceForm.pending} onChange={e=>setBalanceForm({ ...balanceForm, pending:e.target.value })}/>],
                   ].map(([lbl,ctrl],i)=>(
@@ -1457,13 +1466,13 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                 <table style={{ width:'100%', borderCollapse:'collapse', fontSize:'12px' }}>
                   <thead>
                     <tr style={{ background:'#f8fafc' }}>
-                      {['Policy','Opening','Used','Pending','Net Available',''].map(h=><th key={h} style={{ padding:'10px 12px', fontWeight:'700', color:THEME.navy, borderBottom:`1px solid ${THEME.border}`, textAlign:h==='Policy'?'left':'right', whiteSpace:'nowrap' }}>{h}</th>)}
+                      {['Policy','Opening','Used','Pending',''].map(h=><th key={h} style={{ padding:'10px 12px', fontWeight:'700', color:THEME.navy, borderBottom:`1px solid ${THEME.border}`, textAlign:h==='Policy'?'left':'right', whiteSpace:'nowrap' }}>{h}</th>)}
                     </tr>
                   </thead>
                   <tbody>
                     {(profile.balances||[]).map(b=>{
                       const isLwp = String(b.leave_type||b.leave_policy_id?.leave_type||'').toLowerCase().includes('lwp');
-                      const net = isLwp?0:formatLeaveDays(b.pending??b.pending_approval??Math.max(0,(b.opening_balance||0)-(b.used??b.consumed??0)));
+                      const net = isLwp?0:formatLeaveDays(b.available??b.balance??b.closing_balance??Math.max(0,(b.opening_balance||0)-(b.used??b.consumed??0)-(b.pending??b.pending_approval??0)));
                       const rid = b.leave_policy_id?._id||b.leave_policy_id||b._id;
                       const isRowEditing = showLeaveBalanceForm&&isEditingBalance&&String(balanceForm.leave_policy_id)===String(rid);
                       return (
@@ -1471,8 +1480,8 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                           <td style={{ padding:'8px 12px' }}>{b.leave_policy_id?.policy_name||b.leave_type||'Policy'}</td>
                           <td style={{ padding:'8px 12px', textAlign:'right' }}>{formatLeaveDays(b.opening_balance||0)}</td>
                           <td style={{ padding:'8px 12px', textAlign:'right' }}>{formatLeaveDays(b.used??b.consumed??0)}</td>
-                          <td style={{ padding:'8px 12px', textAlign:'right' }}>{isLwp?0:formatLeaveDays(b.pending??b.pending_approval??Math.max(0,(b.opening_balance||0)-(b.used??b.consumed??0)))}</td>
-                          <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:'700', color:THEME.primary }}>{net}</td>
+                          <td style={{ padding:'8px 12px', textAlign:'right' }}>{isLwp?0:formatLeaveDays(b.pending??b.pending_approval??0)}</td>
+                          {/* <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:'700', color:THEME.primary }}>{net}</td> */}
                           <td style={{ padding:'8px 12px', textAlign:'right' }}>
                             <button onClick={()=>{ setBalanceForm({ leave_policy_id:rid, opening_balance:b.opening_balance||0, used:b.used??b.consumed??0, pending:b.pending??b.pending_approval??0 }); setShowLeaveBalanceForm(true); }} disabled={isRowEditing} style={{ ...S.btn('ghost'), fontSize:'11px', opacity:isRowEditing?0.5:1 }}>{isRowEditing?'Editing…':'Edit'}</button>
                           </td>

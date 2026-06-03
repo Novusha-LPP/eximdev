@@ -529,8 +529,8 @@ export const getBalance = async (req, res) => {
             // Extract balance values
             const openingBalance = userBalance?.opening_balance ?? getDefaultOpeningBalance(policy);
             const applicationUsage = usageByPolicy.get(String(policy._id)) || {};
-            const used = isUnpaidPolicy ? 0 : Number(applicationUsage.approved ?? userBalance?.used ?? userBalance?.consumed ?? 0);
-            const pending = isUnpaidPolicy ? 0 : Number(applicationUsage.pending ?? userBalance?.pending_approval ?? userBalance?.pending ?? 0);
+            const used = isUnpaidPolicy ? 0 : Number(userBalance?.used ?? userBalance?.consumed ?? applicationUsage.approved ?? 0);
+            const pending = isUnpaidPolicy ? 0 : Number(userBalance?.pending_approval ?? userBalance?.pending ?? applicationUsage.pending ?? 0);
 
             // Balance Info
             const availableFromBalance = isUnpaidPolicy

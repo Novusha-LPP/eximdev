@@ -30,7 +30,6 @@ const LeaveBalanceManagement = () => {
 
   const [balances, setBalances] = useState([]);
   const [form, setForm] = useState({ opening_balance: 0, used: 0, pending: 0 });
-  const [pendingMode, setPendingMode] = useState('manual');
 
   const filteredUsers = useMemo(() => {
     if (!search.trim()) return users;
@@ -45,25 +44,26 @@ const LeaveBalanceManagement = () => {
     return balances.find(b => String(b._id) === String(selectedPolicy)) || null;
   }, [balances, selectedPolicy]);
 
-  const mapBalanceToForm = (row) => {
-    const opening = row?.opening_balance ?? 0;
-    const used = row?.used ?? 0;
-    const pending = row?.pending ?? 0;
+  const mapBalanceToForm = (row, policyId) => {
+    if (row) {
+      return {
+        opening_balance: row.opening_balance ?? 0,
+        used: row.used ?? 0,
+        pending: row.pending ?? 0,
+      };
+    }
+    const policy = policies.find(p => String(p._id) === String(policyId));
+    const defaultQuota = policy ? (policy.leave_type === 'lwp' ? 0 : (policy.annual_quota || 0)) : 0;
     return {
-      opening_balance: opening,
-      used,
-      pending,
+      opening_balance: defaultQuota,
+      used: 0,
+      pending: 0,
     };
   };
 
   const previewClosing = useMemo(() => {
-    return toNum(form.pending);
-  }, [form.pending]);
-
-  const autoPending = useMemo(() => {
-    const computed = toNum(form.opening_balance) - toNum(form.used);
-    return computed > 0 ? computed : 0;
-  }, [form.opening_balance, form.used]);
+    return Math.max(0, toNum(form.opening_balance) - toNum(form.used) - toNum(form.pending));
+  }, [form.opening_balance, form.used, form.pending]);
 
   const fetchInitialData = async () => {
     try {
@@ -101,8 +101,7 @@ const LeaveBalanceManagement = () => {
       setBalances(rows);
 
       const next = rows.find(b => String(b._id) === String(selectedPolicy));
-      setForm(mapBalanceToForm(next));
-      setPendingMode('manual');
+      setForm(mapBalanceToForm(next, selectedPolicy));
     } catch (err) {
       toast.error(err?.message || 'Failed to load employee leave balances');
       setBalances([]);
@@ -121,14 +120,8 @@ const LeaveBalanceManagement = () => {
 
   useEffect(() => {
     const next = balances.find(b => String(b._id) === String(selectedPolicy));
-    setForm(mapBalanceToForm(next));
-    setPendingMode('manual');
-  }, [selectedPolicy, balances]);
-
-  useEffect(() => {
-    if (pendingMode !== 'auto') return;
-    setForm(prev => ({ ...prev, pending: autoPending }));
-  }, [autoPending, pendingMode]);
+    setForm(mapBalanceToForm(next, selectedPolicy));
+  }, [selectedPolicy, balances, policies]);
 
   const saveBalance = async (e) => {
     e.preventDefault();
@@ -243,7 +236,7 @@ const LeaveBalanceManagement = () => {
                 type="number"
                 step="0.5"
                 value={form.opening_balance}
-                onChange={(e) => setForm(prev => ({ ...prev, opening_balance: e.target.value, pending: Math.max(0, toNum(e.target.value) - toNum(prev.used)) }))}
+                onChange={(e) => setForm(prev => ({ ...prev, opening_balance: e.target.value }))}
                 style={{ height: 36, borderRadius: 8, border: '1px solid #e5e7eb', padding: '0 10px' }}
                 title="Base quota at the start of the year"
               />
@@ -254,49 +247,22 @@ const LeaveBalanceManagement = () => {
                 type="number"
                 step="0.5"
                 value={form.used}
-                onChange={(e) => setForm(prev => ({ ...prev, used: e.target.value, pending: Math.max(0, toNum(prev.opening_balance) - toNum(e.target.value)) }))}
+                onChange={(e) => setForm(prev => ({ ...prev, used: e.target.value }))}
                 style={{ height: 36, borderRadius: 8, border: '1px solid #e5e7eb', padding: '0 10px' }}
                 title="Consolidated used days"
               />
             </label>
             <label style={{ display: 'grid', gap: 6, fontSize: '.75rem', color: '#475569', fontWeight: 600 }}>
-              Pending
+              Pending Approval
               <input
                 type="number"
                 step="0.5"
                 value={form.pending}
                 onChange={(e) => setForm(prev => ({ ...prev, pending: e.target.value }))}
-                disabled={pendingMode === 'auto'}
                 style={{ height: 36, borderRadius: 8, border: '1px solid #e5e7eb', padding: '0 10px' }}
-                title={pendingMode === 'auto' ? 'Auto calculated from opening balance minus used' : 'Manual pending value'}
+                title="Actual pending leave applications count"
               />
             </label>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '.75rem', color: '#475569', fontWeight: 600 }}>
-                <input
-                  type="radio"
-                  name="pendingMode"
-                  checked={pendingMode === 'auto'}
-                  onChange={() => setPendingMode('auto')}
-                />
-                Pending Auto
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '.75rem', color: '#475569', fontWeight: 600 }}>
-                <input
-                  type="radio"
-                  name="pendingMode"
-                  checked={pendingMode === 'manual'}
-                  onChange={() => setPendingMode('manual')}
-                />
-                Pending Manual
-              </label>
-            </div>
-            <div style={{ fontSize: '.75rem', color: '#64748b' }}>
-              Auto pending = max(opening - used, 0) = <strong>{autoPending}</strong>
-            </div>
           </div>
 
           <div style={{

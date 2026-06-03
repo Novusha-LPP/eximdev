@@ -77,22 +77,6 @@ async function run() {
             console.log('Default company already exists.');
         }
 
-        // 2. Create Default Shift
-        let shift = await Shift.findOne({ name: 'Standard Shift' });
-        if (!shift) {
-            console.log('Creating standard shift...');
-            shift = new Shift({
-                name: 'Standard Shift',
-                start_time: '10:00',
-                end_time: '19:00',
-                weekly_off_days: [0]
-            });
-            await shift.save();
-            console.log('Shift created:', shift._id);
-        } else {
-            console.log('Standard shift already exists.');
-        }
-
         // 3. MAP USERS
         console.log('Mapping users to defaults...');
         const result = await User.updateMany(
@@ -100,7 +84,6 @@ async function run() {
             {
                 $set: {
                     company_id: company._id,
-                    shift_id: shift._id,
                     current_status: 'out_office'
                 }
             }

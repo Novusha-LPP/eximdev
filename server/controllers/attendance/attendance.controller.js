@@ -39,8 +39,18 @@ const getLeaveLocalDateRange = (leave, tz = 'Asia/Kolkata') => {
 
 const logActivity = async (req, module, action, details, metadata = {}) => {
     try {
+        const companyId = resolveCompanyId(req) || 
+                          metadata?.company_id || 
+                          req.user?.company_id?._id || 
+                          req.user?.company_id;
+
+        if (!companyId) {
+            console.warn(`[logActivity] Warning: company_id is missing for activity: ${module}:${action}`);
+            return;
+        }
+
         const activity = new ActivityLog({
-            company_id: resolveCompanyId(req),
+            company_id: companyId,
             user_id: req.user?._id,
             module,
             action,
@@ -916,8 +926,6 @@ export const getDashboardData = async (req, res) => {
         ]);
 
         const calendarMap = {};
-        console.log(`[DEBUG] Dashboard Calendar for ${user.username} (${currentYearMonth})`);
-        console.log(`[DEBUG] Policy: ${resolvedWeekOffPolicy?.policy_name || 'NONE'}`);
         calendarRecords.forEach(r => {
             const d = moment(r.attendance_date).tz(tz).format('YYYY-MM-DD');
             calendarMap[d] = {
@@ -994,7 +1002,6 @@ export const getDashboardData = async (req, res) => {
                 const weekOffStatus = PolicyResolver.resolveWeeklyOffStatus(dayDate, resolvedWeekOffPolicy);
 
                 if (holidayStatus?.isHoliday) {
-                    console.log(`[DEBUG] ${dateStr} is HOLIDAY: ${holidayStatus.name}`);
                     calendarMap[dateStr] = {
                         date: dateStr,
                         status: 'holiday',
@@ -1005,7 +1012,6 @@ export const getDashboardData = async (req, res) => {
                         holiday_name: holidayStatus?.name || 'Holiday'
                     };
                 } else if (weekOffStatus?.isOff) {
-                    console.log(`[DEBUG] ${dateStr} is WEEKOFF`);
                     calendarMap[dateStr] = {
                         date: dateStr,
                         status: 'weekly_off',
@@ -1014,10 +1020,6 @@ export const getDashboardData = async (req, res) => {
                         isEarlyExit: false,
                         lateByMinutes: 0
                     };
-                } else {
-                    if (dateStr === '2026-04-25') {
-                        console.log(`[DEBUG] 2026-04-25 resolved NOT off. Status:`, weekOffStatus);
-                    }
                 }
             }
         }
@@ -2468,6 +2470,19 @@ export const updateAttendanceRecord = async (req, res) => {
         const employee = await User.findById(record.employee_id);
         const employeeCompanyId = employee?.company_id?._id || employee?.company_id;
         const effectiveCompanyId = record.company_id || employeeCompanyId || companyId;
+
+        // Ensure record has company_id (especially for legacy or bulk-uploaded records)
+        if (effectiveCompanyId && (!record.company_id || record.company_id.toString() !== effectiveCompanyId.toString())) {
+            record.company_id = effectiveCompanyId;
+        }
+        // Ensure legacy records have other required fields
+        if (!record.attendance_date_str && record.attendance_date) {
+            record.attendance_date_str = moment(record.attendance_date).format('YYYY-MM-DD');
+        }
+        if (!record.year_month && record.attendance_date) {
+            record.year_month = moment(record.attendance_date).format('YYYY-MM');
+        }
+
         const company = await Company.findById(effectiveCompanyId);
         const yearMonth = moment(record.attendance_date).format('YYYY-MM');
 
@@ -2603,7 +2618,12 @@ export const updateAttendanceRecord = async (req, res) => {
         await record.save();
         await syncUserTodayStatus(record, company);
 
-        await logActivity(req, 'ATTENDANCE', 'UPDATE_RECORD', `Admin updated record ${id}`, { record_id: id, force_override: allowOverride, pending_leave_id: pendingLeave?._id || null });
+        await logActivity(req, 'ATTENDANCE', 'UPDATE_RECORD', `Admin updated record ${id}`, {
+            company_id: effectiveCompanyId,
+            record_id: id,
+            force_override: allowOverride,
+            pending_leave_id: pendingLeave?._id || null
+        });
         res.json({
             success: true,
             message: pendingLeave && allowOverride ? 'Record updated with override' : 'Record updated',
@@ -2852,7 +2872,12 @@ export const createManualAdjustment = async (req, res) => {
         await record.save();
         await syncUserTodayStatus(record, company);
 
-        await logActivity(req, 'ATTENDANCE', 'CREATE_RECORD', `Manual adjustment for ${attendance_date}`, { record_id: record._id, force_override: allowOverride, pending_leave_id: pendingLeave?._id || null });
+        await logActivity(req, 'ATTENDANCE', 'CREATE_RECORD', `Manual adjustment for ${attendance_date}`, {
+            company_id: effectiveCompanyId,
+            record_id: record._id,
+            force_override: allowOverride,
+            pending_leave_id: pendingLeave?._id || null
+        });
         res.json({
             success: true,
             message: pendingLeave && allowOverride ? 'Adjustment saved with override' : 'Adjustment saved successfully',
@@ -2964,7 +2989,10 @@ export const calculateDailyAttendance = async (req, res) => {
             { upsert: true, new: true, runValidators: false }
         );
 
-        await logActivity(req, 'ATTENDANCE', 'CALCULATE_DAILY', `Attendance calculated for ${attendance_date}`, { record_id: record._id });
+        await logActivity(req, 'ATTENDANCE', 'CALCULATE_DAILY', `Attendance calculated for ${attendance_date}`, {
+            company_id: employee.company_id,
+            record_id: record._id
+        });
 
         res.json({
             success: true,
@@ -3351,9 +3379,7 @@ export const getEmployeeFullProfile = async (req, res) => {
 
         continuityAttendance.sort((a, b) => new Date(b.attendance_date) - new Date(a.attendance_date));
         
-        console.log(`[DEBUG_ATTENDANCE] Generating for ${employee.first_name}: total continuity items: ${continuityAttendance.length}`);
         const absentItems = continuityAttendance.filter(i => i.status === 'absent');
-        console.log(`[DEBUG_ATTENDANCE] Absent count: ${absentItems.length}, Dates: ${absentItems.map(i => i.attendance_date).join(', ')}`);
 
         const holidays = continuityAttendance
             .filter((item) => String(item.status).toLowerCase() === 'holiday')
@@ -3469,7 +3495,11 @@ export const updateEmployeeProfileHOD = async (req, res) => {
 
         await user.save();
         
-        await logActivity(req, 'ATTENDANCE', 'UPDATE_PROFILE_HOD', `HOD ${req.user.username} updated shift for ${user.username}`, { target_id: id, shift_id });
+        await logActivity(req, 'ATTENDANCE', 'UPDATE_PROFILE_HOD', `HOD ${req.user.username} updated shift for ${user.username}`, {
+            company_id: user.company_id,
+            target_id: id,
+            shift_id
+        });
 
         res.json({ success: true, message: 'Shift updated successfully', user });
     } catch (err) {
@@ -3610,6 +3640,7 @@ export const approveRegularization = async (req, res) => {
         await regularization.save();
 
         await logActivity(req, 'ATTENDANCE', 'APPROVE_REGULARIZATION', `Approved regularization for ${employee.first_name}`, {
+            company_id: regularization.company_id,
             regularization_id: regularizationId,
             attendance_date: attendanceDate,
             previous_status: statusResult.status
@@ -3722,6 +3753,7 @@ export const migrateEmployee = async (req, res) => {
         await logActivity(req, 'EMPLOYEE_MIGRATION', 'MIGRATE_EMPLOYEE',
             `Migrated ${employee.first_name} to ${destinationCompanyName}`,
             {
+                company_id: destinationOrgId,
                 employeeId: employee._id,
                 sourceOrgId,
                 destinationOrgId,
@@ -3920,6 +3952,7 @@ export const bulkAssignPolicies = async (req, res) => {
         await logActivity(req, 'POLICY_MANAGEMENT', 'BULK_ASSIGN_POLICIES',
             `Bulk assigned ${policyIds.length} policies to ${assignedCount} employees`,
             {
+                company_id: companyId,
                 companyId,
                 policyIds,
                 employeeCount: assignedCount
@@ -4056,7 +4089,7 @@ export const bulkUpdateAttendance = async (req, res) => {
 
         await logActivity(req, 'ATTENDANCE', 'BULK_CONTINUITY_UPDATE', 
             `Bulk updated ${results.length} days for ${employee.first_name}`, 
-            { employeeId: employee_id, range: `${startDate} to ${endDate}`, status });
+            { company_id: employee.company_id, employeeId: employee_id, range: `${startDate} to ${endDate}`, status });
 
         res.json({ 
             success: true, 
@@ -4188,6 +4221,7 @@ export const applyFullMonthPresence = async (req, res) => {
             'FULL_MONTH_PRESENCE',
             `Applied full month presence for ${employee.first_name || employee.username || 'employee'}`,
             {
+                company_id: employee.company_id || companyId,
                 employeeId: employee_id,
                 month: `${targetYear}-${String(targetMonth).padStart(2, '0')}`,
                 updatedDays,

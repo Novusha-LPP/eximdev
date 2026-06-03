@@ -74,8 +74,18 @@ const getChangeDetails = (oldObj, newObj, fields = []) => {
 
 const logActivity = async (req, module, action, details, metadata = {}) => {
   try {
+    const companyId = resolveCompanyId(req) || 
+                      metadata?.company_id || 
+                      req.user?.company_id?._id || 
+                      req.user?.company_id;
+
+    if (!companyId) {
+      console.warn(`[logActivity] Warning: company_id is missing for activity: ${module}:${action}`);
+      return;
+    }
+
     const activity = new ActivityLog({
-      company_id: resolveCompanyId(req),
+      company_id: companyId,
       user_id: req.user._id,
       module,
       action,

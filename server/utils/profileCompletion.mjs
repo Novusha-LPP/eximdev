@@ -122,9 +122,10 @@ export function calculateProfileCompletion(user) {
   // Access Restriction:
   // - percentage < 70% -> isBlocked: true (requires redirect, locks other modules)
   // - percentage >= 70% && percentage < 100% -> isReadOnly: true (write permissions restricted)
-  const isBlocked = percentage < 70;
-  const isReadOnly = percentage >= 70 && percentage < 100;
-  const hasCriticalMissing = missingBlockingFields.length > 0;
+  // TEMPORARILY DISABLED: Allow everyone normal access
+  const isBlocked = false;
+  const isReadOnly = false;
+  const hasCriticalMissing = false;
 
   return {
     percentage,

@@ -133,6 +133,9 @@ const userSchema = new Schema({
   skill: {
     type: String,
   },
+  skills_secondary: {
+    type: String,
+  },
   company_policy_visited: {
     type: String,
   },
@@ -144,6 +147,7 @@ const userSchema = new Schema({
   },
   resume: { type: String },
   address_proof: { type: String },
+  training_completed: { type: String },
   nda: { type: String },
   ////////////////////////////////////////////////////////////////// KYC
   designation: {
@@ -338,6 +342,14 @@ const userSchema = new Schema({
   passwordChangedAt: {
     type: Date,
     default: Date.now,
+  },
+  profile_employee_notified_at: {
+    type: Date,
+    default: null,
+  },
+  profile_manager_notified_at: {
+    type: Date,
+    default: null,
   },
 });
 

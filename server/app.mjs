@@ -268,6 +268,8 @@ import jobMigrationRouter from "./routes/admin/jobMigration.mjs";
 
 // HR Asset Module
 import userAssetsRoutes from "./routes/hr/userAssetsRoutes.mjs";
+import employeeKPIRoutes from "./routes/hr/employeeKPIRoutes.mjs";
+import profileCompletionRoutes from "./routes/hr/profileCompletionRoutes.mjs";
 
 const MISSED_PUNCH_LIMIT_HOURS = 12;
 
@@ -682,6 +684,8 @@ app.use("/api/admin", branchRoutes);
 app.use("/api/admin/job-migration", jobMigrationRouter);
 
 app.use(userAssetsRoutes);
+app.use(employeeKPIRoutes);
+app.use(profileCompletionRoutes);
 
 // Document Collection Module
 app.use(documentCollectionRoutes);

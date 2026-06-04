@@ -2,7 +2,11 @@ import React, { useState } from "react";
 import Box from "@mui/material/Box";
 import CssBaseline from "@mui/material/CssBaseline";
 import Toolbar from "@mui/material/Toolbar";
-import { Route, Routes, Navigate, useNavigate } from "react-router-dom";
+import { Route, Routes, Navigate, useNavigate, useLocation } from "react-router-dom";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
 import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
@@ -54,6 +58,7 @@ import ViewIndividualKyc from "../components/employeeKyc/ViewIndividualKyc.js";
 // Employee Onboarding
 import EmployeeOnboarding from "../components/employeeOnboarding/EmployeeOnboarding.js";
 import UpdateEmployeeData from "../components/hr/UpdateEmployeeData.js";
+import HRHome from "../components/hr/HRHome.js";
 
 // Customer KYC
 import CustomerKyc from "../components/customerKyc/CustomerKyc.js";
@@ -210,11 +215,13 @@ const PulseIndex = () => {
 function HomePageContent() {
   const { user } = React.useContext(UserContext);
   const navigate = useNavigate();
+  const location = useLocation();
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [passwordAlertDismissed, setPasswordAlertDismissed] = useState(false);
   const [tabValue, setTabValue] = useState(
     JSON.parse(localStorage.getItem("tab_value") || 0)
   );
+  const [criticalAlertOpen, setCriticalAlertOpen] = useState(false);
   
   const { isChangingBranch } = useBranch();
 
@@ -223,6 +230,28 @@ function HomePageContent() {
       setPasswordAlertDismissed(false);
     }
   }, [user?.passwordExpired]);
+
+  // Redirection logic for blocked users
+  React.useEffect(() => {
+    if (user && user.role !== 'Admin' && user.profileCompletion?.isBlocked) {
+      const allowedPaths = ['/employee-kyc', '/change-password'];
+      const isAllowed = allowedPaths.includes(location.pathname) || location.pathname.startsWith('/complete-kyc/');
+      if (!isAllowed) {
+        navigate('/employee-kyc', { replace: true });
+      }
+    }
+  }, [user, location.pathname, navigate]);
+
+  // Show popup alert for critical missing fields on mount
+  React.useEffect(() => {
+    if (user && user.role !== 'Admin' && user.profileCompletion?.hasCriticalMissing) {
+      const shown = sessionStorage.getItem("critical_alert_shown");
+      if (!shown) {
+        setCriticalAlertOpen(true);
+        sessionStorage.setItem("critical_alert_shown", "true");
+      }
+    }
+  }, [user]);
 
   if (isChangingBranch) {
     return (
@@ -299,6 +328,59 @@ function HomePageContent() {
               Your password is older than 30 days. Please update it immediately.
             </Alert>
           </Snackbar>
+
+          {/* Dialog for Critical Profile Fields Missing */}
+          <Dialog
+            open={criticalAlertOpen}
+            onClose={() => setCriticalAlertOpen(false)}
+            PaperProps={{
+              sx: {
+                borderRadius: "16px",
+                padding: 1,
+                maxWidth: "500px",
+              },
+            }}
+          >
+            <DialogTitle sx={{ fontWeight: "bold", color: "#c53030", display: "flex", alignItems: "center", gap: 1 }}>
+              ⚠️ Critical Profile Fields Missing
+            </DialogTitle>
+            <DialogContent>
+              <Typography variant="body1" sx={{ mb: 2 }}>
+                Dear <strong>{user?.first_name || user?.username}</strong>, your profile is missing critical mandatory fields required for compliance.
+              </Typography>
+              <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+                Your reporting manager has been automatically notified. Please complete these fields immediately in the Employee KYC section:
+              </Typography>
+              <Box sx={{ bgcolor: "#fffaf0", borderLeft: "4px solid #dd6b20", p: 2, borderRadius: "4px", mb: 2 }}>
+                <ul style={{ margin: 0, paddingLeft: "20px" }}>
+                  {user?.profileCompletion?.missingBlockingFields?.map((field, idx) => (
+                    <li key={idx} style={{ color: "#dd6b20", fontWeight: "bold", marginBottom: "4px" }}>
+                      {field}
+                    </li>
+                  ))}
+                </ul>
+              </Box>
+              {user?.profileCompletion?.isBlocked && (
+                <Typography variant="caption" color="error" sx={{ fontWeight: "bold", display: "block" }}>
+                  * Access to all standard AlVision modules is locked until your profile is at least 70% complete.
+                </Typography>
+              )}
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+              <Button
+                onClick={() => {
+                  setCriticalAlertOpen(false);
+                  navigate("/employee-kyc");
+                }}
+                variant="contained"
+                color="error"
+                fullWidth
+                sx={{ borderRadius: "8px", textTransform: "none", fontWeight: "bold" }}
+              >
+                Go to Profile Completion
+              </Button>
+            </DialogActions>
+          </Dialog>
           <AppbarComponent
             mobileOpen={mobileOpen}
             setMobileOpen={setMobileOpen}
@@ -324,6 +406,30 @@ function HomePageContent() {
             }}
           >
             <Toolbar />
+
+            {user && user.role !== 'Admin' && user.profileCompletion && (
+              <>
+                {user.profileCompletion.isBlocked && (
+                  <Alert 
+                    severity="error" 
+                    variant="filled"
+                    sx={{ mb: 2, borderRadius: '8px', boxShadow: 1 }}
+                  >
+                    <strong>Access Restricted:</strong> Your profile is incomplete ({user.profileCompletion.percentage}% Complete). All modules except profile completion are locked. Please complete the missing mandatory fields in the <strong>Employee KYC</strong> section to restore full access.
+                  </Alert>
+                )}
+                {user.profileCompletion.isReadOnly && (
+                  <Alert 
+                    severity="warning" 
+                    variant="filled"
+                    sx={{ mb: 2, borderRadius: '8px', boxShadow: 1 }}
+                  >
+                    <strong>Read-Only Access:</strong> Your profile is incomplete ({user.profileCompletion.percentage}% Complete). Write permissions in AlVision are restricted. Please complete all mandatory fields in the <strong>Employee KYC</strong> section to restore full write access.
+                  </Alert>
+                )}
+              </>
+            )}
+
             <Routes>
               {/* ... routes ... */}
                 {/* Public Routes - No protection needed */}
@@ -469,6 +575,14 @@ function HomePageContent() {
                   element={
                     <ProtectedRoute requiredModule="Update Employee Data">
                       <UpdateEmployeeData />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/hr"
+                  element={
+                    <ProtectedRoute requiredModule="HR">
+                      <HRHome />
                     </ProtectedRoute>
                   }
                 />

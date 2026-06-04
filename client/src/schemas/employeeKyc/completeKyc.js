@@ -8,12 +8,16 @@ const panNumberRegex = /^[A-Z]{5}\d{4}[A-Z]$/;
 const pinCodeRegex = /^\d{6}$/;
 
 export const validationSchema = yup.object({
+  employee_code: yup
+    .string("Enter Employee ID")
+    .required("Employee ID is required"),
   designation: yup
     .string("Enter designation")
     .required("Designation is required"),
   company: yup.string("Select company").required("Company is required"),
   employment_type: yup.string("Select employment type").required("Employment type is required"),
   department: yup.string("Enter department").required("Department is required"),
+  hod_id: yup.string().required("Reporting Manager is required"),
   joining_date: yup
     .string("Enter joining date")
     .required("Joining date is required"),
@@ -60,7 +64,22 @@ export const validationSchema = yup.object({
   official_email: yup
     .string()
     .email("Invalid email")
+    .required("Official email is required")
     .matches(emailRegex, "Invalid official email"),
+  skill: yup
+    .string("Enter Primary Skill")
+    .required("Primary Skill is required"),
+  skills_secondary: yup
+    .string("Enter Secondary Skills"),
+  training_completed: yup
+    .string("Enter Training Completed"),
+  employee_photo: yup
+    .string("Upload Profile Photo")
+    .required("Profile Photo is required"),
+  resume: yup
+    .string("Upload Resume"),
+  address_proof: yup
+    .string("Upload Address Proof"),
   mobile: yup
     .string("Enter mobile number")
     .required("Mobile number is required")

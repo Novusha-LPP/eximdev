@@ -18,7 +18,10 @@ const ProtectedRoute = ({ children, requiredModule, fallbackPath = "/" }) => {
     ? requiredModule.some(m => userModules.includes(m))
     : userModules.includes(requiredModule);
 
-  if (!hasPermission) {
+  const isOwnKycRoute = location.pathname.startsWith('/employee-kyc') || location.pathname.startsWith('/complete-kyc');
+  const isOwnKyc = isOwnKycRoute && (requiredModule === "Employee KYC");
+
+  if (!hasPermission && !isOwnKyc) {
     const moduleLabel = Array.isArray(requiredModule) ? requiredModule.join(' or ') : requiredModule;
     // Redirect to fallback path with a message
     return (

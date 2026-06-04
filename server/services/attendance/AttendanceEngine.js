@@ -112,7 +112,7 @@ class AttendanceEngine {
         let isEarlyIn = false;
         let earlyInMinutes = 0;
 
-        const firstIn = punches.find(p => p.punch_type === 'IN');
+        const firstIn = punches.find(p => p.punch_type === 'IN' && p.punch_date_str === date);
 
         // If employee punched in
         if (firstIn) {

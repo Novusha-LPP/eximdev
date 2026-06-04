@@ -1,6 +1,7 @@
 import * as Sentry from "@sentry/node";
 import logger from "./logger.js";
 import dotenv from "dotenv";
+import moment from "moment-timezone";
 
 dotenv.config();
 
@@ -303,7 +304,7 @@ const autoMarkStaleMissedPunchSessions = async () => {
 
     if (!updated) continue;
 
-    const sessionDateKey = new Date(session.session_date).toISOString().slice(0, 10);
+    const sessionDateKey = moment(session.session_date).tz("Asia/Kolkata").format("YYYY-MM-DD");
     const attendanceDate = new Date(`${sessionDateKey}T00:00:00.000Z`);
 
     await AttendanceRecord.findOneAndUpdate(

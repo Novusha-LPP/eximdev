@@ -17,6 +17,18 @@ const PIPELINE_STAGES = [
   { id: 'lost', name: 'Lost', color: '#f75a5a' }
 ];
 
+const ALLOWED_SERVICES = [
+  'custom clearance', 
+  'freight forwarding', 
+  'dgft', 
+  'e-lock', 
+  'client', 
+  'transportation', 
+  'paramount', 
+  'rabs', 
+  'auto rack'
+];
+
 export default function CRMKanbanBoard() {
   const getInitialParam = (name, fallback) => {
     try {
@@ -53,6 +65,14 @@ export default function CRMKanbanBoard() {
   const [lostFromStage, setLostFromStage] = useState(null);
   const [lostReason, setLostReason] = useState('');
   const [lostNotes, setLostNotes] = useState('');
+
+  // Quick Duplicate Modal States
+  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
+  const [duplicatingOpp, setDuplicatingOpp] = useState(null);
+  const [duplicateName, setDuplicateName] = useState('');
+  const [duplicateService, setDuplicateService] = useState('');
+  const [duplicateValue, setDuplicateValue] = useState(0);
+  const [duplicateCloseDate, setDuplicateCloseDate] = useState('');
 
   const [filters, setFilters] = useState(() => {
     try {
@@ -311,6 +331,33 @@ export default function CRMKanbanBoard() {
     } finally {
       setUpdating(false);
       setDraggedOpportunity(null);
+    }
+  };
+
+  const handleConfirmDuplicate = async () => {
+    if (!duplicateService) return;
+    setUpdating(true);
+    try {
+      await axios.post(
+        `${process.env.REACT_APP_API_STRING}/crm/opportunities/${duplicatingOpp._id}/duplicate`,
+        {
+          name: duplicateName,
+          services: [duplicateService],
+          value: duplicateValue,
+          expectedCloseDate: duplicateCloseDate,
+          stage: duplicatingOpp.stage
+        },
+        { withCredentials: true }
+      );
+      message.success('Deal duplicated successfully!');
+      setIsDuplicateModalOpen(false);
+      setDuplicatingOpp(null);
+      fetchBoard();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to duplicate deal');
+      console.error(err);
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -734,14 +781,51 @@ export default function CRMKanbanBoard() {
                           )}
                         </div>
                       )}
-                      <h4 style={{ margin: '0 0 6px 0', fontSize: '0.95rem', color: '#1e293b', fontWeight: 600 }}>{opp.name}</h4>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', margin: '0 0 6px 0' }}>
+                        <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#1e293b', fontWeight: 600, paddingRight: '20px' }}>{opp.name}</h4>
+                        <button
+                          title="Duplicate Deal for another Service"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDuplicatingOpp(opp);
+                            setDuplicateName(`${opp.name}`);
+                            setDuplicateService(opp.services && opp.services.length > 0 ? opp.services[0] : '');
+                            setDuplicateValue(opp.value || 0);
+                            setDuplicateCloseDate(opp.expectedCloseDate ? opp.expectedCloseDate.substring(0, 10) : '');
+                            setIsDuplicateModalOpen(true);
+                          }}
+                          style={{
+                            background: '#f1f5f9',
+                            border: '1px solid #cbd5e1',
+                            borderRadius: '4px',
+                            color: '#475569',
+                            cursor: 'pointer',
+                            fontSize: '0.9rem',
+                            fontWeight: 700,
+                            padding: '2px 6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.2s',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                            position: 'absolute',
+                            top: '12px',
+                            right: '12px',
+                            zIndex: 10
+                          }}
+                          onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.color = '#1e293b'; }}
+                          onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#475569'; }}
+                        >
+                          +
+                        </button>
+                      </div>
                       <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '8px' }}>
                         {typeof opp.accountId === 'object' ? (opp.accountId?.name || 'No Account') : (opp.accountId || 'No Account')}
                       </div>
 
                       {isVirtualSalesVisit && opp.plannedVisits && (
                         <div style={{ marginBottom: '12px' }}>
-                          {(opp.plannedVisits || []).filter(v => !v.isCompleted).map((visit, idx) => (
+                          {(opp.plannedVisits || []).filter(v => !v.isCompleted && !v.isCancelled).map((visit, idx) => (
                             <div key={idx} style={{
                               fontSize: '0.7rem', color: '#9a3412', fontWeight: 600,
                               background: '#ffedd5', padding: '4px 8px', borderRadius: '6px',
@@ -818,13 +902,13 @@ export default function CRMKanbanBoard() {
 
                     {!isVirtualSalesVisit && (
                       <div style={{ marginBottom: '8px' }}>
-                        {opp.plannedVisits && (opp.plannedVisits || []).filter(v => !v.isCompleted).length > 0 && (
+                        {opp.plannedVisits && (opp.plannedVisits || []).filter(v => !v.isCompleted && !v.isCancelled).length > 0 && (
                           <div style={{
                             fontSize: '0.7rem', color: '#9a3412', fontWeight: 600,
                             background: '#ffedd5', padding: '4px 8px', borderRadius: '6px',
                             border: '1px solid #fed7aa', width: 'fit-content', marginBottom: '4px'
                           }}>
-                            📅 Visit: {new Date(opp.plannedVisits.find(v => !v.isCompleted).visitDate).toLocaleDateString('en-IN')}
+                            📅 Visit: {new Date(opp.plannedVisits.find(v => !v.isCompleted && !v.isCancelled).visitDate).toLocaleDateString('en-IN')}
                           </div>
                         )}
                       </div>
@@ -977,6 +1061,110 @@ export default function CRMKanbanBoard() {
                 }}
               >
                 Confirm Lost
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Quick Duplicate Modal */}
+      {isDuplicateModalOpen && duplicatingOpp && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.75)',
+          backdropFilter: 'blur(10px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 10000, padding: '20px'
+        }}>
+          <div style={{
+            background: '#ffffff', width: '100%', maxWidth: '450px',
+            borderRadius: '16px', padding: '24px', border: '1px solid #e2e8f0',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
+            animation: 'modalSlideIn 0.3s ease-out'
+          }}>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '1.2rem', color: '#1e293b', fontWeight: 700 }}>
+              Duplicate Deal
+            </h3>
+            <p style={{ margin: '0 0 16px 0', fontSize: '0.85rem', color: '#64748b' }}>
+              Create a new deal for the same customer/account under a different product or service.
+            </p>
+
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.85rem' }}>
+                Deal Name
+              </label>
+              <input
+                type="text"
+                value={duplicateName}
+                onChange={e => setDuplicateName(e.target.value)}
+                style={{ width: '100%', padding: '8px 12px', border: '1.5px solid #cbd5e1', borderRadius: '8px', fontSize: '0.9rem', outline: 'none' }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '12px' }}>
+              <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.85rem' }}>
+                Select Service *
+              </label>
+              <select
+                value={duplicateService}
+                onChange={e => setDuplicateService(e.target.value)}
+                style={{ width: '100%', padding: '8px 12px', border: '1.5px solid #cbd5e1', borderRadius: '8px', fontSize: '0.9rem', outline: 'none', background: '#fff' }}
+              >
+                <option value="">-- Select Service --</option>
+                {ALLOWED_SERVICES.map(s => (
+                  <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.85rem' }}>
+                  Deal Value (₹)
+                </label>
+                <input
+                  type="number"
+                  value={duplicateValue}
+                  onChange={e => setDuplicateValue(e.target.value)}
+                  style={{ width: '100%', padding: '8px 12px', border: '1.5px solid #cbd5e1', borderRadius: '8px', fontSize: '0.9rem', outline: 'none' }}
+                />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.85rem' }}>
+                  Expected Close
+                </label>
+                <input
+                  type="date"
+                  value={duplicateCloseDate}
+                  onChange={e => setDuplicateCloseDate(e.target.value)}
+                  style={{ width: '100%', padding: '8px 12px', border: '1.5px solid #cbd5e1', borderRadius: '8px', fontSize: '0.9rem', outline: 'none' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => {
+                  setIsDuplicateModalOpen(false);
+                  setDuplicatingOpp(null);
+                }}
+                style={{ padding: '8px 16px', border: '1px solid #cbd5e1', background: '#ffffff', color: '#475569', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '0.85rem' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDuplicate}
+                disabled={!duplicateService}
+                style={{
+                  padding: '8px 16px',
+                  background: duplicateService ? '#4f46e5' : '#a5b4fc',
+                  color: '#ffffff', border: 'none', borderRadius: '8px',
+                  cursor: duplicateService ? 'pointer' : 'not-allowed',
+                  fontWeight: 600, fontSize: '0.85rem'
+                }}
+              >
+                Duplicate Deal
               </button>
             </div>
           </div>

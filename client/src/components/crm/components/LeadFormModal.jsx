@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { X } from 'lucide-react';
 import { message } from 'antd';
@@ -24,7 +24,7 @@ const SOURCES = [
   'Other'
 ];
 
-export default function LeadFormModal({ isOpen, onClose, onRefresh }) {
+export default function LeadFormModal({ isOpen, onClose, onRefresh, leadToDuplicate, leadToEdit }) {
   const [formData, setFormData] = useState({
     company: '',
     firstName: '',
@@ -38,28 +38,59 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh }) {
   const [customSource, setCustomSource] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (isOpen) {
+      const activeLead = leadToEdit || leadToDuplicate;
+      if (activeLead) {
+        setFormData({
+          company: activeLead.company || '',
+          firstName: activeLead.firstName || '',
+          lastName: activeLead.lastName || '',
+          email: activeLead.email || '',
+          phone: activeLead.phone || '',
+          source: activeLead.source || 'Web / Own Generated Lead',
+          interestedServices: activeLead.interestedServices || [],
+          crateSize: activeLead.crateSize || ''
+        });
+        const standardSources = ['Web / Own Generated Lead', 'IndiaMart Lead', 'Direct Sales Visit', 'Referral', 'Email Campaign'];
+        if (activeLead.source && !standardSources.includes(activeLead.source)) {
+          setCustomSource(activeLead.source);
+        } else {
+          setCustomSource('');
+        }
+      } else {
+        setFormData({
+          company: '',
+          firstName: '',
+          lastName: '',
+          email: '',
+          phone: '',
+          source: 'Web / Own Generated Lead',
+          interestedServices: [],
+          crateSize: ''
+        });
+        setCustomSource('');
+      }
+    }
+  }, [isOpen, leadToDuplicate, leadToEdit]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await axios.post(`${process.env.REACT_APP_API_STRING}/crm/leads`, formData, { withCredentials: true });
+      if (leadToEdit) {
+        await axios.put(`${process.env.REACT_APP_API_STRING}/crm/leads/${leadToEdit._id}`, formData, { withCredentials: true });
+        message.success("Lead updated successfully!");
+      } else {
+        await axios.post(`${process.env.REACT_APP_API_STRING}/crm/leads`, formData, { withCredentials: true });
+        message.success("Lead created successfully!");
+      }
       onRefresh();
       onClose();
-      setFormData({
-        company: '',
-        firstName: '',
-        lastName: '',
-        email: '',
-        phone: '',
-        source: 'Web / Own Generated Lead',
-        interestedServices: [],
-        crateSize: ''
-      });
-      setCustomSource('');
     } catch (error) {
-      message.error("Error creating lead: " + (error.response?.data?.message || error.message));
+      message.error((leadToEdit ? "Error updating lead: " : "Error creating lead: ") + (error.response?.data?.message || error.message));
     } finally {
       setIsSubmitting(false);
     }
@@ -113,7 +144,9 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh }) {
           alignItems: 'center',
           background: '#f8fafc'
         }}>
-          <h3 style={{ margin: 0, color: '#1e293b', fontWeight: 700, fontSize: '1.25rem' }}>Create New Lead</h3>
+          <h3 style={{ margin: 0, color: '#1e293b', fontWeight: 700, fontSize: '1.25rem' }}>
+            {leadToEdit ? 'Edit Lead' : leadToDuplicate ? 'Duplicate Lead' : 'Create New Lead'}
+          </h3>
           <button 
             onClick={onClose}
             style={{ 
@@ -297,7 +330,7 @@ export default function LeadFormModal({ isOpen, onClose, onRefresh }) {
                 boxShadow: '0 4px 6px -1px rgba(79, 70, 229, 0.2)'
               }}
             >
-              {isSubmitting ? 'Creating...' : 'Create Lead'}
+              {isSubmitting ? (leadToEdit ? 'Updating...' : 'Creating...') : (leadToEdit ? 'Update Lead' : 'Create Lead')}
             </button>
           </div>
         </form>

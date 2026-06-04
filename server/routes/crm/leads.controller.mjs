@@ -59,11 +59,12 @@ async function buildOwnerFilter(user, requestedTeamId = null) {
 // GET /api/crm/leads
 router.get('/', async (req, res) => {
   try {
-    const { status, source, teamId, startDate, endDate, period } = req.query;
+    const { status, source, teamId, startDate, endDate, period, service } = req.query;
     const ownerFilter = await buildOwnerFilter(req.user, teamId);
     const query = { ...ownerFilter };
     if (status) query.status = status;
     if (source) query.source = source;
+    if (service) query.interestedServices = service;
 
     if (startDate && endDate) {
       query.createdAt = {

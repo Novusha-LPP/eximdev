@@ -106,7 +106,7 @@ router.get('/', async (req, res) => {
       if (stage === 'sales_visit') {
         query.$or = [
           { stage: 'sales_visit' },
-          { plannedVisits: { $elemMatch: { isCompleted: false } } }
+          { plannedVisits: { $elemMatch: { isCompleted: false, isCancelled: { $ne: true } } } }
         ];
       } else {
         query.stage = stage;
@@ -240,7 +240,7 @@ router.get('/board', async (req, res) => {
         aggregates[opp.stage].totalValue += opp.value || 0;
         aggregates[opp.stage].count += 1;
       }
-      const hasIncompleteVisit = (opp.plannedVisits || []).some(v => !v.isCompleted);
+      const hasIncompleteVisit = (opp.plannedVisits || []).some(v => !v.isCompleted && !v.isCancelled);
       if (hasIncompleteVisit && opp.stage !== 'sales_visit') {
         board['sales_visit'].push(opp);
         aggregates['sales_visit'].totalValue += opp.value || 0;
@@ -526,6 +526,83 @@ router.patch('/:id/planned-visits/:visitId/complete', async (req, res) => {
     res.json({ success: true, data: opportunity });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// PATCH /api/crm/opportunities/:id/planned-visits/:visitId/cancel
+router.patch('/:id/planned-visits/:visitId/cancel', async (req, res) => {
+  try {
+    const opportunity = await Opportunity.findById(req.params.id);
+    if (!opportunity) return res.status(404).json({ success: false, message: 'Opportunity not found' });
+
+    const visit = opportunity.plannedVisits.id(req.params.visitId);
+    if (!visit) return res.status(404).json({ success: false, message: 'Planned visit not found' });
+
+    visit.isCancelled = true;
+    visit.cancelledAt = new Date();
+
+    await opportunity.save();
+    res.json({ success: true, data: opportunity });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// PATCH /api/crm/opportunities/:id/planned-visits/:visitId/postpone
+router.patch('/:id/planned-visits/:visitId/postpone', async (req, res) => {
+  try {
+    const { visitDate } = req.body;
+    if (!visitDate) {
+      return res.status(400).json({ success: false, message: 'New visit date is required' });
+    }
+
+    const opportunity = await Opportunity.findById(req.params.id);
+    if (!opportunity) return res.status(404).json({ success: false, message: 'Opportunity not found' });
+
+    const visit = opportunity.plannedVisits.id(req.params.visitId);
+    if (!visit) return res.status(404).json({ success: false, message: 'Planned visit not found' });
+
+    visit.visitDate = new Date(visitDate);
+    visit.isCancelled = false;
+    visit.cancelledAt = undefined;
+    visit.isCompleted = false;
+    visit.completedAt = undefined;
+
+    await opportunity.save();
+    res.json({ success: true, data: opportunity });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// POST /api/crm/opportunities/:id/duplicate
+router.post('/:id/duplicate', async (req, res) => {
+  try {
+    const original = await Opportunity.findById(req.params.id);
+    if (!original) return res.status(404).json({ success: false, message: 'Original opportunity not found' });
+
+    const { name, services, value, expectedCloseDate, stage } = req.body;
+
+    const duplicated = new Opportunity({
+      accountId: original.accountId,
+      primaryContactId: original.primaryContactId,
+      ownerId: original.ownerId,
+      name: name || `${original.name} - Copy`,
+      value: value !== undefined ? value : original.value,
+      stage: stage || original.stage,
+      services: services || original.services || [],
+      expectedCloseDate: expectedCloseDate ? new Date(expectedCloseDate) : original.expectedCloseDate,
+      probability: original.probability,
+      crateSize: original.crateSize,
+      source: original.source,
+      convertedFromLead: original.convertedFromLead,
+      stageHistory: [{ stage: stage || original.stage, enteredAt: new Date() }]
+    });
+
+    await duplicated.save();
+    res.status(201).json({ success: true, data: duplicated });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
   }
 });
 

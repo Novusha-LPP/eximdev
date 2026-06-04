@@ -28,6 +28,9 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
   const [editingRemarkText, setEditingRemarkText] = useState('');
   const [newVisitDate, setNewVisitDate] = useState('');
   const [completingVisitId, setCompletingVisitId] = useState(null);
+  const [postponingVisitId, setPostponingVisitId] = useState(null);
+  const [postponeDate, setPostponeDate] = useState('');
+  const [customSource, setCustomSource] = useState('');
 
   const { user } = useContext(UserContext);
   const fullUserName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username : 'Unknown User';
@@ -36,6 +39,12 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
     if (isOpen && opportunity?._id) {
       setFormData(opportunity);
       setNewRemark('');
+      const standardSources = ['Web / Own Generated Lead', 'IndiaMart Lead', 'Direct Sales Visit', 'Referral', 'Email Campaign'];
+      if (opportunity.source && !standardSources.includes(opportunity.source)) {
+        setCustomSource(opportunity.source);
+      } else {
+        setCustomSource('');
+      }
     }
   }, [isOpen, opportunity]);
 
@@ -85,7 +94,8 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
         userName: fullUserName,
         closeReason: formData.closeReason,
         closeNotes: formData.closeNotes,
-        crateSize: formData.crateSize
+        crateSize: formData.crateSize,
+        source: formData.source
       };
 
       if (stageChanged && newStage === 'lost' && !formData.closeReason) {
@@ -205,6 +215,50 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
       message.error('Error completing visit: ' + (error.response?.data?.message || error.message));
     } finally {
       setCompletingVisitId(null);
+    }
+  };
+
+  const handleCancelVisit = async (visitId) => {
+    try {
+      await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/crm/opportunities/${opportunity._id}/planned-visits/${visitId}/cancel`,
+        {},
+        { withCredentials: true }
+      );
+      message.success('Visit cancelled successfully');
+      onRefresh();
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/crm/opportunities/${opportunity._id}`,
+        { withCredentials: true }
+      );
+      setFormData(res.data);
+    } catch (error) {
+      message.error('Error cancelling visit: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
+  const handlePostponeVisit = async (visitId) => {
+    if (!postponeDate) {
+      message.error('Please select a new date');
+      return;
+    }
+    try {
+      await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/crm/opportunities/${opportunity._id}/planned-visits/${visitId}/postpone`,
+        { visitDate: postponeDate },
+        { withCredentials: true }
+      );
+      message.success('Visit postponed successfully');
+      setPostponingVisitId(null);
+      setPostponeDate('');
+      onRefresh();
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/crm/opportunities/${opportunity._id}`,
+        { withCredentials: true }
+      );
+      setFormData(res.data);
+    } catch (error) {
+      message.error('Error postponing visit: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -407,6 +461,46 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                 </div>
               </div>
 
+              {/* Lead Source */}
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Lead Source</label>
+                <select 
+                  value={formData.source && !['Web / Own Generated Lead', 'IndiaMart Lead', 'Direct Sales Visit', 'Referral', 'Email Campaign'].includes(formData.source) ? 'Other' : (formData.source || '')}
+                  onChange={e => {
+                    const val = e.target.value;
+                    if (val === 'Other') {
+                      setFormData({...formData, source: customSource || 'Other'});
+                    } else {
+                      setFormData({...formData, source: val});
+                    }
+                  }}
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', color: '#334155', background: '#ffffff', outline: 'none' }}
+                >
+                  <option value="">-- Select Lead Source --</option>
+                  <option value="Web / Own Generated Lead">Web / Own Generated Lead</option>
+                  <option value="IndiaMart Lead">IndiaMart Lead</option>
+                  <option value="Direct Sales Visit">Direct Sales Visit</option>
+                  <option value="Referral">Referral</option>
+                  <option value="Email Campaign">Email Campaign</option>
+                  <option value="Other">Other</option>
+                </select>
+                {((formData.source && !['Web / Own Generated Lead', 'IndiaMart Lead', 'Direct Sales Visit', 'Referral', 'Email Campaign'].includes(formData.source)) || formData.source === 'Other') && (
+                  <div style={{ marginTop: '8px' }}>
+                    <input 
+                      required
+                      type="text"
+                      value={customSource || (formData.source === 'Other' ? '' : formData.source)}
+                      onChange={e => {
+                        setCustomSource(e.target.value);
+                        setFormData({...formData, source: e.target.value});
+                      }}
+                      placeholder="Enter custom source (e.g. LinkedIn, Exhibition)"
+                      style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '0.95rem', outline: 'none' }}
+                    />
+                  </div>
+                )}
+              </div>
+
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '12px' }}>Interested Services</label>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
@@ -491,37 +585,106 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
                     {formData.plannedVisits.map((visit, idx) => (
                       <div key={visit._id || idx} style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        background: visit.isCompleted ? '#f0fdf4' : '#ffffff',
+                        display: 'flex', flexDirection: 'column', gap: '8px',
+                        background: visit.isCompleted ? '#f0fdf4' : visit.isCancelled ? '#f8fafc' : '#ffffff',
                         padding: '10px 12px', borderRadius: '8px',
-                        border: visit.isCompleted ? '1px solid #bbf7d0' : '1px solid #fed7aa'
+                        border: visit.isCompleted ? '1px solid #bbf7d0' : visit.isCancelled ? '1px solid #cbd5e1' : '1px solid #fed7aa'
                       }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <input
-                            type="checkbox"
-                            checked={visit.isCompleted}
-                            onChange={() => !visit.isCompleted && handleCompleteVisit(visit._id)}
-                            disabled={visit.isCompleted || completingVisitId === visit._id}
-                            style={{ cursor: visit.isCompleted ? 'default' : 'pointer', width: '16px', height: '16px' }}
-                          />
-                          <div>
-                            <div style={{ fontSize: '0.85rem', fontWeight: 600, color: visit.isCompleted ? '#15803d' : '#9a3412' }}>
-                              {visit.visitDate ? new Date(visit.visitDate).toLocaleDateString('en-IN') : 'No date'}
-                            </div>
-                            {visit.isCompleted && visit.completedAt && (
-                              <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
-                                Completed on {new Date(visit.completedAt).toLocaleDateString('en-IN')}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <input
+                              type="checkbox"
+                              checked={visit.isCompleted}
+                              onChange={() => !visit.isCompleted && !visit.isCancelled && handleCompleteVisit(visit._id)}
+                              disabled={visit.isCompleted || visit.isCancelled || completingVisitId === visit._id}
+                              style={{ cursor: (visit.isCompleted || visit.isCancelled) ? 'default' : 'pointer', width: '16px', height: '16px' }}
+                            />
+                            <div>
+                              <div style={{ 
+                                fontSize: '0.85rem', 
+                                fontWeight: 600, 
+                                color: visit.isCompleted ? '#15803d' : visit.isCancelled ? '#64748b' : '#9a3412',
+                                textDecoration: visit.isCancelled ? 'line-through' : 'none'
+                              }}>
+                                {visit.visitDate ? new Date(visit.visitDate).toLocaleDateString('en-IN') : 'No date'}
                               </div>
+                              {visit.isCompleted && visit.completedAt && (
+                                <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                                  Completed on {new Date(visit.completedAt).toLocaleDateString('en-IN')}
+                                </div>
+                              )}
+                              {visit.isCancelled && visit.cancelledAt && (
+                                <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                                  Cancelled on {new Date(visit.cancelledAt).toLocaleDateString('en-IN')}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            {visit.isCompleted && (
+                              <span style={{ fontSize: '0.7rem', background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: '12px', fontWeight: 700, border: '1px solid #bbf7d0' }}>
+                                ✓ Done
+                              </span>
+                            )}
+                            {visit.isCancelled && (
+                              <span style={{ fontSize: '0.7rem', background: '#fee2e2', color: '#ef4444', padding: '2px 8px', borderRadius: '12px', fontWeight: 700, border: '1px solid #fca5a5' }}>
+                                ❌ Cancelled
+                              </span>
+                            )}
+                            {!visit.isCompleted && !visit.isCancelled && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setPostponingVisitId(postponingVisitId === visit._id ? null : visit._id);
+                                    setPostponeDate(visit.visitDate ? visit.visitDate.substring(0, 10) : '');
+                                  }}
+                                  style={{ padding: '4px 8px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}
+                                >
+                                  Postpone
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCancelVisit(visit._id)}
+                                  style={{ padding: '4px 8px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer' }}
+                                >
+                                  Cancel
+                                </button>
+                              </>
+                            )}
+                            {completingVisitId === visit._id && (
+                              <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Saving...</span>
                             )}
                           </div>
                         </div>
-                        {visit.isCompleted && (
-                          <span style={{ fontSize: '0.7rem', background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: '12px', fontWeight: 700, border: '1px solid #bbf7d0' }}>
-                            ✓ Done
-                          </span>
-                        )}
-                        {completingVisitId === visit._id && (
-                          <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Saving...</span>
+
+                        {/* Inline Reschedule / Postpone form */}
+                        {postponingVisitId === visit._id && (
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '4px', background: '#f8fafc', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                            <input
+                              type="date"
+                              value={postponeDate}
+                              onChange={(e) => setPostponeDate(e.target.value)}
+                              style={{ flex: 1, padding: '4px 8px', border: '1px solid #cbd5e1', borderRadius: '4px', fontSize: '0.85rem' }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handlePostponeVisit(visit._id)}
+                              style={{ padding: '4px 8px', background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}
+                            >
+                              Save Date
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setPostponingVisitId(null);
+                                setPostponeDate('');
+                              }}
+                              style={{ padding: '4px 8px', background: '#64748b', color: 'white', border: 'none', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}
+                            >
+                              Close
+                            </button>
+                          </div>
                         )}
                       </div>
                     ))}
@@ -604,6 +767,13 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                     <p style={{ margin: '4px 0 0 0', color: '#334155', fontWeight: 600 }}>{formData.crateSize}</p>
                   </div>
                 )}
+
+                {formData.source && (
+                  <div style={{ marginBottom: '16px' }}>
+                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>📢 Lead Source</span>
+                    <p style={{ margin: '4px 0 0 0', color: '#334155', fontWeight: 600 }}>{formData.source}</p>
+                  </div>
+                )}
                 
                 {/* Services Display */}
                 {(formData.services || []).length > 0 && (
@@ -638,13 +808,18 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {formData.plannedVisits.map((visit, idx) => (
                       <div key={visit._id || idx} style={{
-                        background: visit.isCompleted ? '#f0fdf4' : '#fff7ed',
+                        background: visit.isCompleted ? '#f0fdf4' : visit.isCancelled ? '#f8fafc' : '#fff7ed',
                         padding: '12px', borderRadius: '8px',
-                        borderLeft: visit.isCompleted ? '4px solid #22c55e' : '4px solid #f97316',
+                        borderLeft: visit.isCompleted ? '4px solid #22c55e' : visit.isCancelled ? '4px solid #94a3b8' : '4px solid #f97316',
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between'
                       }}>
                         <div>
-                          <div style={{ fontSize: '0.9rem', fontWeight: 600, color: visit.isCompleted ? '#15803d' : '#9a3412' }}>
+                          <div style={{ 
+                            fontSize: '0.9rem', 
+                            fontWeight: 600, 
+                            color: visit.isCompleted ? '#15803d' : visit.isCancelled ? '#64748b' : '#9a3412',
+                            textDecoration: visit.isCancelled ? 'line-through' : 'none'
+                          }}>
                             📅 {visit.visitDate ? new Date(visit.visitDate).toLocaleDateString('en-IN') : 'No date'}
                           </div>
                           {visit.isCompleted && visit.completedAt && (
@@ -652,15 +827,20 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                               Completed on {new Date(visit.completedAt).toLocaleDateString('en-IN')}
                             </div>
                           )}
+                          {visit.isCancelled && visit.cancelledAt && (
+                            <div style={{ fontSize: '0.75rem', color: '#ef4444', marginTop: '4px' }}>
+                              Cancelled on {new Date(visit.cancelledAt).toLocaleDateString('en-IN')}
+                            </div>
+                          )}
                         </div>
                         <span style={{
                           fontSize: '0.7rem',
-                          background: visit.isCompleted ? '#dcfce7' : '#ffedd5',
-                          color: visit.isCompleted ? '#15803d' : '#c2410c',
+                          background: visit.isCompleted ? '#dcfce7' : visit.isCancelled ? '#fee2e2' : '#ffedd5',
+                          color: visit.isCompleted ? '#15803d' : visit.isCancelled ? '#ef4444' : '#c2410c',
                           padding: '2px 10px', borderRadius: '12px', fontWeight: 700,
-                          border: visit.isCompleted ? '1px solid #bbf7d0' : '1px solid #fed7aa'
+                          border: visit.isCompleted ? '1px solid #bbf7d0' : visit.isCancelled ? '1px solid #fca5a5' : '1px solid #fed7aa'
                         }}>
-                          {visit.isCompleted ? '✓ Completed' : '⏳ Pending'}
+                          {visit.isCompleted ? '✓ Completed' : visit.isCancelled ? '❌ Cancelled' : '⏳ Pending'}
                         </span>
                       </div>
                     ))}

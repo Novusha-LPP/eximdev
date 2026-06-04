@@ -56,6 +56,8 @@ const opportunitySchema = new mongoose.Schema({
     visitDate: { type: Date },
     isCompleted: { type: Boolean, default: false },
     completedAt: { type: Date },
+    isCancelled: { type: Boolean, default: false },
+    cancelledAt: { type: Date },
     createdAt: { type: Date, default: Date.now }
   }]
 }, { timestamps: true });

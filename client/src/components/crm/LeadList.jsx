@@ -6,6 +6,18 @@ import LeadFormModal from './components/LeadFormModal';
 import LeadDetailModal from './components/LeadDetailModal';
 import FilterBar from './components/FilterBar';
 
+const ALLOWED_SERVICES = [
+  'custom clearance', 
+  'freight forwarding', 
+  'dgft', 
+  'e-lock', 
+  'client', 
+  'transportation', 
+  'paramount', 
+  'rabs', 
+  'auto rack'
+];
+
 export default function LeadList() {
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,6 +31,9 @@ export default function LeadList() {
   const [userTeams, setUserTeams] = useState([]);
   const [selectedTeamId, setSelectedTeamId] = useState('');
   const [selectedSource, setSelectedSource] = useState('');
+  const [selectedService, setSelectedService] = useState('');
+  const [selectedLeadForDuplicate, setSelectedLeadForDuplicate] = useState(null);
+  const [selectedLeadForEdit, setSelectedLeadForEdit] = useState(null);
 
   const [filters, setFilters] = useState(() => {
     try {
@@ -48,7 +63,7 @@ export default function LeadList() {
     });
   };
 
-  const fetchLeads = async (teamId = selectedTeamId, source = selectedSource, activeFilters = filters) => {
+  const fetchLeads = async (teamId = selectedTeamId, source = selectedSource, service = selectedService, activeFilters = filters) => {
     if (!activeFilters) return;
     setLoading(true);
     setError(null);
@@ -56,6 +71,7 @@ export default function LeadList() {
       const queryParams = new URLSearchParams();
       if (teamId) queryParams.append('teamId', teamId);
       if (source) queryParams.append('source', source);
+      if (service) queryParams.append('service', service);
       
       if (activeFilters.startDate && activeFilters.endDate) {
         queryParams.append('startDate', activeFilters.startDate);
@@ -114,9 +130,9 @@ export default function LeadList() {
 
   useEffect(() => {
     if (filters) {
-      fetchLeads(selectedTeamId, selectedSource, filters);
+      fetchLeads(selectedTeamId, selectedSource, selectedService, filters);
     }
-  }, [filters, selectedTeamId, selectedSource]);
+  }, [filters, selectedTeamId, selectedSource, selectedService]);
 
   const handleConvert = async (leadId, leadName) => {
     if (!window.confirm(`Convert "${leadName}" into an Account & Opportunity?\n\nThis will create a new account, contact, and sales opportunity.`)) {
@@ -156,8 +172,14 @@ export default function LeadList() {
     <div style={{ background: '#fff', padding: '2rem', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0' }}>
       <LeadFormModal 
         isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
+        onClose={() => {
+          setIsModalOpen(false);
+          setSelectedLeadForDuplicate(null);
+          setSelectedLeadForEdit(null);
+        }} 
         onRefresh={fetchLeads} 
+        leadToDuplicate={selectedLeadForDuplicate}
+        leadToEdit={selectedLeadForEdit}
       />
       
       <LeadDetailModal
@@ -168,7 +190,7 @@ export default function LeadList() {
         }}
         lead={selectedLead}
         onEdit={(lead) => {
-          // Future: handle edit from detail
+          setSelectedLeadForEdit(lead);
           setIsModalOpen(true);
         }}
         onRefresh={fetchLeads}
@@ -225,6 +247,18 @@ export default function LeadList() {
             <option value="Direct Sales Visit">Direct Sales Visit</option>
             <option value="Referral">Referral</option>
             <option value="Email Campaign">Email Campaign</option>
+          </select>
+
+          {/* Service Filter Dropdown */}
+          <select
+            value={selectedService}
+            onChange={(e) => setSelectedService(e.target.value)}
+            style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontWeight: 500, outline: 'none', cursor: 'pointer' }}
+          >
+            <option value="">All Services</option>
+            {ALLOWED_SERVICES.map(s => (
+              <option key={s} value={s}>{s.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</option>
+            ))}
           </select>
           
           <button 
@@ -295,6 +329,19 @@ export default function LeadList() {
                         </span>
                       )}
                     </div>
+                    {lead.interestedServices && lead.interestedServices.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
+                        {lead.interestedServices.map((service, i) => (
+                          <span key={i} style={{ 
+                            fontSize: '0.65rem', background: '#eef2ff', color: '#4f46e5', 
+                            padding: '1px 6px', borderRadius: '4px', border: '1px solid #c7d2fe',
+                            whiteSpace: 'nowrap', textTransform: 'capitalize', fontWeight: 600
+                          }}>
+                            {service}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </td>
                   <td style={{ padding: '16px 12px', color: '#475569' }}>{lead.firstName} {lead.lastName}</td>
                   <td style={{ padding: '16px 12px' }}>
@@ -320,6 +367,15 @@ export default function LeadList() {
                          style={{ background: '#f8fafc', color: '#475569', padding: '6px 14px', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
                        >
                          View
+                       </button>
+                       <button
+                         onClick={() => {
+                           setSelectedLeadForDuplicate(lead);
+                           setIsModalOpen(true);
+                         }}
+                         style={{ background: '#eef2ff', color: '#4f46e5', padding: '6px 14px', border: '1px solid #c7d2fe', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
+                       >
+                         Duplicate
                        </button>
                        {lead.status !== 'converted' && (
                          <button 

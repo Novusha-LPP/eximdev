@@ -2,6 +2,7 @@ export const moduleCategories = {
   Accounts: "Accounts",
   "Import - Billing": "Accounts",
   "Employee Onboarding": "HR & Admin",
+  HR: "HR & Admin",
   "Employee KYC": "HR & Admin",
   "Update Employee Data": "HR & Admin",
   "Exit Feedback": "HR & Admin",

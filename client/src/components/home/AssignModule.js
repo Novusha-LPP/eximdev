@@ -22,6 +22,7 @@ const allModules = [
   "Accounts",
   "Employee Onboarding",
   "Employee KYC",
+  "HR",
   "Inward Register",
   "Outward Register",
   "Customer KYC",

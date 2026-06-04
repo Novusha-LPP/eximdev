@@ -27,6 +27,16 @@ const StatusBadge = ({ status }) => {
 };
 
 function ViewKycList() {
+  const selectMenuProps = {
+    MenuProps: {
+      PaperProps: {
+        sx: {
+          maxHeight: 250,
+        },
+      },
+    },
+  };
+
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -133,6 +143,7 @@ function ViewKycList() {
             style: { backgroundColor: 'white', borderRadius: '8px' }
           }}
           sx={{ width: '200px' }}
+          SelectProps={selectMenuProps}
         >
           <MenuItem value="All">All Companies</MenuItem>
           {uniqueCompanies.map((comp) => (
@@ -156,6 +167,7 @@ function ViewKycList() {
             style: { backgroundColor: 'white', borderRadius: '8px' }
           }}
           sx={{ width: '150px' }}
+          SelectProps={selectMenuProps}
         >
           <MenuItem value="All">All Status</MenuItem>
           <MenuItem value="Pending">Pending</MenuItem>

@@ -24,6 +24,39 @@ const verifyToken = async (req, res, next) => {
         const verified = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret_do_not_use_in_prod");
         req.user = verified;
 
+        // Fetch user from DB to calculate profile completion
+        const UserModel = (await import("../model/userModel.mjs")).default;
+        const { calculateProfileCompletion } = await import("../utils/profileCompletion.mjs");
+        
+        const fullUser = await UserModel.findById(verified._id).lean();
+        if (fullUser) {
+            const completion = calculateProfileCompletion(fullUser);
+            req.user.profileCompletion = completion;
+
+            // Only enforce profile completion controls for non-Admin users
+            if (fullUser.role !== 'Admin') {
+                const isWriteRequest = ['POST', 'PUT', 'DELETE'].includes(req.method);
+                
+                // Allowed paths that bypass restrictions:
+                // - Auth/user profile: me, getUserData, logout, change-password, complete-kyc, complete-onboarding, update-profile-photo
+                // - Attendance/payroll/statutory compliance: attendance, leave, regularization, payroll
+                const allowedPathPattern = /^\/api\/(login|logout|me|getUserData|complete-kyc|complete-onboarding|update-profile-photo|attendance|leave|payroll|regularization)/i;
+                const isAllowedPath = allowedPathPattern.test(req.path);
+
+                if (completion.isBlocked && !isAllowedPath) {
+                    return res.status(403).json({
+                        message: `Access Denied: Profile Incomplete (${completion.percentage}%). All standard modules are locked until your profile is at least 70% complete. Please update your profile in the Employee KYC section.`
+                    });
+                }
+
+                if (completion.isReadOnly && isWriteRequest && !isAllowedPath) {
+                    return res.status(403).json({
+                        message: `Access Denied: Write Permissions Restricted. Your profile is incomplete (${completion.percentage}%). Please complete all mandatory fields in Employee KYC to restore full write access.`
+                    });
+                }
+            }
+        }
+
         // Fetch authorized branches for non-admin users
         if (verified.role !== 'Admin') {
             try {
@@ -39,6 +72,7 @@ const verifyToken = async (req, res, next) => {
         // Run subsequent middleware and controller in the user context
         context.run({ user: req.user, req }, next);
     } catch (err) {
+        console.error("Auth token verification failed:", err);
         return res.status(403).json({ message: "Invalid Token" });
     }
 };

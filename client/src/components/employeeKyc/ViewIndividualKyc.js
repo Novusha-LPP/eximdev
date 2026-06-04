@@ -82,7 +82,13 @@ function ViewIndividualKyc() {
         <>
           {/* Employee Header */}
           <div className="hr-compact-employee-header">
-            <div className="emp-avatar">{employeeName.charAt(0)}</div>
+            <div className="emp-avatar">
+              {data.employee_photo ? (
+                <img src={data.employee_photo} alt="Profile" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+              ) : (
+                employeeName.charAt(0)
+              )}
+            </div>
             <div className="emp-info">
               <span className="emp-name">{employeeName}</span>
               <span className="emp-detail">Email: {data.email || data.personal_email}</span>
@@ -103,7 +109,22 @@ function ViewIndividualKyc() {
                     <DataItem label="Middle Name" value={data.middle_name} />
                     <DataItem label="Last Name" value={data.last_name} />
                     <DataItem label="Designation" value={data.designation} />
+                    <DataItem label="Employee ID" value={data.employee_code} />
                     <DataItem label="Department" value={data.department} />
+                    <DataItem 
+                      label="Reporting Manager" 
+                      value={
+                        data.hod_id
+                          ? typeof data.hod_id === "object"
+                            ? `${data.hod_id.first_name || ""} ${data.hod_id.last_name || ""}`.trim() || data.hod_id.username
+                            : data.hod_id
+                          : data.attendance_settings?.manager_id
+                            ? typeof data.attendance_settings.manager_id === "object"
+                              ? `${data.attendance_settings.manager_id.first_name || ""} ${data.attendance_settings.manager_id.last_name || ""}`.trim() || data.attendance_settings.manager_id.username
+                              : data.attendance_settings.manager_id
+                            : "—"
+                      } 
+                    />
                     <DataItem label="Joining Date" value={formatDate(data.joining_date)} />
                     <DataItem label="Date of Birth" value={formatDate(data.dob)} />
                     <DataItem label="Blood Group" value={data.blood_group} />
@@ -175,6 +196,18 @@ function ViewIndividualKyc() {
                 </div>
               </div>
 
+              {/* Competency & Training */}
+              <div className="hr-compact-section">
+                <div className="hr-section-header">Competency & Training</div>
+                <div className="hr-section-body">
+                  <div className="hr-compact-data-grid">
+                    <DataItem label="Primary Skill" value={data.skill} />
+                    <DataItem label="Secondary Skills" value={data.skills_secondary} />
+                    <DataItem label="Training Completed" value={data.training_completed} />
+                  </div>
+                </div>
+              </div>
+
               {/* Family & Insurance */}
               <div className="hr-compact-section">
                 <div className="hr-section-header">Family & Insurance</div>
@@ -200,6 +233,8 @@ function ViewIndividualKyc() {
                     <DataItem label="Aadhaar Back" value={data.aadhar_photo_back} isLink />
                     <DataItem label="License Front" value={data.license_front} isLink />
                     <DataItem label="License Back" value={data.license_back} isLink />
+                    <DataItem label="Resume" value={data.resume} isLink />
+                    <DataItem label="Address Proof" value={data.address_proof} isLink />
                   </div>
                 </div>
               </div>

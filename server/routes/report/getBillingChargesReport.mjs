@@ -265,4 +265,105 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
     }
 });
 
+router.get("/api/report/billing-completed-excel", authMiddleware, applyUserBranchFilter, async (req, res) => {
+    try {
+        const { branchId, mode, startDate, endDate, format } = req.query;
+
+        const query = {
+            $and: [
+                {
+                    $or: [
+                        { status: "Completed" },
+                        { billing_completed_date: { $exists: true, $ne: "" } }
+                    ]
+                }
+            ]
+        };
+
+        // Use standard branch/mode matching logic
+        const branchMatch = getBranchMatch(branchId, mode, req.authorizedBranchIds);
+        if (Object.keys(branchMatch).length > 0) {
+            query.$and.push(branchMatch);
+        }
+
+        // Apply date range on billing_completed_date
+        if (startDate && endDate) {
+            const startStr = `${startDate}T00:00`;
+            const endStr = `${endDate}T23:59`;
+            query.$and.push({
+                billing_completed_date: { $gte: startStr, $lte: endStr }
+            });
+        }
+
+        const results = await JobModel.find(query)
+            .select("job_no job_number importer be_no bill_no bill_date billing_completed_date custom_house mode branch_code")
+            .lean();
+
+        const reportData = results.map((row, index) => {
+            const billNos = (row.bill_no || "").split(",");
+            const agencyBillNo = (billNos[0] || "").trim() || "N/A";
+            const reimbBillNo = (billNos[1] || "").trim() || "N/A";
+
+            const billDates = (row.bill_date || "").split(",");
+            const agencyBillDate = billDates[0] ? new Date(billDates[0]).toLocaleDateString("en-GB") : "N/A";
+            const reimbBillDate = billDates[1] ? new Date(billDates[1]).toLocaleDateString("en-GB") : "N/A";
+            
+            const completionDate = row.billing_completed_date 
+                ? new Date(row.billing_completed_date).toLocaleDateString("en-GB") 
+                : "N/A";
+
+            return {
+                "S.No": index + 1,
+                "Job Number": row.job_number || row.job_no,
+                "Importer Name": row.importer,
+                "Mode": row.mode,
+                "Branch": row.branch_code,
+                "B/E Number": row.be_no || "N/A",
+                "Agency Bill No": agencyBillNo,
+                "Agency Bill Date": agencyBillDate,
+                "Reimbursement Bill No": reimbBillNo,
+                "Reimbursement Bill Date": reimbBillDate,
+                "Billing Completed Date": completionDate
+            };
+        });
+
+        if (format === 'json') {
+            return res.status(200).json(reportData);
+        }
+
+        if (reportData.length === 0) {
+            return res.status(404).json({ error: "No completed billing records found for the selected filters." });
+        }
+
+        const workbook = xlsx.utils.book_new();
+        const worksheet = xlsx.utils.json_to_sheet(reportData);
+
+        // Auto-fit columns
+        const range = xlsx.utils.decode_range(worksheet['!ref']);
+        const colWidths = [];
+        for (let col = range.s.c; col <= range.e.c; col++) {
+            let maxWidth = 10;
+            for (let row = range.s.r; row <= range.e.r; row++) {
+                const cell = worksheet[xlsx.utils.encode_cell({ r: row, c: col })];
+                if (cell && cell.v) {
+                    maxWidth = Math.max(maxWidth, String(cell.v).length + 2);
+                }
+            }
+            colWidths.push({ wch: Math.min(maxWidth, 50) });
+        }
+        worksheet['!cols'] = colWidths;
+
+        xlsx.utils.book_append_sheet(workbook, worksheet, "Billing Completed Jobs");
+        const buffer = xlsx.write(workbook, { type: "buffer", bookType: "xlsx" });
+
+        res.setHeader("Content-Disposition", `attachment; filename="Billing_Completed_Report.xlsx"`);
+        res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        res.send(buffer);
+
+    } catch (error) {
+        console.error("Error generating completed billing report:", error);
+        res.status(500).json({ error: "Internal server error: " + error.message });
+    }
+});
+
 export default router;

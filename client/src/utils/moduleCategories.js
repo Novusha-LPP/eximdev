@@ -1,5 +1,6 @@
 export const moduleCategories = {
   Accounts: "Accounts",
+  "Billing Reports": "Accounts",
   "Import - Billing": "Accounts",
   "Employee Onboarding": "HR & Admin",
   HR: "HR & Admin",

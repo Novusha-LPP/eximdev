@@ -46,6 +46,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/outward-register");
     case "Accounts":
       return navigate("/accounts");
+    case "Billing Reports":
+      return navigate("/billing-reports");
     case "Customer KYC":
       return navigate("/customer-kyc");
     case "Exit Feedback":

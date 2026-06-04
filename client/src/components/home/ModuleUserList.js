@@ -33,6 +33,7 @@ const MODULES = [
   "Audit Trail",
   "Export",
   "Accounts",
+  "Billing Reports",
   "Employee Onboarding",
   "Employee KYC",
   "HR",

@@ -20,6 +20,7 @@ const allModules = [
   "Export - Jobs",
   "Export - Operation",
   "Accounts",
+  "Billing Reports",
   "Employee Onboarding",
   "Employee KYC",
   "HR",

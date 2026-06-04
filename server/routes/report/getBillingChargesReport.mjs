@@ -9,6 +9,49 @@ import { getBranchMatch } from "../../utils/branchFilter.mjs";
 
 const router = express.Router();
 
+function formatDateToDDMMMYYYY(dateInput) {
+    if (!dateInput) return "N/A";
+    
+    let date;
+    if (dateInput instanceof Date) {
+        date = dateInput;
+    } else {
+        const dateStr = String(dateInput).trim();
+        if (!dateStr || dateStr.toLowerCase() === 'n/a' || dateStr.toLowerCase() === 'null' || dateStr.toLowerCase() === 'undefined') {
+            return "N/A";
+        }
+        
+        // Match YYYY-MM-DD or YYYY/MM/DD
+        const yyyymmddMatch = dateStr.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+        // Match DD-MM-YYYY or DD/MM/YYYY
+        const ddmmyyyyMatch = dateStr.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+        
+        if (yyyymmddMatch) {
+            const year = parseInt(yyyymmddMatch[1], 10);
+            const month = parseInt(yyyymmddMatch[2], 10) - 1;
+            const day = parseInt(yyyymmddMatch[3], 10);
+            date = new Date(year, month, day);
+        } else if (ddmmyyyyMatch) {
+            const day = parseInt(ddmmyyyyMatch[1], 10);
+            const month = parseInt(ddmmyyyyMatch[2], 10) - 1;
+            const year = parseInt(ddmmyyyyMatch[3], 10);
+            date = new Date(year, month, day);
+        } else {
+            date = new Date(dateStr);
+        }
+    }
+
+    if (isNaN(date.getTime())) {
+        return dateInput;
+    }
+
+    const day = String(date.getDate()).padStart(2, '0');
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const month = months[date.getMonth()];
+    const year = date.getFullYear();
+    return `${day}-${month}-${year}`;
+}
+
 router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchFilter, async (req, res) => {
     try {
         const { type, year, branchId, mode, detailedStatus, dateFilterType, startDate, endDate, format } = req.query;
@@ -142,6 +185,8 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
                     basicAmount: "$charges.cost.basicAmount",
                     gstAmount: "$charges.cost.gstAmount",
                     tdsAmount: "$charges.cost.tdsAmount",
+                    invoice_value: "$charges.invoice_value",
+                    rate: "$charges.cost.rate",
                     sacHsn: "$charges.sacHsn",
                     remark: "$charges.remark",
                     invoice_number: "$charges.invoice_number",
@@ -184,19 +229,19 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
 
         // Prepare Excel Data
         const excelData = results.map((row, index) => {
-            const reqDate = row.charge_created_at ? new Date(row.charge_created_at).toLocaleDateString("en-GB") : "N/A";
+            const reqDate = formatDateToDDMMMYYYY(row.charge_created_at);
             
             // Completion date logic
             let compDate = "N/A";
             if (row.payment_request_approved_at && row.purchase_book_approved_at) {
-                compDate = `${new Date(row.payment_request_approved_at).toLocaleDateString("en-GB")} / ${new Date(row.purchase_book_approved_at).toLocaleDateString("en-GB")}`;
+                compDate = `${formatDateToDDMMMYYYY(row.payment_request_approved_at)} / ${formatDateToDDMMMYYYY(row.purchase_book_approved_at)}`;
             } else if (row.payment_request_approved_at) {
-                compDate = new Date(row.payment_request_approved_at).toLocaleDateString("en-GB");
+                compDate = formatDateToDDMMMYYYY(row.payment_request_approved_at);
             } else if (row.purchase_book_approved_at) {
-                compDate = new Date(row.purchase_book_approved_at).toLocaleDateString("en-GB");
+                compDate = formatDateToDDMMMYYYY(row.purchase_book_approved_at);
             }
 
-            return {
+            const record = {
                 "S.No": index + 1,
                 "Job Number": row.job_number || row.job_no,
                 "Importer": row.importer,
@@ -204,26 +249,40 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
                 "Branch": row.branch_code,
                 "Custom House": row.custom_house,
                 "B/E No": row.be_no,
-                "B/E Date": row.be_date,
+                "B/E Date": formatDateToDDMMMYYYY(row.be_date),
                 "Charge Head": row.chargeHead,
                 "Category": row.category,
-                "Party Name": row.partyName,
-                "Invoice No": row.invoice_number,
-                "Invoice Date": row.invoice_date,
-                "PB Number": row.purchase_book_no,
-                "PB Status": row.purchase_book_status,
-                "PR Number": row.payment_request_no,
-                "PR Status": row.payment_request_status,
-                "PB Mandatory?": row.isPurchaseBookMandatory ? "YES" : "NO",
+                "Party Name": row.partyName
+            };
+
+            // Conditionally include Purchase Book or Payment Request columns
+            if (type === 'pb' || type === 'all') {
+                record["PB Number"] = row.purchase_book_no;
+                record["PB Status"] = row.purchase_book_status;
+            }
+            if (type === 'pr' || type === 'pr_no_pb' || type === 'all') {
+                record["PR Number"] = row.payment_request_no;
+                record["PR Status"] = row.payment_request_status;
+            }
+
+            // Append remaining columns
+            Object.assign(record, {
                 "SAC/HSN": row.sacHsn,
                 "Request Date": reqDate,
                 "Completion Date": compDate,
-                "Basic Amount": row.basicAmount,
-                "GST Amount": row.gstAmount,
-                "TDS Amount": row.tdsAmount,
-                "Net Payable": row.netPayable,
+                "Invoice No": row.invoice_number,
+                "Invoice Date": formatDateToDDMMMYYYY(row.invoice_date),
+                "Invoice Value": row.category && row.category.toLowerCase() === 'reimbursement' 
+                    ? (row.rate !== undefined && row.rate !== null ? row.rate : 0)
+                    : (row.invoice_value !== undefined && row.invoice_value !== null ? row.invoice_value : ""),
+                "Basic Amount": row.basicAmount !== undefined && row.basicAmount !== null ? row.basicAmount : 0,
+                "GST Amount": row.gstAmount !== undefined && row.gstAmount !== null ? row.gstAmount : 0,
+                "TDS Amount": row.tdsAmount !== undefined && row.tdsAmount !== null ? row.tdsAmount : 0,
+                "Net Payable": row.netPayable !== undefined && row.netPayable !== null ? row.netPayable : 0,
                 "Remark": row.remark
-            };
+            });
+
+            return record;
         });
 
         // If JSON format is requested (for previewing), return the data directly
@@ -305,11 +364,11 @@ router.get("/api/report/billing-completed-excel", authMiddleware, applyUserBranc
             const reimbBillNo = (billNos[1] || "").trim() || "N/A";
 
             const billDates = (row.bill_date || "").split(",");
-            const agencyBillDate = billDates[0] ? new Date(billDates[0]).toLocaleDateString("en-GB") : "N/A";
-            const reimbBillDate = billDates[1] ? new Date(billDates[1]).toLocaleDateString("en-GB") : "N/A";
+            const agencyBillDate = billDates[0] ? formatDateToDDMMMYYYY(billDates[0]) : "N/A";
+            const reimbBillDate = billDates[1] ? formatDateToDDMMMYYYY(billDates[1]) : "N/A";
             
             const completionDate = row.billing_completed_date 
-                ? new Date(row.billing_completed_date).toLocaleDateString("en-GB") 
+                ? formatDateToDDMMMYYYY(row.billing_completed_date) 
                 : "N/A";
 
             return {

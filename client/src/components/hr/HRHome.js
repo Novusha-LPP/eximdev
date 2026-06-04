@@ -9,7 +9,6 @@ import { UserContext } from "../../contexts/UserContext";
 
 // Submodules
 import KPIDashboard from "./submodules/KPIDashboard";
-import KPIEntry from "./submodules/KPIEntry";
 import ProfileCompletionReport from "./submodules/ProfileCompletionReport";
 
 // Icons
@@ -25,12 +24,6 @@ function HRHome() {
   const { user } = React.useContext(UserContext);
 
   // Authorization Checks
-  const canEvaluate = user && (
-    user.role === "Admin" || 
-    user.role === "Head_of_Department" || 
-    user.role === "HOD"
-  );
-
   const canViewReport = user && (
     user.role === "Admin" || 
     user.role === "HR" ||
@@ -43,8 +36,6 @@ function HRHome() {
     switch (view) {
       case "kpi_dashboard":
         return <KPIDashboard />;
-      case "kpi_entry":
-        return <KPIEntry onSaveSuccess={() => setView("kpi_dashboard")} />;
       case "profile_completion":
         return <ProfileCompletionReport />;
       default:
@@ -56,8 +47,6 @@ function HRHome() {
     switch (view) {
       case "kpi_dashboard":
         return "KPI Performance Dashboard";
-      case "kpi_entry":
-        return "KPI Evaluation Entry";
       case "profile_completion":
         return "Employee Profile Completion Report";
       default:
@@ -120,30 +109,7 @@ function HRHome() {
               </Card>
             </Grid>
 
-            {/* Card 2: KPI Evaluation Entry */}
-            {canEvaluate && (
-              <Grid item xs={12} sm={6} md={4}>
-                <Card 
-                  className="hr-nav-card" 
-                  onClick={() => setView("kpi_entry")}
-                  style={{ cursor: "pointer", height: "100%", border: "1px solid #e2e8f0" }}
-                >
-                  <CardContent style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "12px" }}>
-                    <Box style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                      <Box className="hr-icon-wrapper" style={{ backgroundColor: "#f0fff4", color: "#38a169", padding: "10px", borderRadius: "8px", display: "flex" }}>
-                        <RateReviewIcon fontSize="large" />
-                      </Box>
-                      <Typography variant="h6" style={{ fontWeight: 700, color: "#1a365d" }}>
-                        KPI Evaluation Entry
-                      </Typography>
-                    </Box>
-                    <Typography variant="body2" color="textSecondary" style={{ lineHeight: 1.5 }}>
-                      Record monthly scores for employee parameters. Fetches real-time metrics automatically from Attendance, KPI, and Open Points modules.
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            )}
+
 
             {/* Card 3: Profile Completion Report */}
             {canViewReport && (

@@ -6,6 +6,7 @@ import UserModel from "../../model/userModel.mjs";
 import AttendanceRecord from "../../model/attendance/AttendanceRecord.js";
 import KPISheet from "../../model/kpi/kpiSheetModel.mjs";
 import OpenPoint from "../../model/openPoints/openPointModel.mjs";
+import TeamModel from "../../model/teamModel.mjs";
 import moment from "moment";
 
 const router = express.Router();
@@ -37,7 +38,7 @@ router.get("/api/hr/employees", verifyToken, async (req, res) => {
 // 2. GET /api/hr/kpi - Get KPI list with filters and trend calculation
 router.get("/api/hr/kpi", verifyToken, async (req, res) => {
   try {
-    const { year, month, department, rag_status, score_min, score_max } = req.query;
+    const { year, month, team: teamId, rag_status, score_min, score_max } = req.query;
 
     if (!year || !month) {
       return res.status(400).json({ error: "Year and month are required" });
@@ -52,12 +53,16 @@ router.get("/api/hr/kpi", verifyToken, async (req, res) => {
       month: queryMonth,
     };
 
-    // If department is filtered, we first find users in that department
+    // If team is filtered, we first find users in that team
     let employeeIds = [];
-    if (department) {
-      const usersInDept = await UserModel.find({ department }).select("_id");
-      employeeIds = usersInDept.map((u) => u._id);
-      kpiQuery.employee = { $in: employeeIds };
+    if (teamId) {
+      const teamObj = await TeamModel.findById(teamId).select("members");
+      if (teamObj) {
+        employeeIds = teamObj.members.map((m) => m.userId);
+        kpiQuery.employee = { $in: employeeIds };
+      } else {
+        kpiQuery.employee = { $in: [] };
+      }
     }
 
     if (rag_status) {
@@ -118,7 +123,7 @@ router.get("/api/hr/kpi", verifyToken, async (req, res) => {
   }
 });
 
-// 3. GET /api/hr/kpi/stats - Get department averages and RAG distributions
+// 3. GET /api/hr/kpi/stats - Get team averages and RAG distributions
 router.get("/api/hr/kpi/stats", verifyToken, async (req, res) => {
   try {
     const { year, month } = req.query;
@@ -134,10 +139,12 @@ router.get("/api/hr/kpi/stats", verifyToken, async (req, res) => {
       year: queryYear,
       month: queryMonth,
     })
-      .populate("employee", "department")
+      .populate("employee", "first_name last_name username")
       .lean();
 
-    const departmentStats = {};
+    const teams = await TeamModel.find({ isActive: { $ne: false } }).lean();
+
+    const teamStats = {};
     let greenCount = 0;
     let amberCount = 0;
     let redCount = 0;
@@ -148,27 +155,38 @@ router.get("/api/hr/kpi/stats", verifyToken, async (req, res) => {
       else if (rec.rag_status === "AMBER") amberCount++;
       else if (rec.rag_status === "RED") redCount++;
 
-      // Track department performance
-      const deptName = rec.employee?.department || "Unassigned";
-      if (!departmentStats[deptName]) {
-        departmentStats[deptName] = {
-          sum: 0,
-          count: 0,
-        };
+      if (!rec.employee) return;
+
+      const empTeams = teams.filter(t => 
+        t.members.some(m => m.userId?.toString() === rec.employee._id.toString())
+      );
+
+      if (empTeams.length > 0) {
+        empTeams.forEach(team => {
+          if (!teamStats[team.name]) {
+            teamStats[team.name] = { sum: 0, count: 0 };
+          }
+          teamStats[team.name].sum += rec.total_kpi_score;
+          teamStats[team.name].count += 1;
+        });
+      } else {
+        if (!teamStats["Unassigned"]) {
+          teamStats["Unassigned"] = { sum: 0, count: 0 };
+        }
+        teamStats["Unassigned"].sum += rec.total_kpi_score;
+        teamStats["Unassigned"].count += 1;
       }
-      departmentStats[deptName].sum += rec.total_kpi_score;
-      departmentStats[deptName].count += 1;
     });
 
-    // Calculate department averages
-    const departmentAverages = Object.keys(departmentStats).map((dept) => ({
-      department: dept,
-      average: parseFloat((departmentStats[dept].sum / departmentStats[dept].count).toFixed(2)),
-      count: departmentStats[dept].count,
+    // Calculate team averages
+    const teamAverages = Object.keys(teamStats).map((teamName) => ({
+      team: teamName,
+      average: parseFloat((teamStats[teamName].sum / teamStats[teamName].count).toFixed(2)),
+      count: teamStats[teamName].count,
     }));
 
     res.json({
-      departmentAverages,
+      teamAverages,
       ragDistribution: [
         { name: "GREEN", value: greenCount },
         { name: "AMBER", value: amberCount },
@@ -193,11 +211,12 @@ router.post(
         employee,
         year,
         month,
-        attendance,
-        quality_of_work,
-        productivity,
-        business_loss,
-        open_tasks,
+        attendanceScore,
+        qualityScore,
+        quantityScore,
+        sopComplianceScore,
+        openTaskScore,
+        businessLossScore,
         comments,
       } = req.body;
 
@@ -205,44 +224,63 @@ router.post(
         return res.status(400).json({ error: "Employee, year, and month are required" });
       }
 
-      // 1. Calculate Attendance Score (weight: 20%)
-      const workingDays = parseFloat(attendance?.working_days) || 0;
-      const presentDays = parseFloat(attendance?.present_days) || 0;
-      const attRaw = workingDays > 0 ? parseFloat(((presentDays / workingDays) * 10).toFixed(2)) : 0;
-      const attWeighted = parseFloat((attRaw * 0.20).toFixed(3));
+      // Parse raw scores (direct or nested fallback)
+      const rawQty = parseFloat(quantityScore !== undefined ? quantityScore : (req.body.quantity_of_work?.raw_score ?? req.body.productivity?.raw_score ?? 0));
+      const rawQual = parseFloat(qualityScore !== undefined ? qualityScore : (req.body.quality_of_work?.raw_score ?? 0));
+      
+      let rawAtt = 0;
+      let workingDays = parseFloat(req.body.attendance?.working_days) || 0;
+      let presentDays = parseFloat(req.body.attendance?.present_days) || 0;
+      if (attendanceScore !== undefined) {
+        rawAtt = parseFloat(attendanceScore);
+      } else if (req.body.attendance?.raw_score !== undefined) {
+        rawAtt = parseFloat(req.body.attendance.raw_score);
+      } else {
+        rawAtt = workingDays > 0 ? parseFloat(((presentDays / workingDays) * 10).toFixed(2)) : 0;
+      }
 
-      // 2. Quality Score (weight: 25%)
-      const qualRaw = parseFloat(quality_of_work?.raw_score) || 0;
-      const qualWeighted = parseFloat((qualRaw * 0.25).toFixed(3));
+      const rawSop = parseFloat(sopComplianceScore !== undefined ? sopComplianceScore : (req.body.sop_compliance?.raw_score ?? 0));
 
-      // 3. Productivity Score (weight: 30%)
-      const assignedTargets = parseFloat(productivity?.assigned_targets) || 0;
-      const completedTasks = parseFloat(productivity?.completed_tasks) || 0;
-      const prodRaw = assignedTargets > 0 ? parseFloat(((completedTasks / assignedTargets) * 10).toFixed(2)) : 0;
-      const prodWeighted = parseFloat((prodRaw * 0.30).toFixed(3));
+      let rawOpen = 0;
+      let openItems = parseFloat(req.body.open_tasks?.open_items) || 0;
+      let openDeduction = parseFloat(req.body.open_tasks?.deduction_per_item) || 1.0;
+      if (openTaskScore !== undefined) {
+        rawOpen = parseFloat(openTaskScore);
+      } else if (req.body.open_tasks?.raw_score !== undefined) {
+        rawOpen = parseFloat(req.body.open_tasks.raw_score);
+      } else {
+        rawOpen = Math.max(0, parseFloat((10 - openItems * openDeduction).toFixed(2)));
+      }
 
-      // 4. Business Loss Score (weight: 15%)
-      const lossIncidents = parseFloat(business_loss?.incidents) || 0;
-      const lossDeduction = parseFloat(business_loss?.deduction_per_incident) || 1.0;
-      const lossRaw = Math.max(0, parseFloat((10 - lossIncidents * lossDeduction).toFixed(2)));
-      const lossWeighted = parseFloat((lossRaw * 0.15).toFixed(3));
+      let rawLoss = 0;
+      let lossIncidents = parseFloat(req.body.business_loss?.incidents) || 0;
+      let lossDeduction = parseFloat(req.body.business_loss?.deduction_per_incident) || 1.0;
+      if (businessLossScore !== undefined) {
+        rawLoss = parseFloat(businessLossScore);
+      } else if (req.body.business_loss?.raw_score !== undefined) {
+        rawLoss = parseFloat(req.body.business_loss.raw_score);
+      } else {
+        rawLoss = Math.max(0, parseFloat((10 - lossIncidents * lossDeduction).toFixed(2)));
+      }
 
-      // 5. Open Tasks Score (weight: 10%)
-      const openItems = parseFloat(open_tasks?.open_items) || 0;
-      const openDeduction = parseFloat(open_tasks?.deduction_per_item) || 1.0;
-      const openRaw = Math.max(0, parseFloat((10 - openItems * openDeduction).toFixed(2)));
-      const openWeighted = parseFloat((openRaw * 0.10).toFixed(3));
+      // Calculate weighted scores
+      const qtyWeighted = parseFloat((rawQty * 0.25).toFixed(3));
+      const qualWeighted = parseFloat((rawQual * 0.25).toFixed(3));
+      const attWeighted = parseFloat((rawAtt * 0.15).toFixed(3));
+      const sopWeighted = parseFloat((rawSop * 0.15).toFixed(3));
+      const openWeighted = parseFloat((rawOpen * 0.10).toFixed(3));
+      const lossWeighted = parseFloat((rawLoss * 0.10).toFixed(3));
 
       // Calculate Total KPI Score
       const totalScore = parseFloat(
-        (attWeighted + qualWeighted + prodWeighted + lossWeighted + openWeighted).toFixed(2)
+        (attWeighted + qualWeighted + qtyWeighted + sopWeighted + openWeighted + lossWeighted).toFixed(2)
       );
 
       // Determine RAG Status
       let rag = "RED";
       if (totalScore >= 8.0) {
         rag = "GREEN";
-      } else if (totalScore >= 6.0) {
+      } else if (totalScore >= 5.0) {
         rag = "AMBER";
       }
 
@@ -253,82 +291,59 @@ router.post(
         month: parseInt(month),
       });
 
-      if (kpiRecord) {
-        // Update existing record
-        kpiRecord.attendance = {
+      const updateData = {
+        attendance: {
           present_days: presentDays,
           working_days: workingDays,
-          raw_score: attRaw,
+          raw_score: rawAtt,
           weighted_score: attWeighted,
-        };
-        kpiRecord.quality_of_work = {
-          raw_score: qualRaw,
+        },
+        quality_of_work: {
+          raw_score: rawQual,
           weighted_score: qualWeighted,
-        };
-        kpiRecord.productivity = {
-          completed_tasks: completedTasks,
-          assigned_targets: assignedTargets,
-          raw_score: prodRaw,
-          weighted_score: prodWeighted,
-        };
-        kpiRecord.business_loss = {
+        },
+        quantity_of_work: {
+          raw_score: rawQty,
+          weighted_score: qtyWeighted,
+        },
+        productivity: {
+          completed_tasks: rawQty,
+          assigned_targets: 10,
+          raw_score: rawQty,
+          weighted_score: qtyWeighted,
+        },
+        sop_compliance: {
+          raw_score: rawSop,
+          weighted_score: sopWeighted,
+        },
+        business_loss: {
           incidents: lossIncidents,
           deduction_per_incident: lossDeduction,
-          raw_score: lossRaw,
+          raw_score: rawLoss,
           weighted_score: lossWeighted,
-        };
-        kpiRecord.open_tasks = {
+        },
+        open_tasks: {
           open_items: openItems,
           deduction_per_item: openDeduction,
-          raw_score: openRaw,
+          raw_score: rawOpen,
           weighted_score: openWeighted,
-        };
-        kpiRecord.total_kpi_score = totalScore;
-        kpiRecord.rag_status = rag;
-        kpiRecord.reviewed_by = req.user._id;
-        kpiRecord.comments = comments || "";
+        },
+        total_kpi_score: totalScore,
+        rag_status: rag,
+        reviewed_by: req.user._id,
+        comments: comments || "",
+      };
 
+      if (kpiRecord) {
+        Object.assign(kpiRecord, updateData);
         await kpiRecord.save();
       } else {
-        // Create new record
         kpiRecord = new EmployeeKPI({
           employee,
           year: parseInt(year),
           month: parseInt(month),
-          attendance: {
-            present_days: presentDays,
-            working_days: workingDays,
-            raw_score: attRaw,
-            weighted_score: attWeighted,
-          },
-          quality_of_work: {
-            raw_score: qualRaw,
-            weighted_score: qualWeighted,
-          },
-          productivity: {
-            completed_tasks: completedTasks,
-            assigned_targets: assignedTargets,
-            raw_score: prodRaw,
-            weighted_score: prodWeighted,
-          },
-          business_loss: {
-            incidents: lossIncidents,
-            deduction_per_incident: lossDeduction,
-            raw_score: lossRaw,
-            weighted_score: lossWeighted,
-          },
-          open_tasks: {
-            open_items: openItems,
-            deduction_per_item: openDeduction,
-            raw_score: openRaw,
-            weighted_score: openWeighted,
-          },
-          total_kpi_score: totalScore,
-          rag_status: rag,
-          reviewed_by: req.user._id,
-          comments: comments || "",
+          ...updateData
         });
-
         await kpiRecord.save();
       }
 
@@ -428,9 +443,6 @@ router.get("/api/hr/kpi/auto-populate", verifyToken, async (req, res) => {
       // Productivity: total_quantity
       completedTasks = kpiSheet.summary?.total_quantity || 0;
       assignedTargets = completedTasks; // Default target to match completed tasks
-
-      // Business Loss: business_loss count
-      incidents = kpiSheet.summary?.business_loss || 0;
     }
 
     // 4. Open Points Metrics (Open Tasks)
@@ -439,30 +451,196 @@ router.get("/api/hr/kpi/auto-populate", verifyToken, async (req, res) => {
       status: { $ne: "Green" },
     });
 
+    // Auto-calculate direct scores (out of 10)
+    const calculatedAttScore = working_days > 0 ? parseFloat(((present_days / working_days) * 10).toFixed(2)) : 0;
+    const calculatedQtyScore = assignedTargets > 0 ? parseFloat(((completedTasks / assignedTargets) * 10).toFixed(2)) : 0;
+    const calculatedLossScore = Math.max(0, parseFloat((10 - incidents * 1.0).toFixed(2)));
+    const calculatedOpenScore = Math.max(0, parseFloat((10 - openItems * 1.0).toFixed(2)));
+
     res.json({
       attendance: {
         present_days,
         working_days,
+        raw_score: calculatedAttScore,
       },
       quality_of_work: {
         raw_score: qualityScore,
       },
+      quantity_of_work: {
+        raw_score: calculatedQtyScore,
+      },
       productivity: {
         completed_tasks: completedTasks,
-        assigned_targets: assignedTargets || 10, // Avoid 0 target if possible, fallback to 10
+        assigned_targets: assignedTargets || 10,
+        raw_score: calculatedQtyScore,
+      },
+      sop_compliance: {
+        raw_score: 10, // Default to 10
       },
       business_loss: {
         incidents,
         deduction_per_incident: 1.0,
+        raw_score: calculatedLossScore,
       },
       open_tasks: {
         open_items: openItems,
         deduction_per_item: 1.0,
+        raw_score: calculatedOpenScore,
       },
+      attendanceScore: calculatedAttScore,
+      qualityScore: qualityScore,
+      quantityScore: calculatedQtyScore,
+      sopComplianceScore: 10,
+      openTaskScore: calculatedOpenScore,
+      businessLossScore: calculatedLossScore
     });
   } catch (error) {
     console.error("Error auto-populating KPI metrics:", error);
     res.status(500).json({ error: "Failed to auto-populate metrics" });
+  }
+});
+
+// 6. GET /api/hr/kpi/dashboard-analytics - Advanced analytics for HR
+router.get("/api/hr/kpi/dashboard-analytics", verifyToken, async (req, res) => {
+  try {
+    const { year, month } = req.query;
+
+    if (!year || !month) {
+      return res.status(400).json({ error: "Year and month are required" });
+    }
+
+    const queryYear = parseInt(year);
+    const queryMonth = parseInt(month);
+
+    const kpiRecords = await EmployeeKPI.find({
+      year: queryYear,
+      month: queryMonth,
+    })
+      .populate("employee", "first_name last_name username designation employee_code email")
+      .lean();
+
+    const teams = await TeamModel.find({ isActive: { $ne: false } }).lean();
+
+    // 1. Top Performers (Top 5)
+    const topPerformers = [...kpiRecords]
+      .sort((a, b) => b.total_kpi_score - a.total_kpi_score)
+      .slice(0, 5)
+      .map(rec => {
+        const empTeams = teams.filter(t => 
+          t.members.some(m => m.userId?.toString() === rec.employee?._id?.toString())
+        );
+        return {
+          id: rec._id,
+          name: rec.employee ? `${rec.employee.first_name} ${rec.employee.last_name || ""}` : "Unknown",
+          team: empTeams.map(t => t.name).join(", ") || "N/A",
+          score: rec.total_kpi_score,
+          rag: rec.rag_status
+        };
+      });
+
+    // 2. Bottom Performers (Bottom 5)
+    const bottomPerformers = [...kpiRecords]
+      .sort((a, b) => a.total_kpi_score - b.total_kpi_score)
+      .slice(0, 5)
+      .map(rec => {
+        const empTeams = teams.filter(t => 
+          t.members.some(m => m.userId?.toString() === rec.employee?._id?.toString())
+        );
+        return {
+          id: rec._id,
+          name: rec.employee ? `${rec.employee.first_name} ${rec.employee.last_name || ""}` : "Unknown",
+          team: empTeams.map(t => t.name).join(", ") || "N/A",
+          score: rec.total_kpi_score,
+          rag: rec.rag_status
+        };
+      });
+
+    // 3. Team Averages
+    const teamStats = {};
+    let greenCount = 0;
+    let amberCount = 0;
+    let redCount = 0;
+
+    kpiRecords.forEach((rec) => {
+      if (rec.rag_status === "GREEN") greenCount++;
+      else if (rec.rag_status === "AMBER") amberCount++;
+      else if (rec.rag_status === "RED") redCount++;
+
+      if (!rec.employee) return;
+
+      const empTeams = teams.filter(t => 
+        t.members.some(m => m.userId?.toString() === rec.employee._id.toString())
+      );
+
+      if (empTeams.length > 0) {
+        empTeams.forEach(team => {
+          if (!teamStats[team.name]) {
+            teamStats[team.name] = { sum: 0, count: 0 };
+          }
+          teamStats[team.name].sum += rec.total_kpi_score;
+          teamStats[team.name].count += 1;
+        });
+      } else {
+        if (!teamStats["Unassigned"]) {
+          teamStats["Unassigned"] = { sum: 0, count: 0 };
+        }
+        teamStats["Unassigned"].sum += rec.total_kpi_score;
+        teamStats["Unassigned"].count += 1;
+      }
+    });
+
+    const teamAverages = Object.keys(teamStats).map((teamName) => ({
+      team: teamName,
+      average: parseFloat((teamStats[teamName].sum / teamStats[teamName].count).toFixed(2)),
+      count: teamStats[teamName].count,
+    }));
+
+    // 4. Monthly Trend (last 6 months)
+    const trendData = [];
+    for (let i = 5; i >= 0; i--) {
+      let tMonth = queryMonth - i;
+      let tYear = queryYear;
+      if (tMonth <= 0) {
+        tMonth += 12;
+        tYear -= 1;
+      }
+      
+      const records = await EmployeeKPI.find({ year: tYear, month: tMonth }).select("total_kpi_score").lean();
+      const avgScore = records.length > 0 
+        ? parseFloat((records.reduce((sum, r) => sum + r.total_kpi_score, 0) / records.length).toFixed(2))
+        : 0;
+      
+      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      trendData.push({
+        period: `${monthNames[tMonth - 1]} ${tYear}`,
+        average: avgScore
+      });
+    }
+
+    // 5. Correlation Data (Attendance & Open Tasks vs Performance)
+    const correlationData = kpiRecords.map(rec => ({
+      name: rec.employee ? `${rec.employee.first_name} ${rec.employee.last_name || ""}` : "Unknown",
+      attendance: rec.attendance?.raw_score || 0,
+      openTasks: rec.open_tasks?.raw_score || 0,
+      performance: rec.total_kpi_score
+    }));
+
+    res.json({
+      topPerformers,
+      bottomPerformers,
+      teamAverages,
+      monthlyTrend: trendData,
+      correlationData,
+      ragDistribution: [
+        { name: "GREEN", value: greenCount },
+        { name: "AMBER", value: amberCount },
+        { name: "RED", value: redCount },
+      ],
+      totalRecords: kpiRecords.length,
+    });
+  } catch (error) {
+    console.error("Error fetching dashboard analytics:", error);
+    res.status(500).json({ error: "Failed to fetch stats" });
   }
 });
 

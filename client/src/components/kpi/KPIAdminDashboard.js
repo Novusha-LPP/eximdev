@@ -1,9 +1,12 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useMemo } from 'react';
 import axios from 'axios';
 import { UserContext } from "../../contexts/UserContext";
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Dialog, DialogTitle, DialogContent, Button } from '@mui/material';
+import {
+    Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField,
+    Slider, Grid, Box, CircularProgress, Divider, Typography, Card, CardContent
+} from '@mui/material';
 import './kpi.scss';
 import KPISheet from './KPISheet';
 
@@ -49,6 +52,107 @@ const KPIAdminDashboard = () => {
         open: false,
         sheetId: null
     });
+
+    // Review Dialog State
+    const [reviewDialog, setReviewDialog] = useState({
+        open: false,
+        sheetId: null,
+        action: '',
+        comments: ''
+    });
+
+    const [scores, setScores] = useState({
+        quantityScore: 10,
+        qualityScore: 10,
+        attendanceScore: 10,
+        sopComplianceScore: 10,
+        openTaskScore: 10,
+        businessLossScore: 10
+    });
+    const [loadingScores, setLoadingScores] = useState(false);
+
+    const calculatedTotalScore = useMemo(() => {
+        const qtyW = (scores.quantityScore || 0) * 0.25;
+        const qualW = (scores.qualityScore || 0) * 0.25;
+        const attW = (scores.attendanceScore || 0) * 0.15;
+        const sopW = (scores.sopComplianceScore || 0) * 0.15;
+        const openW = (scores.openTaskScore || 0) * 0.10;
+        const lossW = (scores.businessLossScore || 0) * 0.10;
+        return parseFloat((qtyW + qualW + attW + sopW + openW + lossW).toFixed(2));
+    }, [scores]);
+
+    const calculatedRAG = useMemo(() => {
+        if (calculatedTotalScore >= 8.0) return { label: 'GREEN', color: '#38a169', bg: '#f0fff4' };
+        if (calculatedTotalScore >= 5.0) return { label: 'AMBER', color: '#d69e2e', bg: '#fffff0' };
+        return { label: 'RED', color: '#e53e3e', bg: '#fff5f5' };
+    }, [calculatedTotalScore]);
+
+    const [metaData, setMetaData] = useState(null);
+
+    const getHelperText = (key) => {
+        if (!metaData) return "Using default score";
+
+        const currentScore = parseFloat(scores[key]);
+
+        switch (key) {
+            case 'quantityScore': {
+                const autoScore = metaData.quantityScore ?? 10;
+                const completed = metaData.productivity?.completed_tasks ?? 0;
+                const targets = metaData.productivity?.assigned_targets ?? 10;
+                const text = `Auto-calculated: ${completed} / ${targets} tasks completed (Score = (${completed}/${targets})*10 = ${autoScore})`;
+                const isOverridden = Math.abs(currentScore - autoScore) > 0.05;
+                return isOverridden 
+                    ? `${text} — [Admin Override Active: ${currentScore.toFixed(1)}]` 
+                    : text;
+            }
+            case 'qualityScore': {
+                const autoScore = metaData.qualityScore ?? 10;
+                const text = `Auto-calculated: Based on overall KPI sheet percentage (Score = ${autoScore})`;
+                const isOverridden = Math.abs(currentScore - autoScore) > 0.05;
+                return isOverridden 
+                    ? `${text} — [Admin Override Active: ${currentScore.toFixed(1)}]` 
+                    : text;
+            }
+            case 'attendanceScore': {
+                const autoScore = metaData.attendanceScore ?? 10;
+                const present = metaData.attendance?.present_days ?? 0;
+                const working = metaData.attendance?.working_days ?? 0;
+                const text = `Auto-calculated: Present Days: ${present} / ${working} (Score = (${present}/${working})*10 = ${autoScore})`;
+                const isOverridden = Math.abs(currentScore - autoScore) > 0.05;
+                return isOverridden 
+                    ? `${text} — [Admin Override Active: ${currentScore.toFixed(1)}]` 
+                    : text;
+            }
+            case 'sopComplianceScore': {
+                const autoScore = metaData.sopComplianceScore ?? 10;
+                const text = `Standard rating (Default: ${autoScore})`;
+                const isOverridden = Math.abs(currentScore - autoScore) > 0.05;
+                return isOverridden 
+                    ? `${text} — [Admin Override Active: ${currentScore.toFixed(1)}]` 
+                    : text;
+            }
+            case 'openTaskScore': {
+                const autoScore = metaData.openTaskScore ?? 10;
+                const openItems = metaData.open_tasks?.open_items ?? 0;
+                const text = `Auto-calculated: Pending items: ${openItems} (Score = Max(0, 10 - pending*1.0) = ${autoScore})`;
+                const isOverridden = Math.abs(currentScore - autoScore) > 0.05;
+                return isOverridden 
+                    ? `${text} — [Admin Override Active: ${currentScore.toFixed(1)}]` 
+                    : text;
+            }
+            case 'businessLossScore': {
+                const autoScore = metaData.businessLossScore ?? 10;
+                const incidents = metaData.business_loss?.incidents ?? 0;
+                const text = `Auto-calculated: Incidents: ${incidents} (Score = Max(0, 10 - incidents*1.0) = ${autoScore})`;
+                const isOverridden = Math.abs(currentScore - autoScore) > 0.05;
+                return isOverridden 
+                    ? `${text} — [Admin Override Active: ${currentScore.toFixed(1)}]` 
+                    : text;
+            }
+            default:
+                return "";
+        }
+    };
 
     // Deadline Config
     const [deadlineConfig, setDeadlineConfig] = useState({
@@ -197,38 +301,112 @@ const KPIAdminDashboard = () => {
     };
 
     const handleAction = async (e, sheet) => {
-        e.stopPropagation();
+        if (e) e.stopPropagation();
+        setMetaData(null);
 
-        // Determine correct action based on current status
-        let action, confirmMsg, successMsg;
-
+        let action;
         if (sheet.status === 'SUBMITTED') {
             action = 'CHECK';
-            confirmMsg = "Are you sure you want to CHECK this sheet and proceed to verification?";
-            successMsg = "Sheet checked successfully";
         } else if (sheet.status === 'CHECKED') {
             action = 'VERIFY';
-            confirmMsg = "Are you sure you want to VERIFY this sheet and proceed to approval?";
-            successMsg = "Sheet verified successfully";
         } else if (sheet.status === 'VERIFIED') {
             action = 'APPROVE';
-            confirmMsg = "Are you sure you want to APPROVE this sheet?";
-            successMsg = "Sheet approved successfully";
         } else {
-            return; // No action for other statuses
+            return;
         }
 
-        if (!window.confirm(confirmMsg)) return;
+        setReviewDialog({
+            open: true,
+            sheetId: sheet._id,
+            action,
+            comments: `${action} via Admin Dashboard`
+        });
+
+        if (action === 'CHECK') {
+            setLoadingScores(true);
+            try {
+                const res = await axios.get(`${process.env.REACT_APP_API_STRING}/hr/kpi/auto-populate`, {
+                    params: {
+                        employeeId: sheet.user?._id || sheet.user,
+                        year: sheet.year,
+                        month: sheet.month
+                    },
+                    withCredentials: true
+                });
+                if (res.data) {
+                    setScores({
+                        quantityScore: res.data.quantityScore ?? 10,
+                        qualityScore: res.data.qualityScore ?? 10,
+                        attendanceScore: res.data.attendanceScore ?? 10,
+                        sopComplianceScore: res.data.sopComplianceScore ?? 10,
+                        openTaskScore: res.data.openTaskScore ?? 10,
+                        businessLossScore: res.data.businessLossScore ?? 10
+                    });
+                    setMetaData(res.data);
+                }
+            } catch (error) {
+                console.error("Failed to fetch auto-populated scores:", error);
+                setScores({
+                    quantityScore: 10,
+                    qualityScore: 10,
+                    attendanceScore: 10,
+                    sopComplianceScore: 10,
+                    openTaskScore: 10,
+                    businessLossScore: 10
+                });
+                setMetaData(null);
+            }
+            setLoadingScores(false);
+        }
+    };
+
+    const confirmAction = async () => {
+        const { sheetId, action, comments } = reviewDialog;
+
+        if (action === 'REJECT' && !comments.trim()) {
+            showMessage("Please provide a reason for rejection", "error");
+            return;
+        }
+
+        const payload = {
+            sheetId,
+            action,
+            comments
+        };
+
+        if (action === 'CHECK') {
+            // Validate score limits
+            const scoreKeys = [
+                { name: "Quantity Score", val: scores.quantityScore },
+                { name: "Quality Score", val: scores.qualityScore },
+                { name: "Attendance Score", val: scores.attendanceScore },
+                { name: "SOP Compliance Score", val: scores.sopComplianceScore },
+                { name: "Open Task Score", val: scores.openTaskScore },
+                { name: "Business Loss/Error Score", val: scores.businessLossScore }
+            ];
+            for (const s of scoreKeys) {
+                const valNum = parseFloat(s.val);
+                if (isNaN(valNum) || valNum < 0 || valNum > 10) {
+                    showMessage(`${s.name} must be a number between 0 and 10`, "error");
+                    return;
+                }
+            }
+
+            payload.quantityScore = parseFloat(scores.quantityScore);
+            payload.qualityScore = parseFloat(scores.qualityScore);
+            payload.attendanceScore = parseFloat(scores.attendanceScore);
+            payload.sopComplianceScore = parseFloat(scores.sopComplianceScore);
+            payload.openTaskScore = parseFloat(scores.openTaskScore);
+            payload.businessLossScore = parseFloat(scores.businessLossScore);
+        }
 
         try {
-            await axios.post(`${process.env.REACT_APP_API_STRING}/kpi/sheet/review`, {
-                sheetId: sheet._id,
-                action: action,
-                comments: `${action} via Admin Dashboard`
-            }, { withCredentials: true });
+            await axios.post(`${process.env.REACT_APP_API_STRING}/kpi/sheet/review`, payload, { withCredentials: true });
 
-            showMessage(successMsg);
-            fetchData(); // Refresh
+            showMessage(`Sheet ${action.toLowerCase()}ed successfully`);
+            setReviewDialog({ open: false, sheetId: null, action: '', comments: '' });
+            setMetaData(null);
+            fetchData(); // Refresh list
         } catch (error) {
             console.error("Action failed:", error.response?.data);
             showMessage(`Failed to ${action.toLowerCase()} sheet: ${error.response?.data?.message || 'Unknown error'}`, "error");
@@ -758,6 +936,181 @@ const KPIAdminDashboard = () => {
                     </div>
                 )}
             </AnimatePresence>
+
+            {/* Review Dialog */}
+            <Dialog open={reviewDialog.open} onClose={() => { setReviewDialog({ ...reviewDialog, open: false }); setMetaData(null); }} fullWidth maxWidth={reviewDialog.action === 'CHECK' ? "md" : "sm"}>
+                <DialogTitle style={{ fontWeight: 700, color: '#1e293b' }}>
+                    {reviewDialog.action === 'CHECK' ? '✓ Admin Check & Evaluate Sheet' :
+                        reviewDialog.action === 'VERIFY' ? '✓ Verify Sheet' :
+                            reviewDialog.action === 'APPROVE' ? '✅ Approve Sheet' : '❌ Reject Sheet'}
+                </DialogTitle>
+                <DialogContent>
+                    {reviewDialog.action === 'CHECK' && loadingScores ? (
+                        <Box style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px', gap: '12px' }}>
+                            <CircularProgress />
+                            <Typography variant="body2" color="textSecondary">Auto-populating scorecard metrics...</Typography>
+                        </Box>
+                    ) : (
+                        <>
+                            {reviewDialog.action === 'CHECK' && (
+                                <Grid container spacing={3} style={{ marginTop: '4px' }}>
+                                    {/* Parameter Inputs */}
+                                    <Grid item xs={12} md={7}>
+                                        <Typography variant="subtitle2" style={{ fontWeight: 700, color: '#4f46e5', marginBottom: '12px', textTransform: 'uppercase' }}>
+                                            Parameter Scoring (Scale 0-10)
+                                        </Typography>
+                                        
+                                        {[
+                                            { name: 'Quantity of Work (25% Weight)', key: 'quantityScore' },
+                                            { name: 'Quality of Work (25% Weight)', key: 'qualityScore' },
+                                            { name: 'Attendance (15% Weight)', key: 'attendanceScore' },
+                                            { name: 'SOP Compliance (15% Weight)', key: 'sopComplianceScore' },
+                                            { name: 'Open Tasks (10% Weight)', key: 'openTaskScore' },
+                                            { name: 'Business Loss/Error (10% Weight)', key: 'businessLossScore' },
+                                        ].map((param) => (
+                                            <Box key={param.key} style={{ marginBottom: '16px' }}>
+                                                <Typography variant="caption" style={{ fontWeight: 600, color: '#475569' }}>
+                                                    {param.name}
+                                                </Typography>
+                                                <Typography variant="caption" display="block" style={{ fontStyle: 'italic', color: '#64748b', fontSize: '0.75rem', marginTop: '2px', marginBottom: '4px' }}>
+                                                    {getHelperText(param.key)}
+                                                </Typography>
+                                                <Grid container spacing={2} alignItems="center">
+                                                    <Grid item xs={8}>
+                                                        <Slider
+                                                            value={typeof scores[param.key] === 'number' ? scores[param.key] : 10}
+                                                            min={0}
+                                                            max={10}
+                                                            step={0.1}
+                                                            onChange={(e, val) => setScores(prev => ({ ...prev, [param.key]: val }))}
+                                                            valueLabelDisplay="auto"
+                                                            style={{ color: '#4f46e5' }}
+                                                        />
+                                                    </Grid>
+                                                    <Grid item xs={4}>
+                                                        <TextField
+                                                            type="number"
+                                                            size="small"
+                                                            inputProps={{ min: 0, max: 10, step: 0.1 }}
+                                                            value={scores[param.key]}
+                                                            onChange={(e) => {
+                                                                const val = parseFloat(e.target.value);
+                                                                setScores(prev => ({ ...prev, [param.key]: isNaN(val) ? '' : val }));
+                                                            }}
+                                                            fullWidth
+                                                        />
+                                                    </Grid>
+                                                </Grid>
+                                            </Box>
+                                        ))}
+                                    </Grid>
+
+                                    {/* Scorecard Preview Panel */}
+                                    <Grid item xs={12} md={5}>
+                                        <Card variant="outlined" style={{ height: '100%', borderColor: '#cbd5e0', background: '#f8fafc' }}>
+                                            <CardContent style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                                                <Typography variant="subtitle2" style={{ fontWeight: 700, color: '#1e293b' }}>
+                                                    KPI SCORE PREVIEW
+                                                </Typography>
+                                                <Divider />
+                                                
+                                                <Box style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                                    <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                        <Typography variant="caption" color="textSecondary">Quantity (25%):</Typography>
+                                                        <Typography variant="caption" style={{ fontWeight: 600 }}>{((scores.quantityScore || 0) * 0.25).toFixed(3)}</Typography>
+                                                    </Box>
+                                                    <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                        <Typography variant="caption" color="textSecondary">Quality (25%):</Typography>
+                                                        <Typography variant="caption" style={{ fontWeight: 600 }}>{((scores.qualityScore || 0) * 0.25).toFixed(3)}</Typography>
+                                                    </Box>
+                                                    <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                        <Typography variant="caption" color="textSecondary">Attendance (15%):</Typography>
+                                                        <Typography variant="caption" style={{ fontWeight: 600 }}>{((scores.attendanceScore || 0) * 0.15).toFixed(3)}</Typography>
+                                                    </Box>
+                                                    <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                        <Typography variant="caption" color="textSecondary">SOP Compliance (15%):</Typography>
+                                                        <Typography variant="caption" style={{ fontWeight: 600 }}>{((scores.sopComplianceScore || 0) * 0.15).toFixed(3)}</Typography>
+                                                    </Box>
+                                                    <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                        <Typography variant="caption" color="textSecondary">Open Tasks (10%):</Typography>
+                                                        <Typography variant="caption" style={{ fontWeight: 600 }}>{((scores.openTaskScore || 0) * 0.10).toFixed(3)}</Typography>
+                                                    </Box>
+                                                    <Box style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                        <Typography variant="caption" color="textSecondary">Business Loss/Error (10%):</Typography>
+                                                        <Typography variant="caption" style={{ fontWeight: 600 }}>{((scores.businessLossScore || 0) * 0.10).toFixed(3)}</Typography>
+                                                    </Box>
+                                                </Box>
+
+                                                <Divider />
+
+                                                <Box style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'space-between',
+                                                    padding: '12px',
+                                                    borderRadius: '6px',
+                                                    backgroundColor: calculatedRAG.bg,
+                                                    border: `1px solid ${calculatedRAG.color}`
+                                                }}>
+                                                    <Box>
+                                                        <Typography variant="h5" style={{ fontWeight: 800, color: calculatedRAG.color }}>
+                                                            {calculatedTotalScore.toFixed(2)}
+                                                        </Typography>
+                                                        <Typography variant="caption" color="textSecondary" style={{ fontWeight: 600 }}>
+                                                            TOTAL SCORE / 10
+                                                        </Typography>
+                                                    </Box>
+                                                    <Box style={{
+                                                        padding: '4px 10px',
+                                                        borderRadius: '4px',
+                                                        color: 'white',
+                                                        backgroundColor: calculatedRAG.color,
+                                                        fontWeight: 700,
+                                                        fontSize: '0.75rem'
+                                                    }}>
+                                                        {calculatedRAG.label}
+                                                    </Box>
+                                                </Box>
+                                            </CardContent>
+                                        </Card>
+                                    </Grid>
+                                </Grid>
+                            )}
+
+                            <TextField
+                                autoFocus={reviewDialog.action !== 'CHECK'}
+                                margin="dense"
+                                label={reviewDialog.action === 'REJECT' ? "Reason for Rejection (Required)" : "Comments (Optional)"}
+                                fullWidth
+                                multiline
+                                rows={3}
+                                value={reviewDialog.comments}
+                                onChange={(e) => setReviewDialog({ ...reviewDialog, comments: e.target.value })}
+                                placeholder={reviewDialog.action === 'REJECT' ? "Please explain why this sheet is being rejected..." : "Add Admin evaluation feedback comments..."}
+                                required={reviewDialog.action === 'REJECT'}
+                                error={reviewDialog.action === 'REJECT' && !reviewDialog.comments.trim()}
+                                style={{ marginTop: '16px' }}
+                            />
+                        </>
+                    )}
+                </DialogContent>
+                <DialogActions style={{ padding: '16px 24px', borderTop: '1px solid #e2e8f0' }}>
+                    <Button onClick={() => { setReviewDialog({ ...reviewDialog, open: false }); setMetaData(null); }} style={{ color: '#64748b' }}>Cancel</Button>
+                    <Button
+                        onClick={confirmAction}
+                        variant="contained"
+                        disabled={reviewDialog.action === 'CHECK' && loadingScores}
+                        color={reviewDialog.action === 'REJECT' ? "error" : "primary"}
+                        style={{
+                            background: reviewDialog.action === 'REJECT' ? '#ef4444' : '#4f46e5',
+                            color: 'white',
+                            fontWeight: 600
+                        }}
+                    >
+                        {reviewDialog.action === 'CHECK' ? 'Check & Evaluate' : reviewDialog.action}
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             {/* View Sheet Dialog */}
             <Dialog 

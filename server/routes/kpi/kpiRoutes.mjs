@@ -8,6 +8,7 @@ import UserModel from "../../model/userModel.mjs";
 import TeamModel from "../../model/teamModel.mjs";
 import OpenPoint from "../../model/openPoints/openPointModel.mjs";
 import translate from "google-translate-api-x";
+import EmployeeKPI from "../../model/hr/employeeKPIModel.mjs";
 
 const router = express.Router();
 
@@ -1455,6 +1456,72 @@ router.post("/api/kpi/sheet/review", verifyToken, async (req, res) => {
             sheet.summary = Object.assign({}, sheet.summary?.toObject() || {}, metrics);
             sheet.markModified('summary');
             sheet.markModified('rows');
+
+            // Automate Employee KPI scorecard creation/update
+            const qtyRaw = parseFloat(req.body.quantityScore !== undefined ? req.body.quantityScore : 10);
+            const qualRaw = parseFloat(req.body.qualityScore !== undefined ? req.body.qualityScore : 10);
+            const attRaw = parseFloat(req.body.attendanceScore !== undefined ? req.body.attendanceScore : 10);
+            const sopRaw = parseFloat(req.body.sopComplianceScore !== undefined ? req.body.sopComplianceScore : 10);
+            const openRaw = parseFloat(req.body.openTaskScore !== undefined ? req.body.openTaskScore : 10);
+            const lossRaw = parseFloat(req.body.businessLossScore !== undefined ? req.body.businessLossScore : 10);
+
+            const qtyWeighted = parseFloat((qtyRaw * 0.25).toFixed(3));
+            const qualWeighted = parseFloat((qualRaw * 0.25).toFixed(3));
+            const attWeighted = parseFloat((attRaw * 0.15).toFixed(3));
+            const sopWeighted = parseFloat((sopRaw * 0.15).toFixed(3));
+            const openWeighted = parseFloat((openRaw * 0.10).toFixed(3));
+            const lossWeighted = parseFloat((lossRaw * 0.10).toFixed(3));
+
+            const totalScore = parseFloat(
+                (qtyWeighted + qualWeighted + attWeighted + sopWeighted + openWeighted + lossWeighted).toFixed(2)
+            );
+
+            let rag = "RED";
+            if (totalScore >= 8.0) {
+                rag = "GREEN";
+            } else if (totalScore >= 5.0) {
+                rag = "AMBER";
+            }
+
+            const kpiData = {
+                employee: sheet.user,
+                year: sheet.year,
+                month: sheet.month,
+                quantity_of_work: {
+                    raw_score: qtyRaw,
+                    weighted_score: qtyWeighted
+                },
+                quality_of_work: {
+                    raw_score: qualRaw,
+                    weighted_score: qualWeighted
+                },
+                attendance: {
+                    raw_score: attRaw,
+                    weighted_score: attWeighted
+                },
+                sop_compliance: {
+                    raw_score: sopRaw,
+                    weighted_score: sopWeighted
+                },
+                open_tasks: {
+                    raw_score: openRaw,
+                    weighted_score: openWeighted
+                },
+                business_loss: {
+                    raw_score: lossRaw,
+                    weighted_score: lossWeighted
+                },
+                total_kpi_score: totalScore,
+                rag_status: rag,
+                reviewed_by: req.user._id,
+                comments: comments || "Auto-saved during KPI sheet check"
+            };
+
+            await EmployeeKPI.findOneAndUpdate(
+                { employee: sheet.user, year: sheet.year, month: sheet.month },
+                { $set: kpiData },
+                { upsert: true }
+            );
 
             sheet.status = "CHECKED";
             sheet.signatures.checked_by = `${req.user.first_name} ${req.user.last_name || ''}`;

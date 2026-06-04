@@ -43,6 +43,11 @@ import {
   PieChart,
   Pie,
   Cell,
+  LineChart,
+  Line,
+  ScatterChart,
+  Scatter,
+  ZAxis,
 } from "recharts";
 
 const YEARS = [
@@ -91,37 +96,50 @@ function KPIDashboard() {
 
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState([]);
-  const [stats, setStats] = useState({ departmentAverages: [], ragDistribution: [], totalRecords: 0 });
+  const [stats, setStats] = useState({ teamAverages: [], ragDistribution: [], totalRecords: 0 });
 
   // Filters State
   const [year, setYear] = useState(new Date().getFullYear());
   const [month, setMonth] = useState(new Date().getMonth() + 1);
-  const [department, setDepartment] = useState("");
+  const [teamId, setTeamId] = useState("");
   const [ragStatus, setRagStatus] = useState("");
   const [minScore, setMinScore] = useState("");
   const [maxScore, setMaxScore] = useState("");
 
-  const [departments, setDepartments] = useState([]);
+  const [teams, setTeams] = useState([]);
 
   // Detail Modal State
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
 
-  // Fetch unique departments to populate filter list
+  // Fetch active teams to populate filter list
   useEffect(() => {
-    async function fetchEmployees() {
+    async function fetchTeams() {
       try {
         const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/hr/employees`
+          `${process.env.REACT_APP_API_STRING}/teams/all`,
+          { withCredentials: true }
         );
-        const depts = [...new Set((res.data || []).map((e) => e.department).filter(Boolean))];
-        setDepartments(depts);
+        if (res.data && res.data.success) {
+          setTeams(res.data.teams || []);
+        }
       } catch (error) {
-        console.error("Error fetching departments for filter:", error);
+        console.error("Error fetching teams for filter:", error);
       }
     }
-    fetchEmployees();
+    fetchTeams();
   }, []);
+
+  const getEmployeeTeamName = (employeeId) => {
+    if (!employeeId) return "N/A";
+    const empTeam = teams.find(t => 
+      t.members?.some(m => 
+        (m.userId?._id || m.userId) === employeeId || 
+        m.username === employeeId
+      )
+    );
+    return empTeam ? empTeam.name : "N/A";
+  };
 
   // Fetch KPI data and stats
   const fetchData = async () => {
@@ -134,7 +152,7 @@ function KPIDashboard() {
           params: {
             year,
             month,
-            department: department || undefined,
+            team: teamId || undefined,
             rag_status: ragStatus || undefined,
             score_min: minScore || undefined,
             score_max: maxScore || undefined,
@@ -143,9 +161,9 @@ function KPIDashboard() {
       );
       setData(recordsRes.data || []);
 
-      // 2. Fetch Aggregated Stats
+      // 2. Fetch Aggregated Analytics
       const statsRes = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/hr/kpi/stats`,
+        `${process.env.REACT_APP_API_STRING}/hr/kpi/dashboard-analytics`,
         {
           params: {
             year,
@@ -153,7 +171,15 @@ function KPIDashboard() {
           },
         }
       );
-      setStats(statsRes.data || { departmentAverages: [], ragDistribution: [], totalRecords: 0 });
+      setStats(statsRes.data || { 
+        teamAverages: [], 
+        ragDistribution: [], 
+        totalRecords: 0,
+        topPerformers: [],
+        bottomPerformers: [],
+        monthlyTrend: [],
+        correlationData: []
+      });
     } catch (error) {
       console.error("Error loading KPI data:", error);
       toast.error("Failed to load KPI dashboard data");
@@ -164,7 +190,7 @@ function KPIDashboard() {
 
   useEffect(() => {
     fetchData();
-  }, [year, month, department, ragStatus, minScore, maxScore]);
+  }, [year, month, teamId, ragStatus, minScore, maxScore]);
 
   const handleOpenDetails = (record) => {
     setSelectedRecord(record);
@@ -191,19 +217,20 @@ function KPIDashboard() {
     doc.text(`Employee KPI Performance Report - ${monthLabel} ${year}`, 14, 15);
 
     const headers = [
-      ["Employee ID", "Employee Name", "Department", "Designation", "Attendance", "Quality", "Productivity", "Errors/Loss", "Open Tasks", "KPI Score", "RAG"],
+      ["Employee ID", "Employee Name", "Team", "Designation", "Attendance", "Quality", "Quantity", "SOP Comp.", "Open Tasks", "Errors/Loss", "KPI Score", "RAG"],
     ];
 
     const rows = data.map((r) => [
       r.employee?.employee_code || "N/A",
       `${r.employee?.first_name || ""} ${r.employee?.last_name || ""}`,
-      r.employee?.department || "N/A",
+      getEmployeeTeamName(r.employee?._id || r.employee),
       r.employee?.designation || "N/A",
       r.attendance?.raw_score?.toFixed(2) || "0.00",
       r.quality_of_work?.raw_score?.toFixed(2) || "0.00",
-      r.productivity?.raw_score?.toFixed(2) || "0.00",
-      r.business_loss?.raw_score?.toFixed(2) || "0.00",
+      r.quantity_of_work?.raw_score?.toFixed(2) || r.productivity?.raw_score?.toFixed(2) || "0.00",
+      r.sop_compliance?.raw_score?.toFixed(2) || "0.00",
       r.open_tasks?.raw_score?.toFixed(2) || "0.00",
+      r.business_loss?.raw_score?.toFixed(2) || "0.00",
       r.total_kpi_score?.toFixed(2) || "0.00",
       r.rag_status || "RED",
     ]);
@@ -239,7 +266,7 @@ function KPIDashboard() {
 
       // Title block
       worksheet.addRow([`Employee KPI Performance Report - ${monthLabel} ${year}`]);
-      worksheet.mergeCells("A1:K1");
+      worksheet.mergeCells("A1:L1");
       worksheet.getRow(1).font = { bold: true, size: 14 };
       worksheet.getRow(1).height = 30;
       worksheet.getRow(1).alignment = { vertical: "middle" };
@@ -250,13 +277,14 @@ function KPIDashboard() {
       const headerRow = worksheet.addRow([
         "Employee ID",
         "Employee Name",
-        "Department",
+        "Team",
         "Designation",
         "Attendance Score (/10)",
         "Quality Score (/10)",
-        "Productivity Score (/10)",
-        "Errors/Loss Score (/10)",
+        "Quantity Score (/10)",
+        "SOP Compliance Score (/10)",
         "Open Tasks Score (/10)",
+        "Errors/Loss Score (/10)",
         "Total KPI Score (/10)",
         "RAG Status",
       ]);
@@ -277,13 +305,14 @@ function KPIDashboard() {
         const row = worksheet.addRow([
           r.employee?.employee_code || "N/A",
           `${r.employee?.first_name || ""} ${r.employee?.last_name || ""}`,
-          r.employee?.department || "N/A",
+          getEmployeeTeamName(r.employee?._id || r.employee),
           r.employee?.designation || "N/A",
           r.attendance?.raw_score || 0,
           r.quality_of_work?.raw_score || 0,
-          r.productivity?.raw_score || 0,
-          r.business_loss?.raw_score || 0,
+          r.quantity_of_work?.raw_score || r.productivity?.raw_score || 0,
+          r.sop_compliance?.raw_score || 0,
           r.open_tasks?.raw_score || 0,
+          r.business_loss?.raw_score || 0,
           r.total_kpi_score || 0,
           r.rag_status,
         ]);
@@ -295,13 +324,13 @@ function KPIDashboard() {
         row.getCell(2).alignment = { horizontal: "left", vertical: "middle" };
         row.getCell(3).alignment = { horizontal: "left", vertical: "middle" };
         row.getCell(4).alignment = { horizontal: "left", vertical: "middle" };
-        for (let i = 5; i <= 10; i++) {
+        for (let i = 5; i <= 11; i++) {
           row.getCell(i).alignment = { horizontal: "center", vertical: "middle" };
         }
-        row.getCell(11).alignment = { horizontal: "center", vertical: "middle" };
+        row.getCell(12).alignment = { horizontal: "center", vertical: "middle" };
 
         // Color coding for RAG cell
-        const ragCell = row.getCell(11);
+        const ragCell = row.getCell(12);
         let color = "FFFFFFFF";
         let bg = "FFE53E3E"; // Default Red
         if (r.rag_status === "GREEN") {
@@ -322,10 +351,10 @@ function KPIDashboard() {
       worksheet.getColumn(2).width = 25;
       worksheet.getColumn(3).width = 20;
       worksheet.getColumn(4).width = 25;
-      for (let i = 5; i <= 10; i++) {
+      for (let i = 5; i <= 11; i++) {
         worksheet.getColumn(i).width = 22;
       }
-      worksheet.getColumn(11).width = 15;
+      worksheet.getColumn(12).width = 15;
 
       const buffer = await workbook.xlsx.writeBuffer();
       saveAs(
@@ -388,20 +417,20 @@ function KPIDashboard() {
             </Grid>
             <Grid item xs={12} sm={2.5}>
               <div className="hr-compact-field">
-                <label className="hr-field-label">Department</label>
+                <label className="hr-field-label">Team</label>
                 <TextField
                   select
                   fullWidth
                   className="hr-compact-input"
                   variant="filled"
-                  value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
+                  value={teamId}
+                  onChange={(e) => setTeamId(e.target.value)}
                   SelectProps={selectMenuProps}
                 >
-                  <MenuItem value="">All Departments</MenuItem>
-                  {departments.map((dept) => (
-                    <MenuItem key={dept} value={dept}>
-                      {dept}
+                  <MenuItem value="">All Teams</MenuItem>
+                  {teams.map((t) => (
+                    <MenuItem key={t._id} value={t._id}>
+                      {t.name}
                     </MenuItem>
                   ))}
                 </TextField>
@@ -462,75 +491,225 @@ function KPIDashboard() {
 
       {/* Analytics Charts */}
       {stats.totalRecords > 0 && (
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={7}>
-            <Card variant="outlined">
-              <CardContent>
-                <Typography variant="subtitle2" gutterBottom style={{ fontWeight: 700, color: "#2b6cb0" }}>
-                  DEPARTMENT PERFORMANCE AVERAGES
-                </Typography>
-                <div style={{ width: "100%", height: 260 }}>
-                  <ResponsiveContainer>
-                    <BarChart
-                      data={stats.departmentAverages}
-                      margin={{ top: 10, right: 10, left: -25, bottom: 5 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="department" tick={{ fontSize: 10 }} />
-                      <YAxis domain={[0, 10]} tick={{ fontSize: 10 }} />
-                      <ChartTooltip />
-                      <Bar dataKey="average" fill="#2b6cb0" radius={[4, 4, 0, 0]}>
-                        {stats.departmentAverages.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill="#2b6cb0" />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
+        <Box style={{ display: "flex", flexDirection: "column", gap: "20px" }}>
+          {/* Top & Bottom Performers */}
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography variant="subtitle2" gutterBottom style={{ fontWeight: 700, color: "#38a169", display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span>🟢 TOP PERFORMERS</span>
+                  </Typography>
+                  <TableContainer component={Paper} elevation={0} style={{ border: "1px solid #e2e8f0" }}>
+                    <Table size="small">
+                      <TableHead style={{ backgroundColor: "#f7fafc" }}>
+                        <TableRow>
+                          <TableCell style={{ fontWeight: 700 }}>Employee</TableCell>
+                          <TableCell style={{ fontWeight: 700 }}>Team</TableCell>
+                          <TableCell align="center" style={{ fontWeight: 700 }}>Score</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {stats.topPerformers?.length > 0 ? (
+                          stats.topPerformers.map((p) => (
+                            <TableRow key={p.id}>
+                              <TableCell style={{ fontWeight: 600 }}>{p.name}</TableCell>
+                              <TableCell>{p.team || "N/A"}</TableCell>
+                              <TableCell align="center" style={{ fontWeight: 700, color: "#38a169" }}>{p.score.toFixed(2)}</TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={3} align="center">No records</TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} md={6}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography variant="subtitle2" gutterBottom style={{ fontWeight: 700, color: "#e53e3e", display: "flex", alignItems: "center", gap: "6px" }}>
+                    <span>🔴 NEEDS ATTENTION / BOTTOM PERFORMERS</span>
+                  </Typography>
+                  <TableContainer component={Paper} elevation={0} style={{ border: "1px solid #e2e8f0" }}>
+                    <Table size="small">
+                      <TableHead style={{ backgroundColor: "#f7fafc" }}>
+                        <TableRow>
+                          <TableCell style={{ fontWeight: 700 }}>Employee</TableCell>
+                          <TableCell style={{ fontWeight: 700 }}>Team</TableCell>
+                          <TableCell align="center" style={{ fontWeight: 700 }}>Score</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {stats.bottomPerformers?.length > 0 ? (
+                          stats.bottomPerformers.map((p) => (
+                            <TableRow key={p.id}>
+                              <TableCell style={{ fontWeight: 600 }}>{p.name}</TableCell>
+                              <TableCell>{p.team || "N/A"}</TableCell>
+                              <TableCell align="center" style={{ fontWeight: 700, color: "#e53e3e" }}>{p.score.toFixed(2)}</TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={3} align="center">No records</TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </CardContent>
+              </Card>
+            </Grid>
           </Grid>
-          <Grid item xs={12} md={5}>
-            <Card variant="outlined">
-              <CardContent>
-                <Typography variant="subtitle2" gutterBottom style={{ fontWeight: 700, color: "#2b6cb0" }}>
-                  TEAM RAG DISTRIBUTION
-                </Typography>
-                <div style={{ width: "100%", height: 260, display: "flex", justifyContent: "center", alignItems: "center" }}>
-                  <ResponsiveContainer width="60%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={stats.ragDistribution.filter((d) => d.value > 0)}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={80}
-                        paddingAngle={5}
-                        dataKey="value"
+
+          {/* Team Averages & RAG Distribution */}
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={7}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography variant="subtitle2" gutterBottom style={{ fontWeight: 700, color: "#2b6cb0" }}>
+                    TEAM PERFORMANCE AVERAGES
+                  </Typography>
+                  <div style={{ width: "100%", height: 260 }}>
+                    <ResponsiveContainer>
+                      <BarChart
+                        data={stats.teamAverages}
+                        margin={{ top: 10, right: 10, left: -25, bottom: 5 }}
                       >
-                        {stats.ragDistribution.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={RAG_COLORS[entry.name]} />
-                        ))}
-                      </Pie>
-                      <ChartTooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  {/* Legend */}
-                  <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginLeft: "12px" }}>
-                    {stats.ragDistribution.map((entry) => (
-                      <div key={entry.name} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                        <div style={{ width: "12px", height: "12px", borderRadius: "50%", backgroundColor: RAG_COLORS[entry.name] }} />
-                        <Typography variant="caption" style={{ fontWeight: 600 }}>
-                          {entry.name}: {entry.value}
-                        </Typography>
-                      </div>
-                    ))}
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="team" tick={{ fontSize: 10 }} />
+                        <YAxis domain={[0, 10]} tick={{ fontSize: 10 }} />
+                        <ChartTooltip />
+                        <Bar dataKey="average" fill="#2b6cb0" radius={[4, 4, 0, 0]}>
+                          {stats.teamAverages?.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill="#2b6cb0" />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} md={5}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography variant="subtitle2" gutterBottom style={{ fontWeight: 700, color: "#2b6cb0" }}>
+                    TEAM RAG DISTRIBUTION
+                  </Typography>
+                  <div style={{ width: "100%", height: 260, display: "flex", justifyContent: "center", alignItems: "center" }}>
+                    <ResponsiveContainer width="60%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={stats.ragDistribution.filter((d) => d.value > 0)}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={5}
+                          dataKey="value"
+                        >
+                          {stats.ragDistribution.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={RAG_COLORS[entry.name]} />
+                          ))}
+                        </Pie>
+                        <ChartTooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    {/* Legend */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: "8px", marginLeft: "12px" }}>
+                      {stats.ragDistribution.map((entry) => (
+                        <div key={entry.name} style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <div style={{ width: "12px", height: "12px", borderRadius: "50%", backgroundColor: RAG_COLORS[entry.name] }} />
+                          <Typography variant="caption" style={{ fontWeight: 600 }}>
+                            {entry.name}: {entry.value}
+                          </Typography>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </Grid>
           </Grid>
-        </Grid>
+
+          {/* Trend & Correlation Charts */}
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={4}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography variant="subtitle2" gutterBottom style={{ fontWeight: 700, color: "#2b6cb0" }}>
+                    MONTHLY PERFORMANCE TREND (AVG SCORE)
+                  </Typography>
+                  <div style={{ width: "100%", height: 260 }}>
+                    <ResponsiveContainer>
+                      <LineChart
+                        data={stats.monthlyTrend}
+                        margin={{ top: 10, right: 10, left: -25, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="period" tick={{ fontSize: 10 }} />
+                        <YAxis domain={[0, 10]} tick={{ fontSize: 10 }} />
+                        <ChartTooltip />
+                        <Line type="monotone" dataKey="average" stroke="#2b6cb0" strokeWidth={3} activeDot={{ r: 8 }} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} md={4}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography variant="subtitle2" gutterBottom style={{ fontWeight: 700, color: "#2b6cb0" }}>
+                    ATTENDANCE VS PERFORMANCE
+                  </Typography>
+                  <div style={{ width: "100%", height: 260 }}>
+                    <ResponsiveContainer>
+                      <ScatterChart
+                        margin={{ top: 10, right: 10, left: -25, bottom: 5 }}
+                      >
+                        <CartesianGrid />
+                        <XAxis type="number" dataKey="attendance" name="Attendance Score" unit="" domain={[0, 10]} tick={{ fontSize: 10 }} />
+                        <YAxis type="number" dataKey="performance" name="KPI Score" unit="" domain={[0, 10]} tick={{ fontSize: 10 }} />
+                        <ChartTooltip cursor={{ strokeDasharray: '3 3' }} />
+                        <Scatter name="Employees" data={stats.correlationData} fill="#38a169" />
+                      </ScatterChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            <Grid item xs={12} md={4}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography variant="subtitle2" gutterBottom style={{ fontWeight: 700, color: "#2b6cb0" }}>
+                    OPEN TASKS VS PERFORMANCE
+                  </Typography>
+                  <div style={{ width: "100%", height: 260 }}>
+                    <ResponsiveContainer>
+                      <ScatterChart
+                        margin={{ top: 10, right: 10, left: -25, bottom: 5 }}
+                      >
+                        <CartesianGrid />
+                        <XAxis type="number" dataKey="openTasks" name="Open Tasks Score" unit="" domain={[0, 10]} tick={{ fontSize: 10 }} />
+                        <YAxis type="number" dataKey="performance" name="KPI Score" unit="" domain={[0, 10]} tick={{ fontSize: 10 }} />
+                        <ChartTooltip cursor={{ strokeDasharray: '3 3' }} />
+                        <Scatter name="Employees" data={stats.correlationData} fill="#e53e3e" />
+                      </ScatterChart>
+                    </ResponsiveContainer>
+                  </div>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+        </Box>
       )}
 
       {/* Main Table Grid */}
@@ -574,7 +753,7 @@ function KPIDashboard() {
                   <TableRow>
                     <TableCell align="center">ID</TableCell>
                     <TableCell>Employee Name</TableCell>
-                    <TableCell>Department</TableCell>
+                    <TableCell>Team</TableCell>
                     <TableCell>Designation</TableCell>
                     <TableCell align="center">KPI Score</TableCell>
                     <TableCell align="center">RAG Status</TableCell>
@@ -670,7 +849,7 @@ function KPIDashboard() {
                       Code: {selectedRecord.employee?.employee_code || "N/A"}
                     </span>
                   </div>
-                  <div className="emp-detail">Department: {selectedRecord.employee?.department || "N/A"}</div>
+                  <div className="emp-detail">Team: {getEmployeeTeamName(selectedRecord.employee?._id || selectedRecord.employee)}</div>
                   <div className="emp-detail">Designation: {selectedRecord.employee?.designation || "N/A"}</div>
                 </div>
               </div>
@@ -691,50 +870,46 @@ function KPIDashboard() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {/* Attendance */}
+                    {/* Quantity of Work */}
                     <TableRow>
-                      <TableCell style={{ fontWeight: 600 }}>Attendance</TableCell>
-                      <TableCell align="center">20%</TableCell>
-                      <TableCell align="center">
-                        {selectedRecord.attendance?.present_days || 0} / {selectedRecord.attendance?.working_days || 0} days present
-                      </TableCell>
-                      <TableCell align="center">{selectedRecord.attendance?.raw_score?.toFixed(2)}</TableCell>
+                      <TableCell style={{ fontWeight: 600 }}>Quantity of Work</TableCell>
+                      <TableCell align="center">25%</TableCell>
+                      <TableCell align="center">HOD evaluation score</TableCell>
+                      <TableCell align="center">{selectedRecord.quantity_of_work?.raw_score?.toFixed(2) || selectedRecord.productivity?.raw_score?.toFixed(2) || "0.00"}</TableCell>
                       <TableCell align="center" style={{ fontWeight: 600 }}>
-                        {selectedRecord.attendance?.weighted_score?.toFixed(3)}
+                        {selectedRecord.quantity_of_work?.weighted_score?.toFixed(3) || selectedRecord.productivity?.weighted_score?.toFixed(3) || "0.000"}
                       </TableCell>
                     </TableRow>
-                    {/* Quality */}
+                    {/* Quality of Work */}
                     <TableRow>
                       <TableCell style={{ fontWeight: 600 }}>Quality of Work</TableCell>
                       <TableCell align="center">25%</TableCell>
                       <TableCell align="center">Manager review rating</TableCell>
-                      <TableCell align="center">{selectedRecord.quality_of_work?.raw_score?.toFixed(2)}</TableCell>
+                      <TableCell align="center">{selectedRecord.quality_of_work?.raw_score?.toFixed(2) || "0.00"}</TableCell>
                       <TableCell align="center" style={{ fontWeight: 600 }}>
-                        {selectedRecord.quality_of_work?.weighted_score?.toFixed(3)}
+                        {selectedRecord.quality_of_work?.weighted_score?.toFixed(3) || "0.000"}
                       </TableCell>
                     </TableRow>
-                    {/* Productivity */}
+                    {/* Attendance */}
                     <TableRow>
-                      <TableCell style={{ fontWeight: 600 }}>Quantity / Productivity</TableCell>
-                      <TableCell align="center">30%</TableCell>
-                      <TableCell align="center">
-                        {selectedRecord.productivity?.completed_tasks || 0} / {selectedRecord.productivity?.assigned_targets || 0} targets
-                      </TableCell>
-                      <TableCell align="center">{selectedRecord.productivity?.raw_score?.toFixed(2)}</TableCell>
-                      <TableCell align="center" style={{ fontWeight: 600 }}>
-                        {selectedRecord.productivity?.weighted_score?.toFixed(3)}
-                      </TableCell>
-                    </TableRow>
-                    {/* Business Loss */}
-                    <TableRow>
-                      <TableCell style={{ fontWeight: 600 }}>Business Loss / Errors</TableCell>
+                      <TableCell style={{ fontWeight: 600 }}>Attendance</TableCell>
                       <TableCell align="center">15%</TableCell>
                       <TableCell align="center">
-                        {selectedRecord.business_loss?.incidents || 0} incidents (deduction: {selectedRecord.business_loss?.deduction_per_incident || 1.0})
+                        {selectedRecord.attendance?.present_days || 0} / {selectedRecord.attendance?.working_days || 0} days present
                       </TableCell>
-                      <TableCell align="center">{selectedRecord.business_loss?.raw_score?.toFixed(2)}</TableCell>
+                      <TableCell align="center">{selectedRecord.attendance?.raw_score?.toFixed(2) || "0.00"}</TableCell>
                       <TableCell align="center" style={{ fontWeight: 600 }}>
-                        {selectedRecord.business_loss?.weighted_score?.toFixed(3)}
+                        {selectedRecord.attendance?.weighted_score?.toFixed(3) || "0.000"}
+                      </TableCell>
+                    </TableRow>
+                    {/* SOP Compliance */}
+                    <TableRow>
+                      <TableCell style={{ fontWeight: 600 }}>SOP Compliance</TableCell>
+                      <TableCell align="center">15%</TableCell>
+                      <TableCell align="center">SOP compliance rating</TableCell>
+                      <TableCell align="center">{selectedRecord.sop_compliance?.raw_score?.toFixed(2) || "0.00"}</TableCell>
+                      <TableCell align="center" style={{ fontWeight: 600 }}>
+                        {selectedRecord.sop_compliance?.weighted_score?.toFixed(3) || "0.000"}
                       </TableCell>
                     </TableRow>
                     {/* Open Tasks */}
@@ -744,9 +919,21 @@ function KPIDashboard() {
                       <TableCell align="center">
                         {selectedRecord.open_tasks?.open_items || 0} open items (deduction: {selectedRecord.open_tasks?.deduction_per_item || 1.0})
                       </TableCell>
-                      <TableCell align="center">{selectedRecord.open_tasks?.raw_score?.toFixed(2)}</TableCell>
+                      <TableCell align="center">{selectedRecord.open_tasks?.raw_score?.toFixed(2) || "0.00"}</TableCell>
                       <TableCell align="center" style={{ fontWeight: 600 }}>
-                        {selectedRecord.open_tasks?.weighted_score?.toFixed(3)}
+                        {selectedRecord.open_tasks?.weighted_score?.toFixed(3) || "0.000"}
+                      </TableCell>
+                    </TableRow>
+                    {/* Business Loss */}
+                    <TableRow>
+                      <TableCell style={{ fontWeight: 600 }}>Business Loss / Errors</TableCell>
+                      <TableCell align="center">10%</TableCell>
+                      <TableCell align="center">
+                        {selectedRecord.business_loss?.incidents || 0} incidents (deduction: {selectedRecord.business_loss?.deduction_per_incident || 1.0})
+                      </TableCell>
+                      <TableCell align="center">{selectedRecord.business_loss?.raw_score?.toFixed(2) || "0.00"}</TableCell>
+                      <TableCell align="center" style={{ fontWeight: 600 }}>
+                        {selectedRecord.business_loss?.weighted_score?.toFixed(3) || "0.000"}
                       </TableCell>
                     </TableRow>
                     {/* Total Row */}

@@ -59,27 +59,21 @@ function KPIEntry({ onSaveSuccess }) {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
 
   // Parameter Inputs
-  const [presentDays, setPresentDays] = useState("");
-  const [workingDays, setWorkingDays] = useState("");
+  const [quantityScore, setQuantityScore] = useState("");
   const [qualityScore, setQualityScore] = useState("");
-  const [completedTasks, setCompletedTasks] = useState("");
-  const [assignedTargets, setAssignedTargets] = useState("");
-  const [incidents, setIncidents] = useState("");
-  const [deductionPerIncident, setDeductionPerIncident] = useState("1.0");
-  const [openItems, setOpenItems] = useState("");
-  const [deductionPerItem, setDeductionPerItem] = useState("1.0");
+  const [attendanceScore, setAttendanceScore] = useState("");
+  const [sopComplianceScore, setSopComplianceScore] = useState("");
+  const [openTaskScore, setOpenTaskScore] = useState("");
+  const [businessLossScore, setBusinessLossScore] = useState("");
   const [comments, setComments] = useState("");
 
   const resetMetricFields = () => {
-    setPresentDays("");
-    setWorkingDays("");
+    setQuantityScore("");
     setQualityScore("");
-    setCompletedTasks("");
-    setAssignedTargets("");
-    setIncidents("");
-    setDeductionPerIncident("1.0");
-    setOpenItems("");
-    setDeductionPerItem("1.0");
+    setAttendanceScore("");
+    setSopComplianceScore("");
+    setOpenTaskScore("");
+    setBusinessLossScore("");
     setComments("");
   };
 
@@ -104,15 +98,12 @@ function KPIEntry({ onSaveSuccess }) {
 
       const data = res.data;
       if (data) {
-        setPresentDays(data.attendance?.present_days ?? 0);
-        setWorkingDays(data.attendance?.working_days ?? 22);
-        setQualityScore(data.quality_of_work?.raw_score ?? 0);
-        setCompletedTasks(data.productivity?.completed_tasks ?? 0);
-        setAssignedTargets(data.productivity?.assigned_targets ?? 10);
-        setIncidents(data.business_loss?.incidents ?? 0);
-        setDeductionPerIncident(data.business_loss?.deduction_per_incident ?? "1.0");
-        setOpenItems(data.open_tasks?.open_items ?? 0);
-        setDeductionPerItem(data.open_tasks?.deduction_per_item ?? "1.0");
+        setQuantityScore(data.quantityScore ?? 0);
+        setQualityScore(data.qualityScore ?? 0);
+        setAttendanceScore(data.attendanceScore ?? 0);
+        setSopComplianceScore(data.sopComplianceScore ?? 10);
+        setOpenTaskScore(data.openTaskScore ?? 10);
+        setBusinessLossScore(data.businessLossScore ?? 10);
         if (showToast) toast.success("Successfully fetched metrics from other modules!");
       }
     } catch (error) {
@@ -163,15 +154,12 @@ function KPIEntry({ onSaveSuccess }) {
 
         if (record) {
           // Prepopulate existing
-          setPresentDays(record.attendance?.present_days ?? "");
-          setWorkingDays(record.attendance?.working_days ?? "");
+          setQuantityScore(record.quantity_of_work?.raw_score ?? "");
           setQualityScore(record.quality_of_work?.raw_score ?? "");
-          setCompletedTasks(record.productivity?.completed_tasks ?? "");
-          setAssignedTargets(record.productivity?.assigned_targets ?? "");
-          setIncidents(record.business_loss?.incidents ?? "");
-          setDeductionPerIncident(record.business_loss?.deduction_per_incident ?? "1.0");
-          setOpenItems(record.open_tasks?.open_items ?? "");
-          setDeductionPerItem(record.open_tasks?.deduction_per_item ?? "1.0");
+          setAttendanceScore(record.attendance?.raw_score ?? "");
+          setSopComplianceScore(record.sop_compliance?.raw_score ?? "");
+          setOpenTaskScore(record.open_tasks?.raw_score ?? "");
+          setBusinessLossScore(record.business_loss?.raw_score ?? "");
           setComments(record.comments || "");
           toast.success("Loaded existing KPI record for editing");
         } else {
@@ -196,31 +184,26 @@ function KPIEntry({ onSaveSuccess }) {
   };
 
   // Calculations
-  const workingDaysNum = parseFloat(workingDays) || 0;
-  const presentDaysNum = parseFloat(presentDays) || 0;
-  const attRaw = workingDaysNum > 0 ? Math.min(10, (presentDaysNum / workingDaysNum) * 10) : 0;
-  const attWeighted = attRaw * 0.20;
+  const qtyRaw = parseFloat(quantityScore) || 0;
+  const qtyWeighted = qtyRaw * 0.25;
 
   const qualRaw = parseFloat(qualityScore) || 0;
-  const qualWeighted = Math.min(2.5, qualRaw * 0.25);
+  const qualWeighted = qualRaw * 0.25;
 
-  const assignedTargetsNum = parseFloat(assignedTargets) || 0;
-  const completedTasksNum = parseFloat(completedTasks) || 0;
-  const prodRaw = assignedTargetsNum > 0 ? Math.min(10, (completedTasksNum / assignedTargetsNum) * 10) : 0;
-  const prodWeighted = prodRaw * 0.30;
+  const attRaw = parseFloat(attendanceScore) || 0;
+  const attWeighted = attRaw * 0.15;
 
-  const incidentsNum = parseFloat(incidents) || 0;
-  const lossDeductionNum = parseFloat(deductionPerIncident) || 1.0;
-  const lossRaw = Math.max(0, 10 - incidentsNum * lossDeductionNum);
-  const lossWeighted = lossRaw * 0.15;
+  const sopRaw = parseFloat(sopComplianceScore) || 0;
+  const sopWeighted = sopRaw * 0.15;
 
-  const openItemsNum = parseFloat(openItems) || 0;
-  const openDeductionNum = parseFloat(deductionPerItem) || 1.0;
-  const openRaw = Math.max(0, 10 - openItemsNum * openDeductionNum);
+  const openRaw = parseFloat(openTaskScore) || 0;
   const openWeighted = openRaw * 0.10;
 
+  const lossRaw = parseFloat(businessLossScore) || 0;
+  const lossWeighted = lossRaw * 0.10;
+
   const totalScore = parseFloat(
-    (attWeighted + qualWeighted + prodWeighted + lossWeighted + openWeighted).toFixed(2)
+    (qtyWeighted + qualWeighted + attWeighted + sopWeighted + openWeighted + lossWeighted).toFixed(2)
   );
 
   // RAG determination
@@ -231,7 +214,7 @@ function KPIEntry({ onSaveSuccess }) {
     ragStatus = "GREEN";
     ragColor = "#38a169"; // Green
     ragBg = "#f0fff4";
-  } else if (totalScore >= 6.0) {
+  } else if (totalScore >= 5.0) {
     ragStatus = "AMBER";
     ragColor = "#d69e2e"; // Amber
     ragBg = "#fffff0";
@@ -245,17 +228,20 @@ function KPIEntry({ onSaveSuccess }) {
       toast.error("Please select an employee");
       return;
     }
-    if (workingDaysNum < presentDaysNum) {
-      toast.error("Present days cannot exceed total working days");
-      return;
-    }
-    if (completedTasksNum > assignedTargetsNum) {
-      toast.error("Completed tasks cannot exceed assigned targets");
-      return;
-    }
-    if (qualRaw < 0 || qualRaw > 10) {
-      toast.error("Quality score must be between 1 and 10");
-      return;
+
+    const scoresToValidate = [
+      { name: "Quantity", val: qtyRaw },
+      { name: "Quality", val: qualRaw },
+      { name: "Attendance", val: attRaw },
+      { name: "SOP Compliance", val: sopRaw },
+      { name: "Open Tasks", val: openRaw },
+      { name: "Business Loss/Error", val: lossRaw },
+    ];
+    for (const scoreObj of scoresToValidate) {
+      if (scoreObj.val < 0 || scoreObj.val > 10) {
+        toast.error(`${scoreObj.name} score must be between 0 and 10`);
+        return;
+      }
     }
 
     setSaving(true);
@@ -266,25 +252,12 @@ function KPIEntry({ onSaveSuccess }) {
           employee: selectedEmployee,
           year: selectedYear,
           month: selectedMonth,
-          attendance: {
-            present_days: presentDaysNum,
-            working_days: workingDaysNum,
-          },
-          quality_of_work: {
-            raw_score: qualRaw,
-          },
-          productivity: {
-            completed_tasks: completedTasksNum,
-            assigned_targets: assignedTargetsNum,
-          },
-          business_loss: {
-            incidents: incidentsNum,
-            deduction_per_incident: lossDeductionNum,
-          },
-          open_tasks: {
-            open_items: openItemsNum,
-            deduction_per_item: openDeductionNum,
-          },
+          quantityScore: qtyRaw,
+          qualityScore: qualRaw,
+          attendanceScore: attRaw,
+          sopComplianceScore: sopRaw,
+          openTaskScore: openRaw,
+          businessLossScore: lossRaw,
           comments,
         },
         { withCredentials: true }
@@ -375,40 +348,23 @@ function KPIEntry({ onSaveSuccess }) {
           </div>
         </div>
 
-        {/* Attendance Parameters */}
+        {/*        {/* Quantity Parameters */}
         <div className="hr-compact-section">
-          <div className="hr-section-header">Attendance Score (20% Weight)</div>
+          <div className="hr-section-header">Quantity of Work (25% Weight)</div>
           <div className="hr-section-body">
-            <Grid container spacing={2}>
-              <Grid item xs={6}>
-                <div className="hr-compact-field">
-                  <label className="hr-field-label">Working Days</label>
-                  <TextField
-                    type="number"
-                    fullWidth
-                    className="hr-compact-input"
-                    variant="filled"
-                    placeholder="e.g. 24"
-                    value={workingDays}
-                    onChange={(e) => setWorkingDays(e.target.value)}
-                  />
-                </div>
-              </Grid>
-              <Grid item xs={6}>
-                <div className="hr-compact-field">
-                  <label className="hr-field-label">Present Days</label>
-                  <TextField
-                    type="number"
-                    fullWidth
-                    className="hr-compact-input"
-                    variant="filled"
-                    placeholder="e.g. 22"
-                    value={presentDays}
-                    onChange={(e) => setPresentDays(e.target.value)}
-                  />
-                </div>
-              </Grid>
-            </Grid>
+            <div className="hr-compact-field">
+              <label className="hr-field-label">Quantity Score (Scale 0–10)</label>
+              <TextField
+                type="number"
+                fullWidth
+                className="hr-compact-input"
+                variant="filled"
+                placeholder="Scale 0 to 10 (e.g. 8.5)"
+                inputProps={{ step: 0.1, min: 0, max: 10 }}
+                value={quantityScore}
+                onChange={(e) => setQuantityScore(e.target.value)}
+              />
+            </div>
           </div>
         </div>
 
@@ -417,14 +373,14 @@ function KPIEntry({ onSaveSuccess }) {
           <div className="hr-section-header">Quality of Work (25% Weight)</div>
           <div className="hr-section-body">
             <div className="hr-compact-field">
-              <label className="hr-field-label">Manager Review Rating (Scale 1–10)</label>
+              <label className="hr-field-label">Quality Score (Scale 0–10)</label>
               <TextField
                 type="number"
                 fullWidth
                 className="hr-compact-input"
                 variant="filled"
-                placeholder="Scale 1 to 10 (e.g. 8.5)"
-                inputProps={{ step: 0.1, min: 1, max: 10 }}
+                placeholder="Scale 0 to 10 (e.g. 9.0)"
+                inputProps={{ step: 0.1, min: 0, max: 10 }}
                 value={qualityScore}
                 onChange={(e) => setQualityScore(e.target.value)}
               />
@@ -432,112 +388,83 @@ function KPIEntry({ onSaveSuccess }) {
           </div>
         </div>
 
-        {/* Quantity/Productivity Parameters */}
+        {/* Attendance Parameters */}
         <div className="hr-compact-section">
-          <div className="hr-section-header">Quantity / Productivity (30% Weight)</div>
+          <div className="hr-section-header">Attendance (15% Weight)</div>
           <div className="hr-section-body">
-            <Grid container spacing={2}>
-              <Grid item xs={6}>
-                <div className="hr-compact-field">
-                  <label className="hr-field-label">Assigned Targets</label>
-                  <TextField
-                    type="number"
-                    fullWidth
-                    className="hr-compact-input"
-                    variant="filled"
-                    placeholder="e.g. 20"
-                    value={assignedTargets}
-                    onChange={(e) => setAssignedTargets(e.target.value)}
-                  />
-                </div>
-              </Grid>
-              <Grid item xs={6}>
-                <div className="hr-compact-field">
-                  <label className="hr-field-label">Completed Tasks</label>
-                  <TextField
-                    type="number"
-                    fullWidth
-                    className="hr-compact-input"
-                    variant="filled"
-                    placeholder="e.g. 16"
-                    value={completedTasks}
-                    onChange={(e) => setCompletedTasks(e.target.value)}
-                  />
-                </div>
-              </Grid>
-            </Grid>
+            <div className="hr-compact-field">
+              <label className="hr-field-label">Attendance Score (Scale 0–10)</label>
+              <TextField
+                type="number"
+                fullWidth
+                className="hr-compact-input"
+                variant="filled"
+                placeholder="Scale 0 to 10 (e.g. 9.5)"
+                inputProps={{ step: 0.1, min: 0, max: 10 }}
+                value={attendanceScore}
+                onChange={(e) => setAttendanceScore(e.target.value)}
+              />
+            </div>
           </div>
         </div>
 
-        {/* Business Loss/Errors Parameters */}
+        {/* SOP Compliance Parameters */}
         <div className="hr-compact-section">
-          <div className="hr-section-header">Business Loss / Errors (15% Weight)</div>
+          <div className="hr-section-header">SOP Compliance (15% Weight)</div>
           <div className="hr-section-body">
-            <Grid container spacing={2}>
-              <Grid item xs={6}>
-                <div className="hr-compact-field">
-                  <label className="hr-field-label">Incidents Count</label>
-                  <TextField
-                    type="number"
-                    fullWidth
-                    className="hr-compact-input"
-                    variant="filled"
-                    placeholder="e.g. 1"
-                    value={incidents}
-                    onChange={(e) => setIncidents(e.target.value)}
-                  />
-                </div>
-              </Grid>
-              <Grid item xs={6}>
-                <div className="hr-compact-field">
-                  <label className="hr-field-label">Deduction Per Incident</label>
-                  <TextField
-                    type="number"
-                    fullWidth
-                    className="hr-compact-input"
-                    variant="filled"
-                    value={deductionPerIncident}
-                    onChange={(e) => setDeductionPerIncident(e.target.value)}
-                  />
-                </div>
-              </Grid>
-            </Grid>
+            <div className="hr-compact-field">
+              <label className="hr-field-label">SOP Compliance Score (Scale 0–10)</label>
+              <TextField
+                type="number"
+                fullWidth
+                className="hr-compact-input"
+                variant="filled"
+                placeholder="Scale 0 to 10 (e.g. 10.0)"
+                inputProps={{ step: 0.1, min: 0, max: 10 }}
+                value={sopComplianceScore}
+                onChange={(e) => setSopComplianceScore(e.target.value)}
+              />
+            </div>
           </div>
         </div>
 
         {/* Open Tasks Parameters */}
         <div className="hr-compact-section">
-          <div className="hr-section-header">Open Tasks / Open Points (10% Weight)</div>
+          <div className="hr-section-header">Open Tasks (10% Weight)</div>
           <div className="hr-section-body">
-            <Grid container spacing={2}>
-              <Grid item xs={6}>
-                <div className="hr-compact-field">
-                  <label className="hr-field-label">Open Items Count</label>
-                  <TextField
-                    type="number"
-                    fullWidth
-                    className="hr-compact-input"
-                    variant="filled"
-                    placeholder="e.g. 3"
-                    value={openItems}
-                    onChange={(e) => setOpenItems(e.target.value)}
-                  />
-                </div>
-              </Grid>
-              <Grid item xs={6}>
-                <div className="hr-compact-field">
-                  <label className="hr-field-label">Deduction Per Item</label>
-                  <TextField
-                    type="number"
-                    fullWidth
-                    className="hr-compact-input"
-                    variant="filled"
-                    value={deductionPerItem}
-                    onChange={(e) => setDeductionPerItem(e.target.value)}
-                  />
-                </div>
-              </Grid>
-            </Grid>
+            <div className="hr-compact-field">
+              <label className="hr-field-label">Open Tasks Score (Scale 0–10)</label>
+              <TextField
+                type="number"
+                fullWidth
+                className="hr-compact-input"
+                variant="filled"
+                placeholder="Scale 0 to 10 (e.g. 8.0)"
+                inputProps={{ step: 0.1, min: 0, max: 10 }}
+                value={openTaskScore}
+                onChange={(e) => setOpenTaskScore(e.target.value)}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Business Loss/Errors Parameters */}
+        <div className="hr-compact-section">
+          <div className="hr-section-header">Business Loss / Errors (10% Weight)</div>
+          <div className="hr-section-body">
+            <div className="hr-compact-field">
+              <label className="hr-field-label">Business Loss/Error Score (Scale 0–10)</label>
+              <TextField
+                type="number"
+                fullWidth
+                className="hr-compact-input"
+                variant="filled"
+                placeholder="Scale 0 to 10 (e.g. 10.0)"
+                inputProps={{ step: 0.1, min: 0, max: 10 }}
+                value={businessLossScore}
+                onChange={(e) => setBusinessLossScore(e.target.value)}
+              />
+            </div>
           </div>
         </div>
       </Box>
@@ -555,10 +482,10 @@ function KPIEntry({ onSaveSuccess }) {
             <Box style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
               <Box style={{ display: "flex", justifyContent: "space-between" }}>
                 <Typography variant="body2" color="textSecondary">
-                  Attendance (20%):
+                  Quantity of Work (25%):
                 </Typography>
                 <Typography variant="body2" style={{ fontWeight: 600 }}>
-                  {attRaw.toFixed(2)} × 0.20 = {attWeighted.toFixed(3)}
+                  {qtyRaw.toFixed(2)} × 0.25 = {qtyWeighted.toFixed(3)}
                 </Typography>
               </Box>
 
@@ -573,19 +500,19 @@ function KPIEntry({ onSaveSuccess }) {
 
               <Box style={{ display: "flex", justifyContent: "space-between" }}>
                 <Typography variant="body2" color="textSecondary">
-                  Productivity (30%):
+                  Attendance (15%):
                 </Typography>
                 <Typography variant="body2" style={{ fontWeight: 600 }}>
-                  {prodRaw.toFixed(2)} × 0.30 = {prodWeighted.toFixed(3)}
+                  {attRaw.toFixed(2)} × 0.15 = {attWeighted.toFixed(3)}
                 </Typography>
               </Box>
 
               <Box style={{ display: "flex", justifyContent: "space-between" }}>
                 <Typography variant="body2" color="textSecondary">
-                  Errors/Loss (15%):
+                  SOP Compliance (15%):
                 </Typography>
                 <Typography variant="body2" style={{ fontWeight: 600 }}>
-                  {lossRaw.toFixed(2)} × 0.15 = {lossWeighted.toFixed(3)}
+                  {sopRaw.toFixed(2)} × 0.15 = {sopWeighted.toFixed(3)}
                 </Typography>
               </Box>
 
@@ -595,6 +522,15 @@ function KPIEntry({ onSaveSuccess }) {
                 </Typography>
                 <Typography variant="body2" style={{ fontWeight: 600 }}>
                   {openRaw.toFixed(2)} × 0.10 = {openWeighted.toFixed(3)}
+                </Typography>
+              </Box>
+
+              <Box style={{ display: "flex", justifyContent: "space-between" }}>
+                <Typography variant="body2" color="textSecondary">
+                  Business Loss/Error (10%):
+                </Typography>
+                <Typography variant="body2" style={{ fontWeight: 600 }}>
+                  {lossRaw.toFixed(2)} × 0.10 = {lossWeighted.toFixed(3)}
                 </Typography>
               </Box>
             </Box>

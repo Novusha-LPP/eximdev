@@ -6,6 +6,7 @@ import UserModel from "../../model/userModel.mjs";
 import { getBranchMatch } from "../../utils/branchFilter.mjs";
 import CustomerKycModel from "../../model/CustomerKyc/customerKycModel.mjs";
 import EximClientUserModel from "../../model/eximClientUserModel.mjs";
+import OpenPointModel from "../../model/openPoints/openPointModel.mjs";
 
 const router = express.Router();
 
@@ -425,6 +426,153 @@ router.get("/new-customers-report", async (req, res) => {
         res.json(result);
     } catch (error) {
         console.error("Error fetching new customers report for Project Nucleus:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+// Karma Leaderboard Report
+router.get("/karma-leaderboard", async (req, res) => {
+    try {
+        const { filterType, month, year, quarter, startDate, endDate } = req.query;
+
+        // Fetch all points where status is Green (Completed) and responsible_person is set
+        const matchStage = {
+            status: "Green",
+            responsible_person: { $ne: null }
+        };
+
+        // We fetch all completed points to calculate both total accumulated Karma points and periodic ones
+        const completedPoints = await OpenPointModel.find(matchStage)
+            .populate('responsible_person', 'username first_name last_name employee_photo department role')
+            .lean();
+
+        // Fetch all active users to ensure they are on the leaderboard
+        const users = await UserModel.find({ isActive: { $ne: false } })
+            .select("username first_name last_name employee_photo department role")
+            .lean();
+
+        // Priority to Points Mapping
+        const getKarmaPoints = (priority) => {
+            if (!priority) return 5; // Default fallback to Low
+            const prio = priority.toLowerCase();
+            if (prio === 'emergency' || prio === 'p1' || prio === 'critical') return 20;
+            if (prio === 'high' || prio === 'p2') return 15;
+            if (prio === 'medium' || prio === 'p3') return 10;
+            if (prio === 'low' || prio === 'p4') return 5;
+            return 5; // Default fallback
+        };
+
+        // Determine target monthly month & year
+        const currentMonthNum = month !== undefined ? parseInt(month) : new Date().getMonth(); // 0-11
+        const currentYearNum = year ? parseInt(year) : new Date().getFullYear();
+
+        // Process monthly/accumulated points per user
+        const userKarmaMap = {};
+
+        // Pre-populate with all active users to ensure everyone is ranked, even with 0 points
+        users.forEach(u => {
+            const displayName = `${u.first_name || ""} ${u.last_name || ""}`.trim() || u.username;
+            userKarmaMap[u._id.toString()] = {
+                userId: u._id,
+                username: u.username,
+                displayName: displayName,
+                employee_photo: u.employee_photo || "",
+                department: u.department || "General",
+                role: u.role || "",
+                totalKarma: 0,
+                monthlyKarma: 0,
+                totalCompleted: 0,
+                monthlyCompleted: 0,
+                breakdown: { critical: 0, high: 0, medium: 0, low: 0 }
+            };
+        });
+
+        // Calculate points
+        completedPoints.forEach(pt => {
+            const responsiblePerson = pt.responsible_person;
+            if (!responsiblePerson) return;
+
+            const rIdStr = responsiblePerson._id.toString();
+            // If user is not active but has completed tasks, they might not be in our pre-populated map
+            if (!userKarmaMap[rIdStr]) {
+                const displayName = `${responsiblePerson.first_name || ""} ${responsiblePerson.last_name || ""}`.trim() || responsiblePerson.username;
+                userKarmaMap[rIdStr] = {
+                    userId: responsiblePerson._id,
+                    username: responsiblePerson.username,
+                    displayName: displayName,
+                    employee_photo: responsiblePerson.employee_photo || "",
+                    department: responsiblePerson.department || "General",
+                    role: responsiblePerson.role || "",
+                    totalKarma: 0,
+                    monthlyKarma: 0,
+                    totalCompleted: 0,
+                    monthlyCompleted: 0,
+                    breakdown: { critical: 0, high: 0, medium: 0, low: 0 }
+                };
+            }
+
+            const points = getKarmaPoints(pt.priority);
+
+            // Increment totals
+            userKarmaMap[rIdStr].totalKarma += points;
+            userKarmaMap[rIdStr].totalCompleted += 1;
+
+            // Increment breakdown
+            const prio = pt.priority ? pt.priority.toLowerCase() : 'low';
+            if (prio === 'emergency' || prio === 'p1' || prio === 'critical') {
+                userKarmaMap[rIdStr].breakdown.critical += 1;
+            } else if (prio === 'high' || prio === 'p2') {
+                userKarmaMap[rIdStr].breakdown.high += 1;
+            } else if (prio === 'medium' || prio === 'p3') {
+                userKarmaMap[rIdStr].breakdown.medium += 1;
+            } else {
+                userKarmaMap[rIdStr].breakdown.low += 1;
+            }
+
+            // Check if periodic/monthly condition is met
+            const compDate = pt.completion_date ? new Date(pt.completion_date) : null;
+            let matchesFilter = false;
+
+            if (filterType === 'all') {
+                matchesFilter = true;
+            } else if (compDate) {
+                if (filterType === 'date-range' && startDate && endDate) {
+                    const start = new Date(startDate);
+                    const end = new Date(endDate);
+                    end.setHours(23, 59, 59, 999);
+                    matchesFilter = (compDate >= start && compDate <= end);
+                } else if (filterType === 'quarter' && quarter && year) {
+                    const q = parseInt(quarter);
+                    const y = parseInt(year);
+                    const compMonth = compDate.getMonth(); // 0-11
+                    const compYear = compDate.getFullYear();
+                    const startMonth = (q - 1) * 3; // 0, 3, 6, 9
+                    const endMonth = startMonth + 2; // 2, 5, 8, 11
+                    matchesFilter = (compYear === y && compMonth >= startMonth && compMonth <= endMonth);
+                } else if (filterType === 'year' && year) {
+                    const y = parseInt(year);
+                    matchesFilter = (compDate.getFullYear() === y);
+                } else {
+                    // Default to 'month' filter
+                    const compMonth = compDate.getMonth();
+                    const compYear = compDate.getFullYear();
+                    matchesFilter = (compMonth === currentMonthNum && compYear === currentYearNum);
+                }
+            }
+
+            if (matchesFilter) {
+                userKarmaMap[rIdStr].monthlyKarma += points;
+                userKarmaMap[rIdStr].monthlyCompleted += 1;
+            }
+        });
+
+        // Convert map to array, sort by totalKarma descending
+        const leaderboard = Object.values(userKarmaMap);
+        leaderboard.sort((a, b) => b.totalKarma - a.totalKarma);
+
+        res.json(leaderboard);
+    } catch (error) {
+        console.error("Error fetching karma leaderboard:", error);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });

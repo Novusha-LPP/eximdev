@@ -18,6 +18,7 @@ import ElockUtilizationReport from './reports/ElockUtilizationReport';
 import ElockAssignedCountReport from './reports/ElockAssignedCountReport';
 import ElockBillingReport from './reports/ElockBillingReport';
 import TransportAccountsReport from './reports/TransportAccountsReport';
+import KarmaReport from './reports/KarmaReport';
 
 const NucleusHome = () => {
     // Categories Configuration
@@ -71,6 +72,14 @@ const NucleusHome = () => {
             icon: '💰',
             reports: [
                 { id: 'transport_accounts', label: 'Transport Accounts' }
+            ]
+        },
+        {
+            id: 'gamification',
+            label: 'Gamification',
+            icon: '🏆',
+            reports: [
+                { id: 'karma_leaderboard', label: 'Karma Leaderboard' }
             ]
         }
     ];
@@ -262,6 +271,17 @@ const NucleusHome = () => {
             case 'transport_accounts':
                 return (
                     <TransportAccountsReport
+                        filterType={filterType}
+                        selectedMonth={selectedMonth}
+                        selectedYear={selectedYear}
+                        selectedQuarter={selectedQuarter}
+                        dateRange={dateRange}
+                        selectedDay={selectedDay}
+                    />
+                );
+            case 'karma_leaderboard':
+                return (
+                    <KarmaReport
                         filterType={filterType}
                         selectedMonth={selectedMonth}
                         selectedYear={selectedYear}

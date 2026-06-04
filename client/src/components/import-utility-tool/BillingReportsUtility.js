@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Box,
   Typography,
@@ -13,9 +13,22 @@ import {
   Snackbar,
   Alert,
   Divider,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TablePagination,
+  TextField,
+  InputAdornment,
+  IconButton,
 } from "@mui/material";
 import DownloadIcon from "@mui/icons-material/Download";
 import AssessmentIcon from "@mui/icons-material/Assessment";
+import PreviewIcon from "@mui/icons-material/Visibility";
+import SearchIcon from "@mui/icons-material/Search";
+import ClearIcon from "@mui/icons-material/Clear";
 import axios from "axios";
 
 const BillingReportsUtility = () => {
@@ -23,13 +36,38 @@ const BillingReportsUtility = () => {
   const [years, setYears] = useState([]);
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewData, setPreviewData] = useState(null);
+  const [previewError, setPreviewError] = useState("");
   
+  // Table state
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [searchQuery, setSearchQuery] = useState("");
+
   const [filters, setFilters] = useState({
+    reportType: "pb",
+    dateFilterType: "job_year",
     year: "",
+    startDate: "",
+    endDate: "",
     branchId: "all",
     mode: "all",
     detailedStatus: "billing_pending",
   });
+
+  const reportTypeOptions = [
+    { value: "pb", label: "Purchase Book Report" },
+    { value: "pr", label: "Payment Request Report" },
+    { value: "pr_no_pb", label: "PR Pending Purchase Book" },
+    { value: "all", label: "Unified PB & PR Report" },
+  ];
+
+  const dateFilterTypeOptions = [
+    { value: "job_year", label: "Job Financial Year" },
+    { value: "request_date", label: "Request Date Range" },
+    { value: "completion_date", label: "Completion Date Range" },
+  ];
 
   const statusOptions = [
     { value: "all", label: "All Statuses" },
@@ -111,8 +149,76 @@ const BillingReportsUtility = () => {
     loadAll();
   }, [API_URL]);
 
-  const handleDownload = async (type) => {
-    if (!filters.year) {
+  const handlePreview = async () => {
+    if (filters.dateFilterType === "job_year" && !filters.year) {
+      setNotification({
+        open: true,
+        message: "Please select a financial year",
+        severity: "warning",
+      });
+      return;
+    }
+    if ((filters.dateFilterType === "request_date" || filters.dateFilterType === "completion_date") && (!filters.startDate || !filters.endDate)) {
+      setNotification({
+        open: true,
+        message: "Please select both start and end dates",
+        severity: "warning",
+      });
+      return;
+    }
+
+    setPreviewLoading(true);
+    setPreviewError("");
+    setPreviewData(null);
+    setPage(0);
+    setSearchQuery("");
+
+    try {
+      const response = await axios.get(`${API_URL}/report/billing-charges-excel`, {
+        params: {
+          type: filters.reportType,
+          year: filters.dateFilterType === "job_year" ? filters.year : undefined,
+          branchId: filters.branchId,
+          mode: filters.mode,
+          detailedStatus: filters.detailedStatus,
+          dateFilterType: filters.dateFilterType,
+          startDate: filters.startDate,
+          endDate: filters.endDate,
+          format: "json",
+        },
+        withCredentials: true
+      });
+
+      const data = Array.isArray(response.data) ? response.data : [];
+      setPreviewData(data);
+      if (data.length === 0) {
+        setPreviewError("No matching records found for the selected filters.");
+      } else {
+        setNotification({
+          open: true,
+          message: `Successfully loaded ${data.length} records in preview.`,
+          severity: "success",
+        });
+      }
+    } catch (error) {
+      console.error("Error loading preview:", error);
+      let errMsg = "Failed to load preview data";
+      if (error.response && error.response.data && error.response.data.error) {
+        errMsg = error.response.data.error;
+      }
+      setPreviewError(errMsg);
+      setNotification({
+        open: true,
+        message: errMsg,
+        severity: "error",
+      });
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleDownload = async () => {
+    if (filters.dateFilterType === "job_year" && !filters.year) {
         setNotification({
             open: true,
             message: "Please select a year",
@@ -120,16 +226,27 @@ const BillingReportsUtility = () => {
         });
         return;
     }
+    if ((filters.dateFilterType === "request_date" || filters.dateFilterType === "completion_date") && (!filters.startDate || !filters.endDate)) {
+      setNotification({
+        open: true,
+        message: "Please select both start and end dates",
+        severity: "warning",
+      });
+      return;
+    }
 
     setDownloading(true);
     try {
       const response = await axios.get(`${API_URL}/report/billing-charges-excel`, {
         params: {
-          type,
-          year: filters.year,
+          type: filters.reportType,
+          year: filters.dateFilterType === "job_year" ? filters.year : undefined,
           branchId: filters.branchId,
           mode: filters.mode,
           detailedStatus: filters.detailedStatus,
+          dateFilterType: filters.dateFilterType,
+          startDate: filters.startDate,
+          endDate: filters.endDate,
         },
         responseType: 'blob',
         withCredentials: true
@@ -139,13 +256,19 @@ const BillingReportsUtility = () => {
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = downloadUrl;
+
+      const dateLabel = filters.dateFilterType === "job_year" 
+        ? filters.year 
+        : `${filters.startDate}_to_${filters.endDate}`;
+
       const filenames = {
-        pr: `Payment_Request_Report_${filters.year}.xlsx`,
-        pb: `Purchase_Book_Report_${filters.year}.xlsx`,
-        pr_no_pb: `PR_Pending_PB_Report_${filters.year}.xlsx`,
-        all: `Unified_Billing_Charges_Report_${filters.year}.xlsx`
+        pr: `Payment_Request_Report_${dateLabel}.xlsx`,
+        pb: `Purchase_Book_Report_${dateLabel}.xlsx`,
+        pr_no_pb: `PR_Pending_PB_Report_${dateLabel}.xlsx`,
+        all: `Unified_Billing_Charges_Report_${dateLabel}.xlsx`
       };
-      const filename = filenames[type] || `Report_${filters.year}.xlsx`;
+      const filename = filenames[filters.reportType] || `Report_${dateLabel}.xlsx`;
+      
       link.setAttribute('download', filename);
       document.body.appendChild(link);
       link.click();
@@ -162,7 +285,6 @@ const BillingReportsUtility = () => {
       
       let errorMessage = "No records found or error generating report";
       
-      // If the response is a blob, we need to read it as text to see the error message
       if (error.response && error.response.data instanceof Blob) {
         const reader = new FileReader();
         reader.onload = () => {
@@ -182,7 +304,7 @@ const BillingReportsUtility = () => {
           }
         };
         reader.readAsText(error.response.data);
-        return; // Early return as notification is set in onload
+        return;
       } else if (error.response && error.response.data && error.response.data.error) {
           errorMessage = error.response.data.error;
       }
@@ -197,6 +319,43 @@ const BillingReportsUtility = () => {
     }
   };
 
+  const handlePageChange = (event, newPage) => {
+    setPage(newPage);
+  };
+
+  const handleRowsPerPageChange = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  const handleSearchChange = (e) => {
+    setSearchQuery(e.target.value);
+    setPage(0);
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery("");
+    setPage(0);
+  };
+
+  const filteredPreviewRows = useMemo(() => {
+    if (!previewData) return [];
+    if (!searchQuery.trim()) return previewData;
+    const query = searchQuery.toLowerCase();
+    return previewData.filter((row) => {
+      return Object.values(row).some((val) => 
+        String(val).toLowerCase().includes(query)
+      );
+    });
+  }, [previewData, searchQuery]);
+
+  const headers = useMemo(() => {
+    if (previewData && previewData.length > 0) {
+      return Object.keys(previewData[0]);
+    }
+    return [];
+  }, [previewData]);
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" height="400px">
@@ -206,8 +365,9 @@ const BillingReportsUtility = () => {
   }
 
   return (
-    <Box sx={{ maxWidth: 1000, margin: "0 auto", p: 3 }}>
-      <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>
+    <Box sx={{ maxWidth: 1200, margin: "0 auto", p: 3 }}>
+      {/* Configuration Card */}
+      <Paper elevation={3} sx={{ p: 4, borderRadius: 2, mb: 4 }}>
         <Box display="flex" alignItems="center" mb={3}>
           <AssessmentIcon color="primary" sx={{ fontSize: 32, mr: 2 }} />
           <Typography variant="h5" fontWeight="700">
@@ -216,29 +376,91 @@ const BillingReportsUtility = () => {
         </Box>
         
         <Typography variant="body2" color="text.secondary" mb={4}>
-          Generate and download Excel reports for Purchase Book and Payment Request charges. 
-          Filter by year, branch, mode, and detailed status.
+          Generate, preview, and download Excel reports for Purchase Book and Payment Request charges. 
+          Use custom date range filters for creation date (Request Date) or approval dates (Completion Date).
         </Typography>
 
         <Divider sx={{ mb: 4 }} />
 
-        <Grid container spacing={2} sx={{ mb: 4 }}>
-          <Grid item xs={12} md={3}>
+        <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid item xs={12} md={4}>
             <FormControl fullWidth size="small">
-              <InputLabel>Financial Year</InputLabel>
+              <InputLabel>Report Type</InputLabel>
               <Select
-                value={filters.year}
-                label="Financial Year"
-                onChange={(e) => setFilters({ ...filters, year: e.target.value })}
+                value={filters.reportType}
+                label="Report Type"
+                onChange={(e) => setFilters({ ...filters, reportType: e.target.value })}
               >
-                {years.map((year) => (
-                  <MenuItem key={year} value={year}>{year}</MenuItem>
+                {reportTypeOptions.map((opt) => (
+                  <MenuItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </MenuItem>
                 ))}
               </Select>
             </FormControl>
           </Grid>
 
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} md={4}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Date Filter Type</InputLabel>
+              <Select
+                value={filters.dateFilterType}
+                label="Date Filter Type"
+                onChange={(e) => setFilters({ ...filters, dateFilterType: e.target.value })}
+              >
+                {dateFilterTypeOptions.map((opt) => (
+                  <MenuItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+
+          {/* Conditional Year / Date Pickers */}
+          {filters.dateFilterType === "job_year" ? (
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Financial Year</InputLabel>
+                <Select
+                  value={filters.year}
+                  label="Financial Year"
+                  onChange={(e) => setFilters({ ...filters, year: e.target.value })}
+                >
+                  {years.map((year) => (
+                    <MenuItem key={year} value={year}>{year}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Grid>
+          ) : (
+            <>
+              <Grid item xs={12} sm={6} md={2}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="Start Date"
+                  type="date"
+                  InputLabelProps={{ shrink: true }}
+                  value={filters.startDate}
+                  onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6} md={2}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  label="End Date"
+                  type="date"
+                  InputLabelProps={{ shrink: true }}
+                  value={filters.endDate}
+                  onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+                />
+              </Grid>
+            </>
+          )}
+
+          <Grid item xs={12} md={4}>
             <FormControl fullWidth size="small">
               <InputLabel>Branch</InputLabel>
               <Select
@@ -256,7 +478,7 @@ const BillingReportsUtility = () => {
             </FormControl>
           </Grid>
 
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} md={4}>
             <FormControl fullWidth size="small">
               <InputLabel>Mode</InputLabel>
               <Select
@@ -271,7 +493,7 @@ const BillingReportsUtility = () => {
             </FormControl>
           </Grid>
 
-          <Grid item xs={12} md={3}>
+          <Grid item xs={12} md={4}>
             <FormControl fullWidth size="small">
               <InputLabel>Detailed Status</InputLabel>
               <Select
@@ -293,46 +515,168 @@ const BillingReportsUtility = () => {
           <Button
             variant="contained"
             color="primary"
-            startIcon={<DownloadIcon />}
-            onClick={() => handleDownload('pb')}
-            disabled={downloading}
-            sx={{ flexGrow: 1, py: 1.5, fontWeight: '600' }}
+            startIcon={previewLoading ? <CircularProgress size={20} color="inherit" /> : <PreviewIcon />}
+            onClick={handlePreview}
+            disabled={previewLoading || downloading}
+            sx={{
+              flexGrow: 1,
+              py: 1.5,
+              fontWeight: "600",
+              textTransform: "none",
+              boxShadow: "0 4px 6px -1px rgba(59, 130, 246, 0.2)",
+              transition: "all 0.2s",
+              "&:hover": { transform: "translateY(-1px)" },
+            }}
           >
-            Download Purchase Book Report
+            {previewLoading ? "Loading Preview..." : "Preview Report Data"}
           </Button>
+
           <Button
             variant="contained"
-            color="secondary"
-            startIcon={<DownloadIcon />}
-            onClick={() => handleDownload('pr')}
-            disabled={downloading}
-            sx={{ flexGrow: 1, py: 1.5, fontWeight: '600' }}
+            color="success"
+            startIcon={downloading ? <CircularProgress size={20} color="inherit" /> : <DownloadIcon />}
+            onClick={handleDownload}
+            disabled={downloading || previewLoading}
+            sx={{
+              flexGrow: 1,
+              py: 1.5,
+              fontWeight: "600",
+              textTransform: "none",
+              background: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+              boxShadow: "0 4px 6px -1px rgba(16, 185, 129, 0.2)",
+              transition: "all 0.2s",
+              "&:hover": {
+                background: "linear-gradient(135deg, #059669 0%, #047857 100%)",
+                transform: "translateY(-1px)",
+              },
+            }}
           >
-            Download Payment Request Report
-          </Button>
-          <Button
-            variant="contained"
-            color="warning"
-            startIcon={<DownloadIcon />}
-            onClick={() => handleDownload('pr_no_pb')}
-            disabled={downloading}
-            sx={{ flexGrow: 1, py: 1.5, fontWeight: '600' }}
-          >
-            PR Pending Purchase Book
-          </Button>
-          <Button
-            variant="contained"
-            color="info"
-            startIcon={<DownloadIcon />}
-            onClick={() => handleDownload('all')}
-            disabled={downloading}
-            sx={{ flexGrow: 1, py: 1.5, fontWeight: '600' }}
-          >
-            Unified PB & PR Report
+            {downloading ? "Downloading..." : "Download Excel Report"}
           </Button>
         </Box>
       </Paper>
 
+      {/* Preview Section */}
+      {previewLoading && (
+        <Paper elevation={1} sx={{ p: 6, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", borderRadius: 2 }}>
+          <CircularProgress sx={{ mb: 2 }} />
+          <Typography variant="body1" color="text.secondary">
+            Fetching charges data. Please wait...
+          </Typography>
+        </Paper>
+      )}
+
+      {previewError && !previewLoading && (
+        <Alert severity="info" sx={{ borderRadius: 2 }}>
+          {previewError}
+        </Alert>
+      )}
+
+      {previewData && previewData.length > 0 && !previewLoading && (
+        <Paper elevation={3} sx={{ p: 3, borderRadius: 2, overflow: "hidden" }}>
+          {/* Table Toolbar */}
+          <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2} mb={3}>
+            <Box>
+              <Typography variant="h6" fontWeight="700">
+                Report Preview
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Showing {filteredPreviewRows.length} of {previewData.length} records matching search criteria
+              </Typography>
+            </Box>
+            
+            <TextField
+              size="small"
+              placeholder="Search preview data..."
+              value={searchQuery}
+              onChange={handleSearchChange}
+              sx={{ width: 280 }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon size="small" style={{ color: "#94a3b8" }} />
+                  </InputAdornment>
+                ),
+                endAdornment: searchQuery && (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={handleClearSearch} edge="end">
+                      <ClearIcon size="small" />
+                    </IconButton>
+                  </InputAdornment>
+                )
+              }}
+            />
+          </Box>
+
+          {/* Data Table Grid */}
+          <TableContainer sx={{ maxHeight: 450, overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: 1 }}>
+            <Table stickyHeader size="small">
+              <TableHead>
+                <TableRow>
+                  {headers.map((header) => (
+                    <TableCell
+                      key={header}
+                      sx={{
+                        fontWeight: "600",
+                        backgroundColor: "#f8fafc",
+                        color: "#475569",
+                        whiteSpace: "nowrap",
+                        py: 1.5,
+                        borderBottom: "2px solid #e2e8f0",
+                      }}
+                    >
+                      {header}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredPreviewRows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={headers.length} align="center" sx={{ py: 6, color: "text.secondary" }}>
+                      No matching records found in this preview.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredPreviewRows
+                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                    .map((row, idx) => (
+                      <TableRow key={idx} hover sx={{ "&:last-child td, &:last-child th": { border: 0 } }}>
+                        {headers.map((header) => (
+                          <TableCell
+                            key={header}
+                            sx={{
+                              whiteSpace: "nowrap",
+                              fontSize: "0.85rem",
+                              color: "#334155",
+                              py: 1.2,
+                            }}
+                          >
+                            {row[header] !== undefined && row[header] !== null ? String(row[header]) : ""}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+
+          {/* Table Pagination */}
+          <TablePagination
+            rowsPerPageOptions={[5, 10, 25, 50]}
+            component="div"
+            count={filteredPreviewRows.length}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={handlePageChange}
+            onRowsPerPageChange={handleRowsPerPageChange}
+            sx={{ borderTop: "1px solid #e2e8f0", mt: 1 }}
+          />
+        </Paper>
+      )}
+
+      {/* Notifications */}
       <Snackbar
         open={notification.open}
         autoHideDuration={4000}

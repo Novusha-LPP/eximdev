@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { BarChart2, Download, Table, TrendingUp, AlertTriangle, ChevronDown, ChevronRight, PieChart } from 'lucide-react';
+import { BarChart2, Download, Table, TrendingUp, AlertTriangle, ChevronDown, ChevronRight, PieChart, Phone, Mail, Calendar, FileText, CheckCircle2, MinusCircle, XCircle } from 'lucide-react';
 import FilterBar from './components/FilterBar';
 
 export default function CRMReportsDashboard() {
@@ -14,6 +14,35 @@ export default function CRMReportsDashboard() {
   const [analysisData, setAnalysisData] = useState(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [expandedStages, setExpandedStages] = useState({}); // For 'all' stages expandable list
+
+  // Activity Report States
+  const [activityFilterType, setActivityFilterType] = useState('all');
+  const [activityData, setActivityData] = useState(null);
+  const [activityLoading, setActivityLoading] = useState(false);
+
+  const fetchActivityReport = async (activeFilters = filters) => {
+    if (!activeFilters) return;
+    setActivityLoading(true);
+    try {
+      const params = { type: activityFilterType };
+      if (activeFilters.startDate && activeFilters.endDate) {
+        params.startDate = activeFilters.startDate;
+        params.endDate = activeFilters.endDate;
+      } else if (activeFilters.month) {
+        params.period = activeFilters.month;
+      }
+
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/crm/reports/activity-report`,
+        { params, withCredentials: true }
+      );
+      setActivityData(res.data);
+    } catch (err) {
+      console.error('Error fetching activity reports:', err);
+    } finally {
+      setActivityLoading(false);
+    }
+  };
 
   const handleFilterChange = (newFilters) => {
     setFilters(prev => {
@@ -90,6 +119,12 @@ export default function CRMReportsDashboard() {
     }
   }, [filters, activeTab, analysisStage]);
 
+  useEffect(() => {
+    if (filters && activeTab === 'activity') {
+      fetchActivityReport(filters);
+    }
+  }, [filters, activeTab, activityFilterType]);
+
   const handleExportCSV = () => {
     if (!reportData) return;
     
@@ -147,6 +182,34 @@ export default function CRMReportsDashboard() {
     document.body.removeChild(link);
   };
 
+  const handleExportActivityCSV = () => {
+    if (!activityData || !activityData.activities) return;
+    
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "Date,Activity Type,Subject,Description,Related Record Type,Related Record Name,Outcome,Recorded By\n";
+    
+    activityData.activities.forEach(act => {
+      const date = new Date(act.activityDate).toLocaleDateString('en-IN');
+      const type = (act.type || 'N/A').toUpperCase();
+      const subject = `"${(act.subject || '').replace(/"/g, '""')}"`;
+      const description = `"${(act.description || '').replace(/"/g, '""')}"`;
+      const relType = act.relatedTo?.model || 'N/A';
+      const relName = `"${(act.relatedName || 'N/A').replace(/"/g, '""')}"`;
+      const outcome = (act.outcome || 'N/A').toUpperCase();
+      const recordedBy = act.userId ? `"${(`${act.userId.first_name || ''} ${act.userId.last_name || ''}`.trim() || act.userId.username).replace(/"/g, '""')}"` : 'Unknown';
+      
+      csvContent += `${date},${type},${subject},${description},${relType},${relName},${outcome},${recordedBy}\n`;
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `crm_activity_report_${new Date().toISOString().substring(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const toggleStageExpand = (stageId) => {
     setExpandedStages(prev => ({
       ...prev,
@@ -186,25 +249,66 @@ export default function CRMReportsDashboard() {
       ) : (
         <>
           {/* Quick Summary Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
-            <div style={{ background: '#ffffff', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', borderLeft: '5px solid #4f46e5' }}>
-              <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Total Active Pipeline</div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#1e293b' }}>₹{(summary.totalValue / 100000).toFixed(1)}L</div>
-              <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '4px' }}>Across {summary.totalDeals} deals</div>
-            </div>
+          {activeTab === 'activity' ? (
+            (() => {
+              const actSummary = activityData?.summary || { totalCount: 0, typeBreakdown: { call: 0, email: 0, meeting: 0, demo: 0, note: 0 }, outcomeBreakdown: { positive: 0, neutral: 0, negative: 0 } };
+              const totalAct = actSummary.totalCount;
+              const positivePercent = totalAct > 0 ? Math.round((actSummary.outcomeBreakdown.positive / totalAct) * 100) : 0;
+              return (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+                  <div style={{ background: '#ffffff', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', borderLeft: '5px solid #3b82f6' }}>
+                    <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Total Activities</div>
+                    <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#1e293b' }}>{totalAct}</div>
+                    <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '4px' }}>Logged in period</div>
+                  </div>
 
-            <div style={{ background: '#ffffff', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', borderLeft: '5px solid #10b981' }}>
-              <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Weighted Revenue Forecast</div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#1e293b' }}>₹{(summary.weightedPipelineValue / 100000).toFixed(1)}L</div>
-              <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '4px' }}>Based on win probabilities</div>
-            </div>
+                  <div style={{ background: '#ffffff', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', borderLeft: '5px solid #10b981' }}>
+                    <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Calls Logged</div>
+                    <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#1e293b' }}>{actSummary.typeBreakdown.call}</div>
+                    <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '4px' }}>Phone outreach</div>
+                  </div>
 
-            <div style={{ background: '#ffffff', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', borderLeft: '5px solid #ef4444' }}>
-              <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Deals Lost This Period</div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#1e293b' }}>{lostSummary.total} Deals</div>
-              <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '4px' }}>Requires conversion reviews</div>
+                  <div style={{ background: '#ffffff', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', borderLeft: '5px solid #f59e0b' }}>
+                    <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Emails Sent</div>
+                    <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#1e293b' }}>{actSummary.typeBreakdown.email}</div>
+                    <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '4px' }}>Email outreach logs</div>
+                  </div>
+
+                  <div style={{ background: '#ffffff', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', borderLeft: '5px solid #8b5cf6' }}>
+                    <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Meetings & Demos</div>
+                    <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#1e293b' }}>{actSummary.typeBreakdown.meeting + actSummary.typeBreakdown.demo}</div>
+                    <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '4px' }}>High-touch sessions</div>
+                  </div>
+
+                  <div style={{ background: '#ffffff', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', borderLeft: '5px solid #10b981' }}>
+                    <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Positive Outcome Rate</div>
+                    <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#1e293b' }}>{positivePercent}%</div>
+                    <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '4px' }}>{actSummary.outcomeBreakdown.positive} positive outcomes</div>
+                  </div>
+                </div>
+              );
+            })()
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px' }}>
+              <div style={{ background: '#ffffff', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', borderLeft: '5px solid #4f46e5' }}>
+                <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Total Active Pipeline</div>
+                <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#1e293b' }}>₹{(summary.totalValue / 100000).toFixed(1)}L</div>
+                <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '4px' }}>Across {summary.totalDeals} deals</div>
+              </div>
+
+              <div style={{ background: '#ffffff', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', borderLeft: '5px solid #10b981' }}>
+                <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Weighted Revenue Forecast</div>
+                <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#1e293b' }}>₹{(summary.weightedPipelineValue / 100000).toFixed(1)}L</div>
+                <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '4px' }}>Based on win probabilities</div>
+              </div>
+
+              <div style={{ background: '#ffffff', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', borderLeft: '5px solid #ef4444' }}>
+                <div style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' }}>Deals Lost This Period</div>
+                <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#1e293b' }}>{lostSummary.total} Deals</div>
+                <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '4px' }}>Requires conversion reviews</div>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Main Panel */}
           <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
@@ -244,6 +348,17 @@ export default function CRMReportsDashboard() {
                 >
                   <Table size={16} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'text-bottom' }} /> Stage Analysis (Granular)
                 </button>
+                <button
+                  onClick={() => setActiveTab('activity')}
+                  style={{
+                    padding: '8px 16px', borderRadius: '8px', border: 'none', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+                    background: activeTab === 'activity' ? '#ffffff' : 'transparent',
+                    color: activeTab === 'activity' ? '#1e293b' : '#64748b',
+                    boxShadow: activeTab === 'activity' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                  }}
+                >
+                  <Table size={16} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'text-bottom' }} /> Activity Report
+                </button>
               </div>
 
               {activeTab === 'stage_analysis' ? (
@@ -258,6 +373,19 @@ export default function CRMReportsDashboard() {
                   onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.background = '#ffffff'; }}
                 >
                   <Download size={16} /> Export Analysis CSV
+                </button>
+              ) : activeTab === 'activity' ? (
+                <button
+                  onClick={handleExportActivityCSV}
+                  disabled={!activityData || !activityData.activities || activityData.activities.length === 0}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 16px', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px',
+                    fontSize: '0.85rem', fontWeight: 600, color: '#475569', cursor: 'pointer', transition: 'all 0.2s', opacity: (!activityData || !activityData.activities || activityData.activities.length === 0) ? 0.5 : 1
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.background = '#f8fafc'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.background = '#ffffff'; }}
+                >
+                  <Download size={16} /> Export Activity CSV
                 </button>
               ) : (
                 <button
@@ -684,6 +812,115 @@ export default function CRMReportsDashboard() {
                           )}
                         </div>
                       </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'activity' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  {/* Activity filter toolbar */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', background: '#f8fafc', padding: '16px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#475569' }}>Filter by Activity Type:</span>
+                      <select
+                        value={activityFilterType}
+                        onChange={e => setActivityFilterType(e.target.value)}
+                        style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', background: '#fff', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}
+                      >
+                        <option value="all">All Activity Types</option>
+                        <option value="call">Call</option>
+                        <option value="email">Email</option>
+                        <option value="meeting">Meeting</option>
+                        <option value="demo">Demo</option>
+                        <option value="note">Note</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {activityLoading ? (
+                    <div style={{ padding: '60px', textAlign: 'center', color: '#64748b' }}>
+                      ⏳ Loading Activity Report...
+                    </div>
+                  ) : !activityData || !activityData.activities || activityData.activities.length === 0 ? (
+                    <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px' }}>
+                      No activities found matching the selected filters.
+                    </div>
+                  ) : (
+                    <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '20px', overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '850px' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '2px solid #f1f5f9', color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            <th style={{ padding: '12px 10px', width: '120px' }}>Date</th>
+                            <th style={{ padding: '12px 10px', width: '120px' }}>Type</th>
+                            <th style={{ padding: '12px 10px' }}>Subject</th>
+                            <th style={{ padding: '12px 10px' }}>Description</th>
+                            <th style={{ padding: '12px 10px', width: '180px' }}>Related To</th>
+                            <th style={{ padding: '12px 10px', width: '120px', textAlign: 'center' }}>Outcome</th>
+                            <th style={{ padding: '12px 10px', width: '150px' }}>Recorded By</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {activityData.activities.map(act => {
+                            const date = new Date(act.activityDate).toLocaleDateString('en-IN');
+                            const typeLabel = (act.type || 'note');
+                            const outcomeLabel = (act.outcome || 'neutral');
+                            
+                            // Icon mapping
+                            let typeIcon = <FileText size={14} />;
+                            let typeColor = '#64748b';
+                            if (typeLabel === 'call') { typeIcon = <Phone size={14} />; typeColor = '#10b981'; }
+                            else if (typeLabel === 'email') { typeIcon = <Mail size={14} />; typeColor = '#3b82f6'; }
+                            else if (typeLabel === 'meeting') { typeIcon = <Calendar size={14} />; typeColor = '#8b5cf6'; }
+                            else if (typeLabel === 'demo') { typeIcon = <TrendingUp size={14} />; typeColor = '#f59e0b'; }
+
+                            // Outcome badge
+                            let outcomeBadge = (
+                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600, background: '#f1f5f9', color: '#475569' }}>
+                                <MinusCircle size={12} /> Neutral
+                              </span>
+                            );
+                            if (outcomeLabel === 'positive') {
+                              outcomeBadge = (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600, background: '#ecfdf5', color: '#065f46' }}>
+                                  <CheckCircle2 size={12} /> Positive
+                                </span>
+                              );
+                            } else if (outcomeLabel === 'negative') {
+                              outcomeBadge = (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600, background: '#fef2f2', color: '#991b1b' }}>
+                                  <XCircle size={12} /> Negative
+                                </span>
+                              );
+                            }
+
+                            const userName = act.userId ? `${act.userId.first_name || ''} ${act.userId.last_name || ''}`.trim() || act.userId.username : 'Unknown';
+
+                            return (
+                              <tr key={act._id} style={{ borderBottom: '1px solid #f1f5f9', fontSize: '0.85rem' }}>
+                                <td style={{ padding: '12px 10px', color: '#475569', fontWeight: 500 }}>{date}</td>
+                                <td style={{ padding: '12px 10px' }}>
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '4px 10px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 700, background: `${typeColor}15`, color: typeColor, textTransform: 'uppercase' }}>
+                                    {typeIcon} {typeLabel}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '12px 10px', fontWeight: 600, color: '#1e293b' }}>{act.subject}</td>
+                                <td style={{ padding: '12px 10px', color: '#64748b', maxWidth: '250px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={act.description}>
+                                  {act.description || 'No description'}
+                                </td>
+                                <td style={{ padding: '12px 10px' }}>
+                                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <span style={{ fontWeight: 600, color: '#475569' }}>{act.relatedName}</span>
+                                    <span style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase' }}>{act.relatedTo?.model || 'N/A'}</span>
+                                  </div>
+                                </td>
+                                <td style={{ padding: '12px 10px', textAlign: 'center' }}>{outcomeBadge}</td>
+                                <td style={{ padding: '12px 10px', color: '#475569', fontWeight: 500 }}>{userName}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
                     </div>
                   )}
                 </div>

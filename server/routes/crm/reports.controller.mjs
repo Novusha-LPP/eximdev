@@ -2,6 +2,10 @@ import express from 'express';
 import Opportunity from '../../model/crm/Opportunity.mjs';
 import Lead from '../../model/crm/Lead.mjs';
 import Task from '../../model/crm/Task.mjs';
+import Activity from '../../model/crm/Activity.mjs';
+import Contact from '../../model/crm/Contact.mjs';
+import Account from '../../model/crm/Account.mjs';
+import mongoose from 'mongoose';
 
 const router = express.Router();
 
@@ -271,6 +275,114 @@ router.get('/stage-analysis', async (req, res) => {
       },
       sourceBreakdown,
       allStagesSummary
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// GET /api/crm/reports/activity-report
+router.get('/activity-report', async (req, res) => {
+  try {
+    const { startDate, endDate, period, type, userId } = req.query;
+
+    const query = {};
+    if (type && type !== 'all') {
+      query.type = type.toLowerCase();
+    }
+    if (userId) {
+      query.userId = userId;
+    }
+
+    // Parse date range
+    let start = null;
+    let end = null;
+    if (startDate && endDate) {
+      start = new Date(`${startDate}T00:00:00.000Z`);
+      end = new Date(`${endDate}T23:59:59.999Z`);
+    } else if (period) {
+      const [year, month] = period.split('-');
+      start = new Date(year, parseInt(month) - 1, 1);
+      end = new Date(year, parseInt(month), 0, 23, 59, 59, 999);
+    } else {
+      const now = new Date();
+      start = new Date(now.getFullYear(), now.getMonth(), 1);
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    }
+    query.activityDate = { $gte: start, $lte: end };
+
+    // Fetch activities populated with user details
+    const activities = await Activity.find(query)
+      .populate('userId', 'username email first_name last_name')
+      .sort({ activityDate: -1 })
+      .lean();
+
+    // Populate relatedTo fields (Lead, Contact, Opportunity, Account name)
+    const leadIds = [];
+    const contactIds = [];
+    const opportunityIds = [];
+    const accountIds = [];
+
+    activities.forEach(act => {
+      if (act.relatedTo && act.relatedTo.id) {
+        if (act.relatedTo.model === 'Lead') leadIds.push(act.relatedTo.id);
+        if (act.relatedTo.model === 'Contact') contactIds.push(act.relatedTo.id);
+        if (act.relatedTo.model === 'Opportunity') opportunityIds.push(act.relatedTo.id);
+        if (act.relatedTo.model === 'Account') accountIds.push(act.relatedTo.id);
+      }
+    });
+
+    const [leads, contacts, opportunities, accounts] = await Promise.all([
+      leadIds.length > 0 ? Lead.find({ _id: { $in: leadIds } }).select('name firstName lastName').lean() : [],
+      contactIds.length > 0 ? Contact.find({ _id: { $in: contactIds } }).select('firstName lastName').lean() : [],
+      opportunityIds.length > 0 ? Opportunity.find({ _id: { $in: opportunityIds } }).select('name').lean() : [],
+      accountIds.length > 0 ? Account.find({ _id: { $in: accountIds } }).select('name').lean() : []
+    ]);
+
+    const leadMap = new Map(leads.map(l => [l._id.toString(), l.name || `${l.firstName} ${l.lastName || ''}`.trim()]));
+    const contactMap = new Map(contacts.map(c => [c._id.toString(), `${c.firstName} ${c.lastName || ''}`.trim()]));
+    const opportunityMap = new Map(opportunities.map(o => [o._id.toString(), o.name]));
+    const accountMap = new Map(accounts.map(a => [a._id.toString(), a.name]));
+
+    const enrichedActivities = activities.map(act => {
+      let relatedName = 'N/A';
+      if (act.relatedTo && act.relatedTo.id) {
+        const idStr = act.relatedTo.id.toString();
+        if (act.relatedTo.model === 'Lead') relatedName = leadMap.get(idStr) || 'Unknown Lead';
+        if (act.relatedTo.model === 'Contact') relatedName = contactMap.get(idStr) || 'Unknown Contact';
+        if (act.relatedTo.model === 'Opportunity') relatedName = opportunityMap.get(idStr) || 'Unknown Opportunity';
+        if (act.relatedTo.model === 'Account') relatedName = accountMap.get(idStr) || 'Unknown Account';
+      }
+
+      return {
+        ...act,
+        relatedName
+      };
+    });
+
+    const totalCount = enrichedActivities.length;
+    const typeBreakdown = { call: 0, email: 0, meeting: 0, demo: 0, note: 0 };
+    const outcomeBreakdown = { positive: 0, neutral: 0, negative: 0 };
+
+    enrichedActivities.forEach(act => {
+      const t = (act.type || '').toLowerCase();
+      if (typeBreakdown[t] !== undefined) {
+        typeBreakdown[t]++;
+      }
+      const o = (act.outcome || '').toLowerCase();
+      if (o && outcomeBreakdown[o] !== undefined) {
+        outcomeBreakdown[o]++;
+      }
+    });
+
+    res.json({
+      success: true,
+      activities: enrichedActivities,
+      summary: {
+        totalCount,
+        typeBreakdown,
+        outcomeBreakdown
+      }
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

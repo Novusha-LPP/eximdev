@@ -11,12 +11,15 @@ const router = express.Router();
 
 router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchFilter, async (req, res) => {
     try {
-        const { type, year, branchId, mode, detailedStatus } = req.query;
+        const { type, year, branchId, mode, detailedStatus, dateFilterType, startDate, endDate, format } = req.query;
 
         // Base match stage
         const jobMatchStage = {};
 
-        if (year) jobMatchStage.year = year;
+        // Only filter by job financial year if dateFilterType is 'job_year' or not provided
+        if ((!dateFilterType || dateFilterType === 'job_year') && year) {
+            jobMatchStage.year = year;
+        }
         
         // Use standard branch/mode matching logic
         const branchMatch = getBranchMatch(branchId, mode, req.authorizedBranchIds);
@@ -55,36 +58,63 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
 
         console.log("Job Match Stage:", JSON.stringify(jobMatchStage));
 
-        // Charge match stage based on report type
-        let chargeMatchStage;
+        // Charge match stage based on report type and optional date filters
+        const conditions = [];
+
         if (type === 'all') {
-            chargeMatchStage = {
+            conditions.push({
                 $or: [
                     { "charges.payment_request_no": { $exists: true, $ne: null, $ne: "" } },
                     { "charges.purchase_book_no": { $exists: true, $ne: null, $ne: "" } }
                 ]
-            };
+            });
         } else if (type === 'pr_no_pb') {
-            chargeMatchStage = {
-                $and: [
-                    { "charges.payment_request_no": { $exists: true, $ne: null, $ne: "" } },
-                    {
-                        $or: [
-                            { "charges.purchase_book_no": { $exists: false } },
-                            { "charges.purchase_book_no": null },
-                            { "charges.purchase_book_no": "" }
-                        ]
-                    }
-                ]
-            };
+            conditions.push(
+                { "charges.payment_request_no": { $exists: true, $ne: null, $ne: "" } },
+                {
+                    $or: [
+                        { "charges.purchase_book_no": { $exists: false } },
+                        { "charges.purchase_book_no": null },
+                        { "charges.purchase_book_no": "" }
+                    ]
+                }
+            );
         } else {
             const chargeMatchField = type === 'pr' ? "charges.payment_request_no" : "charges.purchase_book_no";
-            chargeMatchStage = {
-                $and: [
-                    { [chargeMatchField]: { $exists: true, $ne: null, $ne: "" } }
-                ]
-            };
+            conditions.push({ [chargeMatchField]: { $exists: true, $ne: null, $ne: "" } });
         }
+
+        // Add Date Range Filter logic
+        if (dateFilterType === 'request_date' && startDate && endDate) {
+            const start = new Date(startDate);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+            
+            conditions.push({ "charges.createdAt": { $gte: start, $lte: end } });
+        } else if (dateFilterType === 'completion_date' && startDate && endDate) {
+            const start = new Date(startDate);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+
+            if (type === 'pr') {
+                conditions.push({ "charges.payment_request_approved_at": { $gte: start, $lte: end } });
+            } else if (type === 'pb') {
+                conditions.push({ "charges.purchase_book_approved_at": { $gte: start, $lte: end } });
+            } else if (type === 'pr_no_pb') {
+                conditions.push({ "charges.payment_request_approved_at": { $gte: start, $lte: end } });
+            } else { // type === 'all'
+                conditions.push({
+                    $or: [
+                        { "charges.payment_request_approved_at": { $gte: start, $lte: end } },
+                        { "charges.purchase_book_approved_at": { $gte: start, $lte: end } }
+                    ]
+                });
+            }
+        }
+
+        const chargeMatchStage = { $and: conditions };
 
         const pipeline = [
             { $match: jobMatchStage },
@@ -115,7 +145,10 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
                     sacHsn: "$charges.sacHsn",
                     remark: "$charges.remark",
                     invoice_number: "$charges.invoice_number",
-                    invoice_date: "$charges.invoice_date"
+                    invoice_date: "$charges.invoice_date",
+                    charge_created_at: "$charges.createdAt",
+                    payment_request_approved_at: "$charges.payment_request_approved_at",
+                    purchase_book_approved_at: "$charges.purchase_book_approved_at"
                 }
             },
             { $sort: { job_number: 1, importer: 1 } }
@@ -151,6 +184,18 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
 
         // Prepare Excel Data
         const excelData = results.map((row, index) => {
+            const reqDate = row.charge_created_at ? new Date(row.charge_created_at).toLocaleDateString("en-GB") : "N/A";
+            
+            // Completion date logic
+            let compDate = "N/A";
+            if (row.payment_request_approved_at && row.purchase_book_approved_at) {
+                compDate = `${new Date(row.payment_request_approved_at).toLocaleDateString("en-GB")} / ${new Date(row.purchase_book_approved_at).toLocaleDateString("en-GB")}`;
+            } else if (row.payment_request_approved_at) {
+                compDate = new Date(row.payment_request_approved_at).toLocaleDateString("en-GB");
+            } else if (row.purchase_book_approved_at) {
+                compDate = new Date(row.purchase_book_approved_at).toLocaleDateString("en-GB");
+            }
+
             return {
                 "S.No": index + 1,
                 "Job Number": row.job_number || row.job_no,
@@ -171,6 +216,8 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
                 "PR Status": row.payment_request_status,
                 "PB Mandatory?": row.isPurchaseBookMandatory ? "YES" : "NO",
                 "SAC/HSN": row.sacHsn,
+                "Request Date": reqDate,
+                "Completion Date": compDate,
                 "Basic Amount": row.basicAmount,
                 "GST Amount": row.gstAmount,
                 "TDS Amount": row.tdsAmount,
@@ -178,6 +225,11 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
                 "Remark": row.remark
             };
         });
+
+        // If JSON format is requested (for previewing), return the data directly
+        if (format === 'json') {
+            return res.status(200).json(excelData);
+        }
 
         const workbook = xlsx.utils.book_new();
         const worksheet = xlsx.utils.json_to_sheet(excelData);

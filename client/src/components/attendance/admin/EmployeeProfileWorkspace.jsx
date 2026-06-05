@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Popconfirm, Button } from 'antd';
@@ -174,9 +174,14 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
 
 
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const [viewMode, setViewMode] = useState('grid');
-  const [pageSize, setPageSize] = useState(24);
+  const [currentPage, setCurrentPage] = useState(() => Number(sessionStorage.getItem(teamId ? `epw_currentPage_${teamId}` : 'epw_currentPage_global') || 1));
+  const [viewMode, setViewMode] = useState(() => sessionStorage.getItem(teamId ? `epw_viewMode_${teamId}` : 'epw_viewMode_global') || 'grid');
+  const [pageSize, setPageSize] = useState(() => Number(sessionStorage.getItem(teamId ? `epw_pageSize_${teamId}` : 'epw_pageSize_global') || 24));
+
+  // Persist pagination/view state
+  useEffect(() => { sessionStorage.setItem(teamId ? `epw_currentPage_${teamId}` : 'epw_currentPage_global', String(currentPage)); }, [currentPage, teamId]);
+  useEffect(() => { sessionStorage.setItem(teamId ? `epw_viewMode_${teamId}` : 'epw_viewMode_global', viewMode); }, [viewMode, teamId]);
+  useEffect(() => { sessionStorage.setItem(teamId ? `epw_pageSize_${teamId}` : 'epw_pageSize_global', String(pageSize)); }, [pageSize, teamId]);
 
   const [startDate, setStartDate] = useState(moment().startOf('month').format('YYYY-MM-DD'));
   const [endDate, setEndDate] = useState(moment().format('YYYY-MM-DD'));
@@ -187,6 +192,15 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     start: moment().startOf('month').format('YYYY-MM-DD'),
     end: moment().endOf('month').format('YYYY-MM-DD')
   });
+
+  // ── Full Directory Export Modal ──
+  const [epwExportModal, setEpwExportModal] = useState(false);
+  const [epwExportOptions, setEpwExportOptions] = useState({
+    startDate: moment().startOf('month').format('YYYY-MM-DD'),
+    endDate: moment().endOf('month').format('YYYY-MM-DD'),
+    groupBy: 'organization'
+  });
+  const [epwExporting, setEpwExporting] = useState(false);
 
   const [tab, setTab] = useState(urlTab||'performance');
   useEffect(() => { if (urlTab&&urlTab!==tab) setTab(urlTab); }, [urlTab]);
@@ -239,8 +253,25 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     setLocalEmployeeId(next._id);
   };
 
-  const [searchTerm, setSearchTerm] = useState('');
-  const [groupBy, setGroupBy] = useState('none');
+  // ── Filter persistence: restore from sessionStorage scoped by teamId ──
+  const filterKey = (key) => teamId ? `epw_${key}_${teamId}` : `epw_${key}_global`;
+  const [searchTerm, setSearchTerm] = useState(() => sessionStorage.getItem(filterKey('searchTerm')) || '');
+  const [groupBy, setGroupBy] = useState(() => sessionStorage.getItem(filterKey('groupBy')) || 'none');
+
+  // Persist filters to sessionStorage whenever they change
+  useEffect(() => { sessionStorage.setItem(filterKey('searchTerm'), searchTerm); }, [searchTerm, teamId]);
+  useEffect(() => { sessionStorage.setItem(filterKey('groupBy'), groupBy); }, [groupBy, teamId]);
+
+  // ── Download Report state & version counter ──────────────────────────────
+  // Version counter: increments each time a full-directory report is downloaded (resets on page refresh)
+  const epwDlVersionRef = useRef(0);
+  const [epwDlModal, setEpwDlModal] = useState({
+    open: false,
+    startDate: moment().startOf('month').format('YYYY-MM-DD'),
+    endDate: moment().endOf('month').format('YYYY-MM-DD'),
+    groupBy: 'organization',
+  });
+  const [epwDlLoading, setEpwDlLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
@@ -832,6 +863,282 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
 
   const handleDownloadOrgReport = (orgName, items) => setExportModal({ open:true, orgName, items });
 
+  // ── Full Directory Export (all employees, grouped by org or team) ─────────
+  const handleFullDirectoryExport = async () => {
+    const { startDate: dlStart, endDate: dlEnd, groupBy: dlGroupBy } = epwDlModal;
+    setEpwDlLoading(true);
+    epwDlVersionRef.current += 1;
+    const version = epwDlVersionRef.current;
+    const monthLabel = moment(dlStart).format('MMMM YYYY').replace(' ', '');
+    const fileName = `Attendance_Report_${monthLabel}_v${version}.xlsx`;
+    const lt = toast.loading('Preparing report…');
+    try {
+      const ExcelJSLib = await import('exceljs');
+      const { saveAs: saveAsLib } = await import('file-saver');
+      const wb = new ExcelJSLib.Workbook();
+      wb.creator = 'AlVision Exim';
+
+      const navy   = { argb: 'FF1B365D' };
+      const white  = { argb: 'FFFFFFFF' };
+      const light  = { argb: 'FFF8FAFC' };
+
+      // Build groups from filteredEmployees
+      let groups = {};
+      if (dlGroupBy === 'organization') {
+        filteredEmployees.forEach(emp => {
+          const key = emp.company_id?.company_name || 'No Organization';
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(emp);
+        });
+      } else if (dlGroupBy === 'team') {
+        filteredEmployees.forEach(emp => {
+          const key = getEmployeeTeamName(emp);
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(emp);
+        });
+      } else {
+        groups['All Employees'] = filteredEmployees;
+      }
+
+      const groupNames = sortGroupNamesWithRabsLast(Object.keys(groups));
+
+      for (const groupName of groupNames) {
+        const employees = groups[groupName];
+        if (!employees || employees.length === 0) continue;
+
+        const sheetName = groupName.substring(0, 31);
+        const ws = wb.addWorksheet(sheetName);
+
+        // ── Row 1: Org Header ──
+        const orgRow = ws.addRow([groupName.toUpperCase()]);
+        orgRow.height = 30;
+        const orgCell = orgRow.getCell(1);
+        orgCell.font = { bold: true, size: 14, name: 'Arial', color: { argb: 'FFFFFFFF' } };
+        orgCell.fill = { type: 'pattern', pattern: 'solid', fgColor: navy };
+        orgCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        ws.mergeCells(`A${orgRow.number}:G${orgRow.number}`);
+
+        // ── Row 2: Period Header ──
+        const periodRow = ws.addRow([`Attendance Log — ${moment(dlStart).format('MMMM YYYY')}`]);
+        periodRow.height = 22;
+        const periodCell = periodRow.getCell(1);
+        periodCell.font = { bold: true, size: 11, name: 'Arial', color: { argb: 'FFFFFFFF' } };
+        periodCell.fill = { type: 'pattern', pattern: 'solid', fgColor: navy };
+        periodCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        ws.mergeCells(`A${periodRow.number}:G${periodRow.number}`);
+
+        // ── Fetch each employee's attendance logs ──
+        const start = moment(dlStart).format('YYYY-MM-DD');
+        const end   = moment(dlEnd).format('YYYY-MM-DD');
+        let summaryRows = []; // for in-sheet summary
+
+        for (let i = 0; i < employees.length; i += 5) {
+          const chunk = employees.slice(i, i + 5);
+          await Promise.all(chunk.map(async (emp) => {
+            try {
+              const p = await attendanceAPI.getEmployeeFullProfile(emp._id, start, end, emp.company_id?._id || emp.company_id);
+              const logs = p?.attendance || [];
+              let empPresent = 0, empAbsent = 0, empHalfDay = 0, empLeaves = 0;
+              const empName = [emp.first_name, emp.last_name].filter(Boolean).join(' ').trim() || emp.username || '';
+
+              // Spacer row before each employee name header (except the first employee)
+              if (ws.rowCount > 2) {
+                ws.addRow([]);
+              }
+
+              // Merged Employee Name Header
+              const empHeaderRow = ws.addRow([empName]);
+              empHeaderRow.height = 22;
+              ws.mergeCells(`A${empHeaderRow.number}:G${empHeaderRow.number}`);
+              const empCell = empHeaderRow.getCell(1);
+              empCell.font = { bold: true, color: { argb: 'FFFFFFFF' }, name: 'Arial', size: 11 };
+              empCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2B6CB0' } }; // steel blue
+              empCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+              // Column Subheaders
+              const subheaderRow = ws.addRow(['Date', 'Day', 'Shift', 'Status', 'In Time', 'Out Time', 'Total Hours']);
+              subheaderRow.height = 20;
+              subheaderRow.eachCell(cell => {
+                cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, name: 'Arial', size: 10 };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B82F6' } }; // royal blue
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                cell.border = {
+                  top: { style: 'thin', color: { argb: 'FFB0C4DE' } },
+                  left: { style: 'thin', color: { argb: 'FFB0C4DE' } },
+                  bottom: { style: 'thin', color: { argb: 'FFB0C4DE' } },
+                  right: { style: 'thin', color: { argb: 'FFB0C4DE' } }
+                };
+              });
+
+              // Sort logs ascending
+              const sortedLogs = [...logs].sort((a, b) => new Date(a.attendance_date) - new Date(b.attendance_date));
+
+              sortedLogs.forEach(log => {
+                const sn = log.shift_id?.shift_name || p.employee?.shift_id?.shift_name || '';
+                const st = log.shift_id?.start_time || p.employee?.shift_id?.start_time || '';
+                const et = log.shift_id?.end_time   || p.employee?.shift_id?.end_time   || '';
+                const shiftStr = sn ? (st && et ? `${sn} ${st}–${et}` : sn) : (st && et ? `${st}–${et}` : '—');
+
+                const fdt = dt => dt ? moment(dt).format('h:mm A') : '';
+                let displayStatus = log.status || 'Present';
+                if (log.status === 'half_day') displayStatus = 'Half Day';
+                else if (log.status) {
+                  const statusLower = log.status.toLowerCase();
+                  if (statusLower === 'weekly_off') displayStatus = 'Weekly Off';
+                  else if (statusLower === 'half_day') displayStatus = 'Half Day';
+                  else displayStatus = log.status.charAt(0).toUpperCase() + log.status.slice(1).replace(/_/g, ' ');
+                }
+
+                // Calc work hours
+                let wh = '';
+                if (log.first_in && log.last_out) {
+                  const diff = moment(log.last_out).diff(moment(log.first_in), 'hours', true);
+                  if (diff > 0 && diff < 24) wh = diff.toFixed(1) + ' hrs';
+                }
+
+                const dateStr = moment(log.attendance_date).format('DD-MM-YYYY');
+                const dayStr = moment(log.attendance_date).format('ddd');
+
+                const dataRow = ws.addRow([dateStr, dayStr, shiftStr, displayStatus, fdt(log.first_in), fdt(log.last_out), wh]);
+                dataRow.height = 18;
+
+                dataRow.eachCell((cell, colNumber) => {
+                  cell.font = { name: 'Arial', size: 10 };
+                  cell.border = {
+                    top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                    left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                    bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                    right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+                  };
+                  if (colNumber === 3) {
+                    cell.alignment = { horizontal: 'left', vertical: 'middle' };
+                  } else {
+                    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                  }
+                });
+
+                // Style the Status cell
+                const statusCell = dataRow.getCell(4);
+                statusCell.font = { bold: true, name: 'Arial', size: 10 };
+                const sLower = String(log.status || '').toLowerCase();
+                
+                if (sLower === 'present' || sLower === 'late' || sLower === 'present_late') {
+                  statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } }; // light green
+                  statusCell.font.color = { argb: 'FF065F46' }; // dark green
+                } else if (sLower === 'absent') {
+                  statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } }; // light red
+                  statusCell.font.color = { argb: 'FF991B1B' }; // dark red
+                } else if (sLower === 'leave' || sLower === 'pending_leave') {
+                  statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } }; // light orange
+                  statusCell.font.color = { argb: 'FF92400E' }; // dark orange
+                } else if (sLower === 'half_day') {
+                  statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDBEAFE' } }; // light blue
+                  statusCell.font.color = { argb: 'FF1E40AF' }; // dark blue
+                } else if (sLower === 'weekly_off' || sLower === 'weekoff' || sLower === 'off') {
+                  statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0FDF4' } }; // light soft green
+                  statusCell.font.color = { argb: 'FF15803D' }; // dark green
+                } else if (sLower === 'holiday') {
+                  statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3E8FF' } }; // light purple
+                  statusCell.font.color = { argb: 'FF6B21A8' }; // dark purple
+                } else {
+                  statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }; // light grey
+                  statusCell.font.color = { argb: 'FF475569' }; // dark grey
+                }
+
+                const s = String(log.status || '').toLowerCase();
+                if (s === 'present' || s === 'late') empPresent++;
+                else if (s === 'absent') empAbsent++;
+                else if (s === 'half_day') empHalfDay++;
+                else if (s === 'leave' || s === 'pending_leave') empLeaves++;
+              });
+
+              summaryRows.push({ name: empName, present: empPresent, absent: empAbsent, halfDay: empHalfDay, leaves: empLeaves, total: sortedLogs.length });
+            } catch (e) {
+              console.warn('Failed to fetch logs for', emp._id, e);
+            }
+          }));
+        }
+
+        // ── In-sheet Summary ──────────────────────────────────────────────
+        ws.addRow([]); // spacer
+        ws.addRow([]);
+
+        const summaryTitleRow = ws.addRow(['--- SUMMARY ---']);
+        summaryTitleRow.getCell(1).font = { bold: true, size: 11, name: 'Arial', color: white };
+        summaryTitleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B365D' } };
+        summaryTitleRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+        summaryTitleRow.height = 24;
+        ws.mergeCells(`A${summaryTitleRow.number}:G${summaryTitleRow.number}`);
+
+        const sumHeaderRow = ws.addRow(['Employee Name', 'Present', 'Absent', 'Half Day', 'Leaves', 'Total Records', '']);
+        sumHeaderRow.height = 20;
+        sumHeaderRow.eachCell(cell => {
+          cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, name: 'Arial', size: 10 };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } }; // slate
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+        });
+
+        summaryRows.forEach((sr, idx) => {
+          const sr2 = ws.addRow([sr.name, sr.present, sr.absent, sr.halfDay, sr.leaves, sr.total, '']);
+          sr2.height = 18;
+          sr2.getCell(1).font = { bold: true, name: 'Arial', size: 10 };
+          if (idx % 2 === 0) sr2.eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: light }; });
+          
+          sr2.eachCell((cell, colNumber) => {
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+              left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+              bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+              right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+            };
+            if (colNumber === 1) {
+              cell.alignment = { horizontal: 'left', vertical: 'middle' };
+            } else {
+              cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            }
+          });
+        });
+
+        // Totals
+        const totals = summaryRows.reduce((acc, r) => ({ present: acc.present + r.present, absent: acc.absent + r.absent, halfDay: acc.halfDay + r.halfDay, leaves: acc.leaves + r.leaves, total: acc.total + r.total }), { present:0, absent:0, halfDay:0, leaves:0, total:0 });
+        const totalRow2 = ws.addRow([`Total (${summaryRows.length} employees)`, totals.present, totals.absent, totals.halfDay, totals.leaves, totals.total, '']);
+        totalRow2.height = 22;
+        totalRow2.eachCell(cell => {
+          cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, name: 'Arial', size: 10 };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } }; // dark navy
+          cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+        });
+        totalRow2.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+        [2,3,4,5,6,7].forEach(c => { totalRow2.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' }; });
+
+        // Column widths
+        ws.getColumn(1).width = 14; // Date
+        ws.getColumn(2).width = 10; // Day
+        ws.getColumn(3).width = 28; // Shift
+        ws.getColumn(4).width = 18; // Status
+        ws.getColumn(5).width = 15; // In Time
+        ws.getColumn(6).width = 15; // Out Time
+        ws.getColumn(7).width = 15; // Total Hours
+
+        // Freeze top 2 rows
+        ws.views = [{ state: 'frozen', ySplit: 2 }];
+      }
+
+      const buffer = await wb.xlsx.writeBuffer();
+      saveAsLib(new Blob([buffer], { type: 'application/octet-stream' }), fileName);
+      toast.dismiss(lt);
+      toast.success(`Report downloaded: ${fileName}`);
+    } catch (e) {
+      console.error('Full directory export failed:', e);
+      toast.dismiss(lt);
+      toast.error('Failed to generate report');
+    } finally {
+      setEpwDlLoading(false);
+      setEpwDlModal(p => ({ ...p, open: false }));
+    }
+  };
+
   const confirmDownloadOrgReport = async (orgName, items, startDt, endDt) => {
     try {
       const lt = toast.loading(`Preparing report for ${orgName}...`);
@@ -910,6 +1217,14 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
               <FiUsers size={11} /> {filteredEmployees.length}
             </span>
           </div>
+          <button
+            onClick={() => setEpwDlModal(p => ({ ...p, open: true }))}
+            style={{ display:'flex', alignItems:'center', gap:'6px', padding:'8px 16px', background:'linear-gradient(135deg,#0f172a,#334155)', color:'#fff', border:'none', borderRadius:'9px', fontSize:'12px', fontWeight:'700', cursor:'pointer', boxShadow:'0 4px 12px rgba(15,23,42,0.25)', transition:'all 0.2s' }}
+            onMouseEnter={e => e.currentTarget.style.transform='translateY(-1px)'}
+            onMouseLeave={e => e.currentTarget.style.transform='translateY(0)'}
+          >
+            <FiDownload size={14} /> Download Report
+          </button>
         </div>
 
         {/* Controls */}
@@ -1157,6 +1472,114 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
               <div style={{ padding:'14px 20px', background:'#f8fafc', borderTop:`1px solid ${THEME.border}`, display:'flex', justifyContent:'flex-end', gap:'10px' }}>
                 <button onClick={()=>setExportModal({ open:false, orgName:'', items:[] })} style={{ ...S.btn('ghost') }}>Cancel</button>
                 <button onClick={()=>{ confirmDownloadOrgReport(exportModal.orgName,exportModal.items,exportDateRange.start,exportDateRange.end); setExportModal({ open:false, orgName:'', items:[] }); }} style={{ ...S.btn('green') }}>Download</button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Full Directory Download Report Modal ── */}
+        {epwDlModal.open && (
+          <div style={{ position:'fixed', inset:0, background:'rgba(15,23,42,0.55)', backdropFilter:'blur(4px)', zIndex:100001, display:'flex', alignItems:'center', justifyContent:'center', padding:'16px' }} onClick={() => setEpwDlModal(p => ({ ...p, open:false }))}>
+            <div style={{ background:'#fff', borderRadius:'16px', width:'100%', maxWidth:'460px', overflow:'hidden', boxShadow:'0 24px 60px rgba(0,0,0,0.25)' }} onClick={e => e.stopPropagation()}>
+              {/* Modal Header */}
+              <div style={{ padding:'20px 24px', background:'linear-gradient(135deg,#0f172a,#1e293b)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <div>
+                  <div style={{ fontSize:'16px', fontWeight:'800', color:'#fff', display:'flex', alignItems:'center', gap:'8px' }}>
+                    <FiDownload size={16} color="#60a5fa" /> Download Attendance Report
+                  </div>
+                  <div style={{ fontSize:'11px', color:'#94a3b8', marginTop:'4px' }}>Configure your export options below</div>
+                </div>
+                <button onClick={() => setEpwDlModal(p => ({ ...p, open:false }))} style={{ background:'rgba(255,255,255,0.1)', border:'none', borderRadius:'7px', width:'28px', height:'28px', cursor:'pointer', color:'#94a3b8', fontSize:'18px', display:'flex', alignItems:'center', justifyContent:'center' }}>×</button>
+              </div>
+
+              {/* Modal Body */}
+              <div style={{ padding:'24px', display:'flex', flexDirection:'column', gap:'18px' }}>
+
+                {/* Date Range */}
+                <div>
+                  <div style={{ fontSize:'11px', fontWeight:'800', color:'#334155', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:'10px' }}>📅 Date Range</div>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px' }}>
+                    {[['From Date', 'startDate'], ['To Date', 'endDate']].map(([lbl, key]) => (
+                      <div key={key}>
+                        <label style={{ display:'block', marginBottom:'5px', fontSize:'11px', fontWeight:'700', color:'#475569' }}>{lbl}</label>
+                        <input
+                          type="date"
+                          value={epwDlModal[key]}
+                          onChange={e => setEpwDlModal(p => ({ ...p, [key]: e.target.value }))}
+                          style={{ ...S.input, height:'38px', borderRadius:'8px', borderColor:'#dde5f1' }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Quick Month Selector */}
+                <div>
+                  <label style={{ display:'block', marginBottom:'5px', fontSize:'11px', fontWeight:'700', color:'#475569' }}>Quick Month</label>
+                  <select
+                    style={{ ...S.input, height:'38px', borderRadius:'8px', borderColor:'#dde5f1' }}
+                    onChange={e => {
+                      if (e.target.value === 'custom') return;
+                      const [y, m] = e.target.value.split('-');
+                      setEpwDlModal(p => ({
+                        ...p,
+                        startDate: moment([y, m-1]).startOf('month').format('YYYY-MM-DD'),
+                        endDate: moment([y, m-1]).endOf('month').format('YYYY-MM-DD'),
+                      }));
+                    }}
+                  >
+                    <option value="custom">Select month…</option>
+                    {[0,1,2,3,4,5].map(i => {
+                      const mm = moment().subtract(i, 'months');
+                      return <option key={i} value={mm.format('YYYY-MM')}>{mm.format('MMMM YYYY')}</option>;
+                    })}
+                  </select>
+                </div>
+
+                {/* Group By */}
+                <div>
+                  <div style={{ fontSize:'11px', fontWeight:'800', color:'#334155', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:'10px' }}>📊 Group Sheets By</div>
+                  <div style={{ display:'flex', gap:'8px' }}>
+                    {[['organization','🏢 Organization'],['team','👥 Team'],['none','📋 None (Single Sheet)']].map(([val, lbl]) => (
+                      <button
+                        key={val}
+                        onClick={() => setEpwDlModal(p => ({ ...p, groupBy: val }))}
+                        style={{
+                          flex: 1, padding:'10px 6px', border:`2px solid ${epwDlModal.groupBy === val ? '#4f46e5' : '#e2e8f0'}`,
+                          borderRadius:'10px', background: epwDlModal.groupBy === val ? '#eef2ff' : '#f8fafc',
+                          color: epwDlModal.groupBy === val ? '#4f46e5' : '#64748b',
+                          fontWeight: epwDlModal.groupBy === val ? '700' : '500',
+                          fontSize:'11px', cursor:'pointer', textAlign:'center', transition:'all 0.15s'
+                        }}
+                      >{lbl}</button>
+                    ))}
+                  </div>
+                  <div style={{ fontSize:'10px', color:'#94a3b8', marginTop:'8px' }}>
+                    {epwDlModal.groupBy === 'organization' && '→ One sheet per organization. In-sheet summary at the bottom.'}
+                    {epwDlModal.groupBy === 'team' && '→ One sheet per team. In-sheet summary at the bottom.'}
+                    {epwDlModal.groupBy === 'none' && '→ All employees in one sheet with summary at the bottom.'}
+                  </div>
+                </div>
+
+                {/* Filename Preview */}
+                <div style={{ padding:'10px 14px', background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:'8px', fontSize:'11px', color:'#166534' }}>
+                  <span style={{ fontWeight:'700' }}>📁 File: </span>
+                  <span style={{ fontFamily:'monospace' }}>
+                    Attendance_Report_{moment(epwDlModal.startDate).format('MMMM YYYY').replace(' ','')}_v{epwDlVersionRef.current + 1}.xlsx
+                  </span>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div style={{ padding:'16px 24px', background:'#f8fafc', borderTop:'1px solid #e2e8f0', display:'flex', justifyContent:'flex-end', gap:'10px' }}>
+                <button onClick={() => setEpwDlModal(p => ({ ...p, open:false }))} style={{ ...S.btn('ghost'), padding:'9px 20px' }}>Cancel</button>
+                <button
+                  onClick={handleFullDirectoryExport}
+                  disabled={epwDlLoading || !epwDlModal.startDate || !epwDlModal.endDate}
+                  style={{ ...S.btn('primary'), padding:'9px 22px', fontWeight:'700', opacity:(epwDlLoading || !epwDlModal.startDate || !epwDlModal.endDate) ? 0.6 : 1, display:'flex', alignItems:'center', gap:'6px' }}
+                >
+                  {epwDlLoading ? <><span style={{ display:'inline-block', width:'12px', height:'12px', border:'2px solid #fff', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/> Generating…</> : <><FiDownload size={13}/> Download</>}
+                </button>
               </div>
             </div>
           </div>
@@ -2009,7 +2432,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
           );
         })()}
 
-        {/* ── Export Modal ── */}
+        {/* ── Export Org Logs Modal (per-org button) ── */}
         {exportModal.open && (
           <div style={{ position:'fixed', inset:0, background:'rgba(15,23,42,0.4)', zIndex:100000, display:'flex', alignItems:'center', justifyContent:'center' }} onClick={()=>setExportModal({ open:false, orgName:'', items:[] })}>
             <div style={{ background:'#fff', borderRadius:'12px', width:'360px', overflow:'hidden', boxShadow:'0 16px 40px rgba(0,0,0,0.2)' }} onClick={e=>e.stopPropagation()}>
@@ -2032,6 +2455,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
             </div>
           </div>
         )}
+
       </div>
     </div>
   );

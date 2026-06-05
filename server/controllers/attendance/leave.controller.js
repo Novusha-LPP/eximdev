@@ -379,13 +379,18 @@ export const getBalance = async (req, res) => {
                 return res.status(404).json({ message: 'Target employee not found' });
             }
 
-            // HOD specific check: Is the target in their team?
             if (isHOD && !isAdmin) {
-                const team = await TeamModel.findOne({ 
+                const teams = await TeamModel.find({
                     'members.userId': employeeFound._id,
-                    'members': { $elemMatch: { userId: actor._id, role: 'HOD' } }
+                    isActive: { $ne: false }
                 });
-                if (!team) {
+                const isHodActor = isHodRole(actor.role);
+                const hasAccess = teams.some(team => {
+                    const isPrimary = team.hodId && team.hodId.toString() === actor._id.toString();
+                    const isSecondary = isHodActor && team.members.some(m => m.userId && m.userId.toString() === actor._id.toString());
+                    return isPrimary || isSecondary;
+                });
+                if (!hasAccess) {
                     return res.status(403).json({ message: 'Employee is not in your team' });
                 }
             }

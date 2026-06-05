@@ -116,7 +116,7 @@ const buildApprovalTrail = (leave) => {
     return trail;
 };
 
-export const canActorActOnLeave = (leave, actor) => {
+export const canActorActOnLeave = async (leave, actor) => {
     if (String(leave.approval_status || '') !== 'pending') return false;
 
     const stage = leave.approval_stage || LEAVE_STAGE.HOD;
@@ -125,7 +125,27 @@ export const canActorActOnLeave = (leave, actor) => {
     const currentApproverId = toIdString(leave.current_approver_id);
 
     if (stage === LEAVE_STAGE.HOD) {
-        return isAssignedToActor(leave, actor);
+        if (isAssignedToActor(leave, actor)) {
+            return true;
+        }
+        // Check if the actor is HOD or secondary HOD member in the applicant's team
+        const applicantIdStr = toIdString(leave.employee_id);
+        if (applicantIdStr) {
+            const teams = await TeamModel.find({
+                "members.userId": mongoose.Types.ObjectId.isValid(applicantIdStr) ? applicantIdStr : new mongoose.Types.ObjectId(applicantIdStr),
+                isActive: { $ne: false }
+            });
+            const isHodActor = isHodRole(actor.role);
+            const isActorHodOfApplicantTeam = teams.some(t => {
+                const isPrimaryHod = toIdString(t.hodId) === actorId;
+                const isSecondaryHod = isHodActor && t.members.some(m => toIdString(m.userId) === actorId);
+                return isPrimaryHod || isSecondaryHod;
+            });
+            if (isActorHodOfApplicantTeam) {
+                return true;
+            }
+        }
+        return false;
     }
 
     if (stage === LEAVE_STAGE.SHALINI) {
@@ -161,12 +181,12 @@ export const canActorActOnLeave = (leave, actor) => {
     return false;
 };
 
-const getPendingRemarkForActor = (leave, actor) => {
+const getPendingRemarkForActor = async (leave, actor) => {
     const actorUsername = String(actor.username || '').toLowerCase();
     const stage = leave.approval_stage || LEAVE_STAGE.HOD;
     const currentApproverName = formatPersonName(leave.current_approver_id);
 
-    if (canActorActOnLeave(leave, actor)) return null;
+    if (await canActorActOnLeave(leave, actor)) return null;
 
     if (actorUsername === STAGE_2_APPROVER_USERNAME && stage === LEAVE_STAGE.HOD) {
         return 'Pending - needs HOD approval first';
@@ -418,9 +438,11 @@ export const getDashboard = async (req, res) => {
             // HOD sees only their team members
             debugLog.push(`Loading teams for HOD: ${hod.username}`);
             
-            // Get all teams where this user is the HOD
             const teams = await TeamModel.find({ 
-                hodId: hod._id,
+                $or: [
+                    { hodId: hod._id },
+                    ...(isHodRole(hod.role) ? [{ "members.userId": hod._id }] : [])
+                ],
                 isActive: { $ne: false }
             });
             allTeamsForHOD = teams; // Capture for mapping later
@@ -675,7 +697,7 @@ export const getDashboard = async (req, res) => {
             .sort({ updatedAt: -1 })
             .limit(50);
 
-        const mapLeave = (leave) => {
+        const mapLeave = async (leave) => {
             const empId = leave.employee_id?._id || leave.employee_id;
             const currentApprover = leave.current_approver_id;
             const approvalStage = leave.approval_stage || LEAVE_STAGE.HOD;
@@ -700,8 +722,8 @@ export const getDashboard = async (req, res) => {
                 approvalStage,
                 approvalStageLabel,
                 approvalTrail: buildApprovalTrail(leave),
-                canAct: canActorActOnLeave(leave, hod),
-                pendingRemark: getPendingRemarkForActor(leave, hod),
+                canAct: await canActorActOnLeave(leave, hod),
+                pendingRemark: await getPendingRemarkForActor(leave, hod),
                 currentApproverName: formatPersonName(currentApprover),
                 currentApproverRole: currentApprover?.role ? normalizeRole(currentApprover.role) : null,
                 currentApproverUsername: currentApprover?.username || null,
@@ -889,7 +911,7 @@ export const getDashboard = async (req, res) => {
                     const approvalStage = leave.approval_stage || LEAVE_STAGE.HOD;
                     const currentApproverName = formatPersonName(currentApprover);
                     const approvalTrail = buildApprovalTrail(leave);
-                    const canAct = canActorActOnLeave(leave, hod);
+                    const canAct = await canActorActOnLeave(leave, hod);
 
                     return {
                         id: leave._id,
@@ -908,7 +930,7 @@ export const getDashboard = async (req, res) => {
                         approvalStageLabel: LEAVE_STAGE_LABELS[approvalStage] || approvalStage,
                         approvalTrail,
                         canAct,
-                        pendingRemark: getPendingRemarkForActor(leave, hod),
+                        pendingRemark: await getPendingRemarkForActor(leave, hod),
                         currentApproverName,
                         currentApproverRole: currentApprover?.role ? normalizeRole(currentApprover.role) : null,
                         currentBalance: {
@@ -1036,7 +1058,7 @@ export const approveRequest = async (req, res) => {
                 return res.status(403).json({ message: 'Unauthorized: You cannot process your own leave application' });
             }
 
-            if (!canActorActOnLeave(application, actor)) {
+            if (!await canActorActOnLeave(application, actor)) {
                 debug.push(`ACTOR PERMISSION DENIED for ${actorUsername}`);
                 fs.writeFileSync('hod_approve_debug.log', debug.join('\n'));
                 return res.status(403).json({ message: 'Unauthorized: You do not have permission to act on this leave application' });
@@ -1285,7 +1307,10 @@ export const approveRequest = async (req, res) => {
             if (!isAdminRole(actor.role)) {
                 // HOD: verify employee is in their team
                 const hodTeams = await TeamModel.find({
-                    hodId: actor._id,
+                    $or: [
+                        { hodId: actor._id },
+                        ...(isHodRole(actor.role) ? [{ "members.userId": actor._id }] : [])
+                    ],
                     isActive: { $ne: false }
                 });
 
@@ -1393,9 +1418,11 @@ export const getDepartmentAttendanceReport = async (req, res) => {
                 };
                 employees = await User.find(userQuery).select('_id first_name last_name username');
             } else {
-                // Non-allowlisted admins can only view teams where they are the HOD.
                 const teams = await TeamModel.find({
-                    hodId: hod._id,
+                    $or: [
+                        { hodId: hod._id },
+                        ...(isHodRole(hod.role) ? [{ "members.userId": hod._id }] : [])
+                    ],
                     isActive: { $ne: false }
                 });
 
@@ -1423,7 +1450,10 @@ export const getDepartmentAttendanceReport = async (req, res) => {
         } else {
             // HOD sees only their team members
             const teams = await TeamModel.find({ 
-                hodId: hod._id,
+                $or: [
+                    { hodId: hod._id },
+                    ...(isHodRole(hod.role) ? [{ "members.userId": hod._id }] : [])
+                ],
                 isActive: { $ne: false }
             });
             
@@ -1771,7 +1801,7 @@ export const getAdminLeaveRequests = async (req, res) => {
             return team ? team.name : 'Unassigned';
         };
 
-        const mapLeave = (leave) => {
+        const mapLeave = async (leave) => {
             const empId = leave.employee_id?._id || leave.employee_id;
             const empName = leave.employee_id?.first_name
                 ? `${leave.employee_id.first_name} ${leave.employee_id.last_name || ''}`.trim()
@@ -1799,9 +1829,9 @@ export const getAdminLeaveRequests = async (req, res) => {
             const currentApproverRole = currentApprover?.role ? normalizeRole(currentApprover.role) : null;
             const approvalStage = leave.approval_stage || LEAVE_STAGE.HOD;
             const approvalStageLabel = LEAVE_STAGE_LABELS[approvalStage] || approvalStage;
-            const canAct = canActorActOnLeave(leave, admin);
+            const canAct = await canActorActOnLeave(leave, admin);
             const approvalTrail = buildApprovalTrail(leave);
-            const pendingRemark = getPendingRemarkForActor(leave, admin);
+            const pendingRemark = await getPendingRemarkForActor(leave, admin);
             const actorIdDebug = toIdString(admin._id);
             const currentApproverIdDebug = toIdString(currentApprover);
             const actorUsernameDebug = String(admin.username || '').toLowerCase();
@@ -1862,8 +1892,8 @@ export const getAdminLeaveRequests = async (req, res) => {
 
         return res.json({
             data: {
-                pendingLeaves: pendingLeaves.map(mapLeave),
-                recentProcessedLeaves: recentProcessedLeaves.map(mapLeave),
+                pendingLeaves: await Promise.all(pendingLeaves.map(mapLeave)),
+                recentProcessedLeaves: await Promise.all(recentProcessedLeaves.map(mapLeave)),
                 totalHistory,
                 historyPage: page,
                 historyLimit: limit,

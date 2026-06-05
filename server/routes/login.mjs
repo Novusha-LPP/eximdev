@@ -33,7 +33,18 @@ router.post("/api/login", async (req, res) => {
       }
 
       if (passwordResult) {
-        const isHodOfAnyTeam = await TeamModel.exists({ hodId: user._id, isActive: { $ne: false } });
+        const isHodRole = (r) => {
+          const normalized = String(r || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+          return normalized === 'hod' || normalized === 'headofdepartment';
+        };
+
+        const isHodOfAnyTeam = await TeamModel.exists({
+          $or: [
+            { hodId: user._id },
+            ...(isHodRole(user.role) ? [{ "members.username": user.username }] : [])
+          ],
+          isActive: { $ne: false }
+        });
 
         const passwordChangedAt = user.passwordChangedAt || new Date(0);
         const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;

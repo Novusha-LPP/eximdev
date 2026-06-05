@@ -115,9 +115,17 @@ router.post("/api/kpi/template", verifyToken, auditMiddleware("KPI_Template"), a
             const isAdmin = req.user.role === 'Admin';
             let isTeamHOD = false;
             
-            if (!isOwner && !isAdmin && req.user.role === 'Head_of_Department') {
+            const isHodRole = (r) => {
+                const normalized = String(r || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+                return normalized === 'hod' || normalized === 'headofdepartment';
+            };
+
+            if (!isOwner && !isAdmin && isHodRole(req.user.role)) {
                 const team = await TeamModel.findOne({ 
-                    hodId: req.user._id, 
+                    $or: [
+                        { hodId: req.user._id },
+                        { 'members.userId': req.user._id }
+                    ],
                     'members.userId': existing.owner 
                 });
                 if (team) isTeamHOD = true;
@@ -164,8 +172,13 @@ router.post("/api/kpi/template", verifyToken, auditMiddleware("KPI_Template"), a
 // Get User's Templates (Admin/HOD see relevant shared templates)
 router.get("/api/kpi/templates", verifyToken, async (req, res) => {
     try {
+        const isHodRole = (r) => {
+            const normalized = String(r || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+            return normalized === 'hod' || normalized === 'headofdepartment';
+        };
+
         const isAdmin = req.user.role === 'Admin';
-        const isHOD = req.user.role === 'Head_of_Department';
+        const isHOD = isHodRole(req.user.role);
 
         let query = { is_active: true };
 
@@ -173,7 +186,12 @@ router.get("/api/kpi/templates", verifyToken, async (req, res) => {
             // Admin sees all active templates
         } else if (isHOD) {
             // HOD sees their own templates OR templates from their team members
-            const teams = await TeamModel.find({ hodId: req.user._id });
+            const teams = await TeamModel.find({ 
+                $or: [
+                    { hodId: req.user._id },
+                    { "members.userId": req.user._id }
+                ]
+            });
             const memberIds = new Set([req.user._id.toString()]);
             teams.forEach(t => {
                 t.members.forEach(m => memberIds.add(m.userId.toString()));
@@ -1407,8 +1425,12 @@ router.post("/api/kpi/sheet/review", verifyToken, async (req, res) => {
         // Prevent Self-Approval (Generic rule, though distinct roles usually prevent this naturally)
         // Exception: HODs can self-check their own sheets
         const isSelfReview = sheet.user.toString() === req.user._id.toString();
+        const isHodRole = (r) => {
+            const normalized = String(r || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+            return normalized === 'hod' || normalized === 'headofdepartment';
+        };
         const isAdmin = req.user.role === 'Admin';
-        const isHodSelfCheck = req.user.role === 'Head_of_Department' && action === 'CHECK';
+        const isHodSelfCheck = isHodRole(req.user.role) && action === 'CHECK';
 
         if (isSelfReview && !isAdmin && !isHodSelfCheck) {
             console.log("Self-review blocked");
@@ -1432,8 +1454,18 @@ router.post("/api/kpi/sheet/review", verifyToken, async (req, res) => {
             // Validate User - Admin, Shalini, Suraj, or assigned checker can check
             // Also allow HOD to check any of their team members' sheets
             let isTeamHOD = false;
-            if (req.user.role === 'Head_of_Department') {
-                const team = await TeamModel.findOne({ hodId: req.user._id, 'members.userId': sheet.user });
+            const isHodRole = (r) => {
+                const normalized = String(r || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+                return normalized === 'hod' || normalized === 'headofdepartment';
+            };
+            if (isHodRole(req.user.role)) {
+                const team = await TeamModel.findOne({ 
+                    $or: [
+                        { hodId: req.user._id },
+                        { 'members.userId': req.user._id }
+                    ],
+                    'members.userId': sheet.user 
+                });
                 if (team) isTeamHOD = true;
             }
 
@@ -1705,9 +1737,17 @@ router.delete("/api/kpi/template/:id", verifyToken, async (req, res) => {
         const isAdmin = req.user.role === 'Admin';
         let isTeamHOD = false;
 
-        if (!isOwner && !isAdmin && req.user.role === 'Head_of_Department') {
+        const isHodRole = (r) => {
+            const normalized = String(r || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+            return normalized === 'hod' || normalized === 'headofdepartment';
+        };
+
+        if (!isOwner && !isAdmin && isHodRole(req.user.role)) {
             const team = await TeamModel.findOne({ 
-                hodId: req.user._id, 
+                $or: [
+                    { hodId: req.user._id },
+                    { 'members.userId': req.user._id }
+                ],
                 'members.userId': template.owner 
             });
             if (team) isTeamHOD = true;
@@ -1884,7 +1924,12 @@ router.get("/api/kpi/analytics/all-open-points", verifyToken, async (req, res) =
 // Get Non Submitters for selected period
 router.get("/api/kpi/analytics/non-submitters", verifyToken, async (req, res) => {
     try {
-        if (req.user.role !== 'Admin' && req.user.role !== 'Head_of_Department') {
+        const isHodRole = (r) => {
+            const normalized = String(r || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+            return normalized === 'hod' || normalized === 'headofdepartment';
+        };
+
+        if (req.user.role !== 'Admin' && !isHodRole(req.user.role)) {
             return res.status(403).json({ message: "Access Denied: HOD or Admin role required." });
         }
 
@@ -1903,13 +1948,21 @@ router.get("/api/kpi/analytics/non-submitters", verifyToken, async (req, res) =>
                 if (team.hodId) targetUserIds.push(team.hodId.toString());
                 targetUserIds = [...new Set(targetUserIds)];
             }
-        } else if (req.user.role === 'Head_of_Department') {
-            const hodTeam = await TeamModel.findOne({ hodId: req.user._id, isActive: { $ne: false } });
-            if (hodTeam) {
-                targetUserIds = hodTeam.members.map(m => m.userId.toString());
-                targetUserIds.push(req.user._id.toString());
-                targetUserIds = [...new Set(targetUserIds)];
-            }
+        } else if (isHodRole(req.user.role)) {
+            const hodTeams = await TeamModel.find({ 
+                $or: [
+                    { hodId: req.user._id },
+                    { "members.userId": req.user._id }
+                ],
+                isActive: { $ne: false } 
+            });
+            const memberIds = new Set([req.user._id.toString()]);
+            hodTeams.forEach(t => {
+                t.members.forEach(m => {
+                    if (m.userId) memberIds.add(m.userId.toString());
+                });
+            });
+            targetUserIds = Array.from(memberIds);
         }
 
         let userQuery = { isActive: { $ne: false } };
@@ -1998,7 +2051,11 @@ router.get("/api/kpi/analytics/pulse", verifyToken, async (req, res) => {
 
         let targetUserIds = null;
 
-        // Determine users to filter by
+        const isHodRole = (r) => {
+            const normalized = String(r || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+            return normalized === 'hod' || normalized === 'headofdepartment';
+        };
+
         if (teamName) {
             const team = await TeamModel.findOne({ name: teamName, isActive: { $ne: false } });
             if (team) {
@@ -2006,14 +2063,22 @@ router.get("/api/kpi/analytics/pulse", verifyToken, async (req, res) => {
                 if (team.hodId) targetUserIds.push(team.hodId.toString());
                 targetUserIds = [...new Set(targetUserIds)];
             }
-        } else if (req.user.role === 'Head_of_Department') {
-            // Default HOD to their team
-            const hodTeam = await TeamModel.findOne({ hodId: req.user._id, isActive: { $ne: false } });
-            if (hodTeam) {
-                targetUserIds = hodTeam.members.map(m => m.userId.toString());
-                targetUserIds.push(req.user._id.toString());
-                targetUserIds = [...new Set(targetUserIds)];
-            }
+        } else if (isHodRole(req.user.role)) {
+            // Default HOD to their teams
+            const hodTeams = await TeamModel.find({ 
+                $or: [
+                    { hodId: req.user._id },
+                    { "members.userId": req.user._id }
+                ],
+                isActive: { $ne: false } 
+            });
+            const memberIds = new Set([req.user._id.toString()]);
+            hodTeams.forEach(t => {
+                t.members.forEach(m => {
+                    if (m.userId) memberIds.add(m.userId.toString());
+                });
+            });
+            targetUserIds = Array.from(memberIds);
         }
 
         if (targetUserIds) {
@@ -2140,6 +2205,11 @@ router.get("/api/kpi/analytics/blockers-losses", verifyToken, async (req, res) =
             ]
         };
 
+        const isHodRole = (r) => {
+            const normalized = String(r || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+            return normalized === 'hod' || normalized === 'headofdepartment';
+        };
+
         let targetUserIds = null;
 
         if (teamName) {
@@ -2149,13 +2219,21 @@ router.get("/api/kpi/analytics/blockers-losses", verifyToken, async (req, res) =
                 if (team.hodId) targetUserIds.push(team.hodId.toString());
                 targetUserIds = [...new Set(targetUserIds)];
             }
-        } else if (req.user.role === 'Head_of_Department') {
-            const hodTeam = await TeamModel.findOne({ hodId: req.user._id, isActive: { $ne: false } });
-            if (hodTeam) {
-                targetUserIds = hodTeam.members.map(m => m.userId.toString());
-                targetUserIds.push(req.user._id.toString());
-                targetUserIds = [...new Set(targetUserIds)];
-            }
+        } else if (isHodRole(req.user.role)) {
+            const hodTeams = await TeamModel.find({ 
+                $or: [
+                    { hodId: req.user._id },
+                    { "members.userId": req.user._id }
+                ],
+                isActive: { $ne: false } 
+            });
+            const memberIds = new Set([req.user._id.toString()]);
+            hodTeams.forEach(t => {
+                t.members.forEach(m => {
+                    if (m.userId) memberIds.add(m.userId.toString());
+                });
+            });
+            targetUserIds = Array.from(memberIds);
         }
 
         if (targetUserIds) {

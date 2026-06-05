@@ -65,13 +65,36 @@ const logActivity = async (req, module, action, details, metadata = {}) => {
     }
 };
 
+const getHodTeams = async (hodId) => {
+    if (!hodId) return [];
+    const user = await User.findById(hodId);
+    if (!user) return [];
+
+    const isHodRole = (r) => {
+        const normalized = String(r || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+        return normalized === 'hod' || normalized === 'headofdepartment';
+    };
+
+    const targetHodId = mongoose.Types.ObjectId.isValid(hodId) ? hodId : new mongoose.Types.ObjectId(hodId);
+    
+    const query = {
+        $or: [
+            { hodId: targetHodId }
+        ],
+        isActive: { $ne: false }
+    };
+
+    if (isHodRole(user.role)) {
+        query.$or.push({ "members.userId": targetHodId });
+    }
+
+    return await TeamModel.find(query);
+};
+
 const isHODauthorized = async (hodId, employeeId) => {
     if (!employeeId) return false;
-    // Ensure hodId is treated correctly for query
-    const hodTeams = await TeamModel.find({ 
-        hodId: mongoose.Types.ObjectId.isValid(hodId) ? hodId : new mongoose.Types.ObjectId(hodId), 
-        isActive: { $ne: false } 
-    });
+    
+    const hodTeams = await getHodTeams(hodId);
     
     const authorized = hodTeams.some(team => 
         team.members?.some(m => m.userId && m.userId.toString() === employeeId.toString())
@@ -85,10 +108,7 @@ const isHODauthorized = async (hodId, employeeId) => {
 };
 
 const getHodTeamMemberIds = async (hodId) => {
-    const hodTeams = await TeamModel.find({
-        hodId: mongoose.Types.ObjectId.isValid(hodId) ? hodId : new mongoose.Types.ObjectId(hodId),
-        isActive: { $ne: false }
-    });
+    const hodTeams = await getHodTeams(hodId);
 
     const memberIds = new Set();
     hodTeams.forEach(team => {
@@ -559,10 +579,7 @@ export const punch = async (req, res) => {
             
             // Additional check for HOD: Employee must be in their team
             if (req.user.role === 'HOD') {
-                const hodTeams = await TeamModel.find({ 
-                    hodId: req.user._id,
-                    isActive: { $ne: false }
-                });
+                const hodTeams = await getHodTeams(req.user._id);
                 
                 let isInTeam = false;
                 const targetUserIdStr = targetUser._id.toString();
@@ -1888,13 +1905,21 @@ export const getMyTodayAttendance = async (req, res) => {
                 session_date: todayDate,
                 session_status: 'active'
             }),
-            TeamModel.findOne({
-                $or: [
-                    { hodId: user._id },
-                    { hodId: new mongoose.Types.ObjectId(user._id) }
-                ],
-                isActive: { $ne: false }
-            }).select('_id')
+            (() => {
+                const isHodRole = (r) => {
+                    const normalized = String(r || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+                    return normalized === 'hod' || normalized === 'headofdepartment';
+                };
+                const targetHodId = mongoose.Types.ObjectId.isValid(user._id) ? user._id : new mongoose.Types.ObjectId(user._id);
+                const q = {
+                    $or: [{ hodId: targetHodId }],
+                    isActive: { $ne: false }
+                };
+                if (isHodRole(user.role)) {
+                    q.$or.push({ "members.userId": targetHodId });
+                }
+                return TeamModel.findOne(q).select('_id');
+            })()
         ]);
         console.log(`[DEBUG_HOD] hodTeam found: ${!!hodTeam}`);
 
@@ -2108,12 +2133,19 @@ export const getTeamAttendanceReport = async (req, res) => {
         const end = moment(endDate).endOf('day').toDate();
 
         // 1. Discover Team Members
-        let teamQuery = { hodId, isActive: { $ne: false } };
+        let teams = [];
         if (teamId && teamId !== 'all') {
-            teamQuery._id = teamId;
+            const team = await TeamModel.findOne({ _id: teamId, isActive: { $ne: false } });
+            if (team) {
+                const isPrimary = team.hodId && team.hodId.toString() === hodId.toString();
+                const isSecondary = req.user.role === 'HOD' && team.members.some(m => m.userId && m.userId.toString() === hodId.toString());
+                if (isPrimary || isSecondary) {
+                    teams = [team];
+                }
+            }
+        } else {
+            teams = await getHodTeams(hodId);
         }
-
-        const teams = await TeamModel.find(teamQuery);
         const memberUserIds = new Set();
         teams.forEach(team => {
             if (team.members) {
@@ -3183,7 +3215,7 @@ export const getEmployeeFullProfile = async (req, res) => {
         }
 
         if (isHod) {
-            const hodTeams = await TeamModel.find({ hodId: req.user._id, isActive: { $ne: false } });
+            const hodTeams = await getHodTeams(req.user._id);
             const isInTeam = hodTeams.some(team =>
                 team.members?.some(m => m.userId?.toString() === id.toString())
             );
@@ -3468,10 +3500,7 @@ export const updateEmployeeProfileHOD = async (req, res) => {
         }
 
         // Verify employee is in HOD's team
-        const teams = await TeamModel.find({ 
-            hodId: req.user._id,
-            isActive: { $ne: false }
-        });
+        const teams = await getHodTeams(req.user._id);
         
         const memberIds = [];
         teams.forEach(team => {

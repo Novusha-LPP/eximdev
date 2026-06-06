@@ -219,9 +219,9 @@ const findLeaveForDateLocal = (leaves, dayMomentLocal) => {
     });
 };
 
-const REPORT_USER_SELECT_FIELDS = '_id first_name last_name username designation company_id department_id branch_id weekoff_policy_id holiday_policy_id';
+const REPORT_USER_SELECT_FIELDS = '_id first_name last_name username designation company_id department_id branch_id weekoff_policy_id holiday_policy_id shift_id';
 const REPORT_COMPANY_POPULATE = { path: 'company_id', select: 'company_name attendance_config' };
-const REPORT_ATTENDANCE_SELECT_FIELDS = 'employee_id attendance_date first_in last_out is_auto_punch_out status is_late late_by_minutes is_early_in early_in_minutes is_early_exit early_exit_minutes total_work_hours half_day_session';
+const REPORT_ATTENDANCE_SELECT_FIELDS = 'employee_id attendance_date first_in last_out is_auto_punch_out status is_late late_by_minutes is_early_in early_in_minutes is_early_exit early_exit_minutes total_work_hours half_day_session shift_id';
 const REPORT_LEAVE_SELECT_FIELDS = 'employee_id leave_policy_id leave_type from_date to_date approval_status is_half_day is_start_half_day is_end_half_day half_day_session start_half_session end_half_session reason';
 
 const mapWithConcurrency = async (items, concurrency, mapper) => {
@@ -413,7 +413,10 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
             leaveType: leave?.leave_type || null,
             leaveStatus: leave?.approval_status || null,
             leaveReason: leave?.reason || null,
-            is_half_day_leave: !!(leave?.is_half_day || leave?.is_start_half_day || leave?.is_end_half_day)
+            is_half_day_leave: !!(leave?.is_half_day || leave?.is_start_half_day || leave?.is_end_half_day),
+            first_in: rec?.first_in || null,
+            last_out: rec?.last_out || null,
+            shift_id: rec?.shift_id || null
         });
         curr.add(1, 'day');
     }
@@ -447,6 +450,7 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
         weekoff_policy_name: firstPolicyBucket.weekOffPolicy?.policy_name || null,
         holiday_policy_id: firstPolicyBucket.holidayPolicy?._id || null,
         holiday_policy_name: firstPolicyBucket.holidayPolicy?.policy_name || null,
+        shift_id: emp.shift_id || null,
         latestRecord: latestRecord ? {
             id: latestRecord._id,
             date: latestRecord.attendance_date,
@@ -2060,6 +2064,7 @@ export const getAdminAttendanceReport = async (req, res) => {
         const employees = await User.find(userQuery)
             .select(REPORT_USER_SELECT_FIELDS)
             .populate(REPORT_COMPANY_POPULATE)
+            .populate({ path: 'shift_id', select: 'shift_name start_time end_time' })
             .lean();
 
         if (employees.length === 0) {
@@ -2097,7 +2102,10 @@ export const getAdminAttendanceReport = async (req, res) => {
             AttendanceRecord.find({
                 employee_id: { $in: employeeIds },
                 attendance_date: { $gte: start, $lte: end }
-            }).select(REPORT_ATTENDANCE_SELECT_FIELDS).lean(),
+            })
+            .select(REPORT_ATTENDANCE_SELECT_FIELDS)
+            .populate({ path: 'shift_id', select: 'shift_name start_time end_time' })
+            .lean(),
             LeaveApplication.find({
                 employee_id: { $in: employeeIds },
                 approval_status: { $in: ['approved', 'pending'] },
@@ -2193,6 +2201,7 @@ export const getTeamAttendanceReport = async (req, res) => {
         })
             .select(REPORT_USER_SELECT_FIELDS)
             .populate(REPORT_COMPANY_POPULATE)
+            .populate({ path: 'shift_id', select: 'shift_name start_time end_time' })
             .lean();
 
         if (employees.length === 0) {
@@ -2217,7 +2226,10 @@ export const getTeamAttendanceReport = async (req, res) => {
             AttendanceRecord.find({
                 employee_id: { $in: employeeIds },
                 attendance_date: { $gte: start, $lte: end }
-            }).select(REPORT_ATTENDANCE_SELECT_FIELDS).lean(),
+            })
+            .select(REPORT_ATTENDANCE_SELECT_FIELDS)
+            .populate({ path: 'shift_id', select: 'shift_name start_time end_time' })
+            .lean(),
             LeaveApplication.find({
                 employee_id: { $in: employeeIds },
                 approval_status: { $in: ['approved', 'pending'] },

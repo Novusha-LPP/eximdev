@@ -928,209 +928,198 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
         periodCell.alignment = { horizontal: 'center', vertical: 'middle' };
         ws.mergeCells(`A${periodRow.number}:G${periodRow.number}`);
 
-        // ── Fetch each employee's attendance logs ──
+        // ── Fetch all employees' logs in bulk ──
         const start = moment(dlStart).format('YYYY-MM-DD');
         const end   = moment(dlEnd).format('YYYY-MM-DD');
+
+        let response;
+        if (teamId && teamId !== 'all') {
+          response = await attendanceAPI.getTeamAttendanceReport(start, end, teamId);
+        } else {
+          response = await attendanceAPI.getAdminAttendanceReport(start, end, undefined, 'all');
+        }
+
+        const reportDataRaw = response?.data || [];
+        const reportDataEnriched = await enrichReportWithLeaveBalance(reportDataRaw);
+        const reportMap = new Map(reportDataEnriched.map(e => [String(e.id), e]));
+
         let summaryRows = []; // for in-sheet summary
 
-        for (let i = 0; i < employees.length; i += 5) {
-          const chunk = employees.slice(i, i + 5);
-          await Promise.all(chunk.map(async (emp) => {
-            try {
-              const p = await attendanceAPI.getEmployeeFullProfile(emp._id, start, end, emp.company_id?._id || emp.company_id);
-              const logs = p?.attendance || [];
-              let empPresent = 0, empAbsent = 0, empHalfDay = 0, empLeaves = 0;
-              let empTotalHours = 0;
-              const empName = [emp.first_name, emp.last_name].filter(Boolean).join(' ').trim() || emp.username || '';
+        employees.forEach((emp) => {
+          try {
+            const p = reportMap.get(String(emp._id));
+            if (!p) {
+              console.warn('No report data found for employee', emp._id);
+              return;
+            }
+            const logs = p.history || [];
+            let empPresent = 0, empAbsent = 0, empHalfDay = 0, empLeaves = 0;
+            let empTotalHours = 0;
+            const empName = [emp.first_name, emp.last_name].filter(Boolean).join(' ').trim() || emp.username || '';
 
-              // Spacer row before each employee name header (except the first employee)
-              if (ws.rowCount > 2) {
-                ws.addRow([]);
+            // Spacer row before each employee name header (except the first employee)
+            if (ws.rowCount > 2) {
+              ws.addRow([]);
+            }
+
+            // Merged Employee Name Header
+            const empHeaderRow = ws.addRow([empName]);
+            empHeaderRow.height = 22;
+            ws.mergeCells(`A${empHeaderRow.number}:G${empHeaderRow.number}`);
+            const empCell = empHeaderRow.getCell(1);
+            empCell.font = { bold: true, color: { argb: 'FFFFFFFF' }, name: 'Arial', size: 11 };
+            empCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2B6CB0' } }; // steel blue
+            empCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+            // Column Subheaders
+            const subheaderRow = ws.addRow(['Date', 'Day', 'Shift', 'Status', 'In Time', 'Out Time', 'Total Hours']);
+            subheaderRow.height = 20;
+            subheaderRow.eachCell(cell => {
+              cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, name: 'Arial', size: 10 };
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B82F6' } }; // royal blue
+              cell.alignment = { horizontal: 'center', vertical: 'middle' };
+              cell.border = {
+                top: { style: 'thin', color: { argb: 'FFB0C4DE' } },
+                left: { style: 'thin', color: { argb: 'FFB0C4DE' } },
+                bottom: { style: 'thin', color: { argb: 'FFB0C4DE' } },
+                right: { style: 'thin', color: { argb: 'FFB0C4DE' } }
+              };
+            });
+
+            // Sort logs ascending
+            const sortedLogs = [...logs].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            sortedLogs.forEach(log => {
+              const isSunday = moment(log.date).day() === 0;
+              let logStatus = log.status || 'Present';
+              if (isSunday) {
+                logStatus = 'weekly_off';
               }
 
-              // Merged Employee Name Header
-              const empHeaderRow = ws.addRow([empName]);
-              empHeaderRow.height = 22;
-              ws.mergeCells(`A${empHeaderRow.number}:G${empHeaderRow.number}`);
-              const empCell = empHeaderRow.getCell(1);
-              empCell.font = { bold: true, color: { argb: 'FFFFFFFF' }, name: 'Arial', size: 11 };
-              empCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2B6CB0' } }; // steel blue
-              empCell.alignment = { horizontal: 'center', vertical: 'middle' };
+              const sn = log.shift_id?.shift_name || p.shift_id?.shift_name || '';
+              const st = log.shift_id?.start_time || p.shift_id?.start_time || '';
+              const et = log.shift_id?.end_time   || p.shift_id?.end_time   || '';
+              const shiftStr = sn ? (st && et ? `${sn} ${st}–${et}` : sn) : (st && et ? `${st}–${et}` : '—');
 
-              // Column Subheaders
-              const subheaderRow = ws.addRow(['Date', 'Day', 'Shift', 'Status', 'In Time', 'Out Time', 'Total Hours']);
-              subheaderRow.height = 20;
-              subheaderRow.eachCell(cell => {
-                cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, name: 'Arial', size: 10 };
-                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B82F6' } }; // royal blue
-                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+              const fdt = dt => dt ? moment(dt).format('h:mm A') : '';
+              let displayStatus = logStatus || 'Present';
+              if (logStatus === 'half_day') displayStatus = 'Half Day';
+              else if (logStatus) {
+                const statusLower = logStatus.toLowerCase();
+                if (statusLower === 'weekly_off' || statusLower === 'weekoff' || statusLower === 'off') displayStatus = 'Weekly Off';
+                else if (statusLower === 'half_day') displayStatus = 'Half Day';
+                else displayStatus = logStatus.charAt(0).toUpperCase() + logStatus.slice(1).replace(/_/g, ' ');
+              }
+
+              // Calc work hours
+              let wh = '';
+              if (log.first_in && log.last_out) {
+                const diff = moment(log.last_out).diff(moment(log.first_in), 'hours', true);
+                if (diff > 0 && diff < 24) {
+                  wh = diff.toFixed(1) + ' hrs';
+                  empTotalHours += diff;
+                }
+              }
+
+              const dateStr = moment(log.date).format('DD-MM-YYYY');
+              const dayStr = moment(log.date).format('ddd');
+
+              const dataRow = ws.addRow([dateStr, dayStr, shiftStr, displayStatus, fdt(log.first_in), fdt(log.last_out), wh]);
+              dataRow.height = 18;
+
+              dataRow.eachCell((cell, colNumber) => {
+                cell.font = { name: 'Arial', size: 10 };
                 cell.border = {
-                  top: { style: 'thin', color: { argb: 'FFB0C4DE' } },
-                  left: { style: 'thin', color: { argb: 'FFB0C4DE' } },
-                  bottom: { style: 'thin', color: { argb: 'FFB0C4DE' } },
-                  right: { style: 'thin', color: { argb: 'FFB0C4DE' } }
+                  top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                  left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                  bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                  right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
                 };
-              });
-
-              // Sort logs ascending
-              const sortedLogs = [...logs].sort((a, b) => new Date(a.attendance_date) - new Date(b.attendance_date));
-
-              sortedLogs.forEach(log => {
-                const isSunday = moment(log.attendance_date).day() === 0;
-                let logStatus = log.status || 'Present';
-                if (isSunday) {
-                  logStatus = 'weekly_off';
-                }
-
-                const sn = log.shift_id?.shift_name || p.employee?.shift_id?.shift_name || '';
-                const st = log.shift_id?.start_time || p.employee?.shift_id?.start_time || '';
-                const et = log.shift_id?.end_time   || p.employee?.shift_id?.end_time   || '';
-                const shiftStr = sn ? (st && et ? `${sn} ${st}–${et}` : sn) : (st && et ? `${st}–${et}` : '—');
-
-                const fdt = dt => dt ? moment(dt).format('h:mm A') : '';
-                let displayStatus = logStatus || 'Present';
-                if (logStatus === 'half_day') displayStatus = 'Half Day';
-                else if (logStatus) {
-                  const statusLower = logStatus.toLowerCase();
-                  if (statusLower === 'weekly_off' || statusLower === 'weekoff' || statusLower === 'off') displayStatus = 'Weekly Off';
-                  else if (statusLower === 'half_day') displayStatus = 'Half Day';
-                  else displayStatus = logStatus.charAt(0).toUpperCase() + logStatus.slice(1).replace(/_/g, ' ');
-                }
-
-                // Calc work hours
-                let wh = '';
-                if (log.first_in && log.last_out) {
-                  const diff = moment(log.last_out).diff(moment(log.first_in), 'hours', true);
-                  if (diff > 0 && diff < 24) {
-                    wh = diff.toFixed(1) + ' hrs';
-                    empTotalHours += diff;
-                  }
-                }
-
-                const dateStr = moment(log.attendance_date).format('DD-MM-YYYY');
-                const dayStr = moment(log.attendance_date).format('ddd');
-
-                const dataRow = ws.addRow([dateStr, dayStr, shiftStr, displayStatus, fdt(log.first_in), fdt(log.last_out), wh]);
-                dataRow.height = 18;
-
-                dataRow.eachCell((cell, colNumber) => {
-                  cell.font = { name: 'Arial', size: 10 };
-                  cell.border = {
-                    top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-                    left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-                    bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-                    right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
-                  };
-                  if (colNumber === 3) {
-                    cell.alignment = { horizontal: 'left', vertical: 'middle' };
-                  } else {
-                    cell.alignment = { horizontal: 'center', vertical: 'middle' };
-                  }
-                });
-
-                // Style the Status cell
-                const statusCell = dataRow.getCell(4);
-                statusCell.font = { bold: true, name: 'Arial', size: 10 };
-                const sLower = String(logStatus).toLowerCase();
-                
-                if (sLower === 'present' || sLower === 'late' || sLower === 'present_late') {
-                  statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } }; // light green
-                  statusCell.font.color = { argb: 'FF065F46' }; // dark green
-                } else if (sLower === 'absent') {
-                  statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } }; // light red
-                  statusCell.font.color = { argb: 'FF991B1B' }; // dark red
-                } else if (sLower === 'leave' || sLower === 'pending_leave') {
-                  statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } }; // light orange
-                  statusCell.font.color = { argb: 'FF92400E' }; // dark orange
-                } else if (sLower === 'half_day') {
-                  statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDBEAFE' } }; // light blue
-                  statusCell.font.color = { argb: 'FF1E40AF' }; // dark blue
-                } else if (sLower === 'weekly_off' || sLower === 'weekoff' || sLower === 'off') {
-                  statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0FDF4' } }; // light soft green
-                  statusCell.font.color = { argb: 'FF15803D' }; // dark green
-                } else if (sLower === 'holiday') {
-                  statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3E8FF' } }; // light purple
-                  statusCell.font.color = { argb: 'FF6B21A8' }; // dark purple
+                if (colNumber === 3) {
+                  cell.alignment = { horizontal: 'left', vertical: 'middle' };
                 } else {
-                  statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }; // light grey
-                  statusCell.font.color = { argb: 'FF475569' }; // dark grey
-                }
-
-                if (sLower === 'present' || sLower === 'late' || sLower === 'holiday') empPresent++;
-                else if (sLower === 'absent') empAbsent++;
-                else if (sLower === 'half_day') empHalfDay++;
-                else if (sLower === 'leave' || sLower === 'pending_leave') empLeaves++;
-              });
-
-              // Add a total hours summary row right after the daily logs for the employee
-              const totalRow = ws.addRow(['Total Worked Hours', '', '', '', '', '', `${empTotalHours.toFixed(1)} hrs`]);
-              totalRow.height = 20;
-              ws.mergeCells(`A${totalRow.number}:F${totalRow.number}`);
-              for (let colNum = 1; colNum <= 7; colNum++) {
-                const cell = totalRow.getCell(colNum);
-                cell.font = { bold: true, name: 'Arial', size: 10 };
-                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }; // light grey/slate-200
-                cell.border = {
-                  top: { style: 'thin', color: { argb: 'FFB0C4DE' } },
-                  left: { style: 'thin', color: { argb: 'FFB0C4DE' } },
-                  bottom: { style: 'thin', color: { argb: 'FFB0C4DE' } },
-                  right: { style: 'thin', color: { argb: 'FFB0C4DE' } }
-                };
-                if (colNum === 1) {
-                  cell.alignment = { horizontal: 'right', vertical: 'middle' };
-                } else if (colNum === 7) {
                   cell.alignment = { horizontal: 'center', vertical: 'middle' };
                 }
+              });
+
+              // Style the Status cell
+              const statusCell = dataRow.getCell(4);
+              statusCell.font = { bold: true, name: 'Arial', size: 10 };
+              const sLower = String(logStatus).toLowerCase();
+              
+              if (sLower === 'present' || sLower === 'late' || sLower === 'present_late') {
+                statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } }; // light green
+                statusCell.font.color = { argb: 'FF065F46' }; // dark green
+              } else if (sLower === 'absent') {
+                statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } }; // light red
+                statusCell.font.color = { argb: 'FF991B1B' }; // dark red
+              } else if (sLower === 'leave' || sLower === 'pending_leave') {
+                statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF3C7' } }; // light orange
+                statusCell.font.color = { argb: 'FF92400E' }; // dark orange
+              } else if (sLower === 'half_day') {
+                statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDBEAFE' } }; // light blue
+                statusCell.font.color = { argb: 'FF1E40AF' }; // dark blue
+              } else if (sLower === 'weekly_off' || sLower === 'weekoff' || sLower === 'off') {
+                statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0FDF4' } }; // light soft green
+                statusCell.font.color = { argb: 'FF15803D' }; // dark green
+              } else if (sLower === 'holiday') {
+                statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3E8FF' } }; // light purple
+                statusCell.font.color = { argb: 'FF6B21A8' }; // dark purple
+              } else {
+                statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }; // light grey
+                statusCell.font.color = { argb: 'FF475569' }; // dark grey
               }
 
-              const privilegeBalance = (p.balances || []).find(b => {
-                const type = String(b.leave_type || b.leave_policy_id?.leave_type || b.name || '').toLowerCase();
-                return type.includes('privilege') || type.includes('earned') || type.includes('el');
-              });
-              const lwpBalance = (p.balances || []).find(b => {
-                const type = String(b.leave_type || b.leave_policy_id?.leave_type || b.name || '').toLowerCase();
-                return type.includes('lwp') || type.includes('without pay') || type === 'lop';
-              });
+              if (sLower === 'present' || sLower === 'late' || sLower === 'holiday') empPresent++;
+              else if (sLower === 'absent') empAbsent++;
+              else if (sLower === 'half_day') empHalfDay++;
+              else if (sLower === 'leave' || sLower === 'pending_leave') empLeaves++;
+            });
 
-              const roundLeave = (value) => Math.round(Number(value || 0) * 10) / 10;
-              const openingBalance = privilegeBalance ? roundLeave(
-                privilegeBalance.opening_balance ?? 0
-              ) : 0;
-              const privilegeTaken = privilegeBalance ? roundLeave(
-                privilegeBalance.used ?? privilegeBalance.consumed ?? 0
-              ) : 0;
-              const lwpTaken = lwpBalance ? roundLeave(
-                lwpBalance.used ?? lwpBalance.consumed ?? 0
-              ) : 0;
-              // Compute available: prefer explicit fields then fall back to arithmetic
-              const privilegePending = privilegeBalance
-                ? roundLeave(privilegeBalance.pending_approval ?? privilegeBalance.pending ?? 0)
-                : 0;
-              const availableBalance = privilegeBalance ? roundLeave(
-                privilegeBalance.closing_balance
-                  ?? privilegeBalance.available
-                  ?? privilegeBalance.balance
-                  ?? Math.max(0, openingBalance - privilegeTaken - privilegePending)
-              ) : 0;
-
-              summaryRows.push({
-                name: empName,
-                present: empPresent,
-                absent: empAbsent,
-                halfDay: empHalfDay,
-                leaves: empLeaves,
-                total: sortedLogs.length,
-                totalHours: empTotalHours,
-                openingBalance,
-                privilegeTaken,
-                lwpTaken,
-                availableBalance
-              });
-            } catch (e) {
-              console.warn('Failed to fetch logs for', emp._id, e);
+            // Add a total hours summary row right after the daily logs for the employee
+            const totalRow = ws.addRow(['Total Worked Hours', '', '', '', '', '', `${empTotalHours.toFixed(1)} hrs`]);
+            totalRow.height = 20;
+            ws.mergeCells(`A${totalRow.number}:F${totalRow.number}`);
+            for (let colNum = 1; colNum <= 7; colNum++) {
+              const cell = totalRow.getCell(colNum);
+              cell.font = { bold: true, name: 'Arial', size: 10 };
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }; // light grey/slate-200
+              cell.border = {
+                top: { style: 'thin', color: { argb: 'FFB0C4DE' } },
+                left: { style: 'thin', color: { argb: 'FFB0C4DE' } },
+                bottom: { style: 'thin', color: { argb: 'FFB0C4DE' } },
+                right: { style: 'thin', color: { argb: 'FFB0C4DE' } }
+              };
+              if (colNum === 1) {
+                cell.alignment = { horizontal: 'right', vertical: 'middle' };
+              } else if (colNum === 7) {
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+              }
             }
-          }));
-        }
+
+            const roundLeave = (value) => Math.round(Number(value || 0) * 10) / 10;
+            const openingBalance = roundLeave(p.opening_balance || 0);
+            const privilegeTaken = roundLeave(p.privilege_taken || 0);
+            const lwpTaken = roundLeave(p.lwp_taken || 0);
+            const availableBalance = roundLeave(p.available_balance || 0);
+
+            summaryRows.push({
+              name: empName,
+              present: empPresent,
+              absent: empAbsent,
+              halfDay: empHalfDay,
+              leaves: empLeaves,
+              total: sortedLogs.length,
+              totalHours: empTotalHours,
+              openingBalance,
+              privilegeTaken,
+              lwpTaken,
+              availableBalance
+            });
+          } catch (e) {
+            console.warn('Failed to process logs for', emp._id, e);
+          }
+        });
 
         // ── In-sheet Summary ──────────────────────────────────────────────
         ws.addRow([]); // spacer
@@ -1267,13 +1256,13 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
       if (balanceRes?.data) {
         balanceRes.data.forEach(balance => {
           const empId = balance.employee_id;
-          const leaveType = String(balance.leave_type || '').toLowerCase();
+          const leaveType = String(balance.leave_type || balance.leave_policy_id?.leave_type || balance.name || '').toLowerCase();
 
-          if (leaveType === 'privilege') {
+          if (leaveType.includes('privilege') || leaveType.includes('earned') || leaveType === 'el') {
             privilegeOpeningMap.set(empId, Number(balance.opening_balance || 0));
             privilegeAvailableMap.set(empId, Number(balance.closing_balance || 0));
             privilegeUsedMap.set(empId, Number(balance.used || 0));
-          } else if (leaveType === 'lwp') {
+          } else if (leaveType.includes('lwp') || leaveType.includes('without pay') || leaveType === 'lop') {
             lwpUsedMap.set(empId, Number(balance.used || 0));
           }
         });
@@ -1739,7 +1728,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
               <FiDownload size={14} /> Attendance Report
             </button>
             <button
-              onClick={() => setEpwDlModal(p => ({ ...p, open: true, exportType: 'summary' }))}
+              onClick={() => setEpwDlModal(p => ({ ...p, open: true, exportType: 'detailed' }))}
               style={{ display:'flex', alignItems:'center', gap:'6px', padding:'8px 16px', background:'linear-gradient(135deg,#10b981,#059669)', color:'#fff', border:'none', borderRadius:'9px', fontSize:'12px', fontWeight:'700', cursor:'pointer', boxShadow:'0 4px 12px rgba(16,185,129,0.25)', transition:'all 0.2s' }}
               onMouseEnter={e => e.currentTarget.style.transform='translateY(-1px)'}
               onMouseLeave={e => e.currentTarget.style.transform='translateY(0)'}

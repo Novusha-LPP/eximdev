@@ -70,13 +70,14 @@ const getHodTeams = async (hodId) => {
     const user = await User.findById(hodId);
     if (!user) return [];
 
-    const isHodRole = (r) => {
+    const isHodRoleCheck = (r) => {
         const normalized = String(r || '').trim().toLowerCase().replace(/[^a-z]/g, '');
         return normalized === 'hod' || normalized === 'headofdepartment';
     };
 
     const targetHodId = mongoose.Types.ObjectId.isValid(hodId) ? hodId : new mongoose.Types.ObjectId(hodId);
     
+    // Always check if user is set as hodId (primary HOD by assignment, regardless of role)
     const query = {
         $or: [
             { hodId: targetHodId }
@@ -84,16 +85,24 @@ const getHodTeams = async (hodId) => {
         isActive: { $ne: false }
     };
 
-    if (isHodRole(user.role)) {
+    // Additionally, if the user has HOD role, they can act on teams where they're a member
+    if (isHodRoleCheck(user.role)) {
         query.$or.push({ "members.userId": targetHodId });
     }
 
     return await TeamModel.find(query);
 };
 
+/**
+ * Check if the given actorId is authorized to act on a team member's requests.
+ * Authorization is granted if the actor is:
+ *  1. The hodId of any team the employee belongs to (primary HOD, regardless of role), OR
+ *  2. A member of the employee's team AND has an HOD-type role.
+ */
 const isHODauthorized = async (hodId, employeeId) => {
     if (!employeeId) return false;
     
+    // Get all teams this actor manages (by hodId or HOD role membership)
     const hodTeams = await getHodTeams(hodId);
     
     const authorized = hodTeams.some(team => 
@@ -105,6 +114,24 @@ const isHODauthorized = async (hodId, employeeId) => {
     }
 
     return authorized;
+};
+
+/**
+ * Check if the given userId is the hodId of ANY team containing the employee.
+ * Used to grant approval rights to designated team HODs even without an HOD role label.
+ */
+const isDesignatedHodForEmployee = async (userId, employeeId) => {
+    if (!userId || !employeeId) return false;
+    const targetUserId = mongoose.Types.ObjectId.isValid(userId) ? userId : new mongoose.Types.ObjectId(userId);
+    const targetEmpId = mongoose.Types.ObjectId.isValid(employeeId) ? employeeId : new mongoose.Types.ObjectId(employeeId);
+
+    // Find any team where this user is the designated hodId AND the employee is a member
+    const teamWithBoth = await TeamModel.findOne({
+        hodId: targetUserId,
+        'members.userId': targetEmpId,
+        isActive: { $ne: false }
+    });
+    return !!teamWithBoth;
 };
 
 const getHodTeamMemberIds = async (hodId) => {
@@ -3585,11 +3612,11 @@ export const approveRegularization = async (req, res) => {
             return res.status(400).json({ message: 'regularization_id is required' });
         }
 
-        if (req.user.role !== 'ADMIN' && req.user.role !== 'HOD') {
-            return res.status(403).json({ message: 'Authorization denied: Only admins and HODs can approve regularizations' });
-        }
+        const actorRoleNorm = String(req.user.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+        const isAdminActor = actorRoleNorm === 'ADMIN';
+        const isHodActor = actorRoleNorm === 'HOD' || actorRoleNorm === 'HEADOFDEPARTMENT';
 
-        // Fetch regularization request
+        // Fetch regularization request first (needed for the designated-HOD check below)
         const regularization = await RegularizationRequest.findById(regularizationId);
         if (!regularization) {
             return res.status(404).json({ message: 'Regularization request not found' });
@@ -3599,8 +3626,16 @@ export const approveRegularization = async (req, res) => {
             return res.status(400).json({ message: 'Regularization is not in pending status' });
         }
 
-        // HOD Authorization Check: Must be employee's HOD
-        if (req.user.role === 'HOD') {
+        // Check if actor is a designated HOD (hodId) for this employee's team,
+        // even if they don't carry the HOD role label.
+        const isDesignatedHod = await isDesignatedHodForEmployee(req.user._id, regularization.employee_id);
+
+        if (!isAdminActor && !isHodActor && !isDesignatedHod) {
+            return res.status(403).json({ message: 'Authorization denied: Only admins and designated HODs can approve regularizations' });
+        }
+
+        // HOD Authorization Check: if actor has HOD role, ensure the employee is in their team
+        if (isHodActor && !isDesignatedHod) {
             if (!await isHODauthorized(req.user._id, regularization.employee_id)) {
                 return res.status(403).json({ message: 'Forbidden: Employee not in your team' });
             }

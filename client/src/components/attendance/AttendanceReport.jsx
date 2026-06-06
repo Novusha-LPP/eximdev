@@ -867,7 +867,32 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
 
     const workbook = new ExcelJS.Workbook();
     workbook.creator = 'Exim Application';
-    const reportMetricsById = new Map(reportData.map(row => [row.id, row]));
+
+    const enrichHistoryWithSundayOverride = (history) => {
+        if (!Array.isArray(history)) return [];
+        return history.map(day => {
+            const isSunday = moment(day.date || day.attendance_date).day() === 0;
+            if (isSunday) {
+                return {
+                    ...day,
+                    status: 'weekly_off'
+                };
+            }
+            return day;
+        });
+    };
+
+    const processedReportData = reportData.map(e => ({
+        ...e,
+        history: enrichHistoryWithSundayOverride(e.history)
+    }));
+
+    const processedFiltered = filtered.map(e => ({
+        ...e,
+        history: enrichHistoryWithSundayOverride(e.history)
+    }));
+
+    const reportMetricsById = new Map(processedReportData.map(row => [row.id, row]));
 
     // ── Helper: style a header row ──────────────────────────────────────
     const styleHeader = (row, bgArgb, textArgb = 'FF0F172A') => {
@@ -901,7 +926,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
             const status = String(day?.status || '').toLowerCase();
             const leaveType = day?.leaveType || day?.leave_type || '';
 
-            if (status === 'present' || status === 'late' || status === 'weekly_off') return total + 1;
+            if (status === 'present' || status === 'late' || status === 'weekly_off' || status === 'holiday') return total + 1;
             if (status === 'leave') return isPrivilegeLeave(leaveType) ? total + 1 : total;
             if (status === 'half_day') {
                 if (isPrivilegeLeave(leaveType)) return total + 1;
@@ -990,7 +1015,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
 
     // ── Group filtered employees by company ─────────────────────────────
     const byCompany = {};
-    filtered.forEach(e => {
+    processedFiltered.forEach(e => {
         const co = e.company_name?.trim() || 'Unassigned';
         if (!byCompany[co]) byCompany[co] = [];
         byCompany[co].push(e);

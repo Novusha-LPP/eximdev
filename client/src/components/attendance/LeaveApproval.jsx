@@ -18,8 +18,9 @@ import LeaveBalanceManagement from './admin/LeaveBalanceManagement';
 
 // ── Cancel eligibility (30-day cutoff) ───────────────────────────────────────
 const CANCEL_CUTOFF_DAYS = 30;
-const isHistoryEligibleForCancel = (req) => {
+const isHistoryEligibleForCancel = (req, isAdminOrHod = false) => {
   if (!['pending', 'approved'].includes(req.status)) return false;
+  if (isAdminOrHod) return true;
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - CANCEL_CUTOFF_DAYS);
   return new Date(req.fromDate || req.from_date) >= cutoff;
@@ -828,7 +829,7 @@ const LeaveApproval = () => {
                                 : (req.currentApproverName || req.approvedBy || '—')}
                             </td>
                             <td style={{ padding: '10px 14px', textAlign: 'right' }}>
-                              {isHistoryEligibleForCancel(req) && (
+                              {isHistoryEligibleForCancel(req, isAdmin || isHOD) && (
                                 <button className="ap-icon-btn" style={{ color: '#ef4444', border: 'none' }} onClick={() => setCancelModal(req)}>
                                   <FiXCircle size={16} />
                                 </button>

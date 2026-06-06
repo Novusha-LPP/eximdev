@@ -1306,10 +1306,10 @@ export const cancelLeave = async (req, res) => {
             });
         }
 
-        // Date-based cutoff: leaves starting more than 30 days ago cannot be cancelled
+        // Date-based cutoff: leaves starting more than 30 days ago cannot be cancelled (except for Admins and HODs)
         const CUTOFF_DAYS = 30;
         const cutoffDate = moment().subtract(CUTOFF_DAYS, 'days').startOf('day');
-        if (moment(application.from_date).isBefore(cutoffDate)) {
+        if (!isAdmin && !isHOD && moment(application.from_date).isBefore(cutoffDate)) {
             return res.status(400).json({
                 message: `Cannot cancel leaves that started more than ${CUTOFF_DAYS} days ago`
             });

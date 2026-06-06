@@ -1306,7 +1306,9 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
 
       let reportDataRaw = response?.data || [];
       const reportDataEnriched = await enrichReportWithLeaveBalance(reportDataRaw);
-      const reportMetricsById = new Map(reportDataEnriched.map(row => [row.id, row]));
+      const filteredEmpIds = new Set(filteredEmployees.map(emp => String(emp._id)));
+      const filteredReportData = reportDataEnriched.filter(emp => filteredEmpIds.has(String(emp.id)));
+      const reportMetricsById = new Map(filteredReportData.map(row => [row.id, row]));
 
       // Preprocess to override Sunday logs to 'weekly_off'
       const enrichHistoryWithSundayOverride = (history) => {
@@ -1323,7 +1325,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
         });
       };
 
-      const processedReportData = reportDataEnriched.map(e => ({
+      const processedReportData = filteredReportData.map(e => ({
         ...e,
         history: enrichHistoryWithSundayOverride(e.history)
       }));
@@ -1727,14 +1729,14 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
             >
               <FiDownload size={14} /> Attendance Report
             </button>
-            <button
-              onClick={() => setEpwDlModal(p => ({ ...p, open: true, exportType: 'detailed' }))}
+            {/* <button
+              onClick={() => setEpwDlModal(p => ({ ...p, open: true, exportType: 'summary' }))}
               style={{ display:'flex', alignItems:'center', gap:'6px', padding:'8px 16px', background:'linear-gradient(135deg,#10b981,#059669)', color:'#fff', border:'none', borderRadius:'9px', fontSize:'12px', fontWeight:'700', cursor:'pointer', boxShadow:'0 4px 12px rgba(16,185,129,0.25)', transition:'all 0.2s' }}
               onMouseEnter={e => e.currentTarget.style.transform='translateY(-1px)'}
               onMouseLeave={e => e.currentTarget.style.transform='translateY(0)'}
             >
               <FiDownload size={14} /> Export Excel
-            </button>
+            </button> */}
           </div>
         </div>
 
@@ -1993,14 +1995,17 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
           <div style={{ position:'fixed', inset:0, background:'rgba(15,23,42,0.55)', backdropFilter:'blur(4px)', zIndex:100001, display:'flex', alignItems:'center', justifyContent:'center', padding:'16px' }} onClick={() => setEpwDlModal(p => ({ ...p, open:false }))}>
             <div style={{ background:'#fff', borderRadius:'16px', width:'100%', maxWidth:'460px', overflow:'hidden', boxShadow:'0 24px 60px rgba(0,0,0,0.25)' }} onClick={e => e.stopPropagation()}>
               {/* Modal Header */}
-              <div style={{ padding:'20px 24px', background:'linear-gradient(135deg,#0f172a,#1e293b)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <div style={{ padding:'20px 24px', background: epwDlModal.exportType === 'summary' ? 'linear-gradient(135deg,#10b981,#059669)' : 'linear-gradient(135deg,#0f172a,#1e293b)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                 <div>
                   <div style={{ fontSize:'16px', fontWeight:'800', color:'#fff', display:'flex', alignItems:'center', gap:'8px' }}>
-                    <FiDownload size={16} color="#60a5fa" /> Download Attendance Report
+                    <FiDownload size={16} color={epwDlModal.exportType === 'summary' ? '#a7f3d0' : '#60a5fa'} />
+                    {epwDlModal.exportType === 'summary' ? 'Export Summary Excel' : 'Download Attendance Report'}
                   </div>
-                  <div style={{ fontSize:'11px', color:'#94a3b8', marginTop:'4px' }}>Configure your export options below</div>
+                  <div style={{ fontSize:'11px', color: epwDlModal.exportType === 'summary' ? '#d1fae5' : '#94a3b8', marginTop:'4px' }}>
+                    {epwDlModal.exportType === 'summary' ? 'Configure your summary export options below' : 'Configure your export options below'}
+                  </div>
                 </div>
-                <button onClick={() => setEpwDlModal(p => ({ ...p, open:false }))} style={{ background:'rgba(255,255,255,0.1)', border:'none', borderRadius:'7px', width:'28px', height:'28px', cursor:'pointer', color:'#94a3b8', fontSize:'18px', display:'flex', alignItems:'center', justifyContent:'center' }}>×</button>
+                <button onClick={() => setEpwDlModal(p => ({ ...p, open:false }))} style={{ background:'rgba(255,255,255,0.1)', border:'none', borderRadius:'7px', width:'28px', height:'28px', cursor:'pointer', color: epwDlModal.exportType === 'summary' ? '#d1fae5' : '#94a3b8', fontSize:'18px', display:'flex', alignItems:'center', justifyContent:'center' }}>×</button>
               </div>
 
               {/* Modal Body */}
@@ -2047,36 +2052,40 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                   </select>
                 </div>
 
-                {/* Group By */}
-                <div>
-                  <div style={{ fontSize:'11px', fontWeight:'800', color:'#334155', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:'10px' }}>📊 Group Sheets By</div>
-                  <div style={{ display:'flex', gap:'8px' }}>
-                    {[['organization','🏢 Organization'],['team','👥 Team'],['none','📋 None (Single Sheet)']].map(([val, lbl]) => (
-                      <button
-                        key={val}
-                        onClick={() => setEpwDlModal(p => ({ ...p, groupBy: val }))}
-                        style={{
-                          flex: 1, padding:'10px 6px', border:`2px solid ${epwDlModal.groupBy === val ? '#4f46e5' : '#e2e8f0'}`,
-                          borderRadius:'10px', background: epwDlModal.groupBy === val ? '#eef2ff' : '#f8fafc',
-                          color: epwDlModal.groupBy === val ? '#4f46e5' : '#64748b',
-                          fontWeight: epwDlModal.groupBy === val ? '700' : '500',
-                          fontSize:'11px', cursor:'pointer', textAlign:'center', transition:'all 0.15s'
-                        }}
-                      >{lbl}</button>
-                    ))}
+                {/* Group By - only display for detailed report */}
+                {epwDlModal.exportType !== 'summary' && (
+                  <div>
+                    <div style={{ fontSize:'11px', fontWeight:'800', color:'#334155', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:'10px' }}>📊 Group Sheets By</div>
+                    <div style={{ display:'flex', gap:'8px' }}>
+                      {[['organization','🏢 Organization'],['team','👥 Team'],['none','📋 None (Single Sheet)']].map(([val, lbl]) => (
+                        <button
+                          key={val}
+                          onClick={() => setEpwDlModal(p => ({ ...p, groupBy: val }))}
+                          style={{
+                            flex: 1, padding:'10px 6px', border:`2px solid ${epwDlModal.groupBy === val ? '#4f46e5' : '#e2e8f0'}`,
+                            borderRadius:'10px', background: epwDlModal.groupBy === val ? '#eef2ff' : '#f8fafc',
+                            color: epwDlModal.groupBy === val ? '#4f46e5' : '#64748b',
+                            fontWeight: epwDlModal.groupBy === val ? '700' : '500',
+                            fontSize:'11px', cursor:'pointer', textAlign:'center', transition:'all 0.15s'
+                          }}
+                        >{lbl}</button>
+                      ))}
+                    </div>
+                    <div style={{ fontSize:'10px', color:'#94a3b8', marginTop:'8px' }}>
+                      {epwDlModal.groupBy === 'organization' && '→ One sheet per organization. In-sheet summary at the bottom.'}
+                      {epwDlModal.groupBy === 'team' && '→ One sheet per team. In-sheet summary at the bottom.'}
+                      {epwDlModal.groupBy === 'none' && '→ All employees in one sheet with summary at the bottom.'}
+                    </div>
                   </div>
-                  <div style={{ fontSize:'10px', color:'#94a3b8', marginTop:'8px' }}>
-                    {epwDlModal.groupBy === 'organization' && '→ One sheet per organization. In-sheet summary at the bottom.'}
-                    {epwDlModal.groupBy === 'team' && '→ One sheet per team. In-sheet summary at the bottom.'}
-                    {epwDlModal.groupBy === 'none' && '→ All employees in one sheet with summary at the bottom.'}
-                  </div>
-                </div>
+                )}
 
                 {/* Filename Preview */}
-                <div style={{ padding:'10px 14px', background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:'8px', fontSize:'11px', color:'#166534' }}>
+                <div style={{ padding:'10px 14px', background: epwDlModal.exportType === 'summary' ? '#ecfdf5' : '#f0fdf4', border: epwDlModal.exportType === 'summary' ? '1px solid #a7f3d0' : '1px solid #bbf7d0', borderRadius:'8px', fontSize:'11px', color: epwDlModal.exportType === 'summary' ? '#065f46' : '#166534' }}>
                   <span style={{ fontWeight:'700' }}>📁 File: </span>
                   <span style={{ fontFamily:'monospace' }}>
-                    Attendance_Report_{moment(epwDlModal.startDate).format('MMMM YYYY').replace(' ','')}_v{epwDlVersionRef.current + 1}.xlsx
+                    {epwDlModal.exportType === 'summary'
+                      ? `Attendance_Summary_${moment(epwDlModal.startDate).format('MMM_YYYY')}.xlsx`
+                      : `Attendance_Report_${moment(epwDlModal.startDate).format('MMMM YYYY').replace(' ','')}_v${epwDlVersionRef.current + 1}.xlsx`}
                   </span>
                 </div>
               </div>

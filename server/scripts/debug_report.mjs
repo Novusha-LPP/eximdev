@@ -22,25 +22,28 @@ async function main() {
 
         // Step 2: Get companies to find valid company_id
         console.log('\n--- STEP 2: GET COMPANIES ---');
-        const companiesRes = await axios.get("http://localhost:9006/api/attendance/master/companies", {
+        const companiesRes = await axios.get("http://localhost:9006/api/master/companies", {
             headers: { Cookie: cookie }
         });
         console.log('Companies:', companiesRes.data.data?.map(c => ({ id: c._id, name: c.company_name })));
 
         // Step 3: Get users to check company assignments
-        console.log('\n--- STEP 3: CHECK USERS WITH COMPANY_ID ---');
-        const usersCountRes = await axios.get("http://localhost:9006/api/attendance/debug/users-by-company", {
+        console.log('\n--- STEP 3: CHECK USERS ---');
+        const usersCountRes = await axios.get("http://localhost:9006/api/master/users?limit=20", {
             headers: { Cookie: cookie }
-        }).catch(() => null);
+        });
         
-        if (usersCountRes) {
-            console.log('Users by company:', usersCountRes.data);
+        console.log('Users Length:', usersCountRes.data.data?.length);
+        if (usersCountRes.data.data?.length > 0) {
+            const firstUser = usersCountRes.data.data[0];
+            console.log('First User Name:', firstUser.first_name, firstUser.last_name);
+            console.log('First User ID:', firstUser._id);
         }
 
         // Step 4: Try report with user's company_id
         console.log('\n--- STEP 4: GET ADMIN REPORT ---');
-        const userCompanyId = loginRes.data.company_id;
-        const reportUrlWithParams = `${reportUrl}?startDate=2026-02-01&endDate=2026-03-31&departmentId=all&company_id=${userCompanyId}`;
+        const userCompanyId = "69cd1e3c50e6c73acc73a928";
+        const reportUrlWithParams = `${reportUrl}?startDate=2026-05-01&endDate=2026-05-31&departmentId=all`;
         console.log('Report URL:', reportUrlWithParams);
         
         const reportRes = await axios.get(reportUrlWithParams, {
@@ -54,8 +57,8 @@ async function main() {
         if (reportRes.data.data?.length > 0) {
             console.log('\n--- SAMPLE DATA ---');
             const first = reportRes.data.data[0];
-            console.log('Name:', first.name);
-            console.log('Department:', first.department);
+            console.log('Keys of first item:', Object.keys(first));
+            console.log('Sample item values:', { id: first.id, _id: first._id, name: first.name, company_id: first.company_id, company_name: first.company_name });
             console.log('Present:', first.present, 'Absent:', first.absent);
         } else {
             console.log('\n--- NO DATA - Checking raw query ---');

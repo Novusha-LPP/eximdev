@@ -22,6 +22,7 @@ import ActivityLog from '../../model/attendance/ActivityLog.js';
 import ActiveSession from '../../model/attendance/ActiveSession.js';
 import { WorkHoursCalculator } from '../../services/attendance/WorkHoursCalculator.js';
 import { AttendanceStatusResolver } from '../../services/attendance/AttendanceStatusResolver.js';
+import { ALLOWED_USERNAMES } from '../../middleware/requireAllowedAdmin.mjs';
 
 // --- HELPERS ---
 const resolveCompanyId = (req) => {
@@ -3329,12 +3330,12 @@ export const getEmployeeFullProfile = async (req, res) => {
             }).populate('leave_policy_id', 'leave_type policy_name').lean(),
 
             RegularizationRequest.find({
-                employee_id: id,
-                status: 'pending'
-            }).lean()
+                employee_id: id
+            }).sort({ createdAt: -1 }).lean()
         ]);
 
-        const [attendance, balances, leaves, pendingLeaves, pendingRegularizations] = results;
+        const [attendance, balances, leaves, pendingLeaves, allRegularizations] = results;
+        const pendingRegularizations = allRegularizations.filter(r => r.status === 'pending');
 
         const policyByYear = new Map();
         const getPoliciesForYear = async (year) => {
@@ -3522,7 +3523,8 @@ export const getEmployeeFullProfile = async (req, res) => {
                 holiday_policy_name: resolvedHolidayPolicy?.policy_name || null
             },
             pendingLeaves: pendingLeaves || [],
-            pendingRegularizations: pendingRegularizations || []
+            pendingRegularizations: pendingRegularizations || [],
+            correctionRequests: allRegularizations || []
         });
     } catch (err) {
         console.error('>>> [CRITICAL_ERROR] getEmployeeFullProfile failed:', err);
@@ -3714,6 +3716,10 @@ export const approveRegularization = async (req, res) => {
         regularization.approved_by = req.user._id;
         regularization.approved_at = moment().toDate();
         regularization.approved_comments = approval_remarks;
+        regularization.is_resolved = true;
+        regularization.resolved_at = moment().toDate();
+        regularization.resolved_by = req.user._id;
+        regularization.resolution_source = 'request_approval';
         await regularization.save();
 
         await logActivity(req, 'ATTENDANCE', 'APPROVE_REGULARIZATION', `Approved regularization for ${employee.first_name}`, {
@@ -4319,6 +4325,84 @@ export const applyFullMonthPresence = async (req, res) => {
         });
     } catch (err) {
         console.error('Full Month Presence Error:', err);
+        return res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};
+
+export const getPendingCorrectionCount = async (req, res) => {
+    try {
+        const user = req.user;
+        if (!user) {
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
+
+        const username = String(user.username || '').toLowerCase();
+        const roleNormalized = String(user.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+        const isAllowedAdmin = ALLOWED_USERNAMES.has(username) && roleNormalized === 'ADMIN';
+
+        let isHod = roleNormalized === 'HOD' || roleNormalized === 'HEADOFDEPARTMENT';
+        let teams = [];
+        if (isHod || user._id) {
+            const queryOr = [];
+            if (user._id) {
+                queryOr.push({ hodId: user._id });
+            }
+            if (user.username) {
+                queryOr.push({ hodUsername: user.username });
+            }
+            if (isHod && user._id) {
+                queryOr.push({ "members.userId": user._id });
+            }
+            
+            if (queryOr.length > 0) {
+                teams = await TeamModel.find({
+                    $or: queryOr,
+                    isActive: { $ne: false }
+                }).select('members');
+            }
+        }
+
+        const isUserHod = teams.length > 0;
+
+        if (!isAllowedAdmin && !isUserHod) {
+            return res.json({ count: 0, byEmployee: {} });
+        }
+
+        let query = { status: 'pending' };
+        if (!isAllowedAdmin) {
+            const memberIds = new Set();
+            teams.forEach(team => {
+                if (team.members && Array.isArray(team.members)) {
+                    team.members.forEach(m => {
+                        if (m.userId) {
+                            memberIds.add(m.userId.toString());
+                        }
+                    });
+                }
+            });
+
+            if (memberIds.size === 0) {
+                return res.json({ count: 0, byEmployee: {} });
+            }
+
+            query.employee_id = { $in: Array.from(memberIds) };
+        }
+
+        const requests = await RegularizationRequest.find(query).select('employee_id');
+
+        const byEmployee = {};
+        let count = 0;
+        requests.forEach(reqObj => {
+            if (reqObj.employee_id) {
+                const empId = reqObj.employee_id.toString();
+                byEmployee[empId] = (byEmployee[empId] || 0) + 1;
+                count++;
+            }
+        });
+
+        return res.json({ count, byEmployee });
+    } catch (err) {
+        console.error('Error in getPendingCorrectionCount:', err);
         return res.status(500).json({ message: 'Server error', error: err.message });
     }
 };

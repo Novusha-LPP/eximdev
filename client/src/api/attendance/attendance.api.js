@@ -429,6 +429,18 @@ const attendanceAPI = {
     } catch (error) {
       throw error.response?.data || { message: 'Failed to fetch organizations' };
     }
+  },
+
+  /**
+   * Get count of pending regularization requests
+   */
+  getPendingCorrectionCount: async () => {
+    try {
+      const response = await apiClient.get('/attendance/correction-notifications/count');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to fetch pending correction count' };
+    }
   }
 };
 

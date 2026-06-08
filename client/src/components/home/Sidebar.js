@@ -1,4 +1,4 @@
-import React, { useContext, useState } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import "../../styles/sidebar.scss";
@@ -27,6 +27,30 @@ function Sidebar() {
   const navigate = useNavigate();
   const { user, setUser } = useContext(UserContext);
   const [currencyDialogOpen, setCurrencyDialogOpen] = useState(false);
+  const [pendingCorrectionCount, setPendingCorrectionCount] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchCount = async () => {
+      try {
+        const response = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/attendance/correction-notifications/count`,
+          { withCredentials: true }
+        );
+        if (response.data && typeof response.data.count === 'number') {
+          setPendingCorrectionCount(response.data.count);
+        }
+      } catch (error) {
+        console.error("Failed to fetch pending correction count:", error);
+      }
+    };
+
+    fetchCount();
+    const interval = setInterval(fetchCount, 5 * 60 * 1000); // 5 minutes
+
+    return () => clearInterval(interval);
+  }, [user]);
 
   const clearClientAuthData = () => {
     // Remove user/auth-related client state from storage.
@@ -111,7 +135,9 @@ function Sidebar() {
           onClick={() => navigate("/attendance/dashboard")}
         >
           <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-            <AccessTimeIcon />
+            <Badge badgeContent={pendingCorrectionCount} color="error">
+              <AccessTimeIcon />
+            </Badge>
           </IconButton>
         </ListItemButton>
       </Tooltip>

@@ -92,6 +92,7 @@ const AttendanceLayout = () => {
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [punchStatus, setPunchStatus] = useState(null);
     const [punching, setPunching] = useState(false);
+    const [pendingCorrectionCount, setPendingCorrectionCount] = useState(0);
 
     // Provide a fallback in case user is not loaded yet
     const role = user?.role || 'EMPLOYEE';
@@ -140,7 +141,24 @@ const AttendanceLayout = () => {
         } catch { /* silently fail */ }
     }, []);
 
+    const fetchPendingCorrectionCount = useCallback(async () => {
+        try {
+            const res = await attendanceAPI.getPendingCorrectionCount();
+            if (res && typeof res.count === 'number') {
+                setPendingCorrectionCount(res.count);
+            }
+        } catch { /* silently fail */ }
+    }, []);
+
     useEffect(() => { fetchPunchStatus(); }, [fetchPunchStatus]);
+
+    useEffect(() => {
+        if (user) {
+            fetchPendingCorrectionCount();
+            const interval = setInterval(fetchPendingCorrectionCount, 5 * 60 * 1000);
+            return () => clearInterval(interval);
+        }
+    }, [user, fetchPendingCorrectionCount]);
 
     const handleQuickPunch = async () => {
         const isIn = punchStatus?.isInSession ?? (punchStatus?.first_in && !punchStatus?.last_out);
@@ -212,8 +230,24 @@ const AttendanceLayout = () => {
                                 className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}
                                 title={isSidebarCollapsed ? item.label : ''}
                             >
-                                <item.icon className="nav-icon" />
-                                {!isSidebarCollapsed && <span className="nav-label">{item.label}</span>}
+                                <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <item.icon className="nav-icon" />
+                                   
+                                </div>
+                                {!isSidebarCollapsed && (
+                                    <span className="nav-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        {item.label}
+                                        {['Teams', 'Team Attendance', 'Team Report'].includes(item.label) && pendingCorrectionCount > 0 && (
+                                            <span style={{
+                                                width: '6px',
+                                                height: '6px',
+                                                backgroundColor: '#dc2626',
+                                                borderRadius: '50%',
+                                                display: 'inline-block'
+                                            }} />
+                                        )}
+                                    </span>
+                                )}
                             </NavLink>
                         )
                     )}

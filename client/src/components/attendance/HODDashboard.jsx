@@ -4,7 +4,7 @@ import {
   FiUsers, FiClock, FiCalendar, FiCheckCircle, FiFileText,
   FiChevronLeft, FiChevronRight, FiCheck, FiX, FiAlertCircle,
   FiLogOut, FiLogIn, FiActivity, FiArrowRight, FiRefreshCw,
-  FiAlertTriangle
+  FiAlertTriangle, FiCheckSquare
 } from 'react-icons/fi';
 import attendanceAPI from '../../api/attendance/attendance.api';
 import { API_BASE_URL } from './utils/constants';
@@ -163,7 +163,7 @@ const HODDashboard = () => {
     </div>
   );
 
-  const { summary={}, pendingLeaves=[], pendingRegularization=[], teamCalendar=[], late=[], absent=[], halfDay=[] } = data||{};
+  const { summary={}, pendingLeaves=[], pendingRegularization=[], teamCalendar=[], late=[], absent=[], halfDay=[], regularizationCountByEmployee={} } = data||{};
   const leaveCount = pendingLeaves.length, regCount = pendingRegularization.length;
   const totalPending = leaveCount + regCount;
   const exceptionsVal = (summary.earlyOut ?? 0) + (summary.halfDay ?? 0);
@@ -429,8 +429,26 @@ const HODDashboard = () => {
                       <td>
                         <div className="hod-emp-cell">
                           <div className="hod-emp-av">{initials(emp.name)}</div>
-                          <div>
-                            <div className="hod-emp-name">{emp.name}</div>
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <div className="hod-emp-name" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              {emp.name}
+                              {regularizationCountByEmployee[emp.id] > 0 && (
+                                <span className="hod-tab-badge hod-tab-badge-purple" style={{
+                                  padding: '1px 5px',
+                                  fontSize: '0.65rem',
+                                  borderRadius: '4px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '2px',
+                                  lineHeight: 1,
+                                  fontWeight: 'bold',
+                                  background: '#ede9fe',
+                                  color: '#7c3aed'
+                                }} title="Pending regularization request count">
+                                  📝 {regularizationCountByEmployee[emp.id]}
+                                </span>
+                              )}
+                            </div>
                             <div className="hod-emp-role">{emp.role||'Team Member'}</div>
                           </div>
                         </div>

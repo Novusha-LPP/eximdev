@@ -356,6 +356,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
 
   const [organizations, setOrganizations] = useState([]);
   const [gridEmployees, setGridEmployees] = useState([]);
+  const [pendingCorrectionCounts, setPendingCorrectionCounts] = useState({});
   const [teams, setTeams] = useState([]);
   const [collapsedGroups, setCollapsedGroups] = useState({});
 
@@ -715,9 +716,23 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
 
   const fetchAllEmployees = async () => {
     setGridLoading(true);
-    try { const r = await masterAPI.getUsers({ limit:2000, isActive:true, all_companies:true }); setGridEmployees(r?.data||[]); }
-    catch { toast.error('Failed to load employees'); setGridEmployees([]); }
-    finally { setGridLoading(false); }
+    try {
+      const [r, countsRes] = await Promise.all([
+        masterAPI.getUsers({ limit: 2000, isActive: true, all_companies: true }),
+        attendanceAPI.getPendingCorrectionCount().catch(err => {
+          console.error("Failed to fetch pending correction counts:", err);
+          return { byEmployee: {} };
+        })
+      ]);
+      setGridEmployees(r?.data || []);
+      setPendingCorrectionCounts(countsRes?.byEmployee || {});
+    } catch {
+      toast.error('Failed to load employees');
+      setGridEmployees([]);
+      setPendingCorrectionCounts({});
+    } finally {
+      setGridLoading(false);
+    }
   };
 
   useEffect(() => { if (!id) fetchAllEmployees(); }, [id]);
@@ -742,6 +757,17 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
       toast.success(r.data.message||'Deactivated');
       await fetchAllEmployees();
     } catch (e) { toast.error(e.response?.data?.message||'Failed to deactivate'); }
+  };
+
+  const handleRegularizationAction = async (requestId, status) => {
+    try {
+      await attendanceAPI.approveRequest('regularization', requestId, status);
+      toast.success(`Request ${status === 'resolved' ? 'resolved' : status} successfully`);
+      if (tab === 'performance') fetchBrowseHistory(browseMonth, browseYear);
+      else fetchData();
+    } catch (err) {
+      toast.error(err?.message || 'Action failed');
+    }
   };
 
   useEffect(() => { if (!id) setSelectedUserIds([]); }, [id]);
@@ -1813,9 +1839,20 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                     return (
                       <div key={emp._id} className="epw-card" onClick={go}>
                         <div style={{ position:'absolute', top:'14px', right:'14px', display:'flex', alignItems:'center', gap:'6px', zIndex:1 }}>
-                          {/* <span style={{ color:emp.isActive!==false?'#16a34a':'#475569', background:emp.isActive!==false?'#f0fdf4':'#f1f5f9', padding:'2px 7px', borderRadius:'8px', fontSize:'10px', fontWeight:'700' }}>
-                            {emp.isActive!==false?'Activeee':'Inactive'}
-                          </span> */}
+                          {pendingCorrectionCounts[emp._id] > 0 && (
+                            <span style={{
+                              color: '#ffffff',
+                              background: '#dc2626',
+                              padding: '3px 8px',
+                              borderRadius: '20px',
+                              fontSize: '10px',
+                              fontWeight: '700',
+                              display: 'inline-flex',
+                              alignItems: 'center'
+                            }}>
+                              {pendingCorrectionCounts[emp._id]} Pending
+                            </span>
+                          )}
                         </div>
                         <div className="epw-card-body">
                           {emp.employee_photo ? <img src={emp.employee_photo} className="epw-avatar" alt={name}/> : <div className="epw-initials">{initials||'??'}</div>}
@@ -2304,6 +2341,51 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                         </div>
                         <div style={{ fontSize:'11px', color:THEME.text, textTransform:'capitalize' }}>{req.regularization_type?String(req.regularization_type).replace(/_/g,' '):(req.reason||'No details')}</div>
                         {req.reason&&req.regularization_type&&<div style={{ fontSize:'11px', color:THEME.muted, marginTop:'2px', fontStyle:'italic' }}>"{req.reason}"</div>}
+                        
+                        {st === 'pending' && (
+                          <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                            <button
+                              onClick={() => handleRegularizationAction(req._id || req.id, 'approved')}
+                              style={{
+                                flex: 1,
+                                height: '24px',
+                                border: 'none',
+                                borderRadius: '4px',
+                                background: '#e8f5f0',
+                                color: '#1a7c5c',
+                                fontSize: '10px',
+                                fontWeight: '700',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '3px'
+                              }}
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => handleRegularizationAction(req._id || req.id, 'rejected')}
+                              style={{
+                                flex: 1,
+                                height: '24px',
+                                border: 'none',
+                                borderRadius: '4px',
+                                background: '#fdeaea',
+                                color: '#b53535',
+                                fontSize: '10px',
+                                fontWeight: '700',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '3px'
+                              }}
+                            >
+                              Reject
+                            </button>
+                          </div>
+                        )}
                       </div>
                     );
                   })}

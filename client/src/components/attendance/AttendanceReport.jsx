@@ -258,6 +258,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
     const [showDailySummary, setShowDailySummary] = useState(false);
     const [dashboardData, setDashboardData] = useState(null);
     const [dashLoading, setDashLoading] = useState(false);
+    const [pendingCorrectionCounts, setPendingCorrectionCounts] = useState({});
 
     const now = new Date();
     const [startDate, setStartDate] = useState(moment().startOf('month').format('YYYY-MM-DD'));
@@ -391,8 +392,17 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                 setDashboardData(null);
             }
 
-            const reportDataWithBalance = await enrichReportWithLeaveBalance(data);
-            setReportData(reportDataWithBalance);
+             const reportDataWithBalance = await enrichReportWithLeaveBalance(data);
+             setReportData(reportDataWithBalance);
+ 
+             try {
+                 const countsRes = await attendanceAPI.getPendingCorrectionCount();
+                 if (countsRes && countsRes.byEmployee) {
+                     setPendingCorrectionCounts(countsRes.byEmployee);
+                 }
+             } catch (e) {
+                 console.error('Failed to fetch pending counts in report:', e);
+             }
         } catch (err) {
             console.error('[AttendanceReport] fetchReport error:', err?.response?.status || err?.status, err?.response?.data || err?.message || err);
             toast.error(err?.response?.data?.message || err?.message || 'Failed to load report');
@@ -1510,6 +1520,15 @@ if (summarySheet) {
                                                     <div>
                                                     <div className="ar-emp-name" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                         {emp.name}
+                                                        {pendingCorrectionCounts[emp.id] > 0 && (
+                                                            <span style={{
+                                                                width: '8px',
+                                                                height: '8px',
+                                                                backgroundColor: '#dc2626',
+                                                                borderRadius: '50%',
+                                                                display: 'inline-block'
+                                                            }} title={`${pendingCorrectionCounts[emp.id]} pending regularization requests`} />
+                                                        )}
                                                         {isAdmin && (
                                                             <button 
                                                                 className={`ar-quick-punch ${emp.latestRecord?.status === 'present' ? 'punch-out' : 'punch-in'}`}

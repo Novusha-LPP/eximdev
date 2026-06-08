@@ -737,13 +737,23 @@ export const getDashboard = async (req, res) => {
         };
 
         // 6. Get pending regularizations
-        const pendingRegularizations = await RegularizationRequest.find({
+        const allPendingRegularizations = await RegularizationRequest.find({
             employee_id: { $in: employeeIds },
             status: 'pending'
         })
             .populate('employee_id', 'first_name last_name username')
-            .sort({ createdAt: -1 })
-            .limit(10);
+            .sort({ createdAt: -1 });
+
+        const pendingRegularizations = allPendingRegularizations.slice(0, 10);
+
+        // Build frequency map for regularizationCountByEmployee
+        const regularizationCountByEmployee = {};
+        allPendingRegularizations.forEach(reg => {
+            if (reg.employee_id) {
+                const empId = reg.employee_id._id.toString();
+                regularizationCountByEmployee[empId] = (regularizationCountByEmployee[empId] || 0) + 1;
+            }
+        });
 
         // Department data is not used in attendance reporting.
 
@@ -867,6 +877,7 @@ export const getDashboard = async (req, res) => {
             }
 
             return {
+                id: emp._id,
                 name: emp.first_name ? `${emp.first_name} ${emp.last_name || ''}`.trim() : emp.username,
                 role: emp.role || 'Team Member',
                 team: getTeamNameForMember(emp._id) || 'Unassigned',
@@ -884,6 +895,7 @@ export const getDashboard = async (req, res) => {
         // Response
         res.json({
             data: {
+                regularizationCountByEmployee,
                 summary: {
                     totalEmployees,
                     present: presentEmployees.size - missedPunchEmployees.length,
@@ -1329,42 +1341,56 @@ export const approveRequest = async (req, res) => {
                 }
             }
 
-            request.status = status;
-            if (comments) request.remarks = comments;
-            await request.save();
+            if (status === 'resolved') {
+                request.status = 'approved';
+                request.is_resolved = true;
+                request.resolved_at = new Date();
+                request.resolved_by = actor._id;
+                request.resolution_source = isAdminRole(actor.role) ? 'admin_manual_correction' : 'hod_manual_correction';
+                if (comments) request.remarks = comments;
+                await request.save();
+            } else {
+                request.status = status;
+                request.is_resolved = true;
+                request.resolved_at = new Date();
+                request.resolved_by = actor._id;
+                request.resolution_source = 'request_approval';
+                if (comments) request.remarks = comments;
+                await request.save();
 
-            // If approved, update attendance record
-            if (status === 'approved') {
-                const empId = request.employee_id?._id || request.employee_id;
+                // If approved, update attendance record
+                if (status === 'approved') {
+                    const empId = request.employee_id?._id || request.employee_id;
 
-                const dateStr = request.attendance_date;
-                const companyId = request.company_id?._id || request.company_id;
-                const attDate = moment.utc(dateStr, 'YYYY-MM-DD').startOf('day').toDate();
+                    const dateStr = request.attendance_date;
+                    const companyId = request.company_id?._id || request.company_id;
+                    const attDate = moment.utc(dateStr, 'YYYY-MM-DD').startOf('day').toDate();
 
-                await AttendanceRecord.findOneAndUpdate(
-                    { employee_id: empId, attendance_date: attDate },
-                    {
-                        employee_id: empId,
-                        company_id: companyId,
-                        attendance_date: attDate,
-                        attendance_date_str: dateStr,
-                        year_month: moment.utc(dateStr, 'YYYY-MM-DD').format('YYYY-MM'),
-                        first_in: request.requested_in_time || request.expected_in,
-                        last_out: request.requested_out_time || request.expected_out,
-                        status: 'present',
-                        is_regularized: true,
-                        processed_at: new Date(),
-                        processed_by: actor.role === 'ADMIN' ? 'admin' : 'hod'
-                    },
-                    { upsert: true }
-                );
+                    await AttendanceRecord.findOneAndUpdate(
+                        { employee_id: empId, attendance_date: attDate },
+                        {
+                            employee_id: empId,
+                            company_id: companyId,
+                            attendance_date: attDate,
+                            attendance_date_str: dateStr,
+                            year_month: moment.utc(dateStr, 'YYYY-MM-DD').format('YYYY-MM'),
+                            first_in: request.requested_in_time || request.expected_in,
+                            last_out: request.requested_out_time || request.expected_out,
+                            status: 'present',
+                            is_regularized: true,
+                            processed_at: new Date(),
+                            processed_by: actor.role === 'ADMIN' ? 'admin' : 'hod'
+                        },
+                        { upsert: true }
+                    );
+                }
             }
 
             await logApprovalActivity(
                 req,
                 'APPROVAL',
-                status === 'approved' ? 'REGULARIZATION_APPROVED' : 'REGULARIZATION_REJECTED',
-                `${actor.username || actor.role} ${status} regularization request ${request._id}`,
+                status === 'resolved' ? 'REGULARIZATION_RESOLVED' : (status === 'approved' ? 'REGULARIZATION_APPROVED' : 'REGULARIZATION_REJECTED'),
+                `${actor.username || actor.role} ${status === 'resolved' ? 'resolved' : status} regularization request ${request._id}`,
                 {
                     regularization_id: request._id,
                     employee_id: request.employee_id,
@@ -1373,7 +1399,7 @@ export const approveRequest = async (req, res) => {
             );
 
             AggregationService.clearCache();
-            return res.json({ message: `Regularization ${status} successfully` });
+            return res.json({ message: `Regularization ${status === 'resolved' ? 'resolved' : status} successfully` });
         }
 
         res.status(400).json({ message: 'Invalid request type' });

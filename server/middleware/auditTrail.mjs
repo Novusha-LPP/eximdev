@@ -1,5 +1,6 @@
 import { getModel, findChanges, logAuditTrail, generateHeading } from "../services/auditTrailService.mjs";
 import mongoose from "mongoose";
+import jwt from "jsonwebtoken";
 
 /**
  * Audit Trail Middleware
@@ -13,11 +14,34 @@ export const auditMiddlewareWrapper = (documentType = "Unknown") => {
     let originalDocument = null;
     let documentId = null;
 
-    const userInfo = req.user || req.currentUser || {
-      _id: "system",
-      username: "system",
-      role: "System",
-    };
+    let userInfo = req.user || req.currentUser;
+
+    if (!userInfo) {
+      let token = req.cookies?.token;
+      if (!token && req.headers?.authorization) {
+        const parts = req.headers.authorization.split(" ");
+        if (parts.length === 2 && parts[0] === "Bearer") {
+          token = parts[1];
+        }
+      }
+      if (token) {
+        try {
+          const verified = jwt.verify(token, process.env.JWT_SECRET || "fallback_secret_do_not_use_in_prod");
+          userInfo = verified;
+          req.user = verified;
+        } catch (err) {
+          // Fall back silently
+        }
+      }
+    }
+
+    if (!userInfo) {
+      userInfo = {
+        _id: "system",
+        username: "system",
+        role: "System",
+      };
+    }
 
     // Extract identifiers
     const id = req.params.id || req.params._id || req.params.documentId || req.params.teamId || req.params.jobId || req.params.projectId || req.params.pointId || req.body._id || req.body.id;
@@ -25,8 +49,8 @@ export const auditMiddlewareWrapper = (documentType = "Unknown") => {
     let job_no = req.params.jobNo || req.params.job_no || req.body.job_no;
     let year = req.params.year || req.body.year;
 
-    let branchId = req.user?.branchId || req.headers["x-branch-id"] || req.headers["branch-id"] || req.body.branchId || req.body.branch_id;
-    let branch_code = req.user?.branch_code || req.headers["x-branch-code"] || req.headers["branch-code"] || req.body.branch_code;
+    let branchId = req.user?.branchId || userInfo?.branchId || req.headers["x-branch-id"] || req.headers["branch-id"] || req.body.branchId || req.body.branch_id;
+    let branch_code = req.user?.branch_code || userInfo?.branch_code || req.headers["x-branch-code"] || req.headers["branch-code"] || req.body.branch_code;
 
     // Fetch original document
     if (documentType !== "S3File") {

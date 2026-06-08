@@ -189,6 +189,8 @@
 .hod-act { flex:1;height:30px;border-radius:7px;border:none;font-size:.75rem;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:4px;transition:all .12s; }
 .hod-act.approve { background:#e8f5f0;color:#1a7c5c; }
 .hod-act.approve:hover { background:#22c47a;color:#fff; }
+.hod-act.resolve { background:#e0f2fe;color:#0369a1; }
+.hod-act.resolve:hover { background:#0284c7;color:#fff; }
 .hod-act.reject  { background:#fdeaea;color:#b53535; }
 .hod-act.reject:hover  { background:#e84040;color:#fff; }
 

@@ -388,13 +388,13 @@ const useImportJobForm = () => {
           let rate = parseFloat(charge.exchange_rate);
 
           if (currency?.toUpperCase() === "INR") {
-            if (charge.exchange_rate !== 1 && charge.exchange_rate !== "1") {
+            if (parseFloat(charge.exchange_rate) !== 1) {
               newDetails[key] = { ...charge, exchange_rate: 1 };
               updated = true;
             }
           } else if (currency && currency.toUpperCase() === globalCurrency.toUpperCase()) {
             const globalRate = parseFloat(exrate);
-            if (globalRate && !isNaN(globalRate) && charge.exchange_rate !== globalRate) {
+            if (globalRate && !isNaN(globalRate) && parseFloat(charge.exchange_rate) !== globalRate) {
               newDetails[key] = { ...charge, exchange_rate: globalRate };
               updated = true;
             } else if (!rate || isNaN(rate)) {
@@ -549,13 +549,13 @@ const useImportJobForm = () => {
 
           if (!curr) return { rate: 1, updated: false };
           if (curr.toUpperCase() === "INR") {
-            if (existingRateStr !== "1" && existingRateStr !== 1) {
+            if (parseFloat(existingRateStr) !== 1) {
               return { rate: 1, updated: true };
             }
             return { rate: 1, updated: false };
           }
           if (curr.toUpperCase() === globalCurrency.toUpperCase()) {
-            if (globalRate && !isNaN(globalRate) && existingRateStr !== String(globalRate)) {
+            if (globalRate && !isNaN(globalRate) && parseFloat(existingRateStr) !== globalRate) {
               return { rate: globalRate, updated: true };
             } else if (!rate || isNaN(rate)) {
               const fetchedRate = await fetchExrateForCurrency(curr, date || invoice_date || "");

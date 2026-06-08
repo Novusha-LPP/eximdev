@@ -1093,9 +1093,16 @@ function useFetchJobDetails(
                 ...inv,
                 po_no: inv.po_no || "",
                 po_date: inv.po_date || "",
+                po_details: inv.po_details && inv.po_details.length > 0
+                  ? inv.po_details.map(p => ({ po_no: p.po_no || "", po_date: p.po_date || "" }))
+                  : [{ po_no: inv.po_no || "", po_date: inv.po_date || "" }],
                 freight_currency: inv.freight_currency || inv.inv_currency || "",
                 insurance_currency: inv.insurance_currency || "INR",
-                other_charges_currency: inv.other_charges_currency || "INR",
+                other_charges_currency: inv.other_charges_currency || "USD",
+                exchange_rate: inv.exchange_rate || "",
+                freight_exchange_rate: inv.freight_exchange_rate || "",
+                insurance_exchange_rate: inv.insurance_exchange_rate || "",
+                other_charges_exchange_rate: inv.other_charges_exchange_rate || "",
               }))
             : [
                 {
@@ -1103,6 +1110,7 @@ function useFetchJobDetails(
                   invoice_date: safeValue(data.invoice_date),
                   po_no: safeValue(data.po_no),
                   po_date: safeValue(data.po_date),
+                  po_details: [{ po_no: safeValue(data.po_no), po_date: safeValue(data.po_date) }],
                   total_inv_value: safeValue(data.total_inv_value),
                   inv_currency: safeValue(data.inv_currency),
                   toi: safeValue(data.import_terms) || "CIF",
@@ -1110,7 +1118,11 @@ function useFetchJobDetails(
                   insurance: safeValue(data.insurance),
                   freight_currency: safeValue(data.inv_currency),
                   insurance_currency: "INR",
-                  other_charges_currency: "INR",
+                  other_charges_currency: "USD",
+                  exchange_rate: safeValue(data.exrate),
+                  freight_exchange_rate: safeValue(data.exrate),
+                  insurance_exchange_rate: "1",
+                  other_charges_exchange_rate: "1",
                 },
               ],
         bill_date: safeValue(data.bill_date),
@@ -1291,32 +1303,132 @@ function useFetchJobDetails(
       if (firstRow.freight && !formik.values.freight) formik.setFieldValue("freight", firstRow.freight || "");
       if (firstRow.insurance && !formik.values.insurance) formik.setFieldValue("insurance", firstRow.insurance || "");
 
-      // Sync cif_amount and cifValue as sum of all invoice rows total_inv_value converted to INR
-      const totalCif = formik.values.invoice_details.reduce((sum, r) => sum + (parseFloat(r.total_inv_value) || 0), 0);
-      if (totalCif > 0) {
-        const invCurrency = firstRow.inv_currency || formik.values.inv_currency || "";
-        const invDate = firstRow.invoice_date || formik.values.invoice_date || "";
-        
-        const syncCifValue = async () => {
-          let currentExrate = parseFloat(formik.values.exrate);
-          if (!currentExrate || isNaN(currentExrate)) {
-            const hasBeNo = formik.values.be_no && String(formik.values.be_no).trim().length > 0;
-            if (invCurrency && invCurrency.toUpperCase() !== "INR" && !hasBeNo) {
-              const fetchedRate = await fetchExrateForCurrency(invCurrency, invDate);
-              currentExrate = fetchedRate > 0 ? fetchedRate : 1;
-              formik.setFieldValue("exrate", String(currentExrate));
-            } else {
-              currentExrate = 1;
+      // Sync cif_amount and cifValue by converting each row's components (product value, freight, insurance, others) to INR using their respective exchange rates
+      const syncCifValue = async () => {
+        let totalCifInr = 0;
+        let updated = false;
+
+        const resolveRate = async (curr, existingRateStr, date) => {
+          let rate = parseFloat(existingRateStr);
+          const globalCurrency = formik.values.inv_currency || data?.inv_currency || "";
+          const globalRate = parseFloat(formik.values.exrate || data?.exrate);
+
+          if (!curr) return { rate: 1, updated: false };
+          if (curr.toUpperCase() === "INR") {
+            if (existingRateStr !== "1" && existingRateStr !== 1) {
+              return { rate: 1, updated: true };
+            }
+            return { rate: 1, updated: false };
+          }
+          if (curr.toUpperCase() === globalCurrency.toUpperCase()) {
+            if (globalRate && !isNaN(globalRate) && existingRateStr !== String(globalRate)) {
+              return { rate: globalRate, updated: true };
+            } else if (!rate || isNaN(rate)) {
+              const hasBeNo = formik.values.be_no && String(formik.values.be_no).trim().length > 0;
+              let resolved = 1;
+              if (!hasBeNo) {
+                const fetchedRate = await fetchExrateForCurrency(curr, date);
+                resolved = fetchedRate > 0 ? fetchedRate : 1;
+              } else {
+                resolved = globalRate || 1;
+              }
+              return { rate: resolved, updated: true };
+            }
+          } else {
+            if (!rate || isNaN(rate)) {
+              const fetchedRate = await fetchExrateForCurrency(curr, date);
+              const resolved = fetchedRate > 0 ? fetchedRate : 1;
+              return { rate: resolved, updated: true };
             }
           }
-          const cifInr = totalCif * currentExrate;
-          formik.setFieldValue("cif_amount", cifInr.toFixed(2));
-          formik.setFieldValue("cifValue", cifInr.toFixed(2));
+          return { rate: rate, updated: false };
         };
-        syncCifValue();
-      }
+
+        const newRows = await Promise.all(formik.values.invoice_details.map(async (row) => {
+          const date = row.invoice_date || formik.values.invoice_date || "";
+          const resInv = await resolveRate(row.inv_currency, row.exchange_rate, date);
+          const resFr = await resolveRate(row.freight_currency, row.freight_exchange_rate, date);
+          const resIns = await resolveRate(row.insurance_currency, row.insurance_exchange_rate, date);
+          const resOth = await resolveRate(row.other_charges_currency, row.other_charges_exchange_rate, date);
+
+          if (resInv.updated || resFr.updated || resIns.updated || resOth.updated) {
+            updated = true;
+          }
+
+          const pv = parseFloat(row.product_value) || 0;
+          const fr = parseFloat(row.freight) || 0;
+          const ins = parseFloat(row.insurance) || 0;
+          const oth = parseFloat(row.other_charges) || 0;
+
+          const rowCif = (pv * resInv.rate) + (fr * resFr.rate) + (ins * resIns.rate) + (oth * resOth.rate);
+          totalCifInr += rowCif;
+
+          return {
+            ...row,
+            exchange_rate: String(resInv.rate),
+            freight_exchange_rate: String(resFr.rate),
+            insurance_exchange_rate: String(resIns.rate),
+            other_charges_exchange_rate: String(resOth.rate),
+          };
+        }));
+
+        if (updated) {
+          formik.setFieldValue("invoice_details", newRows);
+        }
+
+        formik.setFieldValue("cif_amount", totalCifInr.toFixed(2));
+        formik.setFieldValue("cifValue", totalCifInr.toFixed(2));
+      };
+      syncCifValue();
     }
-  }, [serializedInvoiceDetails, formik.values.exrate]);
+  }, [serializedInvoiceDetails, formik.values.exrate, formik.values.inv_currency]);
+
+  // Handle automatic fetching of exchange rates for other_charges_details
+  const serializedOtherChargesDetails = JSON.stringify(formik.values.other_charges_details || {});
+  useEffect(() => {
+    if (formik.values.other_charges_details) {
+      const chargeKeys = ["miscellaneous", "agency", "discount", "loading", "freight", "insurance", "addl_charge"];
+      const fetchChargesRates = async () => {
+        let updated = false;
+        const newDetails = { ...formik.values.other_charges_details };
+        const globalCurrency = formik.values.inv_currency || data?.inv_currency || "";
+
+        await Promise.all(chargeKeys.map(async (key) => {
+          const charge = newDetails[key] || {};
+          const currency = charge.currency;
+          let rate = parseFloat(charge.exchange_rate);
+
+          if (currency?.toUpperCase() === "INR") {
+            if (charge.exchange_rate !== 1 && charge.exchange_rate !== "1") {
+              newDetails[key] = { ...charge, exchange_rate: 1 };
+              updated = true;
+            }
+          } else if (currency && currency.toUpperCase() === globalCurrency.toUpperCase()) {
+            const globalRate = parseFloat(formik.values.exrate || data?.exrate);
+            if (globalRate && !isNaN(globalRate) && charge.exchange_rate !== globalRate) {
+              newDetails[key] = { ...charge, exchange_rate: globalRate };
+              updated = true;
+            } else if (!rate || isNaN(rate)) {
+              newDetails[key] = { ...charge, exchange_rate: globalRate || 1 };
+              updated = true;
+            }
+          } else if (currency) {
+            if (!rate || isNaN(rate)) {
+              const invDate = formik.values.invoice_details?.[0]?.invoice_date || formik.values.invoice_date || "";
+              const fetchedRate = await fetchExrateForCurrency(currency, invDate);
+              newDetails[key] = { ...charge, exchange_rate: fetchedRate > 0 ? fetchedRate : 1 };
+              updated = true;
+            }
+          }
+        }));
+
+        if (updated) {
+          formik.setFieldValue("other_charges_details", newDetails);
+        }
+      };
+      fetchChargesRates();
+    }
+  }, [serializedOtherChargesDetails, formik.values.exrate, formik.values.inv_currency, formik.values.invoice_date, formik.values.invoice_details?.[0]?.invoice_date]);
 
   const handleFileChange = async (event, documentName, index, isCth) => {
     const file = event.target.files[0];

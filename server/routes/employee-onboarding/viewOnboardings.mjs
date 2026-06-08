@@ -1,8 +1,11 @@
 import express from "express";
 import UserModel from "../../model/userModel.mjs";
+import verifyToken from "../../middleware/authMiddleware.mjs";
+import requireRole from "../../middleware/requireRole.mjs";
+
 const router = express.Router();
 
-router.get("/api/view-onboardings", async (req, res) => {
+router.get("/api/view-onboardings", verifyToken, requireRole("Admin"), async (req, res) => {
   try {
     const users = await UserModel.find(
       {},

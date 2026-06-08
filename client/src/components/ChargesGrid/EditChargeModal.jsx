@@ -650,6 +650,16 @@ const EditChargeModal = ({
     }
   };
 
+  const getTdsSelectValue = (cost) => {
+    const cat = cost?.tdsCategory || '94C';
+    const pct = parseFloat(cost?.tdsPercent) || 0;
+    if (cat === '94C') {
+      if (pct === 2) return '94C_2';
+      return '94C_1';
+    }
+    return cat;
+  };
+
   return createPortal(
     <div className="charges-edit-modal-overlay charges-active" onMouseDown={() => setActiveDropdown({ index: null, section: null })}>
       <div className="charges-edit-modal" ref={modalRef} onMouseDown={(e) => e.stopPropagation()}>
@@ -1452,10 +1462,22 @@ const EditChargeModal = ({
                                           disabled={effectiveReadOnly}
                                           className="charges-ep-select"
                                           style={{ fontSize: '10px', height: '22px', padding: '0 4px', width: 'auto' }}
-                                          value={row.cost?.tdsCategory || '94C'}
-                                          onChange={e => handleFieldChange(i, 'tdsCategory', e.target.value, 'cost')}
+                                          value={getTdsSelectValue(row.cost)}
+                                          onChange={e => {
+                                            const val = e.target.value;
+                                            if (val === '94C_1') {
+                                              handleFieldChange(i, 'tdsCategory', '94C', 'cost');
+                                              handleFieldChange(i, 'tdsPercent', 1, 'cost');
+                                            } else if (val === '94C_2') {
+                                              handleFieldChange(i, 'tdsCategory', '94C', 'cost');
+                                              handleFieldChange(i, 'tdsPercent', 2, 'cost');
+                                            } else {
+                                              handleFieldChange(i, 'tdsCategory', val, 'cost');
+                                            }
+                                          }}
                                         >
-                                          <option value="94C">94C</option>
+                                          <option value="94C_1">TDS ON CONTRACT 94C - 1023- 1%</option>
+                                          <option value="94C_2">TDS ON CONTRACT 94C - 1024 -2%</option>
                                           <option value="94I">94I</option>
                                         </select>
                                       </div>
@@ -1587,6 +1609,7 @@ const EditChargeModal = ({
                                               chargeHeadCategory: row.category,
                                               chargeDescription: row.cost?.chargeDescription || '',
                                               tdsCategory: row.cost?.tdsCategory || '94C',
+                                              tdsPercent: row.cost?.tdsPercent || 0,
                                               awbBlNo: awbBlNo,
                                               attachments: [
                                                 ...(Array.isArray(row.cost?.url) ? row.cost.url : []),
@@ -1647,6 +1670,7 @@ const EditChargeModal = ({
                                             chargeHeadCategory: row.category,
                                             chargeDescription: row.cost?.chargeDescription || '',
                                             tdsCategory: row.cost?.tdsCategory || '94C',
+                                            tdsPercent: row.cost?.tdsPercent || 0,
                                             attachments: [
                                               ...(Array.isArray(row.cost?.url) ? row.cost.url : []),
                                               ...(Array.isArray(row.cost?.url_draft) ? row.cost.url_draft : []),

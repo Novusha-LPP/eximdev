@@ -23,7 +23,7 @@ const monthNames = [
 
 // --- Sub-components & Helpers for Status and Labels ---
 const StatusPill = ({ status, otherText }) => {
-    const s = (status || '').trim();
+    const s = String(status || '').trim();
     if (s === 'No Driver') return <span className="status-pill warning">No driver</span>;
     if (s === 'Driver on Leave') return <span className="status-pill error">Driver on leave</span>;
     if (s === 'Maintenance') return <span className="status-pill info">Maintenance</span>;
@@ -37,7 +37,7 @@ const IePill = ({ type }) => {
 };
 
 const OwnPill = ({ ownHired }) => {
-    const isOwn = (ownHired || '').toLowerCase().trim() === 'own';
+    const isOwn = String(ownHired || '').toLowerCase().trim() === 'own';
     return (
         <span className={`status-pill ${isOwn ? 'success' : 'neutral'}`}>
             {isOwn ? 'Own' : 'Hired'}
@@ -360,21 +360,21 @@ const FleetUtilizationReport = ({
             const oorPercentVal = totalFleetNum > 0 ? parseFloat(((usedForTrips / totalFleetNum) * 100).toFixed(1)) : 0;
             const oorPercent = `${oorPercentVal.toFixed(1)}%`;
 
-            const ownTripsCount = closed.filter(r => (r.own_hired || '').toLowerCase().trim() === 'own').length;
+            const ownTripsCount = closed.filter(r => String(r.own_hired || '').toLowerCase().trim() === 'own').length;
             const idle = Math.max(0, totalFleetNum - notOnRoadTotal - ownTripsCount);
 
-            const automove = [...active, ...closed].filter(r => (r.branch || '').toLowerCase().trim() === 'automove').length;
-            const snContainer = [...active, ...closed].filter(r => (r.branch || '').toLowerCase().trim() !== 'automove').length;
+            const automove = [...active, ...closed].filter(r => String(r.branch || '').toLowerCase().trim() === 'automove').length;
+            const snContainer = [...active, ...closed].filter(r => String(r.branch || '').toLowerCase().trim() !== 'automove').length;
 
-            const ownClosed20 = closed.filter(r => (r.own_hired || '').toLowerCase().trim() === 'own' && ((r.type_of_vehicle || '').includes('20') || (r.type_of_vehicle || '').includes('20ft'))).length;
-            const ownClosed40 = closed.filter(r => (r.own_hired || '').toLowerCase().trim() === 'own' && ((r.type_of_vehicle || '').includes('40') || (r.type_of_vehicle || '').includes('40ft'))).length;
+            const ownClosed20 = closed.filter(r => String(r.own_hired || '').toLowerCase().trim() === 'own' && (String(r.type_of_vehicle || '').includes('20') || String(r.type_of_vehicle || '').includes('20ft'))).length;
+            const ownClosed40 = closed.filter(r => String(r.own_hired || '').toLowerCase().trim() === 'own' && (String(r.type_of_vehicle || '').includes('40') || String(r.type_of_vehicle || '').includes('40ft'))).length;
 
-            const outsourced20 = [...active, ...closed].filter(r => (r.own_hired || '').toLowerCase().trim() === 'hired' && ((r.type_of_vehicle || '').includes('20') || (r.type_of_vehicle || '').includes('20ft'))).length;
-            const outsourced40 = [...active, ...closed].filter(r => (r.own_hired || '').toLowerCase().trim() === 'hired' && ((r.type_of_vehicle || '').includes('40') || (r.type_of_vehicle || '').includes('40ft'))).length;
+            const outsourced20 = [...active, ...closed].filter(r => String(r.own_hired || '').toLowerCase().trim() === 'hired' && (String(r.type_of_vehicle || '').includes('20') || String(r.type_of_vehicle || '').includes('20ft'))).length;
+            const outsourced40 = [...active, ...closed].filter(r => String(r.own_hired || '').toLowerCase().trim() === 'hired' && (String(r.type_of_vehicle || '').includes('40') || String(r.type_of_vehicle || '').includes('40ft'))).length;
             const outsourcedTotal = outsourced20 + outsourced40;
 
-            const ownTrips = [...active, ...closed].filter(r => (r.own_hired || '').toLowerCase().trim() === 'own').length;
-            const hiredTrips = [...active, ...closed].filter(r => (r.own_hired || '').toLowerCase().trim() === 'hired').length;
+            const ownTrips = [...active, ...closed].filter(r => String(r.own_hired || '').toLowerCase().trim() === 'own').length;
+            const hiredTrips = [...active, ...closed].filter(r => String(r.own_hired || '').toLowerCase().trim() === 'hired').length;
 
             return {
                 date: d.date,
@@ -867,8 +867,8 @@ const FleetUtilizationReport = ({
                 };
             }
 
-            const vehicle = (r.type_of_vehicle || '').toLowerCase();
-            const ownHired = (r.own_hired || '').toLowerCase().trim();
+            const vehicle = String(r.type_of_vehicle || '').toLowerCase();
+            const ownHired = String(r.own_hired || '').toLowerCase().trim();
             const is20 = vehicle.includes('20') || vehicle.includes('20ft');
             const is40 = vehicle.includes('40') || vehicle.includes('40ft');
 
@@ -1030,7 +1030,7 @@ const FleetUtilizationReport = ({
         
         if (fleetSearchQuery) {
             const query = fleetSearchQuery.toLowerCase().trim();
-            result = result.filter(r => r.vehicleNo.toLowerCase().includes(query));
+            result = result.filter(r => String(r.vehicleNo || '').toLowerCase().includes(query));
         }
         
         if (fleetSortConfig.key) {

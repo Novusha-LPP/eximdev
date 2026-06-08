@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import { format, addMonths, parse, parseISO, isValid } from "date-fns";
 import { printAuthorizationPDF } from "../../utils/printAuthorizationPDF";
@@ -35,7 +35,7 @@ const IconTrash = () => (
 );
 
 // ── DatePickerInput ───────────────────────────────────────────────
-function DatePickerInput({ value, onChange, placeholder = "dd/mm/yyyy" }) {
+function DatePickerInput({ value, onChange, placeholder = "dd/mm/yyyy", disabled = false }) {
   const hiddenRef = useRef(null);
 
   const toNativeValue = (ddmmyyyy) => {
@@ -67,6 +67,7 @@ function DatePickerInput({ value, onChange, placeholder = "dd/mm/yyyy" }) {
   };
 
   const openPicker = () => {
+    if (disabled) return;
     if (hiddenRef.current) {
       hiddenRef.current.value = toNativeValue(value);
       hiddenRef.current.showPicker?.();
@@ -84,8 +85,9 @@ function DatePickerInput({ value, onChange, placeholder = "dd/mm/yyyy" }) {
         onDoubleClick={openPicker}
         placeholder={placeholder}
         maxLength={10}
+        disabled={disabled}
       />
-      <button type="button" className="ap-date-icon-btn" onClick={openPicker} title="Pick a date">
+      <button type="button" className="ap-date-icon-btn" onClick={openPicker} title="Pick a date" disabled={disabled}>
         <IconCalendar />
       </button>
       <input
@@ -94,6 +96,7 @@ function DatePickerInput({ value, onChange, placeholder = "dd/mm/yyyy" }) {
         className="ap-date-hidden"
         onChange={handleNativeChange}
         tabIndex={-1}
+        disabled={disabled}
       />
     </div>
   );
@@ -104,7 +107,7 @@ export const unitCodes = [
   "BAG","BGS","BLS","BRL","BTL","BOX","BLK","CAN","CAR","CRY","CTN","CMS","CHI","COL","CON","CRI","CCM","CFT","CBI","CBM","CYL","DOZ","DRM","FLK","FOT","FUT","GMS","GRS","FBK","INC","NGT","JTA","JAL","KEG","KLT","KGS","KME","KIT","LTR","LOG","TON","MTR","MTS","MGS","MOU","NOS","NHM","THD","PKG","PAC","PAI","PRS","PLT","PCS","PNT","PND","QDS","QTL","REL","ROL","SET","SKD","SLB","SQF","SQM","SQY","BLO","BUL","ENV","TBL","TNK","TGM","TIN","TRK","UNT","UGS","CSK","YDS",
 ];
 
-function UnitAutocomplete({ value, onChange, className = "ap-field-input" }) {
+function UnitAutocomplete({ value, onChange, className = "ap-field-input", disabled = false }) {
   const [query, setQuery] = useState(value || "");
   const [results, setResults] = useState([]);
   const [showResults, setShowResults] = useState(false);
@@ -157,6 +160,7 @@ function UnitAutocomplete({ value, onChange, className = "ap-field-input" }) {
   }, []);
 
   const handleInputChange = (e) => {
+    if (disabled) return;
     const val = e.target.value.toUpperCase();
     setQuery(val);
     onChange(val);
@@ -182,6 +186,7 @@ function UnitAutocomplete({ value, onChange, className = "ap-field-input" }) {
         value={query}
         onChange={handleInputChange}
         onFocus={() => {
+          if (disabled) return;
           const val = query.trim().toUpperCase();
           const filtered = val ? unitCodes.filter(c => c.includes(val)).slice(0, 10) : unitCodes.slice(0, 10);
           setResults(filtered);
@@ -189,6 +194,7 @@ function UnitAutocomplete({ value, onChange, className = "ap-field-input" }) {
           setShowResults(true);
         }}
         placeholder="Unit"
+        disabled={disabled}
       />
       {showResults && results.length > 0 && createPortal(
         <ul 
@@ -215,7 +221,7 @@ function UnitAutocomplete({ value, onChange, className = "ap-field-input" }) {
 }
 
 // ── HS Code Autocomplete ──────────────────────────────────────────
-function HSCodeAutocomplete({ value, onChange, className = "ap-field-input" }) {
+function HSCodeAutocomplete({ value, onChange, className = "ap-field-input", disabled = false }) {
   const [query, setQuery] = useState(value || "");
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -288,6 +294,7 @@ function HSCodeAutocomplete({ value, onChange, className = "ap-field-input" }) {
   };
 
   const handleInputChange = (e) => {
+    if (disabled) return;
     const val = e.target.value;
     setQuery(val);
     onChange(val);
@@ -309,12 +316,14 @@ function HSCodeAutocomplete({ value, onChange, className = "ap-field-input" }) {
           value={query}
           onChange={handleInputChange}
           onFocus={() => {
+            if (disabled) return;
             if (query.length >= 3) {
               updateCoords();
               setShowResults(true);
             }
           }}
           placeholder="Search HS Code..."
+          disabled={disabled}
         />
         {loading && <div className="ap-field-loader"></div>}
       </div>
@@ -457,6 +466,9 @@ const mapRecordToSubData = (found) => {
 function ViewAuthorizationDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const queryParams = new URLSearchParams(location.search);
+  const isReadOnly = queryParams.get("readOnly") === "true";
   const [row, setRow] = useState(null);
   const [subData, setSubData] = useState({});
   const [loading, setLoading] = useState(true);
@@ -709,11 +721,11 @@ function ViewAuthorizationDetails() {
             <div className="ap-fields-grid cols-4">
               <div className="ap-field-group">
                 <label className="ap-field-label">Import Validity</label>
-                <DatePickerInput value={subData.import_validity} onChange={v => hc("import_validity", v)} />
+                <DatePickerInput value={subData.import_validity} onChange={v => hc("import_validity", v)} disabled={isReadOnly} />
               </div>
               <div className="ap-field-group">
                 <label className="ap-field-label">Export Validity</label>
-                <DatePickerInput value={subData.export_validity} onChange={v => hc("export_validity", v)} />
+                <DatePickerInput value={subData.export_validity} onChange={v => hc("export_validity", v)} disabled={isReadOnly} />
               </div>
             </div>
           </div>
@@ -731,30 +743,30 @@ function ViewAuthorizationDetails() {
               <div className="ap-field-group">
                 <label className="ap-field-label">BG Number</label>
                 <input type="text" className="ap-field-input" value={subData.bg_number || ""}
-                  onChange={e => hc("bg_number", e.target.value)} placeholder="BG No." />
+                  onChange={e => hc("bg_number", e.target.value)} placeholder="BG No." disabled={isReadOnly} />
               </div>
               <div className="ap-field-group">
                 <label className="ap-field-label">BG Expiry</label>
-                <DatePickerInput value={subData.bg_expiry_date} onChange={v => hc("bg_expiry_date", v)} />
+                <DatePickerInput value={subData.bg_expiry_date} onChange={v => hc("bg_expiry_date", v)} disabled={isReadOnly} />
               </div>
               <div className="ap-field-group">
                 <label className="ap-field-label">BG Amount</label>
                 <input type="text" className="ap-field-input" value={subData.bg_amount || ""}
-                  onChange={e => hc("bg_amount", e.target.value)} placeholder="Amount" />
+                  onChange={e => hc("bg_amount", e.target.value)} placeholder="Amount" disabled={isReadOnly} />
               </div>
               <div className="ap-field-group">
                 <label className="ap-field-label">Bond Number</label>
                 <input type="text" className="ap-field-input" value={subData.bond_number || ""}
-                  onChange={e => hc("bond_number", e.target.value)} placeholder="Bond No." />
+                  onChange={e => hc("bond_number", e.target.value)} placeholder="Bond No." disabled={isReadOnly} />
               </div>
               <div className="ap-field-group">
                 <label className="ap-field-label">Bond Expiry</label>
-                <DatePickerInput value={subData.bond_expiry_date} onChange={v => hc("bond_expiry_date", v)} />
+                <DatePickerInput value={subData.bond_expiry_date} onChange={v => hc("bond_expiry_date", v)} disabled={isReadOnly} />
               </div>
               <div className="ap-field-group">
                 <label className="ap-field-label">Bond Amount</label>
                 <input type="text" className="ap-field-input" value={subData.bond_amount || ""}
-                  onChange={e => hc("bond_amount", e.target.value)} placeholder="Amount" />
+                  onChange={e => hc("bond_amount", e.target.value)} placeholder="Amount" disabled={isReadOnly} />
               </div>
             </div>
 
@@ -764,19 +776,19 @@ function ViewAuthorizationDetails() {
             <div className="ap-fields-grid cols-6">
               <div className="ap-field-group">
                 <label className="ap-field-label">Docs Received</label>
-                <DatePickerInput value={subData.documents_received_date} onChange={v => hc("documents_received_date", v)} />
+                <DatePickerInput value={subData.documents_received_date} onChange={v => hc("documents_received_date", v)} disabled={isReadOnly} />
               </div>
               <div className="ap-field-group">
                 <label className="ap-field-label">Sent to ICD</label>
-                <DatePickerInput value={subData.documents_send_to_icd} onChange={v => hc("documents_send_to_icd", v)} />
+                <DatePickerInput value={subData.documents_send_to_icd} onChange={v => hc("documents_send_to_icd", v)} disabled={isReadOnly} />
               </div>
               <div className="ap-field-group">
                 <label className="ap-field-label">Sent to Accounts</label>
-                <DatePickerInput value={subData.documents_send_to_accounts} onChange={v => hc("documents_send_to_accounts", v)} />
+                <DatePickerInput value={subData.documents_send_to_accounts} onChange={v => hc("documents_send_to_accounts", v)} disabled={isReadOnly} />
               </div>
               <div className="ap-field-group">
                 <label className="ap-field-label">Scheme Code</label>
-                <select className="ap-field-input" value={subData.scheme_code || ""} onChange={e => hc("scheme_code", e.target.value)}>
+                <select className="ap-field-input" value={subData.scheme_code || ""} onChange={e => hc("scheme_code", e.target.value)} disabled={isReadOnly}>
                   <option value="">Select</option>
                   {["Full Duty","DEEC","EPCG","RODTEP","ROSCTL","TQ","SIL","SEZ","EOU","DFIA","Jobbing"].map(opt => (
                     <option key={opt} value={opt}>{opt}</option>
@@ -786,11 +798,11 @@ function ViewAuthorizationDetails() {
               <div className="ap-field-group">
                 <label className="ap-field-label">Billing Invoice No.</label>
                 <input type="text" className="ap-field-input" value={subData.accounts_billing_invoice_no || ""}
-                  onChange={e => hc("accounts_billing_invoice_no", e.target.value)} placeholder="Invoice No." />
+                  onChange={e => hc("accounts_billing_invoice_no", e.target.value)} placeholder="Invoice No." disabled={isReadOnly} />
               </div>
               <div className="ap-field-group">
                 <label className="ap-field-label">Billing Invoice Date</label>
-                <DatePickerInput value={subData.accounts_billing_invoice_date} onChange={v => hc("accounts_billing_invoice_date", v)} />
+                <DatePickerInput value={subData.accounts_billing_invoice_date} onChange={v => hc("accounts_billing_invoice_date", v)} disabled={isReadOnly} />
               </div>
             </div>
 
@@ -822,9 +834,11 @@ function ViewAuthorizationDetails() {
                
                 <span>Export Details</span>
               </div>
-              <button type="button" className="ap-btn-add-item-outline" onClick={addExportDetail}>
-                + Add Export Item
-              </button>
+              {!isReadOnly && (
+                <button type="button" className="ap-btn-add-item-outline" onClick={addExportDetail}>
+                  + Add Export Item
+                </button>
+              )}
             </div>
 
             <div className="ap-table-responsive" style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', background: '#fff', marginBottom: '20px' }}>
@@ -837,7 +851,7 @@ function ViewAuthorizationDetails() {
                     <th style={{ textAlign: 'left', width: '18%', minWidth: '150px', padding: '10px 8px', fontSize: '10.5px' }}>QTY / UNIT</th>
                     <th style={{ textAlign: 'left', width: '13%', minWidth: '110px', padding: '10px 8px', fontSize: '10.5px' }}>FOB USD</th>
                     <th style={{ textAlign: 'left', width: '13%', minWidth: '110px', padding: '10px 8px', fontSize: '10.5px' }}>FOB INR</th>
-                    <th style={{ textAlign: 'center', width: '5%', minWidth: '60px', padding: '10px 8px', fontSize: '10.5px' }}>ACTIONS</th>
+                    {!isReadOnly && <th style={{ textAlign: 'center', width: '5%', minWidth: '60px', padding: '10px 8px', fontSize: '10.5px' }}>ACTIONS</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -854,12 +868,14 @@ function ViewAuthorizationDetails() {
                           placeholder="Export description..." 
                           rows={1}
                           style={{ minHeight: '32px', margin: 0, padding: '6px 8px' }}
+                          disabled={isReadOnly}
                         />
                       </td>
                       <td style={{ padding: '8px', verticalAlign: 'middle' }}>
                         <HSCodeAutocomplete 
                           value={expRow.hs_code} 
                           onChange={v => handleExportDetailChange(idx, "hs_code", v)} 
+                          disabled={isReadOnly}
                         />
                       </td>
                       <td style={{ padding: '8px', verticalAlign: 'middle' }}>
@@ -871,11 +887,13 @@ function ViewAuthorizationDetails() {
                             onChange={e => handleExportDetailChange(idx, "qty", e.target.value)} 
                             placeholder="0.00" 
                             style={{ flex: 2, margin: 0 }} 
+                            disabled={isReadOnly}
                           />
                           <div style={{ flex: 1.5 }}>
                             <UnitAutocomplete 
                               value={expRow.unit} 
                               onChange={v => handleExportDetailChange(idx, "unit", v)} 
+                              disabled={isReadOnly}
                             />
                           </div>
                         </div>
@@ -888,6 +906,7 @@ function ViewAuthorizationDetails() {
                           onChange={e => handleExportDetailChange(idx, "value_usd", e.target.value)} 
                           placeholder="0.00" 
                           style={{ margin: 0 }}
+                          disabled={isReadOnly}
                         />
                       </td>
                       <td style={{ padding: '8px', verticalAlign: 'middle' }}>
@@ -898,42 +917,45 @@ function ViewAuthorizationDetails() {
                           onChange={e => handleExportDetailChange(idx, "value_rs", e.target.value)} 
                           placeholder="0.00" 
                           style={{ margin: 0 }}
+                          disabled={isReadOnly}
                         />
                       </td>
-                      <td style={{ textAlign: 'center', padding: '8px', verticalAlign: 'middle' }}>
-                        {idx > 0 ? (
-                          <button 
-                            type="button" 
-                            className="ap-remove-row-btn-new" 
-                            onClick={() => removeExportDetail(idx)} 
-                            title="Remove"
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              width: '28px',
-                              height: '28px',
-                              background: '#fff',
-                              border: '1px solid #fee2e2',
-                              borderRadius: '6px',
-                              color: '#ef4444',
-                              cursor: 'pointer',
-                              transition: 'all 0.15s'
-                            }}
-                            onMouseOver={e => { e.currentTarget.style.background = '#fee2e2'; }}
-                            onMouseOut={e => { e.currentTarget.style.background = '#fff'; }}
-                          >
-                            <IconTrash />
-                          </button>
-                        ) : (
-                          <div style={{ width: '28px', height: '28px' }} />
-                        )}
-                      </td>
+                      {!isReadOnly && (
+                        <td style={{ textAlign: 'center', padding: '8px', verticalAlign: 'middle' }}>
+                          {idx > 0 ? (
+                            <button 
+                              type="button" 
+                              className="ap-remove-row-btn-new" 
+                              onClick={() => removeExportDetail(idx)} 
+                              title="Remove"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '28px',
+                                height: '28px',
+                                background: '#fff',
+                                border: '1px solid #fee2e2',
+                                borderRadius: '6px',
+                                color: '#ef4444',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s'
+                              }}
+                              onMouseOver={e => { e.currentTarget.style.background = '#fee2e2'; }}
+                              onMouseOut={e => { e.currentTarget.style.background = '#fff'; }}
+                            >
+                              <IconTrash />
+                            </button>
+                          ) : (
+                            <div style={{ width: '28px', height: '28px' }} />
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                   {(!subData.export_details_array || subData.export_details_array.length === 0) && (
                     <tr>
-                      <td colSpan="7" className="ap-table-empty">No export details found</td>
+                      <td colSpan={isReadOnly ? "6" : "7"} className="ap-table-empty">No export details found</td>
                     </tr>
                   )}
                 </tbody>
@@ -946,9 +968,11 @@ function ViewAuthorizationDetails() {
              
                 <span>Import Details</span>
               </div>
-              <button type="button" className="ap-btn-add-item-outline" onClick={addImportDetail}>
-                + Add Import Item
-              </button>
+              {!isReadOnly && (
+                <button type="button" className="ap-btn-add-item-outline" onClick={addImportDetail}>
+                  + Add Import Item
+                </button>
+              )}
             </div>
 
             <div className="ap-table-responsive" style={{ border: '1px solid #e2e8f0', borderRadius: '8px', overflow: 'hidden', background: '#fff', marginBottom: '12px' }}>
@@ -962,7 +986,7 @@ function ViewAuthorizationDetails() {
                     <th style={{ textAlign: 'left', width: '17%', minWidth: '150px', padding: '10px 8px', fontSize: '10.5px' }}>QTY / UNIT</th>
                     <th style={{ textAlign: 'left', width: '11%', minWidth: '110px', padding: '10px 8px', fontSize: '10.5px' }}>CIF USD</th>
                     <th style={{ textAlign: 'left', width: '11%', minWidth: '110px', padding: '10px 8px', fontSize: '10.5px' }}>CIF INR</th>
-                    <th style={{ textAlign: 'center', width: '5%', minWidth: '60px', padding: '10px 8px', fontSize: '10.5px' }}>ACTIONS</th>
+                    {!isReadOnly && <th style={{ textAlign: 'center', width: '5%', minWidth: '60px', padding: '10px 8px', fontSize: '10.5px' }}>ACTIONS</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -984,6 +1008,7 @@ function ViewAuthorizationDetails() {
                           placeholder="Import description..." 
                           rows={2}
                           style={{ margin: 0, padding: 0 }}
+                          disabled={isReadOnly}
                         />
                       </td>
                       <td style={{ padding: '8px', verticalAlign: 'top' }}>
@@ -991,6 +1016,7 @@ function ViewAuthorizationDetails() {
                           value={impRow.hs_code} 
                           onChange={v => handleImportDetailChange(idx, "hs_code", v)} 
                           className="ap-field-input-borderless"
+                          disabled={isReadOnly}
                         />
                       </td>
                       <td style={{ padding: '8px', verticalAlign: 'top' }}>
@@ -1002,12 +1028,14 @@ function ViewAuthorizationDetails() {
                             onChange={e => handleImportDetailChange(idx, "qty", e.target.value)} 
                             placeholder="0.00" 
                             style={{ flex: 2, margin: 0, fontWeight: 'normal' }} 
+                            disabled={isReadOnly}
                           />
                           <div style={{ flex: 1.5 }}>
                             <UnitAutocomplete 
                               value={impRow.unit} 
                               onChange={v => handleImportDetailChange(idx, "unit", v)} 
                               className="ap-field-input-borderless"
+                              disabled={isReadOnly}
                             />
                           </div>
                         </div>
@@ -1025,6 +1053,7 @@ function ViewAuthorizationDetails() {
                           onChange={e => handleImportDetailChange(idx, "value_usd", e.target.value)} 
                           placeholder="0.00" 
                           style={{ margin: 0 }}
+                          disabled={isReadOnly}
                         />
                         <div className="ap-sub-meta" style={{ marginTop: '4px', gap: '6px' }}>
                           <span>Used: <strong>${impRow.total_utilized_usd ?? 0}</strong></span>
@@ -1040,6 +1069,7 @@ function ViewAuthorizationDetails() {
                           onChange={e => handleImportDetailChange(idx, "value_rs", e.target.value)} 
                           placeholder="0.00" 
                           style={{ margin: 0 }}
+                          disabled={isReadOnly}
                         />
                         <div className="ap-sub-meta" style={{ marginTop: '4px', gap: '6px' }}>
                           <span>Used: <strong>₹{impRow.total_utilized_inr ?? 0}</strong></span>
@@ -1047,40 +1077,42 @@ function ViewAuthorizationDetails() {
                           <span>Bal: <strong className="green">₹{impRow.balance_cif_inr ?? (parseFloat(impRow.value_rs) || 0)}</strong></span>
                         </div>
                       </td>
-                      <td style={{ textAlign: 'center', padding: '8px', verticalAlign: 'top' }}>
-                        {idx > 0 ? (
-                          <button 
-                            type="button" 
-                            className="ap-remove-row-btn-new" 
-                            onClick={() => removeImportDetail(idx)} 
-                            title="Remove"
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              width: '28px',
-                              height: '28px',
-                              background: '#fff',
-                              border: '1px solid #fee2e2',
-                              borderRadius: '6px',
-                              color: '#ef4444',
-                              cursor: 'pointer',
-                              transition: 'all 0.15s'
-                            }}
-                            onMouseOver={e => { e.currentTarget.style.background = '#fee2e2'; }}
-                            onMouseOut={e => { e.currentTarget.style.background = '#fff'; }}
-                          >
-                            <IconTrash />
-                          </button>
-                        ) : (
-                          <div style={{ width: '28px', height: '28px' }} />
-                        )}
-                      </td>
+                      {!isReadOnly && (
+                        <td style={{ textAlign: 'center', padding: '8px', verticalAlign: 'top' }}>
+                          {idx > 0 ? (
+                            <button 
+                              type="button" 
+                              className="ap-remove-row-btn-new" 
+                              onClick={() => removeImportDetail(idx)} 
+                              title="Remove"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '28px',
+                                height: '28px',
+                                background: '#fff',
+                                border: '1px solid #fee2e2',
+                                borderRadius: '6px',
+                                color: '#ef4444',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s'
+                              }}
+                              onMouseOver={e => { e.currentTarget.style.background = '#fee2e2'; }}
+                              onMouseOut={e => { e.currentTarget.style.background = '#fff'; }}
+                            >
+                              <IconTrash />
+                            </button>
+                          ) : (
+                            <div style={{ width: '28px', height: '28px' }} />
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                   {(!subData.import_details_array || subData.import_details_array.length === 0) && (
                     <tr>
-                      <td colSpan="8" className="ap-table-empty">No import details found</td>
+                      <td colSpan={isReadOnly ? "7" : "8"} className="ap-table-empty">No import details found</td>
                     </tr>
                   )}
                 </tbody>
@@ -1101,16 +1133,16 @@ function ViewAuthorizationDetails() {
               <div className="ap-field-group">
                 <label className="ap-field-label">Registration No.</label>
                 <input type="text" className="ap-field-input" value={subData.registration_no}
-                  onChange={e => hc("registration_no", e.target.value)} placeholder="Auth No." />
+                  onChange={e => hc("registration_no", e.target.value)} placeholder="Auth No." disabled={isReadOnly} />
               </div>
               <div className="ap-field-group">
                 <label className="ap-field-label">Auth Date</label>
-                <DatePickerInput value={subData.auth_date} onChange={v => hc("auth_date", v)} />
+                <DatePickerInput value={subData.auth_date} onChange={v => hc("auth_date", v)} disabled={isReadOnly} />
               </div>
               <div className="ap-field-group" style={{ gridColumn: "span 4" }}>
                 <label className="ap-field-label">Notification No.</label>
                 <input type="text" className="ap-field-input" value={subData.notification_number}
-                  onChange={e => hc("notification_number", e.target.value)} placeholder="Notification No." />
+                  onChange={e => hc("notification_number", e.target.value)} placeholder="Notification No." disabled={isReadOnly} />
               </div>
             </div>
 
@@ -1159,13 +1191,15 @@ function ViewAuthorizationDetails() {
       </div>
 
       {/* ── FLOATING SAVE ── */}
-      <div className="ap-floating-save">
-        <span className="ap-floating-save-meta">{lastSaved ? `Last saved at ${lastSaved}` : "Unsaved changes"}</span>
-        <button className="ap-btn primary ap-floating-btn" onClick={handleSave} disabled={saving}>
-          <IconCheck />
-          {saving ? "Saving..." : "Save Changes"}
-        </button>
-      </div>
+      {!isReadOnly && (
+        <div className="ap-floating-save">
+          <span className="ap-floating-save-meta">{lastSaved ? `Last saved at ${lastSaved}` : "Unsaved changes"}</span>
+          <button className="ap-btn primary ap-floating-btn" onClick={handleSave} disabled={saving}>
+            <IconCheck />
+            {saving ? "Saving..." : "Save Changes"}
+          </button>
+        </div>
+      )}
 
       {/* ── FOOTER ── */}
       <footer className="ap-footer">

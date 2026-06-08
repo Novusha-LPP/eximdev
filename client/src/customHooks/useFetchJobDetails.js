@@ -37,44 +37,60 @@ const getFormattedDateForRates = (dateInput) => {
   return `${day}-${month}-${year}`;
 };
 
+const exrateCache = {};
+
 const fetchExrateForCurrency = async (currency, date) => {
   if (!currency || currency.toUpperCase() === "INR") return 1;
   const formattedDate = getFormattedDateForRates(date);
-  try {
-    const response = await axios.get(
-      `${process.env.REACT_APP_API_STRING}/currency-rates/by-date/${formattedDate}`
-    );
-    if (response.data.success && response.data.data?.exchange_rates) {
-      const rateObj = response.data.data.exchange_rates.find(
-        r => r.currency_code.toUpperCase() === currency.toUpperCase()
-      );
-      if (rateObj) {
-        return parseFloat(rateObj.import_rate) || 1;
-      }
-    }
-  } catch (err) {
-    console.error("Error fetching exchange rate:", err);
-  }
+  const cacheKey = `${currency}_${formattedDate}`;
   
-  const currentDateFormatted = getFormattedDateForRates(new Date());
-  if (formattedDate !== currentDateFormatted) {
-    try {
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/currency-rates/by-date/${currentDateFormatted}`
-      );
-      if (response.data.success && response.data.data?.exchange_rates) {
-        const rateObj = response.data.data.exchange_rates.find(
-          r => r.currency_code.toUpperCase() === currency.toUpperCase()
+  if (exrateCache[cacheKey]) {
+    return exrateCache[cacheKey];
+  }
+
+  if (!exrateCache[`promise_${cacheKey}`]) {
+    exrateCache[`promise_${cacheKey}`] = (async () => {
+      try {
+        const response = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/currency-rates/by-date/${formattedDate}`
         );
-        if (rateObj) {
-          return parseFloat(rateObj.import_rate) || 1;
+        if (response.data.success && response.data.data?.exchange_rates) {
+          const rateObj = response.data.data.exchange_rates.find(
+            r => r.currency_code.toUpperCase() === currency.toUpperCase()
+          );
+          if (rateObj) {
+            return parseFloat(rateObj.import_rate) || 1;
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching exchange rate:", err);
+      }
+      
+      const currentDateFormatted = getFormattedDateForRates(new Date());
+      if (formattedDate !== currentDateFormatted) {
+        try {
+          const response = await axios.get(
+            `${process.env.REACT_APP_API_STRING}/currency-rates/by-date/${currentDateFormatted}`
+          );
+          if (response.data.success && response.data.data?.exchange_rates) {
+            const rateObj = response.data.data.exchange_rates.find(
+              r => r.currency_code.toUpperCase() === currency.toUpperCase()
+            );
+            if (rateObj) {
+              return parseFloat(rateObj.import_rate) || 1;
+            }
+          }
+        } catch (err) {
+          console.error("Error fetching fallback exchange rate:", err);
         }
       }
-    } catch (err) {
-      console.error("Error fetching fallback exchange rate:", err);
-    }
+      return 1;
+    })();
   }
-  return 1;
+  
+  const result = await exrateCache[`promise_${cacheKey}`];
+  exrateCache[cacheKey] = result;
+  return result;
 };
 
 // import { Dropdown } from "react-bootstrap";

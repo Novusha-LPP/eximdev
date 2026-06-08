@@ -41,44 +41,60 @@ const getFormattedDateForRates = (dateInput) => {
   return `${day}-${month}-${year}`;
 };
 
+const exrateCache = {};
+
 const fetchExrateForCurrency = async (currency, date) => {
   if (!currency || currency.toUpperCase() === "INR") return 1;
   const formattedDate = getFormattedDateForRates(date);
-  try {
-    const response = await axios.get(
-      `${process.env.REACT_APP_API_STRING}/currency-rates/by-date/${formattedDate}`
-    );
-    if (response.data.success && response.data.data?.exchange_rates) {
-      const rateObj = response.data.data.exchange_rates.find(
-        r => r.currency_code.toUpperCase() === currency.toUpperCase()
-      );
-      if (rateObj) {
-        return parseFloat(rateObj.import_rate) || 1;
-      }
-    }
-  } catch (err) {
-    console.error("Error fetching exchange rate:", err);
-  }
+  const cacheKey = `${currency}_${formattedDate}`;
   
-  const currentDateFormatted = getFormattedDateForRates(new Date());
-  if (formattedDate !== currentDateFormatted) {
-    try {
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/currency-rates/by-date/${currentDateFormatted}`
-      );
-      if (response.data.success && response.data.data?.exchange_rates) {
-        const rateObj = response.data.data.exchange_rates.find(
-          r => r.currency_code.toUpperCase() === currency.toUpperCase()
+  if (exrateCache[cacheKey]) {
+    return exrateCache[cacheKey];
+  }
+
+  if (!exrateCache[`promise_${cacheKey}`]) {
+    exrateCache[`promise_${cacheKey}`] = (async () => {
+      try {
+        const response = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/currency-rates/by-date/${formattedDate}`
         );
-        if (rateObj) {
-          return parseFloat(rateObj.import_rate) || 1;
+        if (response.data.success && response.data.data?.exchange_rates) {
+          const rateObj = response.data.data.exchange_rates.find(
+            r => r.currency_code.toUpperCase() === currency.toUpperCase()
+          );
+          if (rateObj) {
+            return parseFloat(rateObj.import_rate) || 1;
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching exchange rate:", err);
+      }
+      
+      const currentDateFormatted = getFormattedDateForRates(new Date());
+      if (formattedDate !== currentDateFormatted) {
+        try {
+          const response = await axios.get(
+            `${process.env.REACT_APP_API_STRING}/currency-rates/by-date/${currentDateFormatted}`
+          );
+          if (response.data.success && response.data.data?.exchange_rates) {
+            const rateObj = response.data.data.exchange_rates.find(
+              r => r.currency_code.toUpperCase() === currency.toUpperCase()
+            );
+            if (rateObj) {
+              return parseFloat(rateObj.import_rate) || 1;
+            }
+          }
+        } catch (err) {
+          console.error("Error fetching fallback exchange rate:", err);
         }
       }
-    } catch (err) {
-      console.error("Error fetching fallback exchange rate:", err);
-    }
+      return 1;
+    })();
   }
-  return 1;
+  
+  const result = await exrateCache[`promise_${cacheKey}`];
+  exrateCache[cacheKey] = result;
+  return result;
 };
 
 
@@ -470,13 +486,13 @@ const useImportJobForm = () => {
       [field]: value,
     };
 
-    if (field === "freight_currency") {
+    if (field === "freight_currency" && invoice_details[rowIndex]?.freight_currency !== value) {
       updatedRows[rowIndex].freight_exchange_rate = "";
     }
-    if (field === "insurance_currency") {
+    if (field === "insurance_currency" && invoice_details[rowIndex]?.insurance_currency !== value) {
       updatedRows[rowIndex].insurance_exchange_rate = "";
     }
-    if (field === "other_charges_currency") {
+    if (field === "other_charges_currency" && invoice_details[rowIndex]?.other_charges_currency !== value) {
       updatedRows[rowIndex].other_charges_exchange_rate = "";
     }
     // Auto-sync product_value (Invoice Value) to linked description row(s) amount in product tab
@@ -634,7 +650,7 @@ const useImportJobForm = () => {
      }
     
     // Auto-sync currency for all charge heads in other_charges_details when invoice currency changes
-    if (field === "inv_currency") {
+    if (field === "inv_currency" && invoice_details[rowIndex]?.inv_currency !== value) {
       updatedRows[rowIndex].freight_currency = value || "";
       updatedRows[rowIndex].insurance_currency = "INR";
       updatedRows[rowIndex].other_charges_currency = "USD";
@@ -673,7 +689,7 @@ const useImportJobForm = () => {
       if (field === "invoice_date") setInvoiceDate(value);
       if (field === "po_no") setPoNo(value);
       if (field === "po_date") setPoDate(value);
-      if (field === "inv_currency") {
+      if (field === "inv_currency" && inv_currency !== value) {
         setInvCurrency(value);
         if (!in_bond_be_no || in_bond_be_no.trim().length === 0) {
           setExrate("");

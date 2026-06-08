@@ -90,7 +90,7 @@ class WorkingDayEngine {
       const { isOff } = PolicyResolver.resolveWeeklyOffStatus(curr, weekOffPolicy);
       const holiday   = holidayPolicy
         ? PolicyResolver.resolveHolidayStatus(curr, holidayPolicy)
-        : await this.getHolidayInfo(curr, company._id || company);
+        : await this.getHolidayInfo(curr, company ? (company._id || company) : null);
 
       if (isOff)                weeklyOffsCount++;
       else if (holiday.isHoliday) holidaysCount++;

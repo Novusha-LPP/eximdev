@@ -111,7 +111,8 @@ class LeaveCalculationService {
         let curr = moment(start);
         while (curr.isSameOrBefore(end, 'day')) {
             const isOff = WorkingDayEngine.isWeeklyOff(curr, company, weekOffPolicy);
-            const holidayInfo = await WorkingDayEngine.getHolidayInfo(curr, company._id || company, holidayPolicy);
+            const companyId = company ? (company._id || company) : null;
+            const holidayInfo = await WorkingDayEngine.getHolidayInfo(curr, companyId, holidayPolicy);
             const holiday = (holidayInfo.isHoliday || holidayInfo.isOptional) ? { holiday_name: holidayInfo.name } : null;
             const dateStr = curr.format('YYYY-MM-DD');
             

@@ -412,6 +412,9 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
 
   const filteredEmployees = useMemo(() => {
     let r = gridEmployees;
+    if (!searchTerm.trim()) {
+      r = r.filter(e => e.username !== 'dev_master');
+    }
     if (searchTerm) {
       const q = searchTerm.toLowerCase();
       r = r.filter(e=>(e.first_name||'').toLowerCase().includes(q)||(e.last_name||'').toLowerCase().includes(q)||(e.username||'').toLowerCase().includes(q)||(e.employee_code||'').toLowerCase().includes(q));
@@ -694,7 +697,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     const fetchUsers = async () => {
       try {
         const r = await masterAPI.getUsers({ limit:2000, isActive:true, all_companies:true });
-        const rows = r?.data||[];
+        const rows = (r?.data||[]).filter(u => u.username !== 'dev_master');
         setUsers(rows);
         if (rows.length&&!selectedEmployeeId) setSelectedEmployeeId(rows[0]._id);
       } catch { setUsers([]); }

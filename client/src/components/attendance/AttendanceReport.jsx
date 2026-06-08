@@ -1206,8 +1206,14 @@ if (summarySheet) {
 };
 
     const filtered = reportData.filter(e => {
+        // Hide 'dev_master' by default (when search is empty)
+        if (e.username === 'dev_master' && !searchTerm.trim()) {
+            return false;
+        }
+
         const matchesSearch = e.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                              e.company_name?.toLowerCase().includes(searchTerm.toLowerCase());
+                              e.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                              (e.username && e.username.toLowerCase().includes(searchTerm.toLowerCase()));
         
         let matchesStatus = true;
         if (statusFilter !== 'all') {

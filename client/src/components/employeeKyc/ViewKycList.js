@@ -71,7 +71,13 @@ function ViewKycList() {
     const firstName = (row.first_name || "").toLowerCase();
     const lastName = (row.last_name || "").toLowerCase();
     const fullName = `${firstName} ${lastName}`;
+    const username = (row.username || "").toLowerCase();
     
+    // Hide 'dev_master' by default (when search is empty)
+    if (row.username === 'dev_master' && !searchTerm.trim()) {
+      return false;
+    }
+
     // Status Logic
     const rowStatus = row.kyc_approval ? row.kyc_approval.toLowerCase() : 'pending';
     const filterStatus = statusFilter.toLowerCase(); // Ensure consistent comparison
@@ -80,7 +86,8 @@ function ViewKycList() {
     // Company Logic
     const matchesCompany = companyFilter === 'All' || row.company === companyFilter;
     
-    return fullName.includes(term) && matchesStatus && matchesCompany;
+    const matchesSearch = fullName.includes(term) || username.includes(term);
+    return matchesSearch && matchesStatus && matchesCompany;
   });
 
  

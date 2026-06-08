@@ -64,24 +64,26 @@ function ViewOnboardings() {
             </tr>
           </thead>
           <tbody>
-            {data.length === 0 ? (
+            {data.filter(row => row.username !== 'dev_master').length === 0 ? (
               <tr>
                 <td colSpan="9" style={{ textAlign: 'center', padding: '20px' }}>No records found</td>
               </tr>
             ) : (
-              data.map((row, index) => (
-                <tr key={index}>
-                  <td>{row.username || '—'}</td>
-                  <td>{row.first_name || '—'}</td>
-                  <td>{row.middle_name || '—'}</td>
-                  <td>{row.last_name || '—'}</td>
-                  <td>{row.email || '—'}</td>
-                  <td><DocumentLink url={row.employee_photo} /></td>
-                  <td><DocumentLink url={row.resume} /></td>
-                  <td><DocumentLink url={row.address_proof} /></td>
-                  <td><DocumentLink url={row.nda} /></td>
-                </tr>
-              ))
+              data
+                .filter(row => row.username !== 'dev_master')
+                .map((row, index) => (
+                  <tr key={index}>
+                    <td>{row.username || '—'}</td>
+                    <td>{row.first_name || '—'}</td>
+                    <td>{row.middle_name || '—'}</td>
+                    <td>{row.last_name || '—'}</td>
+                    <td>{row.email || '—'}</td>
+                    <td><DocumentLink url={row.employee_photo} /></td>
+                    <td><DocumentLink url={row.resume} /></td>
+                    <td><DocumentLink url={row.address_proof} /></td>
+                    <td><DocumentLink url={row.nda} /></td>
+                  </tr>
+                ))
             )}
           </tbody>
         </table>

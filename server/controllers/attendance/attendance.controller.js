@@ -433,6 +433,7 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
     return {
         id: emp._id,
         name: emp.first_name ? `${emp.first_name} ${emp.last_name || ''}`.trim() : emp.username,
+        username: emp.username,
         designation: emp.designation || 'Staff',
         present: actualPresent,
         absent: actualAbsent,

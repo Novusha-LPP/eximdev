@@ -37,44 +37,60 @@ const getFormattedDateForRates = (dateInput) => {
   return `${day}-${month}-${year}`;
 };
 
+const exrateCache = {};
+
 const fetchExrateForCurrency = async (currency, date) => {
   if (!currency || currency.toUpperCase() === "INR") return 1;
   const formattedDate = getFormattedDateForRates(date);
-  try {
-    const response = await axios.get(
-      `${process.env.REACT_APP_API_STRING}/currency-rates/by-date/${formattedDate}`
-    );
-    if (response.data.success && response.data.data?.exchange_rates) {
-      const rateObj = response.data.data.exchange_rates.find(
-        r => r.currency_code.toUpperCase() === currency.toUpperCase()
-      );
-      if (rateObj) {
-        return parseFloat(rateObj.import_rate) || 1;
-      }
-    }
-  } catch (err) {
-    console.error("Error fetching exchange rate:", err);
-  }
+  const cacheKey = `${currency}_${formattedDate}`;
   
-  const currentDateFormatted = getFormattedDateForRates(new Date());
-  if (formattedDate !== currentDateFormatted) {
-    try {
-      const response = await axios.get(
-        `${process.env.REACT_APP_API_STRING}/currency-rates/by-date/${currentDateFormatted}`
-      );
-      if (response.data.success && response.data.data?.exchange_rates) {
-        const rateObj = response.data.data.exchange_rates.find(
-          r => r.currency_code.toUpperCase() === currency.toUpperCase()
+  if (exrateCache[cacheKey]) {
+    return exrateCache[cacheKey];
+  }
+
+  if (!exrateCache[`promise_${cacheKey}`]) {
+    exrateCache[`promise_${cacheKey}`] = (async () => {
+      try {
+        const response = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/currency-rates/by-date/${formattedDate}`
         );
-        if (rateObj) {
-          return parseFloat(rateObj.import_rate) || 1;
+        if (response.data.success && response.data.data?.exchange_rates) {
+          const rateObj = response.data.data.exchange_rates.find(
+            r => r.currency_code.toUpperCase() === currency.toUpperCase()
+          );
+          if (rateObj) {
+            return parseFloat(rateObj.import_rate) || 1;
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching exchange rate:", err);
+      }
+      
+      const currentDateFormatted = getFormattedDateForRates(new Date());
+      if (formattedDate !== currentDateFormatted) {
+        try {
+          const response = await axios.get(
+            `${process.env.REACT_APP_API_STRING}/currency-rates/by-date/${currentDateFormatted}`
+          );
+          if (response.data.success && response.data.data?.exchange_rates) {
+            const rateObj = response.data.data.exchange_rates.find(
+              r => r.currency_code.toUpperCase() === currency.toUpperCase()
+            );
+            if (rateObj) {
+              return parseFloat(rateObj.import_rate) || 1;
+            }
+          }
+        } catch (err) {
+          console.error("Error fetching fallback exchange rate:", err);
         }
       }
-    } catch (err) {
-      console.error("Error fetching fallback exchange rate:", err);
-    }
+      return 1;
+    })();
   }
-  return 1;
+  
+  const result = await exrateCache[`promise_${cacheKey}`];
+  exrateCache[cacheKey] = result;
+  return result;
 };
 
 // import { Dropdown } from "react-bootstrap";
@@ -1292,16 +1308,16 @@ function useFetchJobDetails(
   useEffect(() => {
     if (formik.values.invoice_details?.length > 0) {
       const firstRow = formik.values.invoice_details[0];
-      if (firstRow.invoice_number && !formik.values.invoice_number) formik.setFieldValue("invoice_number", firstRow.invoice_number || "");
-      if (firstRow.invoice_date && !formik.values.invoice_date) formik.setFieldValue("invoice_date", firstRow.invoice_date || "");
-      if (firstRow.po_no && !formik.values.po_no) formik.setFieldValue("po_no", firstRow.po_no || "");
+      if (firstRow.invoice_number && formik.values.invoice_number !== firstRow.invoice_number) formik.setFieldValue("invoice_number", firstRow.invoice_number || "");
+      if (firstRow.invoice_date && formik.values.invoice_date !== firstRow.invoice_date) formik.setFieldValue("invoice_date", firstRow.invoice_date || "");
+      if (firstRow.po_no && formik.values.po_no !== firstRow.po_no) formik.setFieldValue("po_no", firstRow.po_no || "");
       const totalProductVal = formik.values.invoice_details.reduce((sum, r) => sum + (parseFloat(r.product_value) || 0), 0);
-      if (totalProductVal > 0) {
+      if (totalProductVal > 0 && formik.values.total_inv_value !== totalProductVal.toFixed(2)) {
         formik.setFieldValue("total_inv_value", totalProductVal.toFixed(2));
       }
-      if (firstRow.toi && !formik.values.import_terms) formik.setFieldValue("import_terms", firstRow.toi || "");
-      if (firstRow.freight && !formik.values.freight) formik.setFieldValue("freight", firstRow.freight || "");
-      if (firstRow.insurance && !formik.values.insurance) formik.setFieldValue("insurance", firstRow.insurance || "");
+      if (firstRow.toi && formik.values.import_terms !== firstRow.toi) formik.setFieldValue("import_terms", firstRow.toi || "");
+      if (firstRow.freight && formik.values.freight !== firstRow.freight) formik.setFieldValue("freight", firstRow.freight || "");
+      if (firstRow.insurance && formik.values.insurance !== firstRow.insurance) formik.setFieldValue("insurance", firstRow.insurance || "");
 
       // Sync cif_amount and cifValue by converting each row's components (product value, freight, insurance, others) to INR using their respective exchange rates
       const syncCifValue = async () => {
@@ -1315,13 +1331,13 @@ function useFetchJobDetails(
 
           if (!curr) return { rate: 1, updated: false };
           if (curr.toUpperCase() === "INR") {
-            if (existingRateStr !== "1" && existingRateStr !== 1) {
+            if (parseFloat(existingRateStr) !== 1) {
               return { rate: 1, updated: true };
             }
             return { rate: 1, updated: false };
           }
           if (curr.toUpperCase() === globalCurrency.toUpperCase()) {
-            if (globalRate && !isNaN(globalRate) && existingRateStr !== String(globalRate)) {
+            if (globalRate && !isNaN(globalRate) && parseFloat(existingRateStr) !== globalRate) {
               return { rate: globalRate, updated: true };
             } else if (!rate || isNaN(rate)) {
               const hasBeNo = formik.values.be_no && String(formik.values.be_no).trim().length > 0;
@@ -1376,8 +1392,13 @@ function useFetchJobDetails(
           formik.setFieldValue("invoice_details", newRows);
         }
 
-        formik.setFieldValue("cif_amount", totalCifInr.toFixed(2));
-        formik.setFieldValue("cifValue", totalCifInr.toFixed(2));
+        const calculatedCifStr = totalCifInr.toFixed(2);
+        if (formik.values.cif_amount !== calculatedCifStr) {
+          formik.setFieldValue("cif_amount", calculatedCifStr);
+        }
+        if (formik.values.cifValue !== calculatedCifStr) {
+          formik.setFieldValue("cifValue", calculatedCifStr);
+        }
       };
       syncCifValue();
     }
@@ -1399,13 +1420,13 @@ function useFetchJobDetails(
           let rate = parseFloat(charge.exchange_rate);
 
           if (currency?.toUpperCase() === "INR") {
-            if (charge.exchange_rate !== 1 && charge.exchange_rate !== "1") {
+            if (parseFloat(charge.exchange_rate) !== 1) {
               newDetails[key] = { ...charge, exchange_rate: 1 };
               updated = true;
             }
           } else if (currency && currency.toUpperCase() === globalCurrency.toUpperCase()) {
             const globalRate = parseFloat(formik.values.exrate || data?.exrate);
-            if (globalRate && !isNaN(globalRate) && charge.exchange_rate !== globalRate) {
+            if (globalRate && !isNaN(globalRate) && parseFloat(charge.exchange_rate) !== globalRate) {
               newDetails[key] = { ...charge, exchange_rate: globalRate };
               updated = true;
             } else if (!rate || isNaN(rate)) {

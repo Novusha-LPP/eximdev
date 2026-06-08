@@ -1512,7 +1512,7 @@ function JobDetails() {
     }
 
     // Auto-sync currency for all charge heads in other_charges_details when invoice currency changes
-    if (field === "inv_currency") {
+    if (field === "inv_currency" && invoiceRows[rowIndex]?.inv_currency !== value) {
       updatedRows[rowIndex].freight_currency = value || "";
       updatedRows[rowIndex].insurance_currency = "INR";
       updatedRows[rowIndex].other_charges_currency = "USD";
@@ -1537,13 +1537,13 @@ function JobDetails() {
       }
     }
 
-    if (field === "freight_currency") {
+    if (field === "freight_currency" && invoiceRows[rowIndex]?.freight_currency !== value) {
       updatedRows[rowIndex].freight_exchange_rate = "";
     }
-    if (field === "insurance_currency") {
+    if (field === "insurance_currency" && invoiceRows[rowIndex]?.insurance_currency !== value) {
       updatedRows[rowIndex].insurance_exchange_rate = "";
     }
-    if (field === "other_charges_currency") {
+    if (field === "other_charges_currency" && invoiceRows[rowIndex]?.other_charges_currency !== value) {
       updatedRows[rowIndex].other_charges_exchange_rate = "";
     }
 

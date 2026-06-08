@@ -399,6 +399,19 @@ export const getBalance = async (req, res) => {
             targetEmployee = employeeFound;
         }
 
+        if (!targetEmployee.company_id && targetEmployee.company) {
+            const matchedCompany = await Company.findOne({
+                $or: [
+                    { company_name: new RegExp(`^${targetEmployee.company.trim()}$`, 'i') },
+                    { name: new RegExp(`^${targetEmployee.company.trim()}$`, 'i') }
+                ]
+            });
+            if (matchedCompany) {
+                targetEmployee.company_id = matchedCompany._id;
+                await UserModel.updateOne({ _id: targetEmployee._id }, { $set: { company_id: matchedCompany._id } });
+            }
+        }
+
         const assignedPolicyIds = getAssignedPolicyIds(targetEmployee);
 
         // 2. Fetch assigned active policies (global policy catalog)
@@ -719,6 +732,19 @@ export const previewLeave = async (req, res) => {
         const targetUser = await UserModel.findById(targetId);
         if (!targetUser) return res.status(404).json({ message: 'Target user not found' });
 
+        if (!targetUser.company_id && targetUser.company) {
+            const matchedCompany = await Company.findOne({
+                $or: [
+                    { company_name: new RegExp(`^${targetUser.company.trim()}$`, 'i') },
+                    { name: new RegExp(`^${targetUser.company.trim()}$`, 'i') }
+                ]
+            });
+            if (matchedCompany) {
+                targetUser.company_id = matchedCompany._id;
+                await UserModel.updateOne({ _id: targetUser._id }, { $set: { company_id: matchedCompany._id } });
+            }
+        }
+
         const policy = await LeavePolicy.findById(leave_policy_id);
         if (!policy) return res.status(404).json({ message: 'Policy not found' });
 
@@ -833,8 +859,22 @@ export const applyLeave = async (req, res) => {
         const currentYear = new Date().getFullYear();
 
         // Robust ID extraction
-        const companyId = user.company_id?._id || user.company_id;
+        let companyId = user.company_id?._id || user.company_id;
         const departmentId = user.department_id?._id || user.department_id;
+
+        if (!companyId && user.company) {
+            const matchedCompany = await Company.findOne({
+                $or: [
+                    { company_name: new RegExp(`^${user.company.trim()}$`, 'i') },
+                    { name: new RegExp(`^${user.company.trim()}$`, 'i') }
+                ]
+            });
+            if (matchedCompany) {
+                companyId = matchedCompany._id;
+                user.company_id = matchedCompany._id;
+                await UserModel.updateOne({ _id: user._id }, { $set: { company_id: matchedCompany._id } });
+            }
+        }
         
         // 1. Validate Input
         if (!leave_policy_id || !from_date || !to_date || !reason) {

@@ -77,12 +77,21 @@ const documentSchema = new mongoose.Schema({
   document_check_date: { type: String, trim: true },
 });
 
+const poDetailSchema = new mongoose.Schema(
+  {
+    po_no: { type: String, trim: true },
+    po_date: { type: String, trim: true },
+  },
+  { _id: false }
+);
+
 const invoiceDetailsSchema = new mongoose.Schema(
   {
     invoice_number: { type: String, trim: true },
     invoice_date: { type: String, trim: true },
     po_no: { type: String, trim: true },
     po_date: { type: String, trim: true },
+    po_details: [poDetailSchema],
     product_value: { type: String, trim: true },
     other_charges: { type: String, trim: true },
     total_inv_value: { type: String, trim: true },
@@ -93,6 +102,10 @@ const invoiceDetailsSchema = new mongoose.Schema(
     freight_currency: { type: String, trim: true },
     insurance_currency: { type: String, trim: true },
     other_charges_currency: { type: String, trim: true },
+    exchange_rate: { type: String, trim: true },
+    freight_exchange_rate: { type: String, trim: true },
+    insurance_exchange_rate: { type: String, trim: true },
+    other_charges_exchange_rate: { type: String, trim: true },
   },
   { _id: false }
 );
@@ -654,6 +667,7 @@ const jobSchema = new mongoose.Schema({
       remark: { type: String, trim: true }
     }
   ],
+  other_charges_details: { type: mongoose.Schema.Types.Mixed },
   // *******
   icd_cfs_invoice: { type: String, trim: true },
 

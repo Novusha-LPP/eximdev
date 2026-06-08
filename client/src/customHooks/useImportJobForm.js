@@ -168,9 +168,14 @@ const useImportJobForm = () => {
       invoice_date: "",
       po_no: "",
       po_date: "",
+      po_details: [{ po_no: "", po_date: "" }],
       product_value: "",
       total_inv_value: "",
       inv_currency: "",
+      exchange_rate: "",
+      freight_exchange_rate: "",
+      insurance_exchange_rate: "",
+      other_charges_exchange_rate: "",
       toi: "CIF",
       freight: "",
       insurance: "",
@@ -178,7 +183,7 @@ const useImportJobForm = () => {
       other_charges: "",
       freight_currency: "",
       insurance_currency: "INR",
-      other_charges_currency: "INR",
+      other_charges_currency: "USD",
     },
   ]);
 
@@ -359,7 +364,7 @@ const useImportJobForm = () => {
             inv_currency: inv_currency,
             freight_currency: inv_currency,
             insurance_currency: "INR",
-            other_charges_currency: "INR"
+            other_charges_currency: "USD"
           };
           return newRows;
         }
@@ -367,6 +372,52 @@ const useImportJobForm = () => {
       });
     }
   }, [inv_currency]);
+
+  // Handle automatic fetching of exchange rates for other_charges_details
+  useEffect(() => {
+    if (other_charges_details) {
+      const chargeKeys = ["miscellaneous", "agency", "discount", "loading", "freight", "insurance", "addl_charge"];
+      const fetchChargesRates = async () => {
+        let updated = false;
+        const newDetails = { ...other_charges_details };
+        const globalCurrency = inv_currency || "";
+
+        await Promise.all(chargeKeys.map(async (key) => {
+          const charge = newDetails[key] || {};
+          const currency = charge.currency;
+          let rate = parseFloat(charge.exchange_rate);
+
+          if (currency?.toUpperCase() === "INR") {
+            if (charge.exchange_rate !== 1 && charge.exchange_rate !== "1") {
+              newDetails[key] = { ...charge, exchange_rate: 1 };
+              updated = true;
+            }
+          } else if (currency && currency.toUpperCase() === globalCurrency.toUpperCase()) {
+            const globalRate = parseFloat(exrate);
+            if (globalRate && !isNaN(globalRate) && charge.exchange_rate !== globalRate) {
+              newDetails[key] = { ...charge, exchange_rate: globalRate };
+              updated = true;
+            } else if (!rate || isNaN(rate)) {
+              newDetails[key] = { ...charge, exchange_rate: globalRate || 1 };
+              updated = true;
+            }
+          } else if (currency) {
+            if (!rate || isNaN(rate)) {
+              const invDate = invoice_details?.[0]?.invoice_date || invoice_date || "";
+              const fetchedRate = await fetchExrateForCurrency(currency, invDate);
+              newDetails[key] = { ...charge, exchange_rate: fetchedRate > 0 ? fetchedRate : 1 };
+              updated = true;
+            }
+          }
+        }));
+
+        if (updated) {
+          setOtherChargesDetails(newDetails);
+        }
+      };
+      fetchChargesRates();
+    }
+  }, [JSON.stringify(other_charges_details), exrate, inv_currency, invoice_date, invoice_details?.[0]?.invoice_date]);
   //
   const [description_details, setDescriptionDetails] = useState([
     {
@@ -418,6 +469,16 @@ const useImportJobForm = () => {
       ...updatedRows[rowIndex],
       [field]: value,
     };
+
+    if (field === "freight_currency") {
+      updatedRows[rowIndex].freight_exchange_rate = "";
+    }
+    if (field === "insurance_currency") {
+      updatedRows[rowIndex].insurance_exchange_rate = "";
+    }
+    if (field === "other_charges_currency") {
+      updatedRows[rowIndex].other_charges_exchange_rate = "";
+    }
     // Auto-sync product_value (Invoice Value) to linked description row(s) amount in product tab
     if (field === "product_value") {
       const matchedInvoiceSr = String(rowIndex + 1);
@@ -477,23 +538,74 @@ const useImportJobForm = () => {
     if (totalCif > 0) {
       setTotalInvValue(totalProductVal > 0 ? String(totalProductVal.toFixed(2)) : String(totalCif.toFixed(2)));
       
-      const invCurrency = updatedRows[rowIndex]?.inv_currency || inv_currency || "";
-      const invDate = updatedRows[rowIndex]?.invoice_date || invoice_date || "";
-      
       const syncCifValue = async () => {
-        let currentExrate = parseFloat(exrate);
-        if (!currentExrate || isNaN(currentExrate)) {
-          if (invCurrency && invCurrency.toUpperCase() !== "INR") {
-            const fetchedRate = await fetchExrateForCurrency(invCurrency, invDate);
-            currentExrate = fetchedRate > 0 ? fetchedRate : 1;
-            setExrate(String(currentExrate));
-          } else {
-            currentExrate = 1;
+        let totalCifInr = 0;
+        let updated = false;
+
+        const resolveRate = async (curr, existingRateStr, date) => {
+          let rate = parseFloat(existingRateStr);
+          const globalCurrency = inv_currency || "";
+          const globalRate = parseFloat(exrate);
+
+          if (!curr) return { rate: 1, updated: false };
+          if (curr.toUpperCase() === "INR") {
+            if (existingRateStr !== "1" && existingRateStr !== 1) {
+              return { rate: 1, updated: true };
+            }
+            return { rate: 1, updated: false };
           }
+          if (curr.toUpperCase() === globalCurrency.toUpperCase()) {
+            if (globalRate && !isNaN(globalRate) && existingRateStr !== String(globalRate)) {
+              return { rate: globalRate, updated: true };
+            } else if (!rate || isNaN(rate)) {
+              const fetchedRate = await fetchExrateForCurrency(curr, date || invoice_date || "");
+              const resolved = fetchedRate > 0 ? fetchedRate : (globalRate || 1);
+              return { rate: resolved, updated: true };
+            }
+          } else {
+            if (!rate || isNaN(rate)) {
+              const fetchedRate = await fetchExrateForCurrency(curr, date || invoice_date || "");
+              const resolved = fetchedRate > 0 ? fetchedRate : 1;
+              return { rate: resolved, updated: true };
+            }
+          }
+          return { rate: rate, updated: false };
+        };
+
+        const newRows = await Promise.all(updatedRows.map(async (row) => {
+          const date = row.invoice_date || invoice_date || "";
+          const resInv = await resolveRate(row.inv_currency, row.exchange_rate, date);
+          const resFr = await resolveRate(row.freight_currency, row.freight_exchange_rate, date);
+          const resIns = await resolveRate(row.insurance_currency, row.insurance_exchange_rate, date);
+          const resOth = await resolveRate(row.other_charges_currency, row.other_charges_exchange_rate, date);
+
+          if (resInv.updated || resFr.updated || resIns.updated || resOth.updated) {
+            updated = true;
+          }
+
+          const pv = parseFloat(row.product_value) || 0;
+          const fr = parseFloat(row.freight) || 0;
+          const ins = parseFloat(row.insurance) || 0;
+          const oth = parseFloat(row.other_charges) || 0;
+
+          const rowCif = (pv * resInv.rate) + (fr * resFr.rate) + (ins * resIns.rate) + (oth * resOth.rate);
+          totalCifInr += rowCif;
+
+          return {
+            ...row,
+            exchange_rate: String(resInv.rate),
+            freight_exchange_rate: String(resFr.rate),
+            insurance_exchange_rate: String(resIns.rate),
+            other_charges_exchange_rate: String(resOth.rate),
+          };
+        }));
+
+        if (updated) {
+          setInvoiceDetails(newRows);
         }
-        const cifInr = totalCif * currentExrate;
-        setTermValue(String(cifInr.toFixed(2)));
-        setCifAmount(String(cifInr.toFixed(2)));
+
+        setTermValue(String(totalCifInr.toFixed(2)));
+        setCifAmount(String(totalCifInr.toFixed(2)));
       };
       syncCifValue();
     } else if (field === "total_inv_value") {
@@ -525,7 +637,11 @@ const useImportJobForm = () => {
     if (field === "inv_currency") {
       updatedRows[rowIndex].freight_currency = value || "";
       updatedRows[rowIndex].insurance_currency = "INR";
-      updatedRows[rowIndex].other_charges_currency = "INR";
+      updatedRows[rowIndex].other_charges_currency = "USD";
+      updatedRows[rowIndex].exchange_rate = "";
+      updatedRows[rowIndex].freight_exchange_rate = "";
+      updatedRows[rowIndex].insurance_exchange_rate = "";
+      updatedRows[rowIndex].other_charges_exchange_rate = "";
 
       setOtherChargesDetails(prev => {
         const updated = { ...prev };
@@ -533,7 +649,8 @@ const useImportJobForm = () => {
           if (updated[key]) {
             updated[key] = {
               ...updated[key],
-              currency: value || ""
+              currency: value || "",
+              exchange_rate: ""
             };
           }
         });
@@ -541,7 +658,8 @@ const useImportJobForm = () => {
           if (updated[key]) {
             updated[key] = {
               ...updated[key],
-              currency: "INR"
+              currency: "INR",
+              exchange_rate: 1
             };
           }
         });
@@ -555,7 +673,12 @@ const useImportJobForm = () => {
       if (field === "invoice_date") setInvoiceDate(value);
       if (field === "po_no") setPoNo(value);
       if (field === "po_date") setPoDate(value);
-      if (field === "inv_currency") setInvCurrency(value);
+      if (field === "inv_currency") {
+        setInvCurrency(value);
+        if (!in_bond_be_no || in_bond_be_no.trim().length === 0) {
+          setExrate("");
+        }
+      }
       if (field === "toi") setImportTerms(value);
       if (field === "freight") setFreight(value);
       if (field === "insurance") setInsurance(value);
@@ -570,9 +693,14 @@ const useImportJobForm = () => {
         invoice_date: "",
         po_no: "",
         po_date: "",
+        po_details: [{ po_no: "", po_date: "" }],
         product_value: "",
         total_inv_value: "",
         inv_currency: invoice_details[0]?.inv_currency || "",
+        exchange_rate: "",
+        freight_exchange_rate: "",
+        insurance_exchange_rate: "",
+        other_charges_exchange_rate: "",
         toi: "CIF",
         freight: "",
         insurance: "",
@@ -580,7 +708,7 @@ const useImportJobForm = () => {
         po_validation_error: "",
         freight_currency: invoice_details[0]?.inv_currency || "",
         insurance_currency: "INR",
-        other_charges_currency: "INR",
+        other_charges_currency: "USD",
       },
     ]);
   };
@@ -591,13 +719,46 @@ const useImportJobForm = () => {
     setInvoiceDetails(updatedRows);
   };
 
+  const addInvoicePoDetail = (rowIndex) => {
+    const updated = [...invoice_details];
+    const row = updated[rowIndex];
+    const poList = Array.isArray(row.po_details) ? [...row.po_details] : [];
+    poList.push({ po_no: "", po_date: "" });
+    updated[rowIndex] = { ...row, po_details: poList };
+    setInvoiceDetails(updated);
+  };
+
+  const removeInvoicePoDetail = (rowIndex, poIndex) => {
+    const updated = [...invoice_details];
+    const row = updated[rowIndex];
+    const poList = Array.isArray(row.po_details) ? [...row.po_details] : [];
+    if (poList.length <= 1) return;
+    poList.splice(poIndex, 1);
+    updated[rowIndex] = { ...row, po_details: poList };
+    setInvoiceDetails(updated);
+  };
+
+  const updateInvoicePoDetail = (rowIndex, poIndex, poField, value) => {
+    const updated = [...invoice_details];
+    const row = updated[rowIndex];
+    const poList = Array.isArray(row.po_details) ? [...row.po_details] : [];
+    if (poList[poIndex]) {
+      poList[poIndex] = { ...poList[poIndex], [poField]: value };
+    }
+    updated[rowIndex] = { ...row, po_details: poList };
+    setInvoiceDetails(updated);
+  };
+
   const validateAllInvoiceRows = () => {
     const errors = [];
     invoice_details.forEach((row, index) => {
-      const poError = validatePoFields(row.po_no, row.po_date);
-      if (poError) {
-        errors.push(`Row ${index + 1}: ${poError}`);
-      }
+      const poList = row.po_details || [{ po_no: row.po_no, po_date: row.po_date }];
+      poList.forEach((po, poIndex) => {
+        const poError = validatePoFields(po.po_no, po.po_date);
+        if (poError) {
+          errors.push(`Row ${index + 1} (PO ${poIndex + 1}): ${poError}`);
+        }
+      });
     });
     return errors;
   };
@@ -761,16 +922,21 @@ const useImportJobForm = () => {
         invoice_date: "",
         po_no: "",
         po_date: "",
+        po_details: [{ po_no: "", po_date: "" }],
         product_value: "",
         total_inv_value: "",
         inv_currency: "",
+        exchange_rate: "",
+        freight_exchange_rate: "",
+        insurance_exchange_rate: "",
+        other_charges_exchange_rate: "",
         toi: "CIF",
         freight: "",
         insurance: "",
         other_charges: "",
         freight_currency: "",
         insurance_currency: "INR",
-        other_charges_currency: "INR",
+        other_charges_currency: "USD",
       },
     ]);
     setConsignmentType("");
@@ -911,9 +1077,16 @@ const useImportJobForm = () => {
         ...inv,
         po_no: inv.po_no || "",
         po_date: inv.po_date || "",
+        po_details: inv.po_details && inv.po_details.length > 0
+          ? inv.po_details.map(p => ({ po_no: p.po_no || "", po_date: p.po_date || "" }))
+          : [{ po_no: inv.po_no || "", po_date: inv.po_date || "" }],
         freight_currency: inv.freight_currency || inv.inv_currency || "",
         insurance_currency: inv.insurance_currency || "INR",
-        other_charges_currency: inv.other_charges_currency || "INR",
+        other_charges_currency: inv.other_charges_currency || "USD",
+        exchange_rate: inv.exchange_rate || "",
+        freight_exchange_rate: inv.freight_exchange_rate || "",
+        insurance_exchange_rate: inv.insurance_exchange_rate || "",
+        other_charges_exchange_rate: inv.other_charges_exchange_rate || "",
       })));
     } else if (job.invoice_number || job.total_inv_value) {
       setInvoiceDetails([{
@@ -921,6 +1094,7 @@ const useImportJobForm = () => {
         invoice_date: job.invoice_date || "",
         po_no: job.po_no || "",
         po_date: job.po_date || "",
+        po_details: [{ po_no: job.po_no || "", po_date: job.po_date || "" }],
         product_value: job.product_value || job.total_inv_value || "",
         total_inv_value: job.total_inv_value || "",
         inv_currency: job.inv_currency || "",
@@ -930,7 +1104,11 @@ const useImportJobForm = () => {
         other_charges: job.other_charges || "",
         freight_currency: job.inv_currency || "",
         insurance_currency: "INR",
-        other_charges_currency: "INR",
+        other_charges_currency: "USD",
+        exchange_rate: job.exrate || "",
+        freight_exchange_rate: job.exrate || "",
+        insurance_exchange_rate: "1",
+        other_charges_exchange_rate: "1",
       }]);
     }
     
@@ -1528,6 +1706,9 @@ const useImportJobForm = () => {
     addInvoiceRow,
     updateInvoiceRow,
     removeInvoiceRow,
+    addInvoicePoDetail,
+    removeInvoicePoDetail,
+    updateInvoicePoDetail,
     import_terms,
     setImportTerms,
     freight,

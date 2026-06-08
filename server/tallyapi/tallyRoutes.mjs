@@ -17,6 +17,28 @@ const getJobDetailsInternal = async (job_number) => {
   const job = await JobModel.findOne({ job_number }).lean();
   if (!job) return null;
 
+  // Extract PO number(s) from top level or invoice details
+  const poNumbers = [];
+  if (job.po_no) {
+    poNumbers.push(job.po_no);
+  }
+  if (Array.isArray(job.invoice_details)) {
+    job.invoice_details.forEach(inv => {
+      if (inv.po_no) {
+        poNumbers.push(inv.po_no);
+      }
+      if (Array.isArray(inv.po_details)) {
+        inv.po_details.forEach(p => {
+          if (p.po_no) {
+            poNumbers.push(p.po_no);
+          }
+        });
+      }
+    });
+  }
+  const uniquePoNumbers = [...new Set(poNumbers.map(p => p.trim()).filter(Boolean))];
+  const customerRef = uniquePoNumbers.join(", ") || job.po_no || "";
+
   return {
     "Job Number": job.job_number,
     "Job Year": job.year,
@@ -62,7 +84,7 @@ const getJobDetailsInternal = async (job_number) => {
     "Consignment Type": job.consignment_type,
     "Vessel": job.vessel_flight,
     "Voyage": job.voyage_no,
-    "Customer Ref.": job.po_no,
+    "Customer Ref.": customerRef,
     "Invoice Number": job.invoice_number,
     "Inv Date": job.invoice_date,
     "Terms of Invoice": job.toi,
@@ -358,6 +380,36 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
       }
     }
 
+    // Determine TDS rate & category
+    let tdsPercent = 0;
+    let tdsCategory = entry.tdsCategory || '94C';
+
+    if (entry.jobRef && entry.chargeRef) {
+      try {
+        const job = await JobModel.findOne(
+          { _id: entry.jobRef, "charges._id": entry.chargeRef },
+          { "charges.$": 1 }
+        ).lean();
+        if (job && job.charges && job.charges[0] && job.charges[0].cost) {
+          tdsPercent = job.charges[0].cost.tdsPercent || 0;
+          if (job.charges[0].cost.tdsCategory) {
+            tdsCategory = job.charges[0].cost.tdsCategory;
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching TDS details for purchase entry:", err);
+      }
+    }
+
+    if (!tdsPercent && entry.tds > 0 && entry.taxableValue > 0) {
+      tdsPercent = Math.round((entry.tds / entry.taxableValue) * 100);
+    }
+
+    const roundedPercent = Math.round(tdsPercent || 1);
+    const tdsLedgerName = roundedPercent === 2
+      ? "TDS ON CONTRACT 94C - 1024 -2%"
+      : "TDS ON CONTRACT 94C - 1023- 1%";
+
     const formattedData = {
       "Entry No": entry.entryNo,
       "Entry Date": entry.entryDate,
@@ -385,11 +437,11 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
       "CGST": entry.cgstAmt,
       "SGST": entry.sgstAmt,
       "IGST": entry.igstAmt,
-      "TDS": entry.tds,
+      ...(entry.tds > 0 ? { [tdsLedgerName]: entry.tds } : { "TDS": entry.tds }),
       "Total": entry.total,
       "Charge Description": entry.chargeDescription || '',
       "Charge Head Category": chargeCategory || '',
-      "TDS Category": entry.tdsCategory || '94C',
+      "TDS Category": tdsCategory,
       "Status": entry.status
     };
 

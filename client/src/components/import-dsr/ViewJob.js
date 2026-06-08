@@ -16,6 +16,7 @@ import {
   Autocomplete,
   Alert,
   AlertTitle,
+  Slider,
 } from "@mui/material";
 import MenuItem from "@mui/material/MenuItem";
 import axios from "axios";
@@ -44,6 +45,7 @@ import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import ErrorIcon from "@mui/icons-material/Error";
 import ImagePreview from "../../components/gallery/ImagePreview.js";
 import AddIcon from "@mui/icons-material/Add";
+import RemoveIcon from "@mui/icons-material/Remove";
 import {
   Dialog,
   DialogActions,
@@ -204,6 +206,8 @@ function JobDetails() {
   const handleInvoiceSubTabChange = (event, newValue) => {
     setInvoiceSubTab(newValue);
   };
+  const [invoiceTableWidth, setInvoiceTableWidth] = useState(1800);
+  const [productTableWidth, setProductTableWidth] = useState(1800);
 
   // State to track which containers have expanded seal number lists
   const [expandedSealIndices, setExpandedSealIndices] = useState({});
@@ -1409,15 +1413,19 @@ function JobDetails() {
       formik.values.invoice_details.length > 0
       ? formik.values.invoice_details.map(inv => ({
         ...inv,
+        po_details: inv.po_details && inv.po_details.length > 0
+          ? inv.po_details.map(p => ({ po_no: p.po_no || "", po_date: p.po_date || "" }))
+          : [{ po_no: inv.po_no || "", po_date: inv.po_date || "" }],
         freight_currency: inv.freight_currency || inv.inv_currency || "",
         insurance_currency: inv.insurance_currency || "INR",
-        other_charges_currency: inv.other_charges_currency || "INR",
+        other_charges_currency: inv.other_charges_currency || "USD",
       }))
       : [
         {
           invoice_number: "",
           invoice_date: "",
           po_no: "",
+          po_details: [{ po_no: "", po_date: "" }],
           product_value: "",
           other_charges: "",
           total_inv_value: "",
@@ -1427,7 +1435,7 @@ function JobDetails() {
           insurance: "",
           freight_currency: "",
           insurance_currency: "INR",
-          other_charges_currency: "INR",
+          other_charges_currency: "USD",
         },
       ];
   }, [formik.values.invoice_details]);
@@ -1507,13 +1515,19 @@ function JobDetails() {
     if (field === "inv_currency") {
       updatedRows[rowIndex].freight_currency = value || "";
       updatedRows[rowIndex].insurance_currency = "INR";
-      updatedRows[rowIndex].other_charges_currency = "INR";
+      updatedRows[rowIndex].other_charges_currency = "USD";
+      updatedRows[rowIndex].exchange_rate = "";
+      updatedRows[rowIndex].freight_exchange_rate = "";
+      updatedRows[rowIndex].insurance_exchange_rate = "";
+      updatedRows[rowIndex].other_charges_exchange_rate = "";
 
       ["freight"].forEach(key => {
         formik.setFieldValue(`other_charges_details.${key}.currency`, value || "");
+        formik.setFieldValue(`other_charges_details.${key}.exchange_rate`, "");
       });
       ["insurance", "miscellaneous", "agency", "discount", "loading", "addl_charge"].forEach(key => {
         formik.setFieldValue(`other_charges_details.${key}.currency`, "INR");
+        formik.setFieldValue(`other_charges_details.${key}.exchange_rate`, 1);
       });
 
       // Clear the exrate to force re-fetch only if BE No is NOT present!
@@ -1523,47 +1537,25 @@ function JobDetails() {
       }
     }
 
-    // Sync global CIF value (term value) across all rows converted to INR
+    if (field === "freight_currency") {
+      updatedRows[rowIndex].freight_exchange_rate = "";
+    }
+    if (field === "insurance_currency") {
+      updatedRows[rowIndex].insurance_exchange_rate = "";
+    }
+    if (field === "other_charges_currency") {
+      updatedRows[rowIndex].other_charges_exchange_rate = "";
+    }
+
+    formik.setFieldValue("invoice_details", updatedRows);
+
     const totalCif = updatedRows.reduce((sum, row) => sum + (parseFloat(row.total_inv_value) || 0), 0);
     const totalProductVal = updatedRows.reduce((sum, row) => sum + (parseFloat(row.product_value) || 0), 0);
 
-    // Check if we need to force clear exrate in our sync calculation due to currency change
-    let forcedExrate;
-    if (field === "inv_currency") {
-      const hasBeNo = formik.values.be_no && String(formik.values.be_no).trim().length > 0;
-      if (!hasBeNo) {
-        forcedExrate = "";
-      }
-    }
-
     if (totalCif > 0) {
       formik.setFieldValue("total_inv_value", totalProductVal.toFixed(2));
-
-      const invCurrency = updatedRows[rowIndex]?.inv_currency || formik.values.inv_currency || "";
-      const invDate = updatedRows[rowIndex]?.invoice_date || formik.values.invoice_date || "";
-
-      const syncCifValue = async (forcedRate) => {
-        let currentExrate = forcedRate !== undefined ? parseFloat(forcedRate) : parseFloat(formik.values.exrate);
-        if (!currentExrate || isNaN(currentExrate)) {
-          const hasBeNo = formik.values.be_no && String(formik.values.be_no).trim().length > 0;
-          if (invCurrency && invCurrency.toUpperCase() !== "INR" && !hasBeNo) {
-            const fetchedRate = await fetchExrateForCurrency(invCurrency, invDate);
-            currentExrate = fetchedRate > 0 ? fetchedRate : 1;
-            formik.setFieldValue("exrate", String(currentExrate));
-          } else {
-            currentExrate = 1;
-            formik.setFieldValue("exrate", "1");
-          }
-        }
-        const cifInr = totalCif * currentExrate;
-        formik.setFieldValue("cif_amount", cifInr.toFixed(2));
-        formik.setFieldValue("cifValue", cifInr.toFixed(2));
-      };
-      syncCifValue(forcedExrate);
     } else {
       formik.setFieldValue("total_inv_value", "");
-      formik.setFieldValue("cif_amount", "");
-      formik.setFieldValue("cifValue", "");
     }
   };
 
@@ -1574,16 +1566,21 @@ function JobDetails() {
         invoice_number: "",
         invoice_date: "",
         po_no: "",
+        po_details: [{ po_no: "", po_date: "" }],
         product_value: "",
         other_charges: "",
         total_inv_value: "",
         inv_currency: invoiceRows[0]?.inv_currency || "",
+        exchange_rate: "",
+        freight_exchange_rate: "",
+        insurance_exchange_rate: "",
+        other_charges_exchange_rate: "",
         toi: "CIF",
         freight: "",
         insurance: "",
         freight_currency: invoiceRows[0]?.inv_currency || "",
         insurance_currency: "INR",
-        other_charges_currency: "INR",
+        other_charges_currency: "USD",
       },
     ]);
   };
@@ -3112,10 +3109,25 @@ function JobDetails() {
                   {/* Invoice Details Table */}
                   <Row>
                     <Col xs={12} className="mb-3">
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                        <label style={{ marginBottom: 0, fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px", gap: "24px" }}>
+                        <label style={{ marginBottom: 0, fontSize: "0.9rem", fontWeight: "600", color: "#000000", whiteSpace: "nowrap" }}>
                           Invoice Details
                         </label>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '250px' }}>
+                          <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                            Table Width:
+                          </Typography>
+                          <Slider
+                            value={invoiceTableWidth}
+                            onChange={(e, val) => setInvoiceTableWidth(val)}
+                            min={1200}
+                            max={2500}
+                            step={100}
+                            valueLabelDisplay="auto"
+                            valueLabelFormat={(val) => `${val}px`}
+                            sx={{ color: '#1e293b' }}
+                          />
+                        </Box>
                         {!isDescriptionTableReadOnly && (
                           <Button
                             variant="contained"
@@ -3143,18 +3155,18 @@ function JobDetails() {
                       </div>
 
                       <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: "8px", boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.05)" }}>
-                        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "1500px", backgroundColor: "#ffffff" }}>
+                        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: `${invoiceTableWidth}px`, backgroundColor: "#ffffff" }}>
                           <thead>
                             <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
                               {[
                                 { label: "Sr No", width: "45px", align: "center" },
                                 { label: "Invoice Number", width: "150px", align: "left" },
                                 { label: "Date", width: "120px", align: "left" },
-                                { label: "PO NO", width: "120px", align: "left" },
-                                { label: "PO Date", width: "120px", align: "left" },
+                                { label: "PO Details", width: "280px", align: "left" },
                                 { label: "TOI", width: "90px", align: "left" },
                                 { label: "Invoice Value", width: "130px", align: "left" },
                                 { label: "Currency", width: "95px", align: "left" },
+                                { label: "Ex. Rate", width: "100px", align: "left" },
                                 { label: "Freight", width: "170px", align: "left" },
                                 { label: "Insurance", width: "170px", align: "left" },
                                 { label: "Other Chrgs", width: "170px", align: "left" },
@@ -3216,28 +3228,78 @@ function JobDetails() {
                                     sx={compactInputSx}
                                   />
                                 </td>
-                                <td style={{ padding: "8px 6px", width: "120px", verticalAlign: "middle" }}>
-                                  <TextField
-                                    size="small"
-                                    fullWidth
-                                    value={row.po_no || ""}
-                                    onChange={(e) => updateInvoiceRow(rowIndex, "po_no", e.target.value)}
-                                    disabled={isDescriptionTableReadOnly}
-                                    placeholder="PO No"
-                                    sx={compactInputSx}
-                                  />
-                                </td>
-                                <td style={{ padding: "8px 6px", width: "120px", verticalAlign: "middle" }}>
-                                  <TextField
-                                    size="small"
-                                    fullWidth
-                                    type="date"
-                                    value={row.po_date || ""}
-                                    onChange={(e) => updateInvoiceRow(rowIndex, "po_date", e.target.value)}
-                                    disabled={isDescriptionTableReadOnly}
-                                    InputLabelProps={{ shrink: true }}
-                                    sx={compactInputSx}
-                                  />
+                                <td style={{ padding: "8px 6px", width: "280px", verticalAlign: "middle" }}>
+                                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                                    {(row.po_details || [{ po_no: "", po_date: "" }]).map((po, poIndex) => (
+                                      <div key={poIndex} style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                                        <TextField
+                                          size="small"
+                                          value={po.po_no || ""}
+                                          placeholder="PO No"
+                                          disabled={isDescriptionTableReadOnly}
+                                          onChange={(e) => {
+                                            const updatedPoList = [...(row.po_details || [{ po_no: "", po_date: "" }])];
+                                            updatedPoList[poIndex] = { ...updatedPoList[poIndex], po_no: e.target.value };
+                                            updateInvoiceRow(rowIndex, "po_details", updatedPoList);
+                                            // Also update po_no of index 0 for backward compatibility
+                                            if (poIndex === 0) {
+                                              updateInvoiceRow(rowIndex, "po_no", e.target.value);
+                                            }
+                                          }}
+                                          sx={{ ...compactInputSx, width: "100px", minWidth: "100px" }}
+                                        />
+                                        <TextField
+                                          size="small"
+                                          type="date"
+                                          value={po.po_date || ""}
+                                          disabled={isDescriptionTableReadOnly}
+                                          InputLabelProps={{ shrink: true }}
+                                          onChange={(e) => {
+                                            const updatedPoList = [...(row.po_details || [{ po_no: "", po_date: "" }])];
+                                            updatedPoList[poIndex] = { ...updatedPoList[poIndex], po_date: e.target.value };
+                                            updateInvoiceRow(rowIndex, "po_details", updatedPoList);
+                                            // Also update po_date of index 0 for backward compatibility
+                                            if (poIndex === 0) {
+                                              updateInvoiceRow(rowIndex, "po_date", e.target.value);
+                                            }
+                                          }}
+                                          sx={{ ...compactInputSx, width: "110px", minWidth: "110px" }}
+                                        />
+                                        {!isDescriptionTableReadOnly && (
+                                          <div style={{ display: "flex", gap: "2px" }}>
+                                            <IconButton
+                                              size="small"
+                                              onClick={() => {
+                                                const updatedPoList = [...(row.po_details || [{ po_no: "", po_date: "" }])];
+                                                updatedPoList.push({ po_no: "", po_date: "" });
+                                                updateInvoiceRow(rowIndex, "po_details", updatedPoList);
+                                              }}
+                                              sx={{ padding: "2px" }}
+                                            >
+                                              <AddIcon sx={{ fontSize: "0.95rem" }} />
+                                            </IconButton>
+                                            {(row.po_details || [{ po_no: "", po_date: "" }]).length > 1 && (
+                                              <IconButton
+                                                size="small"
+                                                color="error"
+                                                onClick={() => {
+                                                  const updatedPoList = (row.po_details || [{ po_no: "", po_date: "" }]).filter((_, i) => i !== poIndex);
+                                                  updateInvoiceRow(rowIndex, "po_details", updatedPoList);
+                                                  if (poIndex === 0 && updatedPoList[0]) {
+                                                    updateInvoiceRow(rowIndex, "po_no", updatedPoList[0].po_no || "");
+                                                    updateInvoiceRow(rowIndex, "po_date", updatedPoList[0].po_date || "");
+                                                  }
+                                                }}
+                                                sx={{ padding: "2px" }}
+                                              >
+                                                <RemoveIcon sx={{ fontSize: "0.95rem" }} />
+                                              </IconButton>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
                                 </td>
                                 <td style={{ padding: "8px 6px", width: "90px", verticalAlign: "middle" }}>
                                   <TextField
@@ -3286,108 +3348,165 @@ function JobDetails() {
                                     )}
                                   />
                                 </td>
+                                <td style={{ padding: "8px 6px", width: "100px", verticalAlign: "middle" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    type="number"
+                                    value={row.exchange_rate || ""}
+                                    onChange={(e) => updateInvoiceRow(rowIndex, "exchange_rate", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    placeholder="Ex. Rate"
+                                    sx={compactInputSx}
+                                  />
+                                </td>
                                 <td style={{ padding: "8px 6px", width: "170px", verticalAlign: "middle" }}>
-                                  <div style={{ display: 'flex', gap: '4px' }}>
-                                    <TextField
-                                      size="small"
-                                      fullWidth
-                                      value={row.freight || ""}
-                                      onChange={(e) => updateInvoiceRow(rowIndex, "freight", e.target.value)}
-                                      disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CI")}
-                                      placeholder="Freight"
-                                      sx={compactInputSx}
-                                    />
-                                    <Autocomplete
-                                      freeSolo
-                                      size="small"
-                                      options={currencies.map(c => c.code)}
-                                      value={row.freight_currency || ""}
-                                      onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "freight_currency", newValue)}
-                                      onChange={(event, newValue) => updateInvoiceRow(rowIndex, "freight_currency", newValue || "")}
-                                      disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CI")}
-                                      renderInput={(params) => (
-                                        <TextField
-                                          {...params}
-                                          variant="outlined"
-                                          size="small"
-                                          placeholder="Cur"
-                                          sx={{ ...compactInputSx, width: '60px', minWidth: '60px' }}
-                                        />
-                                      )}
-                                    />
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                      <TextField
+                                        size="small"
+                                        fullWidth
+                                        value={row.freight || ""}
+                                        onChange={(e) => updateInvoiceRow(rowIndex, "freight", e.target.value)}
+                                        disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CI")}
+                                        placeholder="Freight"
+                                        sx={compactInputSx}
+                                      />
+                                      <Autocomplete
+                                        freeSolo
+                                        size="small"
+                                        options={currencies.map(c => c.code)}
+                                        value={row.freight_currency || ""}
+                                        onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "freight_currency", newValue)}
+                                        onChange={(event, newValue) => updateInvoiceRow(rowIndex, "freight_currency", newValue || "")}
+                                        disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CI")}
+                                        renderInput={(params) => (
+                                          <TextField
+                                            {...params}
+                                            variant="outlined"
+                                            size="small"
+                                            placeholder="Cur"
+                                            sx={{ ...compactInputSx, width: '60px', minWidth: '60px' }}
+                                          />
+                                        )}
+                                      />
+                                    </div>
+                                    {row.freight_currency && row.freight_currency.toUpperCase() !== 'INR' && (
+                                      <TextField
+                                        size="small"
+                                        type="number"
+                                        placeholder="Fr. Ex Rate"
+                                        value={row.freight_exchange_rate || ""}
+                                        onChange={(e) => updateInvoiceRow(rowIndex, "freight_exchange_rate", e.target.value)}
+                                        disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CI")}
+                                        sx={compactInputSx}
+                                      />
+                                    )}
                                   </div>
                                 </td>
                                 <td style={{ padding: "8px 6px", width: "170px", verticalAlign: "middle" }}>
-                                  <div style={{ display: 'flex', gap: '4px' }}>
-                                    <TextField
-                                      size="small"
-                                      fullWidth
-                                      value={row.insurance || ""}
-                                      onChange={(e) => updateInvoiceRow(rowIndex, "insurance", e.target.value)}
-                                      disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CF")}
-                                      placeholder="Insurance"
-                                      sx={compactInputSx}
-                                    />
-                                    <Autocomplete
-                                      freeSolo
-                                      size="small"
-                                      options={currencies.map(c => c.code)}
-                                      value={row.insurance_currency || ""}
-                                      onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "insurance_currency", newValue)}
-                                      onChange={(event, newValue) => updateInvoiceRow(rowIndex, "insurance_currency", newValue || "")}
-                                      disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CF")}
-                                      renderInput={(params) => (
-                                        <TextField
-                                          {...params}
-                                          variant="outlined"
-                                          size="small"
-                                          placeholder="Cur"
-                                          sx={{ ...compactInputSx, width: '60px', minWidth: '60px' }}
-                                        />
-                                      )}
-                                    />
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                      <TextField
+                                        size="small"
+                                        fullWidth
+                                        value={row.insurance || ""}
+                                        onChange={(e) => updateInvoiceRow(rowIndex, "insurance", e.target.value)}
+                                        disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CF")}
+                                        placeholder="Insurance"
+                                        sx={compactInputSx}
+                                      />
+                                      <Autocomplete
+                                        freeSolo
+                                        size="small"
+                                        options={currencies.map(c => c.code)}
+                                        value={row.insurance_currency || ""}
+                                        onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "insurance_currency", newValue)}
+                                        onChange={(event, newValue) => updateInvoiceRow(rowIndex, "insurance_currency", newValue || "")}
+                                        disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CF")}
+                                        renderInput={(params) => (
+                                          <TextField
+                                            {...params}
+                                            variant="outlined"
+                                            size="small"
+                                            placeholder="Cur"
+                                            sx={{ ...compactInputSx, width: '60px', minWidth: '60px' }}
+                                          />
+                                        )}
+                                      />
+                                    </div>
+                                    {row.insurance_currency && row.insurance_currency.toUpperCase() !== 'INR' && (
+                                      <TextField
+                                        size="small"
+                                        type="number"
+                                        placeholder="Ins. Ex Rate"
+                                        value={row.insurance_exchange_rate || ""}
+                                        onChange={(e) => updateInvoiceRow(rowIndex, "insurance_exchange_rate", e.target.value)}
+                                        disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CF")}
+                                        sx={compactInputSx}
+                                      />
+                                    )}
                                   </div>
                                 </td>
                                 <td style={{ padding: "8px 6px", width: "170px", verticalAlign: "middle" }}>
-                                  <div style={{ display: 'flex', gap: '4px' }}>
-                                    <TextField
-                                      size="small"
-                                      fullWidth
-                                      value={row.other_charges || ""}
-                                      onChange={(e) => updateInvoiceRow(rowIndex, "other_charges", e.target.value)}
-                                      disabled={isDescriptionTableReadOnly}
-                                      placeholder="Other"
-                                      sx={compactInputSx}
-                                    />
-                                    <Autocomplete
-                                      freeSolo
-                                      size="small"
-                                      options={currencies.map(c => c.code)}
-                                      value={row.other_charges_currency || ""}
-                                      onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "other_charges_currency", newValue)}
-                                      onChange={(event, newValue) => updateInvoiceRow(rowIndex, "other_charges_currency", newValue || "")}
-                                      disabled={isDescriptionTableReadOnly}
-                                      renderInput={(params) => (
-                                        <TextField
-                                          {...params}
-                                          variant="outlined"
-                                          size="small"
-                                          placeholder="Cur"
-                                          sx={{ ...compactInputSx, width: '60px', minWidth: '60px' }}
-                                        />
-                                      )}
-                                    />
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                      <TextField
+                                        size="small"
+                                        fullWidth
+                                        value={row.other_charges || ""}
+                                        onChange={(e) => updateInvoiceRow(rowIndex, "other_charges", e.target.value)}
+                                        disabled={isDescriptionTableReadOnly}
+                                        placeholder="Other"
+                                        sx={compactInputSx}
+                                      />
+                                      <Autocomplete
+                                        freeSolo
+                                        size="small"
+                                        options={currencies.map(c => c.code)}
+                                        value={row.other_charges_currency || ""}
+                                        onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "other_charges_currency", newValue)}
+                                        onChange={(event, newValue) => updateInvoiceRow(rowIndex, "other_charges_currency", newValue || "")}
+                                        disabled={isDescriptionTableReadOnly}
+                                        renderInput={(params) => (
+                                          <TextField
+                                            {...params}
+                                            variant="outlined"
+                                            size="small"
+                                            placeholder="Cur"
+                                            sx={{ ...compactInputSx, width: '60px', minWidth: '60px' }}
+                                          />
+                                        )}
+                                      />
+                                    </div>
+                                    {row.other_charges_currency && row.other_charges_currency.toUpperCase() !== 'INR' && (
+                                      <TextField
+                                        size="small"
+                                        type="number"
+                                        placeholder="Oth. Ex Rate"
+                                        value={row.other_charges_exchange_rate || ""}
+                                        onChange={(e) => updateInvoiceRow(rowIndex, "other_charges_exchange_rate", e.target.value)}
+                                        disabled={isDescriptionTableReadOnly}
+                                        sx={compactInputSx}
+                                      />
+                                    )}
                                   </div>
                                 </td>
                                 <td style={{ padding: "8px 6px", width: "130px", verticalAlign: "middle" }}>
                                   <TextField
                                     size="small"
                                     fullWidth
-                                    value={
-                                      row.total_inv_value
-                                        ? (parseFloat(row.total_inv_value) * (parseFloat(formik.values.exrate) || 1)).toFixed(2)
-                                        : ""
-                                    }
+                                    value={(() => {
+                                      const pv = parseFloat(row.product_value) || 0;
+                                      const pvEx = parseFloat(row.exchange_rate) || parseFloat(formik.values.exrate) || 1;
+                                      const fr = parseFloat(row.freight) || 0;
+                                      const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(formik.values.exrate) || 1;
+                                      const ins = parseFloat(row.insurance) || 0;
+                                      const insEx = parseFloat(row.insurance_exchange_rate) || 1;
+                                      const oth = parseFloat(row.other_charges) || 0;
+                                      const othEx = parseFloat(row.other_charges_exchange_rate) || 1;
+                                      return ((pv * pvEx) + (fr * frEx) + (ins * insEx) + (oth * othEx)).toFixed(2);
+                                    })()}
                                     InputProps={{ readOnly: true }}
                                     disabled={isDescriptionTableReadOnly}
                                     placeholder="CIF Value"
@@ -3514,8 +3633,14 @@ function JobDetails() {
                                 options={currencies.map(c => c.code)}
                                 sx={compactInputSx}
                                 value={formik.values.other_charges_details?.[row.id]?.currency || ""}
-                                onInputChange={(event, newValue) => formik.setFieldValue(`other_charges_details.${row.id}.currency`, newValue)}
-                                onChange={(event, newValue) => formik.setFieldValue(`other_charges_details.${row.id}.currency`, newValue || "")}
+                                onInputChange={(event, newValue) => {
+                                  formik.setFieldValue(`other_charges_details.${row.id}.currency`, newValue);
+                                  formik.setFieldValue(`other_charges_details.${row.id}.exchange_rate`, "");
+                                }}
+                                onChange={(event, newValue) => {
+                                  formik.setFieldValue(`other_charges_details.${row.id}.currency`, newValue || "");
+                                  formik.setFieldValue(`other_charges_details.${row.id}.exchange_rate`, "");
+                                }}
                                 renderInput={(params) => (
                                   <TextField
                                     {...params}
@@ -3914,6 +4039,21 @@ function JobDetails() {
                     +
                   </button>
                 )}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '250px', marginLeft: 'auto' }}>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    Table Width:
+                  </Typography>
+                  <Slider
+                    value={productTableWidth}
+                    onChange={(e, val) => setProductTableWidth(val)}
+                    min={1200}
+                    max={2500}
+                    step={100}
+                    valueLabelDisplay="auto"
+                    valueLabelFormat={(val) => `${val}px`}
+                    sx={{ color: '#1e293b' }}
+                  />
+                </Box>
               </div>
 
               {/* Tab Content */}
@@ -3940,7 +4080,7 @@ function JobDetails() {
 
                   {/* Product Items Table */}
                   <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: "8px", boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.05)" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "1500px", backgroundColor: "#ffffff" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", minWidth: `${productTableWidth}px`, backgroundColor: "#ffffff" }}>
                       <thead>
                         <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
                           {[

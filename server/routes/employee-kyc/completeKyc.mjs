@@ -1,10 +1,11 @@
 import express from "express";
 import UserModel from "../../model/userModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
+import verifyToken from "../../middleware/authMiddleware.mjs";
 
 const router = express.Router();
 
-router.post("/api/complete-kyc", auditMiddleware("User"), async (req, res) => {
+router.post("/api/complete-kyc", verifyToken, auditMiddleware("User"), async (req, res) => {
   try {
     const { username } = req.body;
 

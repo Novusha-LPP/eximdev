@@ -39,7 +39,7 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
         "jobRef": '',
         "Charge Description": '',
         "Charge Head Category": '',
-        "TDS Category": '94C',
+        "TDS Category": '94C_1',
         "attachments": []
     });
 
@@ -126,7 +126,15 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                     "jobRef": initialData.jobId || '',
                     "Charge Description": initialData.chargeDescription || '',
                     "Charge Head Category": initialData.chargeHeadCategory || '',
-                    "TDS Category": initialData.tdsCategory || '94C',
+                    "TDS Category": (() => {
+                        const cat = initialData.tdsCategory || '94C';
+                        const pct = parseFloat(initialData.tdsPercent) || 0;
+                        if (cat === '94C') {
+                            if (pct === 2) return '94C_2';
+                            return '94C_1';
+                        }
+                        return cat;
+                    })(),
                     "attachments": initialData.attachments || []
                 }));
             }
@@ -149,6 +157,10 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
         const finalFormData = { ...formData };
         if (!finalFormData["Supplier Inv No"] || finalFormData["Supplier Inv No"].trim() === '') {
             finalFormData["Supplier Inv No"] = initialData?.awbBlNo || awbBlNo || '';
+        }
+
+        if (finalFormData["TDS Category"] === '94C_1' || finalFormData["TDS Category"] === '94C_2') {
+            finalFormData["TDS Category"] = '94C';
         }
 
         // Use AWB/BL Date if Supplier Inv Date is left blank
@@ -333,7 +345,8 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                             <div className="charges-ep-row">
                                 <span className="charges-ep-label">TDS Category</span>
                                 <select name="TDS Category" className="charges-ep-select" value={formData["TDS Category"]} onChange={handleInputChange}>
-                                    <option value="94C">94C</option>
+                                    <option value="94C_1">TDS ON CONTRACT 94C - 1023- 1%</option>
+                                    <option value="94C_2">TDS ON CONTRACT 94C - 1024 -2%</option>
                                     <option value="94I">94I</option>
                                 </select>
                             </div>

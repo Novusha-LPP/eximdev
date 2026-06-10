@@ -711,4 +711,1057 @@ router.get("/api/get-duties/:job_no", async (req, res) => {
   }
 });
 
+// ---------------- DASHBOARD & OTHER ANALYTICS MIGRATION ----------------
+
+const getOverviewPipeline = (startDateStr, endDateStr, importer) => {
+  const sevenDaysAgoStr = startDateStr;
+  const todayStr = endDateStr;
+
+  let importerList = [];
+  if (Array.isArray(importer)) {
+    importerList = importer;
+  } else if (typeof importer === "string" && importer) {
+    importerList = importer.split(",");
+  }
+
+  const importerMatch = importerList.length > 0
+    ? { importer: { $in: importerList } }
+    : {};
+
+  return [
+    {
+      $facet: {
+        jobs_created_today: [
+          {
+            $match: {
+              job_date: { $gte: startDateStr, $lte: endDateStr },
+              ...importerMatch,
+            },
+          },
+          {
+            $project: {
+              job_no: 1,
+              importer: 1,
+              shipping_line_airline: 1,
+              relevant_date: "$job_date",
+            },
+          },
+        ],
+        operations_completed: [
+          {
+            $match: {
+              completed_operation_date: {
+                $gte: startDateStr,
+                $lte: endDateStr,
+              },
+              ...importerMatch,
+            },
+          },
+          {
+            $project: {
+              job_no: 1,
+              importer: 1,
+              shipping_line_airline: 1,
+              relevant_date: "$completed_operation_date",
+            },
+          },
+        ],
+        examination_planning: [
+          {
+            $match: {
+              examination_planning_date: {
+                $gte: startDateStr,
+                $lte: endDateStr,
+              },
+              ...importerMatch,
+            },
+          },
+          {
+            $project: {
+              job_no: 1,
+              importer: 1,
+              shipping_line_airline: 1,
+              relevant_date: "$examination_planning_date",
+            },
+          },
+        ],
+        jobs_trend: [
+          {
+            $match: {
+              job_date: { $gte: sevenDaysAgoStr, $lte: todayStr },
+              ...importerMatch,
+            },
+          },
+          {
+            $group: {
+              _id: { $substr: ["$job_date", 0, 10] },
+              count: { $sum: 1 },
+            },
+          },
+          { $sort: { _id: 1 } },
+        ],
+        ops_trend: [
+          {
+            $match: {
+              completed_operation_date: {
+                $gte: sevenDaysAgoStr,
+                $lte: todayStr,
+              },
+              ...importerMatch,
+            },
+          },
+          {
+            $group: {
+              _id: { $substr: ["$completed_operation_date", 0, 10] },
+              count: { $sum: 1 },
+            },
+          },
+          { $sort: { _id: 1 } },
+        ],
+        exam_trend: [
+          {
+            $match: {
+              examination_planning_date: {
+                $gte: sevenDaysAgoStr,
+                $lte: todayStr,
+              },
+              ...importerMatch,
+            },
+          },
+          {
+            $group: {
+              _id: { $substr: ["$examination_planning_date", 0, 10] },
+              count: { $sum: 1 },
+            },
+          },
+          { $sort: { _id: 1 } },
+        ],
+        arrival_trend: [
+          { $match: { ...importerMatch } },
+          { $unwind: "$container_nos" },
+          {
+            $match: {
+              "container_nos.arrival_date": {
+                $gte: sevenDaysAgoStr,
+                $lte: todayStr,
+              },
+            },
+          },
+          {
+            $group: {
+              _id: { $substr: ["$container_nos.arrival_date", 0, 10] },
+              count: { $sum: 1 },
+            },
+          },
+          { $sort: { _id: 1 } },
+        ],
+        rail_out_trend: [
+          { $match: { ...importerMatch } },
+          { $unwind: "$container_nos" },
+          {
+            $match: {
+              "container_nos.container_rail_out_date": {
+                $gte: sevenDaysAgoStr,
+                $lte: todayStr,
+              },
+            },
+          },
+          {
+            $group: {
+              _id: {
+                $substr: ["$container_nos.container_rail_out_date", 0, 10],
+              },
+              count: { $sum: 1 },
+            },
+          },
+          { $sort: { _id: 1 } },
+        ],
+        be_trend: [
+          {
+            $match: {
+              be_date: { $gte: sevenDaysAgoStr, $lte: todayStr },
+              ...importerMatch,
+            },
+          },
+          {
+            $group: {
+              _id: { $substr: ["$be_date", 0, 10] },
+              count: { $sum: 1 },
+            },
+          },
+          { $sort: { _id: 1 } },
+        ],
+        ooc_trend: [
+          {
+            $match: {
+              out_of_charge: { $gte: sevenDaysAgoStr, $lte: todayStr },
+              ...importerMatch,
+            },
+          },
+          {
+            $group: {
+              _id: { $substr: ["$out_of_charge", 0, 10] },
+              count: { $sum: 1 },
+            },
+          },
+          { $sort: { _id: 1 } },
+        ],
+        do_trend: [
+          {
+            $match: {
+              do_completed: { $gte: sevenDaysAgoStr, $lte: todayStr },
+              ...importerMatch,
+            },
+          },
+          {
+            $group: {
+              _id: { $substr: ["$do_completed", 0, 10] },
+              count: { $sum: 1 },
+            },
+          },
+          { $sort: { _id: 1 } },
+        ],
+        billing_trend: [
+          {
+            $match: {
+              bill_document_sent_to_accounts: {
+                $gte: sevenDaysAgoStr,
+                $lte: todayStr,
+              },
+              ...importerMatch,
+            },
+          },
+          {
+            $group: {
+              _id: { $substr: ["$bill_document_sent_to_accounts", 0, 10] },
+              count: { $sum: 1 },
+            },
+          },
+          { $sort: { _id: 1 } },
+        ],
+        eta_trend: [
+          {
+            $match: {
+              vessel_berthing: { $gte: sevenDaysAgoStr, $lte: todayStr },
+              ...importerMatch,
+            },
+          },
+          {
+            $group: {
+              _id: { $substr: ["$vessel_berthing", 0, 10] },
+              count: { $sum: 1 },
+            },
+          },
+          { $sort: { _id: 1 } },
+        ],
+        gateway_igm_trend: [
+          {
+            $match: {
+              gateway_igm_date: { $gte: sevenDaysAgoStr, $lte: todayStr },
+              ...importerMatch,
+            },
+          },
+          {
+            $group: {
+              _id: { $substr: ["$gateway_igm_date", 0, 10] },
+              count: { $sum: 1 },
+            },
+          },
+          { $sort: { _id: 1 } },
+        ],
+        discharge_trend: [
+          {
+            $match: {
+              discharge_date: { $gte: sevenDaysAgoStr, $lte: todayStr },
+              ...importerMatch,
+            },
+          },
+          {
+            $group: {
+              _id: { $substr: ["$discharge_date", 0, 10] },
+              count: { $sum: 1 },
+            },
+          },
+          { $sort: { _id: 1 } },
+        ],
+        arrivals_today: [
+          { $match: { ...importerMatch } },
+          { $unwind: "$container_nos" },
+          {
+            $match: {
+              "container_nos.arrival_date": {
+                $gte: startDateStr,
+                $lte: endDateStr,
+              },
+            },
+          },
+          {
+            $project: {
+              job_no: 1,
+              importer: 1,
+              shipping_line_airline: 1,
+              relevant_date: "$container_nos.arrival_date",
+              container_number: "$container_nos.container_number",
+            },
+          },
+        ],
+        rail_out_today: [
+          { $match: { ...importerMatch } },
+          { $unwind: "$container_nos" },
+          {
+            $match: {
+              "container_nos.container_rail_out_date": {
+                $gte: startDateStr,
+                $lte: endDateStr,
+              },
+            },
+          },
+          {
+            $project: {
+              job_no: 1,
+              importer: 1,
+              shipping_line_airline: 1,
+              relevant_date: "$container_nos.container_rail_out_date",
+              container_number: "$container_nos.container_number",
+            },
+          },
+        ],
+        be_filed: [
+          {
+            $match: {
+              be_date: { $gte: startDateStr, $lte: endDateStr },
+              ...importerMatch,
+            },
+          },
+          {
+            $project: {
+              job_no: 1,
+              importer: 1,
+              shipping_line_airline: 1,
+              relevant_date: "$be_date",
+              processed_be_attachment: 1,
+            },
+          },
+        ],
+        ooc: [
+          {
+            $match: {
+              out_of_charge: { $gte: startDateStr, $lte: endDateStr },
+              ...importerMatch,
+            },
+          },
+          {
+            $project: {
+              job_no: 1,
+              importer: 1,
+              shipping_line_airline: 1,
+              relevant_date: "$out_of_charge",
+              ooc_copies: 1,
+            },
+          },
+        ],
+        do_completed: [
+          {
+            $match: {
+              do_completed: { $gte: startDateStr, $lte: endDateStr },
+              ...importerMatch,
+            },
+          },
+          {
+            $project: {
+              job_no: 1,
+              importer: 1,
+              shipping_line_airline: 1,
+              relevant_date: "$do_completed",
+            },
+          },
+        ],
+        billing_sent: [
+          {
+            $match: {
+              bill_document_sent_to_accounts: {
+                $gte: startDateStr,
+                $lte: endDateStr,
+              },
+              ...importerMatch,
+            },
+          },
+          {
+            $project: {
+              job_no: 1,
+              importer: 1,
+              shipping_line_airline: 1,
+              relevant_date: "$bill_document_sent_to_accounts",
+            },
+          },
+        ],
+        eta: [
+          {
+            $match: {
+              vessel_berthing: { $gte: startDateStr, $lte: endDateStr },
+              ...importerMatch,
+            },
+          },
+          {
+            $project: {
+              job_no: 1,
+              importer: 1,
+              shipping_line_airline: 1,
+              relevant_date: "$vessel_berthing",
+            },
+          },
+        ],
+        gateway_igm_date: [
+          {
+            $match: {
+              gateway_igm_date: { $gte: startDateStr, $lte: endDateStr },
+              ...importerMatch,
+            },
+          },
+          {
+            $project: {
+              job_no: 1,
+              importer: 1,
+              shipping_line_airline: 1,
+              relevant_date: "$gateway_igm_date",
+            },
+          },
+        ],
+        discharge_date: [
+          {
+            $match: {
+              discharge_date: { $gte: startDateStr, $lte: endDateStr },
+              ...importerMatch,
+            },
+          },
+          {
+            $project: {
+              job_no: 1,
+              importer: 1,
+              shipping_line_airline: 1,
+              relevant_date: "$discharge_date",
+            },
+          },
+        ],
+        empty_offload: [
+          { $match: { ...importerMatch } },
+          { $unwind: "$container_nos" },
+          {
+            $match: {
+              "container_nos.emptyContainerOffLoadDate": {
+                $gte: startDateStr,
+                $lte: endDateStr,
+              },
+            },
+          },
+          {
+            $project: {
+              job_no: 1,
+              importer: 1,
+              shipping_line_airline: 1,
+              relevant_date: "$container_nos.emptyContainerOffLoadDate",
+              container_number: "$container_nos.container_number",
+            },
+          },
+        ],
+      },
+    },
+    {
+      $project: {
+        summary: {
+          jobs_created_today: { $size: "$jobs_created_today" },
+          operations_completed: { $size: "$operations_completed" },
+          examination_planning: { $size: "$examination_planning" },
+          arrivals_today: { $size: "$arrivals_today" },
+          rail_out_today: { $size: "$rail_out_today" },
+          be_filed: { $size: "$be_filed" },
+          ooc: { $size: "$ooc" },
+          do_completed: { $size: "$do_completed" },
+          billing_sent: { $size: "$billing_sent" },
+          eta: { $size: "$eta" },
+          gateway_igm_date: { $size: "$gateway_igm_date" },
+          discharge_date: { $size: "$discharge_date" },
+          empty_offload: { $size: "$empty_offload" },
+        },
+        details: {
+          jobs_created_today: "$jobs_created_today",
+          jobs_trend: "$jobs_trend",
+          ops_trend: "$ops_trend",
+          exam_trend: "$exam_trend",
+          arrival_trend: "$arrival_trend",
+          rail_out_trend: "$rail_out_trend",
+          be_trend: "$be_trend",
+          ooc_trend: "$ooc_trend",
+          do_trend: "$do_trend",
+          billing_trend: "$billing_trend",
+          eta_trend: "$eta_trend",
+          gateway_igm_trend: "$gateway_igm_trend",
+          discharge_trend: "$discharge_trend",
+          operations_completed: "$operations_completed",
+          examination_planning: "$examination_planning",
+          arrivals_today: "$arrivals_today",
+          rail_out_today: "$rail_out_today",
+          be_filed: "$be_filed",
+          ooc: "$ooc",
+          do_completed: "$do_completed",
+          billing_sent: "$billing_sent",
+          eta: "$eta",
+          gateway_igm_date: "$gateway_igm_date",
+          discharge_date: "$discharge_date",
+          empty_offload: "$empty_offload",
+        },
+      },
+    },
+  ];
+};
+
+router.get("/api/user-dashboard-stats", async (req, res) => {
+  try {
+    const { importer, date, startDate, endDate } = req.query;
+    let startStr, endStr;
+
+    if (startDate && endDate) {
+      startStr = startDate;
+      endStr = `${endDate}T23:59:59`;
+    } else {
+      let singleDate = date;
+      if (!singleDate) {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, "0");
+        const day = String(today.getDate()).padStart(2, "0");
+        singleDate = `${year}-${month}-${day}`;
+      }
+      startStr = singleDate;
+      endStr = `${singleDate}T23:59:59`;
+    }
+
+    let targetImporters = null;
+    if (importer) {
+      targetImporters = importer.split(",");
+    }
+
+    const pipeline = getOverviewPipeline(startStr, endStr, targetImporters);
+    const result = await JobModel.aggregate(pipeline);
+    const stats = result[0] || { summary: {}, details: {} };
+    res.json(stats);
+  } catch (error) {
+    console.error("Error fetching user dashboard stats:", error);
+    res.status(500).json({ error: "Error fetching user dashboard stats" });
+  }
+});
+
+router.get("/api/analytics/get-jobs-overview/:year", async (req, res) => {
+  try {
+    const { year } = req.params;
+    const { status, search, importer, branch, branchId } = req.query;
+    const statusLower = status ? status.toLowerCase() : null;
+
+    const matchQuery = { $and: [{ year }] };
+
+    let targetImporters = null;
+    if (importer) {
+      targetImporters = importer.split(",");
+    }
+    if (targetImporters && targetImporters.length > 0) {
+      matchQuery.$and.push({ importer: { $in: targetImporters } });
+    }
+
+    const targetBranch = branchId || branch;
+    if (targetBranch) {
+      const resolvedBranchId = await getBranchIdByCodeOrQuery(targetBranch);
+      if (resolvedBranchId) {
+        matchQuery.$and.push({ branch_id: resolvedBranchId });
+      }
+    }
+
+    if (statusLower === "pending") {
+      matchQuery.$and.push(
+        { status: { $regex: "^pending$", $options: "i" } },
+        { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
+        {
+          $or: [
+            { bill_date: { $in: [null, ""] } },
+            { status: { $regex: "^pending$", $options: "i" } },
+          ],
+        }
+      );
+    } else if (statusLower === "completed") {
+      matchQuery.$and.push(
+        { status: { $regex: "^completed$", $options: "i" } },
+        { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
+        {
+          $or: [
+            { bill_date: { $nin: [null, ""] } },
+            { status: { $regex: "^completed$", $options: "i" } },
+          ],
+        }
+      );
+    } else if (statusLower === "cancelled") {
+      matchQuery.$and.push({
+        $or: [
+          { status: { $regex: "^cancelled$", $options: "i" } },
+          { be_no: { $regex: "^cancelled$", $options: "i" } },
+        ],
+      });
+    }
+
+    if (search) {
+      const cleanSearch = String(search).trim();
+      matchQuery.$and.push({
+        $or: [
+          { status: { $regex: escapeRegex(cleanSearch), $options: "i" } },
+          { be_no: { $regex: escapeRegex(cleanSearch), $options: "i" } },
+          { bill_date: { $regex: escapeRegex(cleanSearch), $options: "i" } },
+        ],
+      });
+    }
+
+    const jobCounts = await JobModel.aggregate([
+      { $match: matchQuery },
+      {
+        $group: {
+          _id: null,
+          pendingJobs: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: [{ $toLower: "$status" }, "pending"] },
+                    { $ne: [{ $toLower: "$be_no" }, "cancelled"] },
+                    {
+                      $or: [
+                        { $eq: ["$bill_date", null] },
+                        { $eq: ["$bill_date", ""] },
+                        { $eq: [{ $toLower: "$status" }, "pending"] },
+                      ],
+                    },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          completedJobs: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: [{ $toLower: "$status" }, "completed"] },
+                    { $ne: [{ $toLower: "$be_no" }, "cancelled"] },
+                    {
+                      $or: [
+                        { $ne: ["$bill_date", null] },
+                        { $ne: ["$bill_date", ""] },
+                        { $eq: [{ $toLower: "$status" }, "completed"] },
+                      ],
+                    },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          cancelledJobs: {
+            $sum: {
+              $cond: [
+                {
+                  $or: [
+                    { $eq: [{ $toLower: "$status" }, "cancelled"] },
+                    { $eq: [{ $toLower: "$be_no" }, "cancelled"] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          totalJobs: { $sum: 1 },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          pendingJobs: 1,
+          completedJobs: 1,
+          cancelledJobs: 1,
+          totalJobs: 1,
+        },
+      },
+    ]);
+
+    const responseObj = jobCounts[0] || {
+      pendingJobs: 0,
+      completedJobs: 0,
+      cancelledJobs: 0,
+      totalJobs: 0,
+    };
+
+    res.json(responseObj);
+  } catch (error) {
+    console.error("Error fetching job counts:", error);
+    res.status(500).json({ error: "Error fetching job counts" });
+  }
+});
+
+router.get("/api/optimized/:year/jobs/:ieCode/:status", async (req, res) => {
+  try {
+    const { year, ieCode, status: statusParam } = req.params;
+    const { page = 1, limit = 50, search = "" } = req.query;
+    const status = statusParam || "all";
+
+    if (!ieCode || !year) {
+      return res.status(400).json({ success: false, message: "IE code and year are required" });
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    let aggregationPipeline = [];
+
+    const baseQuery = { year };
+    if (ieCode.includes(",")) {
+      baseQuery.ie_code_no = { $in: ieCode.split(",") };
+    } else {
+      baseQuery.ie_code_no = ieCode;
+    }
+
+    if (status === "all") {
+      baseQuery.$and = [
+        {
+          $and: [
+            { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
+            { status: { $not: { $regex: "^cancelled$", $options: "i" } } }
+          ]
+        }
+      ];
+    } else {
+      const statusLower = status.toLowerCase();
+      if (statusLower === "pending") {
+        baseQuery.status = { $regex: "^pending$", $options: "i" };
+        baseQuery.be_no = { $not: { $regex: "^cancelled$", $options: "i" } };
+      } else if (statusLower === "completed") {
+        baseQuery.status = { $regex: "^completed$", $options: "i" };
+        baseQuery.be_no = { $not: { $regex: "^cancelled$", $options: "i" } };
+      } else if (statusLower === "cancelled") {
+        baseQuery.$or = [
+          { status: { $regex: "^cancelled$", $options: "i" } },
+          { be_no: { $regex: "^cancelled$", $options: "i" } }
+        ];
+      }
+    }
+
+    aggregationPipeline.push({ $match: baseQuery });
+
+    if (search && search.trim()) {
+      const searchRegex = { $regex: search.trim(), $options: "i" };
+      aggregationPipeline.push({
+        $match: {
+          $or: [
+            { job_no: searchRegex },
+            { supplier_exporter: searchRegex },
+            { importer: searchRegex },
+            { custom_house: searchRegex },
+            { awb_bl_no: searchRegex },
+            { origin_country: searchRegex },
+            { description: searchRegex }
+          ]
+        }
+      });
+    }
+
+    aggregationPipeline.push({
+      $project: {
+        job_no: 1,
+        year: 1,
+        ie_code_no: 1,
+        importer: 1,
+        custom_house: 1,
+        awb_bl_no: 1,
+        origin_country: 1,
+        supplier_exporter: 1,
+        vessel_berthing: 1,
+        gateway_igm_date: 1,
+        discharge_date: 1,
+        be_no: 1,
+        be_date: 1,
+        loading_port: 1,
+        port_of_reporting: 1,
+        type_of_b_e: 1,
+        consignment_type: 1,
+        shipping_line_airline: 1,
+        job_net_weight: 1,
+        gross_weight: 1,
+        per_kg_cost: 1,
+        description: 1,
+        status: 1,
+        detailed_status: 1,
+        payment_method: 1,
+        "net_weight_calculator.duty": 1,
+        "net_weight_calculator.shipping": 1,
+        "net_weight_calculator.custom_clearance_charges": 1,
+        "net_weight_calculator.detention": 1,
+        "net_weight_calculator.cfs": 1,
+        "net_weight_calculator.transport": 1,
+        "net_weight_calculator.Labour": 1,
+        "net_weight_calculator.total_cost": 1,
+        "container_nos.container_no": 1
+      }
+    });
+
+    const countPipeline = [...aggregationPipeline, { $count: "total" }];
+    aggregationPipeline.push(
+      { $skip: skip },
+      { $limit: parseInt(limit) }
+    );
+
+    const [jobsResult, countResult] = await Promise.all([
+      JobModel.aggregate(aggregationPipeline),
+      JobModel.aggregate(countPipeline)
+    ]);
+
+    const total = countResult[0]?.total || 0;
+    const totalPages = Math.ceil(total / parseInt(limit));
+
+    res.json({
+      success: true,
+      data: jobsResult,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages,
+        total,
+        limit: parseInt(limit)
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching jobs by IE code:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch job data", error: error.message });
+  }
+});
+
+router.get("/api/optimized/:year/jobs/:ieCode/all", async (req, res) => {
+  try {
+    const { year, ieCode } = req.params;
+    const { page = 1, limit = 50, search = "" } = req.query;
+
+    if (!ieCode || !year) {
+      return res.status(400).json({ success: false, message: "IE code and year are required" });
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    let aggregationPipeline = [
+      {
+        $match: {
+          year,
+          ie_code_no: ieCode,
+          be_no: { $not: { $regex: "^cancelled$", $options: "i" } },
+          status: { $not: { $regex: "^cancelled$", $options: "i" } }
+        }
+      }
+    ];
+
+    if (search && search.trim()) {
+      const searchRegex = { $regex: search.trim(), $options: "i" };
+      aggregationPipeline.push({
+        $match: {
+          $or: [
+            { job_no: searchRegex },
+            { supplier_exporter: searchRegex },
+            { importer: searchRegex },
+            { custom_house: searchRegex },
+            { awb_bl_no: searchRegex },
+            { origin_country: searchRegex },
+            { description: searchRegex }
+          ]
+        }
+      });
+    }
+
+    aggregationPipeline.push({
+      $project: {
+        job_no: 1,
+        year: 1,
+        ie_code_no: 1,
+        importer: 1,
+        custom_house: 1,
+        awb_bl_no: 1,
+        origin_country: 1,
+        supplier_exporter: 1,
+        vessel_berthing: 1,
+        gateway_igm_date: 1,
+        discharge_date: 1,
+        be_no: 1,
+        be_date: 1,
+        loading_port: 1,
+        port_of_reporting: 1,
+        type_of_b_e: 1,
+        consignment_type: 1,
+        shipping_line_airline: 1,
+        job_net_weight: 1,
+        gross_weight: 1,
+        per_kg_cost: 1,
+        description: 1,
+        status: 1,
+        detailed_status: 1,
+        payment_method: 1,
+        "net_weight_calculator.duty": 1,
+        "net_weight_calculator.shipping": 1,
+        "net_weight_calculator.custom_clearance_charges": 1,
+        "net_weight_calculator.detention": 1,
+        "net_weight_calculator.cfs": 1,
+        "net_weight_calculator.transport": 1,
+        "net_weight_calculator.Labour": 1,
+        "net_weight_calculator.total_cost": 1,
+        "container_nos.container_no": 1
+      }
+    });
+
+    const countPipeline = [...aggregationPipeline, { $count: "total" }];
+    aggregationPipeline.push(
+      { $skip: skip },
+      { $limit: parseInt(limit) }
+    );
+
+    const [jobsResult, countResult] = await Promise.all([
+      JobModel.aggregate(aggregationPipeline),
+      JobModel.aggregate(countPipeline)
+    ]);
+
+    const total = countResult[0]?.total || 0;
+    const totalPages = Math.ceil(total / parseInt(limit));
+
+    res.json({
+      success: true,
+      data: jobsResult,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages,
+        total,
+        limit: parseInt(limit)
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching multi-status jobs:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch job data", error: error.message });
+  }
+});
+
+router.get("/api/get-hs-codes", async (req, res) => {
+  try {
+    const { importer, year, status } = req.query;
+    if (!importer) {
+      return res.status(400).json({ success: false, message: "Importer parameter is required" });
+    }
+
+    const matchQuery = {
+      importer: { $regex: `^${escapeRegex(importer)}$`, $options: "i" },
+    };
+    if (year && year !== "all") {
+      matchQuery.year = year;
+    }
+
+    if (status && status !== "all") {
+      const statusLower = status.toLowerCase();
+      if (statusLower === "pending") {
+        matchQuery.$and = [
+          { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
+          {
+            $and: [
+              { bill_date: { $in: [null, ""] } },
+              { status: { $not: { $regex: "^completed$", $options: "i" } } },
+            ],
+          },
+        ];
+      } else if (statusLower === "completed") {
+        matchQuery.$and = [
+          { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
+          {
+            $or: [
+              { bill_date: { $nin: [null, ""] } },
+              { status: { $regex: "^completed$", $options: "i" } },
+            ],
+          },
+        ];
+      } else if (statusLower === "cancelled") {
+        matchQuery.$and = [
+          {
+            $or: [
+              { status: { $regex: "^cancelled$", $options: "i" } },
+              { be_no: { $regex: "^cancelled$", $options: "i" } },
+            ],
+          },
+        ];
+      }
+    }
+
+    const hsCodes = await JobModel.distinct("cth_no", matchQuery);
+    const filteredHsCodes = hsCodes.filter(
+      (hsCode) => hsCode && hsCode.trim() !== ""
+    );
+    res.json(filteredHsCodes);
+  } catch (error) {
+    console.error("Error fetching HS codes:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch HS codes", error: error.message });
+  }
+});
+
+router.get("/api/get-suppliers", async (req, res) => {
+  try {
+    const { importer, year, status } = req.query;
+    if (!importer) {
+      return res.status(400).json({ success: false, message: "Importer parameter is required" });
+    }
+
+    const matchQuery = {
+      importer: { $regex: `^${escapeRegex(importer)}$`, $options: "i" },
+    };
+    if (year && year !== "all") {
+      matchQuery.year = year;
+    }
+
+    if (status && status !== "all") {
+      const statusLower = status.toLowerCase();
+      if (statusLower === "pending") {
+        matchQuery.$and = [
+          { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
+          {
+            $and: [
+              { bill_date: { $in: [null, ""] } },
+              { status: { $not: { $regex: "^completed$", $options: "i" } } },
+            ],
+          },
+        ];
+      } else if (statusLower === "completed") {
+        matchQuery.$and = [
+          { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
+          {
+            $or: [
+              { bill_date: { $nin: [null, ""] } },
+              { status: { $regex: "^completed$", $options: "i" } },
+            ],
+          },
+        ];
+      } else if (statusLower === "cancelled") {
+        matchQuery.$and = [
+          {
+            $or: [
+              { status: { $regex: "^cancelled$", $options: "i" } },
+              { be_no: { $regex: "^cancelled$", $options: "i" } },
+            ],
+          },
+        ];
+      }
+    }
+
+    const suppliers = await JobModel.distinct("supplier_exporter", matchQuery);
+    const filteredSuppliers = suppliers.filter(
+      (supplier) => supplier && supplier.trim() !== ""
+    );
+    res.json(filteredSuppliers);
+  } catch (error) {
+    console.error("Error fetching suppliers:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch suppliers", error: error.message });
+  }
+});
+
 export default router;

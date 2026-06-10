@@ -2,6 +2,7 @@ import express from "express";
 import mongoose from "mongoose";
 import JobModel from "../../model/jobModel.mjs";
 import CthModel from "../CthUtil/CthUtil.mjs";
+import CustomerKycModel from "../../model/CustomerKyc/customerKycModel.mjs";
 
 const router = express.Router();
 
@@ -1761,6 +1762,57 @@ router.get("/api/get-suppliers", async (req, res) => {
   } catch (error) {
     console.error("Error fetching suppliers:", error);
     res.status(500).json({ success: false, message: "Failed to fetch suppliers", error: error.message });
+  }
+});
+
+/**
+ * GET /api/available-iec-codes
+ */
+router.get("/api/available-iec-codes", async (req, res) => {
+  try {
+    const { search, role, ie_code_no } = req.query;
+
+    let query = { iec_no: { $exists: true, $nin: [null, ""] } };
+
+    // Security Check for Admins - can only see their own IEC code
+    if (role === "admin" && ie_code_no) {
+      query.iec_no = ie_code_no;
+    }
+
+    // Add search functionality
+    if (search && search.trim() !== "") {
+      const searchRegex = new RegExp(escapeRegex(search.trim()), "i");
+      query.$or = [
+        { iec_no: searchRegex },
+        { name_of_individual: searchRegex },
+      ];
+    }
+
+    const iecCodes = await CustomerKycModel.find(query)
+      .select("iec_no name_of_individual status approval")
+      .sort({ name_of_individual: 1 })
+      .lean();
+
+    const formattedData = iecCodes.map((kyc) => ({
+      iecNo: kyc.iec_no,
+      importerName: kyc.name_of_individual,
+      status: kyc.status,
+      approval: kyc.approval,
+      id: kyc._id,
+    }));
+
+    res.json({
+      success: true,
+      data: formattedData,
+      message: `Found ${formattedData.length} IEC codes`,
+    });
+  } catch (error) {
+    console.error("Get available IEC codes error in eximdev:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to get available IEC codes.",
+      error: error.message,
+    });
   }
 });
 

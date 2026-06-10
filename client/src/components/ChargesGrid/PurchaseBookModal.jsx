@@ -90,6 +90,12 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                     return dateStr;
                 };
 
+                const isReimbursement = initialData.chargeHeadCategory?.toLowerCase() === 'reimbursement';
+                const totalVal = initialData.netPayable ? initialData.netPayable.toFixed(2) : '';
+                const taxableVal = isReimbursement
+                    ? totalVal
+                    : (initialData.basicAmount ? initialData.basicAmount.toFixed(2) : (initialData.amount ? initialData.amount.toFixed(2) : ''));
+
                 setFormData(prev => ({
                     ...prev,
                     "Entry No": finalEntryNo,
@@ -107,13 +113,13 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                     "PAN": branch.pan || '',
                     "CIN": party?.cin || '',
                     "Credit Terms": party?.credit_terms || '',
-                    "Taxable Value": initialData.basicAmount ? initialData.basicAmount.toFixed(2) : (initialData.amount ? initialData.amount.toFixed(2) : ''),
-                    "GST%": initialData.gstRate || '',
-                    "CGST": (initialData.cgst > 0) ? initialData.cgst.toFixed(2) : '',
-                    "SGST": (initialData.sgst > 0) ? initialData.sgst.toFixed(2) : '',
-                    "IGST": (initialData.igst > 0) ? initialData.igst.toFixed(2) : '',
+                    "Taxable Value": taxableVal,
+                    "GST%": isReimbursement ? '' : (initialData.gstRate || ''),
+                    "CGST": isReimbursement ? '' : ((initialData.cgst > 0) ? initialData.cgst.toFixed(2) : ''),
+                    "SGST": isReimbursement ? '' : ((initialData.sgst > 0) ? initialData.sgst.toFixed(2) : ''),
+                    "IGST": isReimbursement ? '' : ((initialData.igst > 0) ? initialData.igst.toFixed(2) : ''),
                     "TDS": initialData.tdsAmount ? initialData.tdsAmount.toFixed(2) : '',
-                    "Total": initialData.netPayable ? initialData.netPayable.toFixed(2) : '',
+                    "Total": totalVal,
                     "Description of Services": initialData.chargeHead ? (
                         initialData.chargeHeadCategory === 'Margin' ? `${initialData.chargeHead} - E` : 
                         initialData.chargeHeadCategory === 'Reimbursement' ? `NEW - ${initialData.partyName || ''}` : 
@@ -147,7 +153,29 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setFormData(prev => {
+            const updated = { ...prev, [name]: value };
+            
+            // If Category is changed to Reimbursement, sync Taxable Value to Total and clear GST fields
+            if (name === "Charge Head Category" && value?.toLowerCase() === 'reimbursement') {
+                updated["Taxable Value"] = updated["Total"] || '';
+                updated["GST%"] = '';
+                updated["CGST"] = '';
+                updated["SGST"] = '';
+                updated["IGST"] = '';
+            }
+            
+            // Sync taxable value to total if category is Reimbursement
+            if (updated["Charge Head Category"]?.toLowerCase() === 'reimbursement') {
+                if (name === "Total") {
+                    updated["Taxable Value"] = value;
+                } else if (name === "Taxable Value") {
+                    updated["Total"] = value;
+                }
+            }
+            
+            return updated;
+        });
     };
 
     const handleSubmit = async (e) => {

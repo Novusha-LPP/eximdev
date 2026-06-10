@@ -401,15 +401,6 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
       }
     }
 
-    if (!tdsPercent && entry.tds > 0 && entry.taxableValue > 0) {
-      tdsPercent = Math.round((entry.tds / entry.taxableValue) * 100);
-    }
-
-    const roundedPercent = Math.round(tdsPercent || 1);
-    const tdsLedgerName = roundedPercent === 2
-      ? "TDS ON CONTRACT 94C - 1024 -2%"
-      : "TDS ON CONTRACT 94C - 1023- 1%";
-
     const formattedData = {
       "Entry No": entry.entryNo,
       "Entry Date": entry.entryDate,
@@ -437,7 +428,7 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
       "CGST": entry.cgstAmt,
       "SGST": entry.sgstAmt,
       "IGST": entry.igstAmt,
-      ...(entry.tds > 0 ? { [tdsLedgerName]: entry.tds } : { "TDS": entry.tds }),
+      "TDS": entry.tds,
       "Total": entry.total,
       "Charge Description": entry.chargeDescription || '',
       "Charge Head Category": chargeCategory || '',

@@ -2134,10 +2134,6 @@ const ImportCreateJob = () => {
                                             value={po.po_no || ""}
                                             onChange={(e) => {
                                               updateInvoicePoDetail(rowIndex, poIndex, "po_no", e.target.value);
-                                              // Also update po_no of index 0 for backward compatibility
-                                              if (poIndex === 0) {
-                                                updateInvoiceRow(rowIndex, "po_no", e.target.value);
-                                              }
                                             }}
                                             error={!!row.po_validation_error}
                                             sx={{
@@ -2157,10 +2153,6 @@ const ImportCreateJob = () => {
                                             value={po.po_date || ""}
                                             onChange={(e) => {
                                               updateInvoicePoDetail(rowIndex, poIndex, "po_date", e.target.value);
-                                              // Also update po_date of index 0 for backward compatibility
-                                              if (poIndex === 0) {
-                                                updateInvoiceRow(rowIndex, "po_date", e.target.value);
-                                              }
                                             }}
                                             error={!!row.po_validation_error}
                                             InputLabelProps={{ shrink: true }}
@@ -2189,10 +2181,6 @@ const ImportCreateJob = () => {
                                                 color="error"
                                                 onClick={() => {
                                                   removeInvoicePoDetail(rowIndex, poIndex);
-                                                  if (poIndex === 0 && row.po_details && row.po_details[1]) {
-                                                    updateInvoiceRow(rowIndex, "po_no", row.po_details[1].po_no || "");
-                                                    updateInvoiceRow(rowIndex, "po_date", row.po_details[1].po_date || "");
-                                                  }
                                                 }}
                                                 sx={{ padding: "2px" }}
                                               >

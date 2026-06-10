@@ -1447,6 +1447,13 @@ function JobDetails() {
       [field]: value,
     };
 
+    if (field === "po_details") {
+      if (Array.isArray(value) && value[0]) {
+        updatedRows[rowIndex].po_no = value[0].po_no || "";
+        updatedRows[rowIndex].po_date = value[0].po_date || "";
+      }
+    }
+
     // Auto-sync product_value (Invoice Value) to linked description row(s) amount in product tab
     if (field === "product_value") {
       const matchedInvoiceSr = String(rowIndex + 1);
@@ -3241,10 +3248,6 @@ function JobDetails() {
                                             const updatedPoList = [...(row.po_details || [{ po_no: "", po_date: "" }])];
                                             updatedPoList[poIndex] = { ...updatedPoList[poIndex], po_no: e.target.value };
                                             updateInvoiceRow(rowIndex, "po_details", updatedPoList);
-                                            // Also update po_no of index 0 for backward compatibility
-                                            if (poIndex === 0) {
-                                              updateInvoiceRow(rowIndex, "po_no", e.target.value);
-                                            }
                                           }}
                                           sx={{ ...compactInputSx, width: "100px", minWidth: "100px" }}
                                         />
@@ -3258,10 +3261,6 @@ function JobDetails() {
                                             const updatedPoList = [...(row.po_details || [{ po_no: "", po_date: "" }])];
                                             updatedPoList[poIndex] = { ...updatedPoList[poIndex], po_date: e.target.value };
                                             updateInvoiceRow(rowIndex, "po_details", updatedPoList);
-                                            // Also update po_date of index 0 for backward compatibility
-                                            if (poIndex === 0) {
-                                              updateInvoiceRow(rowIndex, "po_date", e.target.value);
-                                            }
                                           }}
                                           sx={{ ...compactInputSx, width: "110px", minWidth: "110px" }}
                                         />
@@ -3285,10 +3284,6 @@ function JobDetails() {
                                                 onClick={() => {
                                                   const updatedPoList = (row.po_details || [{ po_no: "", po_date: "" }]).filter((_, i) => i !== poIndex);
                                                   updateInvoiceRow(rowIndex, "po_details", updatedPoList);
-                                                  if (poIndex === 0 && updatedPoList[0]) {
-                                                    updateInvoiceRow(rowIndex, "po_no", updatedPoList[0].po_no || "");
-                                                    updateInvoiceRow(rowIndex, "po_date", updatedPoList[0].po_date || "");
-                                                  }
                                                 }}
                                                 sx={{ padding: "2px" }}
                                               >

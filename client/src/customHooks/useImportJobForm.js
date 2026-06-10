@@ -513,10 +513,29 @@ const useImportJobForm = () => {
       setDescriptionDetails(updatedDescRows);
     }
 
-    // Validate PO fields if updating PO No or PO Date
-    if (field === "po_no" || field === "po_date") {
+    if (field === "po_details") {
+      if (Array.isArray(value) && value[0]) {
+        updatedRows[rowIndex].po_no = value[0].po_no || "";
+        updatedRows[rowIndex].po_date = value[0].po_date || "";
+        if (rowIndex === 0) {
+          setPoNo(value[0].po_no || "");
+          setPoDate(value[0].po_date || "");
+        }
+      }
+    }
+
+    // Validate PO fields if updating PO No or PO Date or PO Details
+    if (field === "po_no" || field === "po_date" || field === "po_details") {
       const currentRow = updatedRows[rowIndex];
-      const validationError = validatePoFields(currentRow.po_no, currentRow.po_date);
+      let validationError = "";
+      const poList = currentRow.po_details || [{ po_no: currentRow.po_no, po_date: currentRow.po_date }];
+      for (let i = 0; i < poList.length; i++) {
+        const err = validatePoFields(poList[i].po_no, poList[i].po_date);
+        if (err) {
+          validationError = err;
+          break;
+        }
+      }
       updatedRows[rowIndex].po_validation_error = validationError;
     }
 
@@ -746,22 +765,67 @@ const useImportJobForm = () => {
 
   const removeInvoicePoDetail = (rowIndex, poIndex) => {
     const updated = [...invoice_details];
-    const row = updated[rowIndex];
+    const row = { ...updated[rowIndex] };
     const poList = Array.isArray(row.po_details) ? [...row.po_details] : [];
     if (poList.length <= 1) return;
     poList.splice(poIndex, 1);
-    updated[rowIndex] = { ...row, po_details: poList };
+    row.po_details = poList;
+
+    if (poIndex === 0 && poList[0]) {
+      row.po_no = poList[0].po_no || "";
+      row.po_date = poList[0].po_date || "";
+      if (rowIndex === 0) {
+        setPoNo(poList[0].po_no || "");
+        setPoDate(poList[0].po_date || "");
+      }
+    }
+
+    // Validate PO fields for this row
+    let validationError = "";
+    for (let i = 0; i < poList.length; i++) {
+      const err = validatePoFields(poList[i].po_no, poList[i].po_date);
+      if (err) {
+        validationError = err;
+        break;
+      }
+    }
+    row.po_validation_error = validationError;
+
+    updated[rowIndex] = row;
     setInvoiceDetails(updated);
   };
 
   const updateInvoicePoDetail = (rowIndex, poIndex, poField, value) => {
     const updated = [...invoice_details];
-    const row = updated[rowIndex];
+    const row = { ...updated[rowIndex] };
     const poList = Array.isArray(row.po_details) ? [...row.po_details] : [];
     if (poList[poIndex]) {
       poList[poIndex] = { ...poList[poIndex], [poField]: value };
     }
-    updated[rowIndex] = { ...row, po_details: poList };
+    row.po_details = poList;
+
+    if (poIndex === 0) {
+      if (poField === "po_no") {
+        row.po_no = value;
+        if (rowIndex === 0) setPoNo(value);
+      } else if (poField === "po_date") {
+        row.po_date = value;
+        if (rowIndex === 0) setPoDate(value);
+      }
+    }
+
+    // Validate PO fields for this row
+    let validationError = "";
+    for (let i = 0; i < poList.length; i++) {
+      const err = validatePoFields(poList[i].po_no, poList[i].po_date);
+      if (err) {
+        validationError = err;
+        break;
+      }
+    }
+    row.po_validation_error = validationError;
+
+    updated[rowIndex] = row;
     setInvoiceDetails(updated);
   };
 

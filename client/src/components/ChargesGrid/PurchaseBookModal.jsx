@@ -92,9 +92,11 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
 
                 const isReimbursement = initialData.chargeHeadCategory?.toLowerCase() === 'reimbursement';
                 const totalVal = initialData.netPayable ? initialData.netPayable.toFixed(2) : '';
-                const taxableVal = isReimbursement
-                    ? totalVal
-                    : (initialData.basicAmount ? initialData.basicAmount.toFixed(2) : (initialData.amount ? initialData.amount.toFixed(2) : ''));
+                const taxableVal = (initialData.rate !== undefined && initialData.rate !== null && initialData.rate !== '')
+                    ? parseFloat(initialData.rate).toFixed(2)
+                    : (isReimbursement
+                        ? totalVal
+                        : (initialData.basicAmount ? initialData.basicAmount.toFixed(2) : (initialData.amount ? initialData.amount.toFixed(2) : '')));
 
                 setFormData(prev => ({
                     ...prev,

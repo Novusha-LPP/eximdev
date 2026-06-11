@@ -138,6 +138,7 @@ function useFetchJobDetails(
   const [data, setData] = useState(null);
   const [detentionFrom, setDetentionFrom] = useState([]);
   const navigate = useNavigate();
+  const [isCthDocsLoading, setIsCthDocsLoading] = useState(false);
   const [cthDocuments, setCthDocuments] = useState([
     {
       document_name: "Commercial Invoice",
@@ -316,6 +317,23 @@ function useFetchJobDetails(
   useEffect(() => {
     async function getCthDocs() {
       if (data?.cth_no) {
+        setIsCthDocsLoading(true);
+        // Step 1: Immediately merge data.cth_documents into state to prevent losing them during pending fetches
+        if (data.cth_documents && data.cth_documents.length > 0) {
+          setCthDocuments((prev) => {
+            let merged = [...prev];
+            data.cth_documents.forEach((d) => {
+              const idx = merged.findIndex((m) => m.document_name === d.document_name);
+              if (idx === -1) {
+                merged.push(d);
+              } else {
+                merged[idx] = { ...merged[idx], ...d };
+              }
+            });
+            return merged;
+          });
+        }
+
         try {
           // Handle multiple CTH numbers separated by " / "
           const cthNumbers = data.cth_no.split(' / ').map(cth => cth.trim());
@@ -328,7 +346,6 @@ function useFetchJobDetails(
             `${process.env.REACT_APP_API_STRING}/get-cth-docs?${queryParams.toString()}`
           );
 
-          // Rest of your existing logic...
           const fetchedCthDocuments =
             Array.isArray(cthRes.data) &&
             cthRes.data.map((cthDoc) => {
@@ -342,39 +359,67 @@ function useFetchJobDetails(
               };
             });
 
-          // Continue with your existing merging logic...
-          let documentsToMerge = [...cthDocuments];
+          setCthDocuments((prev) => {
+            let documentsToMerge = [...prev];
 
-          if (cthNumbers.some(cth => commonCthCodes.includes(cth))) {
-            documentsToMerge = [...documentsToMerge, ...additionalDocs];
-          }
-
-          documentsToMerge = fetchedCthDocuments
-            ? [...documentsToMerge, ...fetchedCthDocuments]
-            : [...documentsToMerge];
-
-          documentsToMerge = [...documentsToMerge, ...data.cth_documents];
-
-          const uniqueDocuments = documentsToMerge.reduce((acc, current) => {
-            const existingDocIndex = acc.findIndex(
-              (doc) => doc.document_name === current.document_name
-            );
-
-            if (existingDocIndex === -1) {
-              return acc.concat([current]);
-            } else {
-              acc[existingDocIndex] = {
-                ...acc[existingDocIndex],
-                ...current,
-                url: current.url && current.url.length > 0 ? current.url : acc[existingDocIndex].url,
-              };
-              return acc;
+            if (cthNumbers.some(cth => commonCthCodes.includes(cth))) {
+              documentsToMerge = [...documentsToMerge, ...additionalDocs];
             }
-          }, []);
 
-          setCthDocuments(uniqueDocuments);
+            if (fetchedCthDocuments) {
+              documentsToMerge = [...documentsToMerge, ...fetchedCthDocuments];
+            }
+
+            // Also merge data.cth_documents just in case
+            if (data?.cth_documents) {
+              documentsToMerge = [...documentsToMerge, ...data.cth_documents];
+            }
+
+            const uniqueDocuments = documentsToMerge.reduce((acc, current) => {
+              const existingDocIndex = acc.findIndex(
+                (doc) => doc.document_name === current.document_name
+              );
+
+              if (existingDocIndex === -1) {
+                return acc.concat([current]);
+              } else {
+                acc[existingDocIndex] = {
+                  ...acc[existingDocIndex],
+                  ...current,
+                  url: current.url && current.url.length > 0 ? current.url : acc[existingDocIndex].url,
+                };
+                return acc;
+              }
+            }, []);
+
+            return uniqueDocuments;
+          });
         } catch (error) {
           console.error("Error fetching CTH documents:", error);
+          // Fallback merge
+          if (data?.cth_documents) {
+            setCthDocuments((prev) => {
+              let documentsToMerge = [...prev, ...data.cth_documents];
+              const uniqueDocuments = documentsToMerge.reduce((acc, current) => {
+                const existingDocIndex = acc.findIndex(
+                  (doc) => doc.document_name === current.document_name
+                );
+                if (existingDocIndex === -1) {
+                  return acc.concat([current]);
+                } else {
+                  acc[existingDocIndex] = {
+                    ...acc[existingDocIndex],
+                    ...current,
+                    url: current.url && current.url.length > 0 ? current.url : acc[existingDocIndex].url,
+                  };
+                  return acc;
+                }
+              }, []);
+              return uniqueDocuments;
+            });
+          }
+        } finally {
+          setIsCthDocsLoading(false);
         }
       } else if (data?.cth_documents && data.cth_documents.length > 0) {
         setCthDocuments(data.cth_documents);
@@ -540,6 +585,10 @@ function useFetchJobDetails(
       sent_to_submission_date_time: "",
     },
     onSubmit: async (values) => {
+      if (isCthDocsLoading) {
+        toast.error("Please wait, loading CTH documents...");
+        return;
+      }
       // Filter documents that are sent to e-Sanchit
       const sentDocuments = cthDocuments.filter(
         (doc) => doc.is_sent_to_esanchit === true
@@ -1572,7 +1621,8 @@ function useFetchJobDetails(
     canChangeClearance,
     resetOtherDetails,
 
-    setData
+    setData,
+    isCthDocsLoading
   };
 }
 

@@ -1597,6 +1597,7 @@ const EditChargeModal = ({
                                               igst: !isGujarat ? totalGst : 0,
                                               tdsAmount: cost.tdsAmount,
                                               netPayable: cost.netPayable,
+                                              rate: cost.rate,
                                               totalAmount: cost.totalAmount,
                                               chargeHead: row.chargeHead,
                                               invoice_number: row.invoice_number,

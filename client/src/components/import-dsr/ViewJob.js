@@ -653,6 +653,7 @@ function JobDetails() {
     canChangeClearance,
     resetOtherDetails,
     setData,
+    isCthDocsLoading,
     // schemeOptions,
   } = useFetchJobDetails(
     params,
@@ -5644,6 +5645,7 @@ function JobDetails() {
                 <Button
                   type="submit"
                   variant="contained"
+                  disabled={isCthDocsLoading}
                   sx={{
                     backgroundColor: "#000000",
                     color: "#ffffff",
@@ -5657,7 +5659,11 @@ function JobDetails() {
                     textTransform: "none"
                   }}
                 >
-                  Submit
+                  {isCthDocsLoading ? (
+                    <CircularProgress size={20} color="inherit" />
+                  ) : (
+                    "Submit"
+                  )}
                 </Button>
               </Box>
             </Col>

@@ -260,12 +260,13 @@ import teamRoutes from "./routes/team/teamRoutes.mjs";
 import dgftRoutes from "./routes/dgft/dgftRoutes.mjs";
 
 // CRM Module
-import crmRoutes from "./routes/crm/crmRoutes.mjs";
+
 // Admin Branch Module
 import branchRoutes from "./routes/admin/branchRoutes.mjs";
 import jobMigrationRouter from "./routes/admin/jobMigration.mjs";
 
 import userAssetsRoutes from "./routes/hr/userAssetsRoutes.mjs";
+import userAssetEquipmentRoutes from "./routes/user/userAssets.mjs";
 
 // Scorecard Module
 import scorecardRoutes from "./routes/scorecards/scorecards.js";
@@ -274,6 +275,14 @@ import scorecardRoutes from "./routes/scorecards/scorecards.js";
 import amcRenewalRoutes from "./routes/amc-renewals/amcRenewalRoutes.mjs";
 import amcVisitorLogRoutes from "./routes/amc-renewals/amcVisitorLogRoutes.mjs";
 import adminEquipmentChecklistRoutes from "./routes/amc-renewals/adminEquipmentChecklistRoutes.mjs";
+
+// IT Asset & Helpdesk Module
+import assetRoutes from "./routes/it-helpdesk/assetRoutes.mjs";
+import ticketRoutes from "./routes/it-helpdesk/ticketRoutes.mjs";
+import vendorRoutes from "./routes/it-helpdesk/vendorRoutes.mjs";
+import contractRoutes from "./routes/it-helpdesk/contractRoutes.mjs";
+import licenseRoutes from "./routes/it-helpdesk/licenseRoutes.mjs";
+import inventoryRoutes from "./routes/it-helpdesk/inventoryRoutes.mjs";
 
 const MISSED_PUNCH_LIMIT_HOURS = 12;
 
@@ -694,14 +703,14 @@ app.use(teamRoutes);
 // DGFT Module
 app.use(dgftRoutes);
 
-// CRM Module (existing)
-app.use("/api/crm", crmRoutes);
+
 
 // Admin Branch Module
 app.use("/api/admin", branchRoutes);
 app.use("/api/admin/job-migration", jobMigrationRouter);
 
 app.use(userAssetsRoutes);
+app.use(userAssetEquipmentRoutes);
 
 // Scorecard Module
 app.use("/api/scorecards", scorecardRoutes);
@@ -710,6 +719,14 @@ app.use("/api/scorecards", scorecardRoutes);
 app.use("/api/amc-renewals", amcRenewalRoutes);
 app.use("/api/amc-visitor", amcVisitorLogRoutes);
 app.use("/api/equipment-checklist", adminEquipmentChecklistRoutes);
+
+// IT Asset & Helpdesk Module
+app.use("/api/it-helpdesk/assets", assetRoutes);
+app.use("/api/it-helpdesk/tickets", ticketRoutes);
+app.use("/api/it-helpdesk/vendors", vendorRoutes);
+app.use("/api/it-helpdesk/contracts", contractRoutes);
+app.use("/api/it-helpdesk/licenses", licenseRoutes);
+app.use("/api/it-helpdesk/inventory", inventoryRoutes);
 
 // Document Collection Module
 app.use(documentCollectionRoutes);

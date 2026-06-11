@@ -4,6 +4,8 @@ import toast from "react-hot-toast";
 import { amcRenewalAPI } from "../api/amcRenewalAPI";
 import "../styles/scorecard.scss";
 
+const PENDING_THRESHOLD_DAYS = 30; // Number of days before expiry to mark as "Pending"
+
 const EMPTY_RECORD = {
   equipmentServiceName: "",
   vendorName: "",
@@ -37,6 +39,25 @@ const statusClass = (s) => {
     case "Expired": return "badge-danger";
     default: return "badge-secondary";
   }
+};
+
+// Helper function to calculate status based on expireDate
+const deriveStatus = (expireDateStr) => {
+  if (!expireDateStr) return "Active"; // Default if no date is set
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0); // Normalize time to start of day
+
+  const expireDate = new Date(expireDateStr);
+  expireDate.setHours(0, 0, 0, 0);
+
+  const diffTime = expireDate.getTime() - today.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays < 0) return "Expired";
+  if (diffDays <= PENDING_THRESHOLD_DAYS) return "P \
+  ending";
+  return "Active";
 };
 
 export default function AmcRenewalList() {
@@ -75,6 +96,14 @@ export default function AmcRenewalList() {
   }, [filters, pagination.limit]);
 
   useEffect(() => { fetchData(1); }, [fetchData]);
+
+  // Auto-calculate Status when Expire Date changes in the form
+  useEffect(() => {
+    if (form.expireDate) {
+      const newStatus = deriveStatus(form.expireDate);
+      setForm((prev) => ({ ...prev, status: newStatus }));
+    }
+  }, [form.expireDate]);
 
   const openCreate = () => {
     setEditId(null);
@@ -410,8 +439,8 @@ export default function AmcRenewalList() {
                   <input type="text" name="contactNo" value={form.contactNo} onChange={handleFormChange} placeholder="Phone number" />
                 </div>
                 <div className="form-field">
-                  <label>Status</label>
-                  <select name="status" value={form.status} onChange={handleFormChange}>
+                  <label>Status (Auto-calculated by Expire Date)</label>
+                  <select name="status" value={form.status} onChange={handleFormChange} style={{ opacity: 0.7 }}>
                     <option>Active</option>
                     <option>Pending</option>
                     <option>Expired</option>

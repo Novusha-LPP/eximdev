@@ -622,45 +622,9 @@ function Home() {
                     <Col xs={12} md={4} lg={2} key={id} className="module-col">
                       <div
                         className="module-col-inner"
-                        style={{ 
-                          position: "relative",
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "10px",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          width: "100%",
-                          minHeight: "135px",
-                          padding: "20px 12px",
-                          borderRadius: "14px",
-                          backgroundColor: "#ffffff",
-                          border: "1px solid #f1f5f9",
-                          boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.03), 0 4px 6px -2px rgba(0, 0, 0, 0.02)",
-                          transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-                          cursor: "pointer"
-                        }}
                         onClick={() => navigateToModule(module, navigate)}
                       >
-                        <div style={{
-                          width: "44px",
-                          height: "44px",
-                          borderRadius: "10px",
-                          background: mStyle.bg,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          marginBottom: "4px"
-                        }}>
-                          {mStyle.icon(mStyle.color)}
-                        </div>
-                        <p style={{
-                          fontSize: "13.5px",
-                          fontWeight: "600",
-                          color: "#334155",
-                          margin: 0,
-                          textAlign: "center",
-                          lineHeight: "1.3"
-                        }}>{module}</p>
+                        <p>{module}</p>
                         {module === "Document Collection" && pendingDocCount > 0 && (
                           <span
                             style={{

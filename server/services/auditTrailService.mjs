@@ -140,7 +140,12 @@ export function generateHeading(documentType, action, doc, changes) {
     if (doc?.party_name) identifiers.push(`Party '${doc.party_name}'`);
     if (doc?.companyName) identifiers.push(`Company '${doc.companyName}'`);
     if (doc?.name_of_individual) identifiers.push(`Kyc '${doc.name_of_individual}'`);
-    if (doc?.name && !doc.username && !doc.branch_name) identifiers.push(`'${doc.name}'`);
+    if (doc?.name && !doc.username && !doc.branch_name && !isITHelpdeskDoc(documentType)) identifiers.push(`'${doc.name}'`);
+    if (doc?.asset_tag) identifiers.push(`'${doc.asset_tag}'`);
+    if (doc?.ticket_id) identifiers.push(`'${doc.ticket_id}'`);
+    if (doc?.contract_number) identifiers.push(`'${doc.contract_number}'`);
+    if (doc?.software_name) identifiers.push(`'${doc.software_name}'`);
+    if (doc?.item_name) identifiers.push(`'${doc.item_name}'`);
 
     // KPI specific
     if (doc?.month && doc?.year && !doc?.job_no) {
@@ -156,6 +161,10 @@ export function generateHeading(documentType, action, doc, changes) {
     const actionLabel = action.charAt(0) + action.slice(1).toLowerCase();
 
     return `${documentType}${idStr} ${actionLabel}`;
+}
+
+function isITHelpdeskDoc(documentType) {
+    return ['ITAsset', 'ITContract', 'ItVendor', 'ITLicense', 'ITInventory', 'HelpdeskTicket'].includes(documentType);
 }
 
 // core logging function
@@ -191,6 +200,12 @@ export const getModel = async (documentType) => {
             case "Branch": return (await import("../model/branchModel.mjs")).default;
             case "UserBranch": return (await import("../model/userBranchModel.mjs")).default;
             case "CurrencyRate": return (await import("../model/CurrencyRate.mjs")).default;
+            case "HelpdeskTicket": return (await import("../model/it-helpdesk/ticketModel.mjs")).default;
+            case "ITContract": return (await import("../model/it-helpdesk/contractModel.mjs")).default;
+            case "ItVendor": return (await import("../model/it-helpdesk/vendorModel.mjs")).default;
+            case "ITLicense": return (await import("../model/it-helpdesk/licenseModel.mjs")).default;
+            case "ITAsset": return (await import("../model/it-helpdesk/assetModel.mjs")).default;
+            case "ITInventory": return (await import("../model/it-helpdesk/inventoryModel.mjs")).default;
             default: return null;
         }
     } catch (error) {

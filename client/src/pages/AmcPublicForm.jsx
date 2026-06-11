@@ -29,6 +29,8 @@ const AMC_CATEGORIES = [
   "Generator & UPS",
   "Pest Control",
   "Housekeeping/Cleaning",
+  "RO Water",
+  "Fire Extinguisher",
   "Other Maintenance",
 ];
 

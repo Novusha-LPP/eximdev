@@ -40,6 +40,10 @@ const adminEquipmentChecklistItemSchema = new mongoose.Schema({
     type: String,
     default: "",
   },
+  image: {
+    type: String,
+    default: null,
+  },
 });
 
 const adminEquipmentChecklistSchema = new mongoose.Schema(

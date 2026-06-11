@@ -25,6 +25,7 @@ import {
   Select,
   MenuItem,
   Divider,
+  Tooltip,
 } from "@mui/material";
 import {
   Plus,
@@ -35,24 +36,21 @@ import {
   CheckCircle,
   AlertTriangle,
   Users,
+  Upload,
+  X,
 } from "lucide-react";
 import { equipmentChecklistAPI } from "../api/equipmentChecklistAPI";
 import { UserContext } from "../contexts/UserContext";
 import toast from "react-hot-toast";
 
+// ✅ Cloudinary configuration REMOVED. Using Base64 instead.
+
 const EQUIPMENT_ITEMS = [
-  { name: "Desktop / Laptop", functionalChecks: ["OK", "Not OK"] },
-  { name: "Printer / Scanner", functionalChecks: ["OK", "Not OK"] },
-  { name: "Photocopier Machine", functionalChecks: ["OK", "Not OK"] },
+  { name: "Washroom", functionalChecks: ["OK", "Not OK"] },
   { name: "Water Dispenser / RO", functionalChecks: ["OK", "Not OK"] },
-  { name: "Air Conditioner", functionalChecks: ["Cooling OK", "Not OK"] },
-  { name: "Refrigerator", functionalChecks: ["Working", "Not OK"] },
-  { name: "Microwave Oven", functionalChecks: ["Working", "Not OK"] },
-  { name: "CCTV System", functionalChecks: ["Recording OK", "Not OK"] },
-  { name: "Biometric Device", functionalChecks: ["Working", "Not OK"] },
-  { name: "EPABX / Intercom", functionalChecks: ["Working", "Not OK"] },
-  { name: "Fire Extinguisher", functionalChecks: ["Pressure OK", "Not OK"] },
-  { name: "UPS / Inverter", functionalChecks: ["Backup OK", "Not OK"] },
+  { name: "Refrigerator / Microwave Oven", functionalChecks: ["OK", "Not OK"] },
+  { name: "Biometric Device", functionalChecks: ["OK", "Not OK"] },
+  { name: "Fire Extinguisher", functionalChecks: ["OK", "Not OK"] },
 ];
 
 export default function AdminEquipmentChecklist() {
@@ -65,12 +63,13 @@ export default function AdminEquipmentChecklist() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Dialog states
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
 
-  // Form State
+  const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState("");
+
   const [checkedBy, setCheckedBy] = useState(user?.username || "");
   const [checklistDate, setChecklistDate] = useState(
     new Date().toISOString().substring(0, 10)
@@ -86,6 +85,7 @@ export default function AdminEquipmentChecklist() {
       repairRequired: "No",
       amcVendor: "",
       remarks: "",
+      image: null, // ✅ Changed to null
     }))
   );
 
@@ -127,6 +127,7 @@ export default function AdminEquipmentChecklist() {
         repairRequired: "No",
         amcVendor: "",
         remarks: "",
+        image: null, // ✅ Reset to null
       }))
     );
     setAddDialogOpen(true);
@@ -138,6 +139,32 @@ export default function AdminEquipmentChecklist() {
       updated[index][field] = value;
       return updated;
     });
+  };
+
+  // ✅ NEW: Convert Image to Base64 using Vanilla JS (No Cloudinary/Backend needed)
+  const handleImageUpload = (index, e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (reader.result) {
+        // Save the Base64 string to the form state
+        handleItemChange(index, "image", reader.result);
+        toast.success("Image added successfully!");
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = ""; // Reset input to allow re-uploading same file
+  };
+
+  const handleOpenImagePreview = (imageUrl) => {
+    if (!imageUrl) {
+      toast.error("No image uploaded for this washroom!");
+      return;
+    }
+    setPreviewImageUrl(imageUrl);
+    setImagePreviewOpen(true);
   };
 
   const handleSubmit = async (e) => {
@@ -181,6 +208,11 @@ export default function AdminEquipmentChecklist() {
   const handleViewDetails = (log) => {
     setSelectedLog(log);
     setViewDialogOpen(true);
+  };
+
+  const getFirstImage = (logItems) => {
+    const itemWithImage = logItems.find(item => item.image);
+    return itemWithImage?.image || null;
   };
 
   return (
@@ -239,7 +271,7 @@ export default function AdminEquipmentChecklist() {
                 <TableCell fontWeight="bold">Total Equipment</TableCell>
                 <TableCell fontWeight="bold">Repairs Required</TableCell>
                 <TableCell fontWeight="bold">Created At</TableCell>
-                <TableCell fontWeight="bold">Actions</TableCell>
+                <TableCell fontWeight="bold" align="center">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -252,6 +284,8 @@ export default function AdminEquipmentChecklist() {
               ) : (
                 logs.map((log) => {
                   const repairCount = log.items.filter((item) => item.repairRequired === "Yes").length;
+                  const firstImg = getFirstImage(log.items);
+
                   return (
                     <TableRow key={log._id} hover>
                       <TableCell>{new Date(log.date).toLocaleDateString()}</TableCell>
@@ -277,13 +311,26 @@ export default function AdminEquipmentChecklist() {
                         </Box>
                       </TableCell>
                       <TableCell>{new Date(log.createdAt).toLocaleString()}</TableCell>
-                      <TableCell>
-                        <IconButton size="small" onClick={() => handleViewDetails(log)} color="primary">
-                          <Eye size={16} />
-                        </IconButton>
-                        <IconButton size="small" onClick={() => handleDelete(log._id)} color="error">
-                          <Trash2 size={16} />
-                        </IconButton>
+
+                      <TableCell align="center">
+                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1 }}>
+                          <Tooltip title={firstImg ? "View Image" : "No Image Uploaded"}>
+                            <span>
+                              <IconButton
+                                size="small"
+                                onClick={() => handleOpenImagePreview(firstImg)}
+                                sx={{ color: firstImg ? "#7c3aed" : "#9e9e9e" }}
+                                disabled={!firstImg}
+                              >
+                                <Eye size={16} />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+
+                          <IconButton size="small" onClick={() => handleDelete(log._id)} color="error">
+                            <Trash2 size={16} />
+                          </IconButton>
+                        </Box>
                       </TableCell>
                     </TableRow>
                   );
@@ -344,12 +391,13 @@ export default function AdminEquipmentChecklist() {
                   <TableCell fontWeight="bold" sx={{ minWidth: 130 }}>Functional Check</TableCell>
                   <TableCell fontWeight="bold">Repair Req.</TableCell>
                   <TableCell fontWeight="bold">AMC Vendor</TableCell>
-                  <TableCell fontWeight="bold">Remarks</TableCell>
+                  <TableCell fontWeight="bold" sx={{ minWidth: 300 }}>Remarks & Image</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {formItems.map((item, idx) => {
                   const matchingConf = EQUIPMENT_ITEMS.find((c) => c.name === item.equipmentName);
+
                   return (
                     <TableRow key={item.equipmentName}>
                       <TableCell>{idx + 1}</TableCell>
@@ -362,11 +410,15 @@ export default function AdminEquipmentChecklist() {
                         />
                       </TableCell>
                       <TableCell>
-                        <TextField
-                          value={item.location}
-                          onChange={(e) => handleItemChange(idx, "location", e.target.value)}
-                          size="small"
-                        />
+                        <FormControl size="small" fullWidth>
+                          <Select
+                            value={item.location}
+                            onChange={(e) => handleItemChange(idx, "location", e.target.value)}
+                          >
+                            <MenuItem value="First Floor">First Floor</MenuItem>
+                            <MenuItem value="Second Floor">Second Floor</MenuItem>
+                          </Select>
+                        </FormControl>
                       </TableCell>
                       <TableCell>
                         <FormControl size="small" fullWidth>
@@ -402,7 +454,6 @@ export default function AdminEquipmentChecklist() {
                                 {chk}
                               </MenuItem>
                             ))}
-                            <MenuItem value="Not OK">Not OK</MenuItem>
                           </Select>
                         </FormControl>
                       </TableCell>
@@ -424,12 +475,79 @@ export default function AdminEquipmentChecklist() {
                           size="small"
                         />
                       </TableCell>
-                      <TableCell>
-                        <TextField
-                          value={item.remarks}
-                          onChange={(e) => handleItemChange(idx, "remarks", e.target.value)}
-                          size="small"
-                        />
+
+                      {/* Remarks & Image Side-by-Side Column */}
+                      <TableCell sx={{ verticalAlign: 'top' }}>
+                        <Box sx={{ display: "flex", alignItems: "flex-start", gap: 2 }}>
+                          <TextField
+                            value={item.remarks}
+                            onChange={(e) => handleItemChange(idx, "remarks", e.target.value)}
+                            size="small"
+                            sx={{ flex: 1, minWidth: "120px" }}
+                            multiline
+                            maxRows={3}
+                          />
+
+                          {/* Image Upload for all equipment items */}
+                          <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1 }}>
+
+                            {!item.image ? (
+                              <Button
+                                variant="outlined"
+                                component="label"
+                                size="small"
+                                startIcon={<Upload size={14} />}
+                              >
+                                Upload
+                                <input
+                                  type="file"
+                                  hidden
+                                  accept="image/*"
+                                  onChange={(e) => handleImageUpload(idx, e)}
+                                />
+                              </Button>
+                            ) : (
+                              <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                                <Button
+                                  variant="outlined"
+                                  component="label"
+                                  size="small"
+                                  color="warning"
+                                  startIcon={<Upload size={14} />}
+                                >
+                                  Change
+                                  <input
+                                    type="file"
+                                    hidden
+                                    accept="image/*"
+                                    onChange={(e) => handleImageUpload(idx, e)}
+                                  />
+                                </Button>
+                                <Button
+                                  variant="outlined"
+                                  size="small"
+                                  color="error"
+                                  onClick={() => handleItemChange(idx, "image", null)}
+                                  startIcon={<X size={14} />}
+                                >
+                                  Remove
+                                </Button>
+                              </Box>
+                            )}
+
+                            {/* Eye icon to preview the uploaded image in Add Dialog */}
+                            {item.image && (
+                              <IconButton
+                                size="small"
+                                sx={{ color: "#7c3aed" }}
+                                onClick={() => handleOpenImagePreview(item.image)}
+                                title="Preview Image"
+                              >
+                                <Eye size={18} />
+                              </IconButton>
+                            )}
+                          </Box>
+                        </Box>
                       </TableCell>
                     </TableRow>
                   );
@@ -516,6 +634,7 @@ export default function AdminEquipmentChecklist() {
                       <TableCell fontWeight="bold">Repair Req.</TableCell>
                       <TableCell fontWeight="bold">AMC Vendor</TableCell>
                       <TableCell fontWeight="bold">Remarks</TableCell>
+                      <TableCell fontWeight="bold" align="center">Image</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -533,6 +652,21 @@ export default function AdminEquipmentChecklist() {
                         </TableCell>
                         <TableCell>{item.amcVendor || "—"}</TableCell>
                         <TableCell>{item.remarks || "—"}</TableCell>
+
+                        <TableCell align="center">
+                          <Tooltip title={item.image ? "View Image" : "No Image Uploaded"}>
+                            <span>
+                              <IconButton
+                                size="small"
+                                sx={{ color: item.image ? "#7c3aed" : "#9e9e9e" }}
+                                onClick={() => handleOpenImagePreview(item.image)}
+                                disabled={!item.image}
+                              >
+                                <Eye size={16} />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -546,6 +680,36 @@ export default function AdminEquipmentChecklist() {
             Close
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Full Screen Image Preview Dialog */}
+      <Dialog
+        open={imagePreviewOpen}
+        onClose={() => setImagePreviewOpen(false)}
+        maxWidth="lg"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <Typography variant="h6" fontWeight="bold">Image Preview</Typography>
+          <IconButton onClick={() => setImagePreviewOpen(false)} color="error">
+            <X size={20} />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent dividers sx={{ display: "flex", justifyContent: "center", backgroundColor: "#f8fafc" }}>
+          {previewImageUrl && (
+            <img
+              src={previewImageUrl}
+              alt="Washroom Preview"
+              style={{
+                maxWidth: "100%",
+                maxHeight: "75vh",
+                height: "auto",
+                objectFit: "contain",
+                borderRadius: "8px"
+              }}
+            />
+          )}
+        </DialogContent>
       </Dialog>
     </Box>
   );

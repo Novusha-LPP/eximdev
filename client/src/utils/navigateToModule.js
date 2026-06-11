@@ -84,6 +84,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/document-collection");
     case "Attendance":
       return navigate("/attendance/dashboard");
+    case "IT Helpdesk":
+      return navigate("/it-helpdesk");
     default:
       return navigate("/home");
   }

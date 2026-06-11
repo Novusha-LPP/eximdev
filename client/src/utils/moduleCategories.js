@@ -39,4 +39,5 @@ export const moduleCategories = {
   "Pulse": "Analytics & Reports",
   "Team Pulse": "Analytics & Reports",
   "MasterDirectory": "Masters",
+  "IT Helpdesk": "IT Helpdesk",
 };

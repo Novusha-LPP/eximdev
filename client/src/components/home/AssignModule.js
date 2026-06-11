@@ -43,7 +43,8 @@ const allModules = [
   "Team Pulse",
   "MasterDirectory",
   "Attendance",
-  "Bill Cover"
+  "Bill Cover",
+  "IT Helpdesk"
 ];
 
 // allowedModules: if provided, only these modules can be assigned (for HOD restriction)

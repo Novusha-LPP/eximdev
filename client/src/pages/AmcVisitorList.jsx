@@ -77,7 +77,7 @@ export default function AmcVisitorList() {
       if (data && data.success) {
         setLogs(data.data);
         setTotalLogs(data.total || data.data.length);
-        
+
         // Calculate basic stats for display
         const activeCount = data.data.filter((l) => l.status === "Active").length;
         const completedCount = data.data.filter((l) => l.status === "Checked Out").length;
@@ -364,8 +364,8 @@ export default function AmcVisitorList() {
                             log.workStatus === "Completed"
                               ? "success"
                               : log.workStatus === "In Progress"
-                              ? "primary"
-                              : "warning"
+                                ? "primary"
+                                : "warning"
                           }
                         />
                       </TableCell>
@@ -582,5 +582,6 @@ export default function AmcVisitorList() {
         </DialogActions>
       </Dialog>
     </Box>
+
   );
 }

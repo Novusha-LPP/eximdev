@@ -1,0 +1,164 @@
+import React, { useState, useEffect } from "react";
+import {
+  Box, Typography, Card, CardContent, Grid, TextField, MenuItem, Button, CircularProgress,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip
+} from "@mui/material";
+import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
+import DownloadIcon from "@mui/icons-material/Download";
+import DescriptionIcon from "@mui/icons-material/Description";
+
+const REPORT_TYPES = [
+  { value: "assets", label: "Asset Report" },
+  { value: "tickets", label: "Ticket Report" },
+  { value: "vendors", label: "Vendor Report" },
+  { value: "licenses", label: "License Report" },
+  { value: "inventory", label: "Inventory Report" }
+];
+
+export default function ITReports() {
+  const [reportType, setReportType] = useState("assets");
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchReport = async () => {
+    setLoading(true);
+    try {
+      const res = await itHelpdeskAPI[reportType].getAll();
+      setData(res.data || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchReport();
+  }, [reportType]);
+
+  const getColumns = () => {
+    switch (reportType) {
+      case "assets":
+        return ["Asset Tag", "Type", "Status", "Location"];
+      case "tickets":
+        return ["Ticket ID", "Title", "Status", "Priority"];
+      case "vendors":
+        return ["Vendor Name", "Type", "Contact", "Email"];
+      case "licenses":
+        return ["Software", "Total Seats", "Used", "Status"];
+      case "inventory":
+        return ["Item Name", "Category", "Qty", "Location"];
+      default:
+        return [];
+    }
+  };
+
+  const renderRow = (item) => {
+    switch (reportType) {
+      case "assets":
+        return (
+          <>
+            <TableCell>{item.asset_tag}</TableCell>
+            <TableCell>{item.asset_type}</TableCell>
+            <TableCell><Chip label={item.status} size="small" /></TableCell>
+            <TableCell>{item.location || "—"}</TableCell>
+          </>
+        );
+      case "tickets":
+        return (
+          <>
+            <TableCell>{item.ticket_id}</TableCell>
+            <TableCell>{item.title}</TableCell>
+            <TableCell><Chip label={item.status} size="small" /></TableCell>
+            <TableCell>{item.priority}</TableCell>
+          </>
+        );
+      case "vendors":
+        return (
+          <>
+            <TableCell>{item.name}</TableCell>
+            <TableCell>{item.vendor_type}</TableCell>
+            <TableCell>{item.contact_person || "—"}</TableCell>
+            <TableCell>{item.email || "—"}</TableCell>
+          </>
+        );
+      case "licenses":
+        return (
+          <>
+            <TableCell>{item.software_name}</TableCell>
+            <TableCell>{item.total_seats}</TableCell>
+            <TableCell>{item.used_seats}</TableCell>
+            <TableCell><Chip label={item.status} size="small" /></TableCell>
+          </>
+        );
+      case "inventory":
+        return (
+          <>
+            <TableCell>{item.item_name}</TableCell>
+            <TableCell>{item.category}</TableCell>
+            <TableCell>{item.quantity}</TableCell>
+            <TableCell>{item.location || "—"}</TableCell>
+          </>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <Box>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+        <Typography variant="h5" fontWeight={700}>Reports & Analytics</Typography>
+        <Button variant="outlined" startIcon={<DownloadIcon />}>Export</Button>
+      </Box>
+
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <TextField
+            select
+            label="Report Type"
+            value={reportType}
+            onChange={(e) => setReportType(e.target.value)}
+            size="small"
+            sx={{ minWidth: 200 }}
+          >
+            {REPORT_TYPES.map((r) => (
+              <MenuItem key={r.value} value={r.value}>{r.label}</MenuItem>
+            ))}
+          </TextField>
+        </CardContent>
+      </Card>
+
+      {loading ? (
+        <Box display="flex" justifyContent="center" py={4}>
+          <CircularProgress />
+        </Box>
+      ) : (
+        <TableContainer>
+          <Table>
+            <TableHead>
+              <TableRow>
+                {getColumns().map((col) => (
+                  <TableCell key={col}>{col}</TableCell>
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {data.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={getColumns().length} align="center">No data found</TableCell>
+                </TableRow>
+              ) : (
+                data.map((item) => (
+                  <TableRow key={item._id}>
+                    {renderRow(item)}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+    </Box>
+  );
+}

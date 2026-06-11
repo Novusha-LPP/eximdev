@@ -145,10 +145,15 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSuccess, balances = [], initialDat
       setCorrectionHistoryLoading(true);
       await attendanceAPI.cancelRegularization(id);
       toast.success("Correction request cancelled");
-      await fetchCorrectionHistory();
     } catch (err) {
-      toast.error(err?.response?.data?.message || err?.message || "Failed to cancel request");
-      setCorrectionHistoryLoading(false);
+      const status = err?.response?.status;
+      if (status === 404) {
+        toast.info("Request was already processed or cancelled");
+      } else {
+        toast.error(err?.response?.data?.message || err?.message || "Failed to cancel request");
+      }
+    } finally {
+      await fetchCorrectionHistory();
     }
   };
 

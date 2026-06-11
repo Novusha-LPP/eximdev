@@ -211,12 +211,14 @@ export default function Dashboard() {
       if (dashRes) setDash(dashRes);
       setBalances(balRes?.data || []);
 
-      // Build set of dates with correction requests (non-cancelled/rejected)
+      // Build set of dates with pending/unresolved correction requests
       const corrList = Array.isArray(corrRes?.data) ? corrRes.data : Array.isArray(corrRes?.requests) ? corrRes.requests : [];
       const corrDates = new Set();
       corrList.forEach(r => {
         const s = String(r.status || '').toLowerCase();
-        if (s !== 'cancelled') {
+        const source = String(r.resolution_source || '').toLowerCase();
+        const isResolved = r.is_resolved || s === 'approved' || s === 'resolved' || s === 'rejected' || s === 'cancelled' || source === 'admin_manual_correction' || source === 'hod_manual_correction';
+        if (!isResolved) {
           const d = String(r.date || r.attendance_date || '').slice(0, 10);
           if (d) corrDates.add(d);
         }

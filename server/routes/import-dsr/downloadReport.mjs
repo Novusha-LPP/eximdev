@@ -46,11 +46,10 @@ router.get(
         .replace(/pvt/g, 'pvt[._]?')
         .replace(/ltd/g, 'ltd[._]?');
 
-      const { branchId, detailedStatus } = req.query;
+      const { branchId, detailedStatus, filterType, fromDate, toDate, month } = req.query;
 
       // MongoDB query with multiple pattern options
       const query = {
-        year: { $in: yearArray },
         $or: [
           { importerURL: { $regex: new RegExp(exactPattern, 'i') } },
           { importerURL: { $regex: new RegExp(`^${flexiblePattern}$`, 'i') } },
@@ -58,6 +57,18 @@ router.get(
         ],
         status,
       };
+
+      if (filterType === "dateRange") {
+        if (fromDate && toDate) {
+          query.job_date = { $gte: fromDate, $lte: toDate + "z" };
+        }
+      } else if (filterType === "month") {
+        if (month) {
+          query.job_date = { $regex: new RegExp(`^${month}`) };
+        }
+      } else {
+        query.year = { $in: yearArray };
+      }
 
       if (branchId && branchId !== 'all') {
         query.branch_id = branchId;

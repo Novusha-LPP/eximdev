@@ -22,6 +22,12 @@ router.get("/api/get-importer-jobs/:importerURL/:year", authMiddleware, async (r
     const { category } = req.query;
     let { branchId } = req.query;
     const formattedImporter = formatImporter(importerURL);
+    const escapedImporter = formattedImporter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const generalPattern = escapedImporter
+      .replace(/pvt/g, 'pvt[\\s._]?')
+      .replace(/ltd/g, 'ltd[\\s._]?')
+      .replace(/\./g, '[\\s._]?')
+      .replace(/_/g, '[\\s._]?');
 
     const userId = req.headers['user-id'] || req.user?.username || req.user?._id;
     const role = req.user?.role;
@@ -41,7 +47,10 @@ router.get("/api/get-importer-jobs/:importerURL/:year", authMiddleware, async (r
       {
         $match: {
           year: year,
-          importerURL: new RegExp(`^${formattedImporter}$`, "i"), // Case-insensitive matching
+          $or: [
+            { importerURL: new RegExp(`^${formattedImporter}$`, "i") },
+            { importer: new RegExp(`^${generalPattern}$`, "i") }
+          ],
           ...getBranchMatch(branchId, category)
         },
       },

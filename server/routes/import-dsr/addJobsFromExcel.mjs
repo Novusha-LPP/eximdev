@@ -251,6 +251,15 @@ router.post(
 
       for (const data of jsonData) {
         const sanitizedData = sanitizeJobPayload(data);
+        const computedImporterURL = sanitizedData.importer
+          ? sanitizedData.importer
+              .toLowerCase()
+              .replace(/\s+/g, "_")
+              .replace(/[^\w&.]+/g, "")
+              .replace(/_+/g, "_")
+              .replace(/^_|_$/g, "")
+          : undefined;
+
         const {
           year,
           job_no,
@@ -351,6 +360,7 @@ router.post(
           const update = {
             $set: {
               ...sanitizedData,
+              ...(computedImporterURL ? { importerURL: computedImporterURL } : {}),
               job_number,
               branch_id: finalBranchId,
               branch_code: finalBranchCode,
@@ -395,6 +405,7 @@ router.post(
           const update = {
             $set: {
               ...sanitizedData,
+              ...(computedImporterURL ? { importerURL: computedImporterURL } : {}),
               job_number,
               branch_id: finalBranchId,
               branch_code: finalBranchCode,

@@ -46,14 +46,22 @@ router.get(
         .replace(/pvt/g, 'pvt[._]?')
         .replace(/ltd/g, 'ltd[._]?');
 
+      // Pattern 4: Handle spaces, dots, and underscores interchangeably to search in original importer name field
+      const generalPattern = escapedImporterURL
+        .replace(/pvt/g, 'pvt[\\s._]?')
+        .replace(/ltd/g, 'ltd[\\s._]?')
+        .replace(/\./g, '[\\s._]?')
+        .replace(/_/g, '[\\s._]?');
+
       const { branchId, detailedStatus, filterType, fromDate, toDate, month } = req.query;
 
-      // MongoDB query with multiple pattern options
+      // MongoDB query with multiple pattern options to match both importerURL and importer fields
       const query = {
         $or: [
           { importerURL: { $regex: new RegExp(exactPattern, 'i') } },
           { importerURL: { $regex: new RegExp(`^${flexiblePattern}$`, 'i') } },
-          { importerURL: { $regex: new RegExp(`^${pvtPattern}$`, 'i') } }
+          { importerURL: { $regex: new RegExp(`^${pvtPattern}$`, 'i') } },
+          { importer: { $regex: new RegExp(`^${generalPattern}$`, 'i') } }
         ],
         status,
       };

@@ -1706,7 +1706,7 @@ router.get("/api/get-hs-codes", async (req, res) => {
   }
 });
 
-router.get("/api/get-suppliers", async (req, res) => {
+router.get("/api/get-suppliers-by-importer", async (req, res) => {
   try {
     const { importer, year, status } = req.query;
     if (!importer) {

@@ -11,6 +11,12 @@ import UserBranchModel from "../model/userBranchModel.mjs";
  */
 const applyUserIcdFilter = async (req, res, next) => {
   try {
+    if (req.user?.role === "Admin") {
+      req.userIcdFilter = null;
+      req.icdFilterCondition = {};
+      return next();
+    }
+
     // Extract username from various sources - prioritize params.username
     let username =
       req.params?.username ||
@@ -104,6 +110,12 @@ export const icdFilter = applyUserIcdFilter;
 // Helper function to escape special characters in regex
 export const applyUserImporterFilter = async (req, res, next) => {
   try {
+    if (req.user?.role === "Admin") {
+      req.userImporterFilter = null;
+      req.importerFilterCondition = {};
+      return next();
+    }
+
     let username =
       req.params?.username ||
       req.query?.username ||

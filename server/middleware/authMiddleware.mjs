@@ -6,6 +6,46 @@ import UserBranchModel from "../model/userBranchModel.mjs";
 dotenv.config();
 
 const verifyToken = async (req, res, next) => {
+    // 1. Check for API key (x-api-key) for server-to-server calls
+    const apiKey = req.headers["x-api-key"] || req.query["api_key"] || req.query["x-api-key"];
+    if (apiKey) {
+        const cleanKey = apiKey.trim();
+        const expectedApiKey = process.env.CLIENT_API_KEY || process.env.JWT_SECRET;
+        let isValid = false;
+        let keyDoc = null;
+
+        if (expectedApiKey && cleanKey === expectedApiKey.trim()) {
+            isValid = true;
+        } else {
+            try {
+                const ApiKeyModel = (await import("../model/apiKeyModel.mjs")).default;
+                keyDoc = await ApiKeyModel.findOne({ key: cleanKey, isActive: true });
+                if (keyDoc) {
+                    isValid = true;
+                    ApiKeyModel.updateOne(
+                        { _id: keyDoc._id },
+                        { $set: { lastUsedAt: new Date() } }
+                    ).catch(err => console.error("Error updating API key lastUsedAt:", err));
+                }
+            } catch (dbErr) {
+                console.error("Database check for API key failed:", dbErr);
+            }
+        }
+
+        if (isValid) {
+            req.user = {
+                role: 'Admin',
+                username: 'ClientApp',
+                _id: keyDoc ? keyDoc._id : "6a2bb38ff9c7a55975a46633"
+            };
+            // Run subsequent middleware and controller in the user context
+            context.run({ user: req.user, req }, next);
+            return;
+        } else {
+            return res.status(401).json({ message: "Access Denied: Invalid API Key" });
+        }
+    }
+
     // Check for token in cookies or Authorization header
     let token = req.cookies.token;
     

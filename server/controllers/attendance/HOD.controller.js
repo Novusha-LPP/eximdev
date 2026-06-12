@@ -14,6 +14,7 @@ import { ALLOWED_USERNAMES } from '../../middleware/requireAllowedAdmin.mjs';
 import PolicyResolver from '../../services/attendance/PolicyResolver.js';
 import AggregationService from '../../services/attendance/AggregationService.js';
 import ActivityLog from '../../model/attendance/ActivityLog.js';
+import { syncBalanceFromApplications } from './leave.controller.js';
 
 const normalizeRole = (role) => String(role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
 const isAdminRole = (role) => normalizeRole(role) === 'ADMIN';
@@ -1177,9 +1178,15 @@ export const approveRequest = async (req, res) => {
                     appendApprovalHistoryEntry(application, actorObjectId, actorName, actorRole, 'rejected', commentText);
                     await application.save();
 
-                    addBackPendingBalance();
-                    balanceRecord.closing_balance = Math.max(0, Number(balanceRecord.opening_balance || 0) - Number(balanceRecord.used || 0));
-                    await balanceRecord.save();
+                    const policy = await LeavePolicy.findById(application.leave_policy_id);
+                    if (policy && !isUnpaid) {
+                        await syncBalanceFromApplications({
+                            employeeId: application.employee_id,
+                            year: currentYear,
+                            policy,
+                            balanceRecord
+                        });
+                    }
 
                     await logApprovalActivity(
                         req,
@@ -1219,12 +1226,15 @@ export const approveRequest = async (req, res) => {
 
                     await applyLeaveAttendance('admin');
 
-                    // Balance was already deducted from pending_approval at application stage
-                    if (!isUnpaid) {
-                        balanceRecord.used = Number(balanceRecord.used || 0) + Number(application.total_days || 0);
+                    const policy = await LeavePolicy.findById(application.leave_policy_id);
+                    if (policy && !isUnpaid) {
+                        await syncBalanceFromApplications({
+                            employeeId: application.employee_id,
+                            year: currentYear,
+                            policy,
+                            balanceRecord
+                        });
                     }
-                    balanceRecord.closing_balance = Math.max(0, Number(balanceRecord.opening_balance || 0) - Number(balanceRecord.used || 0));
-                    await balanceRecord.save();
 
                     await logApprovalActivity(
                         req,

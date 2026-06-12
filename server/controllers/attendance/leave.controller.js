@@ -166,7 +166,7 @@ const pickBalanceForPolicy = (balances = [], policy) => {
     return candidates[0] || null;
 };
 
-const syncBalanceFromApplications = async ({ employeeId, year, policy, balanceRecord }) => {
+export const syncBalanceFromApplications = async ({ employeeId, year, policy, balanceRecord }) => {
     if (!balanceRecord || String(policy?.leave_type || '').toLowerCase() === 'lwp') {
         return balanceRecord;
     }

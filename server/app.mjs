@@ -184,6 +184,7 @@ import viewDSR from "./routes/import-dsr/viewDSR.mjs";
 import containerTrack from "./routes/import-dsr/containerTrack.mjs";
 import checkDuplicateJob from "./routes/import-dsr/checkDuplicateJob.mjs";
 import getNextJobNumber from "./routes/import-dsr/getNextJobNumber.mjs";
+import importDSRAnalytics from "./routes/import-dsr/importDSRAnalytics.mjs";
 // import ImportCreateJob from "./routes/import-dsr/ImportCreateJob.mjs";
 
 // Import Operations
@@ -599,6 +600,7 @@ app.use(viewDSR);
 app.use(containerTrack);
 app.use(checkDuplicateJob);
 app.use("/api", getNextJobNumber);
+app.use(importDSRAnalytics);
 // app.use(ImportCreateJob);
 
 // Import Operations

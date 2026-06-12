@@ -254,7 +254,7 @@ const mapPurchaseEntryData = (data) => {
     sgstAmt: data["SGST"] || data.sgstAmt,
     igstAmt: data["IGST"] || data.igstAmt,
     tds: data["TDS"] || data.tds,
-    total: data["Taxable Value"] || data.taxableValue || data["Total"] || data.total,
+    total: data["Total"] || data.total || data["Taxable Value"] || data.taxableValue,
     chargeRef: data.chargeRef,
     jobRef: data.jobRef,
     chargeDescription: data["Charge Description"] || data.chargeDescription || '',

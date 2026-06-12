@@ -91,7 +91,9 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                 };
 
                 const isReimbursement = initialData.chargeHeadCategory?.toLowerCase() === 'reimbursement';
-                const totalVal = initialData.netPayable ? initialData.netPayable.toFixed(2) : '';
+                const totalVal = (initialData.amount !== undefined && initialData.amount !== null && initialData.amount !== '')
+                    ? parseFloat(initialData.amount).toFixed(2)
+                    : (initialData.netPayable ? initialData.netPayable.toFixed(2) : '');
                 const taxableVal = (initialData.rate !== undefined && initialData.rate !== null && initialData.rate !== '')
                     ? parseFloat(initialData.rate).toFixed(2)
                     : (isReimbursement

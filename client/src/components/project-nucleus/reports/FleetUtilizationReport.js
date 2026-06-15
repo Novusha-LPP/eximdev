@@ -35,6 +35,23 @@ const hasStatus = (status, target) => {
     return checkValue(status);
 };
 
+const getPrimaryCategory = (status) => {
+    if (hasStatus(status, 'Breakdown')) return 'Breakdown';
+    if (hasStatus(status, ['Accident', 'Accidents'])) return 'Accident';
+    if (hasStatus(status, 'Maintenance')) return 'Maintenance';
+    if (hasStatus(status, 'Driver on Leave')) return 'Driver on Leave';
+    if (hasStatus(status, 'No Driver')) return 'No Driver';
+    return 'Others';
+};
+
+const getPrimaryCategoryForMetrics = (status) => {
+    if (hasStatus(status, ['Accident', 'Accidents'])) return 'Accident';
+    if (hasStatus(status, 'Maintenance')) return 'Maintenance';
+    if (hasStatus(status, 'Driver on Leave')) return 'Driver on Leave';
+    if (hasStatus(status, 'No Driver')) return 'No Driver';
+    return 'Others';
+};
+
 const StatusPill = ({ status, otherText }) => {
     const renderSingleStatus = (st, idx) => {
         const s = String(st || '').trim();
@@ -376,26 +393,19 @@ const FleetUtilizationReport = ({
             const active = d.activeLRs || [];
             const closed = d.closedLRs || [];
 
-            const breakdown = fleet.filter(v => hasStatus(v.status, 'Breakdown')).length;
-            const maintenance = fleet.filter(v => hasStatus(v.status, 'Maintenance')).length;
-            const leave = fleet.filter(v => hasStatus(v.status, 'Driver on Leave')).length;
-            const accident = fleet.filter(v => hasStatus(v.status, ['Accident', 'Accidents'])).length;
-            const noDriver = fleet.filter(v => hasStatus(v.status, 'No Driver')).length;
-            const others = fleet.filter(v => 
-                !hasStatus(v.status, 'Breakdown') &&
-                !hasStatus(v.status, 'Maintenance') &&
-                !hasStatus(v.status, 'Driver on Leave') &&
-                !hasStatus(v.status, ['Accident', 'Accidents']) &&
-                !hasStatus(v.status, 'No Driver') &&
-                !hasStatus(v.status, 'IDLE')
-            ).length;
+            const outOfServiceVehicles = fleet.filter(v => !hasStatus(v.status, 'IDLE'));
+            const breakdown = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Breakdown').length;
+            const maintenance = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Maintenance').length;
+            const leave = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Driver on Leave').length;
+            const accident = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Accident').length;
+            const noDriver = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'No Driver').length;
+            const others = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Others').length;
 
             const notOnRoadTotal = fleet.filter(v => !hasStatus(v.status, 'IDLE')).length;
-            const usedForTrips = Math.max(0, totalFleetNum - notOnRoadTotal);
+            const ownTripsCount = closed.filter(r => String(r.own_hired || '').toLowerCase().trim() === 'own').length;
+            const usedForTrips = ownTripsCount;
             const oorPercentVal = totalFleetNum > 0 ? parseFloat(((usedForTrips / totalFleetNum) * 100).toFixed(1)) : 0;
             const oorPercent = `${oorPercentVal.toFixed(1)}%`;
-
-            const ownTripsCount = closed.filter(r => String(r.own_hired || '').toLowerCase().trim() === 'own').length;
             const idle = Math.max(0, totalFleetNum - notOnRoadTotal - ownTripsCount);
 
             const automove = [...active, ...closed].filter(r => String(r.branch || '').toLowerCase().trim() === 'automove').length;
@@ -779,22 +789,17 @@ const FleetUtilizationReport = ({
         const totalTrips = closedLRsList.length;
 
         if (filterType === 'day' || dailyData.length <= 1) {
-            const noDriver = fleetStatusList.filter(v => hasStatus(v.status, 'No Driver')).length;
-            const onLeave = fleetStatusList.filter(v => hasStatus(v.status, 'Driver on Leave')).length;
-            const maint = fleetStatusList.filter(v => hasStatus(v.status, 'Maintenance')).length;
-            const accident = fleetStatusList.filter(v => hasStatus(v.status, ['Accident', 'Accidents'])).length;
-            const others = fleetStatusList.filter(v => 
-                !hasStatus(v.status, 'No Driver') &&
-                !hasStatus(v.status, 'Driver on Leave') &&
-                !hasStatus(v.status, 'Maintenance') &&
-                !hasStatus(v.status, ['Accident', 'Accidents']) &&
-                !hasStatus(v.status, 'IDLE')
-            ).length;
+            const outOfServiceVehicles = fleetStatusList.filter(v => !hasStatus(v.status, 'IDLE'));
+            const noDriver = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'No Driver').length;
+            const onLeave = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'Driver on Leave').length;
+            const maint = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'Maintenance').length;
+            const accident = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'Accident').length;
+            const others = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'Others').length;
             const notOnRoad = fleetStatusList.filter(v => !hasStatus(v.status, 'IDLE')).length;
 
             const ownTrips = closedLRsList.filter(r => (r.own_hired || '').toLowerCase().trim() === 'own').length;
             const idleVal = totalFleetNum > 0 ? Math.max(0, totalFleetNum - notOnRoad - ownTrips) : 'NA';
-            const onRoadCount = Math.max(0, totalFleetNum - notOnRoad);
+            const onRoadCount = ownTrips;
 
             const getPctStr = (val) => {
                 if (totalFleetNum <= 0) return '';

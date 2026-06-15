@@ -1442,6 +1442,11 @@ export const getRegularizations = async (req, res) => {
         const companyId = req.user.company_id;
         const baseFilters = { company_id: companyId };
 
+        // Default to a large limit if not explicitly provided, to avoid truncation since UI lacks pagination
+        if (!req.query.limit) {
+            req.query.limit = 1000;
+        }
+
         // Data Isolation:
         if (req.user.role === 'EMPLOYEE') {
             baseFilters.employee_id = req.user._id?._id || req.user._id;
@@ -2691,6 +2696,25 @@ export const updateAttendanceRecord = async (req, res) => {
         await record.save();
         await syncUserTodayStatus(record, company);
 
+        // Auto-resolve any pending regularization requests for this employee and date
+        await RegularizationRequest.updateMany(
+            {
+                employee_id: record.employee_id,
+                attendance_date: record.attendance_date_str,
+                status: 'pending'
+            },
+            {
+                $set: {
+                    status: 'approved',
+                    is_resolved: true,
+                    resolved_at: new Date(),
+                    resolved_by: req.user?._id,
+                    resolution_source: req.user?.role === 'ADMIN' ? 'admin_manual_correction' : 'hod_manual_correction',
+                    remarks: 'Auto-resolved via manual attendance update'
+                }
+            }
+        );
+
         await logActivity(req, 'ATTENDANCE', 'UPDATE_RECORD', `Admin updated record ${id}`, {
             company_id: effectiveCompanyId,
             record_id: id,
@@ -2944,6 +2968,25 @@ export const createManualAdjustment = async (req, res) => {
         normalizeManualCorrectionFlags(record);
         await record.save();
         await syncUserTodayStatus(record, company);
+
+        // Auto-resolve any pending regularization requests for this employee and date
+        await RegularizationRequest.updateMany(
+            {
+                employee_id: record.employee_id,
+                attendance_date: record.attendance_date_str,
+                status: 'pending'
+            },
+            {
+                $set: {
+                    status: 'approved',
+                    is_resolved: true,
+                    resolved_at: new Date(),
+                    resolved_by: req.user?._id,
+                    resolution_source: req.user?.role === 'ADMIN' ? 'admin_manual_correction' : 'hod_manual_correction',
+                    remarks: 'Auto-resolved via manual attendance update'
+                }
+            }
+        );
 
         await logActivity(req, 'ATTENDANCE', 'CREATE_RECORD', `Manual adjustment for ${attendance_date}`, {
             company_id: effectiveCompanyId,
@@ -4298,6 +4341,31 @@ export const applyFullMonthPresence = async (req, res) => {
             curr.add(1, 'day');
         }
 
+        // Auto-resolve any pending regularization requests for this employee in the target month
+        const startOfMonthStr = moment({ year: targetYear, month: targetMonth - 1, day: 1 }).format('YYYY-MM-DD');
+        const endOfMonthStr = moment({ year: targetYear, month: targetMonth - 1, day: 1 }).endOf('month').format('YYYY-MM-DD');
+        
+        await RegularizationRequest.updateMany(
+            {
+                employee_id: employee._id,
+                attendance_date: {
+                    $gte: startOfMonthStr,
+                    $lte: endOfMonthStr
+                },
+                status: 'pending'
+            },
+            {
+                $set: {
+                    status: 'approved',
+                    is_resolved: true,
+                    resolved_at: new Date(),
+                    resolved_by: req.user?._id,
+                    resolution_source: 'admin_manual_correction',
+                    remarks: 'Auto-resolved via full month presence application'
+                }
+            }
+        );
+
         await logActivity(
             req,
             'ATTENDANCE',
@@ -4368,14 +4436,25 @@ export const getPendingCorrectionCount = async (req, res) => {
             return res.json({ count: 0, byEmployee: {} });
         }
 
+        const activeNonAdmins = await User.find({
+            isActive: { $ne: false },
+            role: { $nin: ['ADMIN', 'Admin'] }
+        }).select('_id');
+        const activeNonAdminIds = activeNonAdmins.map(u => u._id.toString());
+
         let query = { status: 'pending' };
-        if (!isAllowedAdmin) {
+        if (isAllowedAdmin) {
+            query.employee_id = { $in: activeNonAdminIds };
+        } else {
             const memberIds = new Set();
             teams.forEach(team => {
                 if (team.members && Array.isArray(team.members)) {
                     team.members.forEach(m => {
                         if (m.userId) {
-                            memberIds.add(m.userId.toString());
+                            const idStr = m.userId.toString();
+                            if (activeNonAdminIds.includes(idStr)) {
+                                memberIds.add(idStr);
+                            }
                         }
                     });
                 }

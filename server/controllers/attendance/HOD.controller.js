@@ -388,29 +388,33 @@ export const getDashboard = async (req, res) => {
         // Use UTC for date-only comparison to match AttendanceEngine
         const targetDate = date ? moment.utc(date).startOf('day') : moment.utc().startOf('day');
 
-        // Extract Company ID
-        // Note: For admins, we should also look at req.query.company_id to allow switching contexts
-        const companyId = req.query.company_id || (hod.company_id?._id || hod.company_id);
+        const explicitCompanyId = req.query.company_id;
+        const actorUsername = String(hod.username || '').toLowerCase();
+        const isAllowedAdmin = ALLOWED_USERNAMES.has(actorUsername);
+        const isAdminAndAllowed = isAdminRole(hod.role) && isAllowedAdmin;
 
-        if (!companyId) {
+        // Resolve company context
+        let companyId = explicitCompanyId;
+        if (!companyId && !isAdminAndAllowed) {
+            companyId = hod.company_id?._id || hod.company_id;
+        }
+
+        if (!companyId && !isAdminAndAllowed) {
             return res.status(400).json({ success: false, message: 'Unable to resolve company context. Please ensure your user profile is complete or provide a company ID.' });
         }
 
         const debugLog = [];
         debugLog.push(`--- HOD DASHBOARD DEBUG ${new Date().toISOString()} ---`);
         debugLog.push(`HOD: ${hod.username} ID: ${hod._id} Role: ${hod.role}`);
-        debugLog.push(`Company: ${companyId}`);
+        debugLog.push(`Company: ${companyId || 'ALL'}`);
 
         // 1. Get team members for this HOD (TEAM-BASED FILTERING)
         let employeeIds = [];
         let employees = [];
         let allTeamsForHOD = [];
 
-        const actorUsername = String(hod.username || '').toLowerCase();
-        const isAllowedAdmin = ALLOWED_USERNAMES.has(actorUsername);
-
-        if (isAdminRole(hod.role) && isAllowedAdmin) {
-            // Admin sees all employees, optionally filtered by teamId
+        if (isAdminAndAllowed) {
+            // Admin sees all employees, optionally filtered by teamId or companyId
             if (teamId) {
                 // Admin filtered by a specific team
                 const team = await TeamModel.findOne({ _id: teamId, isActive: { $ne: false } });
@@ -419,7 +423,7 @@ export const getDashboard = async (req, res) => {
                     employees = await User.find({
                         _id: { $in: memberIds },
                         isActive: { $ne: false }
-                    }).select('_id first_name last_name username email role department_id');
+                    }).select('_id first_name last_name username email role department_id company_id');
                     debugLog.push(`Admin filtered by teamId ${teamId}: Found ${employees.length} team members`);
                 } else {
                     employees = [];
@@ -427,10 +431,12 @@ export const getDashboard = async (req, res) => {
                 }
             } else {
                 const userQuery = {
-                    company_id: companyId,
                     isActive: { $ne: false }
                 };
-                employees = await User.find(userQuery).select('_id first_name last_name username email role department_id');
+                if (companyId && companyId !== 'all') {
+                    userQuery.company_id = companyId;
+                }
+                employees = await User.find(userQuery).select('_id first_name last_name username email role department_id company_id');
                 debugLog.push(`Admin mode (all): Found ${employees.length} total employees`);
             }
             // For admins, fetch ALL teams so we can map names correctly
@@ -452,15 +458,26 @@ export const getDashboard = async (req, res) => {
             
             // Extract all member user IDs from all teams
             const memberUserIds = new Set();
+            const legacyUsernames = [];
             teams.forEach(team => {
                 if (team.members && Array.isArray(team.members)) {
                     team.members.forEach(member => {
                         if (member.userId) {
                             memberUserIds.add(member.userId.toString());
+                        } else if (member.username) {
+                            legacyUsernames.push(String(member.username).trim().toLowerCase());
                         }
                     });
                 }
             });
+
+            if (legacyUsernames.length > 0) {
+                const resolvedUsers = await User.find({
+                    username: { $in: legacyUsernames },
+                    isActive: { $ne: false }
+                }).select('_id');
+                resolvedUsers.forEach(u => memberUserIds.add(u._id.toString()));
+            }
             
             debugLog.push(`Total unique team members: ${memberUserIds.size}`);
             
@@ -496,23 +513,33 @@ export const getDashboard = async (req, res) => {
             employeeIds = Array.from(memberUserIds).map(id => id);
         }
 
-        const getTeamName = (empId) => {
-            const empIdStr = empId?.toString();
-            const team = allTeamsForHOD.find(t => 
-                t.members && t.members.some(m => m.userId?.toString() === empIdStr)
-            );
-            return team ? team.name : 'Unassigned';
-        };
-
         // Fetch full employee details
         if (employees.length === 0 && employeeIds.length > 0) {
             employees = await User.find({
                 _id: { $in: employeeIds },
                 isActive: { $ne: false }
-            }).select('_id first_name last_name username email role department_id');
+            }).select('_id first_name last_name username email role department_id company_id');
             
             debugLog.push(`Loaded ${employees.length} active team member details`);
         }
+
+        // Map employee ID to username
+        const empIdToUsernameMap = new Map();
+        employees.forEach(emp => {
+            empIdToUsernameMap.set(emp._id.toString(), String(emp.username || '').toLowerCase());
+        });
+
+        const getTeamName = (empId) => {
+            const empIdStr = empId?.toString();
+            const empUsername = empIdToUsernameMap.get(empIdStr);
+            const team = allTeamsForHOD.find(t => 
+                t.members && t.members.some(m => 
+                    m.userId?.toString() === empIdStr ||
+                    (m.username && empUsername && String(m.username).trim().toLowerCase() === empUsername)
+                )
+            );
+            return team ? team.name : 'Unassigned';
+        };
 
         employeeIds = employees.map(e => e._id);
         const allCompanyIds = [...new Set(employees.map(e => e.company_id?.toString()).filter(Boolean))];
@@ -522,12 +549,13 @@ export const getDashboard = async (req, res) => {
 
         // Helper to resolve team name for an employee (used in HOD dashboard)
         const getTeamNameForMember = (empId) => {
-            const sid = empId?.toString();
-            // In HOD mode, we already have employees from specific teams.
-            // But let's check which team they belong to if we have multiple teams.
-            // (Only for HOD role; for Admin it shows all)
+            const empIdStr = empId?.toString();
+            const empUsername = empIdToUsernameMap.get(empIdStr);
             const matchedTeam = (allTeamsForHOD || []).find(t => 
-                t.members && t.members.some(m => m.userId?.toString() === sid)
+                t.members && t.members.some(m => 
+                    m.userId?.toString() === empIdStr ||
+                    (m.username && empUsername && String(m.username).trim().toLowerCase() === empUsername)
+                )
             );
             return matchedTeam ? matchedTeam.name : 'Unassigned';
         };
@@ -994,7 +1022,7 @@ export const getDashboard = async (req, res) => {
                 //     hodName: hod.first_name ? `${hod.first_name} ${hod.last_name || ''}`.trim() : (hod.name || hod.username)
                 // },
                 upcomingHolidays: (await Holiday.find({
-                    company_id: companyId,
+                    company_id: companyId || { $in: allCompanyIds },
                     holiday_date: { $gte: moment().startOf('day').toDate() }
                 }).sort({ holiday_date: 1 }).limit(5)).map(h => ({
                     id: h._id,
@@ -1432,9 +1460,18 @@ export const getDepartmentAttendanceReport = async (req, res) => {
 
         const startOfMonth = moment(month, 'YYYY-MM').startOf('month');
         const endOfMonth = moment(month, 'YYYY-MM').endOf('month');
-        const companyId = req.query.company_id || (hod.company_id?._id || hod.company_id);
+        const explicitCompanyId = req.query.company_id;
+        const actorUsername = String(hod.username || '').toLowerCase();
+        const isAllowedAdmin = ALLOWED_USERNAMES.has(actorUsername);
+        const isAdminAndAllowed = isAdminRole(hod.role) && isAllowedAdmin;
 
-        if (!companyId) {
+        // Resolve company context
+        let companyId = explicitCompanyId;
+        if (!companyId && !isAdminAndAllowed) {
+            companyId = hod.company_id?._id || hod.company_id;
+        }
+
+        if (!companyId && !isAdminAndAllowed) {
             return res.status(400).json({ success: false, message: 'Unable to resolve company context. Please ensure your user profile is complete or provide a company ID.' });
         }
 
@@ -1442,81 +1479,55 @@ export const getDepartmentAttendanceReport = async (req, res) => {
         let employeeIds = [];
         let employees = [];
 
-        if (isAdminRole(hod.role)) {
-            const actorUsername = String(hod.username || '').toLowerCase();
-            const isAllowedAdmin = ALLOWED_USERNAMES.has(actorUsername);
-
-            if (isAllowedAdmin) {
-                // Allowlisted admins can view all employees in company scope.
-                const userQuery = {
-                    company_id: companyId,
-                    isActive: { $ne: false }
-                };
-                employees = await User.find(userQuery).select('_id first_name last_name username');
-            } else {
-                const teams = await TeamModel.find({
-                    $or: [
-                        { hodId: hod._id },
-                        ...(isHodRole(hod.role) ? [{ "members.userId": hod._id }] : [])
-                    ],
-                    isActive: { $ne: false }
-                });
-
-                const memberUserIds = new Set();
-                teams.forEach(team => {
-                    if (team.members && Array.isArray(team.members)) {
-                        team.members.forEach(member => {
-                            if (member.userId) {
-                                memberUserIds.add(member.userId.toString());
-                            }
-                        });
-                    }
-                });
-
-                if (memberUserIds.size === 0) {
-                    return res.json({ data: [] });
-                }
-
-                employeeIds = Array.from(memberUserIds).map(id => id);
-                employees = await User.find({
-                    _id: { $in: employeeIds },
-                    isActive: { $ne: false }
-                }).select('_id first_name last_name username');
+        if (isAdminRole(hod.role) && isAllowedAdmin) {
+            // Allowlisted admins can view all employees.
+            const userQuery = {
+                isActive: { $ne: false }
+            };
+            if (companyId && companyId !== 'all') {
+                userQuery.company_id = companyId;
             }
+            employees = await User.find(userQuery).select('_id first_name last_name username company_id');
         } else {
-            // HOD sees only their team members
-            const teams = await TeamModel.find({ 
+            const teams = await TeamModel.find({
                 $or: [
                     { hodId: hod._id },
                     ...(isHodRole(hod.role) ? [{ "members.userId": hod._id }] : [])
                 ],
                 isActive: { $ne: false }
             });
-            
-            // Extract all member user IDs from all teams
+
             const memberUserIds = new Set();
+            const legacyUsernames = [];
             teams.forEach(team => {
                 if (team.members && Array.isArray(team.members)) {
                     team.members.forEach(member => {
                         if (member.userId) {
                             memberUserIds.add(member.userId.toString());
+                        } else if (member.username) {
+                            legacyUsernames.push(String(member.username).trim().toLowerCase());
                         }
                     });
                 }
             });
-            
-            if (memberUserIds.size === 0) {
-                return res.json({ data: [] }); // No team members
+
+            if (legacyUsernames.length > 0) {
+                const resolvedUsers = await User.find({
+                    username: { $in: legacyUsernames },
+                    isActive: { $ne: false }
+                }).select('_id');
+                resolvedUsers.forEach(u => memberUserIds.add(u._id.toString()));
             }
-            
-            // Convert Set to Array of ObjectIds
+
+            if (memberUserIds.size === 0) {
+                return res.json({ data: [] });
+            }
+
             employeeIds = Array.from(memberUserIds).map(id => id);
-            
-            // Fetch full employee details
             employees = await User.find({
                 _id: { $in: employeeIds },
                 isActive: { $ne: false }
-            }).select('_id first_name last_name username');
+            }).select('_id first_name last_name username company_id');
         }
 
         employeeIds = employees.map(e => e._id);

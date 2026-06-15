@@ -420,8 +420,21 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
       const q = searchTerm.toLowerCase();
       r = r.filter(e=>(e.first_name||'').toLowerCase().includes(q)||(e.last_name||'').toLowerCase().includes(q)||(e.username||'').toLowerCase().includes(q)||(e.employee_code||'').toLowerCase().includes(q));
     }
-    return [...r].sort((a,b)=>{ const aR=isRabsOrganization(getOrgName(a)), bR=isRabsOrganization(getOrgName(b)); if(aR!==bR) return aR?1:-1; return 0; });
-  }, [gridEmployees, searchTerm]);
+    return [...r].sort((a, b) => {
+      const countA = pendingCorrectionCounts[a._id] || 0;
+      const countB = pendingCorrectionCounts[b._id] || 0;
+      if (countA > 0 && countB === 0) return -1;
+      if (countA === 0 && countB > 0) return 1;
+
+      const aR = isRabsOrganization(getOrgName(a));
+      const bR = isRabsOrganization(getOrgName(b));
+      if (aR !== bR) return aR ? 1 : -1;
+
+      const nameA = [a.first_name, a.last_name].filter(Boolean).join(' ').trim().toLowerCase();
+      const nameB = [b.first_name, b.last_name].filter(Boolean).join(' ').trim().toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+  }, [gridEmployees, searchTerm, pendingCorrectionCounts]);
 
   const teamNameByEmployee = useMemo(() => {
     const map = new Map();
@@ -765,6 +778,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
       toast.success(`Request ${status === 'resolved' ? 'resolved' : status} successfully`);
       if (tab === 'performance') fetchBrowseHistory(browseMonth, browseYear);
       else fetchData();
+      fetchAllEmployees();
     } catch (err) {
       toast.error(err?.message || 'Action failed');
     }
@@ -2328,67 +2342,79 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                 {/* Correction Requests */}
                 <div style={{ padding:'14px', background:'#fff', border:`1px solid ${THEME.border}`, borderRadius:'10px' }}>
                   <div style={{ fontSize:'12px', fontWeight:'700', color:THEME.muted, textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:'10px' }}>Correction Requests</div>
-                  {(profile.correctionRequests||[]).length===0 ? (
-                    <div style={{ textAlign:'center', padding:'16px', color:THEME.muted, fontSize:'12px' }}>No correction requests</div>
-                  ) : (profile.correctionRequests||[]).slice(0,5).map(req=>{
-                    const st = String(req.status||'').toLowerCase();
-                    const pal = { pending:['#d97706','#fffbeb','Pending'], approved:['#059669','#ecfdf5','Resolved'], resolved:['#059669','#ecfdf5','Resolved'], rejected:['#e11d48','#fff1f2','Rejected'], cancelled:['#64748b','#f1f5f9','Cancelled'] }[st]||['#64748b','#f1f5f9','Unknown'];
-                    return (
-                      <div key={req._id||req.id} style={{ padding:'10px', border:`1px solid ${THEME.border}`, borderRadius:'7px', marginBottom:'6px' }}>
-                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'3px' }}>
-                          <span style={{ fontSize:'12px', fontWeight:'700', color:THEME.navy }}>{req.attendance_date?new Date(req.attendance_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'--'}</span>
-                          <span style={{ fontSize:'10px', fontWeight:'700', padding:'2px 7px', borderRadius:'10px', color:pal[0], background:pal[1] }}>{pal[2]}</span>
-                        </div>
-                        <div style={{ fontSize:'11px', color:THEME.text, textTransform:'capitalize' }}>{req.regularization_type?String(req.regularization_type).replace(/_/g,' '):(req.reason||'No details')}</div>
-                        {req.reason&&req.regularization_type&&<div style={{ fontSize:'11px', color:THEME.muted, marginTop:'2px', fontStyle:'italic' }}>"{req.reason}"</div>}
-                        
-                        {st === 'pending' && (
-                          <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
-                            <button
-                              onClick={() => handleRegularizationAction(req._id || req.id, 'approved')}
-                              style={{
-                                flex: 1,
-                                height: '24px',
-                                border: 'none',
-                                borderRadius: '4px',
-                                background: '#e8f5f0',
-                                color: '#1a7c5c',
-                                fontSize: '10px',
-                                fontWeight: '700',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '3px'
-                              }}
-                            >
-                              Approve
-                            </button>
-                            <button
-                              onClick={() => handleRegularizationAction(req._id || req.id, 'rejected')}
-                              style={{
-                                flex: 1,
-                                height: '24px',
-                                border: 'none',
-                                borderRadius: '4px',
-                                background: '#fdeaea',
-                                color: '#b53535',
-                                fontSize: '10px',
-                                fontWeight: '700',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '3px'
-                              }}
-                            >
-                              Reject
-                            </button>
+                  {(() => {
+                    const sortedReqs = [...(profile.correctionRequests || [])].sort((a, b) => {
+                      const stA = String(a.status || '').toLowerCase();
+                      const stB = String(b.status || '').toLowerCase();
+                      if (stA === 'pending' && stB !== 'pending') return -1;
+                      if (stA !== 'pending' && stB === 'pending') return 1;
+                      const dateA = new Date(a.attendance_date || a.date || 0);
+                      const dateB = new Date(b.attendance_date || b.date || 0);
+                      return dateB - dateA;
+                    });
+                    if (sortedReqs.length === 0) {
+                      return <div style={{ textAlign:'center', padding:'16px', color:THEME.muted, fontSize:'12px' }}>No correction requests</div>;
+                    }
+                    return sortedReqs.slice(0, 5).map(req => {
+                      const st = String(req.status||'').toLowerCase();
+                      const pal = { pending:['#d97706','#fffbeb','Pending'], approved:['#059669','#ecfdf5','Resolved'], resolved:['#059669','#ecfdf5','Resolved'], rejected:['#e11d48','#fff1f2','Rejected'], cancelled:['#64748b','#f1f5f9','Cancelled'] }[st]||['#64748b','#f1f5f9','Unknown'];
+                      return (
+                        <div key={req._id||req.id} style={{ padding:'10px', border:`1px solid ${THEME.border}`, borderRadius:'7px', marginBottom:'6px' }}>
+                          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'3px' }}>
+                            <span style={{ fontSize:'12px', fontWeight:'700', color:THEME.navy }}>{req.attendance_date?new Date(req.attendance_date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}):'--'}</span>
+                            <span style={{ fontSize:'10px', fontWeight:'700', padding:'2px 7px', borderRadius:'10px', color:pal[0], background:pal[1] }}>{pal[2]}</span>
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                          <div style={{ fontSize:'11px', color:THEME.text, textTransform:'capitalize' }}>{req.regularization_type?String(req.regularization_type).replace(/_/g,' '):(req.reason||'No details')}</div>
+                          {req.reason&&req.regularization_type&&<div style={{ fontSize:'11px', color:THEME.muted, marginTop:'2px', fontStyle:'italic' }}>"{req.reason}"</div>}
+                          
+                          {st === 'pending' && (
+                            <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                              <button
+                                onClick={() => handleRegularizationAction(req._id || req.id, 'approved')}
+                                style={{
+                                  flex: 1,
+                                  height: '24px',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  background: '#e8f5f0',
+                                  color: '#1a7c5c',
+                                  fontSize: '10px',
+                                  fontWeight: '700',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '3px'
+                                }}
+                              >
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => handleRegularizationAction(req._id || req.id, 'rejected')}
+                                style={{
+                                  flex: 1,
+                                  height: '24px',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  background: '#fdeaea',
+                                  color: '#b53535',
+                                  fontSize: '10px',
+                                  fontWeight: '700',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '3px'
+                                }}
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
               </div>
             </div>

@@ -237,7 +237,7 @@ const AttendanceLayout = () => {
                                 {!isSidebarCollapsed && (
                                     <span className="nav-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                         {item.label}
-                                        {['Teams', 'Team Attendance', 'Team Report'].includes(item.label) && pendingCorrectionCount > 0 && (
+                                        {['Teams', 'Team Attendance'].includes(item.label) && pendingCorrectionCount > 0 && (
                                             <span style={{
                                                 width: '6px',
                                                 height: '6px',

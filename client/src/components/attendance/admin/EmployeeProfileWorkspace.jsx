@@ -16,6 +16,7 @@ import LocationPickerModal from '../common/LocationPickerModal';
 import LocationDirectorySelect from '../common/LocationDirectorySelect';
 import { formatTime12Hr, minutesToHours, formatDate, getAttendanceDateKey, formatAttendanceDate, ATTENDANCE_TIME_ZONE } from '../../attendance/utils/helpers';
 import AdminApplyLeaveModal from './AdminApplyLeaveModal';
+import PayrollTab from './PayrollTab';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import * as XLSX from 'xlsx';
@@ -212,7 +213,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     else if (teamId&&userId) p = `/attendance/teams/${teamId}/user/${userId}/${newTab}`;
     else {
       const segs = location.pathname.split('/');
-      const tabs = ['performance','attendance','leave','policies','actions'];
+      const tabs = ['performance','attendance','leave','policies','actions','payroll'];
       const last = segs[segs.length-1];
       if (tabs.includes(last)) segs[segs.length-1]=newTab; else segs.push(newTab);
       p = segs.join('/');
@@ -2223,7 +2224,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
 
         {/* ── Tab Bar ── */}
         <div style={{ display:'flex', gap:'0', borderBottom:`1px solid ${THEME.border}`, marginBottom:'24px' }}>
-          {['Performance','Attendance','Leave','Policies','Actions'].map(label=>{
+          {['Performance','Attendance','Leave','Policies','Actions','Payroll'].map(label=>{
             const t = label.toLowerCase(), isActive = tab===t;
             return (
               <button key={t} onClick={()=>handleTabChange(t)} style={{ background:'transparent', color:isActive?'#000':THEME.muted, borderBottom:isActive?'2px solid #000':'2px solid transparent', padding:'10px 16px', fontSize:'13px', fontWeight:isActive?'700':'500', border:'none', borderBottom:isActive?'2px solid #000':'2px solid transparent', cursor:'pointer', marginBottom:'-1px', transition:'all 0.15s' }}>
@@ -2784,6 +2785,15 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
               )}
             </div>
           </div>
+        )}
+
+        {/* ══ PAYROLL TAB ══════════════════════════════════════════════════ */}
+        {tab==='payroll' && (
+          <PayrollTab
+            employeeId={id}
+            companyId={profile?.employee?.company_id?._id}
+            employeeName={employeeName}
+          />
         )}
 
         {/* ── Leave Modal ── */}

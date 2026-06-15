@@ -1327,7 +1327,7 @@ if (summarySheet) {
                         </p>
                     </div>
                     <div className="ar-hero-controls">
-                        <button className="ar-hero-btn" onClick={fetchReport}><FiRefreshCw size={13} /> Refresh</button>
+                        <button className="ar-hero-btn" onClic  k={fetchReport}><FiRefreshCw size={13} /> Refresh</button>
                         
                         {showDailySummary && (
                             <div className="ar-group-toggle" style={{ display: 'flex', background: '#f1f5f9', borderRadius: '8px', padding: '2px', border: '1px solid #e2e8f0' }}>

@@ -77,6 +77,7 @@ const getHodTeams = async (hodId) => {
     };
 
     const targetHodId = mongoose.Types.ObjectId.isValid(hodId) ? hodId : new mongoose.Types.ObjectId(hodId);
+    const targetHodUsername = String(user.username || '').toLowerCase();
     
     // Always check if user is set as hodId (primary HOD by assignment, regardless of role)
     const query = {
@@ -86,12 +87,41 @@ const getHodTeams = async (hodId) => {
         isActive: { $ne: false }
     };
 
-    // Additionally, if the user has HOD role, they can act on teams where they're a member
+    // Additionally, if the user has HOD role, they can act on teams where they're a member.
+    // Support legacy teams where members may be stored only by username.
     if (isHodRoleCheck(user.role)) {
         query.$or.push({ "members.userId": targetHodId });
+        if (targetHodUsername) {
+            query.$or.push({ "members.username": targetHodUsername });
+        }
     }
 
     return await TeamModel.find(query);
+};
+
+const getTeamMemberIds = async (teams = []) => {
+    const memberIds = new Set();
+    const memberUsernames = new Set();
+
+    teams.forEach(team => {
+        if (!Array.isArray(team.members)) return;
+        team.members.forEach(member => {
+            if (member?.userId) {
+                memberIds.add(String(member.userId));
+            } else if (member?.username) {
+                memberUsernames.add(String(member.username).toLowerCase());
+            }
+        });
+    });
+
+    if (memberUsernames.size > 0) {
+        const missingUsers = await User.find({ username: { $in: [...memberUsernames] } }).select('_id').lean();
+        missingUsers.forEach((user) => {
+            if (user?._id) memberIds.add(String(user._id));
+        });
+    }
+
+    return Array.from(memberIds).map((id) => mongoose.Types.ObjectId(id));
 };
 
 /**
@@ -102,19 +132,31 @@ const getHodTeams = async (hodId) => {
  */
 const isHODauthorized = async (hodId, employeeId) => {
     if (!employeeId) return false;
-    
+
     // Get all teams this actor manages (by hodId or HOD role membership)
     const hodTeams = await getHodTeams(hodId);
     
-    const authorized = hodTeams.some(team => 
+    const authorizedById = hodTeams.some(team => 
         team.members?.some(m => m.userId && m.userId.toString() === employeeId.toString())
     );
 
-    if (!authorized) {
-        console.warn(`[AttendanceAuth] HOD ${hodId} attempted unauthorized access to employee ${employeeId}. Teams found: ${hodTeams.map(t => t.name).join(', ')}`);
+    if (authorizedById) return true;
+
+    const employee = await User.findById(employeeId).select('username').lean();
+    if (!employee || !employee.username) {
+        console.warn(`[AttendanceAuth] Employee ${employeeId} not found for HOD authorization check.`);
+        return false;
     }
 
-    return authorized;
+    const employeeUsername = String(employee.username).toLowerCase();
+    const authorizedByUsername = hodTeams.some(team => 
+        team.members?.some(m => String(m.username || '').toLowerCase() === employeeUsername)
+    );
+
+    if (authorizedByUsername) return true;
+
+    console.warn(`[AttendanceAuth] HOD ${hodId} attempted unauthorized access to employee ${employeeId}. Teams found: ${hodTeams.map(t => t.name).join(', ')}`);
+    return false;
 };
 
 /**
@@ -3255,14 +3297,8 @@ export const getEmployeeFullProfile = async (req, res) => {
             return res.status(403).json({ message: 'Unauthorized profile access' });
         }
 
-        if (isHod) {
-            const hodTeams = await getHodTeams(req.user._id);
-            const isInTeam = hodTeams.some(team =>
-                team.members?.some(m => m.userId?.toString() === id.toString())
-            );
-            if (!isInTeam) {
-                return res.status(403).json({ message: 'Employee not in your team' });
-            }
+        if (isHod && !await isHODauthorized(req.user._id, id)) {
+            return res.status(403).json({ message: 'Employee not in your team' });
         }
 
         const employee = await User.findById(id)
@@ -4370,22 +4406,12 @@ export const getPendingCorrectionCount = async (req, res) => {
 
         let query = { status: 'pending' };
         if (!isAllowedAdmin) {
-            const memberIds = new Set();
-            teams.forEach(team => {
-                if (team.members && Array.isArray(team.members)) {
-                    team.members.forEach(m => {
-                        if (m.userId) {
-                            memberIds.add(m.userId.toString());
-                        }
-                    });
-                }
-            });
-
-            if (memberIds.size === 0) {
+            const memberIds = await getTeamMemberIds(teams);
+            if (memberIds.length === 0) {
                 return res.json({ count: 0, byEmployee: {} });
             }
 
-            query.employee_id = { $in: Array.from(memberIds) };
+            query.employee_id = { $in: memberIds };
         }
 
         const requests = await RegularizationRequest.find(query).select('employee_id');

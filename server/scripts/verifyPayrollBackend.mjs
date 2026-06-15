@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import UserModel from '../model/userModel.mjs';
+import Company from '../model/attendance/Company.js';
 import EmployeePayrollConfig from '../model/attendance/EmployeePayrollConfig.js';
 import Shift from '../model/attendance/Shift.js';
 import AttendanceRecord from '../model/attendance/AttendanceRecord.js';

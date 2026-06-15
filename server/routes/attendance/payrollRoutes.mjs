@@ -27,4 +27,7 @@ router.get('/salary-structure-history/:employeeId', attendanceAuthBridge, requir
 // ─── Export ────────────────────────────────────────────────────────────────
 router.get('/export/:runId', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), payrollCtrl.exportPayrollExcel);
 
+// ─── Profile Update ────────────────────────────────────────────────────────
+router.put('/users/:userId/profile', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, payrollCtrl.updateUserProfile);
+
 export default router;

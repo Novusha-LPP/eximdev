@@ -64,6 +64,11 @@ const payrollAPI = {
   exportPayrollExcel: async (runId) => {
     const response = await apiClient.get(`/payroll/export/${runId}`);
     return response.data;
+  },
+
+  updateUserProfile: async (employeeId, profileData) => {
+    const response = await apiClient.put(`/payroll/users/${employeeId}/profile`, profileData);
+    return response.data;
   }
 };
 

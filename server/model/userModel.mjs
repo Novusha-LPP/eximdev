@@ -126,6 +126,28 @@ const userSchema = new Schema({
   current_status: { type: String, enum: ['in_office', 'out_office', 'on_leave', 'on_duty'] },
   monthly_salary: { type: Number, default: 0 },
 
+  // ─── Profile / HR / Payroll fields ──────────────────────────────────────────
+  pf_joining_date: { type: Date },
+  pf_bank: { type: String },
+  pf_bank_ifsc_code: { type: String },
+  pf_bank_account_number: { type: String },
+  uan_number: { type: String },
+  esic_joining_date: { type: Date },
+  esic_end_month: { type: Date },
+  name_on_bank: { type: String },
+  bank_account_status: { type: String, default: 'Approved' },
+  biometric_serial_no: [{ type: String }],
+  biometric_code: { type: String },
+  salary_calculation_act: { type: String, enum: ['Shop Act', 'Factory Act', 'On Working Days'], default: 'Shop Act' },
+  payroll_frequency: { type: String, enum: ['Monthly', 'Weekly', 'Daily'], default: 'Monthly' },
+  enable_full_month_presence: { type: Boolean, default: false },
+  retirement_age: { type: Number, default: 60 },
+  worker_type: { type: String, enum: ['Company Staff', 'Contractor', 'Daily Wage'], default: 'Company Staff' },
+  employment_applicable_date: { type: Date },
+  employment_end_date: { type: Date },
+  skill_category: { type: String, enum: ['Skilled', 'Unskilled', 'Semi-Skilled'], default: 'Skilled' },
+  relieving_date: { type: Date },
+
   // Audit
   updated_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   // ─────────────────────────────────────────────────────────────────────────

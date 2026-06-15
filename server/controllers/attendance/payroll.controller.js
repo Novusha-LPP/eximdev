@@ -13,6 +13,7 @@ import EmployeePayrollConfig from '../../model/attendance/EmployeePayrollConfig.
 import PayrollRun from '../../model/attendance/PayrollRun.js';
 import PayrollSummary from '../../model/attendance/PayrollSummary.js';
 import SalaryStructure from '../../model/attendance/SalaryStructure.js';
+import User from '../../model/userModel.mjs';
 import PayrollGenerator from '../../services/payroll/payrollCalculation.service.js';
 import PayrollLockService from '../../services/payroll/payrollLock.service.js';
 
@@ -397,3 +398,57 @@ export const exportPayrollExcel = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+/**
+ * PUT /api/payroll/users/:userId/profile
+ * Updates the user's profile and attendance settings.
+ */
+export const updateUserProfile = async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const adminUserId = req.user?._id;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    const updatableFields = [
+      // PF Details
+      'pf_no', 'pf_joining_date', 'pf_bank', 'pf_bank_ifsc_code', 'pf_bank_account_number', 'uan_number', 'pf_not_applicable',
+      // ESIC Details
+      'esic_no', 'esic_joining_date', 'esic_end_month', 'esic_not_applicable',
+      // Bank Details
+      'bank_name', 'ifsc_code', 'bank_account_no', 'name_on_bank', 'bank_account_status',
+      // Attendance Settings
+      'biometric_serial_no', 'biometric_code', 'salary_calculation_act', 'payroll_frequency',
+      'enable_full_month_presence', 'retirement_age', 'worker_type', 'employment_applicable_date',
+      'employment_end_date', 'skill_category', 'relieving_date', 'notice_period_days', 'employment_type',
+      // General
+      'monthly_salary', 'date_of_joining'
+    ];
+
+    updatableFields.forEach(field => {
+      if (req.body[field] !== undefined) {
+        user[field] = req.body[field];
+      }
+    });
+
+    // Handle nested attendance_settings mapping if provided
+    if (req.body.attendance_settings && typeof req.body.attendance_settings === 'object') {
+      user.attendance_settings = {
+        ...user.attendance_settings,
+        ...req.body.attendance_settings
+      };
+    }
+
+    user.updated_by = adminUserId;
+    await user.save();
+
+    res.json({ success: true, data: user, message: 'Employee profile updated successfully.' });
+  } catch (error) {
+    console.error('updateUserProfile error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+

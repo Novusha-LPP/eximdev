@@ -438,11 +438,13 @@ export const getDashboard = async (req, res) => {
         } else {
             // HOD sees only their team members
             debugLog.push(`Loading teams for HOD: ${hod.username}`);
+            const hodUsername = String(hod.username || '').toLowerCase();
             
             const teams = await TeamModel.find({ 
                 $or: [
                     { hodId: hod._id },
-                    ...(isHodRole(hod.role) ? [{ "members.userId": hod._id }] : [])
+                    ...(isHodRole(hod.role) ? [{ "members.userId": hod._id }] : []),
+                    ...(isHodRole(hod.role) && hodUsername ? [{ "members.username": hodUsername }] : [])
                 ],
                 isActive: { $ne: false }
             });
@@ -450,18 +452,28 @@ export const getDashboard = async (req, res) => {
             
             debugLog.push(`Found ${teams.length} teams for HOD`);
             
-            // Extract all member user IDs from all teams
+            // Extract all member IDs from all teams, including legacy username-based members
             const memberUserIds = new Set();
+            const memberUsernames = new Set();
             teams.forEach(team => {
                 if (team.members && Array.isArray(team.members)) {
                     team.members.forEach(member => {
                         if (member.userId) {
                             memberUserIds.add(member.userId.toString());
+                        } else if (member.username) {
+                            memberUsernames.add(String(member.username).toLowerCase());
                         }
                     });
                 }
             });
             
+            if (memberUsernames.size > 0) {
+                const resolvedUsers = await User.find({ username: { $in: [...memberUsernames] }, isActive: { $ne: false } }).select('_id username').lean();
+                resolvedUsers.forEach(user => {
+                    if (user?._id) memberUserIds.add(user._id.toString());
+                });
+            }
+
             debugLog.push(`Total unique team members: ${memberUserIds.size}`);
             
             if (memberUserIds.size === 0) {
@@ -498,8 +510,9 @@ export const getDashboard = async (req, res) => {
 
         const getTeamName = (empId) => {
             const empIdStr = empId?.toString();
+            const empUsername = employees.find(e => e._id?.toString() === empIdStr)?.username?.toLowerCase();
             const team = allTeamsForHOD.find(t => 
-                t.members && t.members.some(m => m.userId?.toString() === empIdStr)
+                t.members && t.members.some(m => m.userId?.toString() === empIdStr || String(m.username || '').toLowerCase() === empUsername)
             );
             return team ? team.name : 'Unassigned';
         };

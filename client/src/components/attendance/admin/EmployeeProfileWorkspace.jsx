@@ -17,8 +17,9 @@ import LocationDirectorySelect from '../common/LocationDirectorySelect';
 import { formatTime12Hr, minutesToHours, formatDate, getAttendanceDateKey, formatAttendanceDate, ATTENDANCE_TIME_ZONE } from '../../attendance/utils/helpers';
 import AdminApplyLeaveModal from './AdminApplyLeaveModal';
 import PayrollTab from './PayrollTab';
+import ProfileTab from './ProfileTab';
 import ExcelJS from 'exceljs';
-import { saveAs } from 'file-saver';
+import { saveAs } from 'file-saver';    
 import * as XLSX from 'xlsx';
 import './EmployeeProfilePerformance.css';
 
@@ -213,7 +214,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     else if (teamId&&userId) p = `/attendance/teams/${teamId}/user/${userId}/${newTab}`;
     else {
       const segs = location.pathname.split('/');
-      const tabs = ['performance','attendance','leave','policies','actions','payroll'];
+      const tabs = ['performance','attendance','leave','policies','actions','payroll','profile'];
       const last = segs[segs.length-1];
       if (tabs.includes(last)) segs[segs.length-1]=newTab; else segs.push(newTab);
       p = segs.join('/');
@@ -421,8 +422,17 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
       const q = searchTerm.toLowerCase();
       r = r.filter(e=>(e.first_name||'').toLowerCase().includes(q)||(e.last_name||'').toLowerCase().includes(q)||(e.username||'').toLowerCase().includes(q)||(e.employee_code||'').toLowerCase().includes(q));
     }
-    return [...r].sort((a,b)=>{ const aR=isRabsOrganization(getOrgName(a)), bR=isRabsOrganization(getOrgName(b)); if(aR!==bR) return aR?1:-1; return 0; });
-  }, [gridEmployees, searchTerm]);
+    const getPending = (emp) => Number(pendingCorrectionCounts[emp._id] || pendingCorrectionCounts[String(emp._id)] || 0);
+    return [...r].sort((a,b)=>{
+      const aPending = getPending(a) > 0;
+      const bPending = getPending(b) > 0;
+      if (aPending !== bPending) return aPending ? -1 : 1;
+      const aR = isRabsOrganization(getOrgName(a));
+      const bR = isRabsOrganization(getOrgName(b));
+      if (aR !== bR) return aR ? 1 : -1;
+      return 0;
+    });
+  }, [gridEmployees, searchTerm, pendingCorrectionCounts]);
 
   const teamNameByEmployee = useMemo(() => {
     const map = new Map();
@@ -2224,7 +2234,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
 
         {/* ── Tab Bar ── */}
         <div style={{ display:'flex', gap:'0', borderBottom:`1px solid ${THEME.border}`, marginBottom:'24px' }}>
-          {['Performance','Attendance','Leave','Policies','Actions','Payroll'].map(label=>{
+          {['Performance','Attendance','Leave','Policies','Actions','Payroll','Profile'].map(label=>{
             const t = label.toLowerCase(), isActive = tab===t;
             return (
               <button key={t} onClick={()=>handleTabChange(t)} style={{ background:'transparent', color:isActive?'#000':THEME.muted, borderBottom:isActive?'2px solid #000':'2px solid transparent', padding:'10px 16px', fontSize:'13px', fontWeight:isActive?'700':'500', border:'none', borderBottom:isActive?'2px solid #000':'2px solid transparent', cursor:'pointer', marginBottom:'-1px', transition:'all 0.15s' }}>
@@ -2790,6 +2800,15 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
         {/* ══ PAYROLL TAB ══════════════════════════════════════════════════ */}
         {tab==='payroll' && (
           <PayrollTab
+            employeeId={id}
+            companyId={profile?.employee?.company_id?._id}
+            employeeName={employeeName}
+          />
+        )}
+
+        {/* ══ PROFILE TAB ══════════════════════════════════════════════════ */}
+        {tab==='profile' && (
+          <ProfileTab
             employeeId={id}
             companyId={profile?.employee?.company_id?._id}
             employeeName={employeeName}

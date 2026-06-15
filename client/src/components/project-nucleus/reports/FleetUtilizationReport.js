@@ -22,13 +22,41 @@ const monthNames = [
 ];
 
 // --- Sub-components & Helpers for Status and Labels ---
+const hasStatus = (status, target) => {
+    if (!status) return false;
+    const targets = Array.isArray(target) ? target.map(t => t.toLowerCase()) : [target.toLowerCase()];
+    const checkValue = (val) => {
+        const cleaned = String(val || '').trim().toLowerCase();
+        return targets.includes(cleaned);
+    };
+    if (Array.isArray(status)) {
+        return status.some(checkValue);
+    }
+    return checkValue(status);
+};
+
 const StatusPill = ({ status, otherText }) => {
-    const s = String(status || '').trim();
-    if (s === 'No Driver') return <span className="status-pill warning">No driver</span>;
-    if (s === 'Driver on Leave') return <span className="status-pill error">Driver on leave</span>;
-    if (s === 'Maintenance') return <span className="status-pill info">Maintenance</span>;
-    if (s === 'Accident') return <span className="status-pill error">Accident</span>;
-    return <span className="status-pill neutral">{otherText || status || '—'}</span>;
+    const renderSingleStatus = (st, idx) => {
+        const s = String(st || '').trim();
+        if (s === 'No Driver') return <span key={idx} className="status-pill warning" style={{ marginRight: '4px' }}>No driver</span>;
+        if (s === 'Driver on Leave') return <span key={idx} className="status-pill error" style={{ marginRight: '4px' }}>Driver on leave</span>;
+        if (s === 'Maintenance') return <span key={idx} className="status-pill info" style={{ marginRight: '4px' }}>Maintenance</span>;
+        if (s === 'Accident') return <span key={idx} className="status-pill error" style={{ marginRight: '4px' }}>Accident</span>;
+        return <span key={idx} className="status-pill neutral" style={{ marginRight: '4px' }}>{s || '—'}</span>;
+    };
+
+    if (Array.isArray(status)) {
+        return (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                {status.map((st, idx) => renderSingleStatus(st, idx))}
+            </div>
+        );
+    }
+
+    if (otherText) {
+        return <span className="status-pill neutral">{otherText}</span>;
+    }
+    return renderSingleStatus(status, 0);
 };
 
 const IePill = ({ type }) => {
@@ -348,14 +376,21 @@ const FleetUtilizationReport = ({
             const active = d.activeLRs || [];
             const closed = d.closedLRs || [];
 
-            const breakdown = fleet.filter(v => v.status === 'Breakdown').length;
-            const maintenance = fleet.filter(v => v.status === 'Maintenance').length;
-            const leave = fleet.filter(v => v.status === 'Driver on Leave').length;
-            const accident = fleet.filter(v => v.status === 'Accident' || v.status === 'Accidents').length;
-            const noDriver = fleet.filter(v => v.status === 'No Driver').length;
-            const others = fleet.filter(v => !['Breakdown', 'Maintenance', 'Driver on Leave', 'Accident', 'Accidents', 'No Driver'].includes(v.status)).length;
+            const breakdown = fleet.filter(v => hasStatus(v.status, 'Breakdown')).length;
+            const maintenance = fleet.filter(v => hasStatus(v.status, 'Maintenance')).length;
+            const leave = fleet.filter(v => hasStatus(v.status, 'Driver on Leave')).length;
+            const accident = fleet.filter(v => hasStatus(v.status, ['Accident', 'Accidents'])).length;
+            const noDriver = fleet.filter(v => hasStatus(v.status, 'No Driver')).length;
+            const others = fleet.filter(v => 
+                !hasStatus(v.status, 'Breakdown') &&
+                !hasStatus(v.status, 'Maintenance') &&
+                !hasStatus(v.status, 'Driver on Leave') &&
+                !hasStatus(v.status, ['Accident', 'Accidents']) &&
+                !hasStatus(v.status, 'No Driver') &&
+                !hasStatus(v.status, 'IDLE')
+            ).length;
 
-            const notOnRoadTotal = fleet.length;
+            const notOnRoadTotal = fleet.filter(v => !hasStatus(v.status, 'IDLE')).length;
             const usedForTrips = Math.max(0, totalFleetNum - notOnRoadTotal);
             const oorPercentVal = totalFleetNum > 0 ? parseFloat(((usedForTrips / totalFleetNum) * 100).toFixed(1)) : 0;
             const oorPercent = `${oorPercentVal.toFixed(1)}%`;
@@ -744,12 +779,18 @@ const FleetUtilizationReport = ({
         const totalTrips = closedLRsList.length;
 
         if (filterType === 'day' || dailyData.length <= 1) {
-            const noDriver = fleetStatusList.filter(v => v.status === 'No Driver').length;
-            const onLeave = fleetStatusList.filter(v => v.status === 'Driver on Leave').length;
-            const maint = fleetStatusList.filter(v => v.status === 'Maintenance').length;
-            const accident = fleetStatusList.filter(v => v.status === 'Accident').length;
-            const others = fleetStatusList.filter(v => !['No Driver', 'Driver on Leave', 'Maintenance', 'Accident'].includes(v.status)).length;
-            const notOnRoad = fleetStatusList.length;
+            const noDriver = fleetStatusList.filter(v => hasStatus(v.status, 'No Driver')).length;
+            const onLeave = fleetStatusList.filter(v => hasStatus(v.status, 'Driver on Leave')).length;
+            const maint = fleetStatusList.filter(v => hasStatus(v.status, 'Maintenance')).length;
+            const accident = fleetStatusList.filter(v => hasStatus(v.status, ['Accident', 'Accidents'])).length;
+            const others = fleetStatusList.filter(v => 
+                !hasStatus(v.status, 'No Driver') &&
+                !hasStatus(v.status, 'Driver on Leave') &&
+                !hasStatus(v.status, 'Maintenance') &&
+                !hasStatus(v.status, ['Accident', 'Accidents']) &&
+                !hasStatus(v.status, 'IDLE')
+            ).length;
+            const notOnRoad = fleetStatusList.filter(v => !hasStatus(v.status, 'IDLE')).length;
 
             const ownTrips = closedLRsList.filter(r => (r.own_hired || '').toLowerCase().trim() === 'own').length;
             const idleVal = totalFleetNum > 0 ? Math.max(0, totalFleetNum - notOnRoad - ownTrips) : 'NA';

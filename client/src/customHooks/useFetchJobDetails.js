@@ -638,7 +638,7 @@ function useFetchJobDetails(
             hawb_hbl_date: values.hawb_hbl_date,
             awb_bl_no: values.awb_bl_no,
             awb_bl_date: values.awb_bl_date,
-            cth_no: values.cth_no || values.description_details?.[0]?.cth_no,
+            cth_no: values.description_details?.[0]?.cth_no || values.cth_no || "",
             free_time: values.free_time,
             status: values.status,
             detailed_status: values.detailed_status,
@@ -650,7 +650,7 @@ function useFetchJobDetails(
             job_sticker_upload: values.job_sticker_upload,
             // rail_out_date: values.rail_out_date,
             remarks: values.remarks,
-            description: values.description || values.description_details?.[0]?.description,
+            description: values.description_details?.[0]?.description || values.description || "",
             consignment_type: values.consignment_type,
             sims_reg_no: values.sims_reg_no,
             pims_reg_no: values.pims_reg_no,
@@ -1342,8 +1342,8 @@ function useFetchJobDetails(
   useEffect(() => {
     if (formik.values.description_details?.length > 0) {
       const firstRow = formik.values.description_details[0];
-      if (firstRow.description && !formik.values.description) formik.setFieldValue("description", firstRow.description || "");
-      if (firstRow.cth_no && !formik.values.cth_no) formik.setFieldValue("cth_no", firstRow.cth_no || "");
+      if (firstRow.description && formik.values.description !== firstRow.description) formik.setFieldValue("description", firstRow.description || "");
+      if (firstRow.cth_no && formik.values.cth_no !== firstRow.cth_no) formik.setFieldValue("cth_no", firstRow.cth_no || "");
       if (firstRow.clearance_under && !formik.values.clearanceValue) formik.setFieldValue("clearanceValue", firstRow.clearance_under || "");
       if (firstRow.sr_no_invoice && !formik.values.invoice_number) formik.setFieldValue("invoice_number", firstRow.sr_no_invoice || "");
       if (firstRow.quantity && !formik.values.no_of_pkgs) formik.setFieldValue("no_of_pkgs", firstRow.quantity || "");

@@ -1335,6 +1335,16 @@ function JobDetails() {
     }
 
     formik.setFieldValue("description_details", updatedRows);
+
+    // Sync top-level fields for the first row
+    if (rowIndex === 0) {
+      if (updates.description !== undefined) {
+        formik.setFieldValue("description", updates.description);
+      }
+      if (updates.cth_no !== undefined) {
+        formik.setFieldValue("cth_no", updates.cth_no);
+      }
+    }
   };
 
   const updateDescriptionRow = (rowIndex, field, value) => {

@@ -41,14 +41,42 @@ const getPrimaryCategory = (status) => {
     if (hasStatus(status, 'Maintenance')) return 'Maintenance';
     if (hasStatus(status, 'Driver on Leave')) return 'Driver on Leave';
     if (hasStatus(status, 'No Driver')) return 'No Driver';
+    if (hasStatus(status, 'Under detention')) return 'Under detention';
+    if (hasStatus(status, 'Under trip')) return 'Under trip';
     return 'Others';
 };
 
 const getPrimaryCategoryForMetrics = (status) => {
+    if (hasStatus(status, 'Breakdown')) return 'Breakdown';
     if (hasStatus(status, ['Accident', 'Accidents'])) return 'Accident';
     if (hasStatus(status, 'Maintenance')) return 'Maintenance';
     if (hasStatus(status, 'Driver on Leave')) return 'Driver on Leave';
     if (hasStatus(status, 'No Driver')) return 'No Driver';
+    if (hasStatus(status, 'Under detention')) return 'Under detention';
+    if (hasStatus(status, 'Under trip')) return 'Under trip';
+    return 'Others';
+};
+
+const getCategoriesForVehicle = (v) => {
+    const status = v.status;
+    if (hasStatus(status, 'Breakdown')) return 'Breakdown';
+    if (hasStatus(status, ['Accident', 'Accidents'])) return 'Accident';
+    if (hasStatus(status, 'Maintenance')) return 'Maintenance';
+    if (hasStatus(status, 'Driver on Leave')) return 'Driver on Leave';
+    if (hasStatus(status, 'No Driver')) return 'No Driver';
+    if (hasStatus(status, 'Under detention')) return 'Under detention';
+    if (hasStatus(status, 'Under trip')) return 'Under trip';
+    
+    if (Array.isArray(status)) {
+        const nonIdle = status.find(s => String(s).toUpperCase() !== 'IDLE');
+        return nonIdle ? String(nonIdle).trim() : 'Others';
+    }
+    if (status) {
+        const cleaned = String(status).trim();
+        if (cleaned.toUpperCase() !== 'IDLE') {
+            return cleaned;
+        }
+    }
     return 'Others';
 };
 
@@ -179,14 +207,16 @@ const FleetUtilizationReport = ({
 
                 if (filterType === 'month' || filterType === 'day') {
                     try {
-                        const selYear = parseInt(selectedYear) || 2026;
-                        const selMonth = parseInt(selectedMonth) || 5;
+                        const selYear = parseInt(selectedYear) || new Date().getFullYear();
+                        const selMonth = parseInt(selectedMonth); // 0-indexed, do NOT use || fallback (breaks January=0)
                         const prevYear = selMonth === 0 ? selYear - 1 : selYear;
                         const prevMonth = selMonth === 0 ? 11 : selMonth - 1;
                         
                         const prevDays = new Date(prevYear, prevMonth + 1, 0).getDate();
                         const prevStart = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-01`;
                         const prevEnd = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-${String(prevDays).padStart(2, '0')}`;
+
+                        console.log('[FleetUtil] Fetching prev month comparison:', { prevStart, prevEnd, selMonth, prevMonth, prevYear });
 
                         const prevParams = { startDate: prevStart, endDate: prevEnd };
                         const resPrev = await axios.get(`${TRANSPORT_BASE}/api/vehicle-dsr/dispatch-range`, {
@@ -195,6 +225,8 @@ const FleetUtilizationReport = ({
                             withCredentials: true
                         });
 
+                        console.log('[FleetUtil] Prev month API response:', resPrev?.data?.success, 'closedLRs count:', resPrev?.data?.closedLRs?.length);
+
                         if (resPrev && resPrev.data && resPrev.data.success) {
                             const prevClosed = resPrev.data.closedLRs || [];
                             prevTotalTrips = prevClosed.length;
@@ -202,9 +234,12 @@ const FleetUtilizationReport = ({
                             
                             prevAvgTrips = prevTotalTrips / prevDays;
                             prevMundraAvg = prevMundraTrips / prevDays;
+                            console.log('[FleetUtil] prevTotalTrips:', prevTotalTrips, 'prevAvgTrips:', prevAvgTrips);
+                        } else {
+                            console.warn('[FleetUtil] Prev month API returned no data or success=false');
                         }
                     } catch (prevErr) {
-                        console.error("Error fetching previous month data for KPI comparison:", prevErr);
+                        console.error("[FleetUtil] Error fetching previous month data for KPI comparison:", prevErr);
                     }
                 }
                 setComparisonData({ prevTotalTrips, prevMundraTrips, prevAvgTrips, prevMundraAvg });
@@ -399,14 +434,24 @@ const FleetUtilizationReport = ({
             const leave = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Driver on Leave').length;
             const accident = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Accident').length;
             const noDriver = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'No Driver').length;
-            const others = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Others').length;
+            const underDetention = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Under detention').length;
+            const underTrip = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Under trip').length;
+            
+            const customCategories = {};
+            outOfServiceVehicles.forEach(v => {
+                const cat = getCategoriesForVehicle(v);
+                const standardCats = ['Breakdown', 'Accident', 'Maintenance', 'Driver on Leave', 'No Driver', 'Under detention', 'Under trip'];
+                if (!standardCats.includes(cat)) {
+                    customCategories[cat] = (customCategories[cat] || 0) + 1;
+                }
+            });
+            const others = Object.values(customCategories).reduce((a, b) => a + b, 0);
 
-            const notOnRoadTotal = fleet.filter(v => !hasStatus(v.status, 'IDLE')).length;
-            const ownTripsCount = closed.filter(r => String(r.own_hired || '').toLowerCase().trim() === 'own').length;
-            const usedForTrips = ownTripsCount;
-            const oorPercentVal = totalFleetNum > 0 ? parseFloat(((usedForTrips / totalFleetNum) * 100).toFixed(1)) : 0;
-            const oorPercent = `${oorPercentVal.toFixed(1)}%`;
-            const idle = Math.max(0, totalFleetNum - notOnRoadTotal - ownTripsCount);
+            const notOnRoadTotal = breakdown + maintenance + leave + accident + noDriver;
+            const idle = fleet.filter(v => hasStatus(v.status, 'IDLE')).length;
+            const usedForTrips = Math.max(0, totalFleetNum - notOnRoadTotal - idle - underDetention - underTrip - others);
+            const oorPercentVal = totalFleetNum > 0 ? Math.round((usedForTrips / totalFleetNum) * 100) : 0;
+            const oorPercent = `${oorPercentVal}%`;
 
             const automove = [...active, ...closed].filter(r => String(r.branch || '').toLowerCase().trim() === 'automove').length;
             const snContainer = [...active, ...closed].filter(r => String(r.branch || '').toLowerCase().trim() !== 'automove').length;
@@ -425,7 +470,7 @@ const FleetUtilizationReport = ({
                 date: d.date,
                 dateStr,
                 totalFleet: totalFleetNum,
-                activeCount: ownTripsCount,
+                activeCount: usedForTrips,
                 idleCount: idle,
                 oosCount: notOnRoadTotal,
                 utilPercent: oorPercentVal,
@@ -434,7 +479,10 @@ const FleetUtilizationReport = ({
                 leave,
                 accident,
                 noDriver,
+                underDetention,
+                underTrip,
                 others,
+                customCategories,
                 usedForTrips,
                 oorPercent,
                 automove,
@@ -492,6 +540,18 @@ const FleetUtilizationReport = ({
     }, [dispatches, filterType, selectedDay]);
 
     const fleetStatusList = useMemo(() => activeDispatch?.fleetStatus || [], [activeDispatch]);
+    const notOnRoadList = useMemo(() => {
+        return fleetStatusList.filter(v => {
+            const cat = getPrimaryCategoryForMetrics(v.status);
+            return ['Breakdown', 'Maintenance', 'Driver on Leave', 'No Driver', 'Accident'].includes(cat);
+        });
+    }, [fleetStatusList]);
+    const otherStatusList = useMemo(() => {
+        return fleetStatusList.filter(v => {
+            const cat = getPrimaryCategoryForMetrics(v.status);
+            return ['Under trip', 'Under detention', 'Others'].includes(cat);
+        });
+    }, [fleetStatusList]);
     const activeLRsList = useMemo(() => activeDispatch?.activeLRs || [], [activeDispatch]);
     const closedLRsList = useMemo(() => activeDispatch?.closedLRs || [], [activeDispatch]);
 
@@ -660,23 +720,58 @@ const FleetUtilizationReport = ({
         const avgTripsPerDay = elapsedDays > 0 ? totalTrips / elapsedDays : 0;
         const mundraAvgTripsPerDay = elapsedDays > 0 ? mundraTrips / elapsedDays : 0;
 
-        const projectionAllPorts = avgTripsPerDay * totalDays;
-        const projectionMundra = mundraAvgTripsPerDay * totalDays;
+        // Calculate days in the selected or starting month of the period for projection
+        const { startDate } = getTransportDates(
+            filterType,
+            selectedDay,
+            selectedYear,
+            selectedMonth,
+            selectedQuarter,
+            dateRange
+        );
+        let daysInMonth = 30; // fallback
+        if (startDate) {
+            const startD = new Date(startDate);
+            daysInMonth = new Date(startD.getFullYear(), startD.getMonth() + 1, 0).getDate();
+        } else {
+            daysInMonth = new Date(todayYear, todayMonth + 1, 0).getDate();
+        }
+
+        const projectionAllPorts = avgTripsPerDay * daysInMonth;
+        const projectionMundra = mundraAvgTripsPerDay * daysInMonth;
 
         // Compute performance percentages against previous month (comparisonData)
         const avgTripsPerf = comparisonData.prevAvgTrips > 0 ? (avgTripsPerDay / comparisonData.prevAvgTrips) * 100 : 100;
         const projectionAllPerf = comparisonData.prevTotalTrips > 0 ? (projectionAllPorts / comparisonData.prevTotalTrips) * 100 : 100;
         const projectionMundraPerf = comparisonData.prevMundraTrips > 0 ? (projectionMundra / comparisonData.prevMundraTrips) * 100 : 100;
 
+        console.log('[KPI Memo]', {
+            closedLRs: closedLRsList.length,
+            elapsedDays,
+            avgTripsPerDay,
+            projectionAllPorts,
+            prevTotalTrips: comparisonData.prevTotalTrips,
+            projectionAllPerf
+        });
+
         // Apply HSL color themes based on CR logic (Green >= 100%, Yellow >= 90%, Red < 90%)
         const getColorTheme = (perfVal) => {
+            const rawChange = perfVal - 100;
+            const absChange = Math.abs(rawChange);
+            const arrow = perfVal >= 100 ? '↑' : '↓';
+            // Show 1 decimal if change is between 0 and 1, otherwise integer
+            const displayChange = absChange < 1 && absChange > 0
+                ? absChange.toFixed(1)
+                : Math.round(absChange);
+            const performanceLabel = `${arrow} ${displayChange}%`;
+
             if (perfVal >= 100) {
                 return {
                     color: '#059669',
                     bg: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, transparent 100%)',
                     border: '1px solid rgba(16, 185, 129, 0.2)',
                     badgeBg: 'rgba(16, 185, 129, 0.1)',
-                    performanceLabel: `↑ ${perfVal.toFixed(0)}% vs Last Month`
+                    performanceLabel
                 };
             } else if (perfVal >= 90) {
                 return {
@@ -684,7 +779,7 @@ const FleetUtilizationReport = ({
                     bg: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, transparent 100%)',
                     border: '1px solid rgba(245, 158, 11, 0.2)',
                     badgeBg: 'rgba(245, 158, 11, 0.1)',
-                    performanceLabel: `↓ ${perfVal.toFixed(0)}% vs Last Month`
+                    performanceLabel
                 };
             } else {
                 return {
@@ -692,13 +787,13 @@ const FleetUtilizationReport = ({
                     bg: 'linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, transparent 100%)',
                     border: '1px solid rgba(239, 68, 68, 0.2)',
                     badgeBg: 'rgba(239, 68, 68, 0.1)',
-                    performanceLabel: `↓ ${perfVal.toFixed(0)}% vs Last Month`
+                    performanceLabel
                 };
             }
         };
 
         return {
-            avgTripsPerDay: avgTripsPerDay.toFixed(1),
+            avgTripsPerDay: Math.round(avgTripsPerDay),
             projectionAllPorts: Math.round(projectionAllPorts),
             projectionMundra: Math.round(projectionMundra),
             avgTripsTheme: getColorTheme(avgTripsPerf),
@@ -719,6 +814,8 @@ const FleetUtilizationReport = ({
         let sumLeave = 0;
         let sumAcc = 0;
         let sumNoDrv = 0;
+        let sumDet = 0;
+        let sumTrip = 0;
         let sumOth = 0;
         let sumAuto = 0;
         let sumSnc = 0;
@@ -741,6 +838,8 @@ const FleetUtilizationReport = ({
             sumLeave += d.leave || 0;
             sumAcc += d.accident || 0;
             sumNoDrv += d.noDriver || 0;
+            sumDet += d.underDetention || 0;
+            sumTrip += d.underTrip || 0;
             sumOth += d.others || 0;
             sumAuto += d.automove || 0;
             sumSnc += d.snContainer || 0;
@@ -755,7 +854,7 @@ const FleetUtilizationReport = ({
         });
 
         // Compute average On Road %
-        const avgOnRoadPct = sumFleet > 0 ? ((sumUsed / sumFleet) * 100).toFixed(1) + '%' : '0.0%';
+        const avgOnRoadPct = sumFleet > 0 ? Math.round((sumUsed / sumFleet) * 100) + '%' : '0%';
 
         return {
             totalFleet: Math.round(sumFleet / dailyData.length), // Average size
@@ -768,6 +867,8 @@ const FleetUtilizationReport = ({
             leave: sumLeave,
             accident: sumAcc,
             noDriver: sumNoDrv,
+            underDetention: sumDet,
+            underTrip: sumTrip,
             others: sumOth,
             automove: sumAuto,
             snContainer: sumSnc,
@@ -790,16 +891,30 @@ const FleetUtilizationReport = ({
 
         if (filterType === 'day' || dailyData.length <= 1) {
             const outOfServiceVehicles = fleetStatusList.filter(v => !hasStatus(v.status, 'IDLE'));
+            const breakdown = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'Breakdown').length;
             const noDriver = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'No Driver').length;
             const onLeave = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'Driver on Leave').length;
             const maint = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'Maintenance').length;
             const accident = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'Accident').length;
-            const others = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'Others').length;
-            const notOnRoad = fleetStatusList.filter(v => !hasStatus(v.status, 'IDLE')).length;
+            const underDetention = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'Under detention').length;
+            const underTrip = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'Under trip').length;
+            
+            const customCategories = {};
+            outOfServiceVehicles.forEach(v => {
+                const cat = getCategoriesForVehicle(v);
+                const standardCats = ['Breakdown', 'Accident', 'Maintenance', 'Driver on Leave', 'No Driver', 'Under detention', 'Under trip'];
+                if (!standardCats.includes(cat)) {
+                    customCategories[cat] = (customCategories[cat] || 0) + 1;
+                }
+            });
+            const others = Object.values(customCategories).reduce((a, b) => a + b, 0);
+
+            const notOnRoad = breakdown + maint + onLeave + accident + noDriver;
+            const otherStatusTotal = underDetention + underTrip + others;
 
             const ownTrips = closedLRsList.filter(r => (r.own_hired || '').toLowerCase().trim() === 'own').length;
-            const idleVal = totalFleetNum > 0 ? Math.max(0, totalFleetNum - notOnRoad - ownTrips) : 'NA';
-            const onRoadCount = ownTrips;
+            const idleVal = totalFleetNum > 0 ? fleetStatusList.filter(v => hasStatus(v.status, 'IDLE')).length : 'NA';
+            const onRoadCount = (totalFleetNum > 0 && idleVal !== 'NA') ? Math.max(0, totalFleetNum - notOnRoad - idleVal - underDetention - underTrip - others) : ownTrips;
 
             const getPctStr = (val) => {
                 if (totalFleetNum <= 0) return '';
@@ -815,6 +930,15 @@ const FleetUtilizationReport = ({
                 idleColor = idleInt === 0 ? '#10b981' : idleInt <= 2 ? '#f59e0b' : '#ef4444';
             }
 
+            const customCategoriesList = Object.entries(customCategories).map(([label, count]) => ({
+                label,
+                value: count,
+                extra: getPctStr(count),
+                color: '#64748b',
+                gradient: 'linear-gradient(135deg, rgba(100, 116, 139, 0.08) 0%, rgba(100, 116, 139, 0.02) 100%)',
+                border: '1px solid rgba(100, 116, 139, 0.2)'
+            }));
+
             return {
                 fleetSize: totalFleetNum || 'NA',
                 onRoadCount,
@@ -825,6 +949,8 @@ const FleetUtilizationReport = ({
                 idleColor,
                 notOnRoad,
                 notOnRoadPct: getPctStr(notOnRoad),
+                breakdown,
+                breakdownPct: getPctStr(breakdown),
                 noDriver,
                 noDriverPct: getPctStr(noDriver),
                 onLeave,
@@ -833,8 +959,15 @@ const FleetUtilizationReport = ({
                 maintPct: getPctStr(maint),
                 accident,
                 accidentPct: getPctStr(accident),
+                underDetention,
+                underDetentionPct: getPctStr(underDetention),
+                underTrip,
+                underTripPct: getPctStr(underTrip),
                 others,
                 othersPct: getPctStr(others),
+                otherStatusTotal,
+                otherStatusTotalPct: getPctStr(otherStatusTotal),
+                customCategoriesList,
                 totalTrips
             };
         } else {
@@ -843,23 +976,38 @@ const FleetUtilizationReport = ({
             let sumOnRoad = 0;
             let sumIdle = 0;
             let sumNotOnRoad = 0;
+            let sumBreakdown = 0;
             let sumNoDriver = 0;
             let sumLeave = 0;
             let sumMaint = 0;
             let sumAccident = 0;
-            let sumOthers = 0;
+            let sumUnderDetention = 0;
+            let sumUnderTrip = 0;
+
+            const rangeCustomCategories = {};
 
             dailyData.forEach(d => {
                 sumFleetSize += d.totalFleet;
                 sumOnRoad += d.usedForTrips;
                 sumIdle += d.idleCount;
                 sumNotOnRoad += d.oosCount;
+                sumBreakdown += d.breakdown;
                 sumNoDriver += d.noDriver;
                 sumLeave += d.leave;
                 sumMaint += d.maintenance;
                 sumAccident += d.accident;
-                sumOthers += d.others;
+                sumUnderDetention += d.underDetention;
+                sumUnderTrip += d.underTrip;
+                
+                if (d.customCategories) {
+                    Object.entries(d.customCategories).forEach(([cat, val]) => {
+                        rangeCustomCategories[cat] = (rangeCustomCategories[cat] || 0) + val;
+                    });
+                }
             });
+
+            const sumOthers = Object.values(rangeCustomCategories).reduce((a, b) => a + b, 0);
+            const sumOtherStatusTotal = sumUnderDetention + sumUnderTrip + sumOthers;
 
             const getPctStr = (val) => {
                 if (sumFleetSize <= 0) return '';
@@ -874,6 +1022,15 @@ const FleetUtilizationReport = ({
             const idleInt = sumIdle;
             idleColor = idleInt === 0 ? '#10b981' : '#f59e0b';
 
+            const customCategoriesList = Object.entries(rangeCustomCategories).map(([label, count]) => ({
+                label,
+                value: count,
+                extra: getPctStr(count),
+                color: '#64748b',
+                gradient: 'linear-gradient(135deg, rgba(100, 116, 139, 0.08) 0%, rgba(100, 116, 139, 0.02) 100%)',
+                border: '1px solid rgba(100, 116, 139, 0.2)'
+            }));
+
             return {
                 fleetSize: sumFleetSize || 'NA',
                 onRoadCount: sumOnRoad,
@@ -884,6 +1041,8 @@ const FleetUtilizationReport = ({
                 idleColor,
                 notOnRoad: sumNotOnRoad,
                 notOnRoadPct: getPctStr(sumNotOnRoad),
+                breakdown: sumBreakdown,
+                breakdownPct: getPctStr(sumBreakdown),
                 noDriver: sumNoDriver,
                 noDriverPct: getPctStr(sumNoDriver),
                 onLeave: sumLeave,
@@ -892,8 +1051,15 @@ const FleetUtilizationReport = ({
                 maintPct: getPctStr(sumMaint),
                 accident: sumAccident,
                 accidentPct: getPctStr(sumAccident),
+                underDetention: sumUnderDetention,
+                underDetentionPct: getPctStr(sumUnderDetention),
+                underTrip: sumUnderTrip,
+                underTripPct: getPctStr(sumUnderTrip),
                 others: sumOthers,
                 othersPct: getPctStr(sumOthers),
+                otherStatusTotal: sumOtherStatusTotal,
+                otherStatusTotalPct: getPctStr(sumOtherStatusTotal),
+                customCategoriesList,
                 totalTrips
             };
         }
@@ -936,12 +1102,111 @@ const FleetUtilizationReport = ({
 
         const list = Object.values(branches);
 
+        const today = new Date();
+        const todayYear = today.getFullYear();
+        const todayMonth = today.getMonth(); // 0-indexed
+        const todayDate = today.getDate();
+
+        let totalDays = 30;
+        let elapsedDays = 30;
+
+        const selYear = parseInt(selectedYear) || todayYear;
+
+        if (filterType === 'month') {
+            const selMonth = parseInt(selectedMonth); // 0-indexed
+            totalDays = new Date(selYear, selMonth + 1, 0).getDate();
+            if (selYear === todayYear && selMonth === todayMonth) {
+                elapsedDays = Math.max(1, todayDate);
+            } else if (selYear > todayYear || (selYear === todayYear && selMonth > todayMonth)) {
+                elapsedDays = 0; // Future month
+            } else {
+                elapsedDays = totalDays; // Past month
+            }
+        } else if (filterType === 'quarter') {
+            const q = parseInt(selectedQuarter) || 2;
+            const startMonthOfQ = (q - 1) * 3;
+            const endMonthOfQ = startMonthOfQ + 2;
+            
+            const qStart = new Date(selYear, startMonthOfQ, 1);
+            const qEnd = new Date(selYear, endMonthOfQ + 1, 0);
+            totalDays = Math.round((qEnd - qStart) / (1000 * 60 * 60 * 24)) + 1;
+
+            if (selYear === todayYear) {
+                if (todayMonth >= startMonthOfQ && todayMonth <= endMonthOfQ) {
+                    const elapsedInQ = Math.round((today - qStart) / (1000 * 60 * 60 * 24)) + 1;
+                    elapsedDays = Math.max(1, elapsedInQ);
+                } else if (todayMonth < startMonthOfQ) {
+                    elapsedDays = 0; // Future quarter
+                } else {
+                    elapsedDays = totalDays; // Past quarter
+                }
+            } else if (selYear > todayYear) {
+                elapsedDays = 0; // Future year
+            } else {
+                elapsedDays = totalDays; // Past year
+            }
+        } else if (filterType === 'year') {
+            const yStart = new Date(selYear, 0, 1);
+            const yEnd = new Date(selYear, 12, 0);
+            totalDays = Math.round((yEnd - yStart) / (1000 * 60 * 60 * 24)) + 1;
+
+            if (selYear === todayYear) {
+                const elapsedInYear = Math.round((today - yStart) / (1000 * 60 * 60 * 24)) + 1;
+                elapsedDays = Math.max(1, elapsedInYear);
+            } else if (selYear > todayYear) {
+                elapsedDays = 0; // Future year
+            } else {
+                elapsedDays = totalDays; // Past year
+            }
+        } else if (filterType === 'day') {
+            totalDays = 1;
+            elapsedDays = 1;
+        } else { // Custom range
+            if (dateRange && dateRange.start && dateRange.end) {
+                const start = new Date(dateRange.start);
+                const end = new Date(dateRange.end);
+                totalDays = Math.max(1, Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1);
+                elapsedDays = totalDays;
+            } else if (dailyData.length > 0) {
+                totalDays = dailyData.length;
+                elapsedDays = totalDays;
+            }
+        }
+
+        // Calculate days in the selected or starting month of the period for projection
+        const { startDate } = getTransportDates(
+            filterType,
+            selectedDay,
+            selectedYear,
+            selectedMonth,
+            selectedQuarter,
+            dateRange
+        );
+        let daysInMonth = 30; // fallback
+        if (startDate) {
+            const startD = new Date(startDate);
+            daysInMonth = new Date(startD.getFullYear(), startD.getMonth() + 1, 0).getDate();
+        } else {
+            daysInMonth = new Date(todayYear, todayMonth + 1, 0).getDate();
+        }
+
         let grand20 = 0, grandOwn20 = 0, grandHired20 = 0;
         let grand40 = 0, grandOwn40 = 0, grandHired40 = 0;
         let grandOther = 0, grandOwnOther = 0, grandHiredOther = 0;
         let grandTotal = 0;
+        let grandAvgTripsPerDay = 0;
+        let grandProjection = 0;
 
         list.forEach(b => {
+            const avgTrips = elapsedDays > 0 ? b.total / elapsedDays : 0;
+            const projTrips = avgTrips * daysInMonth;
+            
+            b.avgTripsPerDay = Math.round(avgTrips);
+            b.projection = Math.round(projTrips);
+
+            grandAvgTripsPerDay += b.avgTripsPerDay;
+            grandProjection += b.projection;
+
             grand20 += b.c20; grandOwn20 += b.own20; grandHired20 += b.hired20;
             grand40 += b.c40; grandOwn40 += b.own40; grandHired40 += b.hired40;
             grandOther += b.other; grandOwnOther += b.ownOther || 0; grandHiredOther += b.hiredOther || 0;
@@ -992,7 +1257,9 @@ const FleetUtilizationReport = ({
                 overallOwn,
                 overallHired,
                 overallOwnPct,
-                overallHiredPct
+                overallHiredPct,
+                avgTripsPerDay: grandAvgTripsPerDay,
+                projection: grandProjection
             },
             cards: {
                 automove: {
@@ -1021,7 +1288,7 @@ const FleetUtilizationReport = ({
                 }
             }
         };
-    }, [closedLRsList]);
+    }, [closedLRsList, filterType, selectedDay, selectedYear, selectedMonth, selectedQuarter, dateRange]);
 
 
 
@@ -1042,33 +1309,33 @@ const FleetUtilizationReport = ({
         return Object.values(fleetSummaryData.summary.outsourced).reduce((sum, val) => sum + (val || 0), 0);
     }, [fleetSummaryData]);
 
-    const monthlyTrendData = useMemo(() => {
-        if (!fleetSummaryData || !fleetSummaryData.summary) return [];
-        const srcc = fleetSummaryData.summary.srcc || {};
-        const outsourced = fleetSummaryData.summary.outsourced || {};
-        
-        return monthNames.map(m => {
-            const srccVal = srcc[m.key] || 0;
-            const outsourcedVal = outsourced[m.key] || 0;
-            return {
-                month: m.name,
-                'SR Container Carriers (SRCC)': srccVal,
-                'Outsourced': outsourcedVal,
-                'Total': srccVal + outsourcedVal
-            };
-        });
-    }, [fleetSummaryData]);
+    // const monthlyTrendData = useMemo(() => {
+    //     if (!fleetSummaryData || !fleetSummaryData.summary) return [];
+    //     const srcc = fleetSummaryData.summary.srcc || {};
+    //     const outsourced = fleetSummaryData.summary.outsourced || {};
+    //     
+    //     return monthNames.map(m => {
+    //         const srccVal = srcc[m.key] || 0;
+    //         const outsourcedVal = outsourced[m.key] || 0;
+    //         return {
+    //             month: m.name,
+    //             'SR Container Carriers (SRCC)': srccVal,
+    //             'Outsourced': outsourcedVal,
+    //             'Total': srccVal + outsourcedVal
+    //         };
+    //     });
+    // }, [fleetSummaryData]);
 
-    const topVehiclesData = useMemo(() => {
-        if (!fleetSummaryData || !fleetSummaryData.rows) return [];
-        return [...fleetSummaryData.rows]
-            .sort((a, b) => (b.total || 0) - (a.total || 0))
-            .slice(0, 10)
-            .map(v => ({
-                vehicleNo: v.vehicleNo,
-                trips: v.total || 0
-            }));
-    }, [fleetSummaryData]);
+    // const topVehiclesData = useMemo(() => {
+    //     if (!fleetSummaryData || !fleetSummaryData.rows) return [];
+    //     return [...fleetSummaryData.rows]
+    //         .sort((a, b) => (b.total || 0) - (a.total || 0))
+    //         .slice(0, 10)
+    //         .map(v => ({
+    //             vehicleNo: v.vehicleNo,
+    //             trips: v.total || 0
+    //         }));
+    // }, [fleetSummaryData]);
 
     const filteredSummaryRows = useMemo(() => {
         if (!fleetSummaryData || !fleetSummaryData.rows) return [];
@@ -1109,6 +1376,152 @@ const FleetUtilizationReport = ({
             direction = 'asc';
         }
         setFleetSortConfig({ key, direction });
+    };
+
+    const exportCompletedTripsExcel = async () => {
+        if (!closedLRsList || closedLRsList.length === 0) {
+            alert("No completed trips data available to export.");
+            return;
+        }
+
+        try {
+            const ExcelJS = await import('exceljs');
+            const { saveAs } = await import('file-saver');
+
+            const workbook = new ExcelJS.Workbook();
+            workbook.creator = 'Exim Application';
+
+            const worksheet = workbook.addWorksheet('Completed Trips');
+
+            const { startDate, endDate } = getTransportDates(
+                filterType,
+                selectedDay,
+                selectedYear,
+                selectedMonth,
+                selectedQuarter,
+                dateRange
+            );
+
+            const dateRangeStr = startDate && endDate
+                ? `${startDate} to ${endDate}`
+                : startDate || endDate || 'Selected Period';
+
+            // 1. Add Title Row
+            const titleText = `Completed Trips Report (${dateRangeStr})`;
+            worksheet.addRow([titleText]);
+            worksheet.mergeCells('A1:I1');
+            const titleRow = worksheet.getRow(1);
+            titleRow.height = 35;
+            titleRow.getCell(1).font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+            titleRow.getCell(1).fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FF1E3A8A' } // Dark blue header
+            };
+            titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+
+            // Empty spacer row
+            worksheet.addRow([]);
+
+            // 2. Add Header Row
+            const headers = [
+                'LR No',
+                'Type',
+                'Branch',
+                'Consignee',
+                'Consignor',
+                'Vehicle',
+                'Container',
+                'Own/Hired',
+                'Closed Date'
+            ];
+            worksheet.addRow(headers);
+            const headerRow = worksheet.getRow(3);
+            headerRow.height = 25;
+            headerRow.eachCell((cell) => {
+                cell.font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+                cell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: 'FF3B82F6' } // Blue primary color
+                };
+                cell.border = {
+                    top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                    left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                    bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                    right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+                };
+                cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            });
+
+            // 3. Add Data Rows
+            closedLRsList.forEach((r, idx) => {
+                const closedDate = r.dispatchClosedDate ? r.dispatchClosedDate.slice(0, 10) : '—';
+                const rowData = [
+                    r.tr_no || '—',
+                    r.import_export || '—',
+                    r.branch || '—',
+                    r.consignee || '—',
+                    r.consignor || '—',
+                    r.vehicle_no || '—',
+                    r.container_number || '—',
+                    r.own_hired || '—',
+                    closedDate
+                ];
+                worksheet.addRow(rowData);
+
+                const row = worksheet.getRow(4 + idx);
+                row.height = 20;
+
+                // Zebra striping
+                const bgArgb = idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
+
+                row.eachCell((cell, colNum) => {
+                    cell.font = { name: 'Arial', size: 10, color: { argb: 'FF334155' } };
+                    cell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: bgArgb }
+                    };
+                    cell.border = {
+                        top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                        left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                        bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                        right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+                    };
+
+                    // Alignment
+                    if (colNum === 4 || colNum === 5) {
+                        cell.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+                    } else {
+                        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+                    }
+                });
+            });
+
+            // 4. Adjust Column Widths
+            worksheet.columns.forEach((column, id) => {
+                let maxLen = 0;
+                column.eachCell((cell, rowNum) => {
+                    if (rowNum > 2) {
+                        const valStr = cell.value ? String(cell.value) : '';
+                        if (valStr.length > maxLen) {
+                            maxLen = valStr.length;
+                        }
+                    }
+                });
+                column.width = Math.max(maxLen + 4, 12);
+            });
+
+            // 5. Save/Download
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: 'application/octet-stream' });
+            saveAs(blob, `Completed_Trips_${dateRangeStr.replace(/\s+/g, '_')}.xlsx`);
+
+        } catch (error) {
+            console.error("Failed to export completed trips to excel:", error);
+            alert("An error occurred while exporting data to Excel.");
+        }
     };
 
     if (loading) {
@@ -1487,6 +1900,34 @@ const FleetUtilizationReport = ({
                 .excel-wrap::-webkit-scrollbar-thumb:hover {
                     background: rgba(148, 163, 184, 0.5);
                 }
+
+                /* Export Excel Button */
+                .nucleus-export-btn {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    padding: 8px 16px;
+                    border-radius: 10px;
+                    font-weight: 600;
+                    font-size: 13px;
+                    cursor: pointer;
+                    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                    border: 1px solid #10b981;
+                    background: transparent;
+                    color: #10b981;
+                    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+                }
+                
+                .nucleus-export-btn:hover {
+                    background: #10b981;
+                    color: #ffffff;
+                    transform: translateY(-1px);
+                    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+                }
+                
+                .nucleus-export-btn:active {
+                    transform: translateY(0);
+                }
             `}</style>
 
             {/* Premium Tab Selector */}
@@ -1581,8 +2022,7 @@ const FleetUtilizationReport = ({
                             { label: 'No Driver', value: `${metrics.noDriver}`, extra: metrics.noDriverPct, color: '#f59e0b' },
                             { label: 'Driver On Leave', value: `${metrics.onLeave}`, extra: metrics.onLeavePct, color: '#ef4444' },
                             { label: 'Maintenance', value: `${metrics.maint}`, extra: metrics.maintPct, color: '#0ea5e9' },
-                            { label: 'Accidents', value: `${metrics.accident}`, extra: metrics.accidentPct, color: '#ef4444' },
-                            { label: 'Others', value: `${metrics.others}`, extra: metrics.othersPct, color: '#64748b' }
+                            { label: 'Accidents', value: `${metrics.accident}`, extra: metrics.accidentPct, color: '#ef4444' }
                         ].map((m, idx) => (
                             <div
                                 key={idx}
@@ -1621,6 +2061,95 @@ const FleetUtilizationReport = ({
                                             fontSize: m.isHighlighted ? '17px' : '15px',
                                             fontWeight: 800,
                                             color: m.isHighlighted ? '#dc2626' : m.color
+                                        }}>
+                                            {m.extra}
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Section title for Other Categories */}
+                    <div style={{ fontSize: '13px', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '24px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>📋</span> Other Status Categories
+                    </div>
+
+                    {/* Metrics Grid - Third Line (Bifurcated Other Categories) */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '8px' }}>
+                        {[
+                            { 
+                                label: 'Other Status Total', 
+                                value: `${metrics.otherStatusTotal}`, 
+                                extra: metrics.otherStatusTotalPct, 
+                                color: '#1e40af', 
+                                gradient: 'linear-gradient(135deg, rgba(239, 246, 255, 0.8) 0%, rgba(219, 234, 254, 0.5) 100%)', 
+                                border: '2px solid rgba(59, 130, 246, 0.5)',
+                                isHighlighted: true 
+                            },
+                            ...(metrics.breakdown > 0 ? [{
+                                label: 'Breakdown',
+                                value: `${metrics.breakdown}`,
+                                extra: metrics.breakdownPct,
+                                color: '#ef4444',
+                                gradient: 'linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(239, 68, 68, 0.02) 100%)',
+                                border: '1px solid rgba(239, 68, 68, 0.2)'
+                            }] : []),
+                            ...(metrics.underTrip > 0 ? [{
+                                label: 'Under Trip',
+                                value: `${metrics.underTrip}`,
+                                extra: metrics.underTripPct,
+                                color: '#10b981',
+                                gradient: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0.02) 100%)',
+                                border: '1px solid rgba(16, 185, 129, 0.2)'
+                            }] : []),
+                            ...(metrics.underDetention > 0 ? [{
+                                label: 'Under Detention',
+                                value: `${metrics.underDetention}`,
+                                extra: metrics.underDetentionPct,
+                                color: '#f59e0b',
+                                gradient: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(245, 158, 11, 0.02) 100%)',
+                                border: '1px solid rgba(245, 158, 11, 0.2)'
+                            }] : []),
+                            ...(metrics.customCategoriesList || [])
+                        ].map((m, idx) => (
+                            <div
+                                key={idx}
+                                className="nucleus-stats-card"
+                                style={{
+                                    padding: m.isHighlighted ? '24px 28px' : '20px 24px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '8px',
+                                    background: m.gradient,
+                                    border: m.border,
+                                    transform: m.isHighlighted ? 'scale(1.02)' : 'none',
+                                    boxShadow: m.isHighlighted ? '0 10px 25px rgba(59, 130, 246, 0.12)' : '0 8px 32px rgba(0, 0, 0, 0.03)',
+                                    zIndex: m.isHighlighted ? 2 : 1
+                                }}
+                            >
+                                <div style={{
+                                    fontSize: m.isHighlighted ? '14px' : '13px',
+                                    color: m.isHighlighted ? '#1e3a8a' : m.color,
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.05em',
+                                    fontWeight: m.isHighlighted ? 900 : 800
+                                }}>
+                                    {m.label}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                                    <span style={{
+                                        fontSize: m.isHighlighted ? '46px' : '38px',
+                                        fontWeight: 900,
+                                        color: m.isHighlighted ? '#1e3a8a' : '#0f172a'
+                                    }} className="mono-text">
+                                        {m.value}
+                                    </span>
+                                    {m.extra && (
+                                        <span style={{
+                                            fontSize: m.isHighlighted ? '17px' : '15px',
+                                            fontWeight: 800,
+                                            color: m.isHighlighted ? '#2563eb' : m.color
                                         }}>
                                             {m.extra}
                                         </span>
@@ -1727,6 +2256,8 @@ const FleetUtilizationReport = ({
                                         <th>20 Feet</th>
                                         <th>40 Feet</th>
                                         <th>Automove</th>
+                                        <th>Avg/Day</th>
+                                        <th>Projection</th>
                                         <th style={{ textAlign: 'right' }}>Total</th>
                                     </tr>
                                 </thead>
@@ -1746,6 +2277,8 @@ const FleetUtilizationReport = ({
                                                         <td>
                                                             {b.other} <span style={{ fontSize: '12.5px', color: '#64748b' }}>(Own: {b.ownOther} Hired: {b.hiredOther})</span>
                                                         </td>
+                                                        <td style={{ color: '#3b82f6', fontWeight: 700 }} className="mono-text">{b.avgTripsPerDay}</td>
+                                                        <td style={{ color: '#10b981', fontWeight: 700 }} className="mono-text">{b.projection}</td>
                                                         <td style={{ fontWeight: 800, textAlign: 'right', color: '#0f172a' }}>{b.total}</td>
                                                     </tr>
                                                 );
@@ -1755,17 +2288,42 @@ const FleetUtilizationReport = ({
                                                 <td style={{ color: '#2563eb' }}>{branchSummary.grandTotals.c20}</td>
                                                 <td style={{ color: '#d97706' }}>{branchSummary.grandTotals.c40}</td>
                                                 <td>{branchSummary.grandTotals.other}</td>
+                                                <td style={{ color: '#3b82f6' }} className="mono-text">{branchSummary.grandTotals.avgTripsPerDay}</td>
+                                                <td style={{ color: '#10b981' }} className="mono-text">{branchSummary.grandTotals.projection}</td>
                                                 <td style={{ fontWeight: 900, textAlign: 'right', color: '#0f172a' }}>{branchSummary.grandTotals.total}</td>
                                             </tr>
                                         </>
                                     ) : (
                                         <tr>
-                                            <td colSpan="5" style={{ textAlign: 'center', color: '#94a3b8', padding: '32px' }}>No branch data available</td>
+                                            <td colSpan="7" style={{ textAlign: 'center', color: '#94a3b8', padding: '32px' }}>No branch data available</td>
                                         </tr>
                                     )}
                                 </tbody>
                             </table>
                         </div>
+
+                        {/* Branch Wise Chart Card */}
+                        {branchSummary.list.length > 0 && (
+                            <div className="nucleus-stats-card" style={{ padding: '24px', background: 'rgba(255, 255, 255, 0.85)', display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '4px' }}>
+                                <div style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span>📊</span> Branch Wise Performance & Projection
+                                </div>
+                                <div style={{ width: '100%', height: 320, paddingTop: '10px' }}>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={branchSummary.list}>
+                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(226, 232, 240, 0.6)" />
+                                            <XAxis dataKey="name" stroke="#64748b" fontSize={11} tickLine={false} />
+                                            <YAxis yAxisId="left" stroke="#3b82f6" fontSize={11} tickLine={false} axisLine={false} />
+                                            <YAxis yAxisId="right" orientation="right" stroke="#10b981" fontSize={11} tickLine={false} axisLine={false} />
+                                            <Tooltip cursor={{ fill: 'rgba(102, 126, 234, 0.04)' }} />
+                                            <Legend verticalAlign="top" height={36} iconType="circle" />
+                                            <Bar yAxisId="left" dataKey="avgTripsPerDay" name="Avg Trips Per Day" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={25} />
+                                            <Bar yAxisId="right" dataKey="projection" name="Projected Monthly Trips" fill="#10b981" radius={[4, 4, 0, 0]} barSize={25} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Our Vehicles vs Outsource Vehicles Percentage Card */}
                         {(() => {
@@ -1867,7 +2425,7 @@ const FleetUtilizationReport = ({
                     {/* Out of Service Vehicles */}
                     <div>
                         <div style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                            <span>⚠️</span> Vehicles Not on road ({fleetStatusList.length})
+                            <span>⚠️</span> Vehicles Not on road ({notOnRoadList.length})
                         </div>
                         <div className="nucleus-table-wrapper">
                             <table className="nucleus-table">
@@ -1880,8 +2438,8 @@ const FleetUtilizationReport = ({
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {fleetStatusList.length > 0 ? (
-                                        fleetStatusList.map((v, idx) => (
+                                    {notOnRoadList.length > 0 ? (
+                                        notOnRoadList.map((v, idx) => (
                                             <tr key={idx}>
                                                 <td className="mono-text" style={{ fontWeight: 700, color: '#0f172a' }}>{v.vehicleNumber}</td>
                                                 <td style={{ color: '#334155', fontWeight: 600 }}>{v.vehicleType || '—'}</td>
@@ -1899,10 +2457,60 @@ const FleetUtilizationReport = ({
                         </div>
                     </div>
 
+                    {/* Other Status Vehicles Breakdown */}
+                    <div style={{ marginTop: '20px' }}>
+                        <div style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                            <span>📋</span> Other Status Vehicles ({otherStatusList.length})
+                        </div>
+                        <div className="nucleus-table-wrapper">
+                            <table className="nucleus-table">
+                                <thead>
+                                    <tr>
+                                        <th>Vehicle No</th>
+                                        <th>Type</th>
+                                        <th>Status</th>
+                                        <th>Last Update</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {otherStatusList.length > 0 ? (
+                                        otherStatusList.map((v, idx) => (
+                                            <tr key={idx}>
+                                                <td className="mono-text" style={{ fontWeight: 700, color: '#0f172a' }}>{v.vehicleNumber}</td>
+                                                <td style={{ color: '#334155', fontWeight: 600 }}>{v.vehicleType || '—'}</td>
+                                                <td><StatusPill status={v.status} otherText={v.otherStatusText} /></td>
+                                                <td style={{ fontSize: '13px', color: '#475569', fontWeight: 500 }}>{v.lastSummary || '—'}</td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan="4" style={{ textAlign: 'center', color: '#94a3b8', padding: '32px' }}>No vehicles in other categories</td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                     {/* Completed Trips */}
                     <div>
-                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                            <span>✅</span> Completed Trips ({closedLRsList.length})
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                            <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span>✅</span> Completed Trips ({closedLRsList.length})
+                            </div>
+                            {closedLRsList.length > 0 && (
+                                <button
+                                    onClick={exportCompletedTripsExcel}
+                                    className="nucleus-export-btn"
+                                >
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                        <polyline points="7 10 12 15 17 10" />
+                                        <line x1="12" y1="15" x2="12" y2="3" />
+                                    </svg>
+                                    Export Excel
+                                </button>
+                            )}
                         </div>
                         <div className="nucleus-table-wrapper">
                             <table className="nucleus-table">
@@ -1966,7 +2574,8 @@ const FleetUtilizationReport = ({
                                     <th rowSpan="2">On Road %</th>
                                     <th rowSpan="2" style={{ background: 'rgba(254, 240, 138, 0.1)' }}>Idle</th>
                                     <th rowSpan="2" style={{ background: 'rgba(254, 202, 202, 0.15)' }}>Not on Road</th>
-                                    <th colSpan="6" style={{ background: 'rgba(254, 202, 202, 0.1)' }}>Breakdown Details</th>
+                                    <th colSpan="5" style={{ background: 'rgba(254, 202, 202, 0.1)' }}>Breakdown Details</th>
+                                    <th colSpan="3" style={{ background: 'rgba(203, 213, 225, 0.15)' }}>Other Statuses</th>
                                     <th colSpan="2">Dispatched</th>
                                     <th rowSpan="2" style={{ background: 'rgba(220, 252, 231, 0.15)' }}>Active LRs</th>
                                     <th colSpan="2">Own Closed</th>
@@ -1974,7 +2583,8 @@ const FleetUtilizationReport = ({
                                     <th colSpan="3" style={{ background: 'rgba(254, 240, 138, 0.1)' }}>Outsourced</th>
                                 </tr>
                                 <tr>
-                                    <th>Brkdn</th><th>Maint</th><th>Leave</th><th>Acc</th><th>No Drv</th><th>Other</th>
+                                    <th>Brkdn</th><th>Maint</th><th>Leave</th><th>Acc</th><th>No Drv</th>
+                                    <th>Detention</th><th>Trip</th><th>Other</th>
                                     <th>Automove</th><th>SN Carrier</th>
                                     <th>20ft</th><th>40ft</th>
                                     <th>Own</th><th>Hired</th>
@@ -1996,6 +2606,8 @@ const FleetUtilizationReport = ({
                                             <td className="num">{d.leave}</td>
                                             <td className="num">{d.accident}</td>
                                             <td className="num">{d.noDriver}</td>
+                                            <td className="num">{d.underDetention}</td>
+                                            <td className="num">{d.underTrip}</td>
                                             <td className="num">{d.others}</td>
                                             <td className="num">{d.automove}</td>
                                             <td className="num">{d.snContainer}</td>
@@ -2023,6 +2635,8 @@ const FleetUtilizationReport = ({
                                         <td className="num" style={{ fontWeight: 800 }}>{spreadsheetTotals.leave}</td>
                                         <td className="num" style={{ fontWeight: 800 }}>{spreadsheetTotals.accident}</td>
                                         <td className="num" style={{ fontWeight: 800 }}>{spreadsheetTotals.noDriver}</td>
+                                        <td className="num" style={{ fontWeight: 800 }}>{spreadsheetTotals.underDetention}</td>
+                                        <td className="num" style={{ fontWeight: 800 }}>{spreadsheetTotals.underTrip}</td>
                                         <td className="num" style={{ fontWeight: 800 }}>{spreadsheetTotals.others}</td>
                                         <td className="num" style={{ fontWeight: 800 }}>{spreadsheetTotals.automove}</td>
                                         <td className="num" style={{ fontWeight: 800 }}>{spreadsheetTotals.snContainer}</td>

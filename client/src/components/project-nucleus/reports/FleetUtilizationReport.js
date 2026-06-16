@@ -199,48 +199,57 @@ const FleetUtilizationReport = ({
                 let rawDispatch = null;
                 let totalFleet = 'NA';
 
-                // Fetch previous month's data for comparison if filterType is month or day
+                // Fetch previous month's data for comparison
                 let prevTotalTrips = 0;
                 let prevMundraTrips = 0;
                 let prevAvgTrips = 0;
                 let prevMundraAvg = 0;
 
-                if (filterType === 'month' || filterType === 'day') {
-                    try {
-                        const selYear = parseInt(selectedYear) || new Date().getFullYear();
-                        const selMonth = parseInt(selectedMonth); // 0-indexed, do NOT use || fallback (breaks January=0)
-                        const prevYear = selMonth === 0 ? selYear - 1 : selYear;
-                        const prevMonth = selMonth === 0 ? 11 : selMonth - 1;
-                        
-                        const prevDays = new Date(prevYear, prevMonth + 1, 0).getDate();
-                        const prevStart = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-01`;
-                        const prevEnd = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-${String(prevDays).padStart(2, '0')}`;
-
-                        console.log('[FleetUtil] Fetching prev month comparison:', { prevStart, prevEnd, selMonth, prevMonth, prevYear });
-
-                        const prevParams = { startDate: prevStart, endDate: prevEnd };
-                        const resPrev = await axios.get(`${TRANSPORT_BASE}/api/vehicle-dsr/dispatch-range`, {
-                            params: prevParams,
-                            headers: TRANSPORT_HEADERS,
-                            withCredentials: true
-                        });
-
-                        console.log('[FleetUtil] Prev month API response:', resPrev?.data?.success, 'closedLRs count:', resPrev?.data?.closedLRs?.length);
-
-                        if (resPrev && resPrev.data && resPrev.data.success) {
-                            const prevClosed = resPrev.data.closedLRs || [];
-                            prevTotalTrips = prevClosed.length;
-                            prevMundraTrips = prevClosed.filter(r => (r.branch || '').toLowerCase().includes('mundra')).length;
-                            
-                            prevAvgTrips = prevTotalTrips / prevDays;
-                            prevMundraAvg = prevMundraTrips / prevDays;
-                            console.log('[FleetUtil] prevTotalTrips:', prevTotalTrips, 'prevAvgTrips:', prevAvgTrips);
-                        } else {
-                            console.warn('[FleetUtil] Prev month API returned no data or success=false');
-                        }
-                    } catch (prevErr) {
-                        console.error("[FleetUtil] Error fetching previous month data for KPI comparison:", prevErr);
+                try {
+                    // Use the start of the selected period as the reference month.
+                    // This works for month, quarter, year, week, custom and day filters.
+                    let refYear, refMonth;
+                    if (startDate) {
+                        // Parse yyyy-MM-dd without timezone issues
+                        const [y, m] = startDate.split('-').map(Number);
+                        refYear = y;
+                        refMonth = m - 1; // 0-indexed
+                    } else {
+                        const today = new Date();
+                        refYear = today.getFullYear();
+                        refMonth = today.getMonth();
                     }
+                    const prevYear = refMonth === 0 ? refYear - 1 : refYear;
+                    const prevMonth = refMonth === 0 ? 11 : refMonth - 1;
+
+                    const prevDays = new Date(prevYear, prevMonth + 1, 0).getDate();
+                    const prevStart = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-01`;
+                    const prevEnd = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-${String(prevDays).padStart(2, '0')}`;
+
+                    console.log('[FleetUtil] Fetching prev month comparison:', { prevStart, prevEnd, refMonth, prevMonth, prevYear });
+
+                    const prevParams = { startDate: prevStart, endDate: prevEnd };
+                    const resPrev = await axios.get(`${TRANSPORT_BASE}/api/vehicle-dsr/dispatch-range`, {
+                        params: prevParams,
+                        headers: TRANSPORT_HEADERS,
+                        withCredentials: true
+                    });
+
+                    console.log('[FleetUtil] Prev month API response:', resPrev?.data?.success, 'closedLRs count:', resPrev?.data?.closedLRs?.length);
+
+                    if (resPrev && resPrev.data && resPrev.data.success) {
+                        const prevClosed = resPrev.data.closedLRs || [];
+                        prevTotalTrips = prevClosed.length;
+                        prevMundraTrips = prevClosed.filter(r => (r.branch || '').toLowerCase().includes('mundra')).length;
+
+                        prevAvgTrips = prevTotalTrips / prevDays;
+                        prevMundraAvg = prevMundraTrips / prevDays;
+                        console.log('[FleetUtil] prevTotalTrips:', prevTotalTrips, 'prevAvgTrips:', prevAvgTrips);
+                    } else {
+                        console.warn('[FleetUtil] Prev month API returned no data or success=false');
+                    }
+                } catch (prevErr) {
+                    console.error("[FleetUtil] Error fetching previous month data for KPI comparison:", prevErr);
                 }
                 setComparisonData({ prevTotalTrips, prevMundraTrips, prevAvgTrips, prevMundraAvg });
 

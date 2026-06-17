@@ -1,5 +1,5 @@
 # Use official Node.js image
-FROM node:24-alpine
+FROM --platform=linux/amd64 node:24-alpine
 
 # Set working directory
 WORKDIR /server

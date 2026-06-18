@@ -760,11 +760,24 @@ const ApplyLeaveModal = ({ isOpen, onClose, onSuccess, balances = [], initialDat
                         <span className="corr-history-title">
                           <FiList size={13} /> My Correction Requests
                         </span>
-                        <span className="corr-history-count">{correctionHistory.length}</span>
+                        <span className="corr-history-count">
+                          {correctionHistory.filter(req => String(req.status || '').toLowerCase() === 'pending').length}
+                        </span>
                       </div>
 
                       <div className="corr-history-list" style={{ maxHeight: '220px', overflowY: 'auto' }}>
-                        {correctionHistory.slice(0, 8).map((req, idx) => {
+                        {[...correctionHistory]
+                          .sort((a, b) => {
+                            const stA = String(a.status || '').toLowerCase();
+                            const stB = String(b.status || '').toLowerCase();
+                            if (stA === 'pending' && stB !== 'pending') return -1;
+                            if (stA !== 'pending' && stB === 'pending') return 1;
+                            const dateA = new Date(a.date || a.attendance_date || 0);
+                            const dateB = new Date(b.date || b.attendance_date || 0);
+                            return dateB - dateA;
+                          })
+                          .slice(0, 8)
+                          .map((req, idx) => {
                           const reqDate = String(req.date || req.attendance_date || '').slice(0, 10);
                           const meta = getCorrectionStatusMeta(req.status);
                           const StatusIcon = meta.icon;

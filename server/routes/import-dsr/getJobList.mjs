@@ -140,7 +140,7 @@ const buildAllContainerDateExists = (field) => ({
 // ---------------- FIELD SELECTION ----------------
 
 const criticalFields = `
-  _id job_no job_number branch_id branch_code trade_type mode cth_no year importer custom_house hawb_hbl_no awb_bl_no 
+  _id job_no job_number branch_id branch_code trade_type mode ie_code_no cth_no year importer custom_house hawb_hbl_no awb_bl_no 
   container_nos vessel_berthing detailed_status be_no be_date type_of_Do billing_completed_date
   gateway_igm_date igm_date igm_no discharge_date shipping_line_airline do_doc_recieved_date 
   is_do_doc_recieved obl_recieved_date is_obl_recieved do_copies do_list status

@@ -145,6 +145,7 @@ import DutyCalculator from "../components/import-utility-tool/duty-calculator/Du
 import ImportBillingTab from "../components/Import-billing/ImportBillingTab.js";
 import AllUsersPage from "./AllUsersPage.js";
 import BillingReports from "../components/accounts/BillingReports.js";
+import RmProcurementSop from "../components/accounts/rmProcurementSop/RmProcurementSop.js";
 
 // Analytics
 import AnalyticsLayout from "../components/analytics/AnalyticsLayout";
@@ -963,6 +964,15 @@ function HomePageContent() {
                   element={
                     <ProtectedRoute requiredModule="Billing Reports">
                       <BillingReports />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/rm-procurement"
+                  element={
+                    <ProtectedRoute requiredModule="RM Procurement SOP">
+                      <RmProcurementSop />
                     </ProtectedRoute>
                   }
                 />

@@ -628,12 +628,87 @@
         }
         function fmtDate(d) { return d ? d.slice(0, 10) : '—'; }
 
-        function statusPill(s, other) {
-            if (s === 'No Driver') return `<span class="pill s-nodriver">No driver</span>`;
-            if (s === 'Driver on Leave') return `<span class="pill s-leave">Driver on leave</span>`;
-            if (s === 'Maintenance') return `<span class="pill s-maint">Maintenance</span>`;
-            if (s === 'Accident') return `<span class="pill s-accident">Accident</span>`;
-            return `<span class="pill s-other">${esc(other || s)}</span>`;
+        const hasStatus = (status, target) => {
+            if (!status) return false;
+            const targets = Array.isArray(target) ? target.map(t => t.toLowerCase()) : [target.toLowerCase()];
+            const checkValue = (val) => {
+                const cleaned = String(val || '').trim().toLowerCase();
+                return targets.includes(cleaned);
+            };
+            if (Array.isArray(status)) {
+                return status.some(checkValue);
+            }
+            return checkValue(status);
+        };
+
+        const getPrimaryCategory = (status) => {
+            if (hasStatus(status, 'Breakdown')) return 'Breakdown';
+            if (hasStatus(status, ['Accident', 'Accidents'])) return 'Accident';
+            if (hasStatus(status, 'Maintenance')) return 'Maintenance';
+            if (hasStatus(status, 'Driver on Leave')) return 'Driver on Leave';
+            if (hasStatus(status, 'No Driver')) return 'No Driver';
+            if (hasStatus(status, 'Under detention')) return 'Under detention';
+            if (hasStatus(status, 'Under trip')) return 'Under trip';
+            return 'Others';
+        };
+
+        const getPrimaryCategoryForMetrics = (status) => {
+            if (hasStatus(status, 'Breakdown')) return 'Breakdown';
+            if (hasStatus(status, ['Accident', 'Accidents'])) return 'Accident';
+            if (hasStatus(status, 'Maintenance')) return 'Maintenance';
+            if (hasStatus(status, 'Driver on Leave')) return 'Driver on Leave';
+            if (hasStatus(status, 'No Driver')) return 'No Driver';
+            if (hasStatus(status, 'Under detention')) return 'Under detention';
+            if (hasStatus(status, 'Under trip')) return 'Under trip';
+            return 'Others';
+        };
+
+        const getCategoriesForVehicle = (v) => {
+            const status = v.status;
+            if (hasStatus(status, 'Breakdown')) return 'Breakdown';
+            if (hasStatus(status, ['Accident', 'Accidents'])) return 'Accident';
+            if (hasStatus(status, 'Maintenance')) return 'Maintenance';
+            if (hasStatus(status, 'Driver on Leave')) return 'Driver on Leave';
+            if (hasStatus(status, 'No Driver')) return 'No Driver';
+            if (hasStatus(status, 'Under detention')) return 'Under detention';
+            if (hasStatus(status, 'Under trip')) return 'Under trip';
+            
+            if (Array.isArray(status)) {
+                const nonIdle = status.find(s => String(s).toUpperCase() !== 'IDLE');
+                return nonIdle ? String(nonIdle).trim() : 'Others';
+            }
+            if (status) {
+                const cleaned = String(status).trim();
+                if (cleaned.toUpperCase() !== 'IDLE') {
+                    return cleaned;
+                }
+            }
+            return 'Others';
+        };
+
+        function statusPill(status, otherText) {
+            const renderSingleStatus = (st) => {
+                const s = String(st || '').trim();
+                if (s === 'No Driver') return `<span class="pill s-nodriver">No driver</span>`;
+                if (s === 'Driver on Leave') return `<span class="pill s-leave">Driver on leave</span>`;
+                if (s === 'Maintenance') return `<span class="pill s-maint">Maintenance</span>`;
+                if (s === 'Accident') return `<span class="pill s-accident">Accident</span>`;
+                if (s.toLowerCase() === 'others' && otherText) {
+                    return `<span class="pill s-other">${esc(otherText)}</span>`;
+                }
+                return `<span class="pill s-other">${esc(s || '—')}</span>`;
+            };
+
+            if (Array.isArray(status)) {
+                return `<div style="display: flex; flex-wrap: wrap; gap: 4px;">
+                    ${status.map(st => renderSingleStatus(st)).join('')}
+                </div>`;
+            }
+
+            if (otherText) {
+                return `<span class="pill s-other">${esc(otherText)}</span>`;
+            }
+            return renderSingleStatus(status);
         }
         function iePill(ie) {
             const cls = ie === 'Import' ? 'ie-import' : ie === 'Export' ? 'ie-export' : 'ie-sales';
@@ -647,10 +722,24 @@
 
         /* ── section renderers ────────────────────────────────────────── */
         function renderMetrics(totalFleet, fleet, active, closed) {
-            const noDriver = fleet.filter(v => v.status === 'No Driver').length;
-            const onLeave = fleet.filter(v => v.status === 'Driver on Leave').length;
-            const maint = fleet.filter(v => v.status === 'Maintenance').length;
-            const accident = fleet.filter(v => v.status === 'Accident').length;
+            const outOfServiceVehicles = fleet.filter(v => !hasStatus(v.status, 'IDLE'));
+            const breakdown = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'Breakdown').length;
+            const noDriver = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'No Driver').length;
+            const onLeave = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'Driver on Leave').length;
+            const maint = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'Maintenance').length;
+            const accident = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'Accident').length;
+            const underDetention = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'Under detention').length;
+            const underTrip = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'Under trip').length;
+            
+            const customCategories = {};
+            outOfServiceVehicles.forEach(v => {
+                const cat = getCategoriesForVehicle(v);
+                const standardCats = ['Breakdown', 'Accident', 'Maintenance', 'Driver on Leave', 'No Driver', 'Under detention', 'Under trip'];
+                if (!standardCats.includes(cat)) {
+                    customCategories[cat] = (customCategories[cat] || 0) + 1;
+                }
+            });
+            const others = Object.values(customCategories).reduce((a, b) => a + b, 0);
 
             const m = (label, val, cls = '') =>
                 `<div class="metric">
@@ -659,9 +748,9 @@
      </div>`;
 
             const totalFleetNum = parseInt(totalFleet) || 0;
-            const notOnRoad = fleet.length;
+            const notOnRoad = breakdown + maint + onLeave + accident + noDriver;
+            const idleVal = !isNaN(parseInt(totalFleet)) ? fleet.filter(v => hasStatus(v.status, 'IDLE')).length : 'NA';
             const ownTrips = closed.filter(r => (r.own_hired || '').toLowerCase().trim() === 'own').length;
-            const idleVal = !isNaN(parseInt(totalFleet)) ? Math.max(0, parseInt(totalFleet) - notOnRoad - ownTrips) : 'NA';
 
             const fmt = (val) => {
                 if (totalFleetNum <= 0) return val;
@@ -669,7 +758,7 @@
                 return `${val}<div style="font-size: 14px; font-weight: 500; margin-top: 4px; opacity: 0.85;">(${pct}%)</div>`;
             };
 
-            const onRoadCount = Math.max(0, totalFleetNum - notOnRoad);
+            const onRoadCount = (totalFleetNum > 0 && idleVal !== 'NA') ? Math.max(0, totalFleetNum - notOnRoad - idleVal - underDetention - underTrip - others) : ownTrips;
             const onRoadPctVal = totalFleetNum > 0 ? (onRoadCount / totalFleetNum) * 100 : 0;
             const onRoadColor = onRoadPctVal >= 90 ? 'ok' : onRoadPctVal >= 75 ? 'warn' : 'danger';
             const onRoadVal = fmt(onRoadCount);
@@ -682,22 +771,51 @@
             const idleValFormatted = idleVal !== 'NA' ? fmt(idleVal) : 'NA';
 
             const notOnRoadFormatted = fmt(notOnRoad);
+            const breakdownFormatted = fmt(breakdown);
             const noDriverFormatted = fmt(noDriver);
             const onLeaveFormatted = fmt(onLeave);
             const maintFormatted = fmt(maint);
             const accidentFormatted = fmt(accident);
+            const underTripFormatted = fmt(underTrip);
+            const underDetentionFormatted = fmt(underDetention);
+            const othersFormatted = fmt(others);
 
-             return `<div class="metrics">
-      ${m('Fleet Size', totalFleet, 'info')}
-      ${m('Vehicle on Road', onRoadVal, onRoadColor)}
-      ${m('Idle', idleValFormatted, idleColor)}
-      ${m('Not on Road', notOnRoadFormatted, 'danger')}
-      ${m('No driver', noDriverFormatted, 'warn')}
-      ${m('Driver on leave', onLeaveFormatted, 'danger')}
-      ${m('Maintenance', maintFormatted, 'info')}
-      ${m('Accidents', accidentFormatted, 'danger')}
-      ${m('Total Trips', closed.length)}
-    </div>`;
+            const otherStatusTotalFormatted = fmt(underDetention + underTrip + others);
+
+            const customCardsHtml = Object.entries(customCategories)
+                .map(([label, count]) => m(label, fmt(count), 'muted'))
+                .join('\n');
+
+            return `
+      <div class="metrics">
+        ${m('Fleet Size', totalFleet, 'info')}
+        ${m('Vehicle on Road', onRoadVal, onRoadColor)}
+        ${m('Idle', idleValFormatted, idleColor)}
+        ${m('Total Trips', closed.length)}
+      </div>
+
+      <div style="font-size: 14px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; margin: 24px 0 12px 0;">
+        ⚠️ Vehicles Not on Road Breakdown
+      </div>
+      <div class="metrics">
+        ${m('Not on Road', notOnRoadFormatted, 'danger')}
+        ${m('No driver', noDriverFormatted, 'warn')}
+        ${m('Driver on leave', onLeaveFormatted, 'danger')}
+        ${m('Maintenance', maintFormatted, 'info')}
+        ${m('Accidents', accidentFormatted, 'danger')}
+      </div>
+
+      <div style="font-size: 14px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; margin: 24px 0 12px 0;">
+        📋 Other Status Categories
+      </div>
+      <div class="metrics">
+        ${m('Other Status Total', otherStatusTotalFormatted, 'info')}
+        ${breakdown > 0 ? m('Breakdown', breakdownFormatted, 'danger') : ''}
+        ${underTrip > 0 ? m('Under Trip', underTripFormatted, 'ok') : ''}
+        ${underDetention > 0 ? m('Under Detention', underDetentionFormatted, 'warn') : ''}
+        ${customCardsHtml}
+      </div>
+            `;
         }
 
         function renderLRs(lrs, showClosed) {
@@ -1040,22 +1158,24 @@
                 const active = d.activeLRs || [];
                 const closed = d.closedLRs || [];
                 
+                const outOfServiceVehicles = fleet.filter(v => !hasStatus(v.status, 'IDLE'));
                 // Not on Road breakdowns
-                const breakdown = fleet.filter(v => v.status === 'Breakdown').length;
-                const maintenance = fleet.filter(v => v.status === 'Maintenance').length;
-                const leave = fleet.filter(v => v.status === 'Driver on Leave').length;
-                const accident = fleet.filter(v => v.status === 'Accident' || v.status === 'Accidents').length;
-                const noDriver = fleet.filter(v => v.status === 'No Driver').length;
-                const others = fleet.filter(v => !['Breakdown', 'Maintenance', 'Driver on Leave', 'Accident', 'Accidents', 'No Driver'].includes(v.status)).length;
-                const notOnRoadTotal = fleet.length;
-                
-                // Used for trips (OOR count)
-                const usedForTrips = Math.max(0, totalFleetNum - notOnRoadTotal);
-                const oorPercent = totalFleetNum > 0 ? ((usedForTrips / totalFleetNum) * 100).toFixed(1) + '%' : '0.0%';
+                const breakdown = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Breakdown').length;
+                const maintenance = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Maintenance').length;
+                const leave = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Driver on Leave').length;
+                const accident = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Accident').length;
+                const noDriver = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'No Driver').length;
+                const underDetention = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Under detention').length;
+                const underTrip = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Under trip').length;
+                const others = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Others').length;
+                const notOnRoadTotal = breakdown + maintenance + leave + accident + noDriver;
                 
                 // Idle count
-                const ownTripsCount = closed.filter(r => (r.own_hired || '').toLowerCase().trim() === 'own').length;
-                const idle = Math.max(0, totalFleetNum - notOnRoadTotal - ownTripsCount);
+                const idle = fleet.filter(v => hasStatus(v.status, 'IDLE')).length;
+
+                // Used for trips (OOR count)
+                const usedForTrips = Math.max(0, totalFleetNum - notOnRoadTotal - idle - underDetention - underTrip - others);
+                const oorPercent = totalFleetNum > 0 ? ((usedForTrips / totalFleetNum) * 100).toFixed(1) + '%' : '0.0%';
                 
                 // Dispatches
                 const automove = [...active, ...closed].filter(r => (r.branch || '').toLowerCase().trim() === 'automove').length;
@@ -1087,6 +1207,8 @@
                         <td class="num">${leave}</td>
                         <td class="num">${accident}</td>
                         <td class="num">${noDriver}</td>
+                        <td class="num">${underDetention}</td>
+                        <td class="num">${underTrip}</td>
                         <td class="num">${others}</td>
                         <td class="num">${automove}</td>
                         <td class="num">${snContainer}</td>
@@ -1113,7 +1235,8 @@
                                 <th rowspan="2">Our Vehicles On Road %</th>
                                 <th rowspan="2" style="background:#fde047;">Idle Vehicles</th>
                                 <th rowspan="2" style="background:#fee2e2;color:#991b1b;">Vehicles Not on Road Total</th>
-                                <th colspan="6" style="background:#fee2e2;color:#991b1b;">Vehicles Not on Road (Breakdown Details)</th>
+                                <th colspan="5" style="background:#fee2e2;color:#991b1b;">Vehicles Not on Road (Breakdown Details)</th>
+                                <th colspan="3" style="background:#e2e8f0;color:#334155;">Other Statuses</th>
                                 <th colspan="2">Dispatched Count</th>
                                 <th rowspan="2" style="background:#dcfce7;color:#166534;">Under Operation</th>
                                 <th colspan="2">Summary (Own)</th>
@@ -1126,7 +1249,9 @@
                                 <th style="background:#fef2f2;">Leave</th>
                                 <th style="background:#fef2f2;">Accident</th>
                                 <th style="background:#fef2f2;">No Driver</th>
-                                <th style="background:#fef2f2;">Others</th>
+                                <th style="background:#f1f5f9;">Detention</th>
+                                <th style="background:#f1f5f9;">Trip</th>
+                                <th style="background:#f1f5f9;">Others</th>
                                 <th>Automove</th>
                                 <th>S N Carrier</th>
                                 <th>Total 20ft</th>
@@ -1165,12 +1290,23 @@
                 if (d.closedLRs) closed.push(...d.closedLRs);
             });
 
+            const notOnRoadFleet = fleet.filter(v => {
+                const cat = getPrimaryCategoryForMetrics(v.status);
+                return ['Breakdown', 'Maintenance', 'Driver on Leave', 'No Driver', 'Accident'].includes(cat);
+            });
+
+            const otherStatusFleet = fleet.filter(v => {
+                const cat = getPrimaryCategoryForMetrics(v.status);
+                return ['Under trip', 'Under detention', 'Others'].includes(cat);
+            });
+
             const brNames = new Set(closed.map(r => r.branch).filter(Boolean));
 
             document.getElementById('main').innerHTML =
                 renderMetrics(totalFleet, fleet, active, closed) +
                 section('building-bridge', 'Branch Wise Summary (20ft & 40ft)', 'badge-purple', brNames.size, renderBranchWise(closed)) +
-                section('truck', 'Fleet status', 'badge-gray', fleet.length, renderFleet(fleet)) +
+                section('alert-triangle', 'Vehicles Not on Road', 'badge-red', notOnRoadFleet.length, renderFleet(notOnRoadFleet)) +
+                section('list-details', 'Other Status Vehicles Breakdown', 'badge-gray', otherStatusFleet.length, renderFleet(otherStatusFleet)) +
                 section('circle-check', 'Total Trips', 'badge-blue', closed.length, renderLRs(closed, true));
         }
 

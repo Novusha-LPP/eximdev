@@ -9,6 +9,8 @@ import TeamModel from "../../model/teamModel.mjs";
 import OpenPoint from "../../model/openPoints/openPointModel.mjs";
 import translate from "google-translate-api-x";
 import EmployeeKPI from "../../model/hr/employeeKPIModel.mjs";
+import AttendanceRecord from "../../model/attendance/AttendanceRecord.js";
+import moment from "moment";
 
 const router = express.Router();
 
@@ -85,6 +87,122 @@ const calculateKPIMetrics = (sheet) => {
         average_complexity: Number(averageComplexity.toFixed(2)),
         total_quantity: totalQuantity,
         performance_quadrant: quadrant
+    };
+};
+
+const autoCalculateKPIScores = async (sheet) => {
+    const employeeId = sheet.user;
+    const queryYear = sheet.year;
+    const queryMonth = sheet.month;
+
+    // 1. Attendance Metrics
+    const monthStr = `${queryYear}-${String(queryMonth).padStart(2, '0')}`;
+    let present_days = 0;
+    let working_days = 0;
+    
+    try {
+        const attendanceRecords = await AttendanceRecord.find({
+            employee_id: employeeId,
+            year_month: monthStr,
+        });
+
+        let weekly_off_count = 0;
+        let holiday_count = 0;
+
+        attendanceRecords.forEach((rec) => {
+            const status = rec.status;
+            if (status === "weekly_off" || rec.is_weekly_off) {
+                weekly_off_count++;
+            } else if (status === "holiday" || rec.is_holiday) {
+                holiday_count++;
+            } else if (["present", "on_duty", "leave", "late"].includes(status)) {
+                present_days += 1;
+            } else if (status === "half_day" || rec.is_half_day) {
+                present_days += 0.5;
+            } else if (status === "incomplete" || rec.missed_punch) {
+                present_days += 0.5;
+            }
+        });
+
+        const daysInMonth = moment(`${queryYear}-${String(queryMonth).padStart(2, '0')}-01`, "YYYY-MM-DD").daysInMonth();
+        working_days = daysInMonth - (weekly_off_count + holiday_count);
+
+        if (working_days <= 0 || attendanceRecords.length === 0) {
+            let sundays = 0;
+            for (let d = 1; d <= daysInMonth; d++) {
+                const dayOfWeek = moment(`${queryYear}-${String(queryMonth).padStart(2, '0')}-${String(d).padStart(2, '0')}`, "YYYY-MM-DD").day();
+                if (dayOfWeek === 0) {
+                    sundays++;
+                }
+            }
+            working_days = daysInMonth - sundays;
+        }
+    } catch (err) {
+        console.error("Error fetching attendance in autoCalculateKPIScores:", err);
+    }
+
+    // 2. KPI Sheet Metrics
+    let qualityScore = 0;
+    let completedTasks = 0;
+    let assignedTargets = 0;
+
+    if (sheet) {
+        qualityScore = sheet.summary?.overall_percentage
+            ? parseFloat((sheet.summary.overall_percentage / 10).toFixed(2))
+            : (sheet.summary?.average_complexity
+                ? parseFloat((sheet.summary.average_complexity * 2).toFixed(2))
+                : 0);
+
+        completedTasks = sheet.summary?.total_quantity || 0;
+        assignedTargets = completedTasks;
+    }
+
+    // 3. Open Points Metrics
+    let openItems = 0;
+    try {
+        openItems = await OpenPoint.countDocuments({
+            responsible_person: employeeId,
+            status: { $ne: "Green" },
+        });
+    } catch (err) {
+        console.error("Error counting open points in autoCalculateKPIScores:", err);
+    }
+
+    const calculatedAttScore = working_days > 0 ? parseFloat(((present_days / working_days) * 10).toFixed(2)) : 0;
+    const calculatedQtyScore = assignedTargets > 0 ? parseFloat(((completedTasks / assignedTargets) * 10).toFixed(2)) : 0;
+    const calculatedLossScore = 10; // incidents defaults to 0
+    const calculatedOpenScore = Math.max(0, parseFloat((10 - openItems * 1.0).toFixed(2)));
+
+    return {
+        attendance: {
+            present_days,
+            working_days,
+            raw_score: calculatedAttScore,
+        },
+        quality_of_work: {
+            raw_score: qualityScore,
+        },
+        quantity_of_work: {
+            raw_score: calculatedQtyScore,
+        },
+        productivity: {
+            completed_tasks: completedTasks,
+            assigned_targets: assignedTargets || 10,
+            raw_score: calculatedQtyScore,
+        },
+        sop_compliance: {
+            raw_score: 10,
+        },
+        business_loss: {
+            incidents: 0,
+            deduction_per_incident: 1.0,
+            raw_score: calculatedLossScore,
+        },
+        open_tasks: {
+            open_items: openItems,
+            deduction_per_item: 1.0,
+            raw_score: calculatedOpenScore,
+        }
     };
 };
 
@@ -1489,71 +1607,175 @@ router.post("/api/kpi/sheet/review", verifyToken, async (req, res) => {
             sheet.markModified('summary');
             sheet.markModified('rows');
 
-            // Automate Employee KPI scorecard creation/update
-            const qtyRaw = parseFloat(req.body.quantityScore !== undefined ? req.body.quantityScore : 10);
-            const qualRaw = parseFloat(req.body.qualityScore !== undefined ? req.body.qualityScore : 10);
-            const attRaw = parseFloat(req.body.attendanceScore !== undefined ? req.body.attendanceScore : 10);
-            const sopRaw = parseFloat(req.body.sopComplianceScore !== undefined ? req.body.sopComplianceScore : 10);
-            const openRaw = parseFloat(req.body.openTaskScore !== undefined ? req.body.openTaskScore : 10);
-            const lossRaw = parseFloat(req.body.businessLossScore !== undefined ? req.body.businessLossScore : 10);
+            // Check if scores are explicitly provided in request body
+            const hasExplicitScores = req.body.quantityScore !== undefined || 
+                                      req.body.qualityScore !== undefined ||
+                                      req.body.attendanceScore !== undefined;
 
-            const qtyWeighted = parseFloat((qtyRaw * 0.25).toFixed(3));
-            const qualWeighted = parseFloat((qualRaw * 0.25).toFixed(3));
-            const attWeighted = parseFloat((attRaw * 0.15).toFixed(3));
-            const sopWeighted = parseFloat((sopRaw * 0.15).toFixed(3));
-            const openWeighted = parseFloat((openRaw * 0.10).toFixed(3));
-            const lossWeighted = parseFloat((lossRaw * 0.10).toFixed(3));
-
-            const totalScore = parseFloat(
-                (qtyWeighted + qualWeighted + attWeighted + sopWeighted + openWeighted + lossWeighted).toFixed(2)
-            );
-
-            let rag = "RED";
-            if (totalScore >= 8.0) {
-                rag = "GREEN";
-            } else if (totalScore >= 5.0) {
-                rag = "AMBER";
-            }
-
-            const kpiData = {
+            const existingKpi = await EmployeeKPI.findOne({
                 employee: sheet.user,
                 year: sheet.year,
-                month: sheet.month,
-                quantity_of_work: {
-                    raw_score: qtyRaw,
-                    weighted_score: qtyWeighted
-                },
-                quality_of_work: {
-                    raw_score: qualRaw,
-                    weighted_score: qualWeighted
-                },
-                attendance: {
-                    raw_score: attRaw,
-                    weighted_score: attWeighted
-                },
-                sop_compliance: {
-                    raw_score: sopRaw,
-                    weighted_score: sopWeighted
-                },
-                open_tasks: {
-                    raw_score: openRaw,
-                    weighted_score: openWeighted
-                },
-                business_loss: {
-                    raw_score: lossRaw,
-                    weighted_score: lossWeighted
-                },
-                total_kpi_score: totalScore,
-                rag_status: rag,
-                reviewed_by: req.user._id,
-                comments: comments || "Auto-saved during KPI sheet check"
-            };
+                month: sheet.month
+            });
 
-            await EmployeeKPI.findOneAndUpdate(
-                { employee: sheet.user, year: sheet.year, month: sheet.month },
-                { $set: kpiData },
-                { upsert: true }
-            );
+            // If no explicit scores are provided and a scorecard already exists, DO NOT alter it.
+            if (!hasExplicitScores && existingKpi) {
+                console.log(`CHECK Action: KPI Scorecard already exists for user ${sheet.user} on ${sheet.month}/${sheet.year}. Skipping automatic update to avoid altering data.`);
+            } else {
+                // Otherwise, calculate/update the scorecard
+                const autoScores = await autoCalculateKPIScores(sheet);
+
+                let qtyRaw, qualRaw, attRaw, sopRaw, openRaw, lossRaw;
+                let presentDays, workingDays, completedTasks, assignedTargets, openItems, openDeduction, lossIncidents, lossDeduction;
+
+                // Quantity / Productivity
+                if (req.body.quantityScore !== undefined) {
+                    qtyRaw = parseFloat(req.body.quantityScore);
+                    completedTasks = qtyRaw;
+                    assignedTargets = 10;
+                } else if (existingKpi && existingKpi.quantity_of_work?.raw_score !== undefined) {
+                    qtyRaw = existingKpi.quantity_of_work.raw_score;
+                    completedTasks = existingKpi.productivity?.completed_tasks ?? qtyRaw;
+                    assignedTargets = existingKpi.productivity?.assigned_targets ?? 10;
+                } else {
+                    qtyRaw = autoScores.quantity_of_work.raw_score;
+                    completedTasks = autoScores.productivity.completed_tasks;
+                    assignedTargets = autoScores.productivity.assigned_targets;
+                }
+
+                // Quality
+                if (req.body.qualityScore !== undefined) {
+                    qualRaw = parseFloat(req.body.qualityScore);
+                } else if (existingKpi && existingKpi.quality_of_work?.raw_score !== undefined) {
+                    qualRaw = existingKpi.quality_of_work.raw_score;
+                } else {
+                    qualRaw = autoScores.quality_of_work.raw_score;
+                }
+
+                // Attendance
+                if (req.body.attendanceScore !== undefined) {
+                    attRaw = parseFloat(req.body.attendanceScore);
+                    presentDays = existingKpi?.attendance?.present_days ?? autoScores.attendance.present_days;
+                    workingDays = existingKpi?.attendance?.working_days ?? autoScores.attendance.working_days;
+                } else if (existingKpi && existingKpi.attendance?.raw_score !== undefined) {
+                    attRaw = existingKpi.attendance.raw_score;
+                    presentDays = existingKpi.attendance.present_days;
+                    workingDays = existingKpi.attendance.working_days;
+                } else {
+                    attRaw = autoScores.attendance.raw_score;
+                    presentDays = autoScores.attendance.present_days;
+                    workingDays = autoScores.attendance.working_days;
+                }
+
+                // SOP Compliance
+                if (req.body.sopComplianceScore !== undefined) {
+                    sopRaw = parseFloat(req.body.sopComplianceScore);
+                } else if (existingKpi && existingKpi.sop_compliance?.raw_score !== undefined) {
+                    sopRaw = existingKpi.sop_compliance.raw_score;
+                } else {
+                    sopRaw = autoScores.sop_compliance.raw_score;
+                }
+
+                // Open Tasks
+                if (req.body.openTaskScore !== undefined) {
+                    openRaw = parseFloat(req.body.openTaskScore);
+                    openItems = existingKpi?.open_tasks?.open_items ?? autoScores.open_tasks.open_items;
+                    openDeduction = existingKpi?.open_tasks?.deduction_per_item ?? autoScores.open_tasks.deduction_per_item;
+                } else if (existingKpi && existingKpi.open_tasks?.raw_score !== undefined) {
+                    openRaw = existingKpi.open_tasks.raw_score;
+                    openItems = existingKpi.open_tasks.open_items;
+                    openDeduction = existingKpi.open_tasks.deduction_per_item;
+                } else {
+                    openRaw = autoScores.open_tasks.raw_score;
+                    openItems = autoScores.open_tasks.open_items;
+                    openDeduction = autoScores.open_tasks.deduction_per_item;
+                }
+
+                // Business Loss
+                if (req.body.businessLossScore !== undefined) {
+                    lossRaw = parseFloat(req.body.businessLossScore);
+                    lossIncidents = existingKpi?.business_loss?.incidents ?? autoScores.business_loss.incidents;
+                    lossDeduction = existingKpi?.business_loss?.deduction_per_incident ?? autoScores.business_loss.deduction_per_incident;
+                } else if (existingKpi && existingKpi.business_loss?.raw_score !== undefined) {
+                    lossRaw = existingKpi.business_loss.raw_score;
+                    lossIncidents = existingKpi.business_loss.incidents;
+                    lossDeduction = existingKpi.business_loss.deduction_per_incident;
+                } else {
+                    lossRaw = autoScores.business_loss.raw_score;
+                    lossIncidents = autoScores.business_loss.incidents;
+                    lossDeduction = autoScores.business_loss.deduction_per_incident;
+                }
+
+                const qtyWeighted = parseFloat((qtyRaw * 0.25).toFixed(3));
+                const qualWeighted = parseFloat((qualRaw * 0.25).toFixed(3));
+                const attWeighted = parseFloat((attRaw * 0.15).toFixed(3));
+                const sopWeighted = parseFloat((sopRaw * 0.15).toFixed(3));
+                const openWeighted = parseFloat((openRaw * 0.10).toFixed(3));
+                const lossWeighted = parseFloat((lossRaw * 0.10).toFixed(3));
+
+                const totalScore = parseFloat(
+                    (qtyWeighted + qualWeighted + attWeighted + sopWeighted + openWeighted + lossWeighted).toFixed(2)
+                );
+
+                let rag = "RED";
+                if (totalScore >= 8.0) {
+                    rag = "GREEN";
+                } else if (totalScore >= 5.0) {
+                    rag = "AMBER";
+                }
+
+                const kpiData = {
+                    employee: sheet.user,
+                    year: sheet.year,
+                    month: sheet.month,
+                    quantity_of_work: {
+                        raw_score: qtyRaw,
+                        weighted_score: qtyWeighted
+                    },
+                    quality_of_work: {
+                        raw_score: qualRaw,
+                        weighted_score: qualWeighted
+                    },
+                    attendance: {
+                        present_days: presentDays,
+                        working_days: workingDays,
+                        raw_score: attRaw,
+                        weighted_score: attWeighted
+                    },
+                    productivity: {
+                        completed_tasks: completedTasks,
+                        assigned_targets: assignedTargets,
+                        raw_score: qtyRaw,
+                        weighted_score: qtyWeighted
+                    },
+                    sop_compliance: {
+                        raw_score: sopRaw,
+                        weighted_score: sopWeighted
+                    },
+                    open_tasks: {
+                        open_items: openItems,
+                        deduction_per_item: openDeduction,
+                        raw_score: openRaw,
+                        weighted_score: openWeighted
+                    },
+                    business_loss: {
+                        incidents: lossIncidents,
+                        deduction_per_incident: lossDeduction,
+                        raw_score: lossRaw,
+                        weighted_score: lossWeighted
+                    },
+                    total_kpi_score: totalScore,
+                    rag_status: rag,
+                    reviewed_by: req.user._id,
+                    comments: comments || "Auto-saved during KPI sheet check"
+                };
+
+                await EmployeeKPI.findOneAndUpdate(
+                    { employee: sheet.user, year: sheet.year, month: sheet.month },
+                    { $set: kpiData },
+                    { upsert: true }
+                );
+            }
 
             sheet.status = "CHECKED";
             sheet.signatures.checked_by = `${req.user.first_name} ${req.user.last_name || ''}`;

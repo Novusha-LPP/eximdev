@@ -875,7 +875,7 @@ function PaymentPending({ workMode = "Payment" }) {
                       sx={{ textTransform: 'none' }}
                     >
                       {selectedReceipt ? "Change Receipt" : "Attach Receipt (Optional)"}
-                      <inputKOTAK MAHINDRA BANK LTDKOTAK MAHINDRA BANK LTD
+                      <input
                         type="file"
                         hidden
                         disabled={!selectedPaymentRequest.isApproved}

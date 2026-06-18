@@ -21,6 +21,7 @@ const allModules = [
   "Export - Operation",
   "Accounts",
   "Billing Reports",
+  "RM Procurement SOP",
   "Employee Onboarding",
   "Employee KYC",
   "HR",

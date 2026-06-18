@@ -57,7 +57,7 @@ function JobDetailsStaticData(props) {
 
   const handleEditClick = (e) => {
     e.stopPropagation();
-    setEditFormData({
+    const initialFormData = {
       job_no: props.params.job_no || "",
       custom_house: props.data?.custom_house || "",
       importer: props.data?.importer || "",
@@ -114,7 +114,13 @@ function JobDetailsStaticData(props) {
       bill_date: props.data?.bill_date || "",
       exrate: props.data?.exrate || "",
       cif_amount: props.data?.cif_amount || "",
-    });
+    };
+
+    if (!isAirMode(props.data?.mode)) {
+      initialFormData.consignment_type = props.data?.consignment_type || "";
+    }
+
+    setEditFormData(initialFormData);
     setErrorMsg("");
     setEditModalOpen(true);
   };
@@ -843,14 +849,20 @@ function JobDetailsStaticData(props) {
 
           {/* Row 10: Billing Details (New) */}
           <Row style={compactRowStyle}>
-            <Col xs={12} lg={6}>
+            <Col xs={12} md={6} lg={!isAirMode(props.data?.mode) ? 4 : 6}>
               <span style={labelStyle}>Bill No: </span>
               <span style={{ ...valueStyle, color: "#28a745", fontWeight: "600" }}>{props.data.bill_no || "N/A"}</span>
             </Col>
-            <Col xs={12} lg={6}>
+            <Col xs={12} md={6} lg={!isAirMode(props.data?.mode) ? 4 : 6}>
               <span style={labelStyle}>Bill Date: </span>
               <span style={{ ...valueStyle, color: "#28a745", fontWeight: "600" }}>{props.data.bill_date || "N/A"}</span>
             </Col>
+            {!isAirMode(props.data?.mode) && (
+              <Col xs={12} md={6} lg={4}>
+                <span style={labelStyle}>Consignment Type: </span>
+                <span style={valueStyle}>{props.data.consignment_type || "N/A"}</span>
+              </Col>
+            )}
           </Row>
 
           {/* Row 10: G-IGM & HSS Details */}
@@ -1086,6 +1098,32 @@ function JobDetailsStaticData(props) {
                             {...params}
                             size="small"
                             label="Commercial Tax Type"
+                            fullWidth
+                          />
+                        )}
+                      />
+                    </Grid>
+                  );
+                }
+                if (key === "consignment_type") {
+                  const consignmentTypeOptions = [
+                    { value: "FCL", label: "FCL" },
+                    { value: "LCL", label: "LCL" }
+                  ];
+                  return (
+                    <Grid item xs={12} sm={6} md={4} lg={3} key={key}>
+                      <Autocomplete
+                        options={consignmentTypeOptions}
+                        getOptionLabel={(option) => option.label || ""}
+                        value={consignmentTypeOptions.find(opt => opt.value === editFormData[key]) || null}
+                        onChange={(event, newValue) => {
+                          setEditFormData(prev => ({ ...prev, [key]: newValue ? newValue.value : "" }));
+                        }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            size="small"
+                            label="Consignment Type"
                             fullWidth
                           />
                         )}

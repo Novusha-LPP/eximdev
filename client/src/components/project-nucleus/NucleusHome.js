@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { format } from 'date-fns';
+import { format, startOfWeek, endOfWeek } from 'date-fns';
 import './NucleusHome.css';
 
 // Import refactored report components
@@ -397,6 +397,7 @@ const NucleusHome = () => {
                                         {['fleet_utilization', 'elock_utilization', 'elock_billing', 'transport_accounts'].includes(activeReport) && (
                                             <option value="day">Day Wise</option>
                                         )}
+                                        <option value="week">Week Wise</option>
                                         <option value="month">Month Wise</option>
                                         <option value="quarter">Quarter Wise</option>
                                         <option value="year">Year Wise</option>
@@ -413,6 +414,22 @@ const NucleusHome = () => {
                                             value={selectedDay}
                                             onChange={(e) => setSelectedDay(e.target.value)}
                                         />
+                                    </div>
+                                )}
+
+                                {filterType === 'week' && (
+                                    <div className="custom-inputs" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <input
+                                            type="date"
+                                            className="nucleus-input"
+                                            value={selectedDay}
+                                            onChange={(e) => setSelectedDay(e.target.value)}
+                                        />
+                                        {selectedDay && (
+                                            <span style={{ fontSize: '13px', color: '#4b5563', fontWeight: 600 }}>
+                                                ({format(startOfWeek(new Date(selectedDay), { weekStartsOn: 1 }), 'dd MMM')} - {format(endOfWeek(new Date(selectedDay), { weekStartsOn: 1 }), 'dd MMM')})
+                                            </span>
+                                        )}
                                     </div>
                                 )}
 

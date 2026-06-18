@@ -1787,7 +1787,8 @@ export const lockMonthAttendance = async (req, res) => {
 export const getPayrollData = async (req, res) => {
     try {
         const isDynamic = req.user?.isAttendanceAllowedAdmin === true;
-        if (req.user.role !== 'ADMIN' && !isDynamic) {
+        const isHOD = req.user?.role === 'HOD';
+        if (req.user.role !== 'ADMIN' && !isDynamic && !isHOD) {
             return res.status(403).json({ message: 'Only admins can view payroll data' });
         }
         
@@ -1805,7 +1806,7 @@ export const getPayrollData = async (req, res) => {
         const targetYear = year || moment().year().toString();
         const yearMonth = `${targetYear}-${targetMonth.toString().padStart(2, '0')}`;
 
-        const isAdmin = req.user.role === 'ADMIN' || isDynamic;
+        const isAdmin = req.user.role === 'ADMIN' || isDynamic || isHOD;
 
         // Validate company exists
         const company = await Company.findById(companyId);

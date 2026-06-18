@@ -204,17 +204,8 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
   });
   const [epwExporting, setEpwExporting] = useState(false);
 
-  const empCompany = profile?.employee?.company_id?.company_name || profile?.employee?.company || '';
-  const isEmployeeRabs = isRabsOrganization(empCompany);
-
   const [tab, setTab] = useState(urlTab||'performance');
   useEffect(() => { if (urlTab&&urlTab!==tab) setTab(urlTab); }, [urlTab]);
-
-  useEffect(() => {
-    if (tab === 'payroll' && profile && !isEmployeeRabs) {
-      setTab('performance');
-    }
-  }, [tab, profile, isEmployeeRabs]);
 
   const handleTabChange = (newTab) => {
     setTab(newTab);
@@ -286,6 +277,15 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
   const [epwDlLoading, setEpwDlLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
+  const empCompany = profile?.employee?.company_id?.company_name || profile?.employee?.company || '';
+  const isEmployeeRabs = isRabsOrganization(empCompany);
+
+  useEffect(() => {
+    if (tab === 'payroll' && profile && !isEmployeeRabs) {
+      setTab('performance');
+    }
+  }, [tab, profile, isEmployeeRabs]);
+
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showPendingLeavesModal, setShowPendingLeavesModal] = useState(false);
   const [leavePolicies, setLeavePolicies] = useState([]);
@@ -2836,13 +2836,13 @@ const filteredEmployees = useMemo(() => {
         )}
 
         {/* ══ PROFILE TAB ══════════════════════════════════════════════════ */}
-        {tab==='profile' && (
+        {/* {tab==='profile' && (
           <ProfileTab
             employeeId={id}
             companyId={profile?.employee?.company_id?._id}
             employeeName={employeeName}
           />
-        )}
+        )} */}
 
         {/* ── Leave Modal ── */}
         <AdminApplyLeaveModal isOpen={showLeaveModal} onClose={()=>setShowLeaveModal(false)} employeeId={id} employeeName={employeeName} onSuccess={()=>{ fetchData(); fetchBrowseHistory(); }}/>

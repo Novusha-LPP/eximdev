@@ -204,8 +204,17 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
   });
   const [epwExporting, setEpwExporting] = useState(false);
 
+  const empCompany = profile?.employee?.company_id?.company_name || profile?.employee?.company || '';
+  const isEmployeeRabs = isRabsOrganization(empCompany);
+
   const [tab, setTab] = useState(urlTab||'performance');
   useEffect(() => { if (urlTab&&urlTab!==tab) setTab(urlTab); }, [urlTab]);
+
+  useEffect(() => {
+    if (tab === 'payroll' && profile && !isEmployeeRabs) {
+      setTab('performance');
+    }
+  }, [tab, profile, isEmployeeRabs]);
 
   const handleTabChange = (newTab) => {
     setTab(newTab);
@@ -2242,14 +2251,16 @@ const filteredEmployees = useMemo(() => {
 
         {/* ── Tab Bar ── */}
         <div style={{ display:'flex', gap:'0', borderBottom:`1px solid ${THEME.border}`, marginBottom:'24px' }}>
-          {['Performance','Attendance','Leave','Policies','Actions','Payroll'].map(label=>{
-            const t = label.toLowerCase(), isActive = tab===t;
-            return (
-              <button key={t} onClick={()=>handleTabChange(t)} style={{ background:'transparent', color:isActive?'#000':THEME.muted, borderBottom:isActive?'2px solid #000':'2px solid transparent', padding:'10px 16px', fontSize:'13px', fontWeight:isActive?'700':'500', border:'none', borderBottom:isActive?'2px solid #000':'2px solid transparent', cursor:'pointer', marginBottom:'-1px', transition:'all 0.15s' }}>
-                {label}
-              </button>
-            );
-          })}
+          {['Performance','Attendance','Leave','Policies','Actions','Payroll']
+            .filter(label => label !== 'Payroll' || isEmployeeRabs)
+            .map(label=>{
+              const t = label.toLowerCase(), isActive = tab===t;
+              return (
+                <button key={t} onClick={()=>handleTabChange(t)} style={{ background:'transparent', color:isActive?'#000':THEME.muted, borderBottom:isActive?'2px solid #000':'2px solid transparent', padding:'10px 16px', fontSize:'13px', fontWeight:isActive?'700':'500', border:'none', borderBottom:isActive?'2px solid #000':'2px solid transparent', cursor:'pointer', marginBottom:'-1px', transition:'all 0.15s' }}>
+                  {label}
+                </button>
+              );
+            })}
         </div>
 
         {/* ══ PERFORMANCE TAB ══════════════════════════════════════════════════ */}
@@ -2816,7 +2827,7 @@ const filteredEmployees = useMemo(() => {
         )}
 
         {/* ══ PAYROLL TAB ══════════════════════════════════════════════════ */}
-        {tab==='payroll' && (
+        {tab==='payroll' && isEmployeeRabs && (
           <PayrollTab
             employeeId={id}
             companyId={profile?.employee?.company_id?._id}

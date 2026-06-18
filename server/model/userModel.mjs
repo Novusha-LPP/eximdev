@@ -125,6 +125,8 @@ const userSchema = new Schema({
   last_punch_type: { type: String },
   current_status: { type: String, enum: ['in_office', 'out_office', 'on_leave', 'on_duty'] },
   monthly_salary: { type: Number, default: 0 },
+  isAttendanceAllowedAdmin: { type: Boolean, default: false },
+  is_operator: { type: Boolean, default: false },
 
   // ─── Profile / HR / Payroll fields ──────────────────────────────────────────
   pf_joining_date: { type: Date },

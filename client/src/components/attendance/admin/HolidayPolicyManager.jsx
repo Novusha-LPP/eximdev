@@ -40,8 +40,9 @@ const HolidayPolicyManager = ({ user: userProp }) => {
   const { user: ctxUser } = useContext(UserContext);
   const user = userProp || ctxUser;  // prefer prop, fall back to context
   const username = (user?.username || '').toLowerCase();
-  const isAllowedAdmin = (user?.role === 'ADMIN' || user?.role === 'Admin') && ALLOWED_USERNAMES.has(username);
-  const isAdmin = user?.role === 'ADMIN' || user?.role === 'Admin';
+  const isDynamicAdmin = user?.isAttendanceAllowedAdmin === true;
+  const isAllowedAdmin = ((user?.role === 'ADMIN' || user?.role === 'Admin') && ALLOWED_USERNAMES.has(username)) || isDynamicAdmin;
+  const isAdmin = user?.role === 'ADMIN' || user?.role === 'Admin' || isDynamicAdmin;
 
   const [policies, setPolicies]           = useState([]);
   const [loading, setLoading]             = useState(true);

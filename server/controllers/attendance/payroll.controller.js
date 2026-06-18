@@ -16,6 +16,33 @@ import SalaryStructure from '../../model/attendance/SalaryStructure.js';
 import User from '../../model/userModel.mjs';
 import PayrollGenerator from '../../services/payroll/payrollCalculation.service.js';
 import PayrollLockService from '../../services/payroll/payrollLock.service.js';
+import { isRestrictedAllowedAdmin, getRestrictedEmployeeIds } from '../../utils/attendance/allowedAdminRestriction.mjs';
+
+/**
+ * Helper to check if the actor has permission to read/write payroll config of target employee.
+ * Only global admins and the two restricted allowed admins (ajith_sivadasan, afzal_ghanchi)
+ * are authorized. Restricted allowed admins are scoped only to their team members.
+ */
+const checkPayrollAccess = async (actor, employeeId, mode = 'read') => {
+  const actorRoleNorm = String(actor.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+  const isActorAdmin = actorRoleNorm === 'ADMIN';
+  const isRestricted = isRestrictedAllowedAdmin(actor);
+  const isDynamicAdmin = actor.isAttendanceAllowedAdmin === true;
+
+  // 1. Unrestricted global admins or non-restricted allowed admins
+  let isAuthorized = (isActorAdmin || isDynamicAdmin) && !isRestricted;
+
+  // 2. Restricted allowed admins (ajith_sivadasan, afzal_ghanchi) can access their team members
+  if (!isAuthorized && isRestricted) {
+    const restrictedIds = await getRestrictedEmployeeIds(actor);
+    if (restrictedIds && restrictedIds.includes(employeeId.toString())) {
+      isAuthorized = true;
+    }
+  }
+
+  return isAuthorized;
+};
+
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Employee Payroll Configuration
@@ -28,6 +55,11 @@ import PayrollLockService from '../../services/payroll/payrollLock.service.js';
 export const getEmployeePayrollConfig = async (req, res) => {
   try {
     const { employeeId } = req.params;
+
+    const isAuthorized = await checkPayrollAccess(req.user, employeeId, 'read');
+    if (!isAuthorized) {
+      return res.status(403).json({ success: false, message: 'Authorization denied: Only admins and authorized allowed admins can view payroll config' });
+    }
 
     const config = await EmployeePayrollConfig.findOne({
       employee_id: employeeId,
@@ -63,12 +95,25 @@ export const updateEmployeePayrollConfig = async (req, res) => {
       revision_reason
     } = req.body;
 
-    if (!company_id) {
+    const isAuthorized = await checkPayrollAccess(req.user, employeeId, 'write');
+    if (!isAuthorized) {
+      return res.status(403).json({ success: false, message: 'Authorization denied: Only admins and authorized allowed admins can update payroll config' });
+    }
+
+    if (is_operator !== undefined) {
+      await User.findByIdAndUpdate(employeeId, { is_operator: !!is_operator });
+    }
+
+    let resolvedCompanyId = company_id;
+    if (!resolvedCompanyId) {
+      const employeeUser = await User.findById(employeeId).select('company_id').lean();
+      resolvedCompanyId = employeeUser?.company_id;
+    }
+    if (!resolvedCompanyId) {
       return res.status(400).json({ success: false, message: 'company_id is required.' });
     }
-    if (!effective_from) {
-      return res.status(400).json({ success: false, message: 'effective_from date is required.' });
-    }
+
+    const effectiveDate = effective_from ? new Date(effective_from) : new Date();
 
     // Supersede existing ACTIVE config
     const existingActive = await EmployeePayrollConfig.findOne({
@@ -78,7 +123,7 @@ export const updateEmployeePayrollConfig = async (req, res) => {
 
     if (existingActive) {
       existingActive.status = 'SUPERSEDED';
-      existingActive.effective_to = new Date(effective_from);
+      existingActive.effective_to = effectiveDate;
       existingActive.updated_by = userId;
       await existingActive.save();
     }
@@ -86,15 +131,15 @@ export const updateEmployeePayrollConfig = async (req, res) => {
     // Create new ACTIVE config
     const newConfig = await EmployeePayrollConfig.create({
       employee_id: employeeId,
-      company_id,
+      company_id: resolvedCompanyId,
       is_operator: is_operator || false,
       payroll_type: payroll_type || (is_operator ? 'DAILY_WAGE' : 'MONTHLY'),
       monthly_salary: monthly_salary || 0,
       daily_wage: daily_wage || 0,
       overtime_rate_per_hour: overtime_rate_per_hour || 0,
-      overtime_eligible: overtime_eligible || false,
+      overtime_eligible: overtime_eligible !== undefined ? overtime_eligible : (is_operator || false),
       overtime_grace_minutes: overtime_grace_minutes ?? 20,
-      effective_from: new Date(effective_from),
+      effective_from: effectiveDate,
       effective_to: null,
       status: 'ACTIVE',
       created_by: userId,
@@ -115,6 +160,11 @@ export const updateEmployeePayrollConfig = async (req, res) => {
 export const getPayrollConfigHistory = async (req, res) => {
   try {
     const { employeeId } = req.params;
+
+    const isAuthorized = await checkPayrollAccess(req.user, employeeId, 'read');
+    if (!isAuthorized) {
+      return res.status(403).json({ success: false, message: 'Authorization denied: Only admins and authorized allowed admins can view config history' });
+    }
 
     const configs = await EmployeePayrollConfig.find({
       employee_id: employeeId
@@ -202,8 +252,24 @@ export const getPayrollRun = async (req, res) => {
 export const getPayrollSummaries = async (req, res) => {
   try {
     const { runId } = req.params;
+    const actor = req.user;
+    const actorRoleNorm = String(actor.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+    const isActorAdmin = actorRoleNorm === 'ADMIN';
+    const isDynamicAdmin = actor.isAttendanceAllowedAdmin === true;
+    const isRestricted = isRestrictedAllowedAdmin(actor);
 
-    const summaries = await PayrollSummary.find({ payroll_run_id: runId })
+    if (!isActorAdmin && !isDynamicAdmin) {
+      return res.status(403).json({ success: false, message: 'Authorization denied: Only admins and authorized allowed admins can view payroll summaries' });
+    }
+
+    let query = { payroll_run_id: runId };
+
+    if (isRestricted) {
+      const restrictedIds = await getRestrictedEmployeeIds(actor);
+      query.employee_id = { $in: restrictedIds };
+    }
+
+    const summaries = await PayrollSummary.find(query)
       .populate('employee_id', 'username first_name last_name employee_code employee_photo designation')
       .sort({ 'employee_id.first_name': 1 })
       .lean();
@@ -222,6 +288,11 @@ export const getPayrollSummaries = async (req, res) => {
 export const getEmployeePayrollSummary = async (req, res) => {
   try {
     const { employeeId, year, month } = req.params;
+
+    const isAuthorized = await checkPayrollAccess(req.user, employeeId, 'read');
+    if (!isAuthorized) {
+      return res.status(403).json({ success: false, message: 'Authorization denied: Only admins and authorized allowed admins can view payroll summary' });
+    }
 
     const summary = await PayrollSummary.findOne({
       employee_id: employeeId,
@@ -283,6 +354,11 @@ export const getSalaryStructure = async (req, res) => {
   try {
     const { employeeId } = req.params;
 
+    const isAuthorized = await checkPayrollAccess(req.user, employeeId, 'read');
+    if (!isAuthorized) {
+      return res.status(403).json({ success: false, message: 'Authorization denied: Only admins and authorized allowed admins can view salary structure' });
+    }
+
     const structure = await SalaryStructure.findOne({
       employee_id: employeeId,
       status: 'ACTIVE'
@@ -303,6 +379,12 @@ export const saveSalaryStructure = async (req, res) => {
   try {
     const { employeeId } = req.params;
     const userId = req.user?._id;
+
+    const isAuthorized = await checkPayrollAccess(req.user, employeeId, 'write');
+    if (!isAuthorized) {
+      return res.status(403).json({ success: false, message: 'Authorization denied: Only admins and authorized allowed admins can save salary structure' });
+    }
+
     const {
       company_id,
       effective_from,
@@ -353,6 +435,11 @@ export const getSalaryStructureHistory = async (req, res) => {
   try {
     const { employeeId } = req.params;
 
+    const isAuthorized = await checkPayrollAccess(req.user, employeeId, 'read');
+    if (!isAuthorized) {
+      return res.status(403).json({ success: false, message: 'Authorization denied: Only admins and authorized allowed admins can view salary structure history' });
+    }
+
     const structures = await SalaryStructure.find({
       employee_id: employeeId
     })
@@ -375,13 +462,29 @@ export const getSalaryStructureHistory = async (req, res) => {
 export const exportPayrollExcel = async (req, res) => {
   try {
     const { runId } = req.params;
+    const actor = req.user;
+    const actorRoleNorm = String(actor.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+    const isActorAdmin = actorRoleNorm === 'ADMIN';
+    const isDynamicAdmin = actor.isAttendanceAllowedAdmin === true;
+    const isRestricted = isRestrictedAllowedAdmin(actor);
+
+    if (!isActorAdmin && !isDynamicAdmin) {
+      return res.status(403).json({ success: false, message: 'Authorization denied: Only admins and authorized allowed admins can export payroll' });
+    }
 
     const run = await PayrollRun.findById(runId).lean();
     if (!run) {
       return res.status(404).json({ success: false, message: 'Payroll run not found.' });
     }
 
-    const summaries = await PayrollSummary.find({ payroll_run_id: runId })
+    let query = { payroll_run_id: runId };
+
+    if (isRestricted) {
+      const restrictedIds = await getRestrictedEmployeeIds(actor);
+      query.employee_id = { $in: restrictedIds };
+    }
+
+    const summaries = await PayrollSummary.find(query)
       .populate('employee_id', 'username first_name last_name employee_code designation')
       .sort({ 'employee_id.first_name': 1 })
       .lean();
@@ -451,4 +554,80 @@ export const updateUserProfile = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+export const toggleEmployeeOperatorStatus = async (req, res) => {
+  try {
+    const { employeeId, is_operator } = req.body;
+
+    if (!employeeId || is_operator === undefined) {
+      return res.status(400).json({ success: false, message: 'employeeId and is_operator are required' });
+    }
+
+    const isAuthorized = await checkPayrollAccess(req.user, employeeId, 'write');
+    if (!isAuthorized) {
+      return res.status(403).json({ success: false, message: 'Authorization denied: Only admins and authorized allowed admins can update payroll config' });
+    }
+
+    // 1. Update User document
+    const user = await User.findById(employeeId);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    user.is_operator = !!is_operator;
+    await user.save();
+
+    // 2. Find existing active config
+    const existingActive = await EmployeePayrollConfig.findOne({
+      employee_id: employeeId,
+      status: 'ACTIVE'
+    });
+
+    const companyId = user.company_id || existingActive?.company_id;
+    if (!companyId) {
+      return res.status(400).json({ success: false, message: 'Company ID could not be resolved for the employee' });
+    }
+
+    const effectiveDate = new Date();
+
+    if (existingActive) {
+      existingActive.status = 'SUPERSEDED';
+      existingActive.effective_to = effectiveDate;
+      existingActive.updated_by = req.user._id;
+      await existingActive.save();
+    }
+
+    const resolvedPayrollType = is_operator ? 'DAILY_WAGE' : 'MONTHLY';
+    const resolvedOvertimeEligible = !!is_operator;
+
+    const newConfig = await EmployeePayrollConfig.create({
+      employee_id: employeeId,
+      company_id: companyId,
+      is_operator: !!is_operator,
+      payroll_type: resolvedPayrollType,
+      monthly_salary: existingActive?.monthly_salary || user.monthly_salary || 0,
+      daily_wage: existingActive?.daily_wage || 0,
+      overtime_rate_per_hour: existingActive?.overtime_rate_per_hour || 0,
+      overtime_eligible: resolvedOvertimeEligible,
+      overtime_grace_minutes: existingActive?.overtime_grace_minutes ?? 20,
+      effective_from: effectiveDate,
+      effective_to: null,
+      status: 'ACTIVE',
+      created_by: req.user._id,
+      revision_reason: existingActive ? 'Operator status toggled' : 'Initial setup via operator status toggle'
+    });
+
+    res.json({
+      success: true,
+      data: {
+        is_operator: user.is_operator,
+        payrollConfig: newConfig
+      },
+      message: `Successfully set category to ${is_operator ? 'Operator' : 'Management'} for ${user.username}`
+    });
+  } catch (error) {
+    console.error('toggleEmployeeOperatorStatus error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 

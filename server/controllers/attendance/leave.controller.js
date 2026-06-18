@@ -9,6 +9,7 @@ import mongoose from 'mongoose';
 import AttendanceRecord from '../../model/attendance/AttendanceRecord.js';
 import PolicyResolver from '../../services/attendance/PolicyResolver.js';
 import Company from '../../model/attendance/Company.js';
+import { isRestrictedAllowedAdmin, getRestrictedEmployeeIds } from '../../utils/attendance/allowedAdminRestriction.mjs';
 
 const STAGE_2_APPROVER_USERNAME = 'shalini_arun';
 const STAGE_3_FINAL_APPROVER_USERNAMES = new Set(['manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'uday_zope']);
@@ -1544,8 +1545,17 @@ export const updateBalance = async (req, res) => {
         const pendingNum = normalizedPending !== undefined ? Number(normalizedPending) : undefined;
 
         // Verify admin has permission
-        if (!admin || !['ADMIN', 'Admin'].includes(admin.role)) {
+        const isAllowedAdmin = admin && (['ADMIN', 'Admin'].includes(admin.role) || admin.isAttendanceAllowedAdmin === true);
+        if (!isAllowedAdmin) {
             return res.status(403).json({ message: 'Only admins can update leave balances' });
+        }
+
+        // Team restriction for restricted admins
+        if (isRestrictedAllowedAdmin(admin)) {
+            const allowedIds = await getRestrictedEmployeeIds(admin);
+            if (!allowedIds || !allowedIds.includes(String(employee_id))) {
+                return res.status(403).json({ message: 'Forbidden: Member not in your team' });
+            }
         }
 
         // Validate inputs

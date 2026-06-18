@@ -55,7 +55,7 @@ const formatActor = (actor) => {
 const WeekOffPolicyManager = () => {
   const { user } = useContext(UserContext);
   const username = (user?.username || '').toLowerCase();
-  const isAllowedAdmin = (user?.role === 'ADMIN' || user?.role === 'Admin') && ALLOWED_USERNAMES.has(username);
+  const isAllowedAdmin = ((user?.role === 'ADMIN' || user?.role === 'Admin') && ALLOWED_USERNAMES.has(username)) || user?.isAttendanceAllowedAdmin === true;
   const [view, setView] = useState('list'); // 'list' | 'form'
   const [policies, setPolicies] = useState([]);
   const [loading, setLoading] = useState(true);

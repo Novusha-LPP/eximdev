@@ -132,17 +132,19 @@ const OvertimeCalculator = {
 
     const shiftMinutes = (shift?.full_day_hours || 8) * 60;
     const graceMinutes = payrollConfig.overtime_grace_minutes || 20;
-    const threshold = shiftMinutes + graceMinutes;
 
     const totalWorkMinutes = (record.net_work_hours || 0) * 60;
-    const overtimeMinutes = Math.max(0, totalWorkMinutes - threshold);
+    let overtimeMinutes = 0;
+    if (totalWorkMinutes > shiftMinutes + graceMinutes) {
+      overtimeMinutes = totalWorkMinutes - shiftMinutes;
+    }
     const overtimeHours = Math.round((overtimeMinutes / 60) * 100) / 100;
 
     return {
       overtimeMinutes,
       overtimeHours,
-      // Use the existing overtime_approved field from AttendanceRecord
-      isApproved: record.overtime_approved || false
+      // Auto-approve overtime for operators
+      isApproved: record.overtime_approved || !!payrollConfig.is_operator
     };
   }
 };
@@ -165,13 +167,19 @@ const WageCalculator = {
    * @param {Object} params
    * @returns {Object} { basicAmount, overtimeAmount, grossAmount, deductionAmount, netPayable }
    */
-  calculate({ payrollConfig, payableDays, totalDaysInMonth, totalOtHours }) {
+   calculate({ payrollConfig, payableDays, totalDaysInMonth, totalOtHours }) {
     let basicAmount = 0;
     let overtimeAmount = 0;
 
+    const otRate = payrollConfig.overtime_rate_per_hour || (
+      payrollConfig.payroll_type === 'DAILY_WAGE'
+        ? (payrollConfig.daily_wage || 0) / 8
+        : (payrollConfig.monthly_salary || 0) / (totalDaysInMonth > 0 ? totalDaysInMonth * 8 : 240)
+    );
+
     if (payrollConfig.payroll_type === 'DAILY_WAGE') {
       basicAmount = payableDays * (payrollConfig.daily_wage || 0);
-      overtimeAmount = totalOtHours * (payrollConfig.overtime_rate_per_hour || 0);
+      overtimeAmount = totalOtHours * otRate;
     } else {
       // MONTHLY
       const monthlySalary = payrollConfig.monthly_salary || 0;
@@ -180,7 +188,7 @@ const WageCalculator = {
         : 0;
       // Management typically not OT eligible, but respect the flag
       if (payrollConfig.overtime_eligible) {
-        overtimeAmount = totalOtHours * (payrollConfig.overtime_rate_per_hour || 0);
+        overtimeAmount = totalOtHours * otRate;
       }
     }
 

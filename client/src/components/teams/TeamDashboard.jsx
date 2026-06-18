@@ -13,6 +13,7 @@ import {
     Button,
     message,
     Modal,
+    Switch,
     Form,
     Select,
     Table,
@@ -359,6 +360,50 @@ function TeamDashboard() {
         }
     };
 
+    const handleToggleAttendanceAdmin = async (userId, checked) => {
+        try {
+            const res = await axios.post(`${process.env.REACT_APP_API_STRING}/api/attendance/allowed-admins/toggle`, {
+                target_user_id: userId,
+                is_admin: checked
+            });
+            if (res.data.success) {
+                message.success(res.data.message || "Updated permission successfully");
+                setTeamMembers(prev => prev.map(m => {
+                    const idStr = (m._id || m.userId)?.toString();
+                    if (idStr === userId?.toString()) {
+                        return { ...m, isAttendanceAllowedAdmin: checked };
+                    }
+                    return m;
+                }));
+            }
+        } catch (error) {
+            console.error("Error toggling attendance admin:", error);
+            message.error(error.response?.data?.message || "Failed to update permission");
+        }
+    };
+
+    const handleToggleOperatorStatus = async (userId, isOperator) => {
+        try {
+            const res = await axios.post(`${process.env.REACT_APP_API_STRING}/api/payroll/config/toggle-operator`, {
+                employeeId: userId,
+                is_operator: isOperator
+            });
+            if (res.data.success) {
+                message.success(res.data.message || "Updated employee category successfully");
+                setTeamMembers(prev => prev.map(m => {
+                    const idStr = (m._id || m.userId)?.toString();
+                    if (idStr === userId?.toString()) {
+                        return { ...m, is_operator: isOperator };
+                    }
+                    return m;
+                }));
+            }
+        } catch (error) {
+            console.error("Error toggling operator status:", error);
+            message.error(error.response?.data?.message || "Failed to update category");
+        }
+    };
+
     
 
     const openEditModal = (team) => {
@@ -416,6 +461,38 @@ function TeamDashboard() {
                 if (!dept) return "-";
                 return <Tag color="cyan">{dept}</Tag>;
             },
+        },
+        {
+            title: "Category",
+            key: "category",
+            render: (_, record) => {
+                const canEdit = user?.role === 'Admin' || user?.isAttendanceAllowedAdmin === true;
+                return (
+                    <Select
+                        value={record.is_operator === true ? "Operator" : "Management"}
+                        disabled={!canEdit}
+                        onChange={(val) => handleToggleOperatorStatus(record._id || record.userId, val === "Operator")}
+                        style={{ width: 130 }}
+                    >
+                        <Option value="Management">Management</Option>
+                        <Option value="Operator">Operator</Option>
+                    </Select>
+                );
+            }
+        },
+        {
+            title: "HR",
+            key: "attendanceAdmin",
+            render: (_, record) => {
+                const canToggle = user?.role === 'Admin' || user?.isAttendanceAllowedAdmin === true;
+                return (
+                    <Switch
+                        checked={record.isAttendanceAllowedAdmin === true}
+                        disabled={!canToggle}
+                        onChange={(checked) => handleToggleAttendanceAdmin(record._id || record.userId, checked)}
+                    />
+                );
+            }
         },
         {
             title: "Status",
@@ -499,6 +576,7 @@ function TeamDashboard() {
                 </div>
             ),
         },
+
     ];
 
     // Add member-specific tabs when a member is selected

@@ -8,6 +8,8 @@ import User from '../../model/userModel.mjs';
 import Department from '../../model/attendance/Department.js';
 import Branch from '../../model/branchModel.mjs';
 import UserBranchModel from '../../model/userBranchModel.mjs';
+import { isRestrictedAllowedAdmin, getRestrictedEmployeeIds } from '../../utils/attendance/allowedAdminRestriction.mjs';
+
 
 const LEGACY_ATTENDANCE_CONFIG_KEYS = [
   'grace_in_minutes',
@@ -232,7 +234,16 @@ export const bulkAssignShifts = async (req, res) => {
       return res.status(400).json({ message: 'employeeIds and shiftId are required' });
     }
 
+    if (isRestrictedAllowedAdmin(req.user)) {
+      const restrictedIds = await getRestrictedEmployeeIds(req.user);
+      const allAllowed = employeeIds.every(id => restrictedIds.includes(String(id)));
+      if (!allAllowed) {
+        return res.status(403).json({ message: 'Forbidden: One or more employees are not in your team' });
+      }
+    }
+
     const shift = await Shift.findOne({ _id: shiftId, company_id: companyId });
+
     if (!shift) return res.status(404).json({ message: 'Shift not found for this company' });
 
     const result = await User.updateMany(
@@ -672,6 +683,13 @@ export const migrateUser = async (req, res) => {
       return res.status(400).json({ message: 'userId and targetCompanyId are required' });
     }
 
+    if (isRestrictedAllowedAdmin(req.user)) {
+      const restrictedIds = await getRestrictedEmployeeIds(req.user);
+      if (!restrictedIds || !restrictedIds.includes(String(userId))) {
+        return res.status(403).json({ message: 'Forbidden: Member not in your team' });
+      }
+    }
+
     const targetCompany = await Company.findById(targetCompanyId);
     if (!targetCompany) return res.status(404).json({ message: 'Target company not found' });
 
@@ -793,7 +811,7 @@ export const getUsers = async (req, res) => {
     
     let query = {};
     const username = (req.user?.username || '').toLowerCase();
-    const isGlobalAdmin = (req.user?.role === 'ADMIN' && ALLOWED_USERNAMES.has(username));
+    const isGlobalAdmin = (req.user?.role?.toUpperCase() === 'ADMIN' && ALLOWED_USERNAMES.has(username));
 
     if (all_companies === 'true' && isGlobalAdmin) {
       // Global admin can see users from all companies if explicitly requested
@@ -801,6 +819,13 @@ export const getUsers = async (req, res) => {
     } else {
       const companyId = resolveCompanyId(req);
       query = { company_id: companyId };
+    }
+
+    if (isRestrictedAllowedAdmin(req.user)) {
+      const restrictedIds = await getRestrictedEmployeeIds(req.user);
+      if (restrictedIds) {
+        query._id = { $in: restrictedIds };
+      }
     }
 
     if (department_id && department_id !== 'all') {

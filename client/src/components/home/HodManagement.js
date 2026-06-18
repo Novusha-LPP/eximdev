@@ -42,6 +42,7 @@ import SelectIcdCode from "./AssignRole/SelectIcdCode";
 import AssignDepartment from "./AssignRole/AssignDepartment";
 import UserDetails from "./AssignRole/UserDetails";
 import UserProfile from "../userProfile/UserProfile";
+import PayrollConfig from "./AssignRole/PayrollConfig";
 
 const { Title, Text } = Typography;
 const { Sider, Content } = Layout;
@@ -296,6 +297,50 @@ function HodManagement() {
         }
     };
 
+    const handleToggleAttendanceAdmin = async (userId, checked) => {
+        try {
+            const res = await axios.post(`${process.env.REACT_APP_API_STRING}/attendance/allowed-admins/toggle`, {
+                target_user_id: userId,
+                is_admin: checked
+            });
+            if (res.data.success) {
+                message.success(res.data.message || "Updated permission successfully");
+                setTeamMembers(prev => prev.map(m => {
+                    const idStr = (m._id || m.userId)?.toString();
+                    if (idStr === userId?.toString()) {
+                        return { ...m, isAttendanceAllowedAdmin: checked };
+                    }
+                    return m;
+                }));
+            }
+        } catch (error) {
+            console.error("Error toggling attendance admin:", error);
+            message.error(error.response?.data?.message || "Failed to update permission");
+        }
+    };
+
+    const handleToggleOperatorStatus = async (userId, isOperator) => {
+        try {
+            const res = await axios.post(`${process.env.REACT_APP_API_STRING}/payroll/config/toggle-operator`, {
+                employeeId: userId,
+                is_operator: isOperator
+            });
+            if (res.data.success) {
+                message.success(res.data.message || "Updated employee category successfully");
+                setTeamMembers(prev => prev.map(m => {
+                    const idStr = (m._id || m.userId)?.toString();
+                    if (idStr === userId?.toString()) {
+                        return { ...m, is_operator: isOperator };
+                    }
+                    return m;
+                }));
+            }
+        } catch (error) {
+            console.error("Error toggling operator status:", error);
+            message.error(error.response?.data?.message || "Failed to update category");
+        }
+    };
+
     const handleViewProfile = (username) => {
         setProfileUser(username);
         setProfileModalVisible(true);
@@ -355,6 +400,24 @@ function HodManagement() {
                 if (!dept) return "-";
                 return <Tag color="cyan">{dept}</Tag>;
             },
+        },
+        {
+            title: "Category",
+            key: "category",
+            render: (_, record) => {
+                const canEdit = user?.role === 'Admin' || user?.isAttendanceAllowedAdmin === true;
+                return (
+                    <Select
+                        value={record.is_operator === true ? "Operator" : "Management"}
+                        disabled={!canEdit}
+                        onChange={(val) => handleToggleOperatorStatus(record._id || record.userId, val === "Operator")}
+                        style={{ width: 130 }}
+                    >
+                        <Option value="Management">Management</Option>
+                        <Option value="Operator">Operator</Option>
+                    </Select>
+                );
+            }
         },
         {
             title: "Status",
@@ -445,10 +508,54 @@ function HodManagement() {
                 </div>
             ),
         },
+        ...((user?.role === 'Admin' || user?.isAttendanceAllowedAdmin === true) && selectedTeam?.name?.toUpperCase() === 'RABS' ? [
+            {
+                key: "AttendanceAdmin",
+                label: "Attendance HR",
+                children: (
+                    <div style={{ padding: '16px 0' }}>
+                        <div style={{ marginBottom: 16 }}>
+                            <Title level={5} style={{ margin: 0 }}>Manage Attendance HR Managers</Title>
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                                Users on the right can manage attendance for all RABS team members.
+                            </Text>
+                        </div>
+                        <Transfer
+                            dataSource={teamMembers.map(m => ({
+                                key: (m._id || m.userId)?.toString(),
+                                title: m.first_name && m.last_name
+                                    ? `${m.first_name} ${m.last_name} (${m.username})`
+                                    : m.username,
+                                description: m.department || m.role || '',
+                            }))}
+                            targetKeys={teamMembers
+                                .filter(m => m.isAttendanceAllowedAdmin === true)
+                                .map(m => (m._id || m.userId)?.toString())
+                                .filter(Boolean)}
+                            titles={['All Members', 'HR Managers']}
+                            render={item => item.title}
+                            onChange={async (nextTargetKeys, direction, movedKeys) => {
+                                for (const movedKey of movedKeys) {
+                                    const newIsAdmin = direction === 'right';
+                                    await handleToggleAttendanceAdmin(movedKey, newIsAdmin);
+                                }
+                            }}
+                            listStyle={{ width: '45%', minHeight: 300 }}
+                            showSearch
+                            filterOption={(inputValue, item) =>
+                                item.title.toLowerCase().includes(inputValue.toLowerCase())
+                            }
+                        />
+                    </div>
+                ),
+            }
+        ] : []),
     ];
 
     // Add member-specific tabs when a member is selected
     if (selectedMember) {
+        const canManagePayroll = user?.role === "Admin" || user?.isAttendanceAllowedAdmin === true;
+
         tabItems.push(
             {
                 key: "Assign Module",
@@ -485,7 +592,18 @@ function HodManagement() {
                         />
                     </Card>
                 ),
-            }
+            },
+            ...(canManagePayroll ? [
+                {
+                    key: "Payroll Settings",
+                    label: `Payroll Settings (${selectedMember.username})`,
+                    children: (
+                        <Card bordered={false}>
+                            <PayrollConfig selectedUser={selectedMember} />
+                        </Card>
+                    ),
+                }
+            ] : [])
         );
     }
 

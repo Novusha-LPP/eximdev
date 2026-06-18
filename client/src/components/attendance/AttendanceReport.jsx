@@ -251,10 +251,11 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
     const [selectedEmp, setSelectedEmp] = useState(null);
     const { user } = React.useContext(UserContext);
     const ALLOWED_USERNAMES = React.useMemo(() => new Set(['shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'uday_zope']), []);
+    const isDynamicAdmin = user?.isAttendanceAllowedAdmin === true;
     const normalizedRole = normalizeRole(user?.role);
     const isHOD = normalizedRole === 'HOD' || normalizedRole === 'HEADOFDEPARTMENT';
-    const isAdmin = Boolean(isAdminProp) && normalizedRole === 'ADMIN';
-    const isAllowedUser = isAdmin || isHOD || ALLOWED_USERNAMES.has(user?.username);
+    const isAdmin = (Boolean(isAdminProp) && normalizedRole === 'ADMIN') || isDynamicAdmin;
+    const isAllowedUser = isAdmin || isHOD || ALLOWED_USERNAMES.has(user?.username) || isDynamicAdmin;
     const [showDailySummary, setShowDailySummary] = useState(false);
     const [dashboardData, setDashboardData] = useState(null);
     const [dashLoading, setDashLoading] = useState(false);

@@ -247,9 +247,10 @@ const LeaveApproval = () => {
   const { user } = useContext(UserContext);
   const username = String(user?.username || '').toLowerCase();
 
-  const isAdmin = isAdminRole(user?.role) || isAllowedUser(username);
+  const isDynamicAdmin = user?.isAttendanceAllowedAdmin === true;
+  const isAdmin = isAdminRole(user?.role) || isAllowedUser(username) || isDynamicAdmin;
   const isHOD = isHodRole(user?.role);
-  const canManageAdminTools = isAdminRole(user?.role) && isAllowedUser(username);
+  const canManageAdminTools = (isAdminRole(user?.role) && isAllowedUser(username)) || isDynamicAdmin;
   const [isAllowedAdmin, setIsAllowedAdmin] = useState(canManageAdminTools);
 
   const [activeTab, setActiveTab] = useState(location.state?.tab || 'approvals');

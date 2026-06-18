@@ -46,8 +46,8 @@ const ADMIN_BASE_MENU = [
 
 const ADMIN_PRIVILEGED_MENU = [
     { section: 'Company' },
-    { path: '/attendance/hod/report', icon: FiActivity, label: 'Team Report', requiresAllowedAdmin: true },
-    { path: '/attendance/admin/attendance', icon: FiUsers, label: 'Company Report', requiresAllowedAdmin: true },
+    // { path: '/attendance/hod/report', icon: FiActivity, label: 'Team Report', requiresAllowedAdmin: true },
+    // { path: '/attendance/admin/attendance', icon: FiUsers, label: 'Company Report', requiresAllowedAdmin: true },
     { path: '/attendance/teams', icon: FiUser, label: 'Teams', requiresAllowedAdmin: true },
     { path: '/attendance/hod/leave-approval', icon: FiCheckSquare, label: 'Approvals', requiresAllowedAdmin: true },
     { section: 'Configuration' },
@@ -97,10 +97,11 @@ const AttendanceLayout = () => {
     // Provide a fallback in case user is not loaded yet
     const role = user?.role || 'EMPLOYEE';
     const username = (user?.username || '').toLowerCase();
-    const isAdmin = isAdminRole(role);
+    const isDynamicAdmin = user?.isAttendanceAllowedAdmin === true;
+    const isAdmin = isAdminRole(role) || isDynamicAdmin;
     const isHOD = isHodRole(role);
 
-    const isAllowedAdmin = ALLOWED_USERNAMES.has(username);
+    const isAllowedAdmin = ALLOWED_USERNAMES.has(username) || isDynamicAdmin;
 
     // Choose the right menu depending on the user's role mapped by EXIM/Auth middleware
     // Allowed admins manage holidays via 'Holiday Policies' — hide the user-facing calendar from them
@@ -124,8 +125,8 @@ const AttendanceLayout = () => {
         );
     }
 
-    // Add Company Management for allowed users
-    if (isAdmin && isAllowedAdmin) {
+    // Add Company Management for allowed users (restricted to static/global allowed admins)
+    if (isAdmin && ALLOWED_USERNAMES.has(username)) {
         menu.push(
             { section: 'Administration' },
             { path: '/attendance/admin/companies', icon: FiUsers, label: 'Manage Companies' }

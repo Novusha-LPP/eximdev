@@ -15,6 +15,7 @@ import PolicyResolver from '../../services/attendance/PolicyResolver.js';
 import AggregationService from '../../services/attendance/AggregationService.js';
 import ActivityLog from '../../model/attendance/ActivityLog.js';
 import { syncBalanceFromApplications } from './leave.controller.js';
+import { isRestrictedAllowedAdmin, getRestrictedEmployeeIds } from '../../utils/attendance/allowedAdminRestriction.mjs';
 
 const normalizeRole = (role) => String(role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
 const isAdminRole = (role) => normalizeRole(role) === 'ADMIN';
@@ -391,6 +392,12 @@ export const getDashboard = async (req, res) => {
         // Extract Company ID
         // Note: For admins, we should also look at req.query.company_id to allow switching contexts
         const companyId = req.query.company_id || (hod.company_id?._id || hod.company_id);
+        const explicitCompanyId = req.query.company_id;
+        const actorUsername = String(hod.username || '').toLowerCase();
+        const isDynamic = hod.isAttendanceAllowedAdmin === true;
+        const isRestricted = isDynamic && (actorUsername === 'ajith_sivadasan' || actorUsername === 'afzal_ghanchi');
+        const isAllowedAdmin = ALLOWED_USERNAMES.has(actorUsername) || (isDynamic && !isRestricted);
+        const isAdminAndAllowed = (isAdminRole(hod.role) && isAllowedAdmin) || (isDynamic && !isRestricted);
 
         if (!companyId) {
             return res.status(400).json({ success: false, message: 'Unable to resolve company context. Please ensure your user profile is complete or provide a company ID.' });
@@ -405,9 +412,6 @@ export const getDashboard = async (req, res) => {
         let employeeIds = [];
         let employees = [];
         let allTeamsForHOD = [];
-
-        const actorUsername = String(hod.username || '').toLowerCase();
-        const isAllowedAdmin = ALLOWED_USERNAMES.has(actorUsername);
 
         if (isAdminRole(hod.role) && isAllowedAdmin) {
             // Admin sees all employees, optionally filtered by teamId
@@ -443,8 +447,8 @@ export const getDashboard = async (req, res) => {
             const teams = await TeamModel.find({ 
                 $or: [
                     { hodId: hod._id },
-                    ...(isHodRole(hod.role) ? [{ "members.userId": hod._id }] : []),
-                    ...(isHodRole(hod.role) && hodUsername ? [{ "members.username": hodUsername }] : [])
+                    { hodUsername: hod.username },
+                    ...((isHodRole(hod.role) || isRestricted) ? [{ "members.userId": hod._id }, { "members.username": hod.username }] : [])
                 ],
                 isActive: { $ne: false }
             });
@@ -1445,7 +1449,12 @@ export const getDepartmentAttendanceReport = async (req, res) => {
 
         const startOfMonth = moment(month, 'YYYY-MM').startOf('month');
         const endOfMonth = moment(month, 'YYYY-MM').endOf('month');
-        const companyId = req.query.company_id || (hod.company_id?._id || hod.company_id);
+        const explicitCompanyId = req.query.company_id;
+        const actorUsername = String(hod.username || '').toLowerCase();
+        const isDynamic = hod.isAttendanceAllowedAdmin === true;
+        const isRestricted = isDynamic && (actorUsername === 'ajith_sivadasan' || actorUsername === 'afzal_ghanchi');
+        const isAllowedAdmin = ALLOWED_USERNAMES.has(actorUsername) || (isDynamic && !isRestricted);
+        const isAdminAndAllowed = (isAdminRole(hod.role) && isAllowedAdmin) || (isDynamic && !isRestricted);
 
         if (!companyId) {
             return res.status(400).json({ success: false, message: 'Unable to resolve company context. Please ensure your user profile is complete or provide a company ID.' });
@@ -1456,9 +1465,6 @@ export const getDepartmentAttendanceReport = async (req, res) => {
         let employees = [];
 
         if (isAdminRole(hod.role)) {
-            const actorUsername = String(hod.username || '').toLowerCase();
-            const isAllowedAdmin = ALLOWED_USERNAMES.has(actorUsername);
-
             if (isAllowedAdmin) {
                 // Allowlisted admins can view all employees in company scope.
                 const userQuery = {
@@ -1501,7 +1507,8 @@ export const getDepartmentAttendanceReport = async (req, res) => {
             const teams = await TeamModel.find({ 
                 $or: [
                     { hodId: hod._id },
-                    ...(isHodRole(hod.role) ? [{ "members.userId": hod._id }] : [])
+                    { hodUsername: hod.username },
+                    ...((isHodRole(hod.role) || isRestricted) ? [{ "members.userId": hod._id }, { "members.username": hod.username }] : [])
                 ],
                 isActive: { $ne: false }
             });
@@ -1648,7 +1655,9 @@ export const getAdminLeaveRequests = async (req, res) => {
     try {
         const admin = req.user;
         const adminUsername = String(admin.username || '').toLowerCase();
-        const isAllowedAdmin = ALLOWED_USERNAMES.has(adminUsername);
+        const isDynamic = admin.isAttendanceAllowedAdmin === true;
+        const isRestricted = isDynamic && (adminUsername === 'ajith_sivadasan' || adminUsername === 'afzal_ghanchi');
+        const isAllowedAdmin = ALLOWED_USERNAMES.has(adminUsername) || (isDynamic && !isRestricted);
         // console.log(`[DEBUG_HOD] Actor: ${adminUsername} | isAllowedAdmin: ${isAllowedAdmin} | Allowed List: ${Array.from(ALLOWED_USERNAMES).join(',')}`);
 
         const { teamId, status, historyPage = 1, historyLimit = 100, search, month, leaveMonth, appliedMonth } = req.query;
@@ -1676,7 +1685,9 @@ export const getAdminLeaveRequests = async (req, res) => {
             // Regular HOD/Admins see only their assigned teams
             teams = allTeams.filter(t => 
                 (t.hodId && t.hodId.toString() === adminIdStr) || 
-                (t.hodUsername && String(t.hodUsername).toLowerCase() === adminUsername)
+                (t.hodUsername && String(t.hodUsername).toLowerCase() === adminUsername) ||
+                (t.members && t.members.some(m => m.userId && m.userId.toString() === adminIdStr)) ||
+                (t.members && t.members.some(m => m.username && String(m.username).toLowerCase() === adminUsername))
             );
             
             if (teams.length === 0) {

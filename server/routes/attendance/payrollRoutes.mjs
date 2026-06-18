@@ -8,7 +8,8 @@ const router = express.Router();
 
 // ─── Employee Payroll Configuration ────────────────────────────────────────
 router.get('/config/:employeeId', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), payrollCtrl.getEmployeePayrollConfig);
-router.put('/config/:employeeId', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, payrollCtrl.updateEmployeePayrollConfig);
+router.put('/config/:employeeId', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), payrollCtrl.updateEmployeePayrollConfig);
+router.post('/config/toggle-operator', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), payrollCtrl.toggleEmployeeOperatorStatus);
 router.get('/config-history/:employeeId', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), payrollCtrl.getPayrollConfigHistory);
 
 // ─── Payroll Run ───────────────────────────────────────────────────────────
@@ -21,7 +22,7 @@ router.post('/unlock/:runId', attendanceAuthBridge, requireRole('ADMIN'), requir
 
 // ─── Salary Structure ──────────────────────────────────────────────────────
 router.get('/salary-structure/:employeeId', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), payrollCtrl.getSalaryStructure);
-router.put('/salary-structure/:employeeId', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, payrollCtrl.saveSalaryStructure);
+router.put('/salary-structure/:employeeId', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), payrollCtrl.saveSalaryStructure);
 router.get('/salary-structure-history/:employeeId', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), payrollCtrl.getSalaryStructureHistory);
 
 // ─── Export ────────────────────────────────────────────────────────────────

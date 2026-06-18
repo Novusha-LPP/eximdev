@@ -12,6 +12,7 @@ import LeaveApplication from '../../model/attendance/LeaveApplication.js';
 import User from '../../model/userModel.mjs';
 import ActivityLog from '../../model/attendance/ActivityLog.js';
 import { ALLOWED_USERNAMES } from '../../middleware/requireAllowedAdmin.mjs';
+import { isRestrictedAllowedAdmin, getRestrictedEmployeeIds } from '../../utils/attendance/allowedAdminRestriction.mjs';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 const resolveCompanyId = (req) => {
@@ -558,6 +559,13 @@ export const assignPolicyToUser = async (req, res) => {
     const { userId } = req.params;
     const { weekoff_policy_id, holiday_policy_id, shift_id, shift_ids, leave_policy_ids, attendance_settings } = req.body;
 
+    if (isRestrictedAllowedAdmin(req.user)) {
+      const allowedIds = await getRestrictedEmployeeIds(req.user);
+      if (!allowedIds || !allowedIds.includes(String(userId))) {
+        return res.status(403).json({ message: 'Forbidden: Member not in your team' });
+      }
+    }
+
     const update = {};
     if (weekoff_policy_id !== undefined) update.weekoff_policy_id = weekoff_policy_id || null;
     if (holiday_policy_id !== undefined) update.holiday_policy_id = holiday_policy_id || null;
@@ -624,6 +632,14 @@ export const bulkAssignPoliciesToUsers = async (req, res) => {
 
     if (!Array.isArray(user_ids) || user_ids.length === 0) {
       return res.status(400).json({ message: 'user_ids is required' });
+    }
+
+    if (isRestrictedAllowedAdmin(req.user)) {
+      const allowedIds = await getRestrictedEmployeeIds(req.user);
+      const allAllowed = user_ids.every(id => allowedIds && allowedIds.includes(String(id)));
+      if (!allAllowed) {
+        return res.status(403).json({ message: 'Forbidden: One or more members not in your team' });
+      }
     }
 
     const hasAnyAssignment =

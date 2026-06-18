@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import {
   FiSettings, FiDollarSign, FiClock, FiPlus, FiTrash2,
-  FiCalendar, FiLock, FiUnlock, FiFileText, FiCheck, FiRefreshCw
+  FiCalendar, FiLock, FiUnlock, FiFileText, FiCheck, FiRefreshCw,
+  FiInfo
 } from 'react-icons/fi';
 import payrollAPI from '../../../api/attendance/payroll.api';
 import moment from 'moment';
@@ -137,6 +138,7 @@ const PayrollTab = ({ employeeId, companyId, employeeName }) => {
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [locking, setLocking] = useState(false);
+  const [showFormulaModal, setShowFormulaModal] = useState(false);
 
   // Section Selector
   const [activeSection, setActiveSection] = useState('config'); // 'config', 'structure', 'summary'
@@ -577,6 +579,33 @@ const PayrollTab = ({ employeeId, companyId, employeeName }) => {
                 <FiDollarSign /> Salary Breakup
               </div>
 
+              {/* Active Config Info Card */}
+              <div style={{
+                background: '#f8fafc',
+                border: `1px solid ${THEME.border}`,
+                borderRadius: '8px',
+                padding: '16px',
+                marginBottom: '20px',
+                fontSize: '13px'
+              }}>
+                <div style={{ fontWeight: '700', marginBottom: '8px', color: THEME.primary, display: 'flex', gap: '6px', alignItems: 'center' }}>
+                  <FiSettings size={14} style={{ color: THEME.indigo }} /> Active Payroll Config Snapshot:
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+                  <div><strong>Employee Category:</strong> {config.is_operator ? 'Operator' : 'Management'}</div>
+                  <div><strong>Payroll Structure:</strong> {config.payroll_type}</div>
+                  <div>
+                    <strong>Base Rate:</strong> {config.payroll_type === 'DAILY_WAGE' ? `₹${config.daily_wage || 0}/day` : `₹${config.monthly_salary || 0}/month`}
+                  </div>
+                  <div><strong>OT Eligibility:</strong> {config.overtime_eligible ? `Eligible (₹${config.overtime_rate_per_hour || 0}/hr)` : 'Not Eligible'}</div>
+                </div>
+                {config.payroll_type === 'DAILY_WAGE' && (
+                  <div style={{ marginTop: '10px', color: THEME.muted, fontSize: '12px', fontStyle: 'italic' }}>
+                    * Note: Because this employee is configured as an Operator, their final monthly payout is calculated on a daily rate base (Daily Wage × Payable Days) instead of a fixed monthly salary.
+                  </div>
+                )}
+              </div>
+
               <div style={S.grid}>
                 <div>
                   <label style={S.label}>Salary Type</label>
@@ -627,6 +656,24 @@ const PayrollTab = ({ employeeId, companyId, employeeName }) => {
                   </div>
                 ) : (
                   <div>
+                    {/* Column Headers */}
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: '2fr 2fr 1fr 1fr 40px',
+                      gap: '10px',
+                      marginBottom: '8px',
+                      padding: '0 4px',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      color: THEME.muted
+                    }}>
+                      <div>Component Name</div>
+                      <div>Formula / Description</div>
+                      <div>Monthly Amount (₹)</div>
+                      <div>Yearly Amount (₹)</div>
+                      <div></div>
+                    </div>
+
                     {structure.components.map((item, idx) => (
                       <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr 1fr 40px', gap: '10px', marginBottom: '8px', alignItems: 'center' }}>
                         <input
@@ -851,7 +898,32 @@ const PayrollTab = ({ employeeId, companyId, employeeName }) => {
 
                 {/* Pay Summary Card */}
                 <div style={{ ...S.card, background: '#f0fdf4', borderColor: '#bbf7d0' }}>
-                  <div style={{ ...S.title, color: '#166534' }}><FiDollarSign /> Payslip Summary</div>
+                  <div style={{ ...S.title, color: '#166534', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                      <FiDollarSign /> Payslip Summary
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowFormulaModal(true)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#166534',
+                        cursor: 'pointer',
+                        padding: '4px',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '50%',
+                        transition: 'background 0.2s'
+                      }}
+                      title="View Calculation Formula"
+                      onMouseOver={e => e.currentTarget.style.background = '#dcfce7'}
+                      onMouseOut={e => e.currentTarget.style.background = 'none'}
+                    >
+                      <FiInfo size={16} />
+                    </button>
+                  </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '13px' }}>
                     <div>Basic Amount:</div><strong style={{ textAlign: 'right' }}>₹{summary.basic_amount?.toLocaleString()}</strong>
                     <div>OT Amount:</div><strong style={{ color: THEME.green, textAlign: 'right' }}>+ ₹{summary.overtime_amount?.toLocaleString()}</strong>
@@ -879,6 +951,118 @@ const PayrollTab = ({ employeeId, companyId, employeeName }) => {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Salary Formula Modal Dialog */}
+      {showFormulaModal && summary && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(15, 23, 42, 0.6)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          backdropFilter: 'blur(4px)'
+        }}>
+          <div style={{
+            background: '#fff',
+            borderRadius: '12px',
+            border: `1px solid ${THEME.border}`,
+            padding: '28px',
+            width: '100%',
+            maxWidth: '550px',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
+            boxSizing: 'border-box',
+            position: 'relative'
+          }}>
+            <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: '700', color: THEME.primary, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <FiInfo style={{ color: THEME.indigo }} /> Salary Calculation Formula
+            </h3>
+            
+            <div style={{ fontSize: '13px', color: THEME.text, lineHeight: '1.6' }}>
+              {summary.payroll_type === 'DAILY_WAGE' ? (
+                <div>
+                  <div style={{ marginBottom: '16px', background: '#f8fafc', padding: '12px', borderRadius: '6px', borderLeft: `4px solid ${THEME.indigo}` }}>
+                    <strong>Category:</strong> Operator (Daily Wage)<br />
+                    <strong>Daily Wage Rate:</strong> ₹{summary.daily_wage_snapshot || 0}<br />
+                    <strong>Payable Days:</strong> {summary.payable_days} days
+                  </div>
+
+                  <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>1. Basic Pay Formula:</h4>
+                  <div style={{ background: '#f1f5f9', padding: '10px 12px', borderRadius: '6px', fontFamily: 'monospace', marginBottom: '8px' }}>
+                    Basic Pay = Payable Days × Daily Wage
+                  </div>
+                  <div style={{ marginBottom: '16px', color: THEME.muted }}>
+                    Calculation: {summary.payable_days} × ₹{summary.daily_wage_snapshot || 0} = <strong>₹{summary.basic_amount?.toLocaleString()}</strong>
+                  </div>
+
+                  {summary.total_overtime_hours > 0 && (
+                    <>
+                      <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>2. Overtime (OT) Pay Formula:</h4>
+                      <div style={{ background: '#f1f5f9', padding: '10px 12px', borderRadius: '6px', fontFamily: 'monospace', marginBottom: '8px' }}>
+                        OT Pay = Total OT Hours × OT Hourly Rate
+                      </div>
+                      <div style={{ marginBottom: '16px', color: THEME.muted }}>
+                        Calculation: {summary.total_overtime_hours} hrs × ₹{summary.ot_rate_snapshot || 0}/hr = <strong>₹{summary.overtime_amount?.toLocaleString()}</strong>
+                      </div>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <div style={{ marginBottom: '16px', background: '#f8fafc', padding: '12px', borderRadius: '6px', borderLeft: `4px solid ${THEME.indigo}` }}>
+                    <strong>Category:</strong> Management (Monthly Salary)<br />
+                    <strong>Monthly Base Salary:</strong> ₹{summary.monthly_salary_snapshot || 0}<br />
+                    <strong>Days in Month:</strong> {summary.total_days_in_month} days<br />
+                    <strong>Payable Days:</strong> {summary.payable_days} days
+                  </div>
+
+                  <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>1. Basic Pay Formula:</h4>
+                  <div style={{ background: '#f1f5f9', padding: '10px 12px', borderRadius: '6px', fontFamily: 'monospace', marginBottom: '8px' }}>
+                    Basic Pay = (Payable Days / Days in Month) × Monthly Salary
+                  </div>
+                  <div style={{ marginBottom: '16px', color: THEME.muted }}>
+                    Calculation: ({summary.payable_days} / {summary.total_days_in_month}) × ₹{summary.monthly_salary_snapshot || 0} = <strong>₹{summary.basic_amount?.toLocaleString()}</strong>
+                  </div>
+
+                  {summary.total_overtime_hours > 0 && (
+                    <>
+                      <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>2. Overtime (OT) Pay Formula:</h4>
+                      <div style={{ background: '#f1f5f9', padding: '10px 12px', borderRadius: '6px', fontFamily: 'monospace', marginBottom: '8px' }}>
+                        OT Pay = Total OT Hours × OT Hourly Rate
+                      </div>
+                      <div style={{ marginBottom: '16px', color: THEME.muted }}>
+                        Calculation: {summary.total_overtime_hours} hrs × ₹{summary.ot_rate_snapshot || 0}/hr = <strong>₹{summary.overtime_amount?.toLocaleString()}</strong>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
+              <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600', borderTop: `1px solid ${THEME.border}`, paddingTop: '12px' }}>3. Net Payable Formula:</h4>
+              <div style={{ background: '#f0fdf4', padding: '10px 12px', borderRadius: '6px', fontFamily: 'monospace', marginBottom: '8px', color: '#166534', border: '1px solid #bbf7d0' }}>
+                Net Payable = Basic Pay + OT Pay - Deductions
+              </div>
+              <div style={{ marginBottom: '20px', color: '#166534' }}>
+                Calculation: ₹{summary.basic_amount?.toLocaleString()} + ₹{summary.overtime_amount?.toLocaleString()} - ₹{summary.deduction_amount?.toLocaleString()} = <strong>₹{summary.net_payable_amount?.toLocaleString()}</strong>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => setShowFormulaModal(false)}
+                style={S.btn('primary')}
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -126,6 +126,16 @@ export const canActorActOnLeave = async (leave, actor) => {
     const actorUsername = String(actor.username || '').toLowerCase();
     const currentApproverId = toIdString(leave.current_approver_id);
 
+    // Check if RABS leave
+    const rabsCompany = await Company.findOne({ company_name: /RABS Industries India Private Limited/i });
+    const rabsCompanyId = rabsCompany?._id;
+    const isRabsLeave = rabsCompanyId && String(leave.company_id?._id || leave.company_id) === String(rabsCompanyId);
+
+    if (isRabsLeave) {
+        // Only Ajith (ajith_sivadasan) can act on RABS leaves
+        return actorUsername === 'ajith_sivadasan';
+    }
+
     if (stage === LEAVE_STAGE.HOD) {
         if (isAssignedToActor(leave, actor)) {
             return true;
@@ -419,7 +429,21 @@ export const getDashboard = async (req, res) => {
         let employees = [];
         let allTeamsForHOD = [];
 
-        if (isAdminRole(hod.role) && isAllowedAdmin) {
+        // Check if RABS and actor is Ajith
+        const rabsCompany = await Company.findOne({ company_name: /RABS Industries India Private Limited/i });
+        const rabsCompanyId = rabsCompany?._id;
+        const isRabsAjith = rabsCompanyId && actorUsername === 'ajith_sivadasan';
+
+        if (isRabsAjith) {
+            // Ajith sees all active RABS employees
+            employees = await User.find({
+                company_id: rabsCompanyId,
+                isActive: { $ne: false }
+            }).select('_id first_name last_name username email role department_id company_id');
+            allTeamsForHOD = await TeamModel.find({ isActive: { $ne: false } }).lean();
+            employeeIds = employees.map(e => e._id.toString());
+            debugLog.push(`RABS Admin mode (Ajith): Found ${employees.length} RABS employees`);
+        } else if (isAdminRole(hod.role) && isAllowedAdmin) {
             // Admin sees all employees, optionally filtered by teamId
             if (teamId) {
                 // Admin filtered by a specific team
@@ -479,13 +503,6 @@ export const getDashboard = async (req, res) => {
                 }
             });
 
-            if (legacyUsernames.length > 0) {
-                const resolvedUsers = await User.find({
-                    username: { $in: legacyUsernames },
-                    isActive: { $ne: false }
-                }).select('_id');
-                resolvedUsers.forEach(u => memberUserIds.add(u._id.toString()));
-            }
             
             if (memberUsernames.size > 0) {
                 const resolvedUsers = await User.find({ username: { $in: [...memberUsernames] }, isActive: { $ne: false } }).select('_id username').lean();
@@ -697,7 +714,7 @@ export const getDashboard = async (req, res) => {
                 absentEmployees.push({
                     name: emp.first_name ? `${emp.first_name} ${emp.last_name || ''}`.trim() : emp.username,
                     reason: `On leave`,
-                    onLeave: true,
+                        onLeave: true,
                     leaveType: leaveRecord?.leave_policy_id?.leave_type || 'Leave'
                 });
             }
@@ -705,11 +722,22 @@ export const getDashboard = async (req, res) => {
 
         // 5. Get pending leave requests
         const actorPendingQuery = getActorPendingLeaveQuery(hod);
-
-        const pendingLeaves = await LeaveApplication.find({
-            employee_id: { $in: employeeIds },
+        const dashboardPendingQuery = {
             ...actorPendingQuery
-        })
+        };
+        if (employeeIds && employeeIds.length > 0) {
+            if (actorPendingQuery.employee_id) {
+                dashboardPendingQuery.$and = [
+                    { employee_id: { $in: employeeIds } },
+                    { employee_id: actorPendingQuery.employee_id }
+                ];
+                delete dashboardPendingQuery.employee_id;
+            } else {
+                dashboardPendingQuery.employee_id = { $in: employeeIds };
+            }
+        }
+
+        const pendingLeaves = await LeaveApplication.find(dashboardPendingQuery)
             .populate('employee_id', 'first_name last_name username company_id role hod_id')
             .populate('employee_id.company_id', 'company_name')
             .populate('company_id', 'company_name')
@@ -1231,7 +1259,7 @@ export const approveRequest = async (req, res) => {
                     await application.save();
 
                     const policy = await LeavePolicy.findById(application.leave_policy_id);
-                    if (policy && !isUnpaid) {
+                    if (policy) {
                         await syncBalanceFromApplications({
                             employeeId: application.employee_id,
                             year: currentYear,
@@ -1279,7 +1307,7 @@ export const approveRequest = async (req, res) => {
                     await applyLeaveAttendance('admin');
 
                     const policy = await LeavePolicy.findById(application.leave_policy_id);
-                    if (policy && !isUnpaid) {
+                    if (policy) {
                         await syncBalanceFromApplications({
                             employeeId: application.employee_id,
                             year: currentYear,
@@ -1313,6 +1341,18 @@ export const approveRequest = async (req, res) => {
 
                     if (status === 'rejected') {
                         return finalizeRejection();
+                    }
+
+                    const rabsCompany = await Company.findOne({ company_name: /RABS Industries India Private Limited/i });
+                    const rabsCompanyId = rabsCompany?._id;
+                    const isRabs = rabsCompanyId && String(application.company_id?._id || application.company_id) === String(rabsCompanyId);
+
+                    if (isRabs) {
+                        markApprovalChainStage(application, LEAVE_STAGE.HOD, 'approved', commentText);
+                        application.hod_reviewed_by = actorObjectId;
+                        application.hod_reviewed_at = new Date();
+                        application.hod_review_comment = commentText || application.hod_review_comment;
+                        return finalizeApproval();
                     }
 
                     markApprovalChainStage(application, LEAVE_STAGE.HOD, 'approved', commentText);
@@ -1753,17 +1793,41 @@ export const getAdminLeaveRequests = async (req, res) => {
             }
         }
 
-        if (teamId && teamId !== 'all') {
+        const rabsCompany = await Company.findOne({ company_name: /RABS Industries India Private Limited/i });
+        const rabsCompanyId = rabsCompany?._id;
+        const isRabsAjith = rabsCompanyId && adminUsername === 'ajith_sivadasan';
+
+        if (isRabsAjith && (!teamId || teamId === 'all')) {
+            const rabsEmployees = await User.find({
+                company_id: rabsCompanyId,
+                isActive: { $ne: false }
+            }).select('_id').lean();
+            employeeFilter = { $in: rabsEmployees.map(e => e._id) };
+        } else if (teamId && teamId !== 'all') {
             const team = allTeams.find(t => t._id.toString() === teamId.toString());
             if (team && team.members && team.members.length > 0) {
-                const memberIds = team.members
-                    .map(m => m.userId)
-                    .filter(Boolean)
-                    .map(id => {
-                        try { return new mongoose.Types.ObjectId(id.toString()); }
-                        catch (e) { return id; }
+                const memberUserIds = new Set();
+                const memberUsernames = new Set();
+                team.members.forEach(m => {
+                    if (m.userId) {
+                        memberUserIds.add(m.userId.toString());
+                    } else if (m.username) {
+                        memberUsernames.add(String(m.username).toLowerCase());
+                    }
+                });
+
+                if (memberUsernames.size > 0) {
+                    const resolvedUsers = await User.find({ username: { $in: [...memberUsernames] }, isActive: { $ne: false } }).select('_id').lean();
+                    resolvedUsers.forEach(u => {
+                        if (u?._id) memberUserIds.add(u._id.toString());
                     });
-                employeeFilter = { $in: memberIds };
+                }
+
+                const objectIds = Array.from(memberUserIds).map(id => {
+                    try { return new mongoose.Types.ObjectId(id); }
+                    catch (e) { return id; }
+                });
+                employeeFilter = { $in: objectIds };
             } else {
                 return res.json({ 
                     data: { 
@@ -1779,6 +1843,7 @@ export const getAdminLeaveRequests = async (req, res) => {
             }
         } else if (!isAllowedAdmin) {
             const memberIds = new Set();
+            const memberUsernames = new Set();
             // Always include self in the history view for HODs
             memberIds.add(adminIdStr);
 
@@ -1786,9 +1851,18 @@ export const getAdminLeaveRequests = async (req, res) => {
                 (team.members || []).forEach((m) => {
                     if (m.userId) {
                         memberIds.add(m.userId.toString());
+                    } else if (m.username) {
+                        memberUsernames.add(String(m.username).toLowerCase());
                     }
                 });
             });
+
+            if (memberUsernames.size > 0) {
+                const resolvedUsers = await User.find({ username: { $in: [...memberUsernames] }, isActive: { $ne: false } }).select('_id').lean();
+                resolvedUsers.forEach(u => {
+                    if (u?._id) memberIds.add(u._id.toString());
+                });
+            }
 
             // Convert to ObjectIds for reliable querying
             const objectIds = Array.from(memberIds).map(id => {
@@ -1820,11 +1894,26 @@ export const getAdminLeaveRequests = async (req, res) => {
                 });
 
         // Fetch pending leaves
+        const actorPendingQuery = getActorPendingLeaveQuery(admin);
         const finalQuery = {
-            ...leaveQuery,
-            ...getActorPendingLeaveQuery(admin)
+            ...actorPendingQuery
         };
-        // console.log(`[DEBUG_LEAVE] Admin: ${adminUsername} | isAllowedAdmin: ${isAllowedAdmin} | Query: ${JSON.stringify(finalQuery)}`);
+        if (leaveQuery.employee_id) {
+            if (finalQuery.employee_id) {
+                finalQuery.$and = [
+                    { employee_id: leaveQuery.employee_id },
+                    { employee_id: finalQuery.employee_id }
+                ];
+                delete finalQuery.employee_id;
+            } else {
+                finalQuery.employee_id = leaveQuery.employee_id;
+            }
+        } else if (leaveQuery.$or) {
+            finalQuery.$and = finalQuery.$and || [];
+            finalQuery.$and.push({ $or: leaveQuery.$or });
+        } else if (leaveQuery.company_id) {
+            finalQuery.company_id = leaveQuery.company_id;
+        }
 
         const pendingLeaves = await LeaveApplication.find(finalQuery)
             .populate('employee_id', 'first_name last_name username company_id role hod_id')

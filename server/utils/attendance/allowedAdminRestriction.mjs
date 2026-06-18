@@ -1,6 +1,7 @@
 import TeamModel from '../../model/teamModel.mjs';
 import User from '../../model/userModel.mjs';
 import mongoose from 'mongoose';
+import Company from '../../model/attendance/Company.js';
 
 /**
  * Checks if the user is a dynamic Allowed Admin and needs team-based data restrictions.
@@ -22,6 +23,18 @@ export async function getRestrictedEmployeeIds(user) {
 
     const username = String(user.username || '').toLowerCase();
     const userId = user._id;
+
+    // Special scoping for Ajith: can manage all RABS employees
+    if (username === 'ajith_sivadasan') {
+        const rabsCompany = await Company.findOne({ company_name: /RABS Industries India Private Limited/i });
+        if (rabsCompany) {
+            const rabsUsers = await User.find({
+                company_id: rabsCompany._id,
+                isActive: { $ne: false }
+            }).select('_id');
+            return rabsUsers.map(u => String(u._id));
+        }
+    }
 
     // Find all teams where they are HOD or member
     const teams = await TeamModel.find({

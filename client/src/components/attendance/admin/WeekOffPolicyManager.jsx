@@ -279,13 +279,13 @@ const WeekOffPolicyManager = () => {
           <hr className="divider" />
 
           {/* Section: Types */}
-          <div className="form-group">
+          {/* <div className="form-group">
             <Radio.Group value={form.policy_type} onChange={e => setForm(f => ({ ...f, policy_type: e.target.value }))} className="policy-type-radios">
               {POLICY_TYPES.map(t => (
                 <Radio key={t.value} value={t.value} className="block-radio">{t.label}</Radio>
               ))}
             </Radio.Group>
-          </div>
+          </div> */}
 
           <hr className="divider" />
 

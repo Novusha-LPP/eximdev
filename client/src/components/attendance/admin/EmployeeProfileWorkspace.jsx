@@ -413,39 +413,33 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     });
   };
 
-  const filteredEmployees = useMemo(() => {
-    let r = gridEmployees;
-    if (!searchTerm.trim()) {
-      r = r.filter(e => e.username !== 'dev_master');
-    }
-    if (searchTerm) {
-      const q = searchTerm.toLowerCase();
-      r = r.filter(e=>(e.first_name||'').toLowerCase().includes(q)||(e.last_name||'').toLowerCase().includes(q)||(e.username||'').toLowerCase().includes(q)||(e.employee_code||'').toLowerCase().includes(q));
-    }
-    const getPending = (emp) => Number(pendingCorrectionCounts[emp._id] || pendingCorrectionCounts[String(emp._id)] || 0);
-    return [...r].sort((a,b)=>{
-      const aPending = getPending(a) > 0;
-      const bPending = getPending(b) > 0;
-      if (aPending !== bPending) return aPending ? -1 : 1;
-      const aR = isRabsOrganization(getOrgName(a));
-      const bR = isRabsOrganization(getOrgName(b));
-      if (aR !== bR) return aR ? 1 : -1;
-      return 0;
-    return [...r].sort((a, b) => {
-      const countA = pendingCorrectionCounts[a._id] || 0;
-      const countB = pendingCorrectionCounts[b._id] || 0;
-      if (countA > 0 && countB === 0) return -1;
-      if (countA === 0 && countB > 0) return 1;
+const filteredEmployees = useMemo(() => {
+  let r = gridEmployees;
+  if (!searchTerm.trim()) {
+    r = r.filter(e => e.username !== 'dev_master');
+  }
+  if (searchTerm) {
+    const q = searchTerm.toLowerCase();
+    r = r.filter(e => (e.first_name || '').toLowerCase().includes(q) ||
+      (e.last_name || '').toLowerCase().includes(q) ||
+      (e.username || '').toLowerCase().includes(q) ||
+      (e.employee_code || '').toLowerCase().includes(q));
+  }
+  return [...r].sort((a, b) => {
+    const countA = pendingCorrectionCounts[a._id] || 0;
+    const countB = pendingCorrectionCounts[b._id] || 0;
+    if (countA > 0 && countB === 0) return -1;
+    if (countA === 0 && countB > 0) return 1;
 
-      const aR = isRabsOrganization(getOrgName(a));
-      const bR = isRabsOrganization(getOrgName(b));
-      if (aR !== bR) return aR ? 1 : -1;
+    const aR = isRabsOrganization(getOrgName(a));
+    const bR = isRabsOrganization(getOrgName(b));
+    if (aR !== bR) return aR ? 1 : -1;
 
-      const nameA = [a.first_name, a.last_name].filter(Boolean).join(' ').trim().toLowerCase();
-      const nameB = [b.first_name, b.last_name].filter(Boolean).join(' ').trim().toLowerCase();
-      return nameA.localeCompare(nameB);
-    });
-  }, [gridEmployees, searchTerm, pendingCorrectionCounts]);
+    const nameA = [a.first_name, a.last_name].filter(Boolean).join(' ').trim().toLowerCase();
+    const nameB = [b.first_name, b.last_name].filter(Boolean).join(' ').trim().toLowerCase();
+    return nameA.localeCompare(nameB);
+  });
+}, [gridEmployees, searchTerm, pendingCorrectionCounts]);
 
   const teamNameByEmployee = useMemo(() => {
     const map = new Map();
@@ -2248,7 +2242,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
 
         {/* ── Tab Bar ── */}
         <div style={{ display:'flex', gap:'0', borderBottom:`1px solid ${THEME.border}`, marginBottom:'24px' }}>
-          {['Performance','Attendance','Leave','Policies','Actions','Payroll','Profile'].map(label=>{
+          {['Performance','Attendance','Leave','Policies','Actions','Payroll'].map(label=>{
             const t = label.toLowerCase(), isActive = tab===t;
             return (
               <button key={t} onClick={()=>handleTabChange(t)} style={{ background:'transparent', color:isActive?'#000':THEME.muted, borderBottom:isActive?'2px solid #000':'2px solid transparent', padding:'10px 16px', fontSize:'13px', fontWeight:isActive?'700':'500', border:'none', borderBottom:isActive?'2px solid #000':'2px solid transparent', cursor:'pointer', marginBottom:'-1px', transition:'all 0.15s' }}>
@@ -2547,7 +2541,6 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                   <tbody>
                     {(profile.balances||[]).map(b=>{
                       const isLwp = String(b.leave_type||b.leave_policy_id?.leave_type||'').toLowerCase().includes('lwp');
-                      const net = isLwp?0:formatLeaveDays(b.available??b.balance??b.closing_balance??Math.max(0,(b.opening_balance||0)-(b.used??b.consumed??0)-(b.pending??b.pending_approval??0)));
                       const rid = b.leave_policy_id?._id||b.leave_policy_id||b._id;
                       const isRowEditing = showLeaveBalanceForm&&isEditingBalance&&String(balanceForm.leave_policy_id)===String(rid);
                       return (
@@ -2555,15 +2548,14 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                           <td style={{ padding:'8px 12px' }}>{b.leave_policy_id?.policy_name||b.leave_type||'Policy'}</td>
                           <td style={{ padding:'8px 12px', textAlign:'right' }}>{formatLeaveDays(b.opening_balance||0)}</td>
                           <td style={{ padding:'8px 12px', textAlign:'right' }}>{formatLeaveDays(b.used??b.consumed??0)}</td>
-                          <td style={{ padding:'8px 12px', textAlign:'right' }}>{isLwp?0:formatLeaveDays(b.pending??b.pending_approval??0)}</td>
-                          {/* <td style={{ padding:'8px 12px', textAlign:'right', fontWeight:'700', color:THEME.primary }}>{net}</td> */}
+                          <td style={{ padding:'8px 12px', textAlign:'right' }}>{formatLeaveDays(b.pending??b.pending_approval??0)}</td>
                           <td style={{ padding:'8px 12px', textAlign:'right' }}>
                             <button onClick={()=>{ setBalanceForm({ leave_policy_id:rid, opening_balance:b.opening_balance||0, used:b.used??b.consumed??0, pending:b.pending??b.pending_approval??0 }); setShowLeaveBalanceForm(true); }} disabled={isRowEditing} style={{ ...S.btn('ghost'), fontSize:'11px', opacity:isRowEditing?0.5:1 }}>{isRowEditing?'Editing…':'Edit'}</button>
                           </td>
                         </tr>
                       );
                     })}
-                    {!(profile.balances||[]).length&&<tr><td colSpan={6} style={{ padding:'16px', textAlign:'center', color:THEME.muted }}>No leave balances</td></tr>}
+                    {!(profile.balances||[]).length&&<tr><td colSpan={5} style={{ padding:'16px', textAlign:'center', color:THEME.muted }}>No leave balances</td></tr>}
                   </tbody>
                 </table>
               </div>

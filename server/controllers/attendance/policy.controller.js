@@ -13,6 +13,7 @@ import User from '../../model/userModel.mjs';
 import ActivityLog from '../../model/attendance/ActivityLog.js';
 import { ALLOWED_USERNAMES } from '../../middleware/requireAllowedAdmin.mjs';
 import { isRestrictedAllowedAdmin, getRestrictedEmployeeIds } from '../../utils/attendance/allowedAdminRestriction.mjs';
+import Company from '../../model/attendance/Company.js';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 const resolveCompanyId = (req) => {
@@ -148,8 +149,40 @@ export const getPolicyHistory = async (req, res) => {
 
 export const listWeekOffPolicies = async (req, res) => {
   try {
-    // Fetch all policies without company_id filtering
-    const policies = await WeekOffPolicy.find({})
+    const { all_companies, company_id } = req.query;
+    const username = (req.user?.username || '').toLowerCase();
+    const isAllowedAdmin = req.user?.role?.toUpperCase() === 'ADMIN' && ALLOWED_USERNAMES.has(username);
+
+    const filter = {};
+    if (!isAllowedAdmin) {
+      filter.company_id = resolveCompanyId(req);
+    } else {
+      const allCompanies = String(all_companies || '').toLowerCase() === 'true';
+      if (!allCompanies && company_id && company_id !== 'all') {
+        filter.company_id = company_id;
+      }
+    }
+
+    // Apply RABS visibility scoping
+    const rabsCompany = await Company.findOne({ company_name: /RABS Industries India Private Limited/i });
+    const rabsCompanyId = rabsCompany?._id;
+    const userCompanyId = req.user.company_id?._id || req.user.company_id;
+    const isRabsUser = rabsCompanyId && String(userCompanyId) === String(rabsCompanyId);
+
+    if (isRabsUser) {
+      // RABS users only see RABS policies created by RABS users (HR/Admin)
+      filter.company_id = rabsCompanyId;
+      const rabsUsers = await User.find({ company_id: rabsCompanyId }).select('_id');
+      const rabsUserIds = rabsUsers.map(u => u._id);
+      filter.created_by = { $in: rabsUserIds };
+    } else {
+      // Non-RABS users do not see RABS policies
+      if (rabsCompanyId) {
+        filter.company_id = { $ne: rabsCompanyId };
+      }
+    }
+
+    const policies = await WeekOffPolicy.find(filter)
       .populate('applicability.teams.list', 'name')
       .populate('created_by', 'first_name last_name username role')
       .populate('updated_by', 'first_name last_name username role')
@@ -299,6 +332,25 @@ export const listHolidayPolicies = async (req, res) => {
       const allCompanies = String(all_companies || '').toLowerCase() === 'true';
       if (!allCompanies && company_id && company_id !== 'all') {
         filter.company_id = company_id;
+      }
+    }
+
+    // Apply RABS visibility scoping
+    const rabsCompany = await Company.findOne({ company_name: /RABS Industries India Private Limited/i });
+    const rabsCompanyId = rabsCompany?._id;
+    const userCompanyId = req.user.company_id?._id || req.user.company_id;
+    const isRabsUser = rabsCompanyId && String(userCompanyId) === String(rabsCompanyId);
+
+    if (isRabsUser) {
+      // RABS users only see RABS policies created by RABS users (HR/Admin)
+      filter.company_id = rabsCompanyId;
+      const rabsUsers = await User.find({ company_id: rabsCompanyId }).select('_id');
+      const rabsUserIds = rabsUsers.map(u => u._id);
+      filter.created_by = { $in: rabsUserIds };
+    } else {
+      // Non-RABS users do not see RABS policies
+      if (rabsCompanyId) {
+        filter.company_id = { $ne: rabsCompanyId };
       }
     }
 

@@ -437,15 +437,18 @@ const filteredEmployees = useMemo(() => {
   return [...r].sort((a, b) => {
     const countA = pendingCorrectionCounts[a._id] || 0;
     const countB = pendingCorrectionCounts[b._id] || 0;
-    if (countA > 0 && countB === 0) return -1;
-    if (countA === 0 && countB > 0) return 1;
+    const hasPendingA = countA > 0;
+    const hasPendingB = countB > 0;
+    if (hasPendingA !== hasPendingB) {
+      return hasPendingA ? -1 : 1;
+    }
 
     const aR = isRabsOrganization(getOrgName(a));
     const bR = isRabsOrganization(getOrgName(b));
     if (aR !== bR) return aR ? 1 : -1;
 
-    const nameA = [a.first_name, a.last_name].filter(Boolean).join(' ').trim().toLowerCase();
-    const nameB = [b.first_name, b.last_name].filter(Boolean).join(' ').trim().toLowerCase();
+    const nameA = [a.first_name, a.last_name].filter(Boolean).join(' ').trim().toLowerCase() || (a.username || '').toLowerCase();
+    const nameB = [b.first_name, b.last_name].filter(Boolean).join(' ').trim().toLowerCase() || (b.username || '').toLowerCase();
     return nameA.localeCompare(nameB);
   });
 }, [gridEmployees, searchTerm, pendingCorrectionCounts]);

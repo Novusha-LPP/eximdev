@@ -5,16 +5,16 @@ import Scorecard from "../../model/scorecard/Scorecard.js";
 const router = express.Router();
 
 const DEFAULT_CRITERIA = [
-  { srNo: 1,  criteria: "Response Time to Complaint",          weightage: 1 },
-  { srNo: 2,  criteria: "Breakdown Resolution Time",           weightage: 1 },
-  { srNo: 3,  criteria: "Preventive Maintenance Completion",   weightage: 1 },
-  { srNo: 4,  criteria: "Quality of Service Work",             weightage: 1 },
-  { srNo: 5,  criteria: "Technician Behaviour & Discipline",   weightage: 1 },
-  { srNo: 6,  criteria: "Availability of Spare Parts",         weightage: 1 },
-  { srNo: 7,  criteria: "Compliance with Safety Standards",    weightage: 1 },
-  { srNo: 8,  criteria: "Documentation & Service Reports",     weightage: 1 },
-  { srNo: 9,  criteria: "Adherence to AMC Schedule",           weightage: 1 },
-  { srNo: 10, criteria: "Overall Support & Coordination",      weightage: 1 },
+  { srNo: 1, criteria: "Response Time to Complaint", weightage: 1 },
+  { srNo: 2, criteria: "Breakdown Resolution Time", weightage: 1 },
+  { srNo: 3, criteria: "Preventive Maintenance Completion", weightage: 1 },
+  { srNo: 4, criteria: "Quality of Service Work", weightage: 1 },
+  { srNo: 5, criteria: "Technician Behaviour & Discipline", weightage: 1 },
+  { srNo: 6, criteria: "Availability of Spare Parts", weightage: 1 },
+  { srNo: 7, criteria: "Compliance with Safety Standards", weightage: 1 },
+  { srNo: 8, criteria: "Documentation & Service Reports", weightage: 1 },
+  { srNo: 9, criteria: "Adherence to AMC Schedule", weightage: 1 },
+  { srNo: 10, criteria: "Overall Support & Coordination", weightage: 1 },
 ];
 
 // Simple, robust custom validation middleware
@@ -151,16 +151,16 @@ router.post(
   async (req, res) => {
     try {
       const scorecard = new Scorecard({
-        supplierName:     req.body.supplierName,
-        serviceType:      req.body.serviceType,
+        supplierName: req.body.supplierName,
+        serviceType: req.body.serviceType,
         evaluationPeriod: req.body.evaluationPeriod,
-        evaluatedBy:      req.body.evaluatedBy,
-        branch:           req.body.branch || "All Branches",
-        date:             req.body.date || new Date(),
-        evaluationItems:  req.body.evaluationItems,
-        complaints:       req.body.complaints || [],
-        overallRemarks:   req.body.overallRemarks || "",
-        status:           req.body.status || "Draft",
+        evaluatedBy: req.body.evaluatedBy,
+        branch: req.body.branch || "All Branches",
+        date: req.body.date || new Date(),
+        evaluationItems: req.body.evaluationItems,
+        complaints: req.body.complaints || [],
+        overallRemarks: req.body.overallRemarks || "",
+        status: req.body.status || "Draft",
       });
 
       await scorecard.save();

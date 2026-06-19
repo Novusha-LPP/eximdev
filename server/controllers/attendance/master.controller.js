@@ -882,6 +882,12 @@ export const getUsers = async (req, res) => {
       query.isActive = req.query.isActive === 'true' || req.query.isActive === true;
     }
 
+    // Filter out drivers always, and dev_master in production
+    query.role = { $nin: ['driver', 'Driver'] };
+    if (process.env.NODE_ENV === 'production') {
+      query.username = { $ne: 'dev_master' };
+    }
+
     const users = await User.find(query)
       .select('-password')
       .populate('department_id', 'department_name')

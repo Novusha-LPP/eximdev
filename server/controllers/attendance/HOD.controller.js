@@ -436,10 +436,15 @@ export const getDashboard = async (req, res) => {
 
         if (isRabsAjith) {
             // Ajith sees all active RABS employees
-            employees = await User.find({
+            const rabsQuery = {
                 company_id: rabsCompanyId,
-                isActive: { $ne: false }
-            }).select('_id first_name last_name username email role department_id company_id');
+                isActive: { $ne: false },
+                role: { $nin: ['driver', 'Driver'] }
+            };
+            if (process.env.NODE_ENV === 'production') {
+                rabsQuery.username = { $ne: 'dev_master' };
+            }
+            employees = await User.find(rabsQuery).select('_id first_name last_name username email role department_id company_id');
             allTeamsForHOD = await TeamModel.find({ isActive: { $ne: false } }).lean();
             employeeIds = employees.map(e => e._id.toString());
             debugLog.push(`RABS Admin mode (Ajith): Found ${employees.length} RABS employees`);
@@ -450,10 +455,15 @@ export const getDashboard = async (req, res) => {
                 const team = await TeamModel.findOne({ _id: teamId, isActive: { $ne: false } });
                 if (team && team.members && team.members.length > 0) {
                     const memberIds = team.members.map(m => m.userId).filter(Boolean);
-                    employees = await User.find({
+                    const adminTeamQuery = {
                         _id: { $in: memberIds },
-                        isActive: { $ne: false }
-                    }).select('_id first_name last_name username email role department_id company_id');
+                        isActive: { $ne: false },
+                        role: { $nin: ['driver', 'Driver'] }
+                    };
+                    if (process.env.NODE_ENV === 'production') {
+                        adminTeamQuery.username = { $ne: 'dev_master' };
+                    }
+                    employees = await User.find(adminTeamQuery).select('_id first_name last_name username email role department_id company_id');
                     debugLog.push(`Admin filtered by teamId ${teamId}: Found ${employees.length} team members`);
                 } else {
                     employees = [];
@@ -461,10 +471,14 @@ export const getDashboard = async (req, res) => {
                 }
             } else {
                 const userQuery = {
-                    isActive: { $ne: false }
+                    isActive: { $ne: false },
+                    role: { $nin: ['driver', 'Driver'] }
                 };
                 if (companyId && companyId !== 'all') {
                     userQuery.company_id = companyId;
+                }
+                if (process.env.NODE_ENV === 'production') {
+                    userQuery.username = { $ne: 'dev_master' };
                 }
                 employees = await User.find(userQuery).select('_id first_name last_name username email role department_id company_id');
                 debugLog.push(`Admin mode (all): Found ${employees.length} total employees`);
@@ -505,7 +519,15 @@ export const getDashboard = async (req, res) => {
 
             
             if (memberUsernames.size > 0) {
-                const resolvedUsers = await User.find({ username: { $in: [...memberUsernames] }, isActive: { $ne: false } }).select('_id username').lean();
+                const legacyQuery = {
+                    username: { $in: [...memberUsernames] },
+                    isActive: { $ne: false },
+                    role: { $nin: ['driver', 'Driver'] }
+                };
+                if (process.env.NODE_ENV === 'production') {
+                    legacyQuery.username = { $in: [...memberUsernames].filter(u => u !== 'dev_master') };
+                }
+                const resolvedUsers = await User.find(legacyQuery).select('_id username').lean();
                 resolvedUsers.forEach(user => {
                     if (user?._id) memberUserIds.add(user._id.toString());
                 });
@@ -556,10 +578,15 @@ export const getDashboard = async (req, res) => {
 
         // Fetch full employee details
         if (employees.length === 0 && employeeIds.length > 0) {
-            employees = await User.find({
+            const detailQuery = {
                 _id: { $in: employeeIds },
-                isActive: { $ne: false }
-            }).select('_id first_name last_name username email role department_id company_id');
+                isActive: { $ne: false },
+                role: { $nin: ['driver', 'Driver'] }
+            };
+            if (process.env.NODE_ENV === 'production') {
+                detailQuery.username = { $ne: 'dev_master' };
+            }
+            employees = await User.find(detailQuery).select('_id first_name last_name username email role department_id company_id');
             
             debugLog.push(`Loaded ${employees.length} active team member details`);
         }
@@ -1550,8 +1577,12 @@ export const getDepartmentAttendanceReport = async (req, res) => {
                 // Allowlisted admins can view all employees in company scope.
                 const userQuery = {
                     company_id: companyId,
-                    isActive: { $ne: false }
+                    isActive: { $ne: false },
+                    role: { $nin: ['driver', 'Driver'] }
                 };
+                if (process.env.NODE_ENV === 'production') {
+                    userQuery.username = { $ne: 'dev_master' };
+                }
                 employees = await User.find(userQuery).select('_id first_name last_name username');
             } else {
                 const teams = await TeamModel.find({
@@ -1578,10 +1609,15 @@ export const getDepartmentAttendanceReport = async (req, res) => {
                 }
 
                 employeeIds = Array.from(memberUserIds).map(id => id);
-                employees = await User.find({
+                const teamDetailQuery = {
                     _id: { $in: employeeIds },
-                    isActive: { $ne: false }
-                }).select('_id first_name last_name username');
+                    isActive: { $ne: false },
+                    role: { $nin: ['driver', 'Driver'] }
+                };
+                if (process.env.NODE_ENV === 'production') {
+                    teamDetailQuery.username = { $ne: 'dev_master' };
+                }
+                employees = await User.find(teamDetailQuery).select('_id first_name last_name username');
             }
             employees = await User.find(userQuery).select('_id first_name last_name username company_id');
         } else {
@@ -1609,10 +1645,15 @@ export const getDepartmentAttendanceReport = async (req, res) => {
             });
 
             if (legacyUsernames.length > 0) {
-                const resolvedUsers = await User.find({
+                const legacyQuery = {
                     username: { $in: legacyUsernames },
-                    isActive: { $ne: false }
-                }).select('_id');
+                    isActive: { $ne: false },
+                    role: { $nin: ['driver', 'Driver'] }
+                };
+                if (process.env.NODE_ENV === 'production') {
+                    legacyQuery.username = { $in: legacyUsernames.filter(u => u !== 'dev_master') };
+                }
+                const resolvedUsers = await User.find(legacyQuery).select('_id');
                 resolvedUsers.forEach(u => memberUserIds.add(u._id.toString()));
             }
 
@@ -1621,10 +1662,15 @@ export const getDepartmentAttendanceReport = async (req, res) => {
             }
 
             employeeIds = Array.from(memberUserIds).map(id => id);
-            employees = await User.find({
+            const teamDetailQueryNonAdmin = {
                 _id: { $in: employeeIds },
-                isActive: { $ne: false }
-            }).select('_id first_name last_name username company_id');
+                isActive: { $ne: false },
+                role: { $nin: ['driver', 'Driver'] }
+            };
+            if (process.env.NODE_ENV === 'production') {
+                teamDetailQueryNonAdmin.username = { $ne: 'dev_master' };
+            }
+            employees = await User.find(teamDetailQueryNonAdmin).select('_id first_name last_name username company_id');
         }
 
         employeeIds = employees.map(e => e._id);
@@ -1754,7 +1800,14 @@ export const getAdminLeaveRequests = async (req, res) => {
 
         const companyId = admin.company_id?._id || admin.company_id;
 
-        const companyUsers = await User.find({ company_id: companyId }).select('_id').lean();
+        const companyUsersQuery = {
+            company_id: companyId,
+            role: { $nin: ['driver', 'Driver'] }
+        };
+        if (process.env.NODE_ENV === 'production') {
+            companyUsersQuery.username = { $ne: 'dev_master' };
+        }
+        const companyUsers = await User.find(companyUsersQuery).select('_id').lean();
         const companyUserIds = new Set(companyUsers.map(u => u._id.toString()));
         const adminIdStr = admin._id?.toString();
 
@@ -1798,10 +1851,15 @@ export const getAdminLeaveRequests = async (req, res) => {
         const isRabsAjith = rabsCompanyId && adminUsername === 'ajith_sivadasan';
 
         if (isRabsAjith && (!teamId || teamId === 'all')) {
-            const rabsEmployees = await User.find({
+            const rabsQuery = {
                 company_id: rabsCompanyId,
-                isActive: { $ne: false }
-            }).select('_id').lean();
+                isActive: { $ne: false },
+                role: { $nin: ['driver', 'Driver'] }
+            };
+            if (process.env.NODE_ENV === 'production') {
+                rabsQuery.username = { $ne: 'dev_master' };
+            }
+            const rabsEmployees = await User.find(rabsQuery).select('_id').lean();
             employeeFilter = { $in: rabsEmployees.map(e => e._id) };
         } else if (teamId && teamId !== 'all') {
             const team = allTeams.find(t => t._id.toString() === teamId.toString());
@@ -1817,7 +1875,15 @@ export const getAdminLeaveRequests = async (req, res) => {
                 });
 
                 if (memberUsernames.size > 0) {
-                    const resolvedUsers = await User.find({ username: { $in: [...memberUsernames] }, isActive: { $ne: false } }).select('_id').lean();
+                    const legacyQuery = {
+                        username: { $in: [...memberUsernames] },
+                        isActive: { $ne: false },
+                        role: { $nin: ['driver', 'Driver'] }
+                    };
+                    if (process.env.NODE_ENV === 'production') {
+                        legacyQuery.username = { $in: [...memberUsernames].filter(u => u !== 'dev_master') };
+                    }
+                    const resolvedUsers = await User.find(legacyQuery).select('_id').lean();
                     resolvedUsers.forEach(u => {
                         if (u?._id) memberUserIds.add(u._id.toString());
                     });
@@ -1858,7 +1924,15 @@ export const getAdminLeaveRequests = async (req, res) => {
             });
 
             if (memberUsernames.size > 0) {
-                const resolvedUsers = await User.find({ username: { $in: [...memberUsernames] }, isActive: { $ne: false } }).select('_id').lean();
+                const legacyQuery = {
+                    username: { $in: [...memberUsernames] },
+                    isActive: { $ne: false },
+                    role: { $nin: ['driver', 'Driver'] }
+                };
+                if (process.env.NODE_ENV === 'production') {
+                    legacyQuery.username = { $in: [...memberUsernames].filter(u => u !== 'dev_master') };
+                }
+                const resolvedUsers = await User.find(legacyQuery).select('_id').lean();
                 resolvedUsers.forEach(u => {
                     if (u?._id) memberIds.add(u._id.toString());
                 });
@@ -2087,11 +2161,25 @@ export const getAdminLeaveRequests = async (req, res) => {
             };
         };
 
+        const filteredPendingLeaves = pendingLeaves.filter(leave => {
+            if (!leave.employee_id) return false;
+            if (String(leave.employee_id.role || '').trim().toLowerCase() === 'driver') return false;
+            if (process.env.NODE_ENV === 'production' && leave.employee_id.username === 'dev_master') return false;
+            return true;
+        });
+
+        const filteredRecentProcessedLeaves = recentProcessedLeaves.filter(leave => {
+            if (!leave.employee_id) return false;
+            if (String(leave.employee_id.role || '').trim().toLowerCase() === 'driver') return false;
+            if (process.env.NODE_ENV === 'production' && leave.employee_id.username === 'dev_master') return false;
+            return true;
+        });
+
         return res.json({
             data: {
-                pendingLeaves: await Promise.all(pendingLeaves.map(mapLeave)),
-                recentProcessedLeaves: await Promise.all(recentProcessedLeaves.map(mapLeave)),
-                totalHistory,
+                pendingLeaves: await Promise.all(filteredPendingLeaves.map(mapLeave)),
+                recentProcessedLeaves: await Promise.all(filteredRecentProcessedLeaves.map(mapLeave)),
+                totalHistory: filteredRecentProcessedLeaves.length,
                 historyPage: page,
                 historyLimit: limit,
                 teams: teams.map(t => ({ _id: t._id, name: t.name, hodUsername: t.hodUsername })),

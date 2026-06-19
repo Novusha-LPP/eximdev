@@ -13,6 +13,12 @@ router.get("/api/get-all-users", async (req, res) => {
     query.isActive = { $ne: false };
   }
 
+  // Filter out drivers always, and dev_master in production
+  query.role = { $nin: ['driver', 'Driver'] };
+  if (process.env.NODE_ENV === 'production') {
+    query.username = { $ne: 'dev_master' };
+  }
+
   const users = await UserModel.find(query).select(
     "username role _id first_name last_name isActive deactivatedAt modules isAttendanceAllowedAdmin is_operator"
   );

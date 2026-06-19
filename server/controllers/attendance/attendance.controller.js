@@ -1816,8 +1816,11 @@ export const getPayrollData = async (req, res) => {
 
         // Query employees - handle both ObjectId and string formats
         const query = {
-            role: { $nin: ['ADMIN', 'Admin'] }
+            role: { $nin: ['ADMIN', 'Admin', 'driver', 'Driver'] }
         };
+        if (process.env.NODE_ENV === 'production') {
+            query.username = { $ne: 'dev_master' };
+        }
         
         // Add company filter - try both formats
         if (mongoose.Types.ObjectId.isValid(companyId)) {
@@ -1994,8 +1997,11 @@ export const getPayrollEmployees = async (req, res) => {
                 { company_id: new mongoose.Types.ObjectId(companyId) },
                 { company_id: companyId }
             ],
-            role: { $nin: ['ADMIN', 'Admin'] }
+            role: { $nin: ['ADMIN', 'Admin', 'driver', 'Driver'] }
         };
+        if (process.env.NODE_ENV === 'production') {
+            employeesQuery.username = { $ne: 'dev_master' };
+        }
         if (restrictedIds) {
             employeesQuery._id = { $in: restrictedIds.map(id => new mongoose.Types.ObjectId(id)) };
         }
@@ -2156,8 +2162,12 @@ export const getAdminAttendanceReport = async (req, res) => {
 
         // 1. Build Query
         const userQuery = {
-            isActive: true
+            isActive: true,
+            role: { $nin: ['driver', 'Driver'] }
         };
+        if (process.env.NODE_ENV === 'production') {
+            userQuery.username = { $ne: 'dev_master' };
+        }
         if (companyId) {
             userQuery.company_id = companyId;
         }
@@ -2312,10 +2322,15 @@ export const getTeamAttendanceReport = async (req, res) => {
         }
 
         // 2. Fetch Employee Details
-        const employees = await User.find({
+        const empQuery = {
             _id: { $in: Array.from(memberUserIds) },
-            isActive: true
-        })
+            isActive: true,
+            role: { $nin: ['driver', 'Driver'] }
+        };
+        if (process.env.NODE_ENV === 'production') {
+            empQuery.username = { $ne: 'dev_master' };
+        }
+        const employees = await User.find(empQuery)
             .select(REPORT_USER_SELECT_FIELDS)
             .populate(REPORT_COMPANY_POPULATE)
             .populate({ path: 'shift_id', select: 'shift_name start_time end_time' })

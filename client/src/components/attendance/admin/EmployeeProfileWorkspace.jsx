@@ -424,9 +424,13 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
 
 const filteredEmployees = useMemo(() => {
   let r = gridEmployees;
-  if (!searchTerm.trim()) {
-    r = r.filter(e => e.username !== 'dev_master');
-  }
+  const isProduction = process.env.NODE_ENV === 'production';
+  r = r.filter(e => {
+    if (isProduction && e.username === 'dev_master') return false;
+    if (String(e.role || '').trim().toLowerCase() === 'driver') return false;
+    if (!searchTerm.trim() && e.username === 'dev_master') return false;
+    return true;
+  });
   if (searchTerm) {
     const q = searchTerm.toLowerCase();
     r = r.filter(e => (e.first_name || '').toLowerCase().includes(q) ||
@@ -725,7 +729,12 @@ const filteredEmployees = useMemo(() => {
     const fetchUsers = async () => {
       try {
         const r = await masterAPI.getUsers({ limit:2000, isActive:true, all_companies:true });
-        const rows = (r?.data||[]).filter(u => u.username !== 'dev_master');
+        const isProduction = process.env.NODE_ENV === 'production';
+        const rows = (r?.data||[]).filter(u => {
+          if (isProduction && u.username === 'dev_master') return false;
+          if (String(u.role || '').trim().toLowerCase() === 'driver') return false;
+          return u.username !== 'dev_master';
+        });
         setUsers(rows);
         if (rows.length&&!selectedEmployeeId) setSelectedEmployeeId(rows[0]._id);
       } catch { setUsers([]); }
@@ -751,7 +760,13 @@ const filteredEmployees = useMemo(() => {
           return { byEmployee: {} };
         })
       ]);
-      setGridEmployees(r?.data || []);
+      const isProduction = process.env.NODE_ENV === 'production';
+      const cleanEmployees = (r?.data || []).filter(e => {
+        if (isProduction && e.username === 'dev_master') return false;
+        if (String(e.role || '').trim().toLowerCase() === 'driver') return false;
+        return true;
+      });
+      setGridEmployees(cleanEmployees);
       setPendingCorrectionCounts(countsRes?.byEmployee || {});
     } catch {
       toast.error('Failed to load employees');
@@ -874,7 +889,13 @@ const filteredEmployees = useMemo(() => {
         toast.success(`Migrated to ${r.migratedEmployee.company_name}`);
         setShowMigrationModal(false); setMigratingEmployeeId(null); setDestOrgId('');
         const res = await masterAPI.getUsers({ limit:2000, isActive:true, all_companies:true });
-        setGridEmployees(res?.data||[]);
+        const isProduction = process.env.NODE_ENV === 'production';
+        const cleanEmployees = (res?.data || []).filter(e => {
+          if (isProduction && e.username === 'dev_master') return false;
+          if (String(e.role || '').trim().toLowerCase() === 'driver') return false;
+          return true;
+        });
+        setGridEmployees(cleanEmployees);
       }
     } catch (e) { toast.error(e?.message||'Migration failed'); }
   };

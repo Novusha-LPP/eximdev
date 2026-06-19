@@ -1217,6 +1217,13 @@ if (summarySheet) {
 };
 
     const filtered = reportData.filter(e => {
+        const isProduction = process.env.NODE_ENV === 'production';
+        if (isProduction && e.username === 'dev_master') {
+            return false;
+        }
+        if (String(e.role || '').trim().toLowerCase() === 'driver') {
+            return false;
+        }
         // Hide 'dev_master' by default (when search is empty)
         if (e.username === 'dev_master' && !searchTerm.trim()) {
             return false;

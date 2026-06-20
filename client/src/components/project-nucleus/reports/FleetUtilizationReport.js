@@ -46,16 +46,7 @@ const getPrimaryCategory = (status) => {
     return 'Others';
 };
 
-const getPrimaryCategoryForMetrics = (status) => {
-    if (hasStatus(status, 'Breakdown')) return 'Breakdown';
-    if (hasStatus(status, ['Accident', 'Accidents'])) return 'Accident';
-    if (hasStatus(status, 'Maintenance')) return 'Maintenance';
-    if (hasStatus(status, 'Driver on Leave')) return 'Driver on Leave';
-    if (hasStatus(status, 'No Driver')) return 'No Driver';
-    if (hasStatus(status, 'Under detention')) return 'Under detention';
-    if (hasStatus(status, 'Under trip')) return 'Under trip';
-    return 'Others';
-};
+
 
 const getCategoriesForVehicle = (v) => {
     const status = v.status;
@@ -458,8 +449,9 @@ const FleetUtilizationReport = ({
 
             const notOnRoadTotal = breakdown + maintenance + leave + accident + noDriver;
             const idle = fleet.filter(v => hasStatus(v.status, 'IDLE')).length;
-            const usedForTrips = Math.max(0, totalFleetNum - notOnRoadTotal - idle - underDetention - underTrip - others);
-            const oorPercentVal = totalFleetNum > 0 ? Math.round((usedForTrips / totalFleetNum) * 100) : 0;
+            const dayFleetSize = fleet.length > 0 ? fleet.length : totalFleetNum;
+            const usedForTrips = Math.max(0, dayFleetSize - notOnRoadTotal);
+            const oorPercentVal = dayFleetSize > 0 ? Math.round((usedForTrips / dayFleetSize) * 100) : 0;
             const oorPercent = `${oorPercentVal}%`;
 
             const automove = [...active, ...closed].filter(r => String(r.branch || '').toLowerCase().trim() === 'automove').length;
@@ -468,8 +460,8 @@ const FleetUtilizationReport = ({
             const ownClosed20 = closed.filter(r => String(r.own_hired || '').toLowerCase().trim() === 'own' && (String(r.type_of_vehicle || '').includes('20') || String(r.type_of_vehicle || '').includes('20ft'))).length;
             const ownClosed40 = closed.filter(r => String(r.own_hired || '').toLowerCase().trim() === 'own' && (String(r.type_of_vehicle || '').includes('40') || String(r.type_of_vehicle || '').includes('40ft'))).length;
 
-            const outsourced20 = [...active, ...closed].filter(r => String(r.own_hired || '').toLowerCase().trim() === 'hired' && (String(r.type_of_vehicle || '').includes('20') || String(r.type_of_vehicle || '').includes('20ft'))).length;
-            const outsourced40 = [...active, ...closed].filter(r => String(r.own_hired || '').toLowerCase().trim() === 'hired' && (String(r.type_of_vehicle || '').includes('40') || String(r.type_of_vehicle || '').includes('40ft'))).length;
+            const outsourced20 = closed.filter(r => String(r.own_hired || '').toLowerCase().trim() === 'hired' && (String(r.type_of_vehicle || '').includes('20') || String(r.type_of_vehicle || '').includes('20ft'))).length;
+            const outsourced40 = closed.filter(r => String(r.own_hired || '').toLowerCase().trim() === 'hired' && (String(r.type_of_vehicle || '').includes('40') || String(r.type_of_vehicle || '').includes('40ft'))).length;
             const outsourcedTotal = outsourced20 + outsourced40;
 
             const ownTrips = [...active, ...closed].filter(r => String(r.own_hired || '').toLowerCase().trim() === 'own').length;
@@ -478,7 +470,7 @@ const FleetUtilizationReport = ({
             return {
                 date: d.date,
                 dateStr,
-                totalFleet: totalFleetNum,
+                totalFleet: dayFleetSize,
                 activeCount: usedForTrips,
                 idleCount: idle,
                 oosCount: notOnRoadTotal,
@@ -551,13 +543,13 @@ const FleetUtilizationReport = ({
     const fleetStatusList = useMemo(() => activeDispatch?.fleetStatus || [], [activeDispatch]);
     const notOnRoadList = useMemo(() => {
         return fleetStatusList.filter(v => {
-            const cat = getPrimaryCategoryForMetrics(v.status);
+            const cat = getPrimaryCategory(v.status);
             return ['Breakdown', 'Maintenance', 'Driver on Leave', 'No Driver', 'Accident'].includes(cat);
         });
     }, [fleetStatusList]);
     const otherStatusList = useMemo(() => {
         return fleetStatusList.filter(v => {
-            const cat = getPrimaryCategoryForMetrics(v.status);
+            const cat = getPrimaryCategory(v.status);
             return ['Under trip', 'Under detention', 'Others'].includes(cat);
         });
     }, [fleetStatusList]);
@@ -568,10 +560,10 @@ const FleetUtilizationReport = ({
     const projectedMonthlyTrips = useMemo(() => {
         if (filterType !== 'month' && filterType !== 'quarter' && filterType !== 'year') return null;
 
-        const today = new Date('2026-06-02T12:56:07+05:30'); // Using current local time
-        const todayYear = 2026;
-        const todayMonth = 5; // June is 5 (0-indexed)
-        const todayDate = 2;
+        const today = new Date();
+        const todayYear = today.getFullYear();
+        const todayMonth = today.getMonth();
+        const todayDate = today.getDate();
 
         const totalTrips = closedLRsList.length;
 
@@ -866,7 +858,7 @@ const FleetUtilizationReport = ({
         const avgOnRoadPct = sumFleet > 0 ? Math.round((sumUsed / sumFleet) * 100) + '%' : '0%';
 
         return {
-            totalFleet: Math.round(sumFleet / dailyData.length), // Average size
+            avgFleetSize: Math.round(sumFleet / dailyData.length), // Average size
             usedForTrips: sumUsed,
             oorPercent: avgOnRoadPct,
             idleCount: sumIdle,
@@ -900,13 +892,13 @@ const FleetUtilizationReport = ({
 
         if (filterType === 'day' || dailyData.length <= 1) {
             const outOfServiceVehicles = fleetStatusList.filter(v => !hasStatus(v.status, 'IDLE'));
-            const breakdown = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'Breakdown').length;
-            const noDriver = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'No Driver').length;
-            const onLeave = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'Driver on Leave').length;
-            const maint = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'Maintenance').length;
-            const accident = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'Accident').length;
-            const underDetention = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'Under detention').length;
-            const underTrip = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'Under trip').length;
+            const breakdown = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Breakdown').length;
+            const noDriver = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'No Driver').length;
+            const onLeave = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Driver on Leave').length;
+            const maint = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Maintenance').length;
+            const accident = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Accident').length;
+            const underDetention = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Under detention').length;
+            const underTrip = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Under trip').length;
             
             const customCategories = {};
             outOfServiceVehicles.forEach(v => {
@@ -923,7 +915,7 @@ const FleetUtilizationReport = ({
 
             const ownTrips = closedLRsList.filter(r => (r.own_hired || '').toLowerCase().trim() === 'own').length;
             const idleVal = totalFleetNum > 0 ? fleetStatusList.filter(v => hasStatus(v.status, 'IDLE')).length : 'NA';
-            const onRoadCount = (totalFleetNum > 0 && idleVal !== 'NA') ? Math.max(0, totalFleetNum - notOnRoad - idleVal - underDetention - underTrip - others) : ownTrips;
+            const onRoadCount = totalFleetNum > 0 ? Math.max(0, totalFleetNum - notOnRoad) : ownTrips;
 
             const getPctStr = (val) => {
                 if (totalFleetNum <= 0) return '';
@@ -1206,6 +1198,9 @@ const FleetUtilizationReport = ({
         let grandAvgTripsPerDay = 0;
         let grandProjection = 0;
 
+        let rawGrandAvgTrips = 0;
+        let rawGrandProjection = 0;
+
         list.forEach(b => {
             const avgTrips = elapsedDays > 0 ? b.total / elapsedDays : 0;
             const projTrips = avgTrips * daysInMonth;
@@ -1213,14 +1208,17 @@ const FleetUtilizationReport = ({
             b.avgTripsPerDay = Math.round(avgTrips);
             b.projection = Math.round(projTrips);
 
-            grandAvgTripsPerDay += b.avgTripsPerDay;
-            grandProjection += b.projection;
+            rawGrandAvgTrips += avgTrips;
+            rawGrandProjection += projTrips;
 
             grand20 += b.c20; grandOwn20 += b.own20; grandHired20 += b.hired20;
             grand40 += b.c40; grandOwn40 += b.own40; grandHired40 += b.hired40;
             grandOther += b.other; grandOwnOther += b.ownOther || 0; grandHiredOther += b.hiredOther || 0;
             grandTotal += b.total;
         });
+
+        grandAvgTripsPerDay = Math.round(rawGrandAvgTrips);
+        grandProjection = Math.round(rawGrandProjection);
 
         const automoveData = branches['Automove'] || { c20: 0, own20: 0, hired20: 0, c40: 0, own40: 0, hired40: 0, other: 0, ownOther: 0, hiredOther: 0, total: 0 };
         const othersData = { c20: 0, own20: 0, hired20: 0, c40: 0, own40: 0, hired40: 0, other: 0, ownOther: 0, hiredOther: 0, total: 0 };
@@ -1297,7 +1295,7 @@ const FleetUtilizationReport = ({
                 }
             }
         };
-    }, [closedLRsList, filterType, selectedDay, selectedYear, selectedMonth, selectedQuarter, dateRange]);
+    }, [closedLRsList, filterType, selectedDay, selectedYear, selectedMonth, selectedQuarter, dateRange, dailyData]);
 
 
 
@@ -2634,7 +2632,7 @@ const FleetUtilizationReport = ({
                                 {dailyData.length > 0 && spreadsheetTotals && (
                                     <tr style={{ background: 'rgba(102, 126, 234, 0.08)', fontWeight: 800, borderTop: '2px solid rgba(102, 126, 234, 0.3)' }}>
                                         <td style={{ fontWeight: 800, color: '#0f172a' }}>Total / Avg</td>
-                                        <td className="num highlight-yellow" style={{ fontWeight: 800 }}>{spreadsheetTotals.totalFleet}</td>
+                                        <td className="num highlight-yellow" style={{ fontWeight: 800 }}>{spreadsheetTotals.avgFleetSize}</td>
                                         <td className="num" style={{ fontWeight: 800 }}>{spreadsheetTotals.usedForTrips}</td>
                                         <td className="num" style={{ color: '#059669', fontWeight: 800 }}>{spreadsheetTotals.oorPercent}</td>
                                         <td className="num highlight-yellow" style={{ fontWeight: 800 }}>{spreadsheetTotals.idleCount}</td>

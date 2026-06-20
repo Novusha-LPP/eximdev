@@ -23,7 +23,26 @@ function Stage6PaymentUtr({ data, onChange }) {
 
   const actionLog = data.actionLog || [];
   const updateActionLog = (idx, field, value) => {
-    const updated = actionLog.map((item, i) => (i === idx ? { ...item, [field]: value } : item));
+    const updated = [...actionLog];
+    for (let i = 0; i <= idx; i++) {
+      if (!updated[i]) {
+        updated[i] = {
+          actionTask: [
+            "Payment processed and UTR recorded",
+            "Payment confirmation intimated to Purchase Officer",
+            "Purchase Officer authorised to place RM order",
+          ][i] || "",
+          responsiblePerson: [
+            "Accounting Team",
+            "Accounting Team",
+            "System / Accounting",
+          ][i] || "",
+          dateTime: "",
+          status: "",
+        };
+      }
+    }
+    updated[idx] = { ...updated[idx], [field]: value };
     onChange({ actionLog: updated });
   };
 

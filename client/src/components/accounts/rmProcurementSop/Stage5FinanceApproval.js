@@ -25,7 +25,26 @@ function Stage5FinanceApproval({ data, onChange }) {
 
   const actionLog = data.actionLog || [];
   const updateActionLog = (idx, field, value) => {
-    const updated = actionLog.map((item, i) => (i === idx ? { ...item, [field]: value } : item));
+    const updated = [...actionLog];
+    for (let i = 0; i <= idx; i++) {
+      if (!updated[i]) {
+        updated[i] = {
+          actionTask: [
+            "Finance review checklist completed",
+            "Purchase APPROVED / REJECTED decision recorded",
+            "Forwarded to Accounting Team for payment processing",
+          ][i] || "",
+          responsiblePerson: [
+            "Finance Manager",
+            "Finance Manager",
+            "Finance Manager",
+          ][i] || "",
+          dateTime: "",
+          status: "",
+        };
+      }
+    }
+    updated[idx] = { ...updated[idx], [field]: value };
     onChange({ actionLog: updated });
   };
 

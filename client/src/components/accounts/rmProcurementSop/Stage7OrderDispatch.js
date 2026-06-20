@@ -31,7 +31,30 @@ function Stage7OrderDispatch({ data, onChange }) {
 
   const breakdown = data.rmDispatchBreakdown || [];
   const updateBreakdown = (idx, field, value) => {
-    const updated = breakdown.map((item, i) => (i === idx ? { ...item, [field]: value } : item));
+    const updated = [...breakdown];
+    for (let i = 0; i <= idx; i++) {
+      if (!updated[i]) {
+        updated[i] = {
+          rmType: [
+            "Virgin HDPE Granule",
+            "rHDPE Granule",
+            "Colour Masterbatch",
+            "UV Masterbatch",
+          ][i] || "",
+          grade: [
+            "ICOL-180M50",
+            "Blue / Grey",
+            "Blue / Grey",
+            "Standard UV",
+          ][i] || "",
+          qtyDispatchedKg: "",
+          noOfBags: "",
+          batchNo: "",
+          remarks: "",
+        };
+      }
+    }
+    updated[idx] = { ...updated[idx], [field]: value };
     onChange({ rmDispatchBreakdown: updated });
   };
 

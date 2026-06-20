@@ -146,6 +146,7 @@ import ImportBillingTab from "../components/Import-billing/ImportBillingTab.js";
 import AllUsersPage from "./AllUsersPage.js";
 import BillingReports from "../components/accounts/BillingReports.js";
 import RmProcurementSop from "../components/accounts/rmProcurementSop/RmProcurementSop.js";
+import TyreProcurementSop from "../components/accounts/tyreProcurementSop/TyreProcurementSop.js";
 
 // Analytics
 import AnalyticsLayout from "../components/analytics/AnalyticsLayout";
@@ -973,6 +974,15 @@ function HomePageContent() {
                   element={
                     <ProtectedRoute requiredModule="RM Procurement SOP">
                       <RmProcurementSop />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/tyre-procurement"
+                  element={
+                    <ProtectedRoute requiredModule="Tyre Procurement SOP">
+                      <TyreProcurementSop />
                     </ProtectedRoute>
                   }
                 />

@@ -25,13 +25,49 @@ function Stage4PricingValidation({ data, onChange }) {
 
   const validations = data.rateValidations || [];
   const updateValidation = (idx, field, value) => {
-    const updated = validations.map((item, i) => (i === idx ? { ...item, [field]: value } : item));
+    const updated = [...validations];
+    for (let i = 0; i <= idx; i++) {
+      if (!updated[i]) {
+        updated[i] = {
+          rmType: [
+            "Virgin HDPE Granule (ICOL-180M50)",
+            "rHDPE Granule (Blue / Grey)",
+            "Colour Masterbatch (Blue / Grey)",
+            "UV Masterbatch",
+          ][i] || "",
+          l1QuotedRate: "",
+          marketRate: "",
+          acceptable: "",
+          remarks: "",
+        };
+      }
+    }
+    updated[idx] = { ...updated[idx], [field]: value };
     onChange({ rateValidations: updated });
   };
 
   const actionLog = data.actionLog || [];
   const updateActionLog = (idx, field, value) => {
-    const updated = actionLog.map((item, i) => (i === idx ? { ...item, [field]: value } : item));
+    const updated = [...actionLog];
+    for (let i = 0; i <= idx; i++) {
+      if (!updated[i]) {
+        updated[i] = {
+          actionTask: [
+            "Rate validation completed against market benchmark",
+            "Document checklist confirmed",
+            "Forwarded to Finance Manager for approval",
+          ][i] || "",
+          responsiblePerson: [
+            "Pricing Team",
+            "Pricing Team",
+            "Pricing Team",
+          ][i] || "",
+          dateTime: "",
+          status: "",
+        };
+      }
+    }
+    updated[idx] = { ...updated[idx], [field]: value };
     onChange({ actionLog: updated });
   };
 

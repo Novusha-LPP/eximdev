@@ -76,35 +76,6 @@ export default function SLATracking({ slaRules, setSlaRules }) {
     }
   };
 
-  const getSlaStatus = (slaHours, createdAt) => {
-    if (!createdAt) return "Unknown";
-
-    const created = new Date(createdAt);
-    const now = new Date();
-    const elapsedHours = (now - created) / (1000 * 60 * 60);
-
-    if (elapsedHours > slaHours) {
-      return "Overdue";
-    } else if (elapsedHours > slaHours * 0.8) {
-      return "Urgent";
-    } else {
-      return "On Track";
-    }
-  };
-
-  const getSlaStatusColor = (status) => {
-    switch (status) {
-      case "Overdue":
-        return "error";
-      case "Urgent":
-        return "warning";
-      case "On Track":
-        return "success";
-      default:
-        return "default";
-    }
-  };
-
   return (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
@@ -129,14 +100,13 @@ export default function SLATracking({ slaRules, setSlaRules }) {
                   <TableCell>Category</TableCell>
                   <TableCell>Priority</TableCell>
                   <TableCell>SLA Hours</TableCell>
-                  <TableCell>Status</TableCell>
                   <TableCell>Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {slaRules.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} align="center">
+                    <TableCell colSpan={5} align="center">
                       <Typography variant="body2" color="text.secondary">
                         No SLA rules found
                       </Typography>
@@ -149,13 +119,6 @@ export default function SLATracking({ slaRules, setSlaRules }) {
                       <TableCell>{rule.category}</TableCell>
                       <TableCell>{rule.priority}</TableCell>
                       <TableCell>{rule.sla_hours} hours</TableCell>
-                      <TableCell>
-                        <Chip 
-                          label={getSlaStatus(rule.sla_hours, rule.created_at)} 
-                          color={getSlaStatusColor(getSlaStatus(rule.sla_hours, rule.created_at))} 
-                          size="small" 
-                        />
-                      </TableCell>
                       <TableCell align="right">
                         <Tooltip title="Edit">
                           <IconButton size="small" onClick={() => handleEdit(rule)}>

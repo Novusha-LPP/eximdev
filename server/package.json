@@ -44,6 +44,7 @@
     "nodemon": "^3.0.1",
     "playwright": "^1.56.1",
     "pm2": "^5.3.0",
+    "resend": "^6.12.4",
     "tough-cookie": "^6.0.0",
     "winston": "^3.14.2",
     "winston-mongodb": "^5.1.1",

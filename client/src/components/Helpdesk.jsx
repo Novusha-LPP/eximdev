@@ -42,12 +42,8 @@ import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import AccountTreeIcon from "@mui/icons-material/AccountTree";
 import NotificationImportantIcon from "@mui/icons-material/NotificationImportant";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
-import PersonIcon from "@mui/icons-material/Person";
-import GroupIcon from "@mui/icons-material/Group";
 import SecurityIcon from "@mui/icons-material/Security";
 import HistoryIcon from "@mui/icons-material/History";
-import NotificationsIcon from "@mui/icons-material/Notifications";
-import EmailIcon from "@mui/icons-material/Email";
 import SettingsIcon from "@mui/icons-material/Settings";
 
 // Ticket categories
@@ -405,32 +401,12 @@ export default function Helpdesk() {
             <Card sx={{ mb: 2 }}>
               <CardContent>
                 <Typography variant="h6" gutterBottom>Administration</Typography>
-                <Typography variant="body2" color="text.secondary">Manage users, groups, roles, permissions, audit logs, notifications, email configuration, and system settings.</Typography>
+                <Typography variant="body2" color="text.secondary">Manage roles, permissions, audit logs, email configuration, and system settings.</Typography>
               </CardContent>
             </Card>
             <Card>
               <CardContent>
                 <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6} md={4} lg={3}>
-                    <Button 
-                      variant="outlined" 
-                      fullWidth 
-                      startIcon={<PersonIcon />}
-                      onClick={() => navigate("/admin")}
-                    >
-                      User Management
-                    </Button>
-                  </Grid>
-                  <Grid item xs={12} sm={6} md={4} lg={3}>
-                    <Button 
-                      variant="outlined" 
-                      fullWidth 
-                      startIcon={<GroupIcon />}
-                      onClick={() => navigate("/admin/groups")}
-                    >
-                      Groups
-                    </Button>
-                  </Grid>
                   <Grid item xs={12} sm={6} md={4} lg={3}>
                     <Button 
                       variant="outlined" 
@@ -451,16 +427,7 @@ export default function Helpdesk() {
                       Audit Logs
                     </Button>
                   </Grid>
-                  <Grid item xs={12} sm={6} md={4} lg={3}>
-                    <Button 
-                      variant="outlined" 
-                      fullWidth 
-                      startIcon={<NotificationsIcon />}
-                      onClick={() => navigate("/admin/notifications")}
-                    >
-                      Notifications
-                    </Button>
-                  </Grid>
+                  
                   <Grid item xs={12} sm={6} md={4} lg={3}>
                     <Button 
                       variant="outlined" 

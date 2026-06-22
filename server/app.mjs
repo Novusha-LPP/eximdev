@@ -2,6 +2,7 @@ import * as Sentry from "@sentry/node";
 import logger from "./logger.js";
 import dotenv from "dotenv";
 
+
 dotenv.config();
 
 let nodeProfilingIntegration;
@@ -45,6 +46,8 @@ import { setupDgftWebSocket } from "./setupDgftWebSocket.mjs";
 
 import monthlyContainersRouter from "./routes/report/monthlyContainers.mjs";
 import monthlyClearanceRouter from "./routes/report/importClearanceMonthly.mjs";
+import emailRoutes from "./routes/admin/emailRoutes.mjs";
+import userRoutes from "./routes/it-helpdesk/userRoutes.mjs";
 
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
@@ -408,6 +411,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+
 app.use((req, res, next) => {
   const isBrowserRequest =
     req.headers["user-agent"] &&
@@ -443,6 +447,7 @@ app.use(
         "http://localhost:9007",
         "http://192.168.1.105:3000",
         "http://192.168.1.105:3001",
+        "http://192.168.1.103:3000",
         "http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com",
         "https://import.alvision.in",
         "https://test-frontend.alvision.in"
@@ -515,6 +520,7 @@ app.use(getYears);
 app.use(login);
 app.use(logout);
 app.use(me);
+app.use("/api/users", userRoutes);
 
 // handle delete
 app.use(handleS3Deletation);
@@ -708,6 +714,7 @@ app.use(dgftRoutes);
 // Admin Branch Module
 app.use("/api/admin", branchRoutes);
 app.use("/api/admin/job-migration", jobMigrationRouter);
+app.use("/api/admin/email", emailRoutes);
 
 app.use(userAssetsRoutes);
 app.use(userAssetEquipmentRoutes);
@@ -838,6 +845,7 @@ if (!disableCluster && cluster.isPrimary) {
 
   // Connect to DB and Start Server (Skipped in Test Mode)
   if (process.env.NODE_ENV !== 'test') {
+    console.log(MONGODB_URI);
     mongoose
       .connect(MONGODB_URI, {
         appName: "exim", // Identifies this app in Atlas logs
@@ -917,7 +925,7 @@ if (!disableCluster && cluster.isPrimary) {
           }
         });
 
-        const port = Number(process.env.PORT || 9006);
+        const port = Number(process.env.PORT || 9007);
 
         server.listen(port, "0.0.0.0", () => {
           console.log(`🟢 Server listening on port ${port}`);

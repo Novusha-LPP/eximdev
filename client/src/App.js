@@ -1,3 +1,4 @@
+
 import "./App.scss";
 import "./styles/job-details.scss";
 import axios from "axios";

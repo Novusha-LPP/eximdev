@@ -10,9 +10,18 @@ router.post("/api/login", async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    const user = await UserModel.findOne({ username });
+    // FIX: Added .select('+password') to ensure the password hash is retrieved from the database
+    const user = await UserModel.findOne({ username }).select('+password');
+
     if (!user) {
       return res.status(400).json({ message: "User not registered" });
+    }
+
+    // SAFETY CHECK: Verify password exists before comparing
+    // This prevents the crash if the DB record is corrupted
+    if (!user.password) {
+      console.error(`Login Error: User '${username}' exists but has no password in the database.`);
+      return res.status(500).json({ message: "Account configuration error: Password missing." });
     }
 
     if (user.isActive === false) {
@@ -30,7 +39,18 @@ router.post("/api/login", async (req, res) => {
       }
 
       if (passwordResult) {
-        const isHodOfAnyTeam = await TeamModel.exists({ hodId: user._id, isActive: { $ne: false } });
+        const isHodRole = (r) => {
+          const normalized = String(r || '').trim().toLowerCase().replace(/[^a-z]/g, '');
+          return normalized === 'hod' || normalized === 'headofdepartment';
+        };
+
+        const isHodOfAnyTeam = await TeamModel.exists({
+          $or: [
+            { hodId: user._id },
+            ...(isHodRole(user.role) ? [{ "members.username": user.username }] : [])
+          ],
+          isActive: { $ne: false }
+        });
 
         const passwordChangedAt = user.passwordChangedAt || new Date(0);
         const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
@@ -57,7 +77,8 @@ router.post("/api/login", async (req, res) => {
           selected_icd_codes: user.selected_icd_codes,
           isHOD: !!isHodOfAnyTeam,
           hodId: isHodOfAnyTeam ? user._id.toString() : undefined,
-          passwordExpired: passwordExpired
+          passwordExpired: passwordExpired,
+          isAttendanceAllowedAdmin: user.isAttendanceAllowedAdmin
         };
 
         const token = jwt.sign(

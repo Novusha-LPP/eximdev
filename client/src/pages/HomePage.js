@@ -10,6 +10,7 @@ import { TabValueContext } from "../contexts/TabValueContext.js";
 import { SearchQueryProvider } from "../contexts/SearchQueryContext.js";
 import ProtectedRoute from "./ProtectedRoute.js";
 import { UserContext } from "../contexts/UserContext";
+import { AuditLogProvider } from "../contexts/AuditLogContext.js";
 // Home
 import Home from "../components/home/Home";
 import Assign from "../components/home/Assign.js";
@@ -553,14 +554,19 @@ function HomePageContent() {
                   </ProtectedRoute>
                 }
               />
+
               <Route
                 path="/it-helpdesk/vendors"
                 element={
                   <ProtectedRoute requiredModule="IT Helpdesk">
-                    <VendorManagement />
+                    <AuditLogProvider>
+                      <VendorManagement />
+                    </AuditLogProvider>
                   </ProtectedRoute>
                 }
               />
+
+
               <Route
                 path="/it-helpdesk/contracts"
                 element={
@@ -1314,8 +1320,8 @@ function HomePageContent() {
             </Routes>
           </Box>
         </Box>
-      </SearchQueryProvider>
-    </TabValueContext.Provider>
+      </SearchQueryProvider >
+    </TabValueContext.Provider >
   );
 }
 

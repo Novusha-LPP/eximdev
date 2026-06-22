@@ -361,5 +361,7 @@ const userSchema = new Schema({
 
 userSchema.plugin(auditPlugin, { documentType: "User" });
 
-const UserModel = mongoose.model("User", userSchema);
-export default UserModel;
+const User =
+  mongoose.models.User || mongoose.model("User", userSchema);
+
+export default User;

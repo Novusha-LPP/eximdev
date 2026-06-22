@@ -49,12 +49,32 @@ export default function InventoryManagement() {
   };
 
   const handleSave = async () => {
+    // Validation: Check all fields
+    if (
+      !form.item_name.trim() ||
+      !form.category ||
+      !form.vendor ||
+      !form.quantity ||
+      !form.reorder_level ||
+      !form.unit.trim() ||
+      !form.location.trim() ||
+      !form.notes.trim()
+    ) {
+      alert("Please fill all required fields");
+      return;
+    }
+
     const payload = {
       ...form,
+      item_name: form.item_name.trim(),
+      unit: form.unit.trim(),
+      location: form.location.trim(),
+      notes: form.notes.trim(),
       quantity: Number(form.quantity),
       reorder_level: Number(form.reorder_level),
-      vendor: form.vendor || undefined,
+      vendor: form.vendor,
     };
+
     try {
       if (editId) { await itHelpdeskAPI.inventory.update(editId, payload); }
       else { await itHelpdeskAPI.inventory.create(payload); }
@@ -73,7 +93,7 @@ export default function InventoryManagement() {
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <Typography variant="h5" fontWeight={700}>Inventory & Stock</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => { setEditId(null); setForm({...EMPTY_FORM}); setShowModal(true); }}>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={() => { setEditId(null); setForm({ ...EMPTY_FORM }); setShowModal(true); }}>
           Add Item
         </Button>
       </Box>
@@ -85,7 +105,7 @@ export default function InventoryManagement() {
             </TableRow></TableHead>
             <TableBody>
               {data.length === 0 ? <TableRow><TableCell colSpan={6} align="center">No items found</TableCell></TableRow> :
-                data.map((item) => <TableRow key={item._id}><TableCell>{item.item_name}</TableCell><TableCell>{item.category}</TableCell><TableCell>{item.quantity}</TableCell><TableCell>{item.unit}</TableCell><TableCell>{item.location || "—"}</TableCell><TableCell align="right"><Button size="small" onClick={() => { setEditId(item._id); setForm({...item}); setShowModal(true); }}>Edit</Button>&nbsp;<Button size="small" color="error" onClick={(e) => handleDelete(e, item._id)}>Delete</Button></TableCell></TableRow>)
+                data.map((item) => <TableRow key={item._id}><TableCell>{item.item_name}</TableCell><TableCell>{item.category}</TableCell><TableCell>{item.quantity}</TableCell><TableCell>{item.unit}</TableCell><TableCell>{item.location || "—"}</TableCell><TableCell align="right"><Button size="small" onClick={() => { setEditId(item._id); setForm({ ...item }); setShowModal(true); }}>Edit</Button>&nbsp;<Button size="small" color="error" onClick={(e) => handleDelete(e, item._id)}>Delete</Button></TableCell></TableRow>)
               }
             </TableBody>
           </Table>
@@ -94,19 +114,19 @@ export default function InventoryManagement() {
       <Dialog open={showModal} onClose={() => setShowModal(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{editId ? "Edit" : "New"} Inventory Item</DialogTitle>
         <DialogContent>
-          <TextField label="Item Name *" size="small" fullWidth sx={{ mb: 2, mt: 1 }} value={form.item_name} onChange={(e) => setForm((f) => ({ ...f, item_name: e.target.value }))} />
-          <TextField select label="Category" size="small" fullWidth sx={{ mb: 2 }} value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}>
+          <TextField label="Item Name *" size="small" fullWidth sx={{ mb: 2, mt: 1 }} required value={form.item_name} onChange={(e) => setForm((f) => ({ ...f, item_name: e.target.value }))} />
+          <TextField select label="Category *" size="small" fullWidth sx={{ mb: 2 }} required value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}>
             {CATEGORIES.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
           </TextField>
-          <TextField select label="Vendor" size="small" fullWidth sx={{ mb: 2 }} value={form.vendor} onChange={(e) => setForm((f) => ({ ...f, vendor: e.target.value }))}>
-            <MenuItem value="">No Vendor</MenuItem>
+          <TextField select label="Vendor *" size="small" fullWidth sx={{ mb: 2 }} required value={form.vendor} onChange={(e) => setForm((f) => ({ ...f, vendor: e.target.value }))}>
+            <MenuItem value="" disabled>Select Vendor</MenuItem>
             {vendors.map((v) => <MenuItem key={v._id} value={v._id}>{v.name}</MenuItem>)}
           </TextField>
-          <TextField label="Quantity" type="number" size="small" fullWidth sx={{ mb: 2 }} value={form.quantity} onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))} />
-          <TextField label="Reorder Level" type="number" size="small" fullWidth sx={{ mb: 2 }} value={form.reorder_level} onChange={(e) => setForm((f) => ({ ...f, reorder_level: e.target.value }))} />
-          <TextField label="Unit" size="small" fullWidth sx={{ mb: 2 }} value={form.unit} onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))} />
-          <TextField label="Location" size="small" fullWidth sx={{ mb: 2 }} value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} />
-          <TextField label="Notes" size="small" fullWidth sx={{ mb: 2 }} multiline minRows={2} value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
+          <TextField label="Quantity *" type="number" size="small" fullWidth sx={{ mb: 2 }} required value={form.quantity} onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))} />
+          <TextField label="Reorder Level *" type="number" size="small" fullWidth sx={{ mb: 2 }} required value={form.reorder_level} onChange={(e) => setForm((f) => ({ ...f, reorder_level: e.target.value }))} />
+          <TextField label="Unit *" size="small" fullWidth sx={{ mb: 2 }} required value={form.unit} onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))} />
+          <TextField label="Location *" size="small" fullWidth sx={{ mb: 2 }} required value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} />
+          <TextField label="Notes *" size="small" fullWidth sx={{ mb: 2 }} multiline minRows={2} required value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowModal(false)}>Cancel</Button>

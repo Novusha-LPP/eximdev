@@ -43,7 +43,7 @@ const auditTrailSchema = new mongoose.Schema(
     action: {
       type: String,
       required: true,
-      enum: ["CREATE", "UPDATE", "DELETE", "BULK_CREATE_UPDATE"],
+      enum: ["CREATE", "UPDATE", "DELETE", "BULK_CREATE_UPDATE", "VIEW", "FILTER", "MODULE_ACCESS", "CUSTOM"],
       index: true,
     },
 

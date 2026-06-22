@@ -36,13 +36,18 @@ const allModules = [
   "Document Collection",
   "KPI",
   "Open Points",
+  "Supplier Scorecard",
+  "AMC Suppliers Renewal",
+  "AMC Visitor Logs",
+  "Admin Equipment Checklist",
   "MRM",
   "DGFT",
   "Pulse",
   "Team Pulse",
   "MasterDirectory",
   "Attendance",
-  "Bill Cover"
+  "Bill Cover",
+  "IT Helpdesk"
 ];
 
 // allowedModules: if provided, only these modules can be assigned (for HOD restriction)
@@ -85,7 +90,7 @@ function AssignModule({ selectedUser, allowedModules, allowInactive = false }) {
     }
 
     getUserModules();
-  }, [selectedUser]);
+  }, [selectedUser, allowInactive]);
 
   const onChange = async (nextTargetKeys, direction, moveKeys) => {
     // innovative UI: optimistic update

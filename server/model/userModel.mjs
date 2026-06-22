@@ -375,6 +375,24 @@ const userSchema = new Schema({
     type: Date,
     default: null,
   },
+  userAssets: [
+    {
+      module: { type: String, required: true },
+      type: {
+        type: String,
+        enum: ['System', 'Laptop', 'Mouse', 'Keyboard', 'Monitor', 'Headset', 'Dongle', 'Other'],
+        required: true,
+      },
+      serialNumber: { type: String },
+      assignedDate: { type: Date, default: Date.now },
+      status: {
+        type: String,
+        enum: ['Assigned', 'Returned', 'Damaged'],
+        default: 'Assigned',
+      },
+      remarks: { type: String },
+    },
+  ],
 });
 
 userSchema.plugin(auditPlugin, { documentType: "User" });

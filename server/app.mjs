@@ -265,14 +265,31 @@ import dgftRoutes from "./routes/dgft/dgftRoutes.mjs";
 
 // CRM Module
 import crmRoutes from "./routes/crm/crmRoutes.mjs";
+
 // Admin Branch Module
 import branchRoutes from "./routes/admin/branchRoutes.mjs";
 import jobMigrationRouter from "./routes/admin/jobMigration.mjs";
 
-// HR Asset Module
 import userAssetsRoutes from "./routes/hr/userAssetsRoutes.mjs";
 import employeeKPIRoutes from "./routes/hr/employeeKPIRoutes.mjs";
 import profileCompletionRoutes from "./routes/hr/profileCompletionRoutes.mjs";
+import userAssetEquipmentRoutes from "./routes/user/userAssets.mjs";
+
+// Scorecard Module
+import scorecardRoutes from "./routes/scorecards/scorecards.js";
+
+// AMC Suppliers Renewal Module
+import amcRenewalRoutes from "./routes/amc-renewals/amcRenewalRoutes.mjs";
+import amcVisitorLogRoutes from "./routes/amc-renewals/amcVisitorLogRoutes.mjs";
+import adminEquipmentChecklistRoutes from "./routes/amc-renewals/adminEquipmentChecklistRoutes.mjs";
+
+// IT Asset & Helpdesk Module
+import assetRoutes from "./routes/it-helpdesk/assetRoutes.mjs";
+import ticketRoutes from "./routes/it-helpdesk/ticketRoutes.mjs";
+import vendorRoutes from "./routes/it-helpdesk/vendorRoutes.mjs";
+import contractRoutes from "./routes/it-helpdesk/contractRoutes.mjs";
+import licenseRoutes from "./routes/it-helpdesk/licenseRoutes.mjs";
+import inventoryRoutes from "./routes/it-helpdesk/inventoryRoutes.mjs";
 
 const MISSED_PUNCH_LIMIT_HOURS = 12;
 
@@ -422,18 +439,32 @@ app.use((req, res, next) => {
 });
 app.use(
   cors({
-    origin: [
-      "null",
-      "http://eximdev.s3-website.ap-south-1.amazonaws.com",
-      "http://localhost:3000",
-      "http://localhost:3001",
-      "http://localhost:9007",
-      "http://192.168.1.105:3000",
-      "http://192.168.1.105:3001",
-      "http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com",
-      "https://import.alvision.in",
-      "https://test-frontend.alvision.in"
-    ],
+    origin: function (origin, callback) {
+      // Allow requests with no origin (mobile apps, curl, etc.)
+      if (!origin) return callback(null, true);
+
+      const allowedStaticOrigins = [
+        "null",
+        "http://eximdev.s3-website.ap-south-1.amazonaws.com",
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:9007",
+        "http://192.168.1.105:3000",
+        "http://192.168.1.105:3001",
+        "http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com",
+        "https://import.alvision.in",
+        "https://test-frontend.alvision.in"
+      ];
+
+      // Allow any local network IP (192.168.x.x, 10.x.x.x, 172.16-31.x.x) on any port
+      const localNetworkPattern = /^http:\/\/(192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})(:\d+)?$/;
+
+      if (allowedStaticOrigins.includes(origin) || localNetworkPattern.test(origin)) {
+        return callback(null, true);
+      }
+
+      callback(null, true); // Allow all origins for now (AMC public form needs it)
+    },
     credentials: true,
     // Allow custom headers for audit trail
     exposedHeaders: ["Content-Type", "Authorization"],
@@ -692,6 +723,23 @@ app.use("/api/admin/job-migration", jobMigrationRouter);
 app.use(userAssetsRoutes);
 app.use(employeeKPIRoutes);
 app.use(profileCompletionRoutes);
+app.use(userAssetEquipmentRoutes);
+
+// Scorecard Module
+app.use("/api/scorecards", scorecardRoutes);
+
+// AMC Suppliers Renewal Module
+app.use("/api/amc-renewals", amcRenewalRoutes);
+app.use("/api/amc-visitor", amcVisitorLogRoutes);
+app.use("/api/equipment-checklist", adminEquipmentChecklistRoutes);
+
+// IT Asset & Helpdesk Module
+app.use("/api/it-helpdesk/assets", assetRoutes);
+app.use("/api/it-helpdesk/tickets", ticketRoutes);
+app.use("/api/it-helpdesk/vendors", vendorRoutes);
+app.use("/api/it-helpdesk/contracts", contractRoutes);
+app.use("/api/it-helpdesk/licenses", licenseRoutes);
+app.use("/api/it-helpdesk/inventory", inventoryRoutes);
 
 // Document Collection Module
 app.use(documentCollectionRoutes);

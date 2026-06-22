@@ -20,6 +20,9 @@ import DomainIcon from "@mui/icons-material/Domain";
 import VpnKeyIcon from "@mui/icons-material/VpnKey";
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
+import ComputerIcon from "@mui/icons-material/Computer";
+import SupportAgentIcon from "@mui/icons-material/SupportAgent";
+import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import { UserContext } from "../../contexts/UserContext";
 import CurrencyRateDialog from "./CurrencyRateDialog"; // Import the dialog
 
@@ -209,6 +212,7 @@ function Sidebar() {
         </Tooltip>
       )}
 
+
       {/* NEW: Currency Exchange Rates Icon */}
       <Tooltip title="Currency Exchange Rates" enterDelay={0} placement="right">
         <ListItemButton
@@ -222,6 +226,8 @@ function Sidebar() {
           </IconButton>
         </ListItemButton>
       </Tooltip>
+
+
 
 
 

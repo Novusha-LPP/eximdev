@@ -1,37 +1,56 @@
+/**
+ * Check users, tenants and CRM data status
+ */
+
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-dotenv.config({ path: './server/.env' });
+dotenv.config({ path: path.join(path.dirname(fileURLToPath(import.meta.url)), '.env') });
+dotenv.config({ path: '.env' });
 
-const MONGO_URI = process.env.SERVER_MONGODB_URI || process.env.DEV_MONGODB_URI || 'mongodb://localhost:27017/eximNew';
+const uri = process.env.DEV_MONGODB_URI || process.env.SERVER_MONGODB_URI || process.env.PROD_MONGODB_URI;
+console.log('URI found:', !!uri);
 
-async function check() {
-    try {
-        console.log('Connecting to:', MONGO_URI);
-        await mongoose.connect(MONGO_URI);
-        console.log('Connected!');
-
-        const results = {};
-
-        const collections = await mongoose.connection.db.listCollections().toArray();
-        results.collections = collections.map(c => c.name);
-
-        const indexes = await mongoose.connection.db.collection('branches').indexes();
-        results.indexes = indexes;
-
-        const branches = await mongoose.connection.db.collection('branches').find().toArray();
-        results.branchesCount = branches.length;
-        results.sampleBranch = branches[0];
-
-        fs.writeFileSync('check_results.json', JSON.stringify(results, null, 2));
-        console.log('Results written to check_results.json');
-
-        process.exit(0);
-    } catch (error) {
-        console.error('Check failed:', error);
-        process.exit(1);
+(async () => {
+  try {
+    await mongoose.connect(uri);
+    const db = mongoose.connection.db;
+    
+    const orgs = await db.collection('organizations').find({}).limit(5).toArray();
+    console.log('Organizations count:', orgs.length);
+    orgs.forEach(o => console.log('  _id:', o._id, 'name:', o.name));
+    
+    const users = await db.collection('users').find({}).limit(5).toArray();
+    console.log('Sample users:');
+    users.forEach(u => {
+      const fields = Object.entries(u).filter(([k]) => k !== 'password').slice(0, 8).map(([k,v]) => `${k}=${typeof v === 'object' ? JSON.stringify(v).slice(0, 60) : v}`).join(', ');
+      console.log('  _id:', String(u._id), fields);
+    });
+    
+    const userCount = await db.collection('users').countDocuments();
+    console.log('Total users:', userCount);
+    
+    const usersWithTenant = await db.collection('users').find({ tenantId: { $exists: true, $ne: null } }).count();
+    console.log('Users with tenantId:', usersWithTenant);
+    
+    const collections = await db.listCollections().toArray();
+    console.log('Collections:', collections.map(c => c.name).join(', '));
+    
+    const crmCollections = ['crmaccounts', 'crmcontacts', 'crmleads', 'crmopportunities', 'crmtasks', 'crmsalesteams'];
+    for (const col of crmCollections) {
+      const has = collections.some(c => c.name === col);
+      if (has) {
+        const count = await db.collection(col).countDocuments();
+        console.log(`  ${col}: ${count}`);
+      } else {
+        console.log(`  ${col}: NOT FOUND`);
+      }
     }
-}
-
-check();
+  } catch (err) {
+    console.error('Error:', err.message);
+  } finally {
+    await mongoose.disconnect();
+  }
+})();

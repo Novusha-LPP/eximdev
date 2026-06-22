@@ -22,6 +22,7 @@ import UserProfile from "../components/userProfile/UserProfile.js";
 import BranchManagement from "../components/admin/BranchManagement.js";
 import ApiKeyManagement from "../components/admin/ApiKeyManagement.js";
 import JobMigrationUtility from "../components/admin/JobMigrationUtility.js";
+import Administration from "../components/Administration";
 
 // Accounts
 import Accounts from "../components/accounts/Accounts.js";
@@ -30,6 +31,7 @@ import DocumentationJob from "../components/documentation/DocumentationJob.js";
 
 // Attendance
 import AttendanceLayout from "../components/attendance/layout/AttendanceLayout.jsx";
+
 import DashboardSwitch from "../components/attendance/DashboardSwitch.jsx";
 import AttendancePage from "../components/attendance/Attendance.jsx";
 import LeaveManagement from "../components/attendance/LeaveManagement.jsx";
@@ -166,6 +168,15 @@ import ProjectWorkspace from "../components/open-points/ProjectWorkspace.js";
 import AnalyticsDashboard from "../components/open-points/AnalyticsDashboard.js";
 import MyOpenPoints from "../components/open-points/MyOpenPoints.js";
 
+// Scorecard Module
+import ScorecardList from "./ScorecardList.jsx";
+import ScorecardForm from "./ScorecardForm.jsx";
+
+// AMC Suppliers Renewal Module
+import AmcRenewalList from "./AmcRenewalList.jsx";
+import AmcVisitorList from "./AmcVisitorList.jsx";
+import AdminEquipmentChecklist from "./AdminEquipmentChecklist.jsx";
+
 // Project Nucleus
 import NucleusHome from "../components/project-nucleus/NucleusHome.js";
 
@@ -176,6 +187,9 @@ import KPITemplateManager from "../components/kpi/KPITemplateManager.js";
 import KPIAdminDashboard from "../components/kpi/KPIAdminDashboard.js";
 import KPIReviewerDashboard from "../components/kpi/KPIReviewerDashboard.js";
 import KPIPulseDashboard from "../components/kpi/KPIPulseDashboard.js";
+
+// IT Helpdesk
+import ItHelpdeskPage from "./ItHelpdeskPage.jsx";
 import MRMHome from "../components/mrm/MRMHome.js";
 import MRMAdminDashboard from "../components/mrm/MRMAdminDashboard.js";
 
@@ -191,13 +205,29 @@ import ViewAuthorizationDetails from "../components/dgft/ViewAuthorizationDetail
 import ViewDgftRegisterDetails from "../components/dgft/ViewDgftRegisterDetails.js";
 
 // CRM Module
-import CRMModule from "../components/crm/CRMModule.jsx";
+
 
 import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
 
 import { useBranch } from "../contexts/BranchContext.js";
 import TeamDashboard from "../components/teams/TeamDashboard";
+import AssetManagement from "../components/it-helpdesk/AssetManagement.jsx";
+import TicketManagement from "../components/it-helpdesk/TicketManagement.jsx";
+import VendorManagement from "../components/it-helpdesk/VendorManagement.jsx";
+import ContractManagement from "../components/it-helpdesk/ContractManagement.jsx";
+import InventoryManagement from "../components/it-helpdesk/InventoryManagement.jsx";
+import LicenseManagement from "../components/it-helpdesk/LicenseManagement.jsx";
+import ITReports from "../components/it-helpdesk/ITReports.jsx";
+import ITNotifications from "../components/it-helpdesk/ITNotifications.jsx";
+import ITUserManagement from "../components/it-helpdesk/ITUserManagement.jsx";
+import UserManagement from "../components/it-helpdesk/UserManagement.jsx";
+import GroupManagement from "../components/it-helpdesk/GroupManagement.jsx";
+import RolesPermissions from "../components/it-helpdesk/RolesPermissions.jsx";
+import AuditLogs from "../components/it-helpdesk/AuditLogs.jsx";
+import NotificationsManagement from "../components/it-helpdesk/NotificationsManagement.jsx";
+import EmailConfiguration from "../components/it-helpdesk/EmailConfiguration.jsx";
+import SystemSettings from "../components/it-helpdesk/SystemSettings.jsx";
 
 const drawerWidth = 60;
 
@@ -223,7 +253,6 @@ function HomePageContent() {
     JSON.parse(localStorage.getItem("tab_value") || 0)
   );
   const [criticalAlertOpen, setCriticalAlertOpen] = useState(false);
-  
   const { isChangingBranch } = useBranch();
 
   React.useEffect(() => {
@@ -433,800 +462,986 @@ function HomePageContent() {
 
             <Routes>
               {/* ... routes ... */}
-                {/* Public Routes - No protection needed */}
-                <Route path="/" element={<Home />} />
-                <Route path="/change-password" element={<ChangePassword />} />
-                <Route path="/profile/:username" element={<UserProfile />} />
+              {/* Public Routes - No protection needed */}
+              <Route path="/" element={<Home />} />
+              <Route path="/change-password" element={<ChangePassword />} />
+              <Route path="/profile/:username" element={<UserProfile />} />
 
-                {/* Protected Routes */}
-                <Route path="/assign" element={<Assign />} />
-                <Route path="/admin/branches" element={<BranchManagement />} />
-                <Route path="/admin/api-keys" element={<ApiKeyManagement />} />
-                <Route path="/admin/job-migration" element={<JobMigrationUtility />} />
+              {/* Protected Routes */}
+              <Route path="/assign" element={<Assign />} />
+              <Route path="/admin/branches" element={<BranchManagement />} />
+              <Route path="/admin/api-keys" element={<ApiKeyManagement />} />
+              <Route path="/admin/job-migration" element={<JobMigrationUtility />} />
+              <Route path="/admin" element={<Administration />} />
 
 
-                {/* HOD Management - For Head of Department users */}
-                <Route path="/hod-management" element={<HodManagement />} />
+              {/* HOD Management - For Head of Department users */}
+              <Route path="/hod-management" element={<HodManagement />} />
 
-                {/* Accounts */}
-                <Route
-                  path="/accounts"
-                  element={
-                    <ProtectedRoute requiredModule={["Accounts", "Bill Cover"]}>
-                      <Accounts />
-                    </ProtectedRoute>
-                  }
-                />
+              {/* Accounts */}
+              <Route
+                path="/accounts"
+                element={
+                  <ProtectedRoute requiredModule={["Accounts", "Bill Cover"]}>
+                    <Accounts />
+                  </ProtectedRoute>
+                }
+              />
 
-                {/* Documentation */}
-                <Route
-                  path="/documentation"
-                  element={
-                    <ProtectedRoute requiredModule="Documentation">
-                      <DocumentationTab />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/documentationJob/view-job/:branch_code/:trade_type/:mode/:job_no/:year"
-                  element={
-                    <ProtectedRoute requiredModule="Documentation">
-                      <DocumentationJob />
-                    </ProtectedRoute>
-                  }
-                />
+              {/* Documentation */}
+              <Route
+                path="/documentation"
+                element={
+                  <ProtectedRoute requiredModule="Documentation">
+                    <DocumentationTab />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/documentationJob/view-job/:branch_code/:trade_type/:mode/:job_no/:year"
+                element={
+                  <ProtectedRoute requiredModule="Documentation">
+                    <DocumentationJob />
+                  </ProtectedRoute>
+                }
+              />
 
-                {/* Submission */}
-                <Route
-                  path="/submission"
-                  element={
-                    <ProtectedRoute requiredModule="Submission">
-                      <SubmissionTabs />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/submission-job/:branch_code/:trade_type/:mode/:job_no/:year"
-                  element={
-                    <ProtectedRoute requiredModule="Submission">
-                      <SubmissionJob />
-                    </ProtectedRoute>
-                  }
-                />
+              {/* Submission */}
+              <Route
+                path="/submission"
+                element={
+                  <ProtectedRoute requiredModule="Submission">
+                    <SubmissionTabs />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/submission-job/:branch_code/:trade_type/:mode/:job_no/:year"
+                element={
+                  <ProtectedRoute requiredModule="Submission">
+                    <SubmissionJob />
+                  </ProtectedRoute>
+                }
+              />
 
-                {/* Employee KYC */}
-                <Route
-                  path="/employee-kyc"
-                  element={
-                    <ProtectedRoute requiredModule="Employee KYC">
-                      <EmployeeKYC />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/complete-kyc/:username"
-                  element={
-                    <ProtectedRoute requiredModule="Employee KYC">
-                      <EmployeeKYC />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/view-kyc/:username"
-                  element={
-                    <ProtectedRoute requiredModule="Employee KYC">
-                      <ViewIndividualKyc />
-                    </ProtectedRoute>
-                  }
-                />
+              {/* Employee KYC */}
+              <Route
+                path="/employee-kyc"
+                element={
+                  <ProtectedRoute requiredModule="Employee KYC">
+                    <EmployeeKYC />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/complete-kyc/:username"
+                element={
+                  <ProtectedRoute requiredModule="Employee KYC">
+                    <EmployeeKYC />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/view-kyc/:username"
+                element={
+                  <ProtectedRoute requiredModule="Employee KYC">
+                    <ViewIndividualKyc />
+                  </ProtectedRoute>
+                }
+              />
 
-                {/* Customer KYC */}
-                <Route
-                  path="/customer-kyc"
-                  element={
-                    <ProtectedRoute requiredModule="Customer KYC">
-                      <CustomerKyc />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/revise-customer-kyc/:_id"
-                  element={
-                    <ProtectedRoute requiredModule="Customer KYC">
-                      <ReviseCustomerKyc />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/view-draft-details/:_id"
-                  element={
-                    <ProtectedRoute requiredModule="Customer KYC">
-                      <ViewDraftDetails />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/view-customer-kyc/:_id"
-                  element={
-                    <ProtectedRoute requiredModule="Customer KYC">
-                      <ViewCustomerKyc />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/view-completed-kyc/:_id"
-                  element={
-                    <ProtectedRoute requiredModule="Customer KYC">
-                      <ViewCompletedKycDetails />
-                    </ProtectedRoute>
-                  }
-                />
+              {/* Customer KYC */}
+              <Route
+                path="/customer-kyc"
+                element={
+                  <ProtectedRoute requiredModule="Customer KYC">
+                    <CustomerKyc />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/revise-customer-kyc/:_id"
+                element={
+                  <ProtectedRoute requiredModule="Customer KYC">
+                    <ReviseCustomerKyc />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/view-draft-details/:_id"
+                element={
+                  <ProtectedRoute requiredModule="Customer KYC">
+                    <ViewDraftDetails />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/view-customer-kyc/:_id"
+                element={
+                  <ProtectedRoute requiredModule="Customer KYC">
+                    <ViewCustomerKyc />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/view-completed-kyc/:_id"
+                element={
+                  <ProtectedRoute requiredModule="Customer KYC">
+                    <ViewCompletedKycDetails />
+                  </ProtectedRoute>
+                }
+              />
 
-                {/* Employee Onboarding */}
-                <Route
-                  path="/employee-onboarding"
-                  element={
-                    <ProtectedRoute requiredModule="Employee Onboarding">
-                      <EmployeeOnboarding />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/update-employee-data"
-                  element={
-                    <ProtectedRoute requiredModule="Update Employee Data">
-                      <UpdateEmployeeData />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/hr"
-                  element={
-                    <ProtectedRoute requiredModule="HR">
-                      <HRHome />
-                    </ProtectedRoute>
-                  }
-                />
+              {/* Employee Onboarding */}
+              <Route
+                path="/employee-onboarding"
+                element={
+                  <ProtectedRoute requiredModule="Employee Onboarding">
+                    <EmployeeOnboarding />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/update-employee-data"
+                element={
+                  <ProtectedRoute requiredModule="Update Employee Data">
+                    <UpdateEmployeeData />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/hr"
+                element={
+                  <ProtectedRoute requiredModule="HR">
+                    <HRHome />
+                  </ProtectedRoute>
+                }
+              />
 
-                {/* ESanchit */}
-                <Route
-                  path="/e-sanchit"
-                  element={
-                    <ProtectedRoute requiredModule="e-Sanchit">
-                      <ESanchitTab />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/esanchit-job/:branch_code/:trade_type/:mode/:job_no/:year"
-                  element={
-                    <ProtectedRoute requiredModule="e-Sanchit">
-                      <ViewESanchitJob />
-                    </ProtectedRoute>
-                  }
-                />
+              {/* ESanchit */}
+              <Route
+                path="/e-sanchit"
+                element={
+                  <ProtectedRoute requiredModule="e-Sanchit">
+                    <ESanchitTab />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/esanchit-job/:branch_code/:trade_type/:mode/:job_no/:year"
+                element={
+                  <ProtectedRoute requiredModule="e-Sanchit">
+                    <ViewESanchitJob />
+                  </ProtectedRoute>
+                }
+              />
 
               {/* DGFT Module */}
               <Route path="/dgft" element={<DgftTabs />} />
 
               {/* CRM Module */}
+
+
+              {/* IT Helpdesk Module */}
               <Route
-                path="/crm"
+                path="/it-helpdesk"
                 element={
-                  <CRMModule />
+                  <ProtectedRoute requiredModule="IT Helpdesk">
+                    <ItHelpdeskPage />
+                  </ProtectedRoute>
                 }
               />
-       
-                {/* Exit Feedback */}
-                <Route
-                  path="/exit-feedback"
-                  element={
-                    <ProtectedRoute requiredModule="Exit Feedback">
-                      <ExitInterview />
-                    </ProtectedRoute>
-                  }
-                />
+              <Route
+                path="/it-helpdesk/assets"
+                element={
+                  <ProtectedRoute requiredModule="IT Helpdesk">
+                    <AssetManagement />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/it-helpdesk/tickets"
+                element={
+                  <ProtectedRoute requiredModule="IT Helpdesk">
+                    <TicketManagement />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/it-helpdesk/vendors"
+                element={
+                  <ProtectedRoute requiredModule="IT Helpdesk">
+                    <VendorManagement />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/it-helpdesk/contracts"
+                element={
+                  <ProtectedRoute requiredModule="IT Helpdesk">
+                    <ContractManagement />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/it-helpdesk/inventory"
+                element={
+                  <ProtectedRoute requiredModule="IT Helpdesk">
+                    <InventoryManagement />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/it-helpdesk/licenses"
+                element={
+                  <ProtectedRoute requiredModule="IT Helpdesk">
+                    <LicenseManagement />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/it-helpdesk/reports"
+                element={
+                  <ProtectedRoute requiredModule="IT Helpdesk">
+                    <ITReports />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/it-helpdesk/notifications"
+                element={
+                  <ProtectedRoute requiredModule="IT Helpdesk">
+                    <ITNotifications />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/it-helpdesk/users"
+                element={
+                  <ProtectedRoute requiredModule="IT Helpdesk">
+                    <ITUserManagement />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/it-helpdesk/administration/users"
+                element={
+                  <ProtectedRoute requiredModule="IT Helpdesk">
+                    <UserManagement />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/it-helpdesk/administration/groups"
+                element={
+                  <ProtectedRoute requiredModule="IT Helpdesk">
+                    <GroupManagement />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/it-helpdesk/administration/roles"
+                element={
+                  <ProtectedRoute requiredModule="IT Helpdesk">
+                    <RolesPermissions />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/it-helpdesk/administration/audit"
+                element={
+                  <ProtectedRoute requiredModule="IT Helpdesk">
+                    <AuditLogs />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/it-helpdesk/administration/notifications"
+                element={
+                  <ProtectedRoute requiredModule="IT Helpdesk">
+                    <NotificationsManagement />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/it-helpdesk/administration/email"
+                element={
+                  <ProtectedRoute requiredModule="IT Helpdesk">
+                    <EmailConfiguration />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/it-helpdesk/administration/settings"
+                element={
+                  <ProtectedRoute requiredModule="IT Helpdesk">
+                    <SystemSettings />
+                  </ProtectedRoute>
+                }
+              />
 
-                {/* Import DO */}
-                <Route
-                  path="/import-do"
-                  element={
-                    <ProtectedRoute requiredModule="Import - DO">
-                      <ImportDO />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/edit-do-list/:branch_code/:trade_type/:mode/:job_no/:year"
-                  element={
-                    <ProtectedRoute requiredModule="Import - DO">
-                      <EditDoList />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/edit-do-planning/:branch_code/:trade_type/:mode/:job_no/:year"
-                  element={
-                    <ProtectedRoute requiredModule="Import - DO">
-                      <EditDoPlanning />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/edit-do-completed/:branch_code/:trade_type/:mode/:job_no/:year"
-                  element={
-                    <ProtectedRoute requiredModule="Import - DO">
-                      <EditDoCompleted />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/edit-billing-sheet/:branch_code/:trade_type/:mode/:job_no/:year"
-                  element={
-                    <ProtectedRoute requiredModule="Import - DO">
-                      <EditBillingSheet />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/edit-free-days-conf/:branch_code/:trade_type/:mode/:job_no/:year"
-                  element={
-                    <ProtectedRoute requiredModule="Import - DO">
-                      <EditFreeDaysConf />
-                    </ProtectedRoute>
-                  }
-                />
+              {/* Exit Feedback */}
+              <Route
+                path="/exit-feedback"
+                element={
+                  <ProtectedRoute requiredModule="Exit Feedback">
+                    <ExitInterview />
+                  </ProtectedRoute>
+                }
+              />
 
-                {/* Import DSR */}
-                <Route
-                  path="/import-dsr"
-                  element={
-                    <ProtectedRoute requiredModule="Import - DSR">
-                      <ImportDSR />
-                    </ProtectedRoute>
-                  }
-                />
-                {/* Import DSR */}
-                <Route
-                  path="/logs"
-                  element={
-                    <ProtectedRoute requiredModule="Import - DSR">
-                      <LogsPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/import-dsr/job/:branch_code/:trade_type/:mode/:job_no/:selected_year"
-                  element={
-                    <ProtectedRoute requiredModule="Import - DSR">
-                      <ViewJob />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/job/:branch_code/:trade_type/:mode/:job_no/:selected_year"
-                  element={
-                    <ProtectedRoute requiredModule="Import - DSR">
-                      <ViewJob />
-                    </ProtectedRoute>
-                  }
-                />
+              {/* Import DO */}
+              <Route
+                path="/import-do"
+                element={
+                  <ProtectedRoute requiredModule="Import - DO">
+                    <ImportDO />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/edit-do-list/:branch_code/:trade_type/:mode/:job_no/:year"
+                element={
+                  <ProtectedRoute requiredModule="Import - DO">
+                    <EditDoList />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/edit-do-planning/:branch_code/:trade_type/:mode/:job_no/:year"
+                element={
+                  <ProtectedRoute requiredModule="Import - DO">
+                    <EditDoPlanning />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/edit-do-completed/:branch_code/:trade_type/:mode/:job_no/:year"
+                element={
+                  <ProtectedRoute requiredModule="Import - DO">
+                    <EditDoCompleted />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/edit-billing-sheet/:branch_code/:trade_type/:mode/:job_no/:year"
+                element={
+                  <ProtectedRoute requiredModule="Import - DO">
+                    <EditBillingSheet />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/edit-free-days-conf/:branch_code/:trade_type/:mode/:job_no/:year"
+                element={
+                  <ProtectedRoute requiredModule="Import - DO">
+                    <EditFreeDaysConf />
+                  </ProtectedRoute>
+                }
+              />
 
-                {/* Import Operations */}
-                <Route
-                  path="/import-operations"
-                  element={
-                    <ProtectedRoute requiredModule="Import - Operations">
-                      <ImportOperations />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/import-operations/view-job/:branch_code/:trade_type/:mode/:job_no/:year"
-                  element={
-                    <ProtectedRoute requiredModule="Import - Operations">
-                      <ViewOperationsJob />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/import-operations/list-operation-job/:branch_code/:trade_type/:mode/:job_no/:year"
-                  element={
-                    <ProtectedRoute requiredModule="Import - Operations">
-                      <OperationListJob />
-                    </ProtectedRoute>
-                  }
-                />
+              {/* Import DSR */}
+              <Route
+                path="/import-dsr"
+                element={
+                  <ProtectedRoute requiredModule="Import - DSR">
+                    <ImportDSR />
+                  </ProtectedRoute>
+                }
+              />
+              {/* Import DSR */}
+              <Route
+                path="/logs"
+                element={
+                  <ProtectedRoute requiredModule="Import - DSR">
+                    <LogsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/import-dsr/job/:branch_code/:trade_type/:mode/:job_no/:selected_year"
+                element={
+                  <ProtectedRoute requiredModule="Import - DSR">
+                    <ViewJob />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/job/:branch_code/:trade_type/:mode/:job_no/:selected_year"
+                element={
+                  <ProtectedRoute requiredModule="Import - DSR">
+                    <ViewJob />
+                  </ProtectedRoute>
+                }
+              />
 
-                {/* ImportersInfo */}
-                <Route
-                  path="/ImportersInfo"
-                  element={
-                    <ProtectedRoute requiredModule="Import - Add">
-                      <ImportersInfo />
-                    </ProtectedRoute>
-                  }
-                />
+              {/* Import Operations */}
+              <Route
+                path="/import-operations"
+                element={
+                  <ProtectedRoute requiredModule="Import - Operations">
+                    <ImportOperations />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/import-operations/view-job/:branch_code/:trade_type/:mode/:job_no/:year"
+                element={
+                  <ProtectedRoute requiredModule="Import - Operations">
+                    <ViewOperationsJob />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/import-operations/list-operation-job/:branch_code/:trade_type/:mode/:job_no/:year"
+                element={
+                  <ProtectedRoute requiredModule="Import - Operations">
+                    <OperationListJob />
+                  </ProtectedRoute>
+                }
+              />
 
-                <Route
-                  path="/import-utility-tool"
-                  element={
-                    <ProtectedRoute requiredModule="Import Utility Tool">
-                      <ImportUtilityTool />
-                    </ProtectedRoute>
-                  }
-                />
+              {/* ImportersInfo */}
+              <Route
+                path="/ImportersInfo"
+                element={
+                  <ProtectedRoute requiredModule="Import - Add">
+                    <ImportersInfo />
+                  </ProtectedRoute>
+                }
+              />
 
-                <Route
-                  path="/master-directory"
-                  element={
-                    <ProtectedRoute requiredModule="MasterDirectory">
-                      <MasterDirectory />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/custom-house-directory"
-                  element={
-                    <ProtectedRoute requiredModule="MasterDirectory">
-                      <CustomHouseDirectory />
-                    </ProtectedRoute>
-                  }
-                />
+              <Route
+                path="/import-utility-tool"
+                element={
+                  <ProtectedRoute requiredModule="Import Utility Tool">
+                    <ImportUtilityTool />
+                  </ProtectedRoute>
+                }
+              />
 
-                <Route
-                  path="/country-directory"
-                  element={
-                    <ProtectedRoute requiredModule="MasterDirectory">
-                      <CountryDirectory />
-                    </ProtectedRoute>
-                  }
-                />
+              <Route
+                path="/master-directory"
+                element={
+                  <ProtectedRoute requiredModule="MasterDirectory">
+                    <MasterDirectory />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/custom-house-directory"
+                element={
+                  <ProtectedRoute requiredModule="MasterDirectory">
+                    <CustomHouseDirectory />
+                  </ProtectedRoute>
+                }
+              />
 
-                <Route
-                  path="/airlines-directory"
-                  element={
-                    <ProtectedRoute requiredModule="MasterDirectory">
-                      <AirlinesDirectory />
-                    </ProtectedRoute>
-                  }
-                />
+              <Route
+                path="/country-directory"
+                element={
+                  <ProtectedRoute requiredModule="MasterDirectory">
+                    <CountryDirectory />
+                  </ProtectedRoute>
+                }
+              />
 
-                <Route
-                  path="/unit-directory"
-                  element={
-                    <ProtectedRoute requiredModule="MasterDirectory">
-                      <UnitDirectory />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/organization-directory"
-                  element={
-                    <ProtectedRoute requiredModule="MasterDirectory">
-                      <OrganizationDirectory />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/add-organization"
-                  element={
-                    <ProtectedRoute requiredModule="MasterDirectory">
-                      <OrganizationForm />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/edit-organization/:id"
-                  element={
-                    <ProtectedRoute requiredModule="MasterDirectory">
-                      <OrganizationForm />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/shipping-line-directory"
-                  element={
-                    <ProtectedRoute requiredModule="MasterDirectory">
-                      <ShippingLineDirectory />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/general-org-directory"
-                  element={
-                    <ProtectedRoute requiredModule="MasterDirectory">
-                      <GeneralOrgDirectory />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/supplier-directory"
-                  element={
-                    <ProtectedRoute requiredModule="MasterDirectory">
-                      <SupplierDirectory />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/currency-directory"
-                  element={
-                    <ProtectedRoute requiredModule="MasterDirectory">
-                      <CurrencyDirectory />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/port-directory"
-                  element={
-                    <ProtectedRoute requiredModule="MasterDirectory">
-                      <PortDirectory />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/terminal-directory"
-                  element={
-                    <ProtectedRoute requiredModule="MasterDirectory">
-                      <CFSDirectory />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/transporter-directory"
-                  element={
-                    <ProtectedRoute requiredModule="MasterDirectory">
-                      <TransporterDirectory />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/empty-off-location-directory"
-                  element={
-                    <ProtectedRoute requiredModule="MasterDirectory">
-                      <EmptyOffLocationDirectory />
-                    </ProtectedRoute>
-                  }
-                />
+              <Route
+                path="/airlines-directory"
+                element={
+                  <ProtectedRoute requiredModule="MasterDirectory">
+                    <AirlinesDirectory />
+                  </ProtectedRoute>
+                }
+              />
 
-
-                {/* Document Collection */}
-                <Route
-                  path="/document-collection"
-                  element={
-                    <ProtectedRoute requiredModule="Document Collection">
-                      <DocumentCollection />
-                    </ProtectedRoute>
-                  }
-                />
-
-
-                <Route
-                  path="/report"
-                  element={
-                    <ProtectedRoute requiredModule="Report">
-                      <ReportTabs />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/report/monthly-containers"
-                  element={
-                    <ProtectedRoute requiredModule="Report">
-                      <MonthlyContainers />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/report/detailed"
-                  element={
-                    <ProtectedRoute requiredModule="Report">
-                      <DetailedReport />
-                    </ProtectedRoute>
-                  }
-                />
-
-                <Route
-                  path="/audit-trail"
-                  element={
-                    <ProtectedRoute requiredModule="Audit Trail">
-                      <AuditTrailViewer />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/all-users"
-                  element={
-                    <ProtectedRoute requiredModule="Audit Trail">
-                      <AllUsersPage />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/duty-calculator"
-                  element={
-                    <ProtectedRoute requiredModule="Import Utility Tool">
-                      <DutyCalculator />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/utilities"
-                  element={
-                    <ProtectedRoute requiredModule="Import Utility Tool">
-                      <UtilityParent />
-                    </ProtectedRoute>
-                  }
-                />
-
-                <Route
-                  path="/billing-reports"
-                  element={
-                    <ProtectedRoute requiredModule="Billing Reports">
-                      <BillingReports />
-                    </ProtectedRoute>
-                  }
-                />
-
-                <Route
-                  path="/rm-procurement"
-                  element={
-                    <ProtectedRoute requiredModule="RM Procurement SOP">
-                      <RmProcurementSop />
-                    </ProtectedRoute>
-                  }
-                />
-
-
-                {/* import billing */}
-                <Route
-                  path="/import-billing"
-                  element={
-                    <ProtectedRoute requiredModule="Import - Billing">
-                      <ImportBillingTab />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/view-billing-job/:branch_code/:trade_type/:mode/:job_no/:year"
-                  element={
-                    <ProtectedRoute requiredModule="Import - Billing">
-                      <ViewBillingJob />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/agency-bill/:branch_code/:trade_type/:mode/:job_no/:year"
-                  element={
-                    <ProtectedRoute requiredModule="Import - Billing">
-                      <AgencyBillInvoice />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/reimbursement-bill/:branch_code/:trade_type/:mode/:job_no/:year"
-                  element={
-                    <ProtectedRoute requiredModule="Import - Billing">
-                      <ReimbursementBill />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/view-payment-request-job/:branch_code/:trade_type/:mode/:job_no/:year"
-                  element={
-                    <ProtectedRoute requiredModule="Import - Billing">
-                      <EditPaymentRequest />
-                    </ProtectedRoute>
-                  }
-                />
+              <Route
+                path="/unit-directory"
+                element={
+                  <ProtectedRoute requiredModule="MasterDirectory">
+                    <UnitDirectory />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/organization-directory"
+                element={
+                  <ProtectedRoute requiredModule="MasterDirectory">
+                    <OrganizationDirectory />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/add-organization"
+                element={
+                  <ProtectedRoute requiredModule="MasterDirectory">
+                    <OrganizationForm />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/edit-organization/:id"
+                element={
+                  <ProtectedRoute requiredModule="MasterDirectory">
+                    <OrganizationForm />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/shipping-line-directory"
+                element={
+                  <ProtectedRoute requiredModule="MasterDirectory">
+                    <ShippingLineDirectory />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/general-org-directory"
+                element={
+                  <ProtectedRoute requiredModule="MasterDirectory">
+                    <GeneralOrgDirectory />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/supplier-directory"
+                element={
+                  <ProtectedRoute requiredModule="MasterDirectory">
+                    <SupplierDirectory />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/currency-directory"
+                element={
+                  <ProtectedRoute requiredModule="MasterDirectory">
+                    <CurrencyDirectory />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/port-directory"
+                element={
+                  <ProtectedRoute requiredModule="MasterDirectory">
+                    <PortDirectory />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/terminal-directory"
+                element={
+                  <ProtectedRoute requiredModule="MasterDirectory">
+                    <CFSDirectory />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/transporter-directory"
+                element={
+                  <ProtectedRoute requiredModule="MasterDirectory">
+                    <TransporterDirectory />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/empty-off-location-directory"
+                element={
+                  <ProtectedRoute requiredModule="MasterDirectory">
+                    <EmptyOffLocationDirectory />
+                  </ProtectedRoute>
+                }
+              />
 
 
+              {/* Document Collection */}
+              <Route
+                path="/document-collection"
+                element={
+                  <ProtectedRoute requiredModule="Document Collection">
+                    <DocumentCollection />
+                  </ProtectedRoute>
+                }
+              />
 
-                {/* Inward Register */}
-                <Route
-                  path="/inward-register"
-                  element={
-                    <ProtectedRoute requiredModule="Inward Register">
-                      <InwardRegister />
-                    </ProtectedRoute>
-                  }
-                />
 
-                {/* Outward Register */}
-                <Route
-                  path="/outward-register"
-                  element={
-                    <ProtectedRoute requiredModule="Outward Register">
-                      <OutwardRegister />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/outward-register-details/:_id"
-                  element={
-                    <ProtectedRoute requiredModule="Outward Register">
-                      <OutwardRegisterDetails />
-                    </ProtectedRoute>
-                  }
-                />
+              <Route
+                path="/report"
+                element={
+                  <ProtectedRoute requiredModule="Report">
+                    <ReportTabs />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/report/monthly-containers"
+                element={
+                  <ProtectedRoute requiredModule="Report">
+                    <MonthlyContainers />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/report/detailed"
+                element={
+                  <ProtectedRoute requiredModule="Report">
+                    <DetailedReport />
+                  </ProtectedRoute>
+                }
+              />
 
-                <Route path="/release-notes" element={<ReleaseNotes />} />
-                <Route path="/feedback" element={<Feedback />} />
+              <Route
+                path="/audit-trail"
+                element={
+                  <ProtectedRoute requiredModule="Audit Trail">
+                    <AuditTrailViewer />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/all-users"
+                element={
+                  <ProtectedRoute requiredModule="Audit Trail">
+                    <AllUsersPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/duty-calculator"
+                element={
+                  <ProtectedRoute requiredModule="Import Utility Tool">
+                    <DutyCalculator />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/utilities"
+                element={
+                  <ProtectedRoute requiredModule="Import Utility Tool">
+                    <UtilityParent />
+                  </ProtectedRoute>
+                }
+              />
 
-                {/* Pulse */}
+              <Route
+                path="/billing-reports"
+                element={
+                  <ProtectedRoute requiredModule="Billing Reports">
+                    <BillingReports />
+                  </ProtectedRoute>
+                }
+              />
 
-                <Route
-                  path="/pulse"
-                  element={
-                    <ProtectedRoute requiredModule={["Pulse", "Team Pulse"]}>
-                      <AnalyticsProvider>
-                        <AnalyticsLayout />
-                      </AnalyticsProvider>
-                    </ProtectedRoute>
-                  }
-                >
-                  <Route index element={<PulseIndex />} />
-                  <Route path="combined" element={<CombinedDashboard />} />
-                  <Route path="esanchit" element={<ESanchitDashboard />} />
-                  <Route
-                    path="documentation"
-                    element={<DocumentationDashboard />}
-                  />
-                  <Route path="submission" element={<SubmissionDashboard />} />
-                  <Route path="operations" element={<OperationsDashboard />} />
-                  <Route
-                    path="do-management"
-                    element={<DoManagementDashboard />}
-                  />
-                  <Route path="team-pulse" element={<TeamPulseDashboard />} />
-                </Route>
+              <Route
+                path="/rm-procurement"
+                element={
+                  <ProtectedRoute requiredModule="RM Procurement SOP">
+                    <RmProcurementSop />
+                  </ProtectedRoute>
+                }
+              />
 
-                {/* MRM Module */}
-                <Route
-                  path="/mrm"
-                  element={
-                    <ProtectedRoute requiredModule="MRM">
-                      <MRMHome />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/mrm/admin"
-                  element={
-                    <ProtectedRoute requiredModule="MRM">
-                      <MRMAdminDashboard />
-                    </ProtectedRoute>
-                  }
-                />
 
-                {/* Open Points - New Module */}
-                <Route path="/open-points" element={<OpenPointsHome />} />
+              {/* import billing */}
+              <Route
+                path="/import-billing"
+                element={
+                  <ProtectedRoute requiredModule="Import - Billing">
+                    <ImportBillingTab />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/view-billing-job/:branch_code/:trade_type/:mode/:job_no/:year"
+                element={
+                  <ProtectedRoute requiredModule="Import - Billing">
+                    <ViewBillingJob />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/agency-bill/:branch_code/:trade_type/:mode/:job_no/:year"
+                element={
+                  <ProtectedRoute requiredModule="Import - Billing">
+                    <AgencyBillInvoice />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/reimbursement-bill/:branch_code/:trade_type/:mode/:job_no/:year"
+                element={
+                  <ProtectedRoute requiredModule="Import - Billing">
+                    <ReimbursementBill />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/view-payment-request-job/:branch_code/:trade_type/:mode/:job_no/:year"
+                element={
+                  <ProtectedRoute requiredModule="Import - Billing">
+                    <EditPaymentRequest />
+                  </ProtectedRoute>
+                }
+              />
 
-                <Route
-                  path="/open-points/analytics"
-                  element={<AnalyticsDashboard />}
-                />
-                <Route
-                  path="/open-points/project/:projectId"
-                  element={<ProjectWorkspace />}
-                />
-                <Route
-                  path="/open-points/my-points"
-                  element={<MyOpenPoints />}
-                />
-                <Route
-                  path="/open-points/assigned-by-me"
-                  element={<MyOpenPoints viewMode="assigned-by-me" />}
-                />
-                <Route
-                  path="/open-points/user/:username"
-                  element={<MyOpenPoints />}
-                />
 
-                {/* KPI Module */}
-                <Route
-                  path="/kpi"
-                  element={
-                    <ProtectedRoute requiredModule="KPI">
-                      <KPIHome />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/kpi/sheet/:sheetId"
-                  element={
-                    <ProtectedRoute requiredModule="KPI">
-                      <KPISheet />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/kpi/templates"
-                  element={
-                    <ProtectedRoute requiredModule="KPI">
-                      <KPITemplateManager />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/kpi/admin"
-                  element={
-                    <ProtectedRoute requiredModule="KPI">
-                      <KPIAdminDashboard />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/kpi/pulse"
-                  element={
-                    <ProtectedRoute requiredModule="KPI">
-                      <KPIPulseDashboard />
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/kpi/reviews"
-                  element={
-                    <ProtectedRoute requiredModule="KPI">
-                      <KPIReviewerDashboard />
-                    </ProtectedRoute>
-                  }
-                />
 
-                {/* Project Nucleus */}
-                <Route path="/project-nucleus" element={<NucleusHome />} />
+              {/* Inward Register */}
+              <Route
+                path="/inward-register"
+                element={
+                  <ProtectedRoute requiredModule="Inward Register">
+                    <InwardRegister />
+                  </ProtectedRoute>
+                }
+              />
 
-                {/* DGFT Module */}
-                <Route path="/dgft" element={<DgftTabs />} />
-                <Route path="/dgft/:tab" element={<DgftTabs />} />
-                <Route
-                  path="/dgft/authorization-details/:id"
-                  element={<ViewAuthorizationDetails />}
-                />
-                <Route
-                  path="/dgft/register-details/:id"
-                  element={<ViewDgftRegisterDetails />}
-                />
+              {/* Outward Register */}
+              <Route
+                path="/outward-register"
+                element={
+                  <ProtectedRoute requiredModule="Outward Register">
+                    <OutwardRegister />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/outward-register-details/:_id"
+                element={
+                  <ProtectedRoute requiredModule="Outward Register">
+                    <OutwardRegisterDetails />
+                  </ProtectedRoute>
+                }
+              />
 
-                {/* Attendance Module */}
-                <Route path="/admin/attendance" element={<Navigate to="/attendance/admin/attendance" replace />} />
-                <Route path="/attendance" element={<ProtectedRoute requiredModule="Attendance"><AttendanceLayout /></ProtectedRoute>}>
+              <Route path="/release-notes" element={<ReleaseNotes />} />
+              <Route path="/feedback" element={<Feedback />} />
+
+              {/* Pulse */}
+
+              <Route
+                path="/pulse"
+                element={
+                  <ProtectedRoute requiredModule={["Pulse", "Team Pulse"]}>
+                    <AnalyticsProvider>
+                      <AnalyticsLayout />
+                    </AnalyticsProvider>
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<PulseIndex />} />
+                <Route path="combined" element={<CombinedDashboard />} />
+                <Route path="esanchit" element={<ESanchitDashboard />} />
+                <Route
+                  path="documentation"
+                  element={<DocumentationDashboard />}
+                />
+                <Route path="submission" element={<SubmissionDashboard />} />
+                <Route path="operations" element={<OperationsDashboard />} />
+                <Route
+                  path="do-management"
+                  element={<DoManagementDashboard />}
+                />
+                <Route path="team-pulse" element={<TeamPulseDashboard />} />
+              </Route>
+
+              {/* AMC Suppliers Renewal Module */}
+              <Route
+                path="/amc-renewals"
+                element={
+                  <ProtectedRoute requiredModule="AMC Suppliers Renewal">
+                    <AmcRenewalList />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/amc-visitor-logs"
+                element={
+                  <ProtectedRoute requiredModule="AMC Visitor Logs">
+                    <AmcVisitorList />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/equipment-checklist"
+                element={
+                  <ProtectedRoute requiredModule="Admin Equipment Checklist">
+                    <AdminEquipmentChecklist />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* MRM Module */}
+              <Route
+                path="/mrm"
+                element={
+                  <ProtectedRoute requiredModule="MRM">
+                    <MRMHome />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/mrm/admin"
+                element={
+                  <ProtectedRoute requiredModule="MRM">
+                    <MRMAdminDashboard />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Open Points - New Module */}
+              <Route path="/open-points" element={<OpenPointsHome />} />
+
+              <Route
+                path="/open-points/analytics"
+                element={<AnalyticsDashboard />}
+              />
+              <Route
+                path="/open-points/project/:projectId"
+                element={<ProjectWorkspace />}
+              />
+              <Route
+                path="/open-points/my-points"
+                element={<MyOpenPoints />}
+              />
+              <Route
+                path="/open-points/assigned-by-me"
+                element={<MyOpenPoints viewMode="assigned-by-me" />}
+              />
+              <Route
+                path="/open-points/user/:username"
+                element={<MyOpenPoints />}
+              />
+
+              {/* Supplier Scorecard Module */}
+              <Route
+                path="/scorecards"
+                element={
+                  <ProtectedRoute requiredModule="Supplier Scorecard">
+                    <ScorecardList />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/scorecards/new"
+                element={
+                  <ProtectedRoute requiredModule="Supplier Scorecard">
+                    <ScorecardForm />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/scorecards/:id/edit"
+                element={
+                  <ProtectedRoute requiredModule="Supplier Scorecard">
+                    <ScorecardForm />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* KPI Module */}
+              <Route
+                path="/kpi"
+                element={
+                  <ProtectedRoute requiredModule="KPI">
+                    <KPIHome />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/kpi/sheet/:sheetId"
+                element={
+                  <ProtectedRoute requiredModule="KPI">
+                    <KPISheet />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/kpi/templates"
+                element={
+                  <ProtectedRoute requiredModule="KPI">
+                    <KPITemplateManager />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/kpi/admin"
+                element={
+                  <ProtectedRoute requiredModule="KPI">
+                    <KPIAdminDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/kpi/pulse"
+                element={
+                  <ProtectedRoute requiredModule="KPI">
+                    <KPIPulseDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/kpi/reviews"
+                element={
+                  <ProtectedRoute requiredModule="KPI">
+                    <KPIReviewerDashboard />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Project Nucleus */}
+              <Route path="/project-nucleus" element={<NucleusHome />} />
+
+              {/* DGFT Module */}
+              <Route path="/dgft" element={<DgftTabs />} />
+              <Route path="/dgft/:tab" element={<DgftTabs />} />
+              <Route
+                path="/dgft/authorization-details/:id"
+                element={<ViewAuthorizationDetails />}
+              />
+              <Route
+                path="/dgft/register-details/:id"
+                element={<ViewDgftRegisterDetails />}
+              />
+
+              {/* Attendance Module */}
+              <Route path="/admin/attendance" element={<Navigate to="/attendance/admin/attendance" replace />} />
+              <Route path="/attendance" element={<ProtectedRoute requiredModule="Attendance"><AttendanceLayout /></ProtectedRoute>}>
                 {/* Teams Management */}
                 <Route path="teams" element={<TeamDashboard />} />
                 <Route path="teams/:teamId" element={<TeamDashboard />} />
                 <Route path="teams/:teamId/user/:userId/:activeTab?" element={<TeamDashboard />} />
-                  <Route index element={<Navigate to="dashboard" replace />} />
-                  <Route path="dashboard" element={<DashboardSwitch />} />
-                  <Route path="my-attendance" element={<AttendancePage />} />
-                  <Route path="leave" element={<LeaveManagement />} />
-                  <Route path="regularization" element={<Regularization />} />
-                  {/* holiday-calendar: read-only list for all users */}
-                  <Route path="holiday-calendar" element={<HolidayManagement readOnly />} />
-                  <Route path="hod-dashboard" element={<HODDashboard />} />
-                  <Route path="hod/leave-approval" element={<LeaveApproval />} />
-                  <Route path="hod/regularization-approval" element={<RegularizationApproval />} />
-                  <Route path="admin" element={<AdminDashboard />} />
-                  <Route path="admin/attendance" element={<AttendanceReport isAdmin />} />
-                  <Route path="admin/leave-approval" element={<LeaveApproval />} />
-                  <Route path="admin/employee/:id/:activeTab?" element={<EmployeeProfileWorkspace />} />
-                  <Route path="admin/holidays" element={<HolidayPolicyManager />} />
-                  <Route path="admin/holiday-policies" element={<HolidayPolicyManager />} />
-                  <Route path="admin/weekoff-policies" element={<WeekOffPolicyManager />} />
-                  <Route path="admin/shifts" element={<ShiftManagement />} />
-                  <Route path="admin/leave-policies" element={<LeavePolicyManagement />} />
-                  <Route path="admin/companies" element={<CompanyManagement />} />
-                  <Route path="admin/lock" element={<LockAttendance />} />
-                  <Route path="admin/payroll" element={<PayrollExport />} />
-                  <Route path="admin/settings" element={<AttendanceSettings />} />
-                  <Route path="hod/report" element={<AttendanceReport />} />
-                  <Route path="report" element={<AttendanceReport isAdmin />} />
-                </Route>
-              </Routes>
-            </Box>
+                <Route index element={<Navigate to="dashboard" replace />} />
+                <Route path="dashboard" element={<DashboardSwitch />} />
+                <Route path="my-attendance" element={<AttendancePage />} />
+                <Route path="leave" element={<LeaveManagement />} />
+                <Route path="regularization" element={<Regularization />} />
+                {/* holiday-calendar: read-only list for all users */}
+                <Route path="holiday-calendar" element={<HolidayManagement readOnly />} />
+                <Route path="hod-dashboard" element={<HODDashboard />} />
+                <Route path="hod/leave-approval" element={<LeaveApproval />} />
+                <Route path="hod/regularization-approval" element={<RegularizationApproval />} />
+                <Route path="admin" element={<AdminDashboard />} />
+                <Route path="admin/attendance" element={<AttendanceReport isAdmin />} />
+                <Route path="admin/leave-approval" element={<LeaveApproval />} />
+                <Route path="admin/employee/:id/:activeTab?" element={<EmployeeProfileWorkspace />} />
+                <Route path="admin/holidays" element={<HolidayPolicyManager />} />
+                <Route path="admin/holiday-policies" element={<HolidayPolicyManager />} />
+                <Route path="admin/weekoff-policies" element={<WeekOffPolicyManager />} />
+                <Route path="admin/shifts" element={<ShiftManagement />} />
+                <Route path="admin/leave-policies" element={<LeavePolicyManagement />} />
+                <Route path="admin/companies" element={<CompanyManagement />} />
+                <Route path="admin/lock" element={<LockAttendance />} />
+                <Route path="admin/payroll" element={<PayrollExport />} />
+                <Route path="admin/settings" element={<AttendanceSettings />} />
+                <Route path="hod/report" element={<AttendanceReport />} />
+                <Route path="report" element={<AttendanceReport isAdmin />} />
+              </Route>
+            </Routes>
           </Box>
-        </SearchQueryProvider>
-      </TabValueContext.Provider>
-    );
+        </Box>
+      </SearchQueryProvider>
+    </TabValueContext.Provider>
+  );
 }
 
 function HomePage() {

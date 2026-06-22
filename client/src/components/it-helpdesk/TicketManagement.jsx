@@ -128,18 +128,44 @@ export default function TicketManagement() {
   );
 
   const fetchUsers = useCallback(async () => {
-    try {
-      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/api/get-all-users`, {
-        withCredentials: true,
-        params: { limit: USERS_FETCH_LIMIT },
-      });
-      const usersData = res.data || [];
-      console.log("Fetched users:", usersData);
-      setUsers(usersData);
-    } catch {
-      // non-blocking
+  try {
+
+    const res = await axios.get(
+      `${process.env.REACT_APP_API_STRING}/get-all-users`,
+      {
+        withCredentials:true
+      }
+    );
+
+
+    console.log("USER API RESPONSE =>", res.data);
+
+
+    let userList = [];
+
+
+    if(Array.isArray(res.data)){
+      userList = res.data;
     }
-  }, []);
+    else if(res.data.users){
+      userList = res.data.users;
+    }
+    else if(res.data.data){
+      userList = res.data.data;
+    }
+
+
+    setUsers(userList);
+
+
+  } catch(err){
+
+    console.log("USER FETCH ERROR",err);
+    toast.error("User list load failed");
+
+  }
+
+},[]);
 
   useEffect(() => {
     fetchData(1);
@@ -150,29 +176,89 @@ export default function TicketManagement() {
   }, [fetchUsers]);
 
   const handleOpen = (record = null) => {
-    console.log("Opening modal, current users:", users);
-    if (record) {
-      setEditId(record._id);
-      setForm({
-        title: record.title || "",
-        description: record.description || "",
-        category: record.category || "Hardware",
-        priority: record.priority || "Medium",
-        status: record.status || "New",
-        type: record.type || "Incident",
-        assigned_to: record.assigned_to?._id || record.assigned_to || "",
-        department: record.department || "",
-        sla_due_date: record.sla_due_date ? record.sla_due_date.slice(0, 10) : "",
-        resolution_notes: record.resolution_notes || "",
-      });
-    } else {
-      setEditId(null);
-      setForm({ ...EMPTY_FORM });
-    }
-    setShowModal(true);
-  };
 
-  const handleSave = async () => {
+  if(record){
+
+    setEditId(record._id);
+
+    setForm({
+      title: record.title || "",
+      description: record.description || "",
+      category: record.category || "Hardware",
+      priority: record.priority || "Medium",
+      status: record.status || "New",
+      type: record.type || "Incident",
+
+      assigned_to:
+        record.assigned_to?._id ||
+        record.assigned_to ||
+        "",
+
+      department: record.department || "",
+
+      sla_due_date:
+        record.sla_due_date
+        ? record.sla_due_date.substring(0,10)
+        : "",
+
+      resolution_notes:
+        record.resolution_notes || ""
+    });
+
+  }else{
+
+    setEditId(null);
+
+    setForm({
+      ...EMPTY_FORM
+    });
+
+  }
+
+  setShowModal(true);
+};
+ const handleSave = async () => {
+
+  if (!form.title.trim()) {
+    toast.error("Title is required");
+    return;
+  }
+
+  if (!form.description.trim()) {
+    toast.error("Description is required");
+    return;
+  }
+
+  if (!form.category) {
+    toast.error("Category is required");
+    return;
+  }
+
+  if (!form.priority) {
+    toast.error("Priority is required");
+    return;
+  }
+
+  if (!form.status) {
+    toast.error("Status is required");
+    return;
+  }
+
+  if (!form.assigned_to) {
+    toast.error("Assigned To is required");
+    return;
+  }
+
+  if (!form.department.trim()) {
+    toast.error("Department is required");
+    return;
+  }
+
+  if (!form.sla_due_date) {
+    toast.error("SLA Due Date is required");
+    return;
+  }
+    
     const payload = {
       ...form,
       assigned_to: form.assigned_to || undefined,
@@ -188,6 +274,9 @@ export default function TicketManagement() {
         toast.success("Ticket raised");
       }
       setShowModal(false);
+      // Signal home page to refresh data
+      localStorage.setItem("ticketDataRefresh", JSON.stringify({ timestamp: Date.now() }));
+      window.dispatchEvent(new Event("ticketDataUpdated"));
       fetchData(pagination.page);
     } catch (err) {
       toast.error(err.response?.data?.message || "Save failed");
@@ -202,6 +291,9 @@ export default function TicketManagement() {
     try {
       await itHelpdeskAPI.tickets.remove(id);
       toast.success("Deleted");
+      // Signal home page to refresh data
+      localStorage.setItem("ticketDataRefresh", JSON.stringify({ timestamp: Date.now() }));
+      window.dispatchEvent(new Event("ticketDataUpdated"));
       fetchData(pagination.page);
     } catch (err) {
       toast.error(err.response?.data?.message || "Delete failed");
@@ -247,7 +339,7 @@ export default function TicketManagement() {
       {/* Tabs for different modules */}
       <Box sx={{ borderBottom: 1, borderColor: "divider" }} mb={2}>
         <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} aria-label="helpdesk-tabs">
-          <Tab label="Raise Ticket" value="raise-ticket" />
+          {/* <Tab label="Raise Ticket" value="raise-ticket" />
           <Tab label="Assign Ticket" value="assign-ticket" />
           <Tab label="Priority Management" value="priority-management" />
           <Tab label="SLA Tracking" value="sla-tracking" />
@@ -256,7 +348,7 @@ export default function TicketManagement() {
           <Tab label="Ticket Workflow" value="ticket-workflow" />
           <Tab label="Email Notifications" value="email-notifications" />
           <Tab label="Ticket Escalation" value="ticket-escalation" />
-          <Tab label="Attachment Upload" value="attachment-upload" />
+          <Tab label="Attachment Upload" value="attachment-upload" /> */}
         </Tabs>
       </Box>
       
@@ -422,6 +514,7 @@ export default function TicketManagement() {
                         <TableCell>{t.ticket_id || t._id}</TableCell>
                         <TableCell>{t.title}</TableCell>
                         <TableCell>{t.category}</TableCell>
+                        
                         <TableCell>
 <Chip label={t.priority} color={priorityColor(t.priority)} size="small" />
                           </TableCell>
@@ -491,6 +584,7 @@ export default function TicketManagement() {
                 size="small"
                 fullWidth
                 value={form.title}
+                required
                 onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
               />
             </Grid>
@@ -501,6 +595,7 @@ export default function TicketManagement() {
                 fullWidth
                 multiline
                 minRows={3}
+                required
                 value={form.description}
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
               />
@@ -511,6 +606,7 @@ export default function TicketManagement() {
                 label="Category"
                 size="small"
                 fullWidth
+                required
                 value={form.category}
                 onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
               >
@@ -527,6 +623,7 @@ export default function TicketManagement() {
                 label="Priority"
                 size="small"
                 fullWidth
+                required
                 value={form.priority}
                 onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}
               >
@@ -537,64 +634,147 @@ export default function TicketManagement() {
                 ))}
               </TextField>
             </Grid>
-            <Grid item xs={6}>
-              <TextField
-                select
-                label="Status"
-                size="small"
-                fullWidth
-                value={form.status}
-                onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
-              >
-                {TICKET_STATUSES.map((s) => (
-                  <MenuItem key={s} value={s}>
-                    {s}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-            <Grid item xs={6}>
-              <TextField
-                select
-                label="Assigned To"
-                size="small"
-                fullWidth
-                value={form.assigned_to}
-                onChange={(e) => setForm((f) => ({ ...f, assigned_to: e.target.value }))}
-              >
-                <MenuItem value="">Unassigned</MenuItem>
-                {users.length > 0 ? (
-                  users.map((u) => (
-                    <MenuItem key={u._id} value={u._id}>
-                      {u.username} {u.first_name ? `(${u.first_name})` : ""}
-                    </MenuItem>
-                  ))
-                ) : (
-                  <MenuItem disabled>Loading users...</MenuItem>
-                )}
-              </TextField>
-            </Grid>
+        <Grid item xs={6}>
+
+<TextField
+
+select
+
+required
+
+label="Assigned To"
+
+size="small"
+
+fullWidth
+required
+
+value={form.assigned_to}
+
+onChange={(e)=>
+ setForm(f=>({
+  ...f,
+  assigned_to:e.target.value
+ }))
+}
+
+>
+
+
+<MenuItem value="">
+Select User
+</MenuItem>
+
+
+{
+users && users.length > 0 ?
+
+users.map((user)=>(
+
+<MenuItem
+
+key={user._id}
+
+value={user._id}
+
+>
+
+{
+user.username ||
+user.first_name ||
+user.email
+}
+
+
+</MenuItem>
+
+))
+
+
+:
+
+<MenuItem disabled>
+No Users Found
+</MenuItem>
+
+}
+
+
+</TextField>
+
+</Grid>
             <Grid item xs={6}>
               <TextField
                 label="Department"
                 size="small"
                 fullWidth
+                required
                 value={form.department}
                 onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))}
               />
             </Grid>
             <Grid item xs={6}>
-              <TextField
-                label="SLA Due Date"
-                type="date"
-                size="small"
-                fullWidth
-                InputLabelProps={{ shrink: true }}
-                value={form.sla_due_date}
-                onChange={(e) => setForm((f) => ({ ...f, sla_due_date: e.target.value }))}
-              />
-            </Grid>
-            <Grid item xs={12}>
+  <TextField
+    label="SLA Due Date"
+    type="date"
+    size="small"
+    required
+    fullWidth
+    InputLabelProps={{ shrink: true }}
+    value={
+ form.sla_due_date
+ ? form.sla_due_date.substring(0,10)
+ : ""
+}
+    onChange={(e) =>
+      setForm((prev) => ({
+        ...prev,
+        sla_due_date: e.target.value
+      }))
+    }
+  />
+</Grid>
+            <Grid item xs={6}>
+  <TextField
+    select
+    label="Status"
+    size="small"
+    fullWidth
+    required
+    value={form.status || "New"}
+    onChange={(e) =>
+      setForm((prev) => ({
+        ...prev,
+        status: e.target.value
+      }))
+    }
+  >
+
+    <MenuItem value="New">
+      New
+    </MenuItem>
+
+    <MenuItem value="Assigned">
+      Assigned
+    </MenuItem>
+
+    <MenuItem value="In Progress">
+      In Progress
+    </MenuItem>
+
+    <MenuItem value="Pending">
+      Pending
+    </MenuItem>
+
+   
+
+    <MenuItem value="Closed">
+      Closed
+    </MenuItem>
+
+  </TextField>
+</Grid>
+            {/* <Grid item xs={12}>
               <TextField
                 label="Resolution Notes"
                 size="small"
@@ -604,7 +784,7 @@ export default function TicketManagement() {
                 value={form.resolution_notes}
                 onChange={(e) => setForm((f) => ({ ...f, resolution_notes: e.target.value }))}
               />
-            </Grid>
+            </Grid> */}
           </Grid>
         </DialogContent>
         <DialogActions>

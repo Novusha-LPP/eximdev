@@ -25,23 +25,41 @@ export default function ITNotifications() {
           itHelpdeskAPI.licenses.getAll()
         ]);
 
-        const today = new Date();
-        const thirtyDaysFromNow = new Date();
-        thirtyDaysFromNow.setDate(today.getDate() + 30);
+   const warrantyAlerts = (assetsRes.data || [])
+.map(a => ({
+  type: "Warranty Expiry",
+  item: a.asset_tag || a.asset_name,
+  date: a.warranty_expiry,
+  status: "Active"
+}))
+.filter(x => x.date);
 
-        const warrantyAlerts = (assetsRes.data || [])
-          .filter(a => a.warranty_expiry && new Date(a.warranty_expiry) <= thirtyDaysFromNow && new Date(a.warranty_expiry) >= today)
-          .map(a => ({ type: "Warranty Expiry", item: a.asset_tag, date: a.warranty_expiry, status: "Expiring Soon" }));
 
-        const contractAlerts = (contractsRes.data || [])
-          .filter(c => c.end_date && new Date(c.end_date) <= thirtyDaysFromNow && new Date(c.end_date) >= today)
-          .map(c => ({ type: "Contract Renewal", item: c.contract_number, date: c.end_date, status: "Expiring Soon" }));
+const contractAlerts = (contractsRes.data || [])
+.map(c => ({
+  type: "Contract Renewal",
+  item: c.contract_number || c.contract_name,
+  date: c.end_date,
+  status: "Active"
+}))
+.filter(x => x.date);
 
-        const licenseAlerts = (licensesRes.data || [])
-          .filter(l => l.expiry_date && new Date(l.expiry_date) <= thirtyDaysFromNow && new Date(l.expiry_date) >= today)
-          .map(l => ({ type: "License Expiry", item: l.software_name, date: l.expiry_date, status: "Expiring Soon" }));
 
-        setAlerts([...warrantyAlerts, ...contractAlerts, ...licenseAlerts]);
+const licenseAlerts = (licensesRes.data || [])
+.map(l => ({
+  type: "License Expiry",
+  item: l.software_name || l.license_name,
+  date: l.expiry_date,
+  status: "Active"
+}))
+.filter(x => x.date);
+
+
+setAlerts([
+ ...warrantyAlerts,
+ ...contractAlerts,
+ ...licenseAlerts
+]);
       } catch (err) {
         console.error(err);
       } finally {

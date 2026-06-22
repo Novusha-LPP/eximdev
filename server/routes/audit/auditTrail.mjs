@@ -258,6 +258,35 @@ router.get("/api/audit-trail/document/:documentId", authMiddleware, async (req, 
   }
 });
 
+// Save custom audit log from frontend
+router.post("/api/audit-trail/custom", authMiddleware, async (req, res) => {
+  try {
+    const { action, module, details, severity, user } = req.body;
+    
+    const newLog = new AuditTrailModel({
+      documentType: module || "Custom",
+      action: action ? action.toUpperCase().replace(/\s+/g, '_') : "CUSTOM",
+      username: user || req.user.username || req.user.email || "System",
+      userId: req.user.id || req.user._id || "system",
+      heading: details || `Custom action performed in ${module}`,
+      changes: [],
+      userAgent: req.headers['user-agent'] || 'Frontend',
+      timestamp: new Date()
+    });
+
+    if (req.user.role !== "Admin") {
+      if (req.user.branchId) newLog.branchId = req.user.branchId;
+      else if (req.user.branch_code) newLog.branch_code = req.user.branch_code;
+    }
+
+    await newLog.save();
+    res.status(201).json({ success: true, log: newLog });
+  } catch (error) {
+    console.error("Error saving custom audit log:", error);
+    res.status(500).json({ message: "Error saving custom audit log", error: error.message });
+  }
+});
+
 // Get comprehensive audit trail with advanced filters
 router.get("/api/audit-trail", authMiddleware, async (req, res) => {
   try {

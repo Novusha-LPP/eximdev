@@ -18,6 +18,13 @@ router.post("/api/login", async (req, res) => {
       return res.status(400).json({ message: "User not registered" });
     }
 
+    // SAFETY CHECK: Verify password exists before comparing
+    // This prevents the crash if the DB record is corrupted
+    if (!user.password) {
+      console.error(`Login Error: User '${username}' exists but has no password in the database.`);
+      return res.status(500).json({ message: "Account configuration error: Password missing." });
+    }
+
     if (user.isActive === false) {
       return res
         .status(403)

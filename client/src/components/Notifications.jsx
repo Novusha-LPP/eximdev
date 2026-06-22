@@ -141,77 +141,204 @@ export default function Notifications() {
   });
 
   // Fetch data
-  const fetchData = () => {
-    setLoading(true);
-    // In a real app, this would be an API call
-    setTimeout(() => {
-      // Mock data for demonstration
-      const mockAlerts = [
-        {
-          id: 1,
-          type: "Warranty Expiry",
-          priority: "high",
-          title: "Warranty Expiring: Dell Laptop",
-          message: "The warranty for Dell Laptop (TAG-045) is expiring on 2023-08-15. Please take necessary action.",
-          channels: ["Email", "In-App"],
-          status: "Active",
-          created_date: "2023-07-10",
-          due_date: "2023-08-15"
-        },
-        {
-          id: 2,
-          type: "License Expiry",
-          priority: "medium",
-          title: "License Expiring: Adobe Photoshop",
-          message: "The license for Adobe Photoshop is expiring on 2023-09-20. Please renew the license.",
-          channels: ["Email", "SMS"],
-          status: "Active",
-          created_date: "2023-07-05",
-          due_date: "2023-09-20"
-        },
-        {
-          id: 3,
-          type: "Contract Renewal",
-          priority: "critical",
-          title: "Contract Renewal Due: AMC Contract",
-          message: "The AMC Contract with Tech Solutions Pvt. Ltd. is due for renewal on 2023-12-31.",
-          channels: ["Email", "In-App", "Push"],
-          status: "Active",
-          created_date: "2023-06-20",
-          due_date: "2023-12-31"
-        },
-        {
-          id: 4,
-          type: "Ticket Escalation",
-          priority: "high",
-          title: "Ticket Escalated: Computer not booting",
-          message: "Ticket #1234 has been escalated to IT Manager due to priority High.",
-          channels: ["Email", "In-App"],
-          status: "Resolved",
-          created_date: "2023-07-12",
-          due_date: "2023-07-15"
-        }
-      ];
+const fetchData = async () => {
 
-      const mockNotificationTemplates = NOTIFICATION_TEMPLATES;
+try {
 
-      const mockNotificationSettings = {
-        email_enabled: true,
-        sms_enabled: false,
-        inapp_enabled: true,
-        push_enabled: true,
-        warranty_expiry_days: 30,
-        license_expiry_days: 60,
-        contract_renewal_days: 90,
-        ticket_escalation_hours: 48
-      };
+setLoading(true);
 
-      setAlerts(mockAlerts);
-      setNotificationTemplates(mockNotificationTemplates);
-      setNotificationSettings(mockNotificationSettings);
-      setLoading(false);
-    }, 500);
-  };
+
+const [
+ ticketRes,
+ assetRes,
+ licenseRes,
+ contractRes
+] = await Promise.all([
+
+
+axios.get("/api/tickets"),
+
+axios.get("/api/assets"),
+
+axios.get("/api/licenses"),
+
+axios.get("/api/contracts")
+
+
+]);
+
+
+
+let notifications = [];
+
+
+
+// Ticket notifications
+
+ticketRes.data.forEach(ticket=>{
+
+
+if(
+ticket.status === "Pending" ||
+ticket.status === "New"
+){
+
+notifications.push({
+
+id:ticket._id,
+
+type:"Ticket Escalation",
+
+priority:
+ticket.priority?.toLowerCase() || "medium",
+
+title:
+`Ticket ${ticket.ticket_id} Pending`,
+
+message:
+`${ticket.title} requires action`,
+
+channels:[
+"Email",
+"In-App"
+],
+
+status:"Active",
+
+created_date:
+ticket.createdAt
+
+});
+
+}
+
+
+
+});
+
+
+
+
+
+// License expiry
+
+licenseRes.data.forEach(item=>{
+
+
+if(item.expiry_date){
+
+
+notifications.push({
+
+id:item._id,
+
+type:"License Expiry",
+
+priority:"high",
+
+title:
+`${item.name} License Expiry`,
+
+message:
+`License expires on ${item.expiry_date}`,
+
+channels:[
+"Email"
+],
+
+status:"Active",
+
+created_date:
+item.createdAt
+
+
+});
+
+
+}
+
+
+
+});
+
+
+
+
+
+
+// Warranty expiry
+
+
+assetRes.data.forEach(asset=>{
+
+
+if(asset.warranty_end){
+
+
+notifications.push({
+
+id:asset._id,
+
+type:"Warranty Expiry",
+
+priority:"medium",
+
+title:
+`${asset.asset_name} Warranty Expiry`,
+
+
+message:
+`Warranty expires on ${asset.warranty_end}`,
+
+
+channels:[
+"Email",
+"In-App"
+],
+
+
+status:"Active",
+
+
+created_date:
+asset.createdAt
+
+
+});
+
+
+}
+
+
+
+});
+
+
+
+
+
+setAlerts(notifications);
+
+
+
+}
+catch(err){
+
+console.log(err);
+
+toast.error(
+"Notification loading failed"
+);
+
+
+}
+finally{
+
+setLoading(false);
+
+}
+
+};
 
   // Handle tab change
   const handleTabChange = (event, newValue) => {

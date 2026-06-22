@@ -11,6 +11,7 @@ import {
   DialogActions,
   Grid,
   IconButton,
+  Menu,
   MenuItem,
   Table,
   TableBody,
@@ -23,6 +24,7 @@ import {
   Chip,
   Tooltip,
 } from "@mui/material";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
@@ -54,6 +56,18 @@ export default function PriorityManagement({ priorityRules, setPriorityRules }) 
     category: "Hardware",
     priority: "Medium",
   });
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [activeRule, setActiveRule] = useState(null);
+
+  const handleActionClick = (event, rule) => {
+    setAnchorEl(event.currentTarget);
+    setActiveRule(rule);
+  };
+
+  const handleActionClose = () => {
+    setAnchorEl(null);
+    setActiveRule(null);
+  };
 
   const handleSave = () => {
     if (editingRule) {
@@ -91,7 +105,7 @@ export default function PriorityManagement({ priorityRules, setPriorityRules }) 
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+      {/* <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <Box display="flex" alignItems="center" gap={1}>
           <AssessmentIcon color="primary" />
           <Typography variant="h5" fontWeight={700}>
@@ -101,7 +115,7 @@ export default function PriorityManagement({ priorityRules, setPriorityRules }) 
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => setShowModal(true)}>
           Add Rule
         </Button>
-      </Box>
+      </Box> */}
 
       <Card>
         <CardContent>
@@ -133,16 +147,9 @@ export default function PriorityManagement({ priorityRules, setPriorityRules }) 
                         <Chip label={rule.priority} color={priorityColor(rule.priority)} size="small" />
                       </TableCell>
                       <TableCell align="right">
-                        <Tooltip title="Edit">
-                          <IconButton size="small" onClick={() => handleEdit(rule)}>
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete">
-                          <IconButton size="small" color="error" onClick={() => handleDelete(rule.id)}>
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
+                        <IconButton size="small" onClick={(e) => handleActionClick(e, rule)}>
+                          <MoreVertIcon fontSize="small" />
+                        </IconButton>
                       </TableCell>
                     </TableRow>
                   ))
@@ -153,7 +160,20 @@ export default function PriorityManagement({ priorityRules, setPriorityRules }) 
         </CardContent>
       </Card>
 
-      {/* Priority Rule Modal */}
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleActionClose}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+      >
+        <MenuItem onClick={() => { handleEdit(activeRule); handleActionClose(); }}>
+          <EditIcon fontSize="small" sx={{ mr: 1 }} /> Edit
+        </MenuItem>
+        <MenuItem onClick={() => { handleDelete(activeRule?.id); handleActionClose(); }} sx={{ color: "error.main" }}>
+          <DeleteIcon fontSize="small" sx={{ mr: 1 }} /> Delete
+        </MenuItem>
+      </Menu>
       <Dialog open={showModal} onClose={() => setShowModal(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{editingRule ? "Edit Priority Rule" : "Add Priority Rule"}</DialogTitle>
         <DialogContent>

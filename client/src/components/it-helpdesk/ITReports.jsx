@@ -6,6 +6,7 @@ import {
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import DownloadIcon from "@mui/icons-material/Download";
 import DescriptionIcon from "@mui/icons-material/Description";
+import * as XLSX from "xlsx";
 
 const REPORT_TYPES = [
   { value: "assets", label: "Asset Report" },
@@ -105,11 +106,60 @@ export default function ITReports() {
     }
   };
 
+  const exportToExcel = () => {
+    if (!data || data.length === 0) return;
+    
+    // Create a new workbook
+    const wb = XLSX.utils.book_new();
+    
+    // Get headers
+    const headers = getColumns();
+    
+    // Prepare data for worksheet
+    const wsData = [headers];
+    
+    // Add data rows
+    data.forEach(item => {
+      const row = [];
+      
+      switch (reportType) {
+        case "assets":
+          row.push(item.asset_tag, item.asset_type, item.status, item.location || "—");
+          break;
+        case "tickets":
+          row.push(item.ticket_id, item.title, item.status, item.priority);
+          break;
+        case "vendors":
+          row.push(item.name, item.vendor_type, item.contact_person || "—", item.email || "—");
+          break;
+        case "licenses":
+          row.push(item.software_name, item.total_seats, item.used_seats, item.status);
+          break;
+        case "inventory":
+          row.push(item.item_name, item.category, item.quantity, item.location || "—");
+          break;
+        default:
+          return;
+      }
+      
+      wsData.push(row);
+    });
+    
+    // Create worksheet
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(wb, ws, "Report");
+    
+    // Generate Excel file and download
+    XLSX.writeFile(wb, `${REPORT_TYPES.find(r => r.value === reportType)?.label || "Report"}.xlsx`);
+  };
+
   return (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h5" fontWeight={700}>Reports & Analytics</Typography>
-        <Button variant="outlined" startIcon={<DownloadIcon />}>Export</Button>
+        <Button variant="outlined" startIcon={<DownloadIcon />} onClick={exportToExcel}>Export</Button>
       </Box>
 
       <Card sx={{ mb: 3 }}>

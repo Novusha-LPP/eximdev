@@ -1,123 +1,757 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
-  Box, Typography, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, CircularProgress, Button, Dialog,
-  DialogTitle, DialogContent, DialogActions, TextField, MenuItem,
+  Box,
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  CircularProgress,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  MenuItem
 } from "@mui/material";
+
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import AddIcon from "@mui/icons-material/Add";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
+
+
+const LICENSE_TYPES = [
+  "Per User",
+  "Per Device",
+  "Subscription",
+  "Enterprise",
+  "OEM",
+  "Trial"
+];
+
 
 const EMPTY_FORM = {
+  license_name: "",
+  license_code: "",
   software_name: "",
-  license_key: "",
   vendor: "",
-  total_seats: "",
-  used_seats: "0",
-  purchase_date: "",
+  license_type: "",
   expiry_date: "",
-  cost: "",
+  cost: ""
 };
 
+
+
 export default function LicenseManagement() {
+
+
   const [data, setData] = useState([]);
   const [vendors, setVendors] = useState([]);
+
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
+
+  const [open, setOpen] = useState(false);
+
   const [editId, setEditId] = useState(null);
+
   const [form, setForm] = useState({ ...EMPTY_FORM });
 
-  const fetchData = async () => {
+
+
+
+  // API DATA FIX
+
+  const normalize = (x) => ({
+
+    _id: x._id,
+
+
+    license_name:
+      x.license_name ||
+      x.licenseName ||
+      x.name ||
+      x.license_title ||
+      "",
+
+
+    license_code:
+      x.license_code ||
+      x.licenseCode ||
+      x.code ||
+      x.license_id ||
+      "",
+
+
+    license_type:
+      x.license_type ||
+      x.licenseType ||
+      x.type ||
+      "",
+
+
+    software_name:
+      x.software_name ||
+      x.softwareName ||
+      x.product_name ||
+      "",
+
+
+    vendor:
+      x.vendor || "",
+
+
+    vendor_name:
+      x.vendor?.name ||
+      x.vendor_name ||
+      x.publisher ||
+      "-",
+
+
+    expiry_date:
+      x.expiry_date ||
+      x.expiryDate ||
+      "",
+
+
+    cost: x.cost || 0
+
+
+  });
+
+
+
+
+
+
+  const fetchData = useCallback(async () => {
+
+
     setLoading(true);
+
+
     try {
-      const res = await itHelpdeskAPI.licenses.getAll();
-      setData(res.data || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
+
+
+      const res =
+        await itHelpdeskAPI.licenses.getAll();
+
+
+
+      console.log(
+        "LICENSE DATA",
+        res.data
+      );
+
+
+
+      setData(
+        (res.data || []).map(normalize)
+      );
+
+
+
+    } catch (e) {
+
+      console.log(e);
+
     }
-  };
 
-  useEffect(() => { fetchData(); fetchVendors(); }, []);
 
-  const fetchVendors = async () => {
+    finally {
+
+      setLoading(false);
+
+    }
+
+  }, []);
+
+
+
+
+
+  const fetchVendors = useCallback(async () => {
+
+
     try {
-      const res = await itHelpdeskAPI.vendors.getAll();
+
+
+      const res =
+        await itHelpdeskAPI.vendors.getAll();
+
+
       setVendors(res.data || []);
-    } catch (err) { console.error(err); }
-  };
+
+
+    } catch (e) {
+
+      console.log(e);
+
+    }
+
+  }, []);
+
+
+
+
+
+
+  useEffect(() => {
+
+    fetchData();
+    fetchVendors();
+
+  }, [fetchData, fetchVendors]);
+
+
+
+
+
+
 
   const handleSave = async () => {
-    const payload = {
-      ...form,
-      total_seats: Number(form.total_seats),
-      used_seats: Number(form.used_seats),
-      cost: form.cost ? Number(form.cost) : undefined,
-      vendor: form.vendor || undefined,
-    };
-    try {
-      if (editId) {
-        await itHelpdeskAPI.licenses.update(editId, payload);
-      } else {
-        await itHelpdeskAPI.licenses.create(payload);
-      }
-      setShowModal(false);
-      fetchData();
-    } catch (err) {
-      console.error(err);
+
+
+    if (
+      !form.license_name ||
+      !form.license_code ||
+      !form.software_name ||
+      !form.vendor ||
+      !form.license_type
+    ) {
+
+      alert("Please fill mandatory fields");
+
+      return;
+
     }
+
+
+
+
+    const payload = {
+
+
+      license_name: form.license_name,
+
+      license_code: form.license_code,
+
+      software_name: form.software_name,
+
+      vendor: form.vendor,
+
+      license_type: form.license_type,
+
+
+      expiry_date:
+        form.expiry_date || null,
+
+
+      cost:
+        Number(form.cost || 0),
+
+
+
+      // compatibility
+
+      total_seats: 0,
+
+      used_seats: 0
+
+    };
+
+
+
+
+    try {
+
+
+      if (editId) {
+
+
+        await itHelpdeskAPI.licenses.update(
+          editId,
+          payload
+        );
+
+
+      } else {
+
+
+        await itHelpdeskAPI.licenses.create(
+          payload
+        );
+
+
+      }
+
+
+
+      await fetchData();
+
+
+      setOpen(false);
+
+      setEditId(null);
+
+      setForm({ ...EMPTY_FORM });
+
+
+
+    } catch (err) {
+
+      console.log(
+        err.response?.data || err
+      );
+
+      alert("Save failed");
+
+    }
+
+
   };
 
-  const handleDelete = async (e, id) => {
-    e.stopPropagation();
-    if (!window.confirm("Delete this license?")) return;
-    await itHelpdeskAPI.licenses.remove(id);
-    fetchData();
+
+
+
+
+
+
+
+
+  const edit = (item) => {
+
+
+    setEditId(item._id);
+
+
+    setForm({
+
+      license_name: item.license_name,
+
+      license_code: item.license_code,
+
+      software_name: item.software_name,
+
+      vendor: item.vendor?._id || item.vendor,
+
+      license_type: item.license_type,
+
+
+      expiry_date:
+        item.expiry_date
+          ?
+          item.expiry_date.substring(0, 10)
+          :
+          "",
+
+
+      cost: item.cost
+
+
+    });
+
+
+    setOpen(true);
+
   };
+
+
+
+
+
+
+
+
+  const remove = async (id) => {
+
+
+    if (!window.confirm("Delete license?"))
+      return;
+
+
+    await itHelpdeskAPI.licenses.remove(id);
+
+    fetchData();
+
+
+  };
+
+
+
+
+
+
+
 
   return (
+
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h5" fontWeight={700}>Software Licenses</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => { setEditId(null); setForm({...EMPTY_FORM}); setShowModal(true); }}>
+
+
+
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        mb={2}
+      >
+
+
+        <Typography
+          variant="h5"
+          fontWeight={700}
+        >
+
+          Software License
+
+        </Typography>
+
+
+
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => {
+
+            setEditId(null);
+            setForm({ ...EMPTY_FORM });
+            setOpen(true);
+
+          }}
+
+        >
+
           Add License
+
         </Button>
+
+
       </Box>
-      {loading ? <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box> : (
-        <TableContainer>
-          <Table>
-            <TableHead><TableRow>
-              <TableCell>Software Name</TableCell><TableCell>License Key</TableCell><TableCell>Total Seats</TableCell><TableCell>Used</TableCell><TableCell>Expiry Date</TableCell><TableCell align="right">Actions</TableCell>
-            </TableRow></TableHead>
-            <TableBody>
-              {data.length === 0 ? <TableRow><TableCell colSpan={6} align="center">No licenses found</TableCell></TableRow> :
-                data.map((l) => <TableRow key={l._id}><TableCell>{l.software_name}</TableCell><TableCell>{l.license_key || "—"}</TableCell><TableCell>{l.total_seats}</TableCell><TableCell>{l.used_seats}</TableCell><TableCell>{l.expiry_date ? new Date(l.expiry_date).toLocaleDateString() : "—"}</TableCell><TableCell align="right"><Button size="small" onClick={() => { setEditId(l._id); setForm({...l}); setShowModal(true); }}>Edit</Button>&nbsp;<Button size="small" color="error" onClick={(e) => handleDelete(e, l._id)}>Delete</Button></TableCell></TableRow>)
-              }
-            </TableBody>
-          </Table>
-        </TableContainer>
-      )}
-      <Dialog open={showModal} onClose={() => setShowModal(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{editId ? "Edit" : "New"} License</DialogTitle>
+
+
+
+
+
+
+
+      {
+        loading ?
+
+
+          <Box
+            display="flex"
+            justifyContent="center"
+          >
+
+            <CircularProgress />
+
+          </Box>
+
+
+
+          :
+
+
+          <TableContainer>
+
+
+            <Table>
+
+
+
+              <TableHead>
+
+                <TableRow>
+
+                  <TableCell>License Name</TableCell>
+
+                  <TableCell>License Code</TableCell>
+
+                  <TableCell>Software</TableCell>
+
+                  <TableCell>License Type</TableCell>
+
+                  <TableCell>Vendor</TableCell>
+
+                  <TableCell>Expiry</TableCell>
+
+                  <TableCell>Action</TableCell>
+
+
+                </TableRow>
+
+              </TableHead>
+
+
+
+
+
+              <TableBody>
+
+
+
+                {
+                  data.map(row => (
+
+
+                    <TableRow key={row._id}>
+
+
+                      <TableCell>
+                        {row.license_name || "-"}
+                      </TableCell>
+
+
+                      <TableCell>
+                        {row.license_code || "-"}
+                      </TableCell>
+
+
+                      <TableCell>
+                        {row.software_name || "-"}
+                      </TableCell>
+
+
+                      <TableCell>
+                        {row.license_type || "-"}
+                      </TableCell>
+
+
+                      <TableCell>
+                        {row.vendor_name}
+                      </TableCell>
+
+
+                      <TableCell>
+
+                        {
+                          row.expiry_date
+                            ?
+                            new Date(row.expiry_date)
+                              .toLocaleDateString()
+                            :
+                            "-"
+                        }
+
+                      </TableCell>
+
+
+
+                      <TableCell>
+
+
+                        <Button
+                          size="small"
+                          onClick={() => edit(row)}
+                        >
+                          Edit
+                        </Button>
+
+
+                        <Button
+                          size="small"
+                          color="error"
+                          onClick={() => remove(row._id)}
+                        >
+                          Delete
+                        </Button>
+
+
+                      </TableCell>
+
+
+
+                    </TableRow>
+
+
+                  ))
+
+                }
+
+
+              </TableBody>
+
+
+
+            </Table>
+
+
+          </TableContainer>
+
+      }
+
+
+
+
+
+
+
+
+
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        fullWidth
+        maxWidth="sm"
+      >
+
+
+        <DialogTitle>
+          License
+        </DialogTitle>
+
+
+
         <DialogContent>
-          <TextField label="Software Name *" size="small" fullWidth sx={{ mb: 2, mt: 1 }} value={form.software_name} onChange={(e) => setForm((f) => ({ ...f, software_name: e.target.value }))} />
-          <TextField select label="Vendor" size="small" fullWidth sx={{ mb: 2 }} value={form.vendor} onChange={(e) => setForm((f) => ({ ...f, vendor: e.target.value }))}>
-            <MenuItem value="">No Vendor</MenuItem>
-            {vendors.map((v) => <MenuItem key={v._id} value={v._id}>{v.name}</MenuItem>)}
+
+
+
+          <TextField
+            label="License Name *"
+            fullWidth
+            size="small"
+            sx={{ mt: 2, mb: 2 }}
+            value={form.license_name}
+            onChange={e => setForm({ ...form, license_name: e.target.value })}
+          />
+
+
+
+          <TextField
+            label="License Code *"
+            fullWidth
+            size="small"
+            sx={{ mb: 2 }}
+            value={form.license_code}
+            onChange={e => setForm({ ...form, license_code: e.target.value })}
+          />
+
+
+
+          <TextField
+            label="Software Name *"
+            fullWidth
+            size="small"
+            sx={{ mb: 2 }}
+            value={form.software_name}
+            onChange={e => setForm({ ...form, software_name: e.target.value })}
+          />
+
+
+
+
+
+          <TextField
+            select
+            label="Vendor *"
+            fullWidth
+            size="small"
+            sx={{ mb: 2 }}
+            value={form.vendor}
+            onChange={e => setForm({ ...form, vendor: e.target.value })}
+          >
+
+
+            <MenuItem value="">
+              Select
+            </MenuItem>
+
+
+            {
+              vendors.map(v => (
+
+                <MenuItem
+                  key={v._id}
+                  value={v._id}
+                >
+                  {v.name}
+                </MenuItem>
+
+              ))
+            }
+
+
           </TextField>
-          <TextField label="License Key" size="small" fullWidth sx={{ mb: 2 }} value={form.license_key} onChange={(e) => setForm((f) => ({ ...f, license_key: e.target.value }))} />
-          <TextField label="Total Seats" type="number" size="small" fullWidth sx={{ mb: 2 }} value={form.total_seats} onChange={(e) => setForm((f) => ({ ...f, total_seats: e.target.value }))} />
-          <TextField label="Used Seats" type="number" size="small" fullWidth sx={{ mb: 2 }} value={form.used_seats} onChange={(e) => setForm((f) => ({ ...f, used_seats: e.target.value }))} />
-          <TextField label="Expiry Date" type="date" size="small" fullWidth sx={{ mb: 2 }} InputLabelProps={{ shrink: true }} value={form.expiry_date} onChange={(e) => setForm((f) => ({ ...f, expiry_date: e.target.value }))} />
-          <TextField label="Cost" type="number" size="small" fullWidth sx={{ mb: 2 }} value={form.cost} onChange={(e) => setForm((f) => ({ ...f, cost: e.target.value }))} />
+
+
+
+
+
+
+          <TextField
+            select
+            label="License Type *"
+            fullWidth
+            size="small"
+            sx={{ mb: 2 }}
+            value={form.license_type}
+            onChange={e => setForm({ ...form, license_type: e.target.value })}
+          >
+
+
+            {
+              LICENSE_TYPES.map(t => (
+
+                <MenuItem key={t} value={t}>
+                  {t}
+                </MenuItem>
+
+              ))
+            }
+
+
+          </TextField>
+
+
+
+
+          <TextField
+            type="date"
+            label="Expiry Date"
+            fullWidth
+            size="small"
+            InputLabelProps={{ shrink: true }}
+            value={form.expiry_date}
+            onChange={e => setForm({ ...form, expiry_date: e.target.value })}
+          />
+
+
+
+
         </DialogContent>
+
+
+
         <DialogActions>
-          <Button onClick={() => setShowModal(false)}>Cancel</Button>
-          <Button onClick={handleSave} variant="contained">Save</Button>
+
+
+          <Button onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+
+
+          <Button
+            variant="contained"
+            onClick={handleSave}
+          >
+            Save
+          </Button>
+
+
         </DialogActions>
+
+
       </Dialog>
+
+
+
+
+
     </Box>
+
+
   );
+
+
 }

@@ -197,14 +197,26 @@ export default function NotificationsManagement() {
   });
 
   // Fetch data
-  const fetchData = () => {
-    setLoading(true);
-    // In a real app, this would be an API call
-    setTimeout(() => {
-      setNotificationTemplates(NOTIFICATION_TEMPLATES);
-      setLoading(false);
-    }, 500);
-  };
+const fetchData = () => {
+  setLoading(true);
+
+  try {
+    const data = NOTIFICATION_TEMPLATES.map(item => ({
+      ...item,
+      type: item.type || [],
+      recipients: item.recipients || [],
+      enabled: item.enabled ?? true
+    }));
+
+    setNotificationTemplates(data);
+
+  } catch (error) {
+    console.error("Notification loading error:", error);
+    toast.error("Notification load failed");
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Handle form input changes
   const handleInputChange = (e) => {

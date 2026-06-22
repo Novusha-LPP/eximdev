@@ -1,73 +1,115 @@
 import express from "express";
-import nodemailer from "nodemailer";
-import { SESClient, SendRawEmailCommand } from "@aws-sdk/client-ses";
-import dotenv from "dotenv";
-
-dotenv.config();
+import { Resend } from "resend";
 
 const router = express.Router();
 
-// Create AWS SES client
-const sesClient = new SESClient({
-  region: "ap-south-1",
-  credentials: {
-    accessKeyId: process.env.REACT_APP_ACCESS_KEY,
-    secretAccessKey: process.env.REACT_APP_SECRET_ACCESS_KEY,
-  },
+
+router.post("/send", async (req,res)=>{
+
+try{
+
+const {
+ apiKey,
+ from,
+ fromName,
+ to,
+ subject,
+ message,
+ replyTo
+
+}=req.body;
+
+
+console.log("SEND EMAIL BODY:", req.body);
+
+
+
+if(!apiKey){
+
+return res.status(400).json({
+success:false,
+message:"Resend API key missing"
 });
 
-// Custom SES transporter
-const sesTransport = {
-  name: "SES",
-  version: "1.0.0",
-  send: async (mail, callback) => {
-    const mailChunks = [];
-    const mailStream = mail.message.createReadStream();
+}
 
-    mailStream.on("data", (chunk) => mailChunks.push(chunk));
-    mailStream.on("end", async () => {
-      const rawMessage = Buffer.concat(mailChunks).toString("base64");
 
-      const params = {
-        RawMessage: { Data: rawMessage },
-        Source: mail.data.from,
-        Destinations: Array.isArray(mail.data.to)
-          ? mail.data.to
-          : [mail.data.to],
-      };
 
-      try {
-        const command = new SendRawEmailCommand(params);
-        const data = await sesClient.send(command);
-        callback(null, { messageId: data.MessageId });
-      } catch (error) {
-        callback(error);
-      }
-    });
-  },
-};
+if(!from){
 
-// Create Nodemailer transporter
-let transporter = nodemailer.createTransport(sesTransport);
-
-router.get("/api/send-mail", async (req, res) => {
-  try {
-    let mailOptions = {
-      from: "connect@surajgroupofcompanies.com",
-      to: "connect@surajgroupofcompanies.com",
-      subject: "Hello from Node.js using AWS SES",
-      text: "Hello world?",
-      html: "<b>Hello world?</b>",
-    };
-
-    let info = await transporter.sendMail(mailOptions);
-
-    console.log("Message sent: %s", info.messageId);
-    res.status(200).send("Email sent successfully");
-  } catch (error) {
-    console.error("Error sending email:", error);
-    res.status(500).send("Failed to send email");
-  }
+return res.status(400).json({
+success:false,
+message:"From email missing"
 });
 
-export default router;
+}
+
+
+
+if(!to){
+
+return res.status(400).json({
+success:false,
+message:"To email missing"
+});
+
+}
+
+
+
+const result = await sendEmail({
+
+apiKey,
+
+from:
+`${fromName || "IT Helpdesk"} <${from}>`,
+
+to,
+
+subject,
+
+text:message,
+
+html:`<h3>${message}</h3>`,
+
+replyTo
+
+});
+
+
+
+return res.json({
+
+success:true,
+
+message:"Email sent successfully",
+
+data:result
+
+});
+
+
+}
+catch(error){
+
+
+console.log(
+"EMAIL SEND ERROR:",
+error
+);
+
+
+
+return res.status(500).json({
+
+success:false,
+
+message:error.message
+
+});
+
+
+}
+
+
+});

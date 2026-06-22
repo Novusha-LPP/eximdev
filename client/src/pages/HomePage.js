@@ -194,6 +194,8 @@ import ItHelpdeskPage from "./ItHelpdeskPage.jsx";
 import MRMHome from "../components/mrm/MRMHome.js";
 import MRMAdminDashboard from "../components/mrm/MRMAdminDashboard.js";
 
+
+import CRMModule from "../components/crm/CRMModule.jsx";
 // Branch Context
 import { BranchProvider } from "../contexts/BranchContext.js";
 
@@ -609,6 +611,14 @@ function HomePageContent() {
                     <UpdateEmployeeData />
                   </ProtectedRoute>
                 }
+              />
+
+              <Route
+           
+                path="/crm"
+                element={
+                  <CRMModule />
+              }
               />
               <Route
                 path="/hr"

@@ -77,11 +77,11 @@ export const getTransportDates = (filterType, selectedDay, selectedYear, selecte
     if (filterType === 'day') {
         const dateObj = parse(selectedDay, 'yyyy-MM-dd', new Date());
         if (isValid(dateObj)) {
-            sd = format(startOfMonth(dateObj), 'yyyy-MM-dd');
-            ed = format(endOfMonth(dateObj), 'yyyy-MM-dd');
+            sd = format(dateObj, 'yyyy-MM-dd');
+            ed = format(dateObj, 'yyyy-MM-dd');
         } else {
-            sd = format(startOfMonth(new Date()), 'yyyy-MM-dd');
-            ed = format(endOfMonth(new Date()), 'yyyy-MM-dd');
+            sd = format(new Date(), 'yyyy-MM-dd');
+            ed = format(new Date(), 'yyyy-MM-dd');
         }
     } else if (filterType === 'week') {
         const dateObj = parse(selectedDay, 'yyyy-MM-dd', new Date());

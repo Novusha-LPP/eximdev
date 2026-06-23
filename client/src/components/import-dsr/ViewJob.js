@@ -4398,20 +4398,24 @@ function JobDetails() {
                             </td>
                             {/* Currency */}
                             <td style={{ padding: "8px 6px", width: "90px", verticalAlign: "middle" }}>
-                              <TextField
-                                select
+                              <Autocomplete
+                                freeSolo
                                 size="small"
-                                fullWidth
+                                options={currencies.map(c => c.code)}
                                 value={row.amount_currency || "USD"}
-                                onChange={(e) => updateDescriptionRow(rowIndex, "amount_currency", e.target.value)}
+                                onInputChange={(event, newValue) => updateDescriptionRow(rowIndex, "amount_currency", newValue)}
+                                onChange={(event, newValue) => updateDescriptionRow(rowIndex, "amount_currency", newValue || "USD")}
                                 disabled={isDescriptionTableReadOnly}
-                                sx={compactInputSx}
-                              >
-                                <MenuItem value="USD">USD</MenuItem>
-                                <MenuItem value="INR">INR</MenuItem>
-                                <MenuItem value="EUR">EUR</MenuItem>
-                                <MenuItem value="GBP">GBP</MenuItem>
-                              </TextField>
+                                renderInput={(params) => (
+                                  <TextField
+                                    {...params}
+                                    variant="outlined"
+                                    size="small"
+                                    placeholder="Currency"
+                                    sx={compactInputSx}
+                                  />
+                                )}
+                              />
                             </td>
 
                             {/* Amount */}

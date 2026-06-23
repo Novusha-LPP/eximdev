@@ -119,6 +119,25 @@ router.get("/api/analytics/:module", authMiddleware, async (req, res) => {
     }
 });
 
+// 🔹 Export Pulse Proxy Route (Bypasses CORS restrictions)
+router.get("/api/export-analytics/pulse", authMiddleware, async (req, res) => {
+    try {
+        const { exporter } = req.query;
+        const targetUrl = `https://eximbot.alvision.in/export/api/export-analytics/pulse?exporter=${exporter || ''}`;
+        
+        const response = await fetch(targetUrl);
+        if (!response.ok) {
+            throw new Error(`External API responded with status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        res.json(data);
+    } catch (error) {
+        console.error("Export Analytics Proxy Error:", error);
+        res.status(500).json({ error: "Failed to fetch export analytics" });
+    }
+});
+
 // 🔹 Overview Pipeline
 const getOverviewPipeline = (start, end, importer, branchId, category) => {
     // Helper to format Date to YYYY-MM-DD string safely

@@ -19,6 +19,7 @@ import ElockAssignedCountReport from './reports/ElockAssignedCountReport';
 import ElockBillingReport from './reports/ElockBillingReport';
 import TransportAccountsReport from './reports/TransportAccountsReport';
 import KarmaReport from './reports/KarmaReport';
+import ExportPulseReport from './reports/ExportPulseReport';
 
 const NucleusHome = () => {
     // Categories Configuration
@@ -33,7 +34,14 @@ const NucleusHome = () => {
                 { id: 'top10', label: 'Top 10 Importers' }
             ]
         },
-        { id: 'export', label: 'Export', icon: '🛫', reports: [] },
+        { 
+            id: 'export', 
+            label: 'Export', 
+            icon: '🛫', 
+            reports: [
+                { id: 'export_pulse', label: 'Export Pulse Dashboard' }
+            ] 
+        },
         {
             id: 'transport',
             label: 'Transport',
@@ -203,6 +211,8 @@ const NucleusHome = () => {
                 return <ClientLoginAnalyticsReport />;
             case 'new_customers':
                 return <NewCustomersReport />;
+            case 'export_pulse':
+                return <ExportPulseReport />;
             case 'transport_table':
                 return (
                     <Top10TransportersReport
@@ -297,7 +307,7 @@ const NucleusHome = () => {
     };
 
     // Determine if date controls are needed (udyam, training, client login analytics, new_customers don't need them)
-    const showDateControls = !['udyam', 'training', 'client_login_analytics', 'new_customers'].includes(activeReport);
+    const showDateControls = !['udyam', 'training', 'client_login_analytics', 'new_customers', 'export_pulse'].includes(activeReport);
 
     return (
         <div className="nucleus-layout">

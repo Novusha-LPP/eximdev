@@ -1798,6 +1798,38 @@ const FleetUtilizationReport = ({
                     border: 1px solid rgba(239, 68, 68, 0.2);
                 }
                 
+                .kpi-info-icon-wrapper {
+                    position: relative;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: help;
+                }
+                
+                .kpi-info-tooltip {
+                    position: absolute;
+                    bottom: 120%;
+                    right: 0;
+                    transform: translateY(10px);
+                    background: #ffffff;
+                    border: 1px solid #e2e8f0;
+                    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+                    border-radius: 12px;
+                    padding: 12px 16px;
+                    opacity: 0;
+                    visibility: hidden;
+                    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                    z-index: 100;
+                    width: max-content;
+                    pointer-events: none;
+                }
+                
+                .kpi-info-icon-wrapper:hover .kpi-info-tooltip {
+                    opacity: 1;
+                    visibility: visible;
+                    transform: translateY(0);
+                }
+                
                 /* Charts */
                 .analytics-graph-card {
                     background: rgba(255, 255, 255, 0.9);
@@ -2063,48 +2095,72 @@ const FleetUtilizationReport = ({
 
                     {/* Metrics Grid - CR-003 Additional KPI Cards with Dynamic Colors */}
                     {!isSingleDay && (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginTop: '16px' }}>
-                            {[
-                                { 
-                                    label: 'Average Trips Per Day', 
-                                    value: kpiMetricsObj.avgTripsPerDay, 
-                                    extra: kpiMetricsObj.avgTripsTheme.performanceLabel, 
-                                    color: kpiMetricsObj.avgTripsTheme.color,
-                                    gradient: kpiMetricsObj.avgTripsTheme.bg,
-                                    border: kpiMetricsObj.avgTripsTheme.border,
-                                    badgeBg: kpiMetricsObj.avgTripsTheme.badgeBg
-                                },
-                                { 
-                                    label: 'Projection Trips – All Ports', 
-                                    value: kpiMetricsObj.projectionAllPorts, 
-                                    extra: kpiMetricsObj.projectionAllTheme.performanceLabel, 
-                                    color: kpiMetricsObj.projectionAllTheme.color,
-                                    gradient: kpiMetricsObj.projectionAllTheme.bg,
-                                    border: kpiMetricsObj.projectionAllTheme.border,
-                                    badgeBg: kpiMetricsObj.projectionAllTheme.badgeBg
-                                },
-                                { 
-                                    label: 'Projection Trips – Mundra', 
-                                    value: kpiMetricsObj.projectionMundra, 
-                                    extra: kpiMetricsObj.projectionMundraTheme.performanceLabel, 
-                                    color: kpiMetricsObj.projectionMundraTheme.color,
-                                    gradient: kpiMetricsObj.projectionMundraTheme.bg,
-                                    border: kpiMetricsObj.projectionMundraTheme.border,
-                                    badgeBg: kpiMetricsObj.projectionMundraTheme.badgeBg
-                                }
-                            ].map((m, idx) => (
-                                <div key={idx} className="nucleus-stats-card" style={{ padding: '22px 26px', display: 'flex', flexDirection: 'column', gap: '10px', background: m.gradient, border: m.border, boxShadow: '0 8px 32px rgba(0, 0, 0, 0.03)' }}>
-                                    <div style={{ fontSize: '13px', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 800 }}>{m.label}</div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                                            <span style={{ fontSize: '42px', fontWeight: 900, color: '#0f172a' }} className="mono-text">{m.value}</span>
-                                        </div>
-                                        <div style={{ display: 'inline-flex', padding: '6px 12px', borderRadius: '8px', background: m.badgeBg, color: m.color, fontWeight: 700, fontSize: '12.5px', width: 'fit-content' }}>
-                                            {m.extra}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '16px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingRight: '4px' }}>
+                                <div className="kpi-info-icon-wrapper">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                                    <div className="kpi-info-tooltip">
+                                        <div style={{ fontSize: '13px', fontWeight: 800, color: '#1e293b', marginBottom: '10px', paddingBottom: '8px', borderBottom: '1px solid #f1f5f9' }}>Color Coding Legend</div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#059669', boxShadow: '0 0 0 2px rgba(16, 185, 129, 0.2)' }}></div>
+                                                <span style={{ fontSize: '12.5px', color: '#475569', fontWeight: 600 }}>≥ Last Month</span>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#d97706', boxShadow: '0 0 0 2px rgba(245, 158, 11, 0.2)' }}></div>
+                                                <span style={{ fontSize: '12.5px', color: '#475569', fontWeight: 600 }}>90% - 99% of Last Month</span>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#dc2626', boxShadow: '0 0 0 2px rgba(239, 68, 68, 0.2)' }}></div>
+                                                <span style={{ fontSize: '12.5px', color: '#475569', fontWeight: 600 }}>&lt; 90% of Last Month</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            ))}
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                                {[
+                                    { 
+                                        label: 'Average Trips Per Day', 
+                                        value: kpiMetricsObj.avgTripsPerDay, 
+                                        extra: kpiMetricsObj.avgTripsTheme.performanceLabel, 
+                                        color: kpiMetricsObj.avgTripsTheme.color,
+                                        gradient: kpiMetricsObj.avgTripsTheme.bg,
+                                        border: kpiMetricsObj.avgTripsTheme.border,
+                                        badgeBg: kpiMetricsObj.avgTripsTheme.badgeBg
+                                    },
+                                    { 
+                                        label: 'Projection Trips – All Ports', 
+                                        value: kpiMetricsObj.projectionAllPorts, 
+                                        extra: kpiMetricsObj.projectionAllTheme.performanceLabel, 
+                                        color: kpiMetricsObj.projectionAllTheme.color,
+                                        gradient: kpiMetricsObj.projectionAllTheme.bg,
+                                        border: kpiMetricsObj.projectionAllTheme.border,
+                                        badgeBg: kpiMetricsObj.projectionAllTheme.badgeBg
+                                    },
+                                    { 
+                                        label: 'Projection Trips – Mundra', 
+                                        value: kpiMetricsObj.projectionMundra, 
+                                        extra: kpiMetricsObj.projectionMundraTheme.performanceLabel, 
+                                        color: kpiMetricsObj.projectionMundraTheme.color,
+                                        gradient: kpiMetricsObj.projectionMundraTheme.bg,
+                                        border: kpiMetricsObj.projectionMundraTheme.border,
+                                        badgeBg: kpiMetricsObj.projectionMundraTheme.badgeBg
+                                    }
+                                ].map((m, idx) => (
+                                    <div key={idx} className="nucleus-stats-card" style={{ padding: '22px 26px', display: 'flex', flexDirection: 'column', gap: '10px', background: m.gradient, border: m.border, boxShadow: '0 8px 32px rgba(0, 0, 0, 0.03)' }}>
+                                        <div style={{ fontSize: '13px', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 800 }}>{m.label}</div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                                                <span style={{ fontSize: '42px', fontWeight: 900, color: '#0f172a' }} className="mono-text">{m.value}</span>
+                                            </div>
+                                            <div style={{ display: 'inline-flex', padding: '6px 12px', borderRadius: '8px', background: m.badgeBg, color: m.color, fontWeight: 700, fontSize: '12.5px', width: 'fit-content' }}>
+                                                {m.extra}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
 

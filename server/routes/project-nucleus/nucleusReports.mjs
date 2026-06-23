@@ -2,6 +2,7 @@ import express from "express";
 import JobModel from "../../model/jobModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
+import { applyUserBranchFilter } from "../../middleware/branchMiddleware.mjs";
 import UserModel from "../../model/userModel.mjs";
 import { getBranchMatch } from "../../utils/branchFilter.mjs";
 import CustomerKycModel from "../../model/CustomerKyc/customerKycModel.mjs";
@@ -573,6 +574,164 @@ router.get("/karma-leaderboard", async (req, res) => {
         res.json(leaderboard);
     } catch (error) {
         console.error("Error fetching karma leaderboard:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+// ─── Import Pending Job Summaries (Combination Filters) ───────────────────────
+router.get("/pending-job-summaries", authMiddleware, applyUserBranchFilter, async (req, res) => {
+    try {
+        const { filterType, month, year, quarter, startDate, endDate, day, branchId, category } = req.query;
+        const branchMatch = getBranchMatch(branchId, category, req.authorizedBranchIds);
+
+        // Base: pending, non-cancelled jobs
+        const matchStage = {
+            status: { $regex: "^pending$", $options: "i" },
+            be_no: { $not: { $regex: "^cancelled$", $options: "i" } },
+            ...branchMatch,
+        };
+
+        const pipeline = [
+            { $match: matchStage },
+            // Parse job_date for date filtering
+            {
+                $addFields: {
+                    parsedJobDate: {
+                        $cond: {
+                            if: {
+                                $and: [
+                                    { $ne: ["$job_date", null] },
+                                    { $ne: ["$job_date", ""] },
+                                    { $regexMatch: { input: "$job_date", regex: /^\d{4}-\d{2}-\d{2}/ } },
+                                ],
+                            },
+                            then: { $toDate: "$job_date" },
+                            else: null,
+                        },
+                    },
+                },
+            },
+        ];
+
+        // Apply date filters
+        let dateMatch = {};
+
+        if (filterType === "day" && day) {
+            // Day-wise: exact match on the date string prefix
+            dateMatch = {
+                job_date: { $regex: `^${day}` },
+            };
+        } else if (filterType === "week" && day) {
+            // Week-wise: compute start/end of ISO week from the given day
+            const refDate = new Date(day);
+            const dayOfWeek = refDate.getDay(); // 0=Sun..6=Sat
+            const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+            const weekStart = new Date(refDate);
+            weekStart.setDate(refDate.getDate() + mondayOffset);
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekStart.getDate() + 6);
+            weekEnd.setHours(23, 59, 59, 999);
+            dateMatch = {
+                parsedJobDate: { $gte: weekStart, $lte: weekEnd },
+            };
+        } else if (filterType === "month" && month !== undefined && year) {
+            const m = parseInt(month) + 1;
+            const y = parseInt(year);
+            dateMatch = {
+                $expr: {
+                    $and: [
+                        { $eq: [{ $month: "$parsedJobDate" }, m] },
+                        { $eq: [{ $year: "$parsedJobDate" }, y] },
+                    ],
+                },
+            };
+        } else if (filterType === "quarter" && quarter && year) {
+            const q = parseInt(quarter);
+            const y = parseInt(year);
+            const sm = (q - 1) * 3 + 1;
+            const em = sm + 2;
+            dateMatch = {
+                $expr: {
+                    $and: [
+                        { $gte: [{ $month: "$parsedJobDate" }, sm] },
+                        { $lte: [{ $month: "$parsedJobDate" }, em] },
+                        { $eq: [{ $year: "$parsedJobDate" }, y] },
+                    ],
+                },
+            };
+        } else if (filterType === "year" && year) {
+            const y = parseInt(year);
+            dateMatch = {
+                $expr: { $eq: [{ $year: "$parsedJobDate" }, y] },
+            };
+        } else if (filterType === "date-range" && startDate && endDate) {
+            dateMatch = {
+                parsedJobDate: {
+                    $gte: new Date(startDate),
+                    $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)),
+                },
+            };
+        }
+
+        if (Object.keys(dateMatch).length > 0) {
+            pipeline.push({ $match: dateMatch });
+        }
+
+        // Two combination facets:
+        //  1) Branch + Employee
+        //  2) Branch + Port + Employee
+        pipeline.push({
+            $facet: {
+                byBranchEmployee: [
+                    {
+                        $group: {
+                            _id: {
+                                branch: { $ifNull: ["$branch_code", "Unassigned"] },
+                                employee: { $ifNull: ["$job_owner", "Unassigned"] },
+                            },
+                            count: { $sum: 1 },
+                        },
+                    },
+                    { $sort: { "_id.branch": 1, count: -1 } },
+                    {
+                        $project: {
+                            _id: 0,
+                            branch: "$_id.branch",
+                            employee: "$_id.employee",
+                            count: 1,
+                        },
+                    },
+                ],
+                byBranchPortEmployee: [
+                    {
+                        $group: {
+                            _id: {
+                                branch: { $ifNull: ["$branch_code", "Unassigned"] },
+                                port: { $ifNull: ["$port_of_reporting", "Unassigned"] },
+                                employee: { $ifNull: ["$job_owner", "Unassigned"] },
+                            },
+                            count: { $sum: 1 },
+                        },
+                    },
+                    { $sort: { "_id.branch": 1, "_id.port": 1, count: -1 } },
+                    {
+                        $project: {
+                            _id: 0,
+                            branch: "$_id.branch",
+                            port: "$_id.port",
+                            employee: "$_id.employee",
+                            count: 1,
+                        },
+                    },
+                ],
+            },
+        });
+
+        const results = await JobModel.aggregate(pipeline);
+        const data = results[0] || { byBranchEmployee: [], byBranchPortEmployee: [] };
+        res.json(data);
+    } catch (error) {
+        console.error("Error fetching pending job summaries:", error);
         res.status(500).json({ error: "Internal Server Error" });
     }
 });

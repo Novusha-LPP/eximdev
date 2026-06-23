@@ -20,6 +20,7 @@ import ElockBillingReport from './reports/ElockBillingReport';
 import TransportAccountsReport from './reports/TransportAccountsReport';
 import KarmaReport from './reports/KarmaReport';
 import ExportPulseReport from './reports/ExportPulseReport';
+import ImportPendingSummaryReport from './reports/ImportPendingSummaryReport';
 
 const NucleusHome = () => {
     // Categories Configuration
@@ -31,7 +32,8 @@ const NucleusHome = () => {
             reports: [
                 { id: 'fine', label: 'Bill of Entry – Fine Report' },
                 { id: 'penalty', label: 'Bill of Entry – Penalty Report' },
-                { id: 'top10', label: 'Top 10 Importers' }
+                { id: 'top10', label: 'Top 10 Importers' },
+                { id: 'import_pending_summary', label: 'Pending Job Summary' }
             ]
         },
         { 
@@ -153,6 +155,9 @@ const NucleusHome = () => {
         } else {
             if (filterType === 'day') {
                 setFilterType('month');
+            } else if (activeReport === 'import_pending_summary') {
+                setFilterType('all');
+                setSelectedDay(format(new Date(), 'yyyy-MM-dd'));
             }
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -301,6 +306,17 @@ const NucleusHome = () => {
                         selectedDay={selectedDay}
                     />
                 );
+            case 'import_pending_summary':
+                return (
+                    <ImportPendingSummaryReport
+                        filterType={filterType}
+                        selectedMonth={selectedMonth}
+                        selectedYear={selectedYear}
+                        selectedQuarter={selectedQuarter}
+                        dateRange={dateRange}
+                        selectedDay={selectedDay}
+                    />
+                );
             default:
                 return <div style={{ padding: '20px', color: '#64748b' }}>Select a report from the sidebar</div>;
         }
@@ -404,7 +420,7 @@ const NucleusHome = () => {
                                         onChange={(e) => setFilterType(e.target.value)}
                                         className="nucleus-select"
                                     >
-                                        {['fleet_utilization', 'elock_utilization', 'elock_billing', 'transport_accounts'].includes(activeReport) && (
+                                        {['fleet_utilization', 'elock_utilization', 'elock_billing', 'transport_accounts', 'import_pending_summary'].includes(activeReport) && (
                                             <option value="day">Day Wise</option>
                                         )}
                                         <option value="week">Week Wise</option>

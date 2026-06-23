@@ -458,8 +458,11 @@ app.use(
         "http://192.168.1.103:3000",
         "http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com",
         "https://import.alvision.in",
-        "https://test-frontend.alvision.in"
+        "https://test-frontend.alvision.in",
+        "http://localhost:5173",
+        "https://export.alvision.in"
       ];
+
 
       // Allow any local network IP (192.168.x.x, 10.x.x.x, 172.16-31.x.x) on any port
       const localNetworkPattern = /^http:\/\/(192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})(:\d+)?$/;

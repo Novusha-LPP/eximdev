@@ -773,8 +773,28 @@ const FleetUtilizationReport = ({
             daysInMonth = new Date(todayYear, todayMonth + 1, 0).getDate();
         }
 
-        const projectionAllPorts = avgTripsPerDay * daysInMonth;
-        const projectionMundra = mundraAvgTripsPerDay * daysInMonth;
+        // Calculate the sum of rounded branch projections to match the table's grand total projection
+        let projectionAllPorts = 0;
+        let projectionMundra = 0;
+
+        if (elapsedDays > 0) {
+            const branchCounts = {};
+            closedLRsList.forEach(r => {
+                const br = r.branch || 'Unknown';
+                branchCounts[br] = (branchCounts[br] || 0) + 1;
+            });
+
+            Object.entries(branchCounts).forEach(([br, count]) => {
+                const avgTrips = count / elapsedDays;
+                const projTrips = avgTrips * daysInMonth;
+                const roundedProj = Math.round(projTrips);
+
+                projectionAllPorts += roundedProj;
+                if (br.toLowerCase().includes('mundra')) {
+                    projectionMundra += roundedProj;
+                }
+            });
+        }
 
         // Compute performance percentages against previous month (comparisonData)
         const avgTripsPerf = comparisonData.prevAvgTrips > 0 ? (avgTripsPerDay / comparisonData.prevAvgTrips) * 100 : 100;
@@ -830,8 +850,8 @@ const FleetUtilizationReport = ({
 
         return {
             avgTripsPerDay: Math.round(avgTripsPerDay),
-            projectionAllPorts: Math.round(projectionAllPorts),
-            projectionMundra: Math.round(projectionMundra),
+            projectionAllPorts,
+            projectionMundra,
             avgTripsTheme: getColorTheme(avgTripsPerf),
             projectionAllTheme: getColorTheme(projectionAllPerf),
             projectionMundraTheme: getColorTheme(projectionMundraPerf)
@@ -2407,7 +2427,7 @@ const FleetUtilizationReport = ({
                                         <th>40 Feet</th>
                                         <th>Automove</th>
                                         <th>Avg/Day</th>
-                                        <th>Projection</th>
+                                        {!isSingleDay && <th>Projection</th>}
                                         <th style={{ textAlign: 'right' }}>Total</th>
                                     </tr>
                                 </thead>
@@ -2445,7 +2465,7 @@ const FleetUtilizationReport = ({
                                         </>
                                     ) : (
                                         <tr>
-                                            <td colSpan="7" style={{ textAlign: 'center', color: '#94a3b8', padding: '32px' }}>No branch data available</td>
+                                            <td colSpan={isSingleDay ? 6 : 7} style={{ textAlign: 'center', color: '#94a3b8', padding: '32px' }}>No branch data available</td>
                                         </tr>
                                     )}
                                 </tbody>
@@ -2456,7 +2476,7 @@ const FleetUtilizationReport = ({
                         {branchSummary.list.length > 0 && (
                             <div className="nucleus-stats-card" style={{ padding: '24px', background: 'rgba(255, 255, 255, 0.85)', display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '4px' }}>
                                 <div style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span>📊</span> Branch Wise Performance & Projection
+                                    <span>📊</span> {isSingleDay ? "Branch Wise Performance" : "Branch Wise Performance & Projection"}
                                 </div>
                                 <div style={{ width: '100%', height: 320, paddingTop: '10px' }}>
                                     <ResponsiveContainer width="100%" height="100%">
@@ -2464,7 +2484,7 @@ const FleetUtilizationReport = ({
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(226, 232, 240, 0.6)" />
                                             <XAxis dataKey="name" stroke="#64748b" fontSize={11} tickLine={false} />
                                             <YAxis yAxisId="left" stroke="#3b82f6" fontSize={11} tickLine={false} axisLine={false} />
-                                            <YAxis yAxisId="right" orientation="right" stroke="#10b981" fontSize={11} tickLine={false} axisLine={false} />
+                                            {!isSingleDay && <YAxis yAxisId="right" orientation="right" stroke="#10b981" fontSize={11} tickLine={false} axisLine={false} />}
                                             <Tooltip cursor={{ fill: 'rgba(102, 126, 234, 0.04)' }} />
                                             <Legend verticalAlign="top" height={36} iconType="circle" />
                                             <Bar yAxisId="left" dataKey="avgTripsPerDay" name="Avg Trips Per Day" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={25} />

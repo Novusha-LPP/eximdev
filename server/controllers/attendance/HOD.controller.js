@@ -15,6 +15,7 @@ import PolicyResolver from '../../services/attendance/PolicyResolver.js';
 import AggregationService from '../../services/attendance/AggregationService.js';
 import ActivityLog from '../../model/attendance/ActivityLog.js';
 import { syncBalanceFromApplications } from './leave.controller.js';
+import { isRestrictedAllowedAdmin, getRestrictedEmployeeIds } from '../../utils/attendance/allowedAdminRestriction.mjs';
 
 const normalizeRole = (role) => String(role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
 const isAdminRole = (role) => normalizeRole(role) === 'ADMIN';
@@ -124,6 +125,16 @@ export const canActorActOnLeave = async (leave, actor) => {
     const actorId = toIdString(actor._id);
     const actorUsername = String(actor.username || '').toLowerCase();
     const currentApproverId = toIdString(leave.current_approver_id);
+
+    // Check if RABS leave
+    const rabsCompany = await Company.findOne({ company_name: /RABS Industries India Private Limited/i });
+    const rabsCompanyId = rabsCompany?._id;
+    const isRabsLeave = rabsCompanyId && String(leave.company_id?._id || leave.company_id) === String(rabsCompanyId);
+
+    if (isRabsLeave) {
+        // Only Ajith (ajith_sivadasan) can act on RABS leaves
+        return actorUsername === 'ajith_sivadasan';
+    }
 
     if (stage === LEAVE_STAGE.HOD) {
         if (isAssignedToActor(leave, actor)) {
@@ -388,13 +399,18 @@ export const getDashboard = async (req, res) => {
         // Use UTC for date-only comparison to match AttendanceEngine
         const targetDate = date ? moment.utc(date).startOf('day') : moment.utc().startOf('day');
 
+        // Extract Company ID
+        // Note: For admins, we should also look at req.query.company_id to allow switching contexts
+        const companyId = req.query.company_id || (hod.company_id?._id || hod.company_id);
         const explicitCompanyId = req.query.company_id;
         const actorUsername = String(hod.username || '').toLowerCase();
-        const isAllowedAdmin = ALLOWED_USERNAMES.has(actorUsername);
-        const isAdminAndAllowed = isAdminRole(hod.role) && isAllowedAdmin;
+        const isDynamic = hod.isAttendanceAllowedAdmin === true;
+        const isRestricted = isDynamic && (actorUsername === 'ajith_sivadasan' || actorUsername === 'afzal_ghanchi');
+        const isAllowedAdmin = ALLOWED_USERNAMES.has(actorUsername) || (isDynamic && !isRestricted);
+        const isAdminAndAllowed = (isAdminRole(hod.role) && isAllowedAdmin) || (isDynamic && !isRestricted);
 
         // Resolve company context
-        let companyId = explicitCompanyId;
+        // let companyId = explicitCompanyId;
         if (!companyId && !isAdminAndAllowed) {
             companyId = hod.company_id?._id || hod.company_id;
         }
@@ -413,17 +429,41 @@ export const getDashboard = async (req, res) => {
         let employees = [];
         let allTeamsForHOD = [];
 
-        if (isAdminAndAllowed) {
-            // Admin sees all employees, optionally filtered by teamId or companyId
+        // Check if RABS and actor is Ajith
+        const rabsCompany = await Company.findOne({ company_name: /RABS Industries India Private Limited/i });
+        const rabsCompanyId = rabsCompany?._id;
+        const isRabsAjith = rabsCompanyId && actorUsername === 'ajith_sivadasan';
+
+        if (isRabsAjith) {
+            // Ajith sees all active RABS employees
+            const rabsQuery = {
+                company_id: rabsCompanyId,
+                isActive: { $ne: false },
+                role: { $nin: ['driver', 'Driver'] }
+            };
+            if (process.env.NODE_ENV === 'production') {
+                rabsQuery.username = { $ne: 'dev_master' };
+            }
+            employees = await User.find(rabsQuery).select('_id first_name last_name username email role department_id company_id');
+            allTeamsForHOD = await TeamModel.find({ isActive: { $ne: false } }).lean();
+            employeeIds = employees.map(e => e._id.toString());
+            debugLog.push(`RABS Admin mode (Ajith): Found ${employees.length} RABS employees`);
+        } else if (isAdminRole(hod.role) && isAllowedAdmin) {
+            // Admin sees all employees, optionally filtered by teamId
             if (teamId) {
                 // Admin filtered by a specific team
                 const team = await TeamModel.findOne({ _id: teamId, isActive: { $ne: false } });
                 if (team && team.members && team.members.length > 0) {
                     const memberIds = team.members.map(m => m.userId).filter(Boolean);
-                    employees = await User.find({
+                    const adminTeamQuery = {
                         _id: { $in: memberIds },
-                        isActive: { $ne: false }
-                    }).select('_id first_name last_name username email role department_id company_id');
+                        isActive: { $ne: false },
+                        role: { $nin: ['driver', 'Driver'] }
+                    };
+                    if (process.env.NODE_ENV === 'production') {
+                        adminTeamQuery.username = { $ne: 'dev_master' };
+                    }
+                    employees = await User.find(adminTeamQuery).select('_id first_name last_name username email role department_id company_id');
                     debugLog.push(`Admin filtered by teamId ${teamId}: Found ${employees.length} team members`);
                 } else {
                     employees = [];
@@ -431,10 +471,14 @@ export const getDashboard = async (req, res) => {
                 }
             } else {
                 const userQuery = {
-                    isActive: { $ne: false }
+                    isActive: { $ne: false },
+                    role: { $nin: ['driver', 'Driver'] }
                 };
                 if (companyId && companyId !== 'all') {
                     userQuery.company_id = companyId;
+                }
+                if (process.env.NODE_ENV === 'production') {
+                    userQuery.username = { $ne: 'dev_master' };
                 }
                 employees = await User.find(userQuery).select('_id first_name last_name username email role department_id company_id');
                 debugLog.push(`Admin mode (all): Found ${employees.length} total employees`);
@@ -444,11 +488,13 @@ export const getDashboard = async (req, res) => {
         } else {
             // HOD sees only their team members
             debugLog.push(`Loading teams for HOD: ${hod.username}`);
+            const hodUsername = String(hod.username || '').toLowerCase();
             
             const teams = await TeamModel.find({ 
                 $or: [
                     { hodId: hod._id },
-                    ...(isHodRole(hod.role) ? [{ "members.userId": hod._id }] : [])
+                    { hodUsername: hod.username },
+                    ...((isHodRole(hod.role) || isRestricted) ? [{ "members.userId": hod._id }, { "members.username": hod.username }] : [])
                 ],
                 isActive: { $ne: false }
             });
@@ -456,29 +502,37 @@ export const getDashboard = async (req, res) => {
             
             debugLog.push(`Found ${teams.length} teams for HOD`);
             
-            // Extract all member user IDs from all teams
+            // Extract all member IDs from all teams, including legacy username-based members
             const memberUserIds = new Set();
-            const legacyUsernames = [];
+            const memberUsernames = new Set();
             teams.forEach(team => {
                 if (team.members && Array.isArray(team.members)) {
                     team.members.forEach(member => {
                         if (member.userId) {
                             memberUserIds.add(member.userId.toString());
                         } else if (member.username) {
-                            legacyUsernames.push(String(member.username).trim().toLowerCase());
+                            memberUsernames.add(String(member.username).toLowerCase());
                         }
                     });
                 }
             });
 
-            if (legacyUsernames.length > 0) {
-                const resolvedUsers = await User.find({
-                    username: { $in: legacyUsernames },
-                    isActive: { $ne: false }
-                }).select('_id');
-                resolvedUsers.forEach(u => memberUserIds.add(u._id.toString()));
-            }
             
+            if (memberUsernames.size > 0) {
+                const legacyQuery = {
+                    username: { $in: [...memberUsernames] },
+                    isActive: { $ne: false },
+                    role: { $nin: ['driver', 'Driver'] }
+                };
+                if (process.env.NODE_ENV === 'production') {
+                    legacyQuery.username = { $in: [...memberUsernames].filter(u => u !== 'dev_master') };
+                }
+                const resolvedUsers = await User.find(legacyQuery).select('_id username').lean();
+                resolvedUsers.forEach(user => {
+                    if (user?._id) memberUserIds.add(user._id.toString());
+                });
+            }
+
             debugLog.push(`Total unique team members: ${memberUserIds.size}`);
             
             if (memberUserIds.size === 0) {
@@ -513,12 +567,26 @@ export const getDashboard = async (req, res) => {
             employeeIds = Array.from(memberUserIds).map(id => id);
         }
 
+        // const getTeamName = (empId) => {
+        //     const empIdStr = empId?.toString();
+        //     const empUsername = employees.find(e => e._id?.toString() === empIdStr)?.username?.toLowerCase();
+        //     const team = allTeamsForHOD.find(t => 
+        //         t.members && t.members.some(m => m.userId?.toString() === empIdStr || String(m.username || '').toLowerCase() === empUsername)
+        //     );
+        //     return team ? team.name : 'Unassigned';
+        // };
+
         // Fetch full employee details
         if (employees.length === 0 && employeeIds.length > 0) {
-            employees = await User.find({
+            const detailQuery = {
                 _id: { $in: employeeIds },
-                isActive: { $ne: false }
-            }).select('_id first_name last_name username email role department_id company_id');
+                isActive: { $ne: false },
+                role: { $nin: ['driver', 'Driver'] }
+            };
+            if (process.env.NODE_ENV === 'production') {
+                detailQuery.username = { $ne: 'dev_master' };
+            }
+            employees = await User.find(detailQuery).select('_id first_name last_name username email role department_id company_id');
             
             debugLog.push(`Loaded ${employees.length} active team member details`);
         }
@@ -673,7 +741,7 @@ export const getDashboard = async (req, res) => {
                 absentEmployees.push({
                     name: emp.first_name ? `${emp.first_name} ${emp.last_name || ''}`.trim() : emp.username,
                     reason: `On leave`,
-                    onLeave: true,
+                        onLeave: true,
                     leaveType: leaveRecord?.leave_policy_id?.leave_type || 'Leave'
                 });
             }
@@ -681,11 +749,22 @@ export const getDashboard = async (req, res) => {
 
         // 5. Get pending leave requests
         const actorPendingQuery = getActorPendingLeaveQuery(hod);
-
-        const pendingLeaves = await LeaveApplication.find({
-            employee_id: { $in: employeeIds },
+        const dashboardPendingQuery = {
             ...actorPendingQuery
-        })
+        };
+        if (employeeIds && employeeIds.length > 0) {
+            if (actorPendingQuery.employee_id) {
+                dashboardPendingQuery.$and = [
+                    { employee_id: { $in: employeeIds } },
+                    { employee_id: actorPendingQuery.employee_id }
+                ];
+                delete dashboardPendingQuery.employee_id;
+            } else {
+                dashboardPendingQuery.employee_id = { $in: employeeIds };
+            }
+        }
+
+        const pendingLeaves = await LeaveApplication.find(dashboardPendingQuery)
             .populate('employee_id', 'first_name last_name username company_id role hod_id')
             .populate('employee_id.company_id', 'company_name')
             .populate('company_id', 'company_name')
@@ -1207,7 +1286,7 @@ export const approveRequest = async (req, res) => {
                     await application.save();
 
                     const policy = await LeavePolicy.findById(application.leave_policy_id);
-                    if (policy && !isUnpaid) {
+                    if (policy) {
                         await syncBalanceFromApplications({
                             employeeId: application.employee_id,
                             year: currentYear,
@@ -1255,7 +1334,7 @@ export const approveRequest = async (req, res) => {
                     await applyLeaveAttendance('admin');
 
                     const policy = await LeavePolicy.findById(application.leave_policy_id);
-                    if (policy && !isUnpaid) {
+                    if (policy) {
                         await syncBalanceFromApplications({
                             employeeId: application.employee_id,
                             year: currentYear,
@@ -1289,6 +1368,18 @@ export const approveRequest = async (req, res) => {
 
                     if (status === 'rejected') {
                         return finalizeRejection();
+                    }
+
+                    const rabsCompany = await Company.findOne({ company_name: /RABS Industries India Private Limited/i });
+                    const rabsCompanyId = rabsCompany?._id;
+                    const isRabs = rabsCompanyId && String(application.company_id?._id || application.company_id) === String(rabsCompanyId);
+
+                    if (isRabs) {
+                        markApprovalChainStage(application, LEAVE_STAGE.HOD, 'approved', commentText);
+                        application.hod_reviewed_by = actorObjectId;
+                        application.hod_reviewed_at = new Date();
+                        application.hod_review_comment = commentText || application.hod_review_comment;
+                        return finalizeApproval();
                     }
 
                     markApprovalChainStage(application, LEAVE_STAGE.HOD, 'approved', commentText);
@@ -1462,8 +1553,10 @@ export const getDepartmentAttendanceReport = async (req, res) => {
         const endOfMonth = moment(month, 'YYYY-MM').endOf('month');
         const explicitCompanyId = req.query.company_id;
         const actorUsername = String(hod.username || '').toLowerCase();
-        const isAllowedAdmin = ALLOWED_USERNAMES.has(actorUsername);
-        const isAdminAndAllowed = isAdminRole(hod.role) && isAllowedAdmin;
+        const isDynamic = hod.isAttendanceAllowedAdmin === true;
+        const isRestricted = isDynamic && (actorUsername === 'ajith_sivadasan' || actorUsername === 'afzal_ghanchi');
+        const isAllowedAdmin = ALLOWED_USERNAMES.has(actorUsername) || (isDynamic && !isRestricted);
+        const isAdminAndAllowed = (isAdminRole(hod.role) && isAllowedAdmin) || (isDynamic && !isRestricted);
 
         // Resolve company context
         let companyId = explicitCompanyId;
@@ -1479,20 +1572,60 @@ export const getDepartmentAttendanceReport = async (req, res) => {
         let employeeIds = [];
         let employees = [];
 
-        if (isAdminRole(hod.role) && isAllowedAdmin) {
-            // Allowlisted admins can view all employees.
-            const userQuery = {
-                isActive: { $ne: false }
-            };
-            if (companyId && companyId !== 'all') {
-                userQuery.company_id = companyId;
+        if (isAdminRole(hod.role)) {
+            if (isAllowedAdmin) {
+                // Allowlisted admins can view all employees in company scope.
+                const userQuery = {
+                    company_id: companyId,
+                    isActive: { $ne: false },
+                    role: { $nin: ['driver', 'Driver'] }
+                };
+                if (process.env.NODE_ENV === 'production') {
+                    userQuery.username = { $ne: 'dev_master' };
+                }
+                employees = await User.find(userQuery).select('_id first_name last_name username');
+            } else {
+                const teams = await TeamModel.find({
+                    $or: [
+                        { hodId: hod._id },
+                        ...(isHodRole(hod.role) ? [{ "members.userId": hod._id }] : [])
+                    ],
+                    isActive: { $ne: false }
+                });
+
+                const memberUserIds = new Set();
+                teams.forEach(team => {
+                    if (team.members && Array.isArray(team.members)) {
+                        team.members.forEach(member => {
+                            if (member.userId) {
+                                memberUserIds.add(member.userId.toString());
+                            }
+                        });
+                    }
+                });
+
+                if (memberUserIds.size === 0) {
+                    return res.json({ data: [] });
+                }
+
+                employeeIds = Array.from(memberUserIds).map(id => id);
+                const teamDetailQuery = {
+                    _id: { $in: employeeIds },
+                    isActive: { $ne: false },
+                    role: { $nin: ['driver', 'Driver'] }
+                };
+                if (process.env.NODE_ENV === 'production') {
+                    teamDetailQuery.username = { $ne: 'dev_master' };
+                }
+                employees = await User.find(teamDetailQuery).select('_id first_name last_name username');
             }
             employees = await User.find(userQuery).select('_id first_name last_name username company_id');
         } else {
             const teams = await TeamModel.find({
                 $or: [
                     { hodId: hod._id },
-                    ...(isHodRole(hod.role) ? [{ "members.userId": hod._id }] : [])
+                    { hodUsername: hod.username },
+                    ...((isHodRole(hod.role) || isRestricted) ? [{ "members.userId": hod._id }, { "members.username": hod.username }] : [])
                 ],
                 isActive: { $ne: false }
             });
@@ -1512,10 +1645,15 @@ export const getDepartmentAttendanceReport = async (req, res) => {
             });
 
             if (legacyUsernames.length > 0) {
-                const resolvedUsers = await User.find({
+                const legacyQuery = {
                     username: { $in: legacyUsernames },
-                    isActive: { $ne: false }
-                }).select('_id');
+                    isActive: { $ne: false },
+                    role: { $nin: ['driver', 'Driver'] }
+                };
+                if (process.env.NODE_ENV === 'production') {
+                    legacyQuery.username = { $in: legacyUsernames.filter(u => u !== 'dev_master') };
+                }
+                const resolvedUsers = await User.find(legacyQuery).select('_id');
                 resolvedUsers.forEach(u => memberUserIds.add(u._id.toString()));
             }
 
@@ -1524,10 +1662,15 @@ export const getDepartmentAttendanceReport = async (req, res) => {
             }
 
             employeeIds = Array.from(memberUserIds).map(id => id);
-            employees = await User.find({
+            const teamDetailQueryNonAdmin = {
                 _id: { $in: employeeIds },
-                isActive: { $ne: false }
-            }).select('_id first_name last_name username company_id');
+                isActive: { $ne: false },
+                role: { $nin: ['driver', 'Driver'] }
+            };
+            if (process.env.NODE_ENV === 'production') {
+                teamDetailQueryNonAdmin.username = { $ne: 'dev_master' };
+            }
+            employees = await User.find(teamDetailQueryNonAdmin).select('_id first_name last_name username company_id');
         }
 
         employeeIds = employees.map(e => e._id);
@@ -1646,7 +1789,9 @@ export const getAdminLeaveRequests = async (req, res) => {
     try {
         const admin = req.user;
         const adminUsername = String(admin.username || '').toLowerCase();
-        const isAllowedAdmin = ALLOWED_USERNAMES.has(adminUsername);
+        const isDynamic = admin.isAttendanceAllowedAdmin === true;
+        const isRestricted = isDynamic && (adminUsername === 'ajith_sivadasan' || adminUsername === 'afzal_ghanchi');
+        const isAllowedAdmin = ALLOWED_USERNAMES.has(adminUsername) || (isDynamic && !isRestricted);
         // console.log(`[DEBUG_HOD] Actor: ${adminUsername} | isAllowedAdmin: ${isAllowedAdmin} | Allowed List: ${Array.from(ALLOWED_USERNAMES).join(',')}`);
 
         const { teamId, status, historyPage = 1, historyLimit = 100, search, month, leaveMonth, appliedMonth } = req.query;
@@ -1655,7 +1800,14 @@ export const getAdminLeaveRequests = async (req, res) => {
 
         const companyId = admin.company_id?._id || admin.company_id;
 
-        const companyUsers = await User.find({ company_id: companyId }).select('_id').lean();
+        const companyUsersQuery = {
+            company_id: companyId,
+            role: { $nin: ['driver', 'Driver'] }
+        };
+        if (process.env.NODE_ENV === 'production') {
+            companyUsersQuery.username = { $ne: 'dev_master' };
+        }
+        const companyUsers = await User.find(companyUsersQuery).select('_id').lean();
         const companyUserIds = new Set(companyUsers.map(u => u._id.toString()));
         const adminIdStr = admin._id?.toString();
 
@@ -1674,7 +1826,9 @@ export const getAdminLeaveRequests = async (req, res) => {
             // Regular HOD/Admins see only their assigned teams
             teams = allTeams.filter(t => 
                 (t.hodId && t.hodId.toString() === adminIdStr) || 
-                (t.hodUsername && String(t.hodUsername).toLowerCase() === adminUsername)
+                (t.hodUsername && String(t.hodUsername).toLowerCase() === adminUsername) ||
+                (t.members && t.members.some(m => m.userId && m.userId.toString() === adminIdStr)) ||
+                (t.members && t.members.some(m => m.username && String(m.username).toLowerCase() === adminUsername))
             );
             
             if (teams.length === 0) {
@@ -1692,17 +1846,54 @@ export const getAdminLeaveRequests = async (req, res) => {
             }
         }
 
-        if (teamId && teamId !== 'all') {
+        const rabsCompany = await Company.findOne({ company_name: /RABS Industries India Private Limited/i });
+        const rabsCompanyId = rabsCompany?._id;
+        const isRabsAjith = rabsCompanyId && adminUsername === 'ajith_sivadasan';
+
+        if (isRabsAjith && (!teamId || teamId === 'all')) {
+            const rabsQuery = {
+                company_id: rabsCompanyId,
+                isActive: { $ne: false },
+                role: { $nin: ['driver', 'Driver'] }
+            };
+            if (process.env.NODE_ENV === 'production') {
+                rabsQuery.username = { $ne: 'dev_master' };
+            }
+            const rabsEmployees = await User.find(rabsQuery).select('_id').lean();
+            employeeFilter = { $in: rabsEmployees.map(e => e._id) };
+        } else if (teamId && teamId !== 'all') {
             const team = allTeams.find(t => t._id.toString() === teamId.toString());
             if (team && team.members && team.members.length > 0) {
-                const memberIds = team.members
-                    .map(m => m.userId)
-                    .filter(Boolean)
-                    .map(id => {
-                        try { return new mongoose.Types.ObjectId(id.toString()); }
-                        catch (e) { return id; }
+                const memberUserIds = new Set();
+                const memberUsernames = new Set();
+                team.members.forEach(m => {
+                    if (m.userId) {
+                        memberUserIds.add(m.userId.toString());
+                    } else if (m.username) {
+                        memberUsernames.add(String(m.username).toLowerCase());
+                    }
+                });
+
+                if (memberUsernames.size > 0) {
+                    const legacyQuery = {
+                        username: { $in: [...memberUsernames] },
+                        isActive: { $ne: false },
+                        role: { $nin: ['driver', 'Driver'] }
+                    };
+                    if (process.env.NODE_ENV === 'production') {
+                        legacyQuery.username = { $in: [...memberUsernames].filter(u => u !== 'dev_master') };
+                    }
+                    const resolvedUsers = await User.find(legacyQuery).select('_id').lean();
+                    resolvedUsers.forEach(u => {
+                        if (u?._id) memberUserIds.add(u._id.toString());
                     });
-                employeeFilter = { $in: memberIds };
+                }
+
+                const objectIds = Array.from(memberUserIds).map(id => {
+                    try { return new mongoose.Types.ObjectId(id); }
+                    catch (e) { return id; }
+                });
+                employeeFilter = { $in: objectIds };
             } else {
                 return res.json({ 
                     data: { 
@@ -1718,6 +1909,7 @@ export const getAdminLeaveRequests = async (req, res) => {
             }
         } else if (!isAllowedAdmin) {
             const memberIds = new Set();
+            const memberUsernames = new Set();
             // Always include self in the history view for HODs
             memberIds.add(adminIdStr);
 
@@ -1725,9 +1917,26 @@ export const getAdminLeaveRequests = async (req, res) => {
                 (team.members || []).forEach((m) => {
                     if (m.userId) {
                         memberIds.add(m.userId.toString());
+                    } else if (m.username) {
+                        memberUsernames.add(String(m.username).toLowerCase());
                     }
                 });
             });
+
+            if (memberUsernames.size > 0) {
+                const legacyQuery = {
+                    username: { $in: [...memberUsernames] },
+                    isActive: { $ne: false },
+                    role: { $nin: ['driver', 'Driver'] }
+                };
+                if (process.env.NODE_ENV === 'production') {
+                    legacyQuery.username = { $in: [...memberUsernames].filter(u => u !== 'dev_master') };
+                }
+                const resolvedUsers = await User.find(legacyQuery).select('_id').lean();
+                resolvedUsers.forEach(u => {
+                    if (u?._id) memberIds.add(u._id.toString());
+                });
+            }
 
             // Convert to ObjectIds for reliable querying
             const objectIds = Array.from(memberIds).map(id => {
@@ -1759,11 +1968,26 @@ export const getAdminLeaveRequests = async (req, res) => {
                 });
 
         // Fetch pending leaves
+        const actorPendingQuery = getActorPendingLeaveQuery(admin);
         const finalQuery = {
-            ...leaveQuery,
-            ...getActorPendingLeaveQuery(admin)
+            ...actorPendingQuery
         };
-        // console.log(`[DEBUG_LEAVE] Admin: ${adminUsername} | isAllowedAdmin: ${isAllowedAdmin} | Query: ${JSON.stringify(finalQuery)}`);
+        if (leaveQuery.employee_id) {
+            if (finalQuery.employee_id) {
+                finalQuery.$and = [
+                    { employee_id: leaveQuery.employee_id },
+                    { employee_id: finalQuery.employee_id }
+                ];
+                delete finalQuery.employee_id;
+            } else {
+                finalQuery.employee_id = leaveQuery.employee_id;
+            }
+        } else if (leaveQuery.$or) {
+            finalQuery.$and = finalQuery.$and || [];
+            finalQuery.$and.push({ $or: leaveQuery.$or });
+        } else if (leaveQuery.company_id) {
+            finalQuery.company_id = leaveQuery.company_id;
+        }
 
         const pendingLeaves = await LeaveApplication.find(finalQuery)
             .populate('employee_id', 'first_name last_name username company_id role hod_id')
@@ -1937,11 +2161,25 @@ export const getAdminLeaveRequests = async (req, res) => {
             };
         };
 
+        const filteredPendingLeaves = pendingLeaves.filter(leave => {
+            if (!leave.employee_id) return false;
+            if (String(leave.employee_id.role || '').trim().toLowerCase() === 'driver') return false;
+            if (process.env.NODE_ENV === 'production' && leave.employee_id.username === 'dev_master') return false;
+            return true;
+        });
+
+        const filteredRecentProcessedLeaves = recentProcessedLeaves.filter(leave => {
+            if (!leave.employee_id) return false;
+            if (String(leave.employee_id.role || '').trim().toLowerCase() === 'driver') return false;
+            if (process.env.NODE_ENV === 'production' && leave.employee_id.username === 'dev_master') return false;
+            return true;
+        });
+
         return res.json({
             data: {
-                pendingLeaves: await Promise.all(pendingLeaves.map(mapLeave)),
-                recentProcessedLeaves: await Promise.all(recentProcessedLeaves.map(mapLeave)),
-                totalHistory,
+                pendingLeaves: await Promise.all(filteredPendingLeaves.map(mapLeave)),
+                recentProcessedLeaves: await Promise.all(filteredRecentProcessedLeaves.map(mapLeave)),
+                totalHistory: filteredRecentProcessedLeaves.length,
                 historyPage: page,
                 historyLimit: limit,
                 teams: teams.map(t => ({ _id: t._id, name: t.name, hodUsername: t.hodUsername })),

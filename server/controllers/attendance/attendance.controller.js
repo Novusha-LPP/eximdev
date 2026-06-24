@@ -23,6 +23,7 @@ import ActiveSession from '../../model/attendance/ActiveSession.js';
 import { WorkHoursCalculator } from '../../services/attendance/WorkHoursCalculator.js';
 import { AttendanceStatusResolver } from '../../services/attendance/AttendanceStatusResolver.js';
 import { ALLOWED_USERNAMES } from '../../middleware/requireAllowedAdmin.mjs';
+import { isRestrictedAllowedAdmin, getRestrictedEmployeeIds } from '../../utils/attendance/allowedAdminRestriction.mjs';
 
 // --- HELPERS ---
 const resolveCompanyId = (req) => {
@@ -77,6 +78,7 @@ const getHodTeams = async (hodId) => {
     };
 
     const targetHodId = mongoose.Types.ObjectId.isValid(hodId) ? hodId : new mongoose.Types.ObjectId(hodId);
+    const targetHodUsername = String(user.username || '').toLowerCase();
     
     // Always check if user is set as hodId (primary HOD by assignment, regardless of role)
     const query = {
@@ -86,12 +88,41 @@ const getHodTeams = async (hodId) => {
         isActive: { $ne: false }
     };
 
-    // Additionally, if the user has HOD role, they can act on teams where they're a member
+    // Additionally, if the user has HOD role, they can act on teams where they're a member.
+    // Support legacy teams where members may be stored only by username.
     if (isHodRoleCheck(user.role)) {
         query.$or.push({ "members.userId": targetHodId });
+        if (targetHodUsername) {
+            query.$or.push({ "members.username": targetHodUsername });
+        }
     }
 
     return await TeamModel.find(query);
+};
+
+const getTeamMemberIds = async (teams = []) => {
+    const memberIds = new Set();
+    const memberUsernames = new Set();
+
+    teams.forEach(team => {
+        if (!Array.isArray(team.members)) return;
+        team.members.forEach(member => {
+            if (member?.userId) {
+                memberIds.add(String(member.userId));
+            } else if (member?.username) {
+                memberUsernames.add(String(member.username).toLowerCase());
+            }
+        });
+    });
+
+    if (memberUsernames.size > 0) {
+        const missingUsers = await User.find({ username: { $in: [...memberUsernames] } }).select('_id').lean();
+        missingUsers.forEach((user) => {
+            if (user?._id) memberIds.add(String(user._id));
+        });
+    }
+
+    return Array.from(memberIds).map((id) => mongoose.Types.ObjectId(id));
 };
 
 /**
@@ -102,19 +133,31 @@ const getHodTeams = async (hodId) => {
  */
 const isHODauthorized = async (hodId, employeeId) => {
     if (!employeeId) return false;
-    
+
     // Get all teams this actor manages (by hodId or HOD role membership)
     const hodTeams = await getHodTeams(hodId);
     
-    const authorized = hodTeams.some(team => 
+    const authorizedById = hodTeams.some(team => 
         team.members?.some(m => m.userId && m.userId.toString() === employeeId.toString())
     );
 
-    if (!authorized) {
-        console.warn(`[AttendanceAuth] HOD ${hodId} attempted unauthorized access to employee ${employeeId}. Teams found: ${hodTeams.map(t => t.name).join(', ')}`);
+    if (authorizedById) return true;
+
+    const employee = await User.findById(employeeId).select('username').lean();
+    if (!employee || !employee.username) {
+        console.warn(`[AttendanceAuth] Employee ${employeeId} not found for HOD authorization check.`);
+        return false;
     }
 
-    return authorized;
+    const employeeUsername = String(employee.username).toLowerCase();
+    const authorizedByUsername = hodTeams.some(team => 
+        team.members?.some(m => String(m.username || '').toLowerCase() === employeeUsername)
+    );
+
+    if (authorizedByUsername) return true;
+
+    console.warn(`[AttendanceAuth] HOD ${hodId} attempted unauthorized access to employee ${employeeId}. Teams found: ${hodTeams.map(t => t.name).join(', ')}`);
+    return false;
 };
 
 /**
@@ -862,11 +905,32 @@ export const getDashboardData = async (req, res) => {
         let user = req.user;
         const { employee_id: target_employee_id } = req.query;
 
+        const username = String(req.user?.username || '').toLowerCase();
+        const isDynamic = req.user?.isAttendanceAllowedAdmin === true;
+        const isRestricted = isDynamic && (username === 'ajith_sivadasan' || username === 'afzal_ghanchi');
+
+        const roleNormalized = String(req.user?.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+        const isUserAdmin = roleNormalized === 'ADMIN';
+        const isUserHod = roleNormalized === 'HOD' || roleNormalized === 'HEADOFDEPARTMENT';
+
         // Admin/HOD can view dashboard for any employee in their company
-        if (target_employee_id && (req.user.role === 'ADMIN' || req.user.role === 'HOD')) {
+        if (target_employee_id && (isUserAdmin || isUserHod || isDynamic)) {
             const targetUser = await User.findById(target_employee_id);
-            if (targetUser && targetUser.company_id.toString() === req.user.company_id.toString()) {
-                user = targetUser;
+            if (targetUser) {
+                let isAuthorized = false;
+                if (isUserAdmin && !isRestricted) {
+                    isAuthorized = targetUser.company_id.toString() === req.user.company_id.toString();
+                } else if (isUserHod || isRestricted) {
+                    const restrictedIds = await getRestrictedEmployeeIds(req.user);
+                    if (restrictedIds && restrictedIds.includes(target_employee_id.toString())) {
+                        isAuthorized = true;
+                    }
+                }
+                if (isAuthorized) {
+                    user = targetUser;
+                } else {
+                    return res.status(403).json({ message: 'Unauthorized: Employee is not on your team' });
+                }
             }
         }
         const company = await Company.findById(user.company_id);
@@ -1475,7 +1539,10 @@ export const getRegularizations = async (req, res) => {
 export const getAdminDashboardData = async (req, res) => {
     try {
         const roleNorm = String(req.user?.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
-        if (roleNorm !== 'ADMIN') {
+        const isDynamic = req.user?.isAttendanceAllowedAdmin === true;
+        const isRestricted = isDynamic && (String(req.user?.username || '').toLowerCase() === 'ajith_sivadasan' || String(req.user?.username || '').toLowerCase() === 'afzal_ghanchi');
+
+        if (roleNorm !== 'ADMIN' && !isDynamic) {
             return res.status(403).json({ message: 'Only admins can access admin dashboard' });
         }
         const companyId = resolveCompanyId(req);
@@ -1508,6 +1575,11 @@ export const getAdminDashboardData = async (req, res) => {
             isActive: true
         };
         if (companyId) activeEmployeeQuery.company_id = companyId;
+
+        const restrictedIds = await getRestrictedEmployeeIds(req.user);
+        if (restrictedIds) {
+            activeEmployeeQuery._id = { $in: restrictedIds.map(id => new mongoose.Types.ObjectId(id)) };
+        }
 
         const employees = await User.find(activeEmployeeQuery)
             .select('first_name last_name username role department_id company_id')
@@ -1714,7 +1786,9 @@ export const lockMonthAttendance = async (req, res) => {
 
 export const getPayrollData = async (req, res) => {
     try {
-        if (req.user.role !== 'ADMIN') {
+        const isDynamic = req.user?.isAttendanceAllowedAdmin === true;
+        const isHOD = req.user?.role === 'HOD';
+        if (req.user.role !== 'ADMIN' && !isDynamic && !isHOD) {
             return res.status(403).json({ message: 'Only admins can view payroll data' });
         }
         
@@ -1732,7 +1806,7 @@ export const getPayrollData = async (req, res) => {
         const targetYear = year || moment().year().toString();
         const yearMonth = `${targetYear}-${targetMonth.toString().padStart(2, '0')}`;
 
-        const isAdmin = req.user.role === 'ADMIN';
+        const isAdmin = req.user.role === 'ADMIN' || isDynamic || isHOD;
 
         // Validate company exists
         const company = await Company.findById(companyId);
@@ -1742,8 +1816,11 @@ export const getPayrollData = async (req, res) => {
 
         // Query employees - handle both ObjectId and string formats
         const query = {
-            role: { $nin: ['ADMIN', 'Admin'] }
+            role: { $nin: ['ADMIN', 'Admin', 'driver', 'Driver'] }
         };
+        if (process.env.NODE_ENV === 'production') {
+            query.username = { $ne: 'dev_master' };
+        }
         
         // Add company filter - try both formats
         if (mongoose.Types.ObjectId.isValid(companyId)) {
@@ -1753,6 +1830,11 @@ export const getPayrollData = async (req, res) => {
             ];
         } else {
             query.company_id = companyId;
+        }
+
+        const restrictedIds = await getRestrictedEmployeeIds(req.user);
+        if (restrictedIds) {
+            query._id = { $in: restrictedIds.map(id => new mongoose.Types.ObjectId(id)) };
         }
         
         const employees = await User.find(query)
@@ -1851,7 +1933,8 @@ export const getPayrollData = async (req, res) => {
 
 export const getPayrollEmployees = async (req, res) => {
     try {
-        if (req.user.role !== 'ADMIN') {
+        const isDynamic = req.user?.isAttendanceAllowedAdmin === true;
+        if (req.user.role !== 'ADMIN' && !isDynamic) {
             return res.status(403).json({ message: 'Only admins can view payroll data' });
         }
         
@@ -1871,30 +1954,58 @@ export const getPayrollEmployees = async (req, res) => {
 
         console.log('Fetching employees for company:', companyId);
         
+        const restrictedIds = await getRestrictedEmployeeIds(req.user);
+
         // Count with different conditions
-        const totalUsersInDb = await User.countDocuments();
-        const usersWithCompanyIdAsObjectId = await User.countDocuments({ 
+        const totalQuery = {};
+        if (restrictedIds) {
+            totalQuery._id = { $in: restrictedIds.map(id => new mongoose.Types.ObjectId(id)) };
+        }
+        const totalUsersInDb = await User.countDocuments(totalQuery);
+
+        const usersWithCompanyIdAsObjectIdQuery = { 
             company_id: new mongoose.Types.ObjectId(companyId) 
-        });
-        const usersWithCompanyIdAsString = await User.countDocuments({ 
+        };
+        if (restrictedIds) {
+            usersWithCompanyIdAsObjectIdQuery._id = { $in: restrictedIds.map(id => new mongoose.Types.ObjectId(id)) };
+        }
+        const usersWithCompanyIdAsObjectId = await User.countDocuments(usersWithCompanyIdAsObjectIdQuery);
+
+        const usersWithCompanyIdAsStringQuery = { 
             company_id: companyId 
-        });
-        const nonAdminUsers = await User.countDocuments({
+        };
+        if (restrictedIds) {
+            usersWithCompanyIdAsStringQuery._id = { $in: restrictedIds.map(id => new mongoose.Types.ObjectId(id)) };
+        }
+        const usersWithCompanyIdAsString = await User.countDocuments(usersWithCompanyIdAsStringQuery);
+
+        const nonAdminQuery = {
             $or: [
                 { company_id: new mongoose.Types.ObjectId(companyId) },
                 { company_id: companyId }
             ],
             role: { $nin: ['ADMIN', 'Admin'] }
-        });
+        };
+        if (restrictedIds) {
+            nonAdminQuery._id = { $in: restrictedIds.map(id => new mongoose.Types.ObjectId(id)) };
+        }
+        const nonAdminUsers = await User.countDocuments(nonAdminQuery);
 
         // Get actual employees
-        const employees = await User.find({
+        const employeesQuery = {
             $or: [
                 { company_id: new mongoose.Types.ObjectId(companyId) },
                 { company_id: companyId }
             ],
-            role: { $nin: ['ADMIN', 'Admin'] }
-        })
+            role: { $nin: ['ADMIN', 'Admin', 'driver', 'Driver'] }
+        };
+        if (process.env.NODE_ENV === 'production') {
+            employeesQuery.username = { $ne: 'dev_master' };
+        }
+        if (restrictedIds) {
+            employeesQuery._id = { $in: restrictedIds.map(id => new mongoose.Types.ObjectId(id)) };
+        }
+        const employees = await User.find(employeesQuery)
             .select('first_name last_name username employee_code department role company_id joining_date')
             .limit(20);
 
@@ -2051,10 +2162,19 @@ export const getAdminAttendanceReport = async (req, res) => {
 
         // 1. Build Query
         const userQuery = {
-            isActive: true
+            isActive: true,
+            role: { $nin: ['driver', 'Driver'] }
         };
+        if (process.env.NODE_ENV === 'production') {
+            userQuery.username = { $ne: 'dev_master' };
+        }
         if (companyId) {
             userQuery.company_id = companyId;
+        }
+
+        const restrictedIds = await getRestrictedEmployeeIds(req.user);
+        if (restrictedIds) {
+            userQuery._id = { $in: restrictedIds.map(id => new mongoose.Types.ObjectId(id)) };
         }
 
         const { designation } = req.query;
@@ -2202,10 +2322,15 @@ export const getTeamAttendanceReport = async (req, res) => {
         }
 
         // 2. Fetch Employee Details
-        const employees = await User.find({
+        const empQuery = {
             _id: { $in: Array.from(memberUserIds) },
-            isActive: true
-        })
+            isActive: true,
+            role: { $nin: ['driver', 'Driver'] }
+        };
+        if (process.env.NODE_ENV === 'production') {
+            empQuery.username = { $ne: 'dev_master' };
+        }
+        const employees = await User.find(empQuery)
             .select(REPORT_USER_SELECT_FIELDS)
             .populate(REPORT_COMPANY_POPULATE)
             .populate({ path: 'shift_id', select: 'shift_name start_time end_time' })
@@ -2504,6 +2629,15 @@ export const updateAttendanceRecord = async (req, res) => {
             }
         }
 
+        const isRestrictedAdmin = isRestrictedAllowedAdmin(req.user);
+        if (isRestrictedAdmin) {
+            const targetEmployeeId = employee_id || (await AttendanceRecord.findById(id))?.employee_id;
+            const allowedIds = await getRestrictedEmployeeIds(req.user);
+            if (!allowedIds || !allowedIds.includes(String(targetEmployeeId))) {
+                return res.status(403).json({ message: 'Forbidden: Member not in your team' });
+            }
+        }
+
         // 1. Validate ID Format
         if (!mongoose.Types.ObjectId.isValid(id)) {
             const virtualDate = parseVirtualRecordDate(id);
@@ -2783,6 +2917,14 @@ export const createManualAdjustment = async (req, res) => {
         // HOD Authorization Check: Must be their team member
         if (req.user.role === 'HOD') {
             if (!await isHODauthorized(req.user._id, employee_id)) {
+                return res.status(403).json({ message: 'Forbidden: Member not in your team' });
+            }
+        }
+
+        const isRestrictedAdmin = isRestrictedAllowedAdmin(req.user);
+        if (isRestrictedAdmin) {
+            const allowedIds = await getRestrictedEmployeeIds(req.user);
+            if (!allowedIds || !allowedIds.includes(String(employee_id))) {
                 return res.status(403).json({ message: 'Forbidden: Member not in your team' });
             }
         }
@@ -3205,16 +3347,18 @@ async function recalculatePunctuality(record, employee, company) {
             }
         }
 
-        const overtimeThresholdHours = ((shift?.overtime_threshold_minutes || 0) / 60);
-        if (shift?.end_time && totalWorkHours > 0) {
-            const shiftEnd = moment.tz(`${dateStr} ${shift.end_time}`, 'YYYY-MM-DD HH:mm', tz);
-            const punchOut = moment(record.last_out).tz(tz);
-            if (punchOut.isAfter(shiftEnd.clone().add(shift?.overtime_threshold_minutes || 0, 'minutes'))) {
-                const overtimeHours = punchOut.diff(shiftEnd, 'hours', true);
-                record.overtime_hours = Math.max(0, overtimeHours);
+        // --- OVERTIME CALCULATION ---
+        if (employee?.is_operator === true) {
+            const graceMinutes = 20; // apply standard 20-minute grace period
+            const shiftMinutes = (shift?.full_day_hours || 8) * 60;
+            const totalWorkMinutes = (record.net_work_hours || 0) * 60;
+            if (totalWorkMinutes > shiftMinutes + graceMinutes) {
+                record.overtime_hours = Math.round(((totalWorkMinutes - shiftMinutes) / 60) * 100) / 100;
+            } else {
+                record.overtime_hours = 0;
             }
-        } else if (totalWorkHours > fullDayThreshold + overtimeThresholdHours) {
-            record.overtime_hours = Math.max(0, totalWorkHours - fullDayThreshold);
+        } else {
+            record.overtime_hours = 0;
         }
     }
 
@@ -3260,6 +3404,15 @@ export const deleteAttendanceRecord = async (req, res) => {
             }
         }
 
+        const isRestrictedAdmin = isRestrictedAllowedAdmin(req.user);
+        if (isRestrictedAdmin) {
+            const record = await AttendanceRecord.findById(id);
+            const allowedIds = await getRestrictedEmployeeIds(req.user);
+            if (!record || !allowedIds || !allowedIds.includes(String(record.employee_id))) {
+                return res.status(403).json({ message: 'Forbidden: Member not in your team' });
+            }
+        }
+
         const record = await AttendanceRecord.findOne({ _id: id, company_id: companyId });
         if (!record) {
             return res.status(404).json({ message: 'Attendance record not found' });
@@ -3298,12 +3451,14 @@ export const getEmployeeFullProfile = async (req, res) => {
             return res.status(403).json({ message: 'Unauthorized profile access' });
         }
 
-        if (isHod) {
-            const hodTeams = await getHodTeams(req.user._id);
-            const isInTeam = hodTeams.some(team =>
-                team.members?.some(m => m.userId?.toString() === id.toString())
-            );
-            if (!isInTeam) {
+        if (isHod && !await isHODauthorized(req.user._id, id)) {
+            return res.status(403).json({ message: 'Employee not in your team' });
+        }
+
+        const isRestrictedAdmin = isRestrictedAllowedAdmin(req.user);
+        if (isRestrictedAdmin) {
+            const allowedIds = await getRestrictedEmployeeIds(req.user);
+            if (!allowedIds || !allowedIds.includes(String(id))) {
                 return res.status(403).json({ message: 'Employee not in your team' });
             }
         }
@@ -3627,8 +3782,19 @@ export const updateEmployeeProfileAdmin = async (req, res) => {
         const { id } = req.params;
         const updates = req.body;
 
-        if (req.user.role !== 'ADMIN') {
+        const isDynamic = req.user?.isAttendanceAllowedAdmin === true;
+        const username = String(req.user?.username || '').toLowerCase();
+        const isRestricted = isDynamic && (username === 'ajith_sivadasan' || username === 'afzal_ghanchi');
+
+        if (req.user.role !== 'ADMIN' && !isDynamic) {
             return res.status(403).json({ message: 'Only admins can update user profiles' });
+        }
+
+        if (isRestricted) {
+            const restrictedIds = await getRestrictedEmployeeIds(req.user);
+            if (!restrictedIds || !restrictedIds.includes(id.toString())) {
+                return res.status(403).json({ message: 'Unauthorized: Employee is not on your team' });
+            }
         }
 
         const user = await User.findById(id);
@@ -3671,8 +3837,12 @@ export const approveRegularization = async (req, res) => {
         }
 
         const actorRoleNorm = String(req.user.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
-        const isAdminActor = actorRoleNorm === 'ADMIN';
-        const isHodActor = actorRoleNorm === 'HOD' || actorRoleNorm === 'HEADOFDEPARTMENT';
+        const isDynamic = req.user?.isAttendanceAllowedAdmin === true;
+        const username = String(req.user?.username || '').toLowerCase();
+        const isRestricted = isDynamic && (username === 'ajith_sivadasan' || username === 'afzal_ghanchi');
+
+        const isAdminActor = actorRoleNorm === 'ADMIN' && !isRestricted;
+        const isHodActor = actorRoleNorm === 'HOD' || actorRoleNorm === 'HEADOFDEPARTMENT' || isRestricted;
 
         // Fetch regularization request first (needed for the designated-HOD check below)
         const regularization = await RegularizationRequest.findById(regularizationId);
@@ -3934,6 +4104,14 @@ export const getEmployeeMigrationHistory = async (req, res) => {
             }
         }
 
+        const isRestrictedAdmin = isRestrictedAllowedAdmin(req.user);
+        if (isRestrictedAdmin) {
+            const allowedIds = await getRestrictedEmployeeIds(req.user);
+            if (!allowedIds || !allowedIds.includes(String(id))) {
+                return res.status(403).json({ message: 'Employee not in your team' });
+            }
+        }
+
         const employee = await User.findById(id).select('first_name last_name username date_of_joining createdAt').lean();
         if (!employee) {
             return res.status(404).json({ message: 'Employee not found' });
@@ -4027,11 +4205,16 @@ export const bulkAssignPolicies = async (req, res) => {
             return res.status(400).json({ message: 'Company ID and policy IDs array required' });
         }
 
-        // Fetch all active employees in company
-        const employees = await User.find({
+        const restrictedIds = await getRestrictedEmployeeIds(req.user);
+        const employeeQuery = {
             company_id: companyId,
             is_active: true
-        });
+        };
+        if (restrictedIds) {
+            employeeQuery._id = { $in: restrictedIds.map(id => new mongoose.Types.ObjectId(id)) };
+        }
+        // Fetch all active employees in company
+        const employees = await User.find(employeeQuery);
 
         if (employees.length === 0) {
             return res.json({ success: true, message: 'No active employees in this organization', assignedCount: 0 });
@@ -4120,6 +4303,11 @@ export const bulkUpdateAttendance = async (req, res) => {
 
         const employee = await User.findById(employee_id);
         if (!employee) return res.status(404).json({ message: 'Employee not found' });
+
+        const restrictedIds = await getRestrictedEmployeeIds(req.user);
+        if (restrictedIds && !restrictedIds.includes(employee_id.toString())) {
+            return res.status(403).json({ message: 'Forbidden: Employee not in your team' });
+        }
 
         // Parse as local date strings to keep day-of-week correct (no UTC offset shift)
         const start = moment(startDate, 'YYYY-MM-DD').startOf('day');
@@ -4250,6 +4438,11 @@ export const applyFullMonthPresence = async (req, res) => {
 
         const employee = await User.findById(employee_id);
         if (!employee) return res.status(404).json({ message: 'Employee not found' });
+
+        const restrictedIds = await getRestrictedEmployeeIds(req.user);
+        if (restrictedIds && !restrictedIds.includes(employee_id.toString())) {
+            return res.status(403).json({ message: 'Forbidden: Employee not in your team' });
+        }
 
         const start = moment({ year: targetYear, month: targetMonth - 1, day: 1 }).startOf('day');
         const end = moment(start).endOf('month').endOf('day');
@@ -4406,7 +4599,9 @@ export const getPendingCorrectionCount = async (req, res) => {
 
         const username = String(user.username || '').toLowerCase();
         const roleNormalized = String(user.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
-        const isAllowedAdmin = ALLOWED_USERNAMES.has(username) && roleNormalized === 'ADMIN';
+        const isDynamic = user.isAttendanceAllowedAdmin === true;
+        const isRestricted = isDynamic && (username === 'ajith_sivadasan' || username === 'afzal_ghanchi');
+        const isAllowedAdmin = (ALLOWED_USERNAMES.has(username) && roleNormalized === 'ADMIN') || (isDynamic && !isRestricted);
 
         let isHod = roleNormalized === 'HOD' || roleNormalized === 'HEADOFDEPARTMENT';
         let teams = [];
@@ -4432,39 +4627,35 @@ export const getPendingCorrectionCount = async (req, res) => {
 
         const isUserHod = teams.length > 0;
 
-        if (!isAllowedAdmin && !isUserHod) {
+        if (!isAllowedAdmin && !isUserHod && !isRestricted) {
             return res.json({ count: 0, byEmployee: {} });
         }
 
-        const activeNonAdmins = await User.find({
+        // Retrieve active non-admin user IDs
+        const activeNonAdminUsers = await User.find({
             isActive: { $ne: false },
-            role: { $nin: ['ADMIN', 'Admin'] }
-        }).select('_id');
-        const activeNonAdminIds = activeNonAdmins.map(u => u._id.toString());
+            role: { $ne: 'Admin' }
+        }).select('_id').lean();
+        const activeNonAdminIds = activeNonAdminUsers.map(u => u._id.toString());
 
         let query = { status: 'pending' };
-        if (isAllowedAdmin) {
-            query.employee_id = { $in: activeNonAdminIds };
-        } else {
-            const memberIds = new Set();
-            teams.forEach(team => {
-                if (team.members && Array.isArray(team.members)) {
-                    team.members.forEach(m => {
-                        if (m.userId) {
-                            const idStr = m.userId.toString();
-                            if (activeNonAdminIds.includes(idStr)) {
-                                memberIds.add(idStr);
-                            }
-                        }
-                    });
-                }
-            });
 
-            if (memberIds.size === 0) {
+        if (isRestricted) {
+            const restrictedIds = await getRestrictedEmployeeIds(user);
+            const filteredIds = (restrictedIds || []).filter(idStr => activeNonAdminIds.includes(idStr));
+            if (filteredIds.length === 0) {
                 return res.json({ count: 0, byEmployee: {} });
             }
-
-            query.employee_id = { $in: Array.from(memberIds) };
+            query.employee_id = { $in: filteredIds };
+        } else if (isAllowedAdmin) {
+            query.employee_id = { $in: activeNonAdminIds };
+        } else {
+            const memberIds = await getTeamMemberIds(teams);
+            const filteredIds = (memberIds || []).filter(idStr => activeNonAdminIds.includes(idStr));
+            if (filteredIds.length === 0) {
+                return res.json({ count: 0, byEmployee: {} });
+            }
+            query.employee_id = { $in: filteredIds };
         }
 
         const requests = await RegularizationRequest.find(query).select('employee_id');
@@ -4483,5 +4674,61 @@ export const getPendingCorrectionCount = async (req, res) => {
     } catch (err) {
         console.error('Error in getPendingCorrectionCount:', err);
         return res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};
+
+export const toggleAttendanceAllowedAdmin = async (req, res) => {
+    try {
+        const { target_user_id, is_admin } = req.body;
+        
+        if (!target_user_id) {
+            return res.status(400).json({ message: 'target_user_id is required' });
+        }
+
+        const actor = req.user;
+        const actorRoleNorm = String(actor.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+        const isActorAdmin = actorRoleNorm === 'ADMIN';
+        const isDynamic = actor.isAttendanceAllowedAdmin === true;
+
+        // Check permission:
+        // A global Admin (not a dynamic allowed admin) may toggle anyone.
+        // A dynamic allowed admin (isAttendanceAllowedAdmin) may toggle users within their restricted team scope.
+        let isAuthorized = false;
+        if (isActorAdmin && !isDynamic) {
+            isAuthorized = true;
+        } else if (isDynamic) {
+            // Check if target user is within the actor's restricted team scope
+            const restrictedIds = await getRestrictedEmployeeIds(actor);
+            if (restrictedIds && restrictedIds.includes(target_user_id.toString())) {
+                isAuthorized = true;
+            }
+        }
+
+        if (!isAuthorized) {
+            return res.status(403).json({ message: 'Unauthorized: Only global admins or designated team HOD can toggle this role' });
+        }
+
+        const targetUser = await User.findById(target_user_id);
+        if (!targetUser) {
+            return res.status(404).json({ message: 'Target user not found' });
+        }
+
+        // Toggle the flag
+        targetUser.isAttendanceAllowedAdmin = !!is_admin;
+        await targetUser.save();
+
+        await logActivity(req, 'ATTENDANCE', 'TOGGLE_ATTENDANCE_ALLOWED_ADMIN', 
+            `Toggled isAttendanceAllowedAdmin to ${!!is_admin} for user ${targetUser.username}`, 
+            { target_user_id, is_allowed: !!is_admin }
+        );
+
+        res.json({
+            success: true,
+            message: `Successfully updated attendance admin permission for ${targetUser.username}`,
+            isAttendanceAllowedAdmin: targetUser.isAttendanceAllowedAdmin
+        });
+    } catch (err) {
+        console.error('Error in toggleAttendanceAllowedAdmin:', err);
+        res.status(500).json({ message: 'Server error', error: err.message });
     }
 };

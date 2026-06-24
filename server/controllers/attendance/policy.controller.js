@@ -12,6 +12,8 @@ import LeaveApplication from '../../model/attendance/LeaveApplication.js';
 import User from '../../model/userModel.mjs';
 import ActivityLog from '../../model/attendance/ActivityLog.js';
 import { ALLOWED_USERNAMES } from '../../middleware/requireAllowedAdmin.mjs';
+import { isRestrictedAllowedAdmin, getRestrictedEmployeeIds } from '../../utils/attendance/allowedAdminRestriction.mjs';
+import Company from '../../model/attendance/Company.js';
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 const resolveCompanyId = (req) => {
@@ -147,8 +149,40 @@ export const getPolicyHistory = async (req, res) => {
 
 export const listWeekOffPolicies = async (req, res) => {
   try {
-    // Fetch all policies without company_id filtering
-    const policies = await WeekOffPolicy.find({})
+    const { all_companies, company_id } = req.query;
+    const username = (req.user?.username || '').toLowerCase();
+    const isAllowedAdmin = req.user?.role?.toUpperCase() === 'ADMIN' && ALLOWED_USERNAMES.has(username);
+
+    const filter = {};
+    if (!isAllowedAdmin) {
+      filter.company_id = resolveCompanyId(req);
+    } else {
+      const allCompanies = String(all_companies || '').toLowerCase() === 'true';
+      if (!allCompanies && company_id && company_id !== 'all') {
+        filter.company_id = company_id;
+      }
+    }
+
+    // Apply RABS visibility scoping
+    const rabsCompany = await Company.findOne({ company_name: /RABS Industries India Private Limited/i });
+    const rabsCompanyId = rabsCompany?._id;
+    const userCompanyId = req.user.company_id?._id || req.user.company_id;
+    const isRabsUser = rabsCompanyId && String(userCompanyId) === String(rabsCompanyId);
+
+    if (isRabsUser) {
+      // RABS users only see RABS policies created by RABS users (HR/Admin)
+      filter.company_id = rabsCompanyId;
+      const rabsUsers = await User.find({ company_id: rabsCompanyId }).select('_id');
+      const rabsUserIds = rabsUsers.map(u => u._id);
+      filter.created_by = { $in: rabsUserIds };
+    } else {
+      // Non-RABS users do not see RABS policies
+      if (rabsCompanyId) {
+        filter.company_id = { $ne: rabsCompanyId };
+      }
+    }
+
+    const policies = await WeekOffPolicy.find(filter)
       .populate('applicability.teams.list', 'name')
       .populate('created_by', 'first_name last_name username role')
       .populate('updated_by', 'first_name last_name username role')
@@ -298,6 +332,25 @@ export const listHolidayPolicies = async (req, res) => {
       const allCompanies = String(all_companies || '').toLowerCase() === 'true';
       if (!allCompanies && company_id && company_id !== 'all') {
         filter.company_id = company_id;
+      }
+    }
+
+    // Apply RABS visibility scoping
+    const rabsCompany = await Company.findOne({ company_name: /RABS Industries India Private Limited/i });
+    const rabsCompanyId = rabsCompany?._id;
+    const userCompanyId = req.user.company_id?._id || req.user.company_id;
+    const isRabsUser = rabsCompanyId && String(userCompanyId) === String(rabsCompanyId);
+
+    if (isRabsUser) {
+      // RABS users only see RABS policies created by RABS users (HR/Admin)
+      filter.company_id = rabsCompanyId;
+      const rabsUsers = await User.find({ company_id: rabsCompanyId }).select('_id');
+      const rabsUserIds = rabsUsers.map(u => u._id);
+      filter.created_by = { $in: rabsUserIds };
+    } else {
+      // Non-RABS users do not see RABS policies
+      if (rabsCompanyId) {
+        filter.company_id = { $ne: rabsCompanyId };
       }
     }
 
@@ -558,6 +611,13 @@ export const assignPolicyToUser = async (req, res) => {
     const { userId } = req.params;
     const { weekoff_policy_id, holiday_policy_id, shift_id, shift_ids, leave_policy_ids, attendance_settings } = req.body;
 
+    if (isRestrictedAllowedAdmin(req.user)) {
+      const allowedIds = await getRestrictedEmployeeIds(req.user);
+      if (!allowedIds || !allowedIds.includes(String(userId))) {
+        return res.status(403).json({ message: 'Forbidden: Member not in your team' });
+      }
+    }
+
     const update = {};
     if (weekoff_policy_id !== undefined) update.weekoff_policy_id = weekoff_policy_id || null;
     if (holiday_policy_id !== undefined) update.holiday_policy_id = holiday_policy_id || null;
@@ -624,6 +684,14 @@ export const bulkAssignPoliciesToUsers = async (req, res) => {
 
     if (!Array.isArray(user_ids) || user_ids.length === 0) {
       return res.status(400).json({ message: 'user_ids is required' });
+    }
+
+    if (isRestrictedAllowedAdmin(req.user)) {
+      const allowedIds = await getRestrictedEmployeeIds(req.user);
+      const allAllowed = user_ids.every(id => allowedIds && allowedIds.includes(String(id)));
+      if (!allAllowed) {
+        return res.status(403).json({ message: 'Forbidden: One or more members not in your team' });
+      }
     }
 
     const hasAnyAssignment =

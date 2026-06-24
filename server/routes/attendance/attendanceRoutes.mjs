@@ -47,6 +47,7 @@ router.delete('/:id', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), atten
 router.get('/employee-full-profile/:id', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.getEmployeeFullProfile);
 router.get('/employee-migration-history/:id', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.getEmployeeMigrationHistory);
 router.put('/employee-profile/:id', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.updateEmployeeProfileAdmin);
+router.post('/allowed-admins/toggle', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.toggleAttendanceAllowedAdmin);
 
 // ─── Migration & Bulk Operations ───
 router.post('/migrate/:id', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.migrateEmployee);

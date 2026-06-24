@@ -305,8 +305,8 @@ async function buildJobPayload(job_number, isPreview = false) {
       },
     ],
     CONTAINER: (job.container_nos || []).map((container) => ({
-      "IGM Number": validateNum(job.igm_no, 7, 0, true, "IGM Number"),
-      "IGM Date": validateDate(job.igm_date, true, "IGM Date"),
+      "IGM Number": validateNum(job.igm_no, 7, 0, false, "IGM Number"),
+      "IGM Date": validateDate(job.igm_date, false, "IGM Date"),
       "LCL.FCL": (() => {
         const type = getVal(job.consignment_type).toUpperCase();
         let code = "";
@@ -759,8 +759,8 @@ router.get("/api/scmCube/job-data-preview", async (req, res) => {
         "Marks And Numbers 3": field("", false),
       }],
       CONTAINER: (job.container_nos || []).map((container) => ({
-        "IGM Number": field(job.igm_no, true),
-        "IGM Date": field(fmtDate(job.igm_date), true),
+        "IGM Number": field(job.igm_no, false),
+        "IGM Date": field(fmtDate(job.igm_date), false),
         "LCL.FCL": field(lclFcl, false),
         "Container Number": field(container.container_number, true),
         "Seal Number": field(sealValue(container), false),

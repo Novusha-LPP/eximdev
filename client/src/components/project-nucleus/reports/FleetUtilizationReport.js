@@ -46,16 +46,7 @@ const getPrimaryCategory = (status) => {
     return 'Others';
 };
 
-const getPrimaryCategoryForMetrics = (status) => {
-    if (hasStatus(status, 'Breakdown')) return 'Breakdown';
-    if (hasStatus(status, ['Accident', 'Accidents'])) return 'Accident';
-    if (hasStatus(status, 'Maintenance')) return 'Maintenance';
-    if (hasStatus(status, 'Driver on Leave')) return 'Driver on Leave';
-    if (hasStatus(status, 'No Driver')) return 'No Driver';
-    if (hasStatus(status, 'Under detention')) return 'Under detention';
-    if (hasStatus(status, 'Under trip')) return 'Under trip';
-    return 'Others';
-};
+
 
 const getCategoriesForVehicle = (v) => {
     const status = v.status;
@@ -173,7 +164,8 @@ const FleetUtilizationReport = ({
         prevTotalTrips: 0,
         prevMundraTrips: 0,
         prevAvgTrips: 0,
-        prevMundraAvg: 0
+        prevMundraAvg: 0,
+        prevBranchTrips: {}
     });
 
     // Fetch report data on filter changes
@@ -204,6 +196,7 @@ const FleetUtilizationReport = ({
                 let prevMundraTrips = 0;
                 let prevAvgTrips = 0;
                 let prevMundraAvg = 0;
+                let prevBranchTrips = {};
 
                 try {
                     // Use the start of the selected period as the reference month.
@@ -242,6 +235,11 @@ const FleetUtilizationReport = ({
                         prevTotalTrips = prevClosed.length;
                         prevMundraTrips = prevClosed.filter(r => (r.branch || '').toLowerCase().includes('mundra')).length;
 
+                        prevClosed.forEach(r => {
+                            const br = r.branch || 'Unknown';
+                            prevBranchTrips[br] = (prevBranchTrips[br] || 0) + 1;
+                        });
+
                         prevAvgTrips = prevTotalTrips / prevDays;
                         prevMundraAvg = prevMundraTrips / prevDays;
                         console.log('[FleetUtil] prevTotalTrips:', prevTotalTrips, 'prevAvgTrips:', prevAvgTrips);
@@ -251,7 +249,7 @@ const FleetUtilizationReport = ({
                 } catch (prevErr) {
                     console.error("[FleetUtil] Error fetching previous month data for KPI comparison:", prevErr);
                 }
-                setComparisonData({ prevTotalTrips, prevMundraTrips, prevAvgTrips, prevMundraAvg });
+                setComparisonData({ prevTotalTrips, prevMundraTrips, prevAvgTrips, prevMundraAvg, prevBranchTrips });
 
                 // 1. Fetch dispatch data from new API (returns fleetStatus, activeLRs, closedLRs, exceptions directly)
                 try {
@@ -437,7 +435,31 @@ const FleetUtilizationReport = ({
             const active = d.activeLRs || [];
             const closed = d.closedLRs || [];
 
+            const getVehicleBranchForDay = (vehicleNo) => {
+                if (!vehicleNo) return 'Unknown';
+                const a = active.find(r => r.vehicle_no === vehicleNo);
+                if (a) return String(a.branch || '').toLowerCase().trim();
+                const c = closed.filter(r => r.vehicle_no === vehicleNo).sort((x, y) => new Date(y.lr_date) - new Date(x.lr_date));
+                if (c.length > 0) return String(c[0].branch || '').toLowerCase().trim();
+                return 'Unknown';
+            };
+
             const outOfServiceVehicles = fleet.filter(v => !hasStatus(v.status, 'IDLE'));
+
+            const automoveOOS = outOfServiceVehicles.filter(v => getVehicleBranchForDay(v.vehicleNumber) === 'automove');
+            const amBreakdown = automoveOOS.filter(v => getPrimaryCategory(v.status) === 'Breakdown').length;
+            const amUnderDetention = automoveOOS.filter(v => getPrimaryCategory(v.status) === 'Under detention').length;
+            const amUnderTrip = automoveOOS.filter(v => getPrimaryCategory(v.status) === 'Under trip').length;
+            const amCustomCats = {};
+            automoveOOS.forEach(v => {
+                const cat = getCategoriesForVehicle(v);
+                const standardCats = ['Breakdown', 'Accident', 'Maintenance', 'Driver on Leave', 'No Driver', 'Under detention', 'Under trip'];
+                if (!standardCats.includes(cat)) {
+                    amCustomCats[cat] = (amCustomCats[cat] || 0) + 1;
+                }
+            });
+            const amOthers = Object.values(amCustomCats).reduce((x, y) => x + y, 0);
+
             const breakdown = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Breakdown').length;
             const maintenance = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Maintenance').length;
             const leave = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Driver on Leave').length;
@@ -458,8 +480,9 @@ const FleetUtilizationReport = ({
 
             const notOnRoadTotal = breakdown + maintenance + leave + accident + noDriver;
             const idle = fleet.filter(v => hasStatus(v.status, 'IDLE')).length;
-            const usedForTrips = Math.max(0, totalFleetNum - notOnRoadTotal - idle - underDetention - underTrip - others);
-            const oorPercentVal = totalFleetNum > 0 ? Math.round((usedForTrips / totalFleetNum) * 100) : 0;
+            const dayFleetSize = fleet.length > 0 ? fleet.length : totalFleetNum;
+            const usedForTrips = Math.max(0, dayFleetSize - notOnRoadTotal);
+            const oorPercentVal = dayFleetSize > 0 ? Math.round((usedForTrips / dayFleetSize) * 100) : 0;
             const oorPercent = `${oorPercentVal}%`;
 
             const automove = [...active, ...closed].filter(r => String(r.branch || '').toLowerCase().trim() === 'automove').length;
@@ -468,8 +491,8 @@ const FleetUtilizationReport = ({
             const ownClosed20 = closed.filter(r => String(r.own_hired || '').toLowerCase().trim() === 'own' && (String(r.type_of_vehicle || '').includes('20') || String(r.type_of_vehicle || '').includes('20ft'))).length;
             const ownClosed40 = closed.filter(r => String(r.own_hired || '').toLowerCase().trim() === 'own' && (String(r.type_of_vehicle || '').includes('40') || String(r.type_of_vehicle || '').includes('40ft'))).length;
 
-            const outsourced20 = [...active, ...closed].filter(r => String(r.own_hired || '').toLowerCase().trim() === 'hired' && (String(r.type_of_vehicle || '').includes('20') || String(r.type_of_vehicle || '').includes('20ft'))).length;
-            const outsourced40 = [...active, ...closed].filter(r => String(r.own_hired || '').toLowerCase().trim() === 'hired' && (String(r.type_of_vehicle || '').includes('40') || String(r.type_of_vehicle || '').includes('40ft'))).length;
+            const outsourced20 = closed.filter(r => String(r.own_hired || '').toLowerCase().trim() === 'hired' && (String(r.type_of_vehicle || '').includes('20') || String(r.type_of_vehicle || '').includes('20ft'))).length;
+            const outsourced40 = closed.filter(r => String(r.own_hired || '').toLowerCase().trim() === 'hired' && (String(r.type_of_vehicle || '').includes('40') || String(r.type_of_vehicle || '').includes('40ft'))).length;
             const outsourcedTotal = outsourced20 + outsourced40;
 
             const ownTrips = [...active, ...closed].filter(r => String(r.own_hired || '').toLowerCase().trim() === 'own').length;
@@ -478,7 +501,7 @@ const FleetUtilizationReport = ({
             return {
                 date: d.date,
                 dateStr,
-                totalFleet: totalFleetNum,
+                totalFleet: dayFleetSize,
                 activeCount: usedForTrips,
                 idleCount: idle,
                 oosCount: notOnRoadTotal,
@@ -492,6 +515,10 @@ const FleetUtilizationReport = ({
                 underTrip,
                 others,
                 customCategories,
+                amBreakdown,
+                amUnderDetention,
+                amUnderTrip,
+                amOthers,
                 usedForTrips,
                 oorPercent,
                 automove,
@@ -551,13 +578,13 @@ const FleetUtilizationReport = ({
     const fleetStatusList = useMemo(() => activeDispatch?.fleetStatus || [], [activeDispatch]);
     const notOnRoadList = useMemo(() => {
         return fleetStatusList.filter(v => {
-            const cat = getPrimaryCategoryForMetrics(v.status);
+            const cat = getPrimaryCategory(v.status);
             return ['Breakdown', 'Maintenance', 'Driver on Leave', 'No Driver', 'Accident'].includes(cat);
         });
     }, [fleetStatusList]);
     const otherStatusList = useMemo(() => {
         return fleetStatusList.filter(v => {
-            const cat = getPrimaryCategoryForMetrics(v.status);
+            const cat = getPrimaryCategory(v.status);
             return ['Under trip', 'Under detention', 'Others'].includes(cat);
         });
     }, [fleetStatusList]);
@@ -568,10 +595,10 @@ const FleetUtilizationReport = ({
     const projectedMonthlyTrips = useMemo(() => {
         if (filterType !== 'month' && filterType !== 'quarter' && filterType !== 'year') return null;
 
-        const today = new Date('2026-06-02T12:56:07+05:30'); // Using current local time
-        const todayYear = 2026;
-        const todayMonth = 5; // June is 5 (0-indexed)
-        const todayDate = 2;
+        const today = new Date();
+        const todayYear = today.getFullYear();
+        const todayMonth = today.getMonth();
+        const todayDate = today.getDate();
 
         const totalTrips = closedLRsList.length;
 
@@ -746,28 +773,8 @@ const FleetUtilizationReport = ({
             daysInMonth = new Date(todayYear, todayMonth + 1, 0).getDate();
         }
 
-        // Calculate the sum of rounded branch projections to match the table's grand total projection
-        let projectionAllPorts = 0;
-        let projectionMundra = 0;
-
-        if (elapsedDays > 0) {
-            const branchCounts = {};
-            closedLRsList.forEach(r => {
-                const br = r.branch || 'Unknown';
-                branchCounts[br] = (branchCounts[br] || 0) + 1;
-            });
-
-            Object.entries(branchCounts).forEach(([br, count]) => {
-                const avgTrips = count / elapsedDays;
-                const projTrips = avgTrips * daysInMonth;
-                const roundedProj = Math.round(projTrips);
-
-                projectionAllPorts += roundedProj;
-                if (br.toLowerCase().includes('mundra')) {
-                    projectionMundra += roundedProj;
-                }
-            });
-        }
+        const projectionAllPorts = avgTripsPerDay * daysInMonth;
+        const projectionMundra = mundraAvgTripsPerDay * daysInMonth;
 
         // Compute performance percentages against previous month (comparisonData)
         const avgTripsPerf = comparisonData.prevAvgTrips > 0 ? (avgTripsPerDay / comparisonData.prevAvgTrips) * 100 : 100;
@@ -823,8 +830,8 @@ const FleetUtilizationReport = ({
 
         return {
             avgTripsPerDay: Math.round(avgTripsPerDay),
-            projectionAllPorts,
-            projectionMundra,
+            projectionAllPorts: Math.round(projectionAllPorts),
+            projectionMundra: Math.round(projectionMundra),
             avgTripsTheme: getColorTheme(avgTripsPerf),
             projectionAllTheme: getColorTheme(projectionAllPerf),
             projectionMundraTheme: getColorTheme(projectionMundraPerf)
@@ -886,7 +893,7 @@ const FleetUtilizationReport = ({
         const avgOnRoadPct = sumFleet > 0 ? Math.round((sumUsed / sumFleet) * 100) + '%' : '0%';
 
         return {
-            totalFleet: Math.round(sumFleet / dailyData.length), // Average size
+            avgFleetSize: Math.round(sumFleet / dailyData.length), // Average size
             usedForTrips: sumUsed,
             oorPercent: avgOnRoadPct,
             idleCount: sumIdle,
@@ -919,14 +926,38 @@ const FleetUtilizationReport = ({
         const totalTrips = closedLRsList.length;
 
         if (filterType === 'day' || dailyData.length <= 1) {
+            const getVehicleBranchForMetrics = (vehicleNo) => {
+                if (!vehicleNo) return 'Unknown';
+                const a = activeLRsList.find(r => r.vehicle_no === vehicleNo);
+                if (a) return String(a.branch || '').toLowerCase().trim();
+                const c = closedLRsList.filter(r => r.vehicle_no === vehicleNo).sort((x, y) => new Date(y.lr_date) - new Date(x.lr_date));
+                if (c.length > 0) return String(c[0].branch || '').toLowerCase().trim();
+                return 'Unknown';
+            };
+
             const outOfServiceVehicles = fleetStatusList.filter(v => !hasStatus(v.status, 'IDLE'));
-            const breakdown = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'Breakdown').length;
-            const noDriver = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'No Driver').length;
-            const onLeave = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'Driver on Leave').length;
-            const maint = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'Maintenance').length;
-            const accident = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'Accident').length;
-            const underDetention = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'Under detention').length;
-            const underTrip = outOfServiceVehicles.filter(v => getPrimaryCategoryForMetrics(v.status) === 'Under trip').length;
+
+            const automoveOOS = outOfServiceVehicles.filter(v => getVehicleBranchForMetrics(v.vehicleNumber) === 'automove');
+            const amBreakdown = automoveOOS.filter(v => getPrimaryCategory(v.status) === 'Breakdown').length;
+            const amUnderDetention = automoveOOS.filter(v => getPrimaryCategory(v.status) === 'Under detention').length;
+            const amUnderTrip = automoveOOS.filter(v => getPrimaryCategory(v.status) === 'Under trip').length;
+            const amCustomCats = {};
+            automoveOOS.forEach(v => {
+                const cat = getCategoriesForVehicle(v);
+                const standardCats = ['Breakdown', 'Accident', 'Maintenance', 'Driver on Leave', 'No Driver', 'Under detention', 'Under trip'];
+                if (!standardCats.includes(cat)) {
+                    amCustomCats[cat] = (amCustomCats[cat] || 0) + 1;
+                }
+            });
+            const amOthers = Object.values(amCustomCats).reduce((x, y) => x + y, 0);
+
+            const breakdown = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Breakdown').length;
+            const noDriver = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'No Driver').length;
+            const onLeave = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Driver on Leave').length;
+            const maint = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Maintenance').length;
+            const accident = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Accident').length;
+            const underDetention = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Under detention').length;
+            const underTrip = outOfServiceVehicles.filter(v => getPrimaryCategory(v.status) === 'Under trip').length;
             
             const customCategories = {};
             outOfServiceVehicles.forEach(v => {
@@ -943,7 +974,7 @@ const FleetUtilizationReport = ({
 
             const ownTrips = closedLRsList.filter(r => (r.own_hired || '').toLowerCase().trim() === 'own').length;
             const idleVal = totalFleetNum > 0 ? fleetStatusList.filter(v => hasStatus(v.status, 'IDLE')).length : 'NA';
-            const onRoadCount = (totalFleetNum > 0 && idleVal !== 'NA') ? Math.max(0, totalFleetNum - notOnRoad - idleVal - underDetention - underTrip - others) : ownTrips;
+            const onRoadCount = totalFleetNum > 0 ? Math.max(0, totalFleetNum - notOnRoad) : ownTrips;
 
             const getPctStr = (val) => {
                 if (totalFleetNum <= 0) return '';
@@ -967,6 +998,14 @@ const FleetUtilizationReport = ({
                 gradient: 'linear-gradient(135deg, rgba(100, 116, 139, 0.08) 0%, rgba(100, 116, 139, 0.02) 100%)',
                 border: '1px solid rgba(100, 116, 139, 0.2)'
             }));
+
+            const automoveMetrics = {
+                breakdown: amBreakdown,
+                underTrip: amUnderTrip,
+                underDetention: amUnderDetention,
+                others: amOthers,
+                otherStatusTotal: amUnderDetention + amUnderTrip + amOthers
+            };
 
             return {
                 fleetSize: totalFleetNum || 'NA',
@@ -997,6 +1036,7 @@ const FleetUtilizationReport = ({
                 otherStatusTotal,
                 otherStatusTotalPct: getPctStr(otherStatusTotal),
                 customCategoriesList,
+                automoveMetrics,
                 totalTrips
             };
         } else {
@@ -1012,6 +1052,10 @@ const FleetUtilizationReport = ({
             let sumAccident = 0;
             let sumUnderDetention = 0;
             let sumUnderTrip = 0;
+            let sumAmBreakdown = 0;
+            let sumAmUnderTrip = 0;
+            let sumAmUnderDetention = 0;
+            let sumAmOthers = 0;
 
             const rangeCustomCategories = {};
 
@@ -1028,6 +1072,11 @@ const FleetUtilizationReport = ({
                 sumUnderDetention += d.underDetention;
                 sumUnderTrip += d.underTrip;
                 
+                sumAmBreakdown += d.amBreakdown || 0;
+                sumAmUnderTrip += d.amUnderTrip || 0;
+                sumAmUnderDetention += d.amUnderDetention || 0;
+                sumAmOthers += d.amOthers || 0;
+
                 if (d.customCategories) {
                     Object.entries(d.customCategories).forEach(([cat, val]) => {
                         rangeCustomCategories[cat] = (rangeCustomCategories[cat] || 0) + val;
@@ -1060,6 +1109,14 @@ const FleetUtilizationReport = ({
                 border: '1px solid rgba(100, 116, 139, 0.2)'
             }));
 
+            const automoveMetrics = {
+                breakdown: sumAmBreakdown,
+                underTrip: sumAmUnderTrip,
+                underDetention: sumAmUnderDetention,
+                others: sumAmOthers,
+                otherStatusTotal: sumAmUnderTrip + sumAmUnderDetention + sumAmOthers
+            };
+
             return {
                 fleetSize: sumFleetSize || 'NA',
                 onRoadCount: sumOnRoad,
@@ -1089,6 +1146,7 @@ const FleetUtilizationReport = ({
                 otherStatusTotal: sumOtherStatusTotal,
                 otherStatusTotalPct: getPctStr(sumOtherStatusTotal),
                 customCategoriesList,
+                automoveMetrics,
                 totalTrips
             };
         }
@@ -1226,6 +1284,9 @@ const FleetUtilizationReport = ({
         let grandAvgTripsPerDay = 0;
         let grandProjection = 0;
 
+        let rawGrandAvgTrips = 0;
+        let rawGrandProjection = 0;
+
         list.forEach(b => {
             const avgTrips = elapsedDays > 0 ? b.total / elapsedDays : 0;
             const projTrips = avgTrips * daysInMonth;
@@ -1233,14 +1294,17 @@ const FleetUtilizationReport = ({
             b.avgTripsPerDay = Math.round(avgTrips);
             b.projection = Math.round(projTrips);
 
-            grandAvgTripsPerDay += b.avgTripsPerDay;
-            grandProjection += b.projection;
+            rawGrandAvgTrips += avgTrips;
+            rawGrandProjection += projTrips;
 
             grand20 += b.c20; grandOwn20 += b.own20; grandHired20 += b.hired20;
             grand40 += b.c40; grandOwn40 += b.own40; grandHired40 += b.hired40;
             grandOther += b.other; grandOwnOther += b.ownOther || 0; grandHiredOther += b.hiredOther || 0;
             grandTotal += b.total;
         });
+
+        grandAvgTripsPerDay = Math.round(rawGrandAvgTrips);
+        grandProjection = Math.round(rawGrandProjection);
 
         const automoveData = branches['Automove'] || { c20: 0, own20: 0, hired20: 0, c40: 0, own40: 0, hired40: 0, other: 0, ownOther: 0, hiredOther: 0, total: 0 };
         const othersData = { c20: 0, own20: 0, hired20: 0, c40: 0, own40: 0, hired40: 0, other: 0, ownOther: 0, hiredOther: 0, total: 0 };
@@ -1317,7 +1381,7 @@ const FleetUtilizationReport = ({
                 }
             }
         };
-    }, [closedLRsList, filterType, selectedDay, selectedYear, selectedMonth, selectedQuarter, dateRange]);
+    }, [closedLRsList, filterType, selectedDay, selectedYear, selectedMonth, selectedQuarter, dateRange, dailyData]);
 
 
 
@@ -1734,6 +1798,38 @@ const FleetUtilizationReport = ({
                     border: 1px solid rgba(239, 68, 68, 0.2);
                 }
                 
+                .kpi-info-icon-wrapper {
+                    position: relative;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: help;
+                }
+                
+                .kpi-info-tooltip {
+                    position: absolute;
+                    bottom: 120%;
+                    right: 0;
+                    transform: translateY(10px);
+                    background: #ffffff;
+                    border: 1px solid #e2e8f0;
+                    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+                    border-radius: 12px;
+                    padding: 12px 16px;
+                    opacity: 0;
+                    visibility: hidden;
+                    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+                    z-index: 100;
+                    width: max-content;
+                    pointer-events: none;
+                }
+                
+                .kpi-info-icon-wrapper:hover .kpi-info-tooltip {
+                    opacity: 1;
+                    visibility: visible;
+                    transform: translateY(0);
+                }
+                
                 /* Charts */
                 .analytics-graph-card {
                     background: rgba(255, 255, 255, 0.9);
@@ -1999,48 +2095,72 @@ const FleetUtilizationReport = ({
 
                     {/* Metrics Grid - CR-003 Additional KPI Cards with Dynamic Colors */}
                     {!isSingleDay && (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginTop: '16px' }}>
-                            {[
-                                { 
-                                    label: 'Average Trips Per Day', 
-                                    value: kpiMetricsObj.avgTripsPerDay, 
-                                    extra: kpiMetricsObj.avgTripsTheme.performanceLabel, 
-                                    color: kpiMetricsObj.avgTripsTheme.color,
-                                    gradient: kpiMetricsObj.avgTripsTheme.bg,
-                                    border: kpiMetricsObj.avgTripsTheme.border,
-                                    badgeBg: kpiMetricsObj.avgTripsTheme.badgeBg
-                                },
-                                { 
-                                    label: 'Projection Trips – All Ports', 
-                                    value: kpiMetricsObj.projectionAllPorts, 
-                                    extra: kpiMetricsObj.projectionAllTheme.performanceLabel, 
-                                    color: kpiMetricsObj.projectionAllTheme.color,
-                                    gradient: kpiMetricsObj.projectionAllTheme.bg,
-                                    border: kpiMetricsObj.projectionAllTheme.border,
-                                    badgeBg: kpiMetricsObj.projectionAllTheme.badgeBg
-                                },
-                                { 
-                                    label: 'Projection Trips – Mundra', 
-                                    value: kpiMetricsObj.projectionMundra, 
-                                    extra: kpiMetricsObj.projectionMundraTheme.performanceLabel, 
-                                    color: kpiMetricsObj.projectionMundraTheme.color,
-                                    gradient: kpiMetricsObj.projectionMundraTheme.bg,
-                                    border: kpiMetricsObj.projectionMundraTheme.border,
-                                    badgeBg: kpiMetricsObj.projectionMundraTheme.badgeBg
-                                }
-                            ].map((m, idx) => (
-                                <div key={idx} className="nucleus-stats-card" style={{ padding: '22px 26px', display: 'flex', flexDirection: 'column', gap: '10px', background: m.gradient, border: m.border, boxShadow: '0 8px 32px rgba(0, 0, 0, 0.03)' }}>
-                                    <div style={{ fontSize: '13px', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 800 }}>{m.label}</div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                                            <span style={{ fontSize: '42px', fontWeight: 900, color: '#0f172a' }} className="mono-text">{m.value}</span>
-                                        </div>
-                                        <div style={{ display: 'inline-flex', padding: '6px 12px', borderRadius: '8px', background: m.badgeBg, color: m.color, fontWeight: 700, fontSize: '12.5px', width: 'fit-content' }}>
-                                            {m.extra}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '16px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', paddingRight: '4px' }}>
+                                <div className="kpi-info-icon-wrapper">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                                    <div className="kpi-info-tooltip">
+                                        <div style={{ fontSize: '13px', fontWeight: 800, color: '#1e293b', marginBottom: '10px', paddingBottom: '8px', borderBottom: '1px solid #f1f5f9' }}>Color Coding Legend</div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#059669', boxShadow: '0 0 0 2px rgba(16, 185, 129, 0.2)' }}></div>
+                                                <span style={{ fontSize: '12.5px', color: '#475569', fontWeight: 600 }}>≥ Last Month</span>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#d97706', boxShadow: '0 0 0 2px rgba(245, 158, 11, 0.2)' }}></div>
+                                                <span style={{ fontSize: '12.5px', color: '#475569', fontWeight: 600 }}>90% - 99% of Last Month</span>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#dc2626', boxShadow: '0 0 0 2px rgba(239, 68, 68, 0.2)' }}></div>
+                                                <span style={{ fontSize: '12.5px', color: '#475569', fontWeight: 600 }}>&lt; 90% of Last Month</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            ))}
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                                {[
+                                    { 
+                                        label: 'Average Trips Per Day', 
+                                        value: kpiMetricsObj.avgTripsPerDay, 
+                                        extra: kpiMetricsObj.avgTripsTheme.performanceLabel, 
+                                        color: kpiMetricsObj.avgTripsTheme.color,
+                                        gradient: kpiMetricsObj.avgTripsTheme.bg,
+                                        border: kpiMetricsObj.avgTripsTheme.border,
+                                        badgeBg: kpiMetricsObj.avgTripsTheme.badgeBg
+                                    },
+                                    { 
+                                        label: 'Projection Trips – All Ports', 
+                                        value: kpiMetricsObj.projectionAllPorts, 
+                                        extra: kpiMetricsObj.projectionAllTheme.performanceLabel, 
+                                        color: kpiMetricsObj.projectionAllTheme.color,
+                                        gradient: kpiMetricsObj.projectionAllTheme.bg,
+                                        border: kpiMetricsObj.projectionAllTheme.border,
+                                        badgeBg: kpiMetricsObj.projectionAllTheme.badgeBg
+                                    },
+                                    { 
+                                        label: 'Projection Trips – Mundra', 
+                                        value: kpiMetricsObj.projectionMundra, 
+                                        extra: kpiMetricsObj.projectionMundraTheme.performanceLabel, 
+                                        color: kpiMetricsObj.projectionMundraTheme.color,
+                                        gradient: kpiMetricsObj.projectionMundraTheme.bg,
+                                        border: kpiMetricsObj.projectionMundraTheme.border,
+                                        badgeBg: kpiMetricsObj.projectionMundraTheme.badgeBg
+                                    }
+                                ].map((m, idx) => (
+                                    <div key={idx} className="nucleus-stats-card" style={{ padding: '22px 26px', display: 'flex', flexDirection: 'column', gap: '10px', background: m.gradient, border: m.border, boxShadow: '0 8px 32px rgba(0, 0, 0, 0.03)' }}>
+                                        <div style={{ fontSize: '13px', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 800 }}>{m.label}</div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                                                <span style={{ fontSize: '42px', fontWeight: 900, color: '#0f172a' }} className="mono-text">{m.value}</span>
+                                            </div>
+                                            <div style={{ display: 'inline-flex', padding: '6px 12px', borderRadius: '8px', background: m.badgeBg, color: m.color, fontWeight: 700, fontSize: '12.5px', width: 'fit-content' }}>
+                                                {m.extra}
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
 
@@ -2159,7 +2279,7 @@ const FleetUtilizationReport = ({
                             >
                                 <div style={{
                                     fontSize: m.isHighlighted ? '14px' : '13px',
-                                    color: m.isHighlighted ? '#1e3a8a' : m.color,
+                                    color: '#000000',
                                     textTransform: 'uppercase',
                                     letterSpacing: '0.05em',
                                     fontWeight: m.isHighlighted ? 900 : 800
@@ -2170,7 +2290,7 @@ const FleetUtilizationReport = ({
                                     <span style={{
                                         fontSize: m.isHighlighted ? '46px' : '38px',
                                         fontWeight: 900,
-                                        color: m.isHighlighted ? '#1e3a8a' : '#0f172a'
+                                        color: '#000000'
                                     }} className="mono-text">
                                         {m.value}
                                     </span>
@@ -2187,6 +2307,7 @@ const FleetUtilizationReport = ({
                             </div>
                         ))}
                     </div>
+
 
                     {/* Branch Summary Section */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -2286,7 +2407,7 @@ const FleetUtilizationReport = ({
                                         <th>40 Feet</th>
                                         <th>Automove</th>
                                         <th>Avg/Day</th>
-                                        {!isSingleDay && <th>Projection</th>}
+                                        <th>Projection</th>
                                         <th style={{ textAlign: 'right' }}>Total</th>
                                     </tr>
                                 </thead>
@@ -2307,7 +2428,7 @@ const FleetUtilizationReport = ({
                                                             {b.other} <span style={{ fontSize: '12.5px', color: '#64748b' }}>(Own: {b.ownOther} Hired: {b.hiredOther})</span>
                                                         </td>
                                                         <td style={{ color: '#3b82f6', fontWeight: 700 }} className="mono-text">{b.avgTripsPerDay}</td>
-                                                        {!isSingleDay && <td style={{ color: '#10b981', fontWeight: 700 }} className="mono-text">{b.projection}</td>}
+                                                        <td style={{ color: (comparisonData.prevBranchTrips && comparisonData.prevBranchTrips[b.name] > 0 && b.projection < comparisonData.prevBranchTrips[b.name]) ? '#ef4444' : '#10b981', fontWeight: 700 }} className="mono-text">{b.projection}</td>
                                                         <td style={{ fontWeight: 800, textAlign: 'right', color: '#0f172a' }}>{b.total}</td>
                                                     </tr>
                                                 );
@@ -2318,13 +2439,13 @@ const FleetUtilizationReport = ({
                                                 <td style={{ color: '#d97706' }}>{branchSummary.grandTotals.c40}</td>
                                                 <td>{branchSummary.grandTotals.other}</td>
                                                 <td style={{ color: '#3b82f6' }} className="mono-text">{branchSummary.grandTotals.avgTripsPerDay}</td>
-                                                {!isSingleDay && <td style={{ color: '#10b981' }} className="mono-text">{branchSummary.grandTotals.projection}</td>}
+                                                <td style={{ color: (comparisonData.prevTotalTrips > 0 && branchSummary.grandTotals.projection < comparisonData.prevTotalTrips) ? '#ef4444' : '#10b981' }} className="mono-text">{branchSummary.grandTotals.projection}</td>
                                                 <td style={{ fontWeight: 900, textAlign: 'right', color: '#0f172a' }}>{branchSummary.grandTotals.total}</td>
                                             </tr>
                                         </>
                                     ) : (
                                         <tr>
-                                            <td colSpan={isSingleDay ? 6 : 7} style={{ textAlign: 'center', color: '#94a3b8', padding: '32px' }}>No branch data available</td>
+                                            <td colSpan="7" style={{ textAlign: 'center', color: '#94a3b8', padding: '32px' }}>No branch data available</td>
                                         </tr>
                                     )}
                                 </tbody>
@@ -2335,7 +2456,7 @@ const FleetUtilizationReport = ({
                         {branchSummary.list.length > 0 && (
                             <div className="nucleus-stats-card" style={{ padding: '24px', background: 'rgba(255, 255, 255, 0.85)', display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '4px' }}>
                                 <div style={{ fontSize: '15px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span>📊</span> {isSingleDay ? "Branch Wise Performance" : "Branch Wise Performance & Projection"}
+                                    <span>📊</span> Branch Wise Performance & Projection
                                 </div>
                                 <div style={{ width: '100%', height: 320, paddingTop: '10px' }}>
                                     <ResponsiveContainer width="100%" height="100%">
@@ -2343,11 +2464,15 @@ const FleetUtilizationReport = ({
                                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(226, 232, 240, 0.6)" />
                                             <XAxis dataKey="name" stroke="#64748b" fontSize={11} tickLine={false} />
                                             <YAxis yAxisId="left" stroke="#3b82f6" fontSize={11} tickLine={false} axisLine={false} />
-                                            {!isSingleDay && <YAxis yAxisId="right" orientation="right" stroke="#10b981" fontSize={11} tickLine={false} axisLine={false} />}
+                                            <YAxis yAxisId="right" orientation="right" stroke="#10b981" fontSize={11} tickLine={false} axisLine={false} />
                                             <Tooltip cursor={{ fill: 'rgba(102, 126, 234, 0.04)' }} />
                                             <Legend verticalAlign="top" height={36} iconType="circle" />
                                             <Bar yAxisId="left" dataKey="avgTripsPerDay" name="Avg Trips Per Day" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={25} />
-                                            {!isSingleDay && <Bar yAxisId="right" dataKey="projection" name="Projected Monthly Trips" fill="#10b981" radius={[4, 4, 0, 0]} barSize={25} />}
+                                            <Bar yAxisId="right" dataKey="projection" name="Projected Monthly Trips" radius={[4, 4, 0, 0]} barSize={25}>
+                                                {branchSummary.list.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={(comparisonData.prevBranchTrips && comparisonData.prevBranchTrips[entry.name] > 0 && entry.projection < comparisonData.prevBranchTrips[entry.name]) ? '#ef4444' : '#10b981'} />
+                                                ))}
+                                            </Bar>
                                         </BarChart>
                                     </ResponsiveContainer>
                                 </div>
@@ -2654,7 +2779,7 @@ const FleetUtilizationReport = ({
                                 {dailyData.length > 0 && spreadsheetTotals && (
                                     <tr style={{ background: 'rgba(102, 126, 234, 0.08)', fontWeight: 800, borderTop: '2px solid rgba(102, 126, 234, 0.3)' }}>
                                         <td style={{ fontWeight: 800, color: '#0f172a' }}>Total / Avg</td>
-                                        <td className="num highlight-yellow" style={{ fontWeight: 800 }}>{spreadsheetTotals.totalFleet}</td>
+                                        <td className="num highlight-yellow" style={{ fontWeight: 800 }}>{spreadsheetTotals.avgFleetSize}</td>
                                         <td className="num" style={{ fontWeight: 800 }}>{spreadsheetTotals.usedForTrips}</td>
                                         <td className="num" style={{ color: '#059669', fontWeight: 800 }}>{spreadsheetTotals.oorPercent}</td>
                                         <td className="num highlight-yellow" style={{ fontWeight: 800 }}>{spreadsheetTotals.idleCount}</td>

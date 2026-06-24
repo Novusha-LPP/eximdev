@@ -26,16 +26,7 @@ const TransportAccountsReport = ({
     const getReportParams = () => {
         let params = { filterType };
         if (filterType === 'day') {
-            if (selectedDay) {
-                const dateObj = new Date(selectedDay + 'T00:00:00');
-                dateObj.setDate(dateObj.getDate() - 1);
-                const yyyy = dateObj.getFullYear();
-                const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
-                const dd = String(dateObj.getDate()).padStart(2, '0');
-                params.date = `${yyyy}-${mm}-${dd}`;
-            } else {
-                params.date = selectedDay;
-            }
+            params.date = selectedDay;
         } else if (filterType === 'month') {
             const monthStr = String(Number(selectedMonth) + 1).padStart(2, '0');
             params.date = `${selectedYear}-${monthStr}-01`;

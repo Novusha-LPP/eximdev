@@ -13,6 +13,7 @@ import {
     Button,
     message,
     Modal,
+    Switch,
     Form,
     Select,
     Table,
@@ -44,6 +45,9 @@ import EmployeeProfileWorkspace from "../attendance/admin/EmployeeProfileWorkspa
 const { Title, Text } = Typography;
 const { Sider, Content } = Layout;
 const { Option } = Select;
+
+const RABS_TEAM_NAME_KEY = 'rabs';
+const isRabsTeam = (team) => String(team?.name || '').trim().toLowerCase() === RABS_TEAM_NAME_KEY;
 
 function TeamDashboard() {
     const { user } = useContext(UserContext);
@@ -359,6 +363,50 @@ function TeamDashboard() {
         }
     };
 
+    const handleToggleAttendanceAdmin = async (userId, checked) => {
+        try {
+            const res = await axios.post(`${process.env.REACT_APP_API_STRING}/api/attendance/allowed-admins/toggle`, {
+                target_user_id: userId,
+                is_admin: checked
+            });
+            if (res.data.success) {
+                message.success(res.data.message || "Updated permission successfully");
+                setTeamMembers(prev => prev.map(m => {
+                    const idStr = (m._id || m.userId)?.toString();
+                    if (idStr === userId?.toString()) {
+                        return { ...m, isAttendanceAllowedAdmin: checked };
+                    }
+                    return m;
+                }));
+            }
+        } catch (error) {
+            console.error("Error toggling attendance admin:", error);
+            message.error(error.response?.data?.message || "Failed to update permission");
+        }
+    };
+
+    const handleToggleOperatorStatus = async (userId, isOperator) => {
+        try {
+            const res = await axios.post(`${process.env.REACT_APP_API_STRING}/api/payroll/config/toggle-operator`, {
+                employeeId: userId,
+                is_operator: isOperator
+            });
+            if (res.data.success) {
+                message.success(res.data.message || "Updated employee category successfully");
+                setTeamMembers(prev => prev.map(m => {
+                    const idStr = (m._id || m.userId)?.toString();
+                    if (idStr === userId?.toString()) {
+                        return { ...m, is_operator: isOperator };
+                    }
+                    return m;
+                }));
+            }
+        } catch (error) {
+            console.error("Error toggling operator status:", error);
+            message.error(error.response?.data?.message || "Failed to update category");
+        }
+    };
+
     
 
     const openEditModal = (team) => {
@@ -418,6 +466,38 @@ function TeamDashboard() {
             },
         },
         {
+            title: "Category",
+            key: "category",
+            render: (_, record) => {
+                const canEdit = user?.role === 'Admin' || user?.isAttendanceAllowedAdmin === true;
+                return (
+                    <Select
+                        value={record.is_operator === true ? "Operator" : "Management"}
+                        disabled={!canEdit}
+                        onChange={(val) => handleToggleOperatorStatus(record._id || record.userId, val === "Operator")}
+                        style={{ width: 130 }}
+                    >
+                        <Option value="Management">Management</Option>
+                        <Option value="Operator">Operator</Option>
+                    </Select>
+                );
+            }
+        },
+        {
+            title: "HR",
+            key: "attendanceAdmin",
+            render: (_, record) => {
+                const canToggle = user?.role === 'Admin' || user?.isAttendanceAllowedAdmin === true;
+                return (
+                    <Switch
+                        checked={record.isAttendanceAllowedAdmin === true}
+                        disabled={!canToggle}
+                        onChange={(checked) => handleToggleAttendanceAdmin(record._id || record.userId, checked)}
+                    />
+                );
+            }
+        },
+        {
             title: "Status",
             key: "status",
             render: (_, record) => (
@@ -453,6 +533,60 @@ function TeamDashboard() {
         setTeamShortcutUserIds(userIds);
         setModuleTab("users");
     };
+
+    // Attendance HR tab visibility: only for RABS team and only for ajith or allowed-admins
+    const canSeeHRTab = (isRabsTeam(selectedTeam)) &&
+        (user?.isAttendanceAllowedAdmin === true || String(user?.username || '').toLowerCase() === 'ajith_sivadasan');
+
+    // HR panel: split teamMembers into two groups
+    const hrNonAdmins = teamMembers.filter(m => !m.isAttendanceAllowedAdmin);
+    const hrAdmins = teamMembers.filter(m => m.isAttendanceAllowedAdmin === true);
+
+    const HRUserCard = ({ member, action }) => (
+        <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '10px 14px', borderBottom: '1px solid #f0f0f0',
+            transition: 'background 0.15s',
+        }}
+        onMouseEnter={e => e.currentTarget.style.background = action === 'grant' ? '#f6ffed' : '#fff1f0'}
+        onMouseLeave={e => e.currentTarget.style.background = ''}
+        >
+            <Space>
+                <Avatar
+                    src={member.employee_photo}
+                    icon={<UserOutlined />}
+                    size={34}
+                    style={{
+                        backgroundColor: action === 'grant' ? '#f0f5ff' : '#f6ffed',
+                        color: action === 'grant' ? '#1d4ed8' : '#389e0d',
+                        fontSize: 14, fontWeight: 700
+                    }}
+                >
+                    {!member.employee_photo && (member.first_name || member.username || '?')[0].toUpperCase()}
+                </Avatar>
+                <div>
+                    <div style={{ fontWeight: 600, fontSize: 13, color: '#1e293b', lineHeight: 1.3 }}>
+                        {member.first_name && member.last_name
+                            ? `${member.first_name} ${member.last_name}`
+                            : member.username}
+                    </div>
+                    <div style={{ fontSize: 11, color: '#94a3b8' }}>{member.username}</div>
+                </div>
+            </Space>
+            <Button
+                size="small"
+                type={action === 'grant' ? 'primary' : 'default'}
+                danger={action === 'revoke'}
+                style={{
+                    fontSize: 12, borderRadius: 6, fontWeight: 600,
+                    ...(action === 'grant' ? { background: '#52c41a', borderColor: '#52c41a', color: '#fff' } : {})
+                }}
+                onClick={() => handleToggleAttendanceAdmin(member._id || member.userId, action === 'grant')}
+            >
+                {action === 'grant' ? '→ Grant HR' : '✕ Revoke'}
+            </Button>
+        </div>
+    );
 
     const tabItems = [
         {
@@ -499,6 +633,96 @@ function TeamDashboard() {
                 </div>
             ),
         },
+        // Attendance HR tab — only visible for RABS team + authorized users
+        ...(canSeeHRTab ? [{
+            key: 'AttendanceHR',
+            label: (
+                <span style={{ color: '#52c41a', fontWeight: 600 }}>
+                    🛡️ Attendance HR
+                </span>
+            ),
+            children: (
+                <div style={{ padding: '16px 0' }}>
+                    {/* Header banner */}
+                    <div style={{
+                        marginBottom: 20, padding: '14px 18px',
+                        background: 'linear-gradient(135deg, #f6ffed 0%, #e6f7ff 100%)',
+                        border: '1px solid #b7eb8f', borderRadius: 10,
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                    }}>
+                        <div>
+                            <div style={{ fontWeight: 700, fontSize: 15, color: '#389e0d' }}>🛡️ RABS Attendance HR Management</div>
+                            <div style={{ fontSize: 12, color: '#595959', marginTop: 3 }}>
+                                Grant or revoke Attendance HR Admin access. HR Admins can approve leaves,
+                                manage attendance records, and access payroll data for all RABS employees.
+                            </div>
+                        </div>
+                        <div style={{ textAlign: 'center', marginLeft: 24, flexShrink: 0 }}>
+                            <div style={{ fontSize: 28, fontWeight: 800, color: '#52c41a', lineHeight: 1 }}>{hrAdmins.length}</div>
+                            <div style={{ fontSize: 11, color: '#8c8c8c', marginTop: 2 }}>HR Admins active</div>
+                        </div>
+                    </div>
+
+                    {/* Two-panel layout */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+
+                        {/* LEFT — All RABS users without HR access */}
+                        <div style={{ border: '1px solid #e5e7eb', borderRadius: 10, overflow: 'hidden', background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                            <div style={{
+                                padding: '12px 16px', background: '#f9fafb',
+                                borderBottom: '1px solid #e5e7eb',
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                            }}>
+                                <div>
+                                    <div style={{ fontWeight: 700, fontSize: 13, color: '#374151' }}>RABS Employees</div>
+                                    <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 1 }}>Without HR access — click to grant</div>
+                                </div>
+                                <Tag style={{ margin: 0, borderRadius: 99, fontWeight: 700 }}>{hrNonAdmins.length} users</Tag>
+                            </div>
+                            <div style={{ maxHeight: 500, overflowY: 'auto' }}>
+                                {loadingMembers ? (
+                                    <div style={{ padding: 48, textAlign: 'center' }}><Spin /></div>
+                                ) : hrNonAdmins.length === 0 ? (
+                                    <div style={{ padding: 48, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+                                        ✅ All employees have HR access
+                                    </div>
+                                ) : hrNonAdmins.map(m => (
+                                    <HRUserCard key={m._id || m.userId || m.username} member={m} action="grant" />
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* RIGHT — Current HR Admins */}
+                        <div style={{ border: '2px solid #b7eb8f', borderRadius: 10, overflow: 'hidden', background: '#fff', boxShadow: '0 1px 4px rgba(82,196,26,0.08)' }}>
+                            <div style={{
+                                padding: '12px 16px', background: '#f6ffed',
+                                borderBottom: '1px solid #b7eb8f',
+                                display: 'flex', alignItems: 'center', justifyContent: 'space-between'
+                            }}>
+                                <div>
+                                    <div style={{ fontWeight: 700, fontSize: 13, color: '#389e0d' }}>✅ Attendance HR Admins</div>
+                                    <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 1 }}>Active HR access — click to revoke</div>
+                                </div>
+                                <Tag color="green" style={{ margin: 0, borderRadius: 99, fontWeight: 700 }}>{hrAdmins.length} active</Tag>
+                            </div>
+                            <div style={{ maxHeight: 500, overflowY: 'auto' }}>
+                                {loadingMembers ? (
+                                    <div style={{ padding: 48, textAlign: 'center' }}><Spin /></div>
+                                ) : hrAdmins.length === 0 ? (
+                                    <div style={{ padding: 48, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+                                        No HR admins assigned yet.<br />
+                                        <span style={{ fontSize: 11 }}>← Grant access from the left panel.</span>
+                                    </div>
+                                ) : hrAdmins.map(m => (
+                                    <HRUserCard key={m._id || m.userId || m.username} member={m} action="revoke" />
+                                ))}
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            )
+        }] : []),
     ];
 
     // Add member-specific tabs when a member is selected

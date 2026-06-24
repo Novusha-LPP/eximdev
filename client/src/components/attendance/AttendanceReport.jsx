@@ -251,10 +251,11 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
     const [selectedEmp, setSelectedEmp] = useState(null);
     const { user } = React.useContext(UserContext);
     const ALLOWED_USERNAMES = React.useMemo(() => new Set(['shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'uday_zope']), []);
+    const isDynamicAdmin = user?.isAttendanceAllowedAdmin === true;
     const normalizedRole = normalizeRole(user?.role);
     const isHOD = normalizedRole === 'HOD' || normalizedRole === 'HEADOFDEPARTMENT';
-    const isAdmin = Boolean(isAdminProp) && normalizedRole === 'ADMIN';
-    const isAllowedUser = isAdmin || isHOD || ALLOWED_USERNAMES.has(user?.username);
+    const isAdmin = (Boolean(isAdminProp) && normalizedRole === 'ADMIN') || isDynamicAdmin;
+    const isAllowedUser = isAdmin || isHOD || ALLOWED_USERNAMES.has(user?.username) || isDynamicAdmin;
     const [showDailySummary, setShowDailySummary] = useState(false);
     const [dashboardData, setDashboardData] = useState(null);
     const [dashLoading, setDashLoading] = useState(false);
@@ -1216,6 +1217,13 @@ if (summarySheet) {
 };
 
     const filtered = reportData.filter(e => {
+        const isProduction = process.env.NODE_ENV === 'production';
+        if (isProduction && e.username === 'dev_master') {
+            return false;
+        }
+        if (String(e.role || '').trim().toLowerCase() === 'driver') {
+            return false;
+        }
         // Hide 'dev_master' by default (when search is empty)
         if (e.username === 'dev_master' && !searchTerm.trim()) {
             return false;
@@ -1327,7 +1335,7 @@ if (summarySheet) {
                         </p>
                     </div>
                     <div className="ar-hero-controls">
-                        <button className="ar-hero-btn" onClick={fetchReport}><FiRefreshCw size={13} /> Refresh</button>
+                        <button className="ar-hero-btn" onClic  k={fetchReport}><FiRefreshCw size={13} /> Refresh</button>
                         
                         {showDailySummary && (
                             <div className="ar-group-toggle" style={{ display: 'flex', background: '#f1f5f9', borderRadius: '8px', padding: '2px', border: '1px solid #e2e8f0' }}>

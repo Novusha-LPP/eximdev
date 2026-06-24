@@ -226,8 +226,8 @@ router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
       },
       IGMS: [
         {
-          "IGM No.": validateNum(job.igm_no, 7, 0, true, "IGM No."),
-          "IGM Date": validateDate(job.igm_date, true, "IGM Date"),
+          "IGM No.": validateNum(job.igm_no, 7, 0, false, "IGM No."),
+          "IGM Date": validateDate(job.igm_date, false, "IGM Date"),
           "Inward Date": validateDate(job.vessel_berthing || job.discharge_date, true, "Inward Date"),
           "Gateway IGM Number": validateNum(job.gateway_igm, 7, 0, false, "Gateway IGM Number"),
           "Gateway IGM date": validateDate(job.gateway_igm_date, false, "Gateway IGM date"),
@@ -246,8 +246,8 @@ router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
         }
       ],
       CONTAINER: (job.container_nos || []).map(container => ({
-        "IGM Number": validateNum(job.igm_no, 7, 0, true, "IGM Number"),
-        "IGM Date": validateDate(job.igm_date, true, "IGM Date"),
+        "IGM Number": validateNum(job.igm_no, 7, 0, false, "IGM Number"),
+        "IGM Date": validateDate(job.igm_date, false, "IGM Date"),
         "LCL.FCL": (() => {
           const type = getVal(job.consignment_type).toUpperCase();
           let code = "";
@@ -283,8 +283,8 @@ router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
     // If CONTAINER or SupportingDocumentList are empty, provide a template with empty/default values meeting mandatory requirements
     if (responseData.CONTAINER.length === 0) {
       responseData.CONTAINER.push({
-        "IGM Number": validateNum("", 7, 0, true),
-        "IGM Date": validateDate("", true),
+        "IGM Number": validateNum("", 7, 0, false),
+        "IGM Date": validateDate("", false),
         "LCL.FCL": validateChar("", 1, true),
         "Container Number": validateChar("", 11, true),
         "Seal Number": validateChar("", 10, true),

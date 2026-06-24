@@ -9,6 +9,7 @@ import mongoose from 'mongoose';
 import AttendanceRecord from '../../model/attendance/AttendanceRecord.js';
 import PolicyResolver from '../../services/attendance/PolicyResolver.js';
 import Company from '../../model/attendance/Company.js';
+import { isRestrictedAllowedAdmin, getRestrictedEmployeeIds } from '../../utils/attendance/allowedAdminRestriction.mjs';
 
 const STAGE_2_APPROVER_USERNAME = 'shalini_arun';
 const STAGE_3_FINAL_APPROVER_USERNAMES = new Set(['manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'uday_zope']);
@@ -58,7 +59,7 @@ const getApproverByUsername = async (username, companyId) => {
 const getDefaultOpeningBalance = (policy) => {
     const leaveType = String(policy?.leave_type || '').toLowerCase();
     if (leaveType === 'lwp') {
-        return Number.MAX_SAFE_INTEGER;
+        return 2000;
     }
     return Number(policy?.annual_quota || 0);
 };
@@ -90,11 +91,15 @@ const getAssignedPolicyIds = (user) => {
     return (user?.leave_settings?.special_leave_policies || []).map((id) => String(id));
 };
 
-const getAnyActiveLwpPolicy = async () => {
-    return LeavePolicy.findOne({
+const getAnyActiveLwpPolicy = async (companyId) => {
+    const query = {
         leave_type: 'lwp',
         status: 'active'
-    }).sort({ updatedAt: -1, createdAt: -1 });
+    };
+    if (companyId) {
+        query.company_id = companyId;
+    }
+    return LeavePolicy.findOne(query).sort({ updatedAt: -1, createdAt: -1 });
 };
 
 const IDEMPOTENT_LEAVE_TYPES = new Set(['lwp', 'privilege']);
@@ -167,7 +172,7 @@ const pickBalanceForPolicy = (balances = [], policy) => {
 };
 
 export const syncBalanceFromApplications = async ({ employeeId, year, policy, balanceRecord }) => {
-    if (!balanceRecord || String(policy?.leave_type || '').toLowerCase() === 'lwp') {
+    if (!balanceRecord) {
         return balanceRecord;
     }
 
@@ -201,9 +206,16 @@ export const syncBalanceFromApplications = async ({ employeeId, year, policy, ba
         return acc;
     }, {});
 
+    const user = await UserModel.findById(employeeId).select('company_id').lean();
+    const rabsCompany = await Company.findOne({ company_name: /RABS Industries India Private Limited/i });
+    const isRabs = rabsCompany && user && String(user.company_id) === String(rabsCompany._id);
+
     const opening = Number(balanceRecord.opening_balance || 0);
-    const used = Number(totals.approved || 0);
-    const pending = Number(totals.pending || 0);
+    const approvedCount = Number(totals.approved || 0);
+    const pendingCount = Number(totals.pending || 0);
+
+    const used = isRabs ? (approvedCount + pendingCount) : approvedCount;
+    const pending = isRabs ? 0 : pendingCount;
     const closing = Math.max(0, opening - used - pending);
 
     if (
@@ -242,7 +254,7 @@ const checkOverlap = async (userId, fromDate, toDate, currentAppId = null, tz = 
     return await LeaveApplication.exists(query);
 };
 
-const recoverActivePoliciesFromBalances = async ({ targetId, currentYear, assignedPolicyIds }) => {
+const recoverActivePoliciesFromBalances = async ({ targetId, currentYear, assignedPolicyIds, companyId }) => {
     const balances = await LeaveBalance.find({
         employee_id: targetId,
         year: currentYear
@@ -258,7 +270,8 @@ const recoverActivePoliciesFromBalances = async ({ targetId, currentYear, assign
 
     let recoveredPolicies = await LeavePolicy.find({
         _id: { $in: [...new Set([...assignedPolicyIds, ...directBalancePolicyIds])] },
-        status: 'active'
+        status: 'active',
+        ...(companyId ? { company_id: companyId } : {})
     });
 
     if (recoveredPolicies.length > 0) {
@@ -275,7 +288,8 @@ const recoverActivePoliciesFromBalances = async ({ targetId, currentYear, assign
 
     recoveredPolicies = await LeavePolicy.find({
         status: 'active',
-        leave_type: { $in: [...new Set(balanceLeaveTypes)] }
+        leave_type: { $in: [...new Set(balanceLeaveTypes)] },
+        ...(companyId ? { company_id: companyId } : {})
     });
 
     return recoveredPolicies;
@@ -412,76 +426,61 @@ export const getBalance = async (req, res) => {
             }
         }
 
+const rabsCompany = await Company.findOne({ company_name: /RABS Industries India Private Limited/i });
+        const rabsCompanyId = rabsCompany?._id;
+        const targetEmployeeCompanyId = targetEmployee.company_id?._id || targetEmployee.company_id;
+        const isRabsUser = rabsCompanyId && String(targetEmployeeCompanyId) === String(rabsCompanyId);
+
         const assignedPolicyIds = getAssignedPolicyIds(targetEmployee);
+        let policies = [];
 
-        // 2. Fetch assigned active policies (global policy catalog)
-        let allPolicies = assignedPolicyIds.length > 0
-            ? await LeavePolicy.find({
-                _id: { $in: assignedPolicyIds },
-                status: 'active'
-            })
-            : [];
-
-        // Recover from stale/deleted policy IDs by mapping existing balances to active policies.
-        if (!allPolicies.length) {
-            allPolicies = await recoverActivePoliciesFromBalances({
-                targetId,
-                currentYear,
-                assignedPolicyIds
+        if (isRabsUser) {
+            // For RABS users, they automatically have access to all active policies created by RABS HR (created_by is not null)
+            const rabsPolicies = await LeavePolicy.find({
+                company_id: rabsCompanyId,
+                status: 'active',
+                created_by: { $ne: null }
             });
 
-            if (allPolicies.length > 0) {
-                await UserModel.updateOne(
-                    { _id: targetId },
-                    {
-                        $addToSet: {
-                            'leave_settings.special_leave_policies': {
-                                $each: allPolicies.map((p) => p._id)
-                            }
-                        }
-                    }
-                );
+            policies = filterEligiblePolicies(rabsPolicies, targetEmployee);
+
+            // Auto-assign these policies to targetEmployee's special_leave_policies if not already present
+            const toAdd = rabsPolicies.map(p => p._id);
+            if (toAdd.length > 0) {
+                const missingIds = toAdd.filter(id => !assignedPolicyIds.includes(String(id)));
+                if (missingIds.length > 0) {
+                    await UserModel.updateOne(
+                        { _id: targetId },
+                        { $addToSet: { 'leave_settings.special_leave_policies': { $each: missingIds } } }
+                    );
+                }
             }
-        }
+        } else {
+            // Regular logic for non-RABS users
+            let allPolicies = assignedPolicyIds.length > 0
+                ? await LeavePolicy.find({
+                    _id: { $in: assignedPolicyIds },
+                    status: 'active',
+                    ...(targetEmployee.company_id ? { company_id: targetEmployee.company_id } : {})
+                })
+                : [];
 
-        // Keep LWP available for everyone, even if no leave policy is assigned.
-        const lwpPolicy = await getAnyActiveLwpPolicy();
-        if (lwpPolicy && !allPolicies.some((p) => String(p.leave_type || '').toLowerCase() === 'lwp')) {
-            allPolicies.push(lwpPolicy);
-        }
+            // Recover from stale/deleted policy IDs by mapping existing balances to active policies.
+            if (!allPolicies.length) {
+                allPolicies = await recoverActivePoliciesFromBalances({
+                    targetId,
+                    currentYear,
+                    assignedPolicyIds,
+                    companyId: targetEmployee.company_id
+                });
 
-        allPolicies = dedupeBalancePolicies(allPolicies);
-
-        if (!allPolicies || allPolicies.length === 0) {
-            return res.json({ data: [] });
-        }
-
-        // --- FILTER BY ELIGIBILITY (CASE-INSENSITIVE) ---
-        let policies = filterEligiblePolicies(allPolicies, targetEmployee);
-
-        // Keep LWP or policies explicitly assigned
-        policies = policies.filter((policy) => 
-            assignedPolicyIds.includes(String(policy._id)) || 
-            String(policy.leave_type || '').toLowerCase() === 'lwp'
-        );
-
-        // If only LWP is there (or nothing), try to recover from previous balances
-        if (policies.length <= 1 && (!policies[0] || String(policies[0].leave_type || '').toLowerCase() === 'lwp')) {
-            const recoveredPolicies = await recoverActivePoliciesFromBalances({
-                targetId,
-                currentYear,
-                assignedPolicyIds
-            });
-
-            if (recoveredPolicies.length > 0) {
-                policies = filterEligiblePolicies(recoveredPolicies, targetEmployee);
-                if (policies.length > 0) {
+                if (allPolicies.length > 0) {
                     await UserModel.updateOne(
                         { _id: targetId },
                         {
                             $addToSet: {
                                 'leave_settings.special_leave_policies': {
-                                    $each: policies.map((p) => p._id)
+                                    $each: allPolicies.map((p) => p._id)
                                 }
                             }
                         }
@@ -489,9 +488,56 @@ export const getBalance = async (req, res) => {
                 }
             }
 
-            // Ensure LWP is there even after recovery
-            if (!policies.some(p => String(p.leave_type || '').toLowerCase() === 'lwp') && lwpPolicy) {
-                policies.push(lwpPolicy);
+            // Keep LWP available for everyone, even if no leave policy is assigned.
+            const lwpPolicy = await getAnyActiveLwpPolicy(targetEmployee.company_id);
+            if (lwpPolicy && !allPolicies.some((p) => String(p.leave_type || '').toLowerCase() === 'lwp')) {
+                allPolicies.push(lwpPolicy);
+            }
+
+            allPolicies = dedupeBalancePolicies(allPolicies);
+
+            if (!allPolicies || allPolicies.length === 0) {
+                return res.json({ data: [] });
+            }
+
+            // --- FILTER BY ELIGIBILITY (CASE-INSENSITIVE) ---
+            policies = filterEligiblePolicies(allPolicies, targetEmployee);
+
+            // Keep LWP or policies explicitly assigned
+            policies = policies.filter((policy) => 
+                assignedPolicyIds.includes(String(policy._id)) || 
+                String(policy.leave_type || '').toLowerCase() === 'lwp'
+            );
+
+            // If only LWP is there (or nothing), try to recover from previous balances
+            if (policies.length <= 1 && (!policies[0] || String(policies[0].leave_type || '').toLowerCase() === 'lwp')) {
+                const recoveredPolicies = await recoverActivePoliciesFromBalances({
+                    targetId,
+                    currentYear,
+                    assignedPolicyIds,
+                    companyId: targetEmployee.company_id
+                });
+
+                if (recoveredPolicies.length > 0) {
+                    policies = filterEligiblePolicies(recoveredPolicies, targetEmployee);
+                    if (policies.length > 0) {
+                        await UserModel.updateOne(
+                            { _id: targetId },
+                            {
+                                $addToSet: {
+                                    'leave_settings.special_leave_policies': {
+                                        $each: policies.map((p) => p._id)
+                                    }
+                                }
+                            }
+                        );
+                    }
+                }
+
+                // Ensure LWP is there even after recovery
+                if (!policies.some(p => String(p.leave_type || '').toLowerCase() === 'lwp') && lwpPolicy) {
+                    policies.push(lwpPolicy);
+                }
             }
         }
 
@@ -547,13 +593,25 @@ export const getBalance = async (req, res) => {
             // Extract balance values
             const openingBalance = userBalance?.opening_balance ?? getDefaultOpeningBalance(policy);
             const applicationUsage = usageByPolicy.get(String(policy._id)) || {};
-            const used = isUnpaidPolicy ? 0 : Number(userBalance?.used ?? userBalance?.consumed ?? applicationUsage.approved ?? 0);
-            const pending = isUnpaidPolicy ? 0 : Number(userBalance?.pending_approval ?? userBalance?.pending ?? applicationUsage.pending ?? 0);
+            
+            let used = Number(userBalance?.used ?? userBalance?.consumed ?? applicationUsage.approved ?? 0);
+            let pending = Number(userBalance?.pending_approval ?? userBalance?.pending ?? applicationUsage.pending ?? 0);
+
+            if (isRabsUser) {
+                // For RABS, used count includes both approved and pending.
+                const approvedCount = Number(userBalance?.used ?? userBalance?.consumed ?? applicationUsage.approved ?? 0);
+                const pendingCount = Number(userBalance?.pending_approval ?? userBalance?.pending ?? applicationUsage.pending ?? 0);
+                used = approvedCount + pendingCount;
+                // Pending represents remaining balance (opening - used)
+                pending = Math.max(0, Number(openingBalance || 0) - used);
+            }
 
             // Balance Info
-            const availableFromBalance = isUnpaidPolicy
-                ? 0
-                : Math.max(0, Number(openingBalance || 0) - used - pending);
+            const availableFromBalance = isRabsUser
+                ? pending
+                : (isUnpaidPolicy
+                    ? Math.max(0, (openingBalance > 1000000 ? 2000 : openingBalance) - used - pending)
+                    : Math.max(0, Number(openingBalance || 0) - used - pending));
             
             return {
                 _id: policy._id,
@@ -745,7 +803,11 @@ export const previewLeave = async (req, res) => {
             }
         }
 
-        const policy = await LeavePolicy.findById(leave_policy_id);
+        const policy = await LeavePolicy.findOne({
+            _id: leave_policy_id,
+            status: 'active',
+            ...(targetUser.company_id ? { company_id: targetUser.company_id } : {})
+        });
         if (!policy) return res.status(404).json({ message: 'Policy not found' });
 
         const actualToDate = to_date || from_date;
@@ -800,7 +862,7 @@ export const previewLeave = async (req, res) => {
         let balance = pickBalanceForPolicy(balancesForYear, policy);
 
         const isLwpPolicy = String(policy?.leave_type || '').toLowerCase() === 'lwp';
-        if (balance && !isLwpPolicy) {
+        if (balance) {
             balance = await syncBalanceFromApplications({
                 employeeId: targetId,
                 year: applicationYear,
@@ -809,13 +871,14 @@ export const previewLeave = async (req, res) => {
             });
         }
         
+//const isLwpPolicy = String(policy?.leave_type || '').toLowerCase() === 'lwp';
         // Get available balance (already accounts for pending applications)
-        const primaryBalance = isLwpPolicy ? 0 : resolveAvailableFromBalance(balance);
+        const primaryBalance = isLwpPolicy
+            ? Math.max(0, (balance?.opening_balance || 2000) - Number(balance?.used || 0) - Number(balance?.pending_approval || 0))
+            : resolveAvailableFromBalance(balance);
         
         // Calculate projected balance after this leave application
-        const projectedBalance = isLwpPolicy
-            ? 0
-            : Math.max(0, primaryBalance - Number(result.totalDays || 0));
+        const projectedBalance = Math.max(0, primaryBalance - Number(result.totalDays || 0));
 
         res.json({
             success: true,
@@ -885,13 +948,28 @@ export const applyLeave = async (req, res) => {
 
         let policy = await LeavePolicy.findOne({
             _id: leave_policy_id,
-            status: 'active'
+            status: 'active',
+            company_id: companyId
         });
         if (!policy) {
             return res.status(404).json({ message: 'Leave policy not found or inactive' });
         }
 
-        if (!assignedPolicyIds.includes(String(policy._id))) {
+        const rabsCompany = await Company.findOne({ company_name: /RABS Industries India Private Limited/i });
+        const rabsCompanyId = rabsCompany?._id;
+        const userCompanyId = user.company_id?._id || user.company_id;
+        const isRabsUser = rabsCompanyId && String(userCompanyId) === String(rabsCompanyId);
+
+        if (isRabsUser) {
+            if (String(policy.company_id) === String(rabsCompanyId)) {
+                if (!assignedPolicyIds.includes(String(policy._id))) {
+                    await UserModel.updateOne(
+                        { _id: user._id },
+                        { $addToSet: { 'leave_settings.special_leave_policies': policy._id } }
+                    );
+                }
+            }
+        } else if (!assignedPolicyIds.includes(String(policy._id))) {
             const isLwpPolicy = String(policy.leave_type || '').toLowerCase() === 'lwp';
 
             if (isLwpPolicy) {
@@ -1029,29 +1107,26 @@ export const applyLeave = async (req, res) => {
             }
         }
 
-        let isUnpaidLeave = String(policy.leave_type || '').toLowerCase() === 'lwp';
+        balanceRecord = await syncBalanceFromApplications({
+            employeeId: user._id,
+            year: currentYear,
+            policy,
+            balanceRecord
+        });
 
-        if (!isUnpaidLeave) {
+        let isUnpaidLeave = String(policy.leave_type || '').toLowerCase() === 'lwp';
+        let availableBalance = isUnpaidLeave ? Number.MAX_SAFE_INTEGER : resolveAvailableFromBalance(balanceRecord);
+
+        // Re-fetch the most recent balance to ensure we have the latest state
+        const latestBalance = await LeaveBalance.findById(balanceRecord._id);
+        if (latestBalance) {
             balanceRecord = await syncBalanceFromApplications({
                 employeeId: user._id,
                 year: currentYear,
                 policy,
-                balanceRecord
+                balanceRecord: latestBalance
             });
-        }
-
-        let availableBalance = isUnpaidLeave ? Number.MAX_SAFE_INTEGER : resolveAvailableFromBalance(balanceRecord);
-
-        // Re-fetch the most recent balance to ensure we have the latest state
-        if (!isUnpaidLeave) {
-            const latestBalance = await LeaveBalance.findById(balanceRecord._id);
-            if (latestBalance) {
-                balanceRecord = await syncBalanceFromApplications({
-                    employeeId: user._id,
-                    year: currentYear,
-                    policy,
-                    balanceRecord: latestBalance
-                });
+            if (!isUnpaidLeave) {
                 availableBalance = resolveAvailableFromBalance(balanceRecord);
             }
         }
@@ -1130,75 +1205,97 @@ export const applyLeave = async (req, res) => {
         // HOD check: any user with HOD role OR who is actually HOD of some team
         const isHodUser = isHodRole(user.role) || !!isActuallyHodOfSomeTeam;
 
-        // --- CUSTOM ROUTING FOR HOD & ADMINS ---
-        if (applicantUsername === 'uday_zope') {
-            // Uday Zope Exception: goes first to punit_pandey (Stage 1) then Shalini (Stage 2)
-            const punitUser = await UserModel.findOne({ username: 'punit_pandey', isActive: true });
-            if (!punitUser) {
-                return res.status(400).json({ message: 'Unable to route leave approval: punit_pandey is not configured or active' });
+        // --- CUSTOM ROUTING FOR HOD & ADMINS & RABS ---
+       // const rabsCompany = await Company.findOne({ company_name: /RABS Industries India Private Limited/i });
+        const isRabs = rabsCompany && String(companyId) === String(rabsCompany._id);
+
+        if (isRabs) {
+            const ajithUser = await UserModel.findOne({ username: 'ajith_sivadasan', isActive: true });
+            if (!ajithUser) {
+                return res.status(400).json({ message: 'Unable to route leave approval: Ajith Sivadasan is not active or configured' });
             }
             assignedStage = 'stage_1_hod';
-            currentApproverId = punitUser._id;
-        } else if (applicantUsername === STAGE_2_APPROVER_USERNAME) {
-            // Shalini applying -> Goes to other allowed admins except uday_zope (any of manu, suraj, rajan)
-            assignedStage = 'stage_3_final';
-            currentApproverId = undefined; // Group approval at stage 3
-        } else if (STAGE_3_FINAL_APPROVER_USERNAMES.has(applicantUsername)) {
-            // Other Stage 3 Admins applying -> Self-approve at Stage 3
-            assignedStage = 'stage_3_final';
-            currentApproverId = user._id;
-        } else if (isHodUser) {
-            // Any HOD (with or without hod_id) -> Bypasses Shalini and goes directly to Stage 3 designated Admin approvers
-            assignedStage = 'stage_3_final';
-            currentApproverId = undefined;
-        }
-
-        if (!currentApproverId && assignedStage !== 'stage_3_final') {
-            return res.status(400).json({
-                message: 'Unable to route leave approval: no active Team HOD assigned for this employee'
-            });
-        }
-
-        const isBypassedHod = isHodUser && applicantUsername !== 'uday_zope';
-        const isShaliniApplicant = applicantUsername === STAGE_2_APPROVER_USERNAME;
-        const isDirectToStage3 = isBypassedHod || isShaliniApplicant;
-
-        approvalChain = [
-            {
-                level: 1,
-                stage: 'stage_1_hod',
-                approver_id: isDirectToStage3 ? actorObjectId : (currentApproverId === shaliniUser._id ? actorObjectId : currentApproverId),
-                approver_role: 'HOD',
-                action: isDirectToStage3 ? 'approved' : (assignedStage === 'stage_1_hod' ? 'pending' : 'approved'),
-                action_date: isDirectToStage3 ? new Date() : (assignedStage === 'stage_1_hod' ? undefined : new Date()),
-                comments: isDirectToStage3 ? 'Stage skipped for HOD/admin requester' : (assignedStage === 'stage_1_hod' ? undefined : 'Stage skipped for admin requester')
-            },
-            {
-                level: 2,
-                stage: 'stage_2_shalini',
-                approver_id: shaliniUser._id,
-                approver_username: STAGE_2_APPROVER_USERNAME,
-                approver_role: 'ADMIN',
-                action: assignedStage === 'stage_1_hod' 
-                            ? 'pending' 
-                            : (assignedStage === 'stage_2_shalini' ? 'pending' : 'approved'),
-                action_date: (assignedStage === 'stage_3_final' && !isBypassedHod) ? new Date() : (isBypassedHod ? new Date() : undefined),
-                comments: isBypassedHod ? 'Stage skipped for HOD requester' : (assignedStage === 'stage_3_final' ? 'Stage skipped for senior admin requester' : undefined)
-            },
-            {
-                level: 3,
-                stage: 'stage_3_final',
-                approver_id: (assignedStage === 'stage_3_final' ? currentApproverId : undefined),
-                approver_role: 'ADMIN',
-                action: 'pending',
-                comments: 'Final approver group'
+            currentApproverId = ajithUser._id;
+            approvalChain = [
+                {
+                    level: 1,
+                    stage: 'stage_1_hod',
+                    approver_id: ajithUser._id,
+                    approver_username: 'ajith_sivadasan',
+                    approver_role: 'ADMIN',
+                    action: 'pending'
+                }
+            ];
+        } else {
+            if (applicantUsername === 'uday_zope') {
+                // Uday Zope Exception: goes first to punit_pandey (Stage 1) then Shalini (Stage 2)
+                const punitUser = await UserModel.findOne({ username: 'punit_pandey', isActive: true });
+                if (!punitUser) {
+                    return res.status(400).json({ message: 'Unable to route leave approval: punit_pandey is not configured or active' });
+                }
+                assignedStage = 'stage_1_hod';
+                currentApproverId = punitUser._id;
+            } else if (applicantUsername === STAGE_2_APPROVER_USERNAME) {
+                // Shalini applying -> Goes to other allowed admins except uday_zope (any of manu, suraj, rajan)
+                assignedStage = 'stage_3_final';
+                currentApproverId = undefined; // Group approval at stage 3
+            } else if (STAGE_3_FINAL_APPROVER_USERNAMES.has(applicantUsername)) {
+                // Other Stage 3 Admins applying -> Self-approve at Stage 3
+                assignedStage = 'stage_3_final';
+                currentApproverId = user._id;
+            } else if (isHodUser) {
+                // Any HOD (with or without hod_id) -> Bypasses Shalini and goes directly to Stage 3 designated Admin approvers
+                assignedStage = 'stage_3_final';
+                currentApproverId = undefined;
             }
-        ]
-            .map((step) => ({
-                ...step,
-                action: ['pending', 'approved', 'rejected'].includes(step.action) ? step.action : 'pending'
-            }))
-            .filter((step) => step.action);
+
+            if (!currentApproverId && assignedStage !== 'stage_3_final') {
+                return res.status(400).json({
+                    message: 'Unable to route leave approval: no active Team HOD assigned for this employee'
+                });
+            }
+
+            const isBypassedHod = isHodUser && applicantUsername !== 'uday_zope';
+            const isShaliniApplicant = applicantUsername === STAGE_2_APPROVER_USERNAME;
+            const isDirectToStage3 = isBypassedHod || isShaliniApplicant;
+
+            approvalChain = [
+                {
+                    level: 1,
+                    stage: 'stage_1_hod',
+                    approver_id: isDirectToStage3 ? actorObjectId : (currentApproverId === shaliniUser._id ? actorObjectId : currentApproverId),
+                    approver_role: 'HOD',
+                    action: isDirectToStage3 ? 'approved' : (assignedStage === 'stage_1_hod' ? 'pending' : 'approved'),
+                    action_date: isDirectToStage3 ? new Date() : (assignedStage === 'stage_1_hod' ? undefined : new Date()),
+                    comments: isDirectToStage3 ? 'Stage skipped for HOD/admin requester' : (assignedStage === 'stage_1_hod' ? undefined : 'Stage skipped for admin requester')
+                },
+                {
+                    level: 2,
+                    stage: 'stage_2_shalini',
+                    approver_id: shaliniUser._id,
+                    approver_username: STAGE_2_APPROVER_USERNAME,
+                    approver_role: 'ADMIN',
+                    action: assignedStage === 'stage_1_hod' 
+                                ? 'pending' 
+                                : (assignedStage === 'stage_2_shalini' ? 'pending' : 'approved'),
+                    action_date: (assignedStage === 'stage_3_final' && !isBypassedHod) ? new Date() : (isBypassedHod ? new Date() : undefined),
+                    comments: isBypassedHod ? 'Stage skipped for HOD requester' : (assignedStage === 'stage_3_final' ? 'Stage skipped for senior admin requester' : undefined)
+                },
+                {
+                    level: 3,
+                    stage: 'stage_3_final',
+                    approver_id: (assignedStage === 'stage_3_final' ? currentApproverId : undefined),
+                    approver_role: 'ADMIN',
+                    action: 'pending',
+                    comments: 'Final approver group'
+                }
+            ]
+                .map((step) => ({
+                    ...step,
+                    action: ['pending', 'approved', 'rejected'].includes(step.action) ? step.action : 'pending'
+                }))
+                .filter((step) => step.action);
+        }
 
         // --- TRANSACTION START ---
         // session.startTransaction(); removed to support standalone MongoDB
@@ -1211,14 +1308,12 @@ export const applyLeave = async (req, res) => {
                 throw new Error('Balance record was unexpectedly deleted during transaction');
             }
 
-            if (!isUnpaidLeave) {
-                currentBalance = await syncBalanceFromApplications({
-                    employeeId: user._id,
-                    year: currentYear,
-                    policy,
-                    balanceRecord: currentBalance
-                });
-            }
+            currentBalance = await syncBalanceFromApplications({
+                employeeId: user._id,
+                year: currentYear,
+                policy,
+                balanceRecord: currentBalance
+            });
 
             const currentAvailable = isUnpaidLeave ? Number.MAX_SAFE_INTEGER : resolveAvailableFromBalance(currentBalance);
             // console.log(`[DEBUG] Current available balance: ${currentAvailable}, Required: ${total_days}, LeaveType: ${policy.leave_type}`);
@@ -1486,7 +1581,7 @@ export const cancelLeave = async (req, res) => {
             }
             await application.save();
 
-            if (balanceRecord && !isLwp) {
+            if (balanceRecord) {
                 await syncBalanceFromApplications({
                     employeeId: application.employee_id,
                     year: currentYear,
@@ -1510,7 +1605,7 @@ export const cancelLeave = async (req, res) => {
         if (cancellation_reason) application.cancellation_reason = cancellation_reason;
         await application.save();
 
-        if (balanceRecord && !isLwp) {
+        if (balanceRecord) {
             await syncBalanceFromApplications({
                 employeeId: application.employee_id,
                 year: currentYear,
@@ -1544,8 +1639,17 @@ export const updateBalance = async (req, res) => {
         const pendingNum = normalizedPending !== undefined ? Number(normalizedPending) : undefined;
 
         // Verify admin has permission
-        if (!admin || !['ADMIN', 'Admin'].includes(admin.role)) {
+        const isAllowedAdmin = admin && (['ADMIN', 'Admin'].includes(admin.role) || admin.isAttendanceAllowedAdmin === true);
+        if (!isAllowedAdmin) {
             return res.status(403).json({ message: 'Only admins can update leave balances' });
+        }
+
+        // Team restriction for restricted admins
+        if (isRestrictedAllowedAdmin(admin)) {
+            const allowedIds = await getRestrictedEmployeeIds(admin);
+            if (!allowedIds || !allowedIds.includes(String(employee_id))) {
+                return res.status(403).json({ message: 'Forbidden: Member not in your team' });
+            }
         }
 
         // Validate inputs
@@ -1585,13 +1689,17 @@ export const updateBalance = async (req, res) => {
             return res.status(404).json({ message: `Employee with ID ${employee_id} not found` });
         }
 
-        const policy = await LeavePolicy.findOne({ _id: leave_policy_id, status: 'active' });
+        const employeeCompanyId = employee.company_id?._id || employee.company_id;
+        const policy = await LeavePolicy.findOne({
+            _id: leave_policy_id,
+            status: 'active',
+            ...(employeeCompanyId ? { company_id: employeeCompanyId } : {})
+        });
         if (!policy) {
             console.error('[Leave Update] Policy not found/inactive:', { leave_policy_id, employee: employee.username });
             return res.status(404).json({ message: `Leave policy (ID: ${leave_policy_id}) not found or inactive` });
         }
 
-        const employeeCompanyId = employee.company_id?._id || employee.company_id;
         const resolvedCompanyId =
             employeeCompanyId ||
             policy.company_id?._id ||
@@ -1599,14 +1707,17 @@ export const updateBalance = async (req, res) => {
             admin.company_id?._id ||
             admin.company_id;
 
+        const rabsCompany = await Company.findOne({ company_name: /RABS Industries India Private Limited/i });
+        const isRabsUser = rabsCompany && employeeCompanyId && String(employeeCompanyId) === String(rabsCompany._id);
+
         // Calculate next values
         const nextUsed = usedNum !== undefined ? usedNum : 0;
-        const nextPending = pendingNum !== undefined ? pendingNum : 0;
+        const nextPending = isRabsUser ? 0 : (pendingNum !== undefined ? pendingNum : 0);
         const isUnpaidPolicy = String(policy.leave_type || '').toLowerCase() === 'lwp';
         const remainingBeforePending = Math.max(0, openingNum - nextUsed);
-        const actualRemaining = Math.max(0, openingNum - nextUsed - nextPending);
+        const actualRemaining = isRabsUser ? Math.max(0, openingNum - nextUsed) : Math.max(0, openingNum - nextUsed - nextPending);
 
-        if (!isUnpaidPolicy && nextPending > remainingBeforePending) {
+        if (!isRabsUser && !isUnpaidPolicy && nextPending > remainingBeforePending) {
             return res.status(400).json({
                 message: 'Invalid balance: pending cannot exceed remaining paid balance'
             });
@@ -1692,7 +1803,7 @@ export const updateBalance = async (req, res) => {
                 leave_type: balanceRecord.leave_type,
                 opening_balance: balanceRecord.opening_balance,
                 used: balanceRecord.used,
-                pending: balanceRecord.pending_approval,
+                pending: isRabsUser ? Math.max(0, balanceRecord.opening_balance - balanceRecord.used) : balanceRecord.pending_approval,
                 pending_approval: balanceRecord.pending_approval,
                 closing_balance: balanceRecord.closing_balance,
                 year: balanceRecord.year

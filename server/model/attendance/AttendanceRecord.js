@@ -82,7 +82,12 @@ const recordSchema = new mongoose.Schema({
   processed_by: { type: String, enum: ['system', 'admin', 'cron'], default: 'system' },
 
   is_half_day: { type: Boolean, default: false },
-  half_day_session: { type: String, enum: ['first_half', 'second_half', null], default: null }
+  half_day_session: { type: String, enum: ['first_half', 'second_half', null], default: null },
+
+  // ─── Payroll Integration ─────────────────────────────────────────────────
+  regular_hours: { type: Number, default: 0 },        // Hours capped at shift limit
+  overtime_minutes: { type: Number, default: 0 },      // Raw OT minutes after grace
+  payroll_processed: { type: Boolean, default: false }  // Locked after payroll generation
 
 }, { timestamps: true });
 

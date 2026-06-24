@@ -8,6 +8,9 @@ import User from '../../model/userModel.mjs';
 import Department from '../../model/attendance/Department.js';
 import Branch from '../../model/branchModel.mjs';
 import UserBranchModel from '../../model/userBranchModel.mjs';
+import { isRestrictedAllowedAdmin, getRestrictedEmployeeIds } from '../../utils/attendance/allowedAdminRestriction.mjs';
+import { ALLOWED_USERNAMES } from '../../middleware/requireAllowedAdmin.mjs';
+
 
 const LEGACY_ATTENDANCE_CONFIG_KEYS = [
   'grace_in_minutes',
@@ -188,6 +191,33 @@ export const getShifts = async (req, res) => {
       ? {}
       : { company_id: companyId };
 
+    // Apply RABS visibility scoping
+    const rabsCompany = await Company.findOne({ company_name: /RABS Industries India Private Limited/i });
+    const rabsCompanyId = rabsCompany?._id;
+    const userCompanyId = req.user.company_id?._id || req.user.company_id;
+    const isRabsUser = rabsCompanyId && String(userCompanyId) === String(rabsCompanyId);
+
+    if (isRabsUser) {
+      baseFilters.company_id = rabsCompanyId;
+      const rabsUsers = await User.find({ company_id: rabsCompanyId }).select('_id');
+      const rabsUserIds = rabsUsers.map(u => u._id);
+      baseFilters.$or = [
+        { created_by: { $in: rabsUserIds } },
+        { created_by: { $exists: false } },
+        { created_by: null }
+      ];
+    } else {
+      if (rabsCompanyId) {
+        if (baseFilters.company_id) {
+          if (String(baseFilters.company_id) === String(rabsCompanyId)) {
+            baseFilters.company_id = null;
+          }
+        } else {
+          baseFilters.company_id = { $ne: rabsCompanyId };
+        }
+      }
+    }
+
     const result = await QueryBuilder.build(
       Shift,
       queryParams,
@@ -232,7 +262,16 @@ export const bulkAssignShifts = async (req, res) => {
       return res.status(400).json({ message: 'employeeIds and shiftId are required' });
     }
 
+    if (isRestrictedAllowedAdmin(req.user)) {
+      const restrictedIds = await getRestrictedEmployeeIds(req.user);
+      const allAllowed = employeeIds.every(id => restrictedIds.includes(String(id)));
+      if (!allAllowed) {
+        return res.status(403).json({ message: 'Forbidden: One or more employees are not in your team' });
+      }
+    }
+
     const shift = await Shift.findOne({ _id: shiftId, company_id: companyId });
+
     if (!shift) return res.status(404).json({ message: 'Shift not found for this company' });
 
     const result = await User.updateMany(
@@ -367,9 +406,29 @@ export const getLeavePolicies = async (req, res) => {
   try {
     const companyId = resolveCompanyId(req);
     const filter = { company_id: companyId, status: 'active' };
+
+    // Apply RABS visibility scoping
+    const rabsCompany = await Company.findOne({ company_name: /RABS Industries India Private Limited/i });
+    const rabsCompanyId = rabsCompany?._id;
+    const userCompanyId = req.user.company_id?._id || req.user.company_id;
+    const isRabsUser = rabsCompanyId && String(userCompanyId) === String(rabsCompanyId);
+
+    if (isRabsUser) {
+      // RABS users only see RABS policies created by RABS users (HR/Admin)
+      filter.company_id = rabsCompanyId;
+      const rabsUsers = await User.find({ company_id: rabsCompanyId }).select('_id');
+      const rabsUserIds = rabsUsers.map(u => u._id);
+      filter.created_by = { $in: rabsUserIds };
+    } else {
+      // Non-RABS users do not see RABS policies
+      if (rabsCompanyId) {
+        filter.company_id = { $ne: rabsCompanyId };
+      }
+    }
     
+    const isUserAdmin = req.user.role === 'ADMIN' || isRestrictedAllowedAdmin(req.user);
     // For non-admins, show only policies they are eligible for
-    if (req.user.role !== 'ADMIN') {
+    if (!isUserAdmin) {
       const userType = req.user.employment_type;
       const userGender = req.user.gender;
       
@@ -672,6 +731,13 @@ export const migrateUser = async (req, res) => {
       return res.status(400).json({ message: 'userId and targetCompanyId are required' });
     }
 
+    if (isRestrictedAllowedAdmin(req.user)) {
+      const restrictedIds = await getRestrictedEmployeeIds(req.user);
+      if (!restrictedIds || !restrictedIds.includes(String(userId))) {
+        return res.status(403).json({ message: 'Forbidden: Member not in your team' });
+      }
+    }
+
     const targetCompany = await Company.findById(targetCompanyId);
     if (!targetCompany) return res.status(404).json({ message: 'Target company not found' });
 
@@ -785,15 +851,13 @@ export const getOrganizationMigrationHistory = async (req, res) => {
   }
 };
 
-import { ALLOWED_USERNAMES } from '../../middleware/requireAllowedAdmin.mjs';
-
 export const getUsers = async (req, res) => {
   try {
     const { all_companies, department_id } = req.query;
     
     let query = {};
     const username = (req.user?.username || '').toLowerCase();
-    const isGlobalAdmin = (req.user?.role === 'ADMIN' && ALLOWED_USERNAMES.has(username));
+    const isGlobalAdmin = (req.user?.role?.toUpperCase() === 'ADMIN' && ALLOWED_USERNAMES.has(username));
 
     if (all_companies === 'true' && isGlobalAdmin) {
       // Global admin can see users from all companies if explicitly requested
@@ -803,12 +867,25 @@ export const getUsers = async (req, res) => {
       query = { company_id: companyId };
     }
 
+    if (isRestrictedAllowedAdmin(req.user)) {
+      const restrictedIds = await getRestrictedEmployeeIds(req.user);
+      if (restrictedIds) {
+        query._id = { $in: restrictedIds };
+      }
+    }
+
     if (department_id && department_id !== 'all') {
       query.department_id = department_id;
     }
 
     if (req.query.isActive !== undefined) {
       query.isActive = req.query.isActive === 'true' || req.query.isActive === true;
+    }
+
+    // Filter out drivers always, and dev_master in production
+    query.role = { $nin: ['driver', 'Driver'] };
+    if (process.env.NODE_ENV === 'production') {
+      query.username = { $ne: 'dev_master' };
     }
 
     const users = await User.find(query)

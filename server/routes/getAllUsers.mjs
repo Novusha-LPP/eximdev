@@ -13,8 +13,14 @@ router.get("/api/get-all-users", async (req, res) => {
     query.isActive = { $ne: false };
   }
 
+  // Filter out drivers always, and dev_master in production
+  query.role = { $nin: ['driver', 'Driver'] };
+  if (process.env.NODE_ENV === 'production') {
+    query.username = { $ne: 'dev_master' };
+  }
+
   const users = await UserModel.find(query).select(
-    "username role _id first_name last_name isActive deactivatedAt modules"
+    "username role _id first_name last_name isActive deactivatedAt modules isAttendanceAllowedAdmin is_operator"
   );
 
   res.send(users);
@@ -33,7 +39,7 @@ router.post("/api/get-users-by-usernames", async (req, res) => {
       isActive: { $ne: false }
     })
     .select(
-      "username role _id first_name last_name isActive deactivatedAt modules employee_photo department employee_code mobile branch_id designation company current_status"
+      "username role _id first_name last_name isActive deactivatedAt modules employee_photo department employee_code mobile branch_id designation company current_status isAttendanceAllowedAdmin is_operator"
     )
     .populate("branch_id", "branch_name branch_code");
 

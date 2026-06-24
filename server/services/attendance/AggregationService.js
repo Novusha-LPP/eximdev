@@ -112,13 +112,14 @@ class AggregationService {
      * Supports optional org/dept/team filtering
      * Returns: { global_summary, org_breakdown, pending_requests }
      */
-    static async getGlobalDashboardSummary(date, organizationIds = [], departmentIds = [], teamIds = []) {
+    static async getGlobalDashboardSummary(date, organizationIds = [], departmentIds = [], teamIds = [], restrictedEmployeeIds = null) {
         try {
             const cacheKey = this.createCacheKey('globalSummary', [
                 moment.utc(date).startOf('day').format('YYYY-MM-DD'),
                 this.normalizeFilterIds(organizationIds),
                 this.normalizeFilterIds(departmentIds),
-                this.normalizeFilterIds(teamIds)
+                this.normalizeFilterIds(teamIds),
+                restrictedEmployeeIds ? restrictedEmployeeIds.sort().join(',') : ''
             ]);
 
             const cachedValue = this.getCachedValue(cacheKey);
@@ -132,7 +133,9 @@ class AggregationService {
             // 1. Build employee scope based on org/dept/team filters
             let employeeScope = null;
 
-            if (teamIds.length > 0) {
+            if (restrictedEmployeeIds) {
+                employeeScope = restrictedEmployeeIds.map(id => new mongoose.Types.ObjectId(id));
+            } else if (teamIds.length > 0) {
                 // Team-level drilling
                 const teams = await TeamModel.find({
                     _id: { $in: teamIds.map(id => new mongoose.Types.ObjectId(id)) },
@@ -488,7 +491,7 @@ class AggregationService {
     /**
      * Get daily summary with employee-level details
      */
-    static async getDailyEmployeeSummary(date, organizationIds = [], departmentIds = [], teamIds = [], pagination = {}) {
+    static async getDailyEmployeeSummary(date, organizationIds = [], departmentIds = [], teamIds = [], pagination = {}, restrictedEmployeeIds = null) {
         try {
             const targetDate = moment.utc(date).startOf('day').toDate();
             const companyFilter = this.buildCompanyFilter(organizationIds);
@@ -499,7 +502,9 @@ class AggregationService {
             // Build employee scope
             let employeeScope = null;
 
-            if (teamIds.length > 0) {
+            if (restrictedEmployeeIds) {
+                employeeScope = restrictedEmployeeIds.map(id => new mongoose.Types.ObjectId(id));
+            } else if (teamIds.length > 0) {
                 const teams = await TeamModel.find({
                     _id: { $in: teamIds.map(id => new mongoose.Types.ObjectId(id)) },
                     isActive: { $ne: false }
@@ -615,13 +620,14 @@ class AggregationService {
     /**
      * Get monthly summary with trends and employee stats
      */
-    static async getMonthlySummary(year, month, organizationIds = [], departmentIds = [], teamIds = []) {
+    static async getMonthlySummary(year, month, organizationIds = [], departmentIds = [], teamIds = [], restrictedEmployeeIds = null) {
         try {
             const cacheKey = this.createCacheKey('monthlySummary', [
                 `${year}-${String(month).padStart(2, '0')}`,
                 this.normalizeFilterIds(organizationIds),
                 this.normalizeFilterIds(departmentIds),
-                this.normalizeFilterIds(teamIds)
+                this.normalizeFilterIds(teamIds),
+                restrictedEmployeeIds ? restrictedEmployeeIds.sort().join(',') : ''
             ]);
 
             const cachedValue = this.getCachedValue(cacheKey);
@@ -638,7 +644,9 @@ class AggregationService {
             // Build employee scope
             let employeeScope = null;
 
-            if (teamIds.length > 0) {
+            if (restrictedEmployeeIds) {
+                employeeScope = restrictedEmployeeIds.map(id => new mongoose.Types.ObjectId(id));
+            } else if (teamIds.length > 0) {
                 const teams = await TeamModel.find({
                     _id: { $in: teamIds.map(id => new mongoose.Types.ObjectId(id)) },
                     isActive: { $ne: false }
@@ -800,7 +808,7 @@ class AggregationService {
     /**
      * Get leave requests with approval chain
      */
-    static async getLeaveRequests(organizationIds = [], status = 'pending', pagination = {}) {
+    static async getLeaveRequests(organizationIds = [], status = 'pending', pagination = {}, restrictedEmployeeIds = null) {
         try {
             const cacheKey = this.createCacheKey('leaveRequests', [
                 this.normalizeFilterIds(organizationIds),
@@ -808,7 +816,8 @@ class AggregationService {
                 {
                     page: pagination.page || 1,
                     limit: pagination.limit || 50
-                }
+                },
+                restrictedEmployeeIds ? restrictedEmployeeIds.sort().join(',') : ''
             ]);
 
             const cachedValue = this.getCachedValue(cacheKey);
@@ -824,6 +833,10 @@ class AggregationService {
             const query = {
                 ...companyFilter
             };
+
+            if (restrictedEmployeeIds) {
+                query.employee_id = { $in: restrictedEmployeeIds.map(id => new mongoose.Types.ObjectId(id)) };
+            }
 
             if (status === 'pending') {
                 query.approval_status = { $in: ['pending', 'pending_hod', 'pending_shalini', 'pending_final'] };
@@ -878,14 +891,15 @@ class AggregationService {
     /**
      * Get regularization requests
      */
-    static async getRegularizationRequests(organizationIds = [], pagination = {}) {
+    static async getRegularizationRequests(organizationIds = [], pagination = {}, restrictedEmployeeIds = null) {
         try {
             const cacheKey = this.createCacheKey('regularizationRequests', [
                 this.normalizeFilterIds(organizationIds),
                 {
                     page: pagination.page || 1,
                     limit: pagination.limit || 50
-                }
+                },
+                restrictedEmployeeIds ? restrictedEmployeeIds.sort().join(',') : ''
             ]);
 
             const cachedValue = this.getCachedValue(cacheKey);
@@ -902,6 +916,10 @@ class AggregationService {
                 status: 'pending',
                 ...companyFilter
             };
+
+            if (restrictedEmployeeIds) {
+                query.employee_id = { $in: restrictedEmployeeIds.map(id => new mongoose.Types.ObjectId(id)) };
+            }
 
             const total = await RegularizationRequest.countDocuments(query);
 
@@ -943,9 +961,12 @@ class AggregationService {
     /**
      * Get organization/department/team hierarchy for filters
      */
-    static async getHierarchy(organizationIds = []) {
+    static async getHierarchy(organizationIds = [], restrictedEmployeeIds = null) {
         try {
-            const cacheKey = this.createCacheKey('hierarchy', [this.normalizeFilterIds(organizationIds)]);
+            const cacheKey = this.createCacheKey('hierarchy', [
+                this.normalizeFilterIds(organizationIds),
+                restrictedEmployeeIds ? restrictedEmployeeIds.sort().join(',') : ''
+            ]);
 
             const cachedValue = this.getCachedValue(cacheKey);
             if (cachedValue) {
@@ -955,10 +976,15 @@ class AggregationService {
             const companyFilter = this.buildCompanyFilter(organizationIds);
 
             // Get all companies
-            const companies = await User.distinct('company_id', {
+            const query = {
                 isActive: { $ne: false },
                 ...companyFilter
-            });
+            };
+            if (restrictedEmployeeIds) {
+                query._id = { $in: restrictedEmployeeIds.map(id => new mongoose.Types.ObjectId(id)) };
+            }
+
+            const companies = await User.distinct('company_id', query);
 
             const companyDocs = await User.find({ company_id: { $in: companies }, isActive: { $ne: false } })
                 .populate('company_id', '_id company_name')
@@ -980,26 +1006,39 @@ class AggregationService {
 
             // Count employees per org
             for (const org of organizations) {
-                const count = await User.countDocuments({
+                const countQuery = {
                     company_id: org.id,
                     isActive: { $ne: false },
                     ...companyFilter
-                });
+                };
+                if (restrictedEmployeeIds) {
+                    countQuery._id = { $in: restrictedEmployeeIds.map(id => new mongoose.Types.ObjectId(id)) };
+                }
+                const count = await User.countDocuments(countQuery);
                 org.employee_count = count;
             }
 
             // Get departments
-            const departments = await User.distinct('department_id', {
+            const deptQuery = {
                 isActive: { $ne: false },
                 ...companyFilter,
                 department_id: { $ne: null }
-            });
+            };
+            if (restrictedEmployeeIds) {
+                deptQuery._id = { $in: restrictedEmployeeIds.map(id => new mongoose.Types.ObjectId(id)) };
+            }
+            const departments = await User.distinct('department_id', deptQuery);
 
             // Get teams
-            const teams = await TeamModel.find({
-                isActive: { $ne: false },
-                ...(organizationIds.length > 0 ? {} : {}) // Can add company filter if needed
-            }).select('_id name members').lean();
+            let teamsQuery = { isActive: { $ne: false } };
+            if (restrictedEmployeeIds) {
+                const objectIds = restrictedEmployeeIds.map(id => new mongoose.Types.ObjectId(id));
+                teamsQuery.$or = [
+                    { hodId: { $in: objectIds } },
+                    { "members.userId": { $in: objectIds } }
+                ];
+            }
+            const teams = await TeamModel.find(teamsQuery).select('_id name members').lean();
 
             return this.setCachedValue(cacheKey, {
                 success: true,

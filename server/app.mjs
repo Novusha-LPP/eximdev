@@ -85,6 +85,7 @@ import accountLedger from "./routes/accounts/Ledger/accountLedger.mjs";
 import getBillCover from "./routes/accounts/getBillCover.mjs";
 import rmProcurementSopRoutes from "./routes/accounts/rmProcurementSop.mjs";
 import tyreProcurementSopRoutes from "./routes/accounts/tyreProcurementSop.mjs";
+import fleetInsuranceSopRoutes from "./routes/accounts/fleetInsuranceSop.mjs";
 
 // Documentation
 import updateDocumentationJob from "./routes/documentation/updateDocumentationJob.mjs";
@@ -509,6 +510,7 @@ app.use("/api", accountLedger);
 app.use("/api", getBillCover);
 app.use("/api", rmProcurementSopRoutes);
 app.use("/api", tyreProcurementSopRoutes);
+app.use("/api", fleetInsuranceSopRoutes);
 app.use("/api/billing", invoiceGenerator);
 
 // Documentation

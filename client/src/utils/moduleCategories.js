@@ -3,6 +3,7 @@ export const moduleCategories = {
   "Billing Reports": "Accounts",
   "RM Procurement SOP": "Accounts",
   "Tyre Procurement SOP": "Accounts",
+  "Fleet Insurance SOP": "Accounts",
   "Import - Billing": "Accounts",
   "Employee Onboarding": "HR & Admin",
   HR: "HR & Admin",

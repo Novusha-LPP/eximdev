@@ -147,6 +147,7 @@ import AllUsersPage from "./AllUsersPage.js";
 import BillingReports from "../components/accounts/BillingReports.js";
 import RmProcurementSop from "../components/accounts/rmProcurementSop/RmProcurementSop.js";
 import TyreProcurementSop from "../components/accounts/tyreProcurementSop/TyreProcurementSop.js";
+import FleetInsuranceSop from "../components/accounts/fleetInsuranceSop/FleetInsuranceSop.js";
 
 // Analytics
 import AnalyticsLayout from "../components/analytics/AnalyticsLayout";
@@ -987,6 +988,14 @@ function HomePageContent() {
                   }
                 />
 
+                <Route
+                  path="/fleet-insurance"
+                  element={
+                    <ProtectedRoute requiredModule="Fleet Insurance SOP">
+                      <FleetInsuranceSop />
+                    </ProtectedRoute>
+                  }
+                />
 
                 {/* import billing */}
                 <Route

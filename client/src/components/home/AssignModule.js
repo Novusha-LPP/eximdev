@@ -23,6 +23,7 @@ const allModules = [
   "Billing Reports",
   "RM Procurement SOP",
   "Tyre Procurement SOP",
+  "Fleet Insurance SOP",
   "Employee Onboarding",
   "Employee KYC",
   "HR",

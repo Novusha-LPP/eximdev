@@ -52,6 +52,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/rm-procurement");
     case "Tyre Procurement SOP":
       return navigate("/tyre-procurement");
+    case "Fleet Insurance SOP":
+      return navigate("/fleet-insurance");
     case "Customer KYC":
       return navigate("/customer-kyc");
     case "Exit Feedback":

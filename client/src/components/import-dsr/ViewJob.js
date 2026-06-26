@@ -468,12 +468,13 @@ function JobDetails() {
   const [imexcubeShowEditor, setImexcubeShowEditor] = useState(false);
   const [imexcubeErrorDialog, setImexcubeErrorDialog] = useState({ open: false, title: "", message: "", details: null });
   const [imexcubeRawPayloadString, setImexcubeRawPayloadString] = useState("");
+  const [imexcubeSenderID, setImexcubeSenderID] = useState("SURAJAHD");
 
   // Import Terms state
   const [importTerms, setImportTerms] = useState("CIF");
 
   // Step 1: Fetch job data preview and show in dialog
-  const handleUploadToImexcube = async () => {
+  const handleUploadToImexcube = async (targetSenderID = imexcubeSenderID) => {
     const jobNumber = data?.job_number;
     if (!jobNumber) {
       setImexcubeSnackbar({ open: true, message: "Job number not found", severity: "error" });
@@ -488,7 +489,7 @@ function JobDetails() {
     try {
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/scmCube/job-data-preview`,
-        { params: { job_number: jobNumber } }
+        { params: { job_number: jobNumber, senderID: targetSenderID } }
       );
       setImexcubePreviewData(res.data);
       setImexcubeRawPayloadString(JSON.stringify(res.data.rawPayload || res.data, null, 2));
@@ -550,6 +551,7 @@ function JobDetails() {
         `${process.env.REACT_APP_API_STRING}/scmCube/upload-to-imexcube`,
         {
           job_number: jobNumber,
+          senderID: imexcubeSenderID,
           ...(parsedPayload && { customPayload: parsedPayload })
         }
       );
@@ -6023,9 +6025,28 @@ function JobDetails() {
             <Box>
               <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
                 <Box>
-                  <Typography variant="subtitle2" sx={{ color: "#666", mb: 1 }}>
-                    Review the job data before uploading:
-                  </Typography>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap", mb: 1.5 }}>
+                    <Typography variant="subtitle2" sx={{ color: "#666" }}>
+                      Review the job data before uploading:
+                    </Typography>
+                    <FormControl size="small" variant="outlined" sx={{ minWidth: 160 }}>
+                      <InputLabel id="imexcube-senderid-select-label">Sender ID</InputLabel>
+                      <Select
+                        labelId="imexcube-senderid-select-label"
+                        id="imexcube-senderid-select"
+                        label="Sender ID"
+                        value={imexcubeSenderID}
+                        onChange={(e) => {
+                          const newSender = e.target.value;
+                          setImexcubeSenderID(newSender);
+                          handleUploadToImexcube(newSender);
+                        }}
+                      >
+                        <MenuItem value="SURAJAHD">SURAJAHD (Default)</MenuItem>
+                        <MenuItem value="SURAJAMD">SURAJAMD</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Box>
                   {!imexcubeShowEditor && (
                     <Box sx={{ mb: 2 }}>
                       <Box sx={{ display: "flex", gap: 1.5, fontSize: "0.75rem", mb: 1.5 }}>

@@ -114,7 +114,7 @@ const collectMissingRequiredFields = (payload) => {
  * Helper: Build the scmCube-format job payload (reuses the same mapping logic
  * from scmCubeRoutes.mjs so we can call it internally without an HTTP round-trip).
  */
-async function buildJobPayload(job_number, isPreview = false) {
+async function buildJobPayload(job_number, isPreview = false, senderID = "SURAJAHD") {
   const job = await JobModel.findOne({ job_number }).lean();
   if (!job) throw new Error("Job not found for the provided job_number");
 
@@ -215,7 +215,7 @@ async function buildJobPayload(job_number, isPreview = false) {
         }
         return validateChar(fy, 9, true, "Financial Year");
       })(),
-      SenderID: validateChar("PROTRANS", 15, true, "SenderID"),
+      SenderID: validateChar(senderID, 15, true, "SenderID"),
     },
     BE_Details: {
       "Custom House Code": validateChar(resolvedCustomHouseCode, 6, true, "Custom House Code"),
@@ -253,7 +253,7 @@ async function buildJobPayload(job_number, isPreview = false) {
         return validateChar(hssVal === "YES" ? "Y" : "N", 1, false, "High sea sale flag");
       })(),
       "Port of Origin": validateChar(resolvedPortOfOriginCode, 6, false, "Port of Origin"),
-      "CHA Code": validateChar("NOVU", 15, false, "CHA Code"),
+      "CHA Code": validateChar("ABOFS1766LCH005", 15, false, "CHA Code"),
       "Country of Origin": validateChar(countryCode, 2, false, "Country of Origin"),
       "Country of Consignment": validateChar(countryCode, 2, false, "Country of Consignment"),
       "Port Of Shipment": validateChar(resolvedPortOfOriginCode, 6, false, "Port Of Shipment"),
@@ -376,7 +376,7 @@ async function buildJobPayload(job_number, isPreview = false) {
  * 3. Pushes the payload to IMEXCUBE CreateJob
  */
 router.post("/api/scmCube/upload-to-imexcube", async (req, res) => {
-  const { job_number, customPayload } = req.body || {};
+  const { job_number, customPayload, senderID } = req.body || {};
   try {
     if (!job_number) {
       return res.status(400).json({ error: "job_number is required" });
@@ -403,8 +403,8 @@ router.post("/api/scmCube/upload-to-imexcube", async (req, res) => {
         });
       }
     } else {
-      console.log(`[IMEXCUBE] Building payload for job: ${job_number}`);
-      jobPayload = await buildJobPayload(job_number);
+      console.log(`[IMEXCUBE] Building payload for job: ${job_number} with SenderID: ${senderID || "SURAJAHD"}`);
+      jobPayload = await buildJobPayload(job_number, false, senderID || "SURAJAHD");
     }
 
     // Step 2: Authenticate with IMEXCUBE
@@ -576,7 +576,7 @@ router.post("/api/scmCube/upload-to-imexcube", async (req, res) => {
  */
 router.get("/api/scmCube/job-data-preview", async (req, res) => {
   try {
-    const { job_number } = req.query;
+    const { job_number, senderID } = req.query;
     if (!job_number) {
       return res.status(400).json({ error: "job_number is required" });
     }
@@ -692,7 +692,7 @@ router.get("/api/scmCube/job-data-preview", async (req, res) => {
         "CHA Code": field("NOVU", true),
         "CHA Branch Code": field(brCode, true),
         "Financial Year": field(fy, true),
-        "SenderID": field("PROTRANS", true),
+        "SenderID": field(senderID || "SURAJAHD", true),
       },
       BE_Details: {
         "Custom House Code": field(resolvedCustomHouseCode, true),
@@ -716,7 +716,7 @@ router.get("/api/scmCube/job-data-preview", async (req, res) => {
         "Kachcha BE": field("N", false),
         "High sea sale flag": field(hssVal, false),
         "Port of Origin": field(resolvedPortOfOriginCode, false),
-        "CHA Code": field("NOVU", false),
+        "CHA Code": field("ABOFS1766LCH005", false),
         "Country of Origin": field(countryCode, false),
         "Country of Consignment": field(countryCode, false),
         "Port Of Shipment": field(resolvedPortOfOriginCode, false),
@@ -782,7 +782,7 @@ router.get("/api/scmCube/job-data-preview", async (req, res) => {
       ],
     };
 
-    const { payload: cleanJobPayload } = await buildJobPayload(job_number, true);
+    const { payload: cleanJobPayload } = await buildJobPayload(job_number, true, senderID || "SURAJAHD");
 
     return res.status(200).json({
       annotated: preview,

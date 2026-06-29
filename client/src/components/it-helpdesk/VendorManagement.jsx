@@ -25,8 +25,8 @@ import {
 
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 
-import { useAuditCRUD } from "./AuditLogs";
-import { AuditLogProvider } from "../../contexts/AuditLogContext.js";
+import { useModuleAuditLogs } from "./AuditLogs";
+// import { AuditLogProvider } from "../../contexts/AuditLogContext.js";
 
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
@@ -74,10 +74,7 @@ export default function VendorManagement() {
 
   // AUDIT
 
-  const audit = useAuditCRUD(
-    "Vendor Management",
-    "Vendor"
-  );
+  const { logCreate, logRead, logUpdate, logDelete } = useModuleAuditLogs("Vendor");
 
 
 
@@ -105,7 +102,7 @@ export default function VendorManagement() {
     } catch (err) {
 
 
-      audit.logError(
+      logCreate(
         err.message,
         "Vendor fetch failed"
       );
@@ -132,9 +129,9 @@ export default function VendorManagement() {
     fetchData();
 
 
-    audit.logView(
-      "User opened Vendor Management"
-    );
+    // logRead(
+    //   "User opened Vendor Management"
+    // );
 
 
   }, []);
@@ -172,10 +169,10 @@ export default function VendorManagement() {
       });
 
 
-      audit.logView(
-        `Opened vendor ${record.name}`,
-        record._id
-      );
+      // logRead(
+      //   `Opened vendor ${record.name}`,
+      //   record._id
+      // );
 
 
 
@@ -187,9 +184,10 @@ export default function VendorManagement() {
       setForm({ ...EMPTY_FORM });
 
 
-      audit.logCreate(
-        null,
-        "Opened add vendor form"
+      logRead(
+        "vendor-creation-intent",
+        "Opened vendor creation form",
+        "info"
       );
 
 
@@ -255,127 +253,38 @@ export default function VendorManagement() {
 
 
       if (editId) {
-
-
-
         await itHelpdeskAPI.vendors.update(
           editId,
           payload
         );
-
-
-
-        audit.logUpdate(
-          editId,
-          `Vendor ${form.name} updated`
-        );
-
-
-
         alert("Vendor updated successfully");
-
-
-
       } else {
-
-
-
-        const res =
-          await itHelpdeskAPI.vendors.create(payload);
-
-
-
-        audit.logCreate(
-          res.data?._id,
-          `Vendor ${form.name} created`
-        );
-
-
-
+        await itHelpdeskAPI.vendors.create(payload);
         alert("Vendor created successfully");
-
-
       }
 
-
-
-
-
       setShowModal(false);
-
       setEditId(null);
-
       setForm({ ...EMPTY_FORM });
-
-
       fetchData();
-
-
-
     } catch (err) {
-
-
-
-      audit.logError(
-        err.message,
-        "Vendor save failed"
-      );
-
-
-
+      console.error("Vendor save failed:", err.message);
       alert("Something went wrong");
-
-
-
     }
     finally {
-
       setSaving(false);
-
     }
-
-
   };
 
-
-
-
-
   const handleDelete = async (e, id) => {
-
-
     e.stopPropagation();
-
-
-
     if (
       !window.confirm("Delete this vendor?")
     )
-
       return;
 
-
-
-
     try {
-
-
-      const vendor =
-        data.find(x => x._id === id);
-
-
-
       await itHelpdeskAPI.vendors.remove(id);
-
-
-
-      audit.logDelete(
-        id,
-        `Vendor ${vendor?.name} deleted`
-      );
-
-
-
       fetchData();
 
 
@@ -384,12 +293,8 @@ export default function VendorManagement() {
 
 
 
-      audit.logError(
-        err.message,
-        "Vendor delete failed"
-      );
-
-
+      console.error("Vendor delete failed:", err.message);
+      
       alert("Delete failed");
 
     }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
+import { useModuleAuditLogs } from "./AuditLogs";
 import axios from "axios";
 import {
   Box,
@@ -192,6 +193,9 @@ const EMPTY_FORM = {
 };
 
 export default function AssetManagement() {
+  // Audit logs
+  const { logCreate, logRead, logUpdate, logDelete } = useModuleAuditLogs("Asset");
+  
   const [data, setData] = useState([]);
   const [users, setUsers] = useState([]);
   const [vendors, setVendors] = useState([]);
@@ -208,6 +212,9 @@ export default function AssetManagement() {
     async (page = 1) => {
       setLoading(true);
       try {
+        // Log asset list access
+        logRead("asset-list-view", "Accessed asset list with filters", "info");
+        
         const params = { page, limit: pagination.limit };
         if (filters.type) params.type = filters.type;
         if (filters.status) params.status = filters.status;
@@ -218,6 +225,8 @@ export default function AssetManagement() {
       } catch (err) {
         toast.error("Failed to load assets");
         console.error(err);
+        // Log error
+        console.error(`Failed to load assets: ${err.message}`);
       } finally {
         setLoading(false);
       }
@@ -227,6 +236,8 @@ export default function AssetManagement() {
 
   const fetchUsers = useCallback(async () => {
     try {
+      // Log users fetch
+      logRead("asset-users-fetch", "Fetched users for asset assignment", "info");
       const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-all-users`, {
         withCredentials: true,
         params: { limit: USERS_FETCH_LIMIT },
@@ -235,11 +246,15 @@ export default function AssetManagement() {
       console.log("Fetched users:", res.data?.length || 0);
     } catch (err) {
       console.error("Failed to fetch users:", err);
+      // Log error
+      console.error(`Failed to fetch users: ${err.message}`);
     }
   }, []);
 
   const fetchVendors = useCallback(async () => {
     try {
+      // Log vendors fetch
+      logRead("asset-vendors-fetch", "Fetched vendors for asset assignment", "info");
       const res = await itHelpdeskAPI.vendors.getAll();
       setVendors(res.data || []);
     } catch {
@@ -248,6 +263,8 @@ export default function AssetManagement() {
   }, []);
 
   useEffect(() => {
+    // Log asset module access
+    logRead("asset-module-access", "Accessed Asset Management module", "info");
     fetchData(1);
   }, [fetchData]);
 
@@ -258,6 +275,8 @@ export default function AssetManagement() {
 
   const handleOpen = (record = null) => {
     if (record) {
+      // Log asset edit access
+      logRead("asset-edit-access", `Opened asset for editing with ID: ${record._id}`, "info");
       setEditId(record._id);
       setErrors({});
       setForm({
@@ -389,6 +408,8 @@ export default function AssetManagement() {
       fetchData(pagination.page);
     } catch (err) {
       toast.error(err.response?.data?.message || "Save failed");
+      // Log error
+      console.error(`Failed to ${editId ? "update" : "create"} asset: ${err.message}`);
     } finally {
       setSaving(false);
     }
@@ -403,6 +424,8 @@ export default function AssetManagement() {
       fetchData(pagination.page);
     } catch (err) {
       toast.error(err.response?.data?.message || "Delete failed");
+      // Log error
+      console.error(`Failed to delete asset with ID: ${id}: ${err.message}`);
     }
   };
 

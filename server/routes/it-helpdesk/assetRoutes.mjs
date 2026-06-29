@@ -2,8 +2,10 @@
 import express from "express";
 import mongoose from "mongoose";
 import Asset from "../../model/it-helpdesk/assetModel.mjs";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
 
 const router = express.Router();
+router.use(authMiddleware);
 
 const SIM_CARD_REQUIRED_FIELDS = [
   "sim_number_iccid",

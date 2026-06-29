@@ -8,6 +8,7 @@ import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
+import { useModuleAuditLogs } from "./AuditLogs";
 
 const CATEGORIES = ["Hardware Stock", "Consumables", "Spare Parts"];
 const EMPTY_FORM = {
@@ -29,6 +30,8 @@ export default function InventoryManagement() {
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
+
+  const { logCreate, logUpdate, logDelete } = useModuleAuditLogs("Inventory");
 
   const fetchData = async () => {
     setLoading(true);
@@ -76,8 +79,11 @@ export default function InventoryManagement() {
     };
 
     try {
-      if (editId) { await itHelpdeskAPI.inventory.update(editId, payload); }
-      else { await itHelpdeskAPI.inventory.create(payload); }
+      if (editId) { 
+        await itHelpdeskAPI.inventory.update(editId, payload); 
+      } else { 
+        await itHelpdeskAPI.inventory.create(payload); 
+      }
       setShowModal(false); fetchData();
     } catch (err) { console.error(err); }
   };
@@ -85,8 +91,10 @@ export default function InventoryManagement() {
   const handleDelete = async (e, id) => {
     e.stopPropagation();
     if (!window.confirm("Delete this item?")) return;
-    await itHelpdeskAPI.inventory.remove(id);
-    fetchData();
+    try {
+      await itHelpdeskAPI.inventory.remove(id);
+      fetchData();
+    } catch (err) { console.error(err); }
   };
 
   return (

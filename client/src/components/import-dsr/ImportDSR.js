@@ -52,7 +52,11 @@ function ImportDSR() {
   React.useEffect(() => {
     async function fetchBranches() {
       try {
-        const response = await axios.get(`${process.env.REACT_APP_API_STRING}/admin/my-branches`);
+        const response = await axios.get(`${process.env.REACT_APP_API_STRING}/admin/my-branches`, { 
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
         setBranches(response.data);
         // Set default branch if available
         if (response.data.length > 0) {

@@ -10,26 +10,21 @@ router.post("/api/login", async (req, res) => {
   const { username, password } = req.body;
 
   try {
-    // FIX: Added .select('+password') to ensure the password hash is retrieved from the database
     const user = await UserModel.findOne({ username }).select('+password');
 
     if (!user) {
       return res.status(400).json({ message: "User not registered" });
     }
 
-    // SAFETY CHECK: Verify password exists before comparing
-    // This prevents the crash if the DB record is corrupted
     if (!user.password) {
       console.error(`Login Error: User '${username}' exists but has no password in the database.`);
       return res.status(500).json({ message: "Account configuration error: Password missing." });
     }
 
     if (user.isActive === false) {
-      return res
-        .status(403)
-        .json({
-          message: "User is deactivated. Please contact administrator.",
-        });
+      return res.status(403).json({
+        message: "User is deactivated. Please contact administrator.",
+      });
     }
 
     bcrypt.compare(password, user.password, async (passwordErr, passwordResult) => {
@@ -56,7 +51,6 @@ router.post("/api/login", async (req, res) => {
         const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
         const passwordExpired = (Date.now() - new Date(passwordChangedAt).getTime()) > thirtyDaysInMs;
 
-        // Create a new object with only the required fields
         const userResponse = {
           _id: user._id,
           username: user.username,
@@ -96,18 +90,21 @@ router.post("/api/login", async (req, res) => {
           { expiresIn: "10h" }
         );
 
+        // ✅ FIX 1: Cookie with sameSite: "none" + secure for cross-origin support
         res.cookie("token", token, {
           httpOnly: true,
-          secure: process.env.NODE_ENV === "production",
-          sameSite: "lax",
-          maxAge: 10 * 60 * 60 * 1000, // 10 hours
+          secure: false, // set to true only in production with HTTPS
+          sameSite: "none", // ✅ allows cross-origin cookie sending
+          maxAge: 10 * 60 * 60 * 1000,
         });
 
-        return res.status(200).json(userResponse);
+        // ✅ FIX 2: Also return token in response body so frontend can use Authorization header
+        return res.status(200).json({
+          ...userResponse,
+          token // ✅ frontend will store this and send as Bearer token
+        });
       } else {
-        return res
-          .status(400)
-          .json({ message: "Username or password didn't match" });
+        return res.status(400).json({ message: "Username or password didn't match" });
       }
     });
   } catch (err) {

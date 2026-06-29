@@ -49,7 +49,11 @@ export default function SelectImporterModal(props) {
   React.useEffect(() => {
     async function fetchBranches() {
       try {
-        const response = await axios.get(`${process.env.REACT_APP_API_STRING}/admin/my-branches`);
+        const response = await axios.get(`${process.env.REACT_APP_API_STRING}/admin/my-branches`, { 
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
         setBranches(response.data);
         if (response.data.length > 0) {
           // Default to Ahmedabad Sea as requested
@@ -291,4 +295,4 @@ export default function SelectImporterModal(props) {
       </Modal>
     </div>
   );
-}
+}

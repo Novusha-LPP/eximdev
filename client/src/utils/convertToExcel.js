@@ -204,11 +204,7 @@ export const convertToExcel = async (
       invoice_value_and_unit_price = `${item.inv_currency || ''} | ${exact_inv_value} | ${item.unit_price || ''}`;
     }
 
-    // Safely calculate net weight
-    const net_weight = item.container_nos?.reduce((sum, container) => {
-      const weight = parseFloat(container.net_weight);
-      return sum + (isNaN(weight) ? 0 : weight);
-    }, 0) || 0;
+
 
     const cleanLoadingPort = item.loading_port
       ? item.loading_port.replace(/\(.*?\)\s*/, "")

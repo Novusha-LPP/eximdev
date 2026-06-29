@@ -1,65 +1,42 @@
 import mongoose from "mongoose";
+import auditPlugin from "../../plugins/auditPlugin.mjs";
 
 const userSchema = new mongoose.Schema(
   {
-    first_name: { type: String, trim: true, default: "" },
-    last_name: { type: String, trim: true, default: "" },
-
-    username: {
-      type: String,
-      required: true,
-      unique: true,
-      trim: true,
-      index: true,
-    },
-
+    name: { type: String, trim: true, required: true },
     email: {
       type: String,
-      unique: true,
-      sparse: true,
+      required: true,
       trim: true,
       lowercase: true,
-      default: null,
-      index: true,
     },
-
-    phone: { type: String, trim: true, default: "" },
-
     role: {
       type: String,
-      enum: ["Admin", "IT Support", "Manager", "User"],
-      default: "User",
-      index: true,
+      enum: ["Admin", "IT Team", "Manager", "Employee"],
+      default: "Employee",
     },
-
-    department: { type: String, trim: true, default: "" },
-
-    is_active: {
-      type: Boolean,
-      default: true,
-      index: true,
+    group: { type: String, trim: true, default: "" },
+    permissions: [{ type: String }],
+    status: {
+      type: String,
+      enum: ["Active", "Inactive"],
+      default: "Active",
     },
-
     last_login: {
       type: Date,
       default: null,
-    },
-
-    password: {
-      type: String,
-      required: true,
-      select: false,
     },
   },
   {
     timestamps: true,
   }
 );
+userSchema.plugin(auditPlugin, { documentType: "User" });
 
 /**
- * ✅ FIX: Prevent OverwriteModelError in nodemon / hot reload
+ * ✅ FIX: Prevent OverwriteModelError and clash with global 'User'
  */
-const User =
-  mongoose.models.User || mongoose.model("User", userSchema);
+const ITHelpdeskUser =
+  mongoose.models.ITHelpdeskUser || mongoose.model("ITHelpdeskUser", userSchema);
 
-export default User;
+export default ITHelpdeskUser;

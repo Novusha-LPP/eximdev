@@ -1,10 +1,10 @@
-
 import express from "express";
 import mongoose from "mongoose";
-import Vendor from "../../model/it-helpdesk/vendorModelSimple.mjs";
-import auditMiddleware from "../../middleware/auditTrail.mjs";
+import Vendor from "../../model/it-helpdesk/vendorModel.mjs";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
 
 const router = express.Router();
+router.use(authMiddleware);
 
 const validateId = (req, res, next) => {
   if (!mongoose.Types.ObjectId.isValid(req.params.id)) {

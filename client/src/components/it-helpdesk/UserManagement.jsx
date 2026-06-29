@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+
 import {
   Box,
   Button,
@@ -31,8 +32,9 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import SearchIcon from "@mui/icons-material/Search";
 import PersonIcon from "@mui/icons-material/Person";
 import { toast } from "react-hot-toast";
-import axios from "axios";
+import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import { useAuditCRUD } from "./AuditLogs";
+import axios from "axios";
 const USER_ROLES = ["Admin", "IT Team", "Manager", "Employee"];
 
 const GROUPS = [
@@ -77,13 +79,8 @@ const ACTIONS = {
 
 
 export default function UserManagement() {
-  const addAuditLog = async (logData) => {
-    try {
-      await axios.post(`${process.env.REACT_APP_API_STRING}/audit-trail/custom`, logData);
-    } catch (err) {
-      console.error('Failed to save audit log', err);
-    }
-  };
+  // Audit logs
+  const { logCreate, logRead, logUpdate, logDelete } = useAuditCRUD("User", "User");
 
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -108,68 +105,66 @@ export default function UserManagement() {
   const handleSearchChange = (value) => {
     setSearchTerm(value);
     if (value) {
-      addAuditLog({
-        action: "Filter",
-        module: "User Management",
-        details: `Filtered users by search term: ${value}`,
-        severity: "info"
-      });
+      logRead("user-search-filter", `Filtered users by search term: ${value}`, "info");
     }
   };
 
   const handleRoleFilterChange = (value) => {
     setFilterRole(value);
     if (value) {
-      addAuditLog({
-        action: "Filter",
-        module: "User Management",
-        details: `Filtered users by role: ${value}`,
-        severity: "info"
-      });
+      logRead("user-role-filter", `Filtered users by role: ${value}`, "info");
     }
   };
 
   const handleGroupFilterChange = (value) => {
     setFilterGroup(value);
     if (value) {
-      addAuditLog({
-        action: "Filter",
-        module: "User Management",
-        details: `Filtered users by group: ${value}`,
-        severity: "info"
-      });
+      logRead("user-group-filter", `Filtered users by group: ${value}`, "info");
     }
   };
 
   // Load users from localStorage
   const loadUsersFromStorage = () => {
-    const savedUsers = localStorage.getItem('users');
-    if (savedUsers) {
-      return JSON.parse(savedUsers);
+    try {
+      const savedUsers = localStorage.getItem('users');
+      if (savedUsers) {
+        return JSON.parse(savedUsers);
+      }
+    } catch (error) {
+      console.error("Error loading users from localStorage:", error);
+      localStorage.removeItem('users');
+      localStorage.removeItem('usersLoaded');
     }
     return null;
   };
 
-  // Mock API load
-  const fetchData = () => {
+  // API load
+  const fetchData = async () => {
     setLoading(true);
 
-    // Log user list view action
-    addAuditLog({
-      action: "View",
-      module: "User Management",
-      details: "Loaded user list",
-      severity: "info"
-    });
+    try {
+      // Log user list view action
+      logRead("user-list-view", "Loaded user list", "info");
 
-    setTimeout(() => {
-      // Try to load users from localStorage first
+      // Try to load users from API
+      const response = await itHelpdeskAPI.users.getAll();
+      console.log("Get all users response:", response);
+
+      // Try to load users from localStorage first as fallback
       const savedUsers = loadUsersFromStorage();
       if (savedUsers) {
         setUsers(savedUsers);
+      } else if (response && response.data) {
+        // Set users from API
+        let usersData = Array.isArray(response.data) ? response.data : (response.data?.users || response.data || []);
+        usersData = usersData.map(u => ({ ...u, id: u._id || u.id }));
+        setUsers(usersData);
+        // Save to localStorage as backup
+        localStorage.setItem('users', JSON.stringify(usersData));
+        localStorage.setItem('usersLoaded', 'true');
       } else {
-        // Set initial users if no saved users exist
-        setUsers([
+        // Set initial users if no data exists
+        const initialUsers = [
           {
             id: Date.now(),
             name: "John Doe",
@@ -180,20 +175,42 @@ export default function UserManagement() {
             status: "Active",
             last_login: "2023-07-16 09:30:00",
           },
-        ]);
+        ];
+        setUsers(initialUsers);
+        // Save to localStorage as backup
+        localStorage.setItem('users', JSON.stringify(initialUsers));
+        localStorage.setItem('usersLoaded', 'true');
       }
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      // Log error
+      console.error("Failed to fetch users");
+
+      // Fallback to mock data
+      const fallbackUsers = [
+        {
+          id: Date.now(),
+          name: "John Doe",
+          email: "john@company.com",
+          role: "Admin",
+          group: "IT Department",
+          permissions: ["All"],
+          status: "Active",
+          last_login: "2023-07-16 09:30:00",
+        },
+      ];
+      setUsers(fallbackUsers);
+      // Save to localStorage as backup
+      localStorage.setItem('users', JSON.stringify(fallbackUsers));
+      localStorage.setItem('usersLoaded', 'true');
+    } finally {
       setLoading(false);
-    }, 500);
+    }
   };
 
   useEffect(() => {
     // Log module access
-    addAuditLog({
-      action: "Module Access",
-      module: "User Management",
-      details: "User Management module accessed",
-      severity: "info"
-    });
+    logRead("user-module-access", "User Management module accessed", "info");
 
     // Load data
     fetchData();
@@ -223,12 +240,7 @@ export default function UserManagement() {
       const action = exists ? "REMOVED" : "ADDED";
 
       // Log permission change action
-      addAuditLog({
-        action: `Permission ${action}`,
-        module: "User Management",
-        details: `${action} permission: ${permission} for user: ${form.name || "New User"} (${form.email || "N/A"})`,
-        severity: "info"
-      });
+      logRead(`permission-${action.toLowerCase()}`, `${action} permission: ${permission} for user: ${form.name || "New User"} (${form.email || "N/A"})`, "info");
 
       return {
         ...prev,
@@ -246,12 +258,7 @@ export default function UserManagement() {
       setForm(user);
 
       // Log user view action
-      addAuditLog({
-        action: "View",
-        module: "User Management",
-        details: `Viewed user details: ${user.name} (${user.email})`,
-        severity: "info"
-      });
+      logRead("user-view", `Viewed user details: ${user.name} (${user.email})`, "info");
     } else {
       setEditId(null);
       setForm({
@@ -264,12 +271,7 @@ export default function UserManagement() {
       });
 
       // Log user creation intent
-      addAuditLog({
-        action: "Create Intent",
-        module: "User Management",
-        details: "Opened user creation form",
-        severity: "info"
-      });
+      logRead("user-creation-intent", "Opened user creation form", "info");
     }
     setShowModal(true);
   };
@@ -294,16 +296,30 @@ export default function UserManagement() {
       return;
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(form.email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
+
     const payload = {
       ...form,
       permissions: isAdmin ? ['All'] : form.permissions
     };
 
     try {
-      // Mock API Call
+      // API Call to backend
       console.log("Saving user:", payload);
 
       if (editId) {
+        // Update existing user
+        const response = await itHelpdeskAPI.users.update(editId, payload);
+        console.log("Update response:", response);
+        if (!response || response.error) {
+          throw new Error(response?.error || "Failed to update user");
+        }
+        
         setUsers((prev) => {
           const updatedUsers = prev.map((u) => (u.id === editId ? { ...u, ...payload } : u));
           console.log("Updated users:", updatedUsers);
@@ -313,16 +329,26 @@ export default function UserManagement() {
           return updatedUsers;
         });
         toast.success("User updated");
-
-        // Log user update action
-        addAuditLog({
-          action: "Update",
-          module: "User Management",
-          details: `Updated user: ${form.name} (${form.email}). Role: ${form.role}, Group: ${form.group}`,
-          severity: "info"
-        });
       } else {
-        const newUser = { id: Date.now(), ...payload, last_login: null };
+        // Create new user
+        const response = await itHelpdeskAPI.users.create(payload);
+        console.log("Create user response:", response);
+        if (!response || response.error) {
+          throw new Error(response?.error || "Failed to create user");
+        }
+        const newUser = response.data?.user || response.data || { id: Date.now(), ...payload, last_login: null };
+        console.log("New user:", newUser);
+        
+        // Map _id to id if missing
+        if (!newUser.id && newUser._id) {
+          newUser.id = newUser._id;
+        }
+
+        if (!newUser.id) {
+          console.error("New user does not have an ID:", newUser);
+          toast.error("Failed to create user - no ID returned");
+          return;
+        }
         setUsers((prev) => {
           const updatedUsers = [...prev, newUser];
           console.log("Updated users with new user:", updatedUsers);
@@ -332,57 +358,50 @@ export default function UserManagement() {
           return updatedUsers;
         });
         toast.success("User added");
-
-        // Log user creation action
-        addAuditLog({
-          action: "Create",
-          module: "User Management",
-          details: `Created new user: ${form.name} (${form.email}). Role: ${form.role}, Group: ${form.group}`,
-          severity: "info"
-        });
       }
 
       handleCloseModal();
     } catch (error) {
       console.error(error);
-      toast.error("Failed to save user");
+      const errorMessage = error.response?.data?.message || error.message || "Failed to save user";
+      toast.error(errorMessage);
 
       // Log error
-      addAuditLog({
-        action: "Error",
-        module: "User Management",
-        details: `Failed to save user: ${form.name} (${form.email}). Error: ${error.message}`,
-        severity: "error"
-      });
+      console.error(`Failed to save user: ${form.name} (${form.email}). Error: ${errorMessage}`);
     }
   };
 
   // Delete User
-  const handleDeleteUser = (id) => {
+  const handleDeleteUser = async (id) => {
     const user = users.find(u => u.id === id);
     if (window.confirm("Are you sure you want to delete this user?")) {
-      setUsers((prev) => {
-        const updatedUsers = prev.filter((u) => u.id !== id);
-        // Save to localStorage
-        localStorage.setItem('users', JSON.stringify(updatedUsers));
-        return updatedUsers;
-      });
-      toast.success("User deleted");
-
-      // Log user deletion action
-      if (user) {
-        addAuditLog({
-          action: "Delete",
-          module: "User Management",
-          details: `Deleted user: ${user.name} (${user.email}). Role: ${user.role}, Group: ${user.group}`,
-          severity: "warning"
+      try {
+        // Delete from backend
+        const response = await itHelpdeskAPI.users.remove(id);
+        console.log("Delete response:", response);
+        if (!response || response.error) {
+          throw new Error(response?.error || "Failed to delete user");
+        }
+        
+        setUsers((prev) => {
+          const updatedUsers = prev.filter((u) => u.id !== id);
+          // Save to localStorage as backup
+          localStorage.setItem('users', JSON.stringify(updatedUsers));
+          return updatedUsers;
         });
-      }
+        toast.success("User deleted");
 
-      // Clear localStorage if no users left
-      if (users.length === 1) {
-        localStorage.removeItem('users');
-        localStorage.removeItem('usersLoaded');
+        // Clear localStorage if no users left
+        if (users.length === 1) {
+          localStorage.removeItem('users');
+          localStorage.removeItem('usersLoaded');
+        }
+      } catch (error) {
+        console.error("Failed to delete user:", error);
+        toast.error("Failed to delete user");
+        
+        // Log error
+        console.error(`Failed to delete user: ${user?.name} (${user?.email}). Error: ${error.message}`);
       }
     }
   };

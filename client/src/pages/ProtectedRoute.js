@@ -3,6 +3,14 @@ import React, { useContext } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { UserContext } from "../contexts/UserContext";
 
+// Modules that are accessible to all users without explicit module assignment
+const PUBLIC_MODULES = [
+  "AMC Suppliers Renewal",
+  "AMC Visitor Logs",
+  "Admin Equipment Checklist",
+  "Audit Trail", // ✅ Added: accessible to all logged-in users
+];
+
 const ProtectedRoute = ({ children, requiredModule, fallbackPath = "/" }) => {
   const { user } = useContext(UserContext);
   const location = useLocation();
@@ -13,14 +21,22 @@ const ProtectedRoute = ({ children, requiredModule, fallbackPath = "/" }) => {
 
   const userModules = user.modules || [];
 
-  // Check if user has the required module permission
-  const hasPermission = user.role === "Admin" || requiredModule === "AMC Suppliers Renewal" || requiredModule === "AMC Visitor Logs" || requiredModule === "Admin Equipment Checklist" || (Array.isArray(requiredModule)
-    ? requiredModule.some(m => userModules.includes(m))
-    : userModules.includes(requiredModule));
+  const isPublicModule = Array.isArray(requiredModule)
+    ? requiredModule.some(m => PUBLIC_MODULES.includes(m))
+    : PUBLIC_MODULES.includes(requiredModule);
+
+  const hasPermission =
+    user.role === "Admin" ||
+    isPublicModule ||
+    (Array.isArray(requiredModule)
+      ? requiredModule.some(m => userModules.includes(m))
+      : userModules.includes(requiredModule));
 
   if (!hasPermission) {
-    const moduleLabel = Array.isArray(requiredModule) ? requiredModule.join(' or ') : requiredModule;
-    // Redirect to fallback path with a message
+    const moduleLabel = Array.isArray(requiredModule)
+      ? requiredModule.join(' or ')
+      : requiredModule;
+
     return (
       <Navigate
         to={fallbackPath}

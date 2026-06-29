@@ -2,7 +2,11 @@ import React, { useState } from "react";
 import Box from "@mui/material/Box";
 import CssBaseline from "@mui/material/CssBaseline";
 import Toolbar from "@mui/material/Toolbar";
-import { Route, Routes, Navigate, useNavigate } from "react-router-dom";
+import { Route, Routes, Navigate, useNavigate, useLocation } from "react-router-dom";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
 import Snackbar from "@mui/material/Snackbar";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
@@ -10,7 +14,6 @@ import { TabValueContext } from "../contexts/TabValueContext.js";
 import { SearchQueryProvider } from "../contexts/SearchQueryContext.js";
 import ProtectedRoute from "./ProtectedRoute.js";
 import { UserContext } from "../contexts/UserContext";
-import { AuditLogProvider } from "../contexts/AuditLogContext.js";
 // Home
 import Home from "../components/home/Home";
 import Assign from "../components/home/Assign.js";
@@ -19,7 +22,6 @@ import UserProfile from "../components/userProfile/UserProfile.js";
 import BranchManagement from "../components/admin/BranchManagement.js";
 import ApiKeyManagement from "../components/admin/ApiKeyManagement.js";
 import JobMigrationUtility from "../components/admin/JobMigrationUtility.js";
-import Administration from "../components/Administration";
 
 // Accounts
 import Accounts from "../components/accounts/Accounts.js";
@@ -28,7 +30,6 @@ import DocumentationJob from "../components/documentation/DocumentationJob.js";
 
 // Attendance
 import AttendanceLayout from "../components/attendance/layout/AttendanceLayout.jsx";
-// import AttendanceDashboard from "../components/attendance/Dashboard.jsx";
 import DashboardSwitch from "../components/attendance/DashboardSwitch.jsx";
 import AttendancePage from "../components/attendance/Attendance.jsx";
 import LeaveManagement from "../components/attendance/LeaveManagement.jsx";
@@ -57,6 +58,7 @@ import ViewIndividualKyc from "../components/employeeKyc/ViewIndividualKyc.js";
 // Employee Onboarding
 import EmployeeOnboarding from "../components/employeeOnboarding/EmployeeOnboarding.js";
 import UpdateEmployeeData from "../components/hr/UpdateEmployeeData.js";
+// import HRHome from "../components/hr/HRHome.js";
 
 // Customer KYC
 import CustomerKyc from "../components/customerKyc/CustomerKyc.js";
@@ -139,10 +141,11 @@ import ReleaseNotes from "../components/home/ReleaseNotes.js";
 import Feedback from "../components/home/Feedback.js";
 
 import UtilityParent from "../components/import-utility-tool/UtilityParent.js";
-import BillingReportsUtility from "../components/import-utility-tool/BillingReportsUtility.js";
 import DutyCalculator from "../components/import-utility-tool/duty-calculator/DutyCalculator.js";
 import ImportBillingTab from "../components/Import-billing/ImportBillingTab.js";
 import AllUsersPage from "./AllUsersPage.js";
+// import BillingReports from "../components/accounts/BillingReports.js";
+// import RmProcurementSop from "../components/accounts/rmProcurementSop/RmProcurementSop.js";
 
 // Analytics
 import AnalyticsLayout from "../components/analytics/AnalyticsLayout";
@@ -163,15 +166,6 @@ import ProjectWorkspace from "../components/open-points/ProjectWorkspace.js";
 import AnalyticsDashboard from "../components/open-points/AnalyticsDashboard.js";
 import MyOpenPoints from "../components/open-points/MyOpenPoints.js";
 
-// Scorecard Module
-import ScorecardList from "./ScorecardList.jsx";
-import ScorecardForm from "./ScorecardForm.jsx";
-
-// AMC Suppliers Renewal Module
-import AmcRenewalList from "./AmcRenewalList.jsx";
-import AmcVisitorList from "./AmcVisitorList.jsx";
-import AdminEquipmentChecklist from "./AdminEquipmentChecklist.jsx";
-
 // Project Nucleus
 import NucleusHome from "../components/project-nucleus/NucleusHome.js";
 
@@ -182,9 +176,6 @@ import KPITemplateManager from "../components/kpi/KPITemplateManager.js";
 import KPIAdminDashboard from "../components/kpi/KPIAdminDashboard.js";
 import KPIReviewerDashboard from "../components/kpi/KPIReviewerDashboard.js";
 import KPIPulseDashboard from "../components/kpi/KPIPulseDashboard.js";
-
-// IT Helpdesk
-import ItHelpdeskPage from "./ItHelpdeskPage.jsx";
 import MRMHome from "../components/mrm/MRMHome.js";
 import MRMAdminDashboard from "../components/mrm/MRMAdminDashboard.js";
 
@@ -196,33 +187,17 @@ import HodManagement from "../components/home/HodManagement.js";
 
 // DGFT Module
 import DgftTabs from "../components/dgft/DgftTabs.js";
-import ViewAuthorizationDetails from "../components/dgft/ViewAuthorizationDetails.js";
+// import ViewAuthorizationDetails from "../components/dgft/ViewAuthorizationDetails.js";
 import ViewDgftRegisterDetails from "../components/dgft/ViewDgftRegisterDetails.js";
 
 // CRM Module
-
+// import CRMModule from "../components/crm/CRMModule.jsx";
 
 import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
 
 import { useBranch } from "../contexts/BranchContext.js";
 import TeamDashboard from "../components/teams/TeamDashboard";
-import AssetManagement from "../components/it-helpdesk/AssetManagement.jsx";
-import TicketManagement from "../components/it-helpdesk/TicketManagement.jsx";
-import VendorManagement from "../components/it-helpdesk/VendorManagement.jsx";
-import ContractManagement from "../components/it-helpdesk/ContractManagement.jsx";
-import InventoryManagement from "../components/it-helpdesk/InventoryManagement.jsx";
-import LicenseManagement from "../components/it-helpdesk/LicenseManagement.jsx";
-import ITReports from "../components/it-helpdesk/ITReports.jsx";
-import ITNotifications from "../components/it-helpdesk/ITNotifications.jsx";
-import ITUserManagement from "../components/it-helpdesk/ITUserManagement.jsx";
-import UserManagement from "../components/it-helpdesk/UserManagement.jsx";
-import GroupManagement from "../components/it-helpdesk/GroupManagement.jsx";
-import RolesPermissions from "../components/it-helpdesk/RolesPermissions.jsx";
-import AuditLogs from "../components/it-helpdesk/AuditLogs.jsx";
-import NotificationsManagement from "../components/it-helpdesk/NotificationsManagement.jsx";
-import EmailConfiguration from "../components/it-helpdesk/EmailConfiguration.jsx";
-import SystemSettings from "../components/it-helpdesk/SystemSettings.jsx";
 
 const drawerWidth = 60;
 
@@ -241,11 +216,13 @@ const PulseIndex = () => {
 function HomePageContent() {
   const { user } = React.useContext(UserContext);
   const navigate = useNavigate();
+  const location = useLocation();
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [passwordAlertDismissed, setPasswordAlertDismissed] = useState(false);
   const [tabValue, setTabValue] = useState(
     JSON.parse(localStorage.getItem("tab_value") || 0)
   );
+  const [criticalAlertOpen, setCriticalAlertOpen] = useState(false);
 
   const { isChangingBranch } = useBranch();
 
@@ -254,6 +231,28 @@ function HomePageContent() {
       setPasswordAlertDismissed(false);
     }
   }, [user?.passwordExpired]);
+
+  // Redirection logic for blocked users
+  React.useEffect(() => {
+    if (user && user.role !== 'Admin' && user.profileCompletion?.isBlocked) {
+      const allowedPaths = ['/employee-kyc', '/change-password'];
+      const isAllowed = allowedPaths.includes(location.pathname) || location.pathname.startsWith('/complete-kyc/');
+      if (!isAllowed) {
+        navigate('/employee-kyc', { replace: true });
+      }
+    }
+  }, [user, location.pathname, navigate]);
+
+  // Show popup alert for critical missing fields on mount
+  React.useEffect(() => {
+    if (user && user.role !== 'Admin' && user.profileCompletion?.hasCriticalMissing) {
+      const shown = sessionStorage.getItem("critical_alert_shown");
+      if (!shown) {
+        setCriticalAlertOpen(true);
+        sessionStorage.setItem("critical_alert_shown", "true");
+      }
+    }
+  }, [user]);
 
   if (isChangingBranch) {
     return (
@@ -330,6 +329,59 @@ function HomePageContent() {
               Your password is older than 30 days. Please update it immediately.
             </Alert>
           </Snackbar>
+
+          {/* Dialog for Critical Profile Fields Missing */}
+          <Dialog
+            open={criticalAlertOpen}
+            onClose={() => setCriticalAlertOpen(false)}
+            PaperProps={{
+              sx: {
+                borderRadius: "16px",
+                padding: 1,
+                maxWidth: "500px",
+              },
+            }}
+          >
+            <DialogTitle sx={{ fontWeight: "bold", color: "#c53030", display: "flex", alignItems: "center", gap: 1 }}>
+              ⚠️ Critical Profile Fields Missing
+            </DialogTitle>
+            <DialogContent>
+              <Typography variant="body1" sx={{ mb: 2 }}>
+                Dear <strong>{user?.first_name || user?.username}</strong>, your profile is missing critical mandatory fields required for compliance.
+              </Typography>
+              <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+                Your reporting manager has been automatically notified. Please complete these fields immediately in the Employee KYC section:
+              </Typography>
+              <Box sx={{ bgcolor: "#fffaf0", borderLeft: "4px solid #dd6b20", p: 2, borderRadius: "4px", mb: 2 }}>
+                <ul style={{ margin: 0, paddingLeft: "20px" }}>
+                  {user?.profileCompletion?.missingBlockingFields?.map((field, idx) => (
+                    <li key={idx} style={{ color: "#dd6b20", fontWeight: "bold", marginBottom: "4px" }}>
+                      {field}
+                    </li>
+                  ))}
+                </ul>
+              </Box>
+              {user?.profileCompletion?.isBlocked && (
+                <Typography variant="caption" color="error" sx={{ fontWeight: "bold", display: "block" }}>
+                  * Access to all standard AlVision modules is locked until your profile is at least 70% complete.
+                </Typography>
+              )}
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+              <Button
+                onClick={() => {
+                  setCriticalAlertOpen(false);
+                  navigate("/employee-kyc");
+                }}
+                variant="contained"
+                color="error"
+                fullWidth
+                sx={{ borderRadius: "8px", textTransform: "none", fontWeight: "bold" }}
+              >
+                Go to Profile Completion
+              </Button>
+            </DialogActions>
+          </Dialog>
           <AppbarComponent
             mobileOpen={mobileOpen}
             setMobileOpen={setMobileOpen}
@@ -355,6 +407,30 @@ function HomePageContent() {
             }}
           >
             <Toolbar />
+
+            {user && user.role !== 'Admin' && user.profileCompletion && (
+              <>
+                {user.profileCompletion.isBlocked && (
+                  <Alert
+                    severity="error"
+                    variant="filled"
+                    sx={{ mb: 2, borderRadius: '8px', boxShadow: 1 }}
+                  >
+                    <strong>Access Restricted:</strong> Your profile is incomplete ({user.profileCompletion.percentage}% Complete). All modules except profile completion are locked. Please complete the missing mandatory fields in the <strong>Employee KYC</strong> section to restore full access.
+                  </Alert>
+                )}
+                {user.profileCompletion.isReadOnly && (
+                  <Alert
+                    severity="warning"
+                    variant="filled"
+                    sx={{ mb: 2, borderRadius: '8px', boxShadow: 1 }}
+                  >
+                    <strong>Read-Only Access:</strong> Your profile is incomplete ({user.profileCompletion.percentage}% Complete). Write permissions in AlVision are restricted. Please complete all mandatory fields in the <strong>Employee KYC</strong> section to restore full write access.
+                  </Alert>
+                )}
+              </>
+            )}
+
             <Routes>
               {/* ... routes ... */}
               {/* Public Routes - No protection needed */}
@@ -367,7 +443,6 @@ function HomePageContent() {
               <Route path="/admin/branches" element={<BranchManagement />} />
               <Route path="/admin/api-keys" element={<ApiKeyManagement />} />
               <Route path="/admin/job-migration" element={<JobMigrationUtility />} />
-              <Route path="/admin" element={<Administration />} />
 
 
               {/* HOD Management - For Head of Department users */}
@@ -504,6 +579,14 @@ function HomePageContent() {
                   </ProtectedRoute>
                 }
               />
+              {/* <Route
+                path="/hr"
+                element={
+                  <ProtectedRoute requiredModule="HR">
+                    <HRHome />
+                  </ProtectedRoute>
+                }
+              /> */}
 
               {/* ESanchit */}
               <Route
@@ -527,150 +610,12 @@ function HomePageContent() {
               <Route path="/dgft" element={<DgftTabs />} />
 
               {/* CRM Module */}
-
-
-              {/* IT Helpdesk Module */}
-              <Route
-                path="/it-helpdesk"
+              {/* <Route
+                path="/crm"
                 element={
-                  <ProtectedRoute requiredModule="IT Helpdesk">
-                    <ItHelpdeskPage />
-                  </ProtectedRoute>
+                  <CRMModule />
                 }
-              />
-              <Route
-                path="/it-helpdesk/assets"
-                element={
-                  <ProtectedRoute requiredModule="IT Helpdesk">
-                    <AssetManagement />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/it-helpdesk/tickets"
-                element={
-                  <ProtectedRoute requiredModule="IT Helpdesk">
-                    <TicketManagement />
-                  </ProtectedRoute>
-                }
-              />
-
-              <Route
-                path="/it-helpdesk/vendors"
-                element={
-                  <ProtectedRoute requiredModule="IT Helpdesk">
-                    <AuditLogProvider>
-                      <VendorManagement />
-                    </AuditLogProvider>
-                  </ProtectedRoute>
-                }
-              />
-
-
-              <Route
-                path="/it-helpdesk/contracts"
-                element={
-                  <ProtectedRoute requiredModule="IT Helpdesk">
-                    <ContractManagement />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/it-helpdesk/inventory"
-                element={
-                  <ProtectedRoute requiredModule="IT Helpdesk">
-                    <InventoryManagement />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/it-helpdesk/licenses"
-                element={
-                  <ProtectedRoute requiredModule="IT Helpdesk">
-                    <LicenseManagement />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/it-helpdesk/reports"
-                element={
-                  <ProtectedRoute requiredModule="IT Helpdesk">
-                    <ITReports />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/it-helpdesk/notifications"
-                element={
-                  <ProtectedRoute requiredModule="IT Helpdesk">
-                    <ITNotifications />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/it-helpdesk/users"
-                element={
-                  <ProtectedRoute requiredModule="IT Helpdesk">
-                    <ITUserManagement />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/it-helpdesk/administration/users"
-                element={
-                  <ProtectedRoute requiredModule="IT Helpdesk">
-                    <UserManagement />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/it-helpdesk/administration/groups"
-                element={
-                  <ProtectedRoute requiredModule="IT Helpdesk">
-                    <GroupManagement />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/it-helpdesk/administration/roles"
-                element={
-                  <ProtectedRoute requiredModule="IT Helpdesk">
-                    <RolesPermissions />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/it-helpdesk/administration/audit"
-                element={
-                  <ProtectedRoute requiredModule="IT Helpdesk">
-                    <AuditLogs />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/it-helpdesk/administration/notifications"
-                element={
-                  <ProtectedRoute requiredModule="IT Helpdesk">
-                    <NotificationsManagement />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/it-helpdesk/administration/email"
-                element={
-                  <ProtectedRoute requiredModule="IT Helpdesk">
-                    <EmailConfiguration />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/it-helpdesk/administration/settings"
-                element={
-                  <ProtectedRoute requiredModule="IT Helpdesk">
-                    <SystemSettings />
-                  </ProtectedRoute>
-                }
-              />
+              /> */}
 
               {/* Exit Feedback */}
               <Route
@@ -1013,14 +958,25 @@ function HomePageContent() {
                   </ProtectedRoute>
                 }
               />
-              <Route
-                path="/billing-reports-utility"
+
+              {/* <Route
+                path="/billing-reports"
                 element={
-                  <ProtectedRoute requiredModule="Import Utility Tool">
-                    <BillingReportsUtility />
+                  <ProtectedRoute requiredModule="Billing Reports">
+                    <BillingReports />
                   </ProtectedRoute>
                 }
-              />
+              /> */}
+
+              {/* <Route
+                path="/rm-procurement"
+                element={
+                  <ProtectedRoute requiredModule="RM Procurement SOP">
+                    <RmProcurementSop />
+                  </ProtectedRoute>
+                }
+              /> */}
+
 
               {/* import billing */}
               <Route
@@ -1125,32 +1081,6 @@ function HomePageContent() {
                 <Route path="team-pulse" element={<TeamPulseDashboard />} />
               </Route>
 
-              {/* AMC Suppliers Renewal Module */}
-              <Route
-                path="/amc-renewals"
-                element={
-                  <ProtectedRoute requiredModule="AMC Suppliers Renewal">
-                    <AmcRenewalList />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/amc-visitor-logs"
-                element={
-                  <ProtectedRoute requiredModule="AMC Visitor Logs">
-                    <AmcVisitorList />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/equipment-checklist"
-                element={
-                  <ProtectedRoute requiredModule="Admin Equipment Checklist">
-                    <AdminEquipmentChecklist />
-                  </ProtectedRoute>
-                }
-              />
-
               {/* MRM Module */}
               <Route
                 path="/mrm"
@@ -1191,32 +1121,6 @@ function HomePageContent() {
               <Route
                 path="/open-points/user/:username"
                 element={<MyOpenPoints />}
-              />
-
-              {/* Supplier Scorecard Module */}
-              <Route
-                path="/scorecards"
-                element={
-                  <ProtectedRoute requiredModule="Supplier Scorecard">
-                    <ScorecardList />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/scorecards/new"
-                element={
-                  <ProtectedRoute requiredModule="Supplier Scorecard">
-                    <ScorecardForm />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/scorecards/:id/edit"
-                element={
-                  <ProtectedRoute requiredModule="Supplier Scorecard">
-                    <ScorecardForm />
-                  </ProtectedRoute>
-                }
               />
 
               {/* KPI Module */}
@@ -1275,10 +1179,10 @@ function HomePageContent() {
               {/* DGFT Module */}
               <Route path="/dgft" element={<DgftTabs />} />
               <Route path="/dgft/:tab" element={<DgftTabs />} />
-              <Route
+              {/* <Route
                 path="/dgft/authorization-details/:id"
                 element={<ViewAuthorizationDetails />}
-              />
+              /> */}
               <Route
                 path="/dgft/register-details/:id"
                 element={<ViewDgftRegisterDetails />}
@@ -1320,8 +1224,8 @@ function HomePageContent() {
             </Routes>
           </Box>
         </Box>
-      </SearchQueryProvider >
-    </TabValueContext.Provider >
+      </SearchQueryProvider>
+    </TabValueContext.Provider>
   );
 }
 

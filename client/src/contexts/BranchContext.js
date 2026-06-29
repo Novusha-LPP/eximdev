@@ -2,6 +2,24 @@ import React, { createContext, useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { UserContext } from './UserContext';
 
+// Create axios instance with base config
+const api = axios.create({
+    baseURL: process.env.REACT_APP_API_STRING,
+    timeout: 10000,
+    headers: {
+        'Content-Type': 'application/json',
+    }
+});
+
+// Read token fresh on every request
+api.interceptors.request.use((config) => {
+    const token = localStorage.getItem('exim_user');
+    if (token) {
+        config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+});
+
 export const BranchContext = createContext();
 
 export const BranchProvider = ({ children }) => {
@@ -14,15 +32,15 @@ export const BranchProvider = ({ children }) => {
 
     useEffect(() => {
         const fetchBranches = async () => {
-            if (!user) return;
+            // ✅ Guard: wait for both user AND token to be available
+            const token = localStorage.getItem('exim_user');
+            if (!user || !token) return;
+
             try {
-                const response = await axios.get(`${process.env.REACT_APP_API_STRING}/admin/my-branches`, { withCredentials: true });
+                const response = await api.get('/admin/my-branches');
                 const fetchedBranches = response.data || [];
                 setBranches(fetchedBranches);
 
-                // If user is not admin and has specific branches, and current selection is 'all'
-                // or current selection is not in the assigned branches, auto-select the first one
-                // ONLY if they have only one branch. If they have multiple, allow 'all'.
                 if (user.role !== 'Admin' && fetchedBranches.length > 0) {
                     const uniqueBranchCodes = new Set(fetchedBranches.map(b => b.branch_code));
                     const hasMultipleBranches = uniqueBranchCodes.size > 1;
@@ -44,8 +62,9 @@ export const BranchProvider = ({ children }) => {
                 setLoading(false);
             }
         };
+
         fetchBranches();
-    }, [user]);
+    }, [user]); // 'user' changing means login just happened — token should be set by then
 
     const selectedBranch = React.useMemo(() => {
         if (selectedBranchGroup === 'all') return 'all';
@@ -59,8 +78,6 @@ export const BranchProvider = ({ children }) => {
         setSelectedBranchGroup(group);
         localStorage.setItem('selectedBranchGroup', group);
 
-        // When changing branch group, if it's a specific branch, 
-        // find a valid category for it in the assigned branches list
         if (group !== 'all') {
             const validBranch = branches.find(b => b.branch_code === group && b.category === selectedCategory);
             if (!validBranch) {
@@ -71,7 +88,7 @@ export const BranchProvider = ({ children }) => {
                 }
             }
         }
-        
+
         setIsChangingBranch(true);
         setTimeout(() => {
             window.location.reload();
@@ -81,7 +98,7 @@ export const BranchProvider = ({ children }) => {
     const handleCategoryChange = (category) => {
         setSelectedCategory(category);
         localStorage.setItem('selectedCategory', category);
-        
+
         setIsChangingBranch(true);
         setTimeout(() => {
             window.location.reload();

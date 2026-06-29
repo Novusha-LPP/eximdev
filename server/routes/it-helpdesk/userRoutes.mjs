@@ -1,8 +1,10 @@
 import express from "express";
 import mongoose from "mongoose";
-import User from "../../model/it-helpdesk/userModel.mjs";
+import ITHelpdeskUser from "../../model/it-helpdesk/userModel.mjs";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
 
 const router = express.Router();
+router.use(authMiddleware);
 
 // Validate ObjectId
 const validateId = (req, res, next) => {
@@ -24,7 +26,7 @@ router.post("/", async (req, res) => {
       });
     }
 
-    const user = new User({
+    const user = new ITHelpdeskUser({
       name,
       email,
       role,
@@ -51,7 +53,7 @@ router.post("/", async (req, res) => {
 // GET ALL USERS
 router.get("/", async (req, res) => {
   try {
-    const users = await User.find().sort({ createdAt: -1 });
+    const users = await ITHelpdeskUser.find().sort({ createdAt: -1 });
 
     res.json({
       success: true,
@@ -68,7 +70,7 @@ router.get("/", async (req, res) => {
 // GET SINGLE USER
 router.get("/:id", validateId, async (req, res) => {
   try {
-    const user = await User.findById(req.params.id);
+    const user = await ITHelpdeskUser.findById(req.params.id);
 
     if (!user) {
       return res.status(404).json({
@@ -92,7 +94,7 @@ router.get("/:id", validateId, async (req, res) => {
 // UPDATE USER
 router.put("/:id", validateId, async (req, res) => {
   try {
-    const user = await User.findByIdAndUpdate(
+    const user = await ITHelpdeskUser.findByIdAndUpdate(
       req.params.id,
       req.body,
       { new: true }
@@ -121,7 +123,7 @@ router.put("/:id", validateId, async (req, res) => {
 // DELETE USER
 router.delete("/:id", validateId, async (req, res) => {
   try {
-    const user = await User.findByIdAndDelete(req.params.id);
+    const user = await ITHelpdeskUser.findByIdAndDelete(req.params.id);
 
     if (!user) {
       return res.status(404).json({

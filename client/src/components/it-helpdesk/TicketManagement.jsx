@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import toast from "react-hot-toast";
 import axios from "axios";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
+import { useModuleAuditLogs } from "./AuditLogs";
 import AssignTicket from "./AssignTicket";
 import PriorityManagement from "./PriorityManagement";
 import SLATracking from "./SLATracking";
@@ -75,6 +76,8 @@ const EMPTY_FORM = {
 };
 
 export default function TicketManagement() {
+  // Audit logs
+  const { logCreate, logRead, logUpdate, logDelete } = useModuleAuditLogs("Helpdesk");
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState([]);
@@ -103,6 +106,9 @@ export default function TicketManagement() {
     async (page = 1) => {
       setLoading(true);
       try {
+        // Log ticket list access
+        logRead("ticket-list-view", "Accessed ticket list with filters", "info");
+        
         const params = { page, limit: pagination.limit };
         if (filters.status) params.status = filters.status;
         if (filters.category) params.category = filters.category;
@@ -120,6 +126,8 @@ export default function TicketManagement() {
       } catch (err) {
         toast.error("Failed to load tickets");
         console.error(err);
+        // Log error
+        console.error(`Failed to load tickets: ${err.message}`);
       } finally {
         setLoading(false);
       }

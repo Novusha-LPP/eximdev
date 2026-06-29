@@ -37,6 +37,7 @@ import HistoryIcon from "@mui/icons-material/History";
 import EmailIcon from "@mui/icons-material/Email";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
+import { useModuleAuditLogs } from "./AuditLogs";
 
 const StatCard = ({ title, value, icon, color, sub, to }) => (
   <Card
@@ -161,10 +162,16 @@ export default function ITHelpdeskHome() {
   const [recentAssets, setRecentAssets] = useState([]);
   const [recentTickets, setRecentTickets] = useState([]);
 
+  // Audit logs
+  const { logCreate, logRead } = useModuleAuditLogs("IT Helpdesk Home");
+
   const fetchData = async () => {
     setLoading(true);
     setError("");
     try {
+      // Log dashboard access
+      logRead("dashboard-view", "Accessed IT Helpdesk Dashboard", "info");
+      
       console.log("Starting fetch of IT Helpdesk data...");
 
       const [assetsRes, ticketsRes, ticketStatsRes, assetStatsRes] = await Promise.all([
@@ -224,6 +231,9 @@ export default function ITHelpdeskHome() {
     } catch (e) {
       console.error("Failed to load dashboard data:", e.message, e);
       setError(`Error: ${e.message}`);
+      
+      // Log error
+      logCreate("dashboard-error", `Failed to load dashboard data: ${e.message}`, "error");
 
       // Create dummy data if API fails
       const dummyAssets = [
@@ -347,22 +357,19 @@ export default function ITHelpdeskHome() {
 
       {/* Ticket Status Cards */}
       <Grid container spacing={3} mb={3}>
-        <Grid item xs={12} sm={6} md={2}>
+        <Grid item xs={12} sm={6} md={2.4}>
           <StatCard title="New Tickets" value={stats.ticketNew || 0} icon={<AssignmentIcon />} color="#d32f2f" />
         </Grid>
-        <Grid item xs={12} sm={6} md={2}>
+        <Grid item xs={12} sm={6} md={2.4}>
           <StatCard title="Assigned" value={stats.ticketAssigned || 0} icon={<AssignmentIcon />} color="#1976d2" />
         </Grid>
-        <Grid item xs={12} sm={6} md={2}>
+        <Grid item xs={12} sm={6} md={2.4}>
           <StatCard title="In Progress" value={stats.ticketInProgress || 0} icon={<AssignmentIcon />} color="#f57c00" />
         </Grid>
-        <Grid item xs={12} sm={6} md={2}>
+        <Grid item xs={12} sm={6} md={2.4}>
           <StatCard title="Pending" value={stats.ticketPending || 0} icon={<PendingIcon />} color="#0097a7" />
         </Grid>
-        <Grid item xs={12} sm={6} md={2}>
-          <StatCard title="Resolved" value={stats.ticketResolved || 0} icon={<CheckCircleIcon />} color="#7b1fa2" />
-        </Grid>
-        <Grid item xs={12} sm={6} md={2}>
+        <Grid item xs={12} sm={6} md={2.4}>
           <StatCard title="Closed" value={stats.ticketClosed || 0} icon={<CheckCircleIcon />} color="#388e3c" />
         </Grid>
       </Grid>

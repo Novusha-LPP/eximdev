@@ -1,10 +1,6 @@
-import axios from "axios";
+import authAPI from "./authAPI";
 
-const api = axios.create({
-  baseURL: process.env.REACT_APP_API_STRING || "http://localhost:9006/api",
-  withCredentials: true,
-  headers: { "Content-Type": "application/json" },
-});
+const api = authAPI;
 
 export const itHelpdeskAPI = {
   assets: {
@@ -50,6 +46,16 @@ export const itHelpdeskAPI = {
     create: (payload) => api.post("/it-helpdesk/inventory", payload).then((r) => r.data),
     update: (id, payload) => api.put(`/it-helpdesk/inventory/${id}`, payload).then((r) => r.data),
     remove: (id) => api.delete(`/it-helpdesk/inventory/${id}`).then((r) => r.data),
+  },
+  users: {
+    getAll: (params = {}) => api.get("/it-helpdesk/users", { params }).then((r) => r.data),
+    getById: (id) => api.get(`/it-helpdesk/users/${id}`).then((r) => r.data),
+    create: (payload) => api.post("/it-helpdesk/users", payload).then((r) => r.data),
+    update: (id, payload) => api.put(`/it-helpdesk/users/${id}`, payload).then((r) => r.data),
+    remove: (id) => api.delete(`/it-helpdesk/users/${id}`).then((r) => r.data),
+  },
+  admin: {
+    myBranches: () => api.get("/admin/my-branches").then((r) => r.data),
   },
 };
 

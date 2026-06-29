@@ -56,7 +56,11 @@ const BillingReportsUtility = () => {
   useEffect(() => {
     const fetchBranches = async () => {
       try {
-        const res = await axios.get(`${API_URL}/admin/my-branches`, { withCredentials: true });
+        const res = await axios.get(`${API_URL}/admin/my-branches`, { 
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
         const branchesData = Array.isArray(res.data) ? res.data : [];
         
         const uniqueBranches = [];

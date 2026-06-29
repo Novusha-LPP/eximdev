@@ -1,4 +1,4 @@
-// components/AuditLogs.js
+// src/components/it-helpdesk/AuditLogs.js
 import React, { useState, useEffect, useContext, createContext, useCallback, useMemo, useRef } from "react";
 import {
   Box,
@@ -26,68 +26,81 @@ import {
   DialogContent,
   DialogActions,
   Tabs,
-  TabList,
-  TabPanel
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import DownloadIcon from "@mui/icons-material/Download";
 import HistoryIcon from "@mui/icons-material/History";
+import WarningIcon from "@mui/icons-material/Warning";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import DeleteIcon from "@mui/icons-material/Delete";
 import { toast } from "react-hot-toast";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import axios from "axios";
+import Tooltip from "@mui/material/Tooltip";
 import { debounce } from "lodash";
 
-/*
- * Audit Logging Documentation:
- * 
- * 1. useActionLogger - Provides basic action logging functionality
- *    - logAction(moduleName, action, details, severity, additionalData)
- *    - logCRUD(moduleName, operation, entityName, entityId, entityDetails, user, severity, additionalData)
- *    - useAutoLogger(moduleName, trackedActions) - Automatically logs DOM events
- * 
- * 2. useAuditCRUD - High-level hook for automatic CRUD operations logging
- *    - Automatically initializes action tracking for a module
- *    - Provides pre-built CRUD logging functions
- *    - Usage: const audit = useAuditCRUD('User Management', 'User', ['click', 'submit']);
- *    - Methods: audit.logCreate(id, details), audit.logRead(id, details), etc.
- * 
- * 3. Adding data-action attributes to UI elements
- *    - <button data-action="delete">Delete</button>
- *    - <form data-form-action="submit-user-form">...</form>
- * 
- * 4. Using in any module without manual implementation
- *    - Import useAuditCRUD
- *    - Initialize with module name and entity name
- *    - Call appropriate CRUD methods when actions occur
- */
+// ✅ FIX 1: Create axios instance WITHOUT hardcoded token in headers
+const api = axios.create({
+  baseURL: process.env.REACT_APP_API_STRING,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  },
+  withCredentials: true
+});
 
-// Create a context for audit logging
+// ✅ Read token fresh on every request via interceptor
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers['Authorization'] = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// ✅ FIX 3: Response interceptor — show error instead of redirecting to /login
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response) {
+      switch (error.response.status) {
+        case 401:
+          // ❌ REMOVED: localStorage.removeItem('exim_user') + window.location.href = '/login'
+          // This was causing the redirect. Just log it and let the component handle it.
+          console.warn('401 Unauthorized - token may be invalid or expired');
+          break;
+        case 403:
+          console.error('Access forbidden. Check permissions for audit logs endpoint.');
+          break;
+        case 404:
+          console.error('Endpoint not found:', error.config.url);
+          break;
+        case 500:
+          console.error('Server error:', error.response.data);
+          break;
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 const AuditLogContext = createContext();
 
-// Define types for audit log
-const AuditLogType = {
-  id: '',
-  user: '',
-  action: '',
-  module: '',
-  severity: 'info',
-  timestamp: '',
-  ip_address: '',
-  user_agent: '',
-  details: ''
-};
-
-// Predefined modules and actions for consistency
 const MODULES = {
+  USER: 'User',
+  TICKET: 'Helpdesk',
+  ASSET: 'Asset',
+  VENDOR: 'Vendor',
+  CONTRACT: 'Contract',
+  INVENTORY: 'Inventory',
+  LICENSE: 'License',
   AUTHENTICATION: 'Authentication',
-  USER_MANAGEMENT: 'User Management',
   ROLE_MANAGEMENT: 'Role Management',
-  TICKET_MANAGEMENT: 'Ticket Management',
-  ASSET_MANAGEMENT: 'Asset Management',
   ADMINISTRATION: 'Administration',
   GENERAL: 'General'
 };
@@ -98,18 +111,14 @@ const ACTIONS = {
   CREATE: 'Create',
   UPDATE: 'Update',
   DELETE: 'Delete',
-  VIEW: 'View',
   EXPORT: 'Export',
   IMPORT: 'Import',
-  SEARCH: 'Search',
-  FILTER: 'Filter',
   APPROVE: 'Approve',
   REJECT: 'Reject',
   SUBMIT: 'Submit',
   CANCEL: 'Cancel'
 };
 
-// Severity levels
 const SEVERITY = {
   INFO: 'info',
   WARNING: 'warning',
@@ -117,41 +126,98 @@ const SEVERITY = {
   SUCCESS: 'success'
 };
 
-// Provider component for audit logs
+const handleApiError = (error, module = null) => {
+  console.error(`API Error for ${module ? `module ${module}` : `all modules`}:`, error);
+  if (error.response && error.response.status === 401) {
+    return "Authentication failed. Please log in again.";
+  }
+  return module
+    ? `Failed to fetch logs for ${module}. Please try again later.`
+    : "Failed to fetch audit logs. Please try again later.";
+};
+
+const documentTypeMap = {
+  'ITAsset': 'Asset',
+  'ItVendor': 'Vendor',
+  'HelpdeskTicket': 'Helpdesk',
+  'ITInventory': 'Inventory',
+  'ITContract': 'Contract',
+  'ITLicense': 'License',
+  'User': 'User'
+};
+
+const reverseDocumentTypeMap = {
+  'Asset': 'ITAsset',
+  'Vendor': 'ItVendor',
+  'Helpdesk': 'HelpdeskTicket',
+  'Inventory': 'ITInventory',
+  'Contract': 'ITContract',
+  'License': 'ITLicense',
+  'User': 'User'
+};
+
 export const AuditLogProvider = ({ children }) => {
   const [auditLogs, setAuditLogs] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [onlineStatus, setOnlineStatus] = useState(navigator.onLine);
+  const [pendingLogs, setPendingLogs] = useState([]);
   const pendingLogsRef = useRef([]);
 
-  // Helper function to create audit log entries
   const createAuditLog = useCallback((logData) => {
-    const currentUser = JSON.parse(localStorage.getItem('user')) || { name: 'Unknown User' };
-
-    return {
-      id: `log-${Date.now()}`,
-      user: currentUser.name,
+    const currentUser = JSON.parse(localStorage.getItem('exim_user')) || { username: 'Unknown User', _id: 'unknown' };
+    const additionalContext = {
+      url: window.location.href,
       timestamp: new Date().toISOString(),
-      ip_address: '192.168.1.100',
-      user_agent: navigator.userAgent,
+      userAgent: navigator.userAgent,
+      platform: navigator.platform,
+      language: navigator.language,
+      screenResolution: `${window.screen.width}x${window.screen.height}`
+    };
+    return {
+      id: logData.id || `log-${Date.now()}`,
+      user: currentUser.name,
+      userId: currentUser.id,
+      timestamp: additionalContext.timestamp,
+      ip_address: logData.ip_address || '127.0.0.1',
+      user_agent: additionalContext.userAgent,
       severity: logData.severity || SEVERITY.INFO,
-      ...logData
+      url: additionalContext.url,
+      module: logData.module || 'General',
+      action: logData.action || 'UNKNOWN',
+      details: logData.details || 'No additional details',
+      targetId: logData.targetId || null,
+      entityType: logData.entityType || null,
+      additionalData: { ...logData.additionalData, ...additionalContext }
     };
   }, []);
 
-  // Add new audit log with batching capability
   const addAuditLog = useCallback(async (logData, batch = false) => {
     try {
-      const newLog = createAuditLog(logData);
+      const enrichedLogData = {
+        ...logData,
+        timestamp: logData.timestamp || new Date().toISOString(),
+        username: logData.user || JSON.parse(localStorage.getItem('exim_user'))?.username || 'Unknown User',
+        documentType: logData.module || 'General',
+        userAgent: logData.user_agent || navigator.userAgent,
+        ip_address: logData.ip_address || '127.0.0.1'
+      };
+
+      const newLog = createAuditLog(enrichedLogData);
 
       if (batch) {
         pendingLogsRef.current.push(newLog);
         return newLog;
       }
 
-      const response = await axios.post(`${process.env.REACT_APP_API_STRING}/audit-trail/custom`, logData);
+      const response = await api.post('/audit-trail/custom', enrichedLogData);
+      
+      if (response.data.skipped) {
+        return null;
+      }
+
       const savedLog = response.data.log;
 
       const mappedLog = {
@@ -159,64 +225,76 @@ export const AuditLogProvider = ({ children }) => {
         user: savedLog.username,
         action: savedLog.action,
         module: savedLog.documentType,
-        severity: logData.severity || 'info',
+        severity: savedLog.severity || logData.severity || 'info',
         timestamp: savedLog.timestamp,
-        ip_address: '',
+        ip_address: savedLog.ip_address || '',
         user_agent: savedLog.userAgent || '',
-        details: savedLog.heading || ''
+        details: savedLog.heading || savedLog.details || ''
       };
 
       setAuditLogs(prevLogs => [mappedLog, ...prevLogs]);
+      setLastUpdated(new Date());
       return mappedLog;
     } catch (err) {
       console.error('Error adding audit log:', err);
-      // We don't throw to prevent UI interruptions for simple logging
+      const localLog = createAuditLog(logData);
+      setAuditLogs(prevLogs => [localLog, ...prevLogs]);
+      setLastUpdated(new Date());
     }
   }, [createAuditLog]);
 
-  // Batch multiple audit logs together
   const batchAddAuditLogs = useCallback(async (logsData) => {
     try {
-      return logsData;
+      const batchData = logsData.map(log => ({
+        ...log,
+        timestamp: log.timestamp || new Date().toISOString(),
+        username: log.user || JSON.parse(localStorage.getItem('exim_user'))?.username || 'Unknown User',
+        documentType: log.module || 'General',
+        userAgent: log.user_agent || navigator.userAgent,
+        ip_address: log.ip_address || '127.0.0.1'
+      }));
+      const response = await api.post('/audit-trail/batch', batchData);
+      return response.data.logs;
     } catch (err) {
       console.error('Error adding batch audit logs:', err);
+      return logsData.map(log => createAuditLog(log));
     }
-  }, []);
+  }, [createAuditLog]);
 
-  // Process pending logs
   const processPendingLogs = useCallback(async () => {
     if (pendingLogsRef.current.length > 0) {
-      pendingLogsRef.current = [];
+      try {
+        await batchAddAuditLogs(pendingLogsRef.current);
+        pendingLogsRef.current = [];
+      } catch (err) {
+        console.error('Error processing pending logs:', err);
+      }
     }
-  }, []);
+  }, [batchAddAuditLogs]);
 
-  // Fetch audit logs from API
-  const fetchAuditLogs = useCallback(async (isRefresh = false, module = null) => {
+  const fetchAuditLogs = useCallback(async (isRefresh = false, module = null, retryCount = 0) => {
+    const MAX_RETRIES = 3;
+
     try {
       setLoading(true);
       setIsRefreshing(isRefresh);
 
-      const params = {
-        limit: 1000
-      };
+      const params = { limit: 1000, timestamp: new Date().getTime() };
+      if (module) params.documentType = reverseDocumentTypeMap[module] || module;
 
-      if (module) {
-        params.documentType = module;
-      }
-
-      const response = await axios.get(`${process.env.REACT_APP_API_STRING}/audit-trail`, { params });
+      const response = await api.get('/audit-trail', { params });
       const backendLogs = response.data.auditTrail || [];
 
       const newLogs = backendLogs.map(log => ({
         id: log._id,
-        user: log.username,
-        action: log.action,
-        module: log.documentType,
-        severity: log.action === 'DELETE' ? 'warning' : 'info',
-        timestamp: log.timestamp,
-        ip_address: '',
+        user: log.username || 'Unknown User',
+        action: log.action || 'UNKNOWN',
+        module: documentTypeMap[log.documentType] || log.documentType || 'General',
+        severity: log.action === 'DELETE' ? 'warning' : (log.severity || 'info'),
+        timestamp: log.timestamp || new Date().toISOString(),
+        ip_address: log.ip_address || '',
         user_agent: log.userAgent || '',
-        details: log.heading || ''
+        details: log.heading || log.details || ''
       }));
 
       if (isRefresh) {
@@ -233,69 +311,97 @@ export const AuditLogProvider = ({ children }) => {
       setError(null);
     } catch (err) {
       console.error('Error fetching audit logs:', err);
-      setError('API endpoint not available - failed to fetch audit logs');
+      const errorMessage = handleApiError(err, module);
+      setError(errorMessage);
+
+      if (retryCount < MAX_RETRIES) {
+        setTimeout(() => {
+          fetchAuditLogs(isRefresh, module, retryCount + 1);
+        }, 2000 * (retryCount + 1));
+      }
+      setLastUpdated(new Date());
     } finally {
       setLoading(false);
       setIsRefreshing(false);
     }
-  }, [lastUpdated]);
+  }, []);
 
-  // Function to fetch logs for a specific module
-  const fetchModuleLogs = useCallback(async (module) => {
+  const fetchModuleLogs = useCallback(async (module, retryCount = 0) => {
+    const MAX_RETRIES = 3;
     if (!module) return;
-
     try {
       setLoading(true);
-
-      const response = await axios.get(`${process.env.REACT_APP_API_STRING}/audit-trail`, {
-        params: {
-          documentType: module,
-          limit: 1000
-        }
+      const response = await api.get('/audit-trail', {
+        params: { documentType: reverseDocumentTypeMap[module] || module, limit: 1000, timestamp: new Date().getTime() }
       });
 
       const backendLogs = response.data.auditTrail || [];
       const moduleLogs = backendLogs.map(log => ({
         id: log._id,
-        user: log.username,
-        action: log.action,
-        module: log.documentType,
-        severity: log.action === 'DELETE' ? 'warning' : 'info',
-        timestamp: log.timestamp,
-        ip_address: '',
+        user: log.username || 'Unknown User',
+        action: log.action || 'UNKNOWN',
+        module: documentTypeMap[log.documentType] || log.documentType || 'General',
+        severity: log.action === 'DELETE' ? 'warning' : (log.severity || 'info'),
+        timestamp: log.timestamp || new Date().toISOString(),
+        ip_address: log.ip_address || '',
         user_agent: log.userAgent || '',
-        details: log.heading || ''
+        details: log.heading || log.details || ''
       }));
 
       setAuditLogs(moduleLogs);
       setLastUpdated(new Date());
       setError(null);
     } catch (err) {
-      console.error(`Error fetching logs for module ${module}:`, err);
-      setError(`Failed to fetch logs for ${module}`);
+      const errorMessage = handleApiError(err, module);
+      if (retryCount < MAX_RETRIES) {
+        setTimeout(() => fetchModuleLogs(module, retryCount + 1), 2000 * (retryCount + 1));
+      } else {
+        setAuditLogs([]);
+        setLastUpdated(new Date());
+        setError(errorMessage);
+      }
     } finally {
-      setLoading(false);
+      if (retryCount === 0) setLoading(false);
     }
   }, []);
 
-  // Initialize audit logs
+  // ✅ FIX 5: useEffect — NO redirect to /login, just set error message
   useEffect(() => {
-    fetchAuditLogs(false); // Initial fetch for all modules
+    // ✅ Cookie is sent automatically - just fetch directly
+    fetchAuditLogs(false);
 
-    // Process pending logs before unmounting
+    const reconnectInterval = setInterval(() => {
+      if (error) {
+        fetchAuditLogs(false);
+      }
+    }, 30000);
+
+    const handleOffline = () => setOnlineStatus(false);
+    const handleOnline = () => {
+      setOnlineStatus(true);
+      if (pendingLogs.length > 0) processPendingLogs();
+    };
+
+    window.addEventListener('offline', handleOffline);
+    window.addEventListener('online', handleOnline);
+
     return () => {
+      clearInterval(reconnectInterval);
+      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener('online', handleOnline);
       processPendingLogs();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, []);  // ✅ FIX 6: Empty deps — don't re-run on every error change (was causing loops)
 
   return (
     <AuditLogContext.Provider value={{
       auditLogs,
+      setAuditLogs,
       addAuditLog,
       fetchModuleLogs,
       loading,
       error,
+      setError,
       lastUpdated,
       isRefreshing,
       refreshLogs: () => fetchAuditLogs(true),
@@ -311,58 +417,46 @@ export const AuditLogProvider = ({ children }) => {
   );
 };
 
-// HOC for adding audit logging capability to any component
-export const withAuditLog = (WrappedComponent, moduleName, customActions = {}) => {
-  return function WithAuditLog(props) {
-    const { addAuditLog } = useAuditLogs();
+export const useAuditLogs = () => {
+  const context = useContext(AuditLogContext);
+  if (!context) throw new Error('useAuditLogs must be used within an AuditLogProvider');
 
-    const logAction = useCallback((action, details, severity = SEVERITY.INFO, additionalData = {}) => {
-      addAuditLog({
-        action,
-        module: moduleName,
-        severity,
-        details,
-        ...additionalData
-      });
-    }, [addAuditLog, moduleName]);
+  const logCreate = useCallback((id, details, severity = SEVERITY.INFO, module = 'General') => {
+    context.addAuditLog({ action: ACTIONS.CREATE, module, severity, details, targetId: id });
+  }, [context.addAuditLog]);
 
-    // Merge custom actions with default actions
-    const componentActions = {
-      ...ACTIONS,
-      ...customActions
-    };
+  const logRead = useCallback((id, details, severity = SEVERITY.INFO, module = 'General') => {
+    context.addAuditLog({ action: 'VIEW', module, severity, details, targetId: id });
+  }, [context.addAuditLog]);
 
-    return <WrappedComponent
-      {...props}
-      logAction={logAction}
-      actions={componentActions}
-    />;
-  };
+  const logUpdate = useCallback((id, details, severity = SEVERITY.INFO, module = 'General') => {
+    context.addAuditLog({ action: ACTIONS.UPDATE, module, severity, details, targetId: id });
+  }, [context.addAuditLog]);
+
+  const logDelete = useCallback((id, details, severity = SEVERITY.WARNING, module = 'General') => {
+    context.addAuditLog({ action: ACTIONS.DELETE, module, severity, details, targetId: id });
+  }, [context.addAuditLog]);
+
+  return { ...context, logCreate, logRead, logUpdate, logDelete };
 };
 
-// Hook for logging actions from anywhere in the app
 export const useActionLogger = () => {
   const { addAuditLog } = useAuditLogs();
 
   const logAction = useCallback((moduleName, action, details, severity = SEVERITY.INFO, additionalData = {}) => {
     addAuditLog({
       action,
-      module: moduleName,
+      module: moduleName || 'General',
       severity,
-      details,
-      ...additionalData
+      details: details || `${action} action performed in ${moduleName}`,
+      ...additionalData,
+      url: window.location.href,
+      timestamp: new Date().toISOString()
     });
   }, [addAuditLog]);
 
-  // Generic function to log any CRUD operation
   const logCRUD = useCallback((moduleName, operation, entityName, entityId, entityDetails, user, severity = SEVERITY.INFO, additionalData = {}) => {
-    const actionMap = {
-      create: ACTIONS.CREATE,
-      read: ACTIONS.VIEW,
-      update: ACTIONS.UPDATE,
-      delete: ACTIONS.DELETE
-    };
-
+    const actionMap = { create: ACTIONS.CREATE, read: 'VIEW', update: ACTIONS.UPDATE, delete: ACTIONS.DELETE };
     addAuditLog({
       action: actionMap[operation] || operation.toUpperCase(),
       module: moduleName,
@@ -370,338 +464,69 @@ export const useActionLogger = () => {
       details: `${operation.toUpperCase()} operation performed on ${entityName} (ID: ${entityId}). ${entityDetails ? `Details: ${entityDetails}` : ''}`,
       targetEntity: entityName,
       targetId: entityId,
-      performedBy: user || JSON.parse(localStorage.getItem('user'))?.name || 'Unknown User',
+      performedBy: user || JSON.parse(localStorage.getItem('exim_user'))?.username || 'Unknown User',
       ...additionalData
     });
-  }, [addAuditLog, ACTIONS, SEVERITY]);
+  }, [addAuditLog]);
 
-  // Function to automatically detect and log actions based on DOM events
-  const useAutoLogger = (moduleName, trackedActions = ['click', 'submit']) => {
-    const { addAuditLog } = useAuditLogs();
-
-    useEffect(() => {
-      const handleClick = (e) => {
-        const target = e.target;
-        const actionName = target.getAttribute('data-action') ||
-          target.closest('[data-action]')?.getAttribute('data-action');
-
-        if (actionName) {
-          logAction(
-            moduleName,
-            actionName,
-            `User clicked on ${actionName} in ${moduleName}`,
-            SEVERITY.INFO,
-            {
-              element: target.tagName,
-              classList: Array.from(target.classList).join(' '),
-              id: target.id
-            }
-          );
-        }
-      };
-
-      const handleSubmit = (e) => {
-        const form = e.target;
-        const formAction = form.getAttribute('data-form-action') || 'SUBMIT';
-
-        logAction(
-          moduleName,
-          formAction,
-          `Form submitted in ${moduleName}`,
-          SEVERITY.INFO,
-          {
-            formId: form.id,
-            action: form.action
-          }
-        );
-      };
-
-      // Add event listeners if click tracking is enabled
-      if (trackedActions.includes('click')) {
-        document.addEventListener('click', handleClick);
-      }
-
-      // Add form submit listener if submit tracking is enabled
-      if (trackedActions.includes('submit')) {
-        document.addEventListener('submit', handleSubmit);
-      }
-
-      return () => {
-        if (trackedActions.includes('click')) {
-          document.removeEventListener('click', handleClick);
-        }
-
-        if (trackedActions.includes('submit')) {
-          document.removeEventListener('submit', handleSubmit);
-        }
-      };
-    }, [moduleName, trackedActions, logAction]);
-  };
-
-  return { logAction, logCRUD, useAutoLogger };
+  return { logAction, logCRUD };
 };
 
-// High-level hook for automatic CRUD logging without manual implementation
-export const useAuditCRUD = (moduleName, entityName, trackedActions = []) => {
-  const { logCRUD, useAutoLogger } = useActionLogger();
-
-  // Initialize automatic logging for this module
-  useAutoLogger(moduleName, trackedActions);
-
-  // Return CRUD functions that can be used in any module
-  return {
-    logCreate: (entityId, details, user, additionalData = {}) => {
-      logCRUD(moduleName, 'create', entityName, entityId, details, user, SEVERITY.INFO, additionalData);
-    },
-    logRead: (entityId, details, user, additionalData = {}) => {
-      logCRUD(moduleName, 'read', entityName, entityId, details, user, SEVERITY.INFO, additionalData);
-    },
-    logUpdate: (entityId, details, user, additionalData = {}) => {
-      logCRUD(moduleName, 'update', entityName, entityId, details, user, SEVERITY.INFO, additionalData);
-    },
-    logDelete: (entityId, details, user, additionalData = {}) => {
-      logCRUD(moduleName, 'delete', entityName, entityId, details, user, SEVERITY.WARNING, additionalData);
-    },
-    logCustom: (action, entityId, details, severity = SEVERITY.INFO, user, additionalData = {}) => {
-      logCRUD(moduleName, action, entityName, entityId, details, user, severity, additionalData);
-    }
-  };
+export const useAuditCRUD = (moduleName, entityName) => {
+  const { logCRUD } = useActionLogger();
+  const logCreate = useCallback((entityId, details, user, additionalData = {}) => logCRUD(moduleName, 'create', entityName, entityId, details, user, SEVERITY.INFO, additionalData), [logCRUD, moduleName, entityName]);
+  const logRead = useCallback((entityId, details, user, additionalData = {}) => logCRUD(moduleName, 'read', entityName, entityId, details, user, SEVERITY.INFO, additionalData), [logCRUD, moduleName, entityName]);
+  const logUpdate = useCallback((entityId, details, user, additionalData = {}) => logCRUD(moduleName, 'update', entityName, entityId, details, user, SEVERITY.INFO, additionalData), [logCRUD, moduleName, entityName]);
+  const logDelete = useCallback((entityId, details, user, additionalData = {}) => logCRUD(moduleName, 'delete', entityName, entityId, details, user, SEVERITY.WARNING, additionalData), [logCRUD, moduleName, entityName]);
+  return { logCreate, logRead, logUpdate, logDelete };
 };
 
-// Custom hook for module-specific audit logging
 export const useModuleAuditLogs = (moduleName) => {
   const { auditLogs, addAuditLog, fetchModuleLogs, ...rest } = useAuditLogs();
+  const moduleLogs = useMemo(() => auditLogs.filter(log => log.module === moduleName), [auditLogs, moduleName]);
 
-  // Filter logs by module
-  const moduleLogs = useMemo(() => {
-    return auditLogs.filter(log => log.module === moduleName);
-  }, [auditLogs, moduleName]);
+  const logCreate = useCallback((id, details, severity = SEVERITY.INFO, additionalData = {}) => addAuditLog({ action: ACTIONS.CREATE, module: moduleName, severity, details, targetId: id, additionalData }), [addAuditLog, moduleName]);
+  const logRead = useCallback((id, details, severity = SEVERITY.INFO, additionalData = {}) => addAuditLog({ action: 'VIEW', module: moduleName, severity, details, targetId: id, additionalData }), [addAuditLog, moduleName]);
+  const logUpdate = useCallback((id, details, severity = SEVERITY.INFO, additionalData = {}) => addAuditLog({ action: ACTIONS.UPDATE, module: moduleName, severity, details, targetId: id, additionalData }), [addAuditLog, moduleName]);
+  const logDelete = useCallback((id, details, severity = SEVERITY.WARNING, additionalData = {}) => addAuditLog({ action: ACTIONS.DELETE, module: moduleName, severity, details, targetId: id, additionalData }), [addAuditLog, moduleName]);
 
-  // Module-specific CRUD functions
-  const logCreate = (id, details, severity = SEVERITY.INFO) => {
-    addAuditLog({
-      action: ACTIONS.CREATE,
-      module: moduleName,
-      severity,
-      details: `Created new ${details}`,
-      targetId: id
-    });
-  };
-
-  const logRead = (id, details, severity = SEVERITY.INFO) => {
-    addAuditLog({
-      action: ACTIONS.VIEW,
-      module: moduleName,
-      severity,
-      details: `Viewed ${details}`,
-      targetId: id
-    });
-  };
-
-  const logUpdate = (id, details, severity = SEVERITY.INFO) => {
-    addAuditLog({
-      action: ACTIONS.UPDATE,
-      module: moduleName,
-      severity,
-      details: `Updated ${details}`,
-      targetId: id
-    });
-  };
-
-  const logDelete = (id, details, severity = SEVERITY.WARNING) => {
-    addAuditLog({
-      action: ACTIONS.DELETE,
-      module: moduleName,
-      severity,
-      details: `Deleted ${details}`,
-      targetId: id
-    });
-  };
-
-  return {
-    ...rest,
-    auditLogs: moduleLogs,
-    addAuditLog,
-    fetchModuleLogs,
-    logCreate,
-    logRead,
-    logUpdate,
-    logDelete
-  };
-};
-
-export const useAuditLogs = () => {
-  const context = useContext(AuditLogContext);
-  if (!context) {
-    throw new Error('useAuditLogs must be used within an AuditLogProvider');
-  }
-
-  // Add CRUD functionality
-  const logCreate = (id, details, severity = SEVERITY.INFO, module = 'General') => {
-    context.addAuditLog({
-      action: ACTIONS.CREATE,
-      module,
-      severity,
-      details: `Created new ${details}`,
-      targetId: id
-    });
-  };
-
-  const logRead = (id, details, severity = SEVERITY.INFO, module = 'General') => {
-    context.addAuditLog({
-      action: ACTIONS.VIEW,
-      module,
-      severity,
-      details: `Viewed ${details}`,
-      targetId: id
-    });
-  };
-
-  const logUpdate = (id, details, severity = SEVERITY.INFO, module = 'General') => {
-    context.addAuditLog({
-      action: ACTIONS.UPDATE,
-      module,
-      severity,
-      details: `Updated ${details}`,
-      targetId: id
-    });
-  };
-
-  const logDelete = (id, details, severity = SEVERITY.WARNING, module = 'General') => {
-    context.addAuditLog({
-      action: ACTIONS.DELETE,
-      module,
-      severity,
-      details: `Deleted ${details}`,
-      targetId: id
-    });
-  };
-
-  return {
-    ...context,
-    logCreate,
-    logRead,
-    logUpdate,
-    logDelete
-  };
-};
-
-// Custom hook for tracking component actions
-export const useComponentTracker = (moduleName, actionsToTrack = []) => {
-  const { addAuditLog } = useAuditLogs();
-  const componentRef = useRef(null);
-
-  useEffect(() => {
-    if (!componentRef.current) return;
-
-    const trackAction = (action, details, severity = SEVERITY.INFO) => {
-      addAuditLog({
-        action,
-        module: moduleName,
-        severity,
-        details,
-        timestamp: new Date().toISOString()
-      });
-    };
-
-    // Add event listeners for tracking
-    const addListeners = () => {
-      if (!actionsToTrack.length) return;
-
-      actionsToTrack.forEach(actionType => {
-        if (actionType === 'click') {
-          componentRef.current.addEventListener('click', (e) => {
-            const target = e.target;
-            const actionName = target.getAttribute('data-action') || target.closest('[data-action]')?.getAttribute('data-action');
-
-            if (actionName) {
-              trackAction(
-                actionName,
-                `User clicked on ${target.tagName.toLowerCase()} with action "${actionName}"`
-              );
-            }
-          });
-        }
-
-        // Add more action types as needed
-      });
-    };
-
-    addListeners();
-
-    return () => {
-      // Clean up listeners
-      if (!actionsToTrack.length) return;
-
-      actionsToTrack.forEach(actionType => {
-        if (actionType === 'click') {
-          componentRef.current.removeEventListener('click', () => { });
-        }
-      });
-    };
-  }, [moduleName, actionsToTrack, addAuditLog]);
-
-  return componentRef;
+  return { ...rest, auditLogs: moduleLogs, addAuditLog, fetchModuleLogs, logCreate, logRead, logUpdate, logDelete };
 };
 
 // Main AuditLogs component
 const AuditLogsComponent = () => {
-  const {
-    auditLogs,
-    loading,
-    error,
-    fetchAuditLogs,
-    lastUpdated,
-    isRefreshing,
-    MODULES,
-    ACTIONS,
-    SEVERITY
-  } = useAuditLogs();
+  const { auditLogs, setAuditLogs, loading, error, setError, fetchAuditLogs, lastUpdated, isRefreshing, MODULES, ACTIONS, SEVERITY } = useAuditLogs();
 
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [selectedLog, setSelectedLog] = useState(null);
   const [tabValue, setTabValue] = useState("all");
   const [exportLoading, setExportLoading] = useState(false);
   const [newLogsCount, setNewLogsCount] = useState(0);
-
-  // Filter states
   const [searchTerm, setSearchTerm] = useState("");
   const [filterUser, setFilterUser] = useState("");
   const [filterAction, setFilterAction] = useState("");
   const [filterIp, setFilterIp] = useState("");
   const [filterModule, setFilterModule] = useState("");
-  const [dateRange, setDateRange] = useState({
-    startDate: null,
-    endDate: null
-  });
+  const [dateRange, setDateRange] = useState({ startDate: null, endDate: null });
 
-  // Track new logs
   useEffect(() => {
     if (lastUpdated) {
-      const recentLogs = auditLogs.filter(log =>
-        new Date(log.timestamp) > new Date(Date.now() - 60000)
-      );
+      const recentLogs = auditLogs.filter(log => new Date(log.timestamp) > new Date(Date.now() - 60000));
       setNewLogsCount(recentLogs.length);
     }
   }, [auditLogs, lastUpdated]);
 
-  // Debounced search handler
-  const handleSearch = useMemo(
-    () => debounce((value) => {
-      setSearchTerm(value);
-    }, 300),
-    []
-  );
+  const handleSearch = useMemo(() => debounce((value) => setSearchTerm(value), 300), []);
 
-  // Filter audit logs
   const filteredLogs = useMemo(() => {
     return auditLogs.filter(log => {
       const matchesSearch =
         log.user.toLowerCase().includes(searchTerm.toLowerCase()) ||
         log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
         log.details.toLowerCase().includes(searchTerm.toLowerCase());
-
       const matchesUser = !filterUser || log.user === filterUser;
       const matchesAction = !filterAction || log.action === filterAction;
       const matchesIp = !filterIp || log.ip_address === filterIp;
@@ -714,26 +539,49 @@ const AuditLogsComponent = () => {
       let matchesDate = true;
       if (dateRange.startDate || dateRange.endDate) {
         const logDate = new Date(log.timestamp);
-        if (dateRange.startDate) {
-          const startDate = new Date(dateRange.startDate);
-          startDate.setHours(0, 0, 0, 0);
-          matchesDate = matchesDate && logDate >= startDate;
-        }
-        if (dateRange.endDate) {
-          const endDate = new Date(dateRange.endDate);
-          endDate.setHours(23, 59, 59, 999);
-          matchesDate = matchesDate && logDate <= endDate;
-        }
+        if (dateRange.startDate) { const s = new Date(dateRange.startDate); s.setHours(0, 0, 0, 0); matchesDate = matchesDate && logDate >= s; }
+        if (dateRange.endDate) { const e = new Date(dateRange.endDate); e.setHours(23, 59, 59, 999); matchesDate = matchesDate && logDate <= e; }
       }
-
       return matchesSearch && matchesUser && matchesAction && matchesIp && matchesModule && matchesDate && matchesTab;
     });
   }, [auditLogs, searchTerm, filterUser, filterAction, filterIp, filterModule, dateRange, tabValue, SEVERITY]);
 
-  const handleViewDetails = (log) => {
-    setSelectedLog(log);
-    setShowDetailsModal(true);
-  };
+  const handleViewDetails = (log) => { setSelectedLog(log); setShowDetailsModal(true); };
+
+  const handleDeleteSingleLog = useCallback(async (logId) => {
+    try {
+      await api.delete(`/audit-trail/${logId}`);
+      // Remove from local state immediately — no need to re-fetch
+      setAuditLogs(prev => prev.filter(l => l.id !== logId));
+      toast.success('Log entry deleted.');
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Failed to delete log entry.';
+      toast.error(msg);
+    }
+  }, [setAuditLogs]);
+
+  const handleModuleFilterChange = useCallback((module) => {
+    setFilterModule(module);
+    // Re-fetch from server with documentType filter for accurate server-side filtering
+    fetchAuditLogs(false);
+  }, [fetchAuditLogs]);
+
+  const handleDeleteLogs = useCallback(async () => {
+    setDeleteLoading(true);
+    try {
+      const params = filterModule ? { documentType: reverseDocumentTypeMap[filterModule] || filterModule } : {};
+      await api.delete('/audit-trail', { params });
+      toast.success(filterModule ? `Logs for "${filterModule}" deleted.` : 'All audit logs deleted.');
+      setShowDeleteConfirm(false);
+      fetchAuditLogs(false);
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.message || 'Failed to delete audit logs.';
+      toast.error(msg);
+      console.error('Delete logs error:', err?.response?.status, err?.response?.data);
+    } finally {
+      setDeleteLoading(false);
+    }
+  }, [filterModule, fetchAuditLogs]);
 
   const handleExportLogs = useCallback(async () => {
     setExportLoading(true);
@@ -741,17 +589,8 @@ const AuditLogsComponent = () => {
       const headers = ['Timestamp', 'User', 'Action', 'Module', 'Severity', 'IP Address', 'Details'];
       const csvContent = [
         headers.join(','),
-        ...filteredLogs.map(log => [
-          log.timestamp,
-          log.user,
-          log.action,
-          log.module,
-          log.severity,
-          log.ip_address,
-          `"${log.details}"`
-        ].join(','))
+        ...filteredLogs.map(log => [log.timestamp, `"${log.user}"`, `"${log.action}"`, `"${log.module}"`, `"${log.severity}"`, `"${log.ip_address}"`, `"${log.details}"`].join(','))
       ].join('\n');
-
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -761,82 +600,16 @@ const AuditLogsComponent = () => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-
       toast.success("Audit logs exported successfully");
     } catch (err) {
-      console.error('Error exporting audit logs:', err);
       toast.error("Failed to export audit logs");
     } finally {
       setExportLoading(false);
     }
   }, [filteredLogs]);
 
-  // Batch export functionality
-  const handleBatchExport = useCallback(async (module, action, dateRange) => {
-    setExportLoading(true);
-    try {
-      let logsToExport = auditLogs;
-
-      // Filter by module if specified
-      if (module) {
-        logsToExport = logsToExport.filter(log => log.module === module);
-      }
-
-      // Filter by action if specified
-      if (action) {
-        logsToExport = logsToExport.filter(log => log.action === action);
-      }
-
-      // Filter by date range if specified
-      if (dateRange && dateRange.startDate && dateRange.endDate) {
-        const startDate = new Date(dateRange.startDate);
-        const endDate = new Date(dateRange.endDate);
-        endDate.setHours(23, 59, 59, 999);
-
-        logsToExport = logsToExport.filter(log => {
-          const logDate = new Date(log.timestamp);
-          return logDate >= startDate && logDate <= endDate;
-        });
-      }
-
-      const headers = ['Timestamp', 'User', 'Action', 'Module', 'Severity', 'IP Address', 'Details'];
-      const csvContent = [
-        headers.join(','),
-        ...logsToExport.map(log => [
-          log.timestamp,
-          log.user,
-          log.action,
-          log.module,
-          log.severity,
-          log.ip_address,
-          `"${log.details}"`
-        ].join(','))
-      ].join('\n');
-
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', `audit-logs-${module || 'all'}-${new Date().toISOString().split('T')[0]}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      toast.success(`Successfully exported ${logsToExport.length} audit logs`);
-    } catch (err) {
-      console.error('Error exporting audit logs:', err);
-      toast.error("Failed to export audit logs");
-    } finally {
-      setExportLoading(false);
-    }
-  }, [auditLogs]);
-
   const handleRefreshLogs = useCallback(() => {
-    if (!loading) {
-      fetchAuditLogs(true);
-      toast.success("Audit logs refreshed");
-    }
+    if (!loading) { fetchAuditLogs(true); toast.success("Audit logs refreshed"); }
   }, [fetchAuditLogs, loading]);
 
   const getSeverityColor = useCallback((severity) => {
@@ -851,70 +624,64 @@ const AuditLogsComponent = () => {
 
   const getModuleColor = useCallback((module) => {
     const moduleColors = {
-      [MODULES.AUTHENTICATION]: "primary",
-      [MODULES.USER_MANAGEMENT]: "success",
-      [MODULES.ROLE_MANAGEMENT]: "secondary",
-      [MODULES.TICKET_MANAGEMENT]: "error",
-      [MODULES.ASSET_MANAGEMENT]: "warning",
-      [MODULES.ADMINISTRATION]: "info",
-      [MODULES.GENERAL]: "default"
+      [MODULES.AUTHENTICATION]: "primary", 
+      [MODULES.USER]: "success",
+      [MODULES.ROLE_MANAGEMENT]: "secondary", 
+      [MODULES.TICKET]: "error",
+      [MODULES.ASSET]: "warning", 
+      [MODULES.ADMINISTRATION]: "info", 
+      [MODULES.GENERAL]: "default",
+      [MODULES.VENDOR]: "success",
+      [MODULES.CONTRACT]: "secondary",
+      [MODULES.INVENTORY]: "warning",
+      [MODULES.LICENSE]: "info",
     };
     return moduleColors[module] || "default";
   }, [MODULES]);
 
   const formatDate = useCallback((timestamp) => {
     const date = new Date(timestamp);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    }) + ' ' + date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) + ' ' +
+      date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   }, []);
 
-  // Cleanup debounced function on unmount
-  useEffect(() => {
-    return () => {
-      handleSearch.cancel();
-    };
-  }, [handleSearch]);
+  useEffect(() => { return () => { handleSearch.cancel(); }; }, [handleSearch]);
 
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <Box>
-        <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+          <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
           <Box display="flex" alignItems="center" gap={2}>
             <HistoryIcon color="primary" />
-            <Typography variant="h5" fontWeight={700}>
-              Audit Logs
-              {newLogsCount > 0 && (
-                <Chip
-                  label={newLogsCount}
-                  color="primary"
-                  size="small"
-                  sx={{ ml: 1 }}
-                />
+            <Box display="flex" alignItems="center" gap={1}>
+              <Typography variant="h5" fontWeight={700}>Audit Logs</Typography>
+              {error && (
+                <Tooltip title={error}>
+                  <Chip label="API Error" color="error" size="small" variant="outlined" />
+                </Tooltip>
               )}
-            </Typography>
+              {newLogsCount > 0 && <Chip label={newLogsCount} color="primary" size="small" sx={{ ml: 1 }} />}
+            </Box>
             {lastUpdated && (
-              <Typography variant="body2" color="text.secondary">
-                Last updated: {formatDate(lastUpdated)}
-              </Typography>
+              <Typography variant="body2" color="text.secondary">Last updated: {formatDate(lastUpdated)}</Typography>
             )}
           </Box>
-          <Button
-            variant="outlined"
-            startIcon={<FilterListIcon />}
-            onClick={handleRefreshLogs}
-            disabled={loading || isRefreshing}
-          >
-            {isRefreshing ? "Refreshing..." : "Refresh"}
-          </Button>
+          <Box display="flex" gap={1}>
+            <Button variant="outlined" startIcon={<RefreshIcon />} onClick={handleRefreshLogs} disabled={loading || isRefreshing}>
+              {isRefreshing ? "Refreshing..." : "Refresh"}
+            </Button>
+            <Button
+              variant="contained"
+              color="error"
+              startIcon={<DeleteIcon />}
+              onClick={() => setShowDeleteConfirm(true)}
+              disabled={loading}
+            >
+              {filterModule ? `Delete "${filterModule}" Logs` : 'Delete All Logs'}
+            </Button>
+          </Box>
         </Box>
 
-        {/* Tabs */}
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
           <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
             <Tab label="All Logs" value="all" />
@@ -924,111 +691,70 @@ const AuditLogsComponent = () => {
           </Tabs>
         </Box>
 
-        {/* Error message */}
         {error && (
           <Card sx={{ mb: 2 }}>
             <CardContent>
-              <Typography color="error" variant="body1">
-                {error}
-              </Typography>
+              <Box display="flex" alignItems="center" gap={2}>
+                <Typography color="warning.main" variant="body1"><WarningIcon /></Typography>
+                <Box flexGrow={1}>
+                  <Typography color="error" variant="body1" fontWeight={500}>
+                    {error}
+                    {loading && <Box component="span" sx={{ ml: 1 }}><CircularProgress size={16} color="inherit" />{" Reconnecting..."}</Box>}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Unable to fetch audit logs from the server. Please try again later or contact your administrator.
+                  </Typography>
+                </Box>
+                <Button variant="outlined" size="small" onClick={() => { setError(null); fetchAuditLogs(); }} startIcon={<RefreshIcon />} disabled={loading}>
+                  {loading ? "Connecting..." : "Retry"}
+                </Button>
+              </Box>
             </CardContent>
           </Card>
         )}
 
-        {/* Search and Filter Bar */}
         <Card sx={{ mb: 2 }}>
           <CardContent>
             <Grid container spacing={2} alignItems="center">
               <Grid item xs={12} md={3}>
-                <TextField
-                  label="Search"
-                  size="small"
-                  fullWidth
-                  value={searchTerm}
-                  onChange={(e) => handleSearch(e.target.value)}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon />
-                      </InputAdornment>
-                    ),
-                  }}
-                />
+                <TextField label="Search" size="small" fullWidth onChange={(e) => handleSearch(e.target.value)}
+                  InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }} />
               </Grid>
               <Grid item xs={12} md={2}>
-                <TextField
-                  label="User"
-                  size="small"
-                  fullWidth
-                  value={filterUser}
-                  onChange={(e) => setFilterUser(e.target.value)}
-                />
+                <TextField label="User" size="small" fullWidth value={filterUser} onChange={(e) => setFilterUser(e.target.value)} />
               </Grid>
               <Grid item xs={12} md={2}>
-                <Select
-                  label="Module"
-                  size="small"
-                  fullWidth
-                  value={filterModule}
-                  onChange={(e) => setFilterModule(e.target.value)}
-                >
+                <Select size="small" fullWidth value={filterModule}
+                  onChange={(e) => handleModuleFilterChange(e.target.value)} displayEmpty>
                   <MenuItem value="">All Modules</MenuItem>
-                  {Object.values(MODULES).map(module => (
-                    <MenuItem key={module} value={module}>{module}</MenuItem>
-                  ))}
+                  {Object.values(MODULES).map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
                 </Select>
               </Grid>
               <Grid item xs={12} md={2}>
-                <Select
-                  label="Action"
-                  size="small"
-                  fullWidth
-                  value={filterAction}
-                  onChange={(e) => setFilterAction(e.target.value)}
-                >
+                <Select size="small" fullWidth value={filterAction} onChange={(e) => setFilterAction(e.target.value)} displayEmpty>
                   <MenuItem value="">All Actions</MenuItem>
-                  {Object.values(ACTIONS).map(action => (
-                    <MenuItem key={action} value={action}>{action}</MenuItem>
-                  ))}
+                  {Object.values(ACTIONS).map(a => <MenuItem key={a} value={a}>{a}</MenuItem>)}
                 </Select>
               </Grid>
               <Grid item xs={12} md={3}>
                 <Box display="flex" gap={1}>
-                  <Button
-                    variant="outlined"
-                    startIcon={<FilterListIcon />}
-                    onClick={() => setShowFilterModal(true)}
-                    fullWidth
-                  >
-                    Filters
-                  </Button>
-                  <Button
-                    variant="contained"
-                    startIcon={<DownloadIcon />}
-                    onClick={handleExportLogs}
-                    fullWidth
-                    disabled={exportLoading}
-                  >
+                  <Button variant="outlined" startIcon={<FilterListIcon />} onClick={() => setShowFilterModal(true)} fullWidth>Filters</Button>
+                  <Button variant="contained" startIcon={<DownloadIcon />} onClick={handleExportLogs} fullWidth disabled={exportLoading}>
                     {exportLoading ? <CircularProgress size={20} /> : "Export"}
                   </Button>
                 </Box>
               </Grid>
             </Grid>
             <Box mt={1}>
-              <Typography variant="body2" color="text.secondary">
-                Showing {filteredLogs.length} of {auditLogs.length} logs
-              </Typography>
+              <Typography variant="body2" color="text.secondary">Showing {filteredLogs.length} of {auditLogs.length} logs</Typography>
             </Box>
           </CardContent>
         </Card>
 
-        {/* Audit Logs Table */}
         <Card>
           <CardContent>
             {loading ? (
-              <Box display="flex" justifyContent="center" py={4}>
-                <CircularProgress />
-              </Box>
+              <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>
             ) : (
               <TableContainer>
                 <Table>
@@ -1049,55 +775,35 @@ const AuditLogsComponent = () => {
                       <TableRow>
                         <TableCell colSpan={8} align="center">
                           <Typography variant="body2" color="text.secondary">
-                            {auditLogs.length === 0
-                              ? "No audit logs available"
-                              : "No logs found matching the criteria"
-                            }
+                            {auditLogs.length === 0 ? "No audit logs available" : "No logs found matching the criteria"}
                           </Typography>
                         </TableCell>
                       </TableRow>
                     ) : (
                       filteredLogs.map(log => (
                         <TableRow key={log.id} hover>
-                          <TableCell>
-                            <Typography variant="body2">
-                              {formatDate(log.timestamp)}
-                            </Typography>
-                          </TableCell>
+                          <TableCell><Typography variant="body2">{formatDate(log.timestamp)}</Typography></TableCell>
                           <TableCell>{log.user}</TableCell>
                           <TableCell>{log.action}</TableCell>
-                          <TableCell>
-                            <Chip
-                              label={log.module}
-                              color={getModuleColor(log.module)}
-                              size="small"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Chip
-                              label={log.severity}
-                              color={getSeverityColor(log.severity)}
-                              size="small"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" fontFamily="monospace">
-                              {log.ip_address}
-                            </Typography>
-                          </TableCell>
-                          <TableCell>
-                            <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>
-                              {log.details}
-                            </Typography>
-                          </TableCell>
+                          <TableCell><Chip label={log.module} color={getModuleColor(log.module)} size="small" /></TableCell>
+                          <TableCell><Chip label={log.severity} color={getSeverityColor(log.severity)} size="small" /></TableCell>
+                          <TableCell><Typography variant="body2" fontFamily="monospace">{log.ip_address}</Typography></TableCell>
+                          <TableCell><Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>{log.details}</Typography></TableCell>
                           <TableCell align="right">
-                            <IconButton
-                              size="small"
-                              onClick={() => handleViewDetails(log)}
-                              title="View Details"
-                            >
-                              <VisibilityIcon fontSize="small" />
-                            </IconButton>
+                            <Tooltip title="View Details">
+                              <IconButton size="small" onClick={() => handleViewDetails(log)}>
+                                <VisibilityIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Delete Log">
+                              <IconButton
+                                size="small"
+                                onClick={() => handleDeleteSingleLog(log.id)}
+                                sx={{ color: 'error.main', ml: 0.5 }}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
                           </TableCell>
                         </TableRow>
                       ))
@@ -1109,133 +815,75 @@ const AuditLogsComponent = () => {
           </CardContent>
         </Card>
 
-        {/* Filter Modal */}
-        <Dialog
-          open={showFilterModal}
-          onClose={() => setShowFilterModal(false)}
-          maxWidth="sm"
-          fullWidth
-          aria-labelledby="filter-dialog-title"
-        >
-          <DialogTitle id="filter-dialog-title">Advanced Filters</DialogTitle>
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={showDeleteConfirm} onClose={() => !deleteLoading && setShowDeleteConfirm(false)} maxWidth="xs" fullWidth>
+          <DialogTitle sx={{ color: 'error.main', display: 'flex', alignItems: 'center', gap: 1 }}>
+            <DeleteIcon /> Confirm Delete
+          </DialogTitle>
           <DialogContent>
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12}>
-                <TextField
-                  label="IP Address"
-                  size="small"
-                  fullWidth
-                  value={filterIp}
-                  onChange={(e) => setFilterIp(e.target.value)}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <DatePicker
-                  label="Start Date"
-                  value={dateRange.startDate}
-                  onChange={(newValue) => setDateRange(prev => ({ ...prev, startDate: newValue }))}
-                  slotProps={{ textField: { size: 'small', fullWidth: true } }}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <DatePicker
-                  label="End Date"
-                  value={dateRange.endDate}
-                  onChange={(newValue) => setDateRange(prev => ({ ...prev, endDate: newValue }))}
-                  slotProps={{ textField: { size: 'small', fullWidth: true } }}
-                />
-              </Grid>
-            </Grid>
+            <Typography>
+              {filterModule
+                ? `Delete all audit logs for module "${filterModule}"? This cannot be undone.`
+                : 'Delete ALL audit logs from the system? This cannot be undone.'}
+            </Typography>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setShowFilterModal(false)}>
-              Cancel
-            </Button>
-            <Button variant="contained" onClick={() => setShowFilterModal(false)}>
-              Apply
+            <Button onClick={() => setShowDeleteConfirm(false)} disabled={deleteLoading}>Cancel</Button>
+            <Button variant="contained" color="error" onClick={handleDeleteLogs} disabled={deleteLoading}
+              startIcon={deleteLoading ? <CircularProgress size={16} color="inherit" /> : <DeleteIcon />}>
+              {deleteLoading ? 'Deleting...' : 'Delete'}
             </Button>
           </DialogActions>
         </Dialog>
 
-        {/* Log Details Modal */}
-        <Dialog
-          open={showDetailsModal}
-          onClose={() => setShowDetailsModal(false)}
-          maxWidth="md"
-          fullWidth
-          aria-labelledby="details-dialog-title"
-        >
+        {/* Filter Modal */}
+        <Dialog open={showFilterModal} onClose={() => setShowFilterModal(false)} maxWidth="sm" fullWidth aria-labelledby="filter-dialog-title">
+          <DialogTitle id="filter-dialog-title">Advanced Filters</DialogTitle>
+          <DialogContent>
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={12}>
+                <TextField label="IP Address" size="small" fullWidth value={filterIp} onChange={(e) => setFilterIp(e.target.value)} />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <DatePicker label="Start Date" value={dateRange.startDate}
+                  onChange={(v) => setDateRange(prev => ({ ...prev, startDate: v }))}
+                  slotProps={{ textField: { size: 'small', fullWidth: true } }} />
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <DatePicker label="End Date" value={dateRange.endDate}
+                  onChange={(v) => setDateRange(prev => ({ ...prev, endDate: v }))}
+                  slotProps={{ textField: { size: 'small', fullWidth: true } }} />
+              </Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShowFilterModal(false)}>Cancel</Button>
+            <Button variant="contained" onClick={() => setShowFilterModal(false)}>Apply</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Details Modal */}
+        <Dialog open={showDetailsModal} onClose={() => setShowDetailsModal(false)} maxWidth="md" fullWidth aria-labelledby="details-dialog-title">
           {selectedLog && (
             <>
               <DialogTitle id="details-dialog-title">Log Details</DialogTitle>
               <DialogContent>
                 <Grid container spacing={2}>
-                  <Grid item xs={12} md={6}>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      User
-                    </Typography>
-                    <Typography variant="body1">{selectedLog.user}</Typography>
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Action
-                    </Typography>
-                    <Typography variant="body1">{selectedLog.action}</Typography>
-                  </Grid>
+                  <Grid item xs={12} md={6}><Typography variant="subtitle2" color="text.secondary">User</Typography><Typography variant="body1">{selectedLog.user}</Typography></Grid>
+                  <Grid item xs={12} md={6}><Typography variant="subtitle2" color="text.secondary">Action</Typography><Typography variant="body1">{selectedLog.action}</Typography></Grid>
+                  <Grid item xs={12}><Typography variant="subtitle2" color="text.secondary">Timestamp</Typography><Typography variant="body1">{formatDate(selectedLog.timestamp)}</Typography></Grid>
+                  <Grid item xs={12} md={6}><Typography variant="subtitle2" color="text.secondary">IP Address</Typography><Typography variant="body1" fontFamily="monospace">{selectedLog.ip_address}</Typography></Grid>
+                  <Grid item xs={12} md={6}><Typography variant="subtitle2" color="text.secondary">User Agent</Typography><Typography variant="body1">{selectedLog.user_agent}</Typography></Grid>
+                  <Grid item xs={12} md={6}><Typography variant="subtitle2" color="text.secondary">Module</Typography><Chip label={selectedLog.module} color={getModuleColor(selectedLog.module)} size="small" /></Grid>
+                  <Grid item xs={12} md={6}><Typography variant="subtitle2" color="text.secondary">Severity</Typography><Chip label={selectedLog.severity} color={getSeverityColor(selectedLog.severity)} size="small" /></Grid>
                   <Grid item xs={12}>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Timestamp
-                    </Typography>
-                    <Typography variant="body1">{formatDate(selectedLog.timestamp)}</Typography>
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      IP Address
-                    </Typography>
-                    <Typography variant="body1" fontFamily="monospace">
-                      {selectedLog.ip_address}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      User Agent
-                    </Typography>
-                    <Typography variant="body1">{selectedLog.user_agent}</Typography>
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Module
-                    </Typography>
-                    <Chip
-                      label={selectedLog.module}
-                      color={getModuleColor(selectedLog.module)}
-                      size="small"
-                    />
-                  </Grid>
-                  <Grid item xs={12} md={6}>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Severity
-                    </Typography>
-                    <Chip
-                      label={selectedLog.severity}
-                      color={getSeverityColor(selectedLog.severity)}
-                      size="small"
-                    />
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Typography variant="subtitle2" color="text.secondary">
-                      Details
-                    </Typography>
-                    <Card variant="outlined" sx={{ mt: 1, p: 2 }}>
-                      <Typography variant="body1">{selectedLog.details}</Typography>
-                    </Card>
+                    <Typography variant="subtitle2" color="text.secondary">Details</Typography>
+                    <Card variant="outlined" sx={{ mt: 1, p: 2 }}><Typography variant="body1">{selectedLog.details}</Typography></Card>
                   </Grid>
                 </Grid>
               </DialogContent>
               <DialogActions>
-                <Button onClick={() => setShowDetailsModal(false)}>
-                  Close
-                </Button>
+                <Button onClick={() => setShowDetailsModal(false)}>Close</Button>
               </DialogActions>
             </>
           )}
@@ -1245,171 +893,14 @@ const AuditLogsComponent = () => {
   );
 };
 
-// Create a wrapper component that includes the provider
-// Utility function to wrap any component with audit logging
-export const createAuditedComponent = (Component, moduleName, options = {}) => {
-  return function AuditedComponent(props) {
-    const { addAuditLog, batchAddAuditLogs } = useAuditLogs();
-
-    const logAction = useCallback((action, details, severity = SEVERITY.INFO, additionalData = {}) => {
-      addAuditLog({
-        action,
-        module: moduleName,
-        severity,
-        details,
-        ...additionalData
-      });
-    }, [addAuditLog, moduleName]);
-
-    const batchLogActions = useCallback((actionsArray) => {
-      const batchData = actionsArray.map(actionData => ({
-        ...actionData,
-        module: moduleName
-      }));
-
-      return batchAddAuditLogs(batchData);
-    }, [batchAddAuditLogs, moduleName]);
-
-    // Pass logging functions to the wrapped component
-    return (
-      <Component
-        {...props}
-        logAction={logAction}
-        batchLogActions={batchLogActions}
-        moduleName={moduleName}
-        {...options}
-      />
-    );
-  };
-};
-
-// Higher-order component for automatic action tracking
-export const withActionTracking = (moduleName, trackedActions = []) => (WrappedComponent) => {
-  return function ActionTrackedComponent(props) {
+export const withAuditLog = (WrappedComponent, moduleName, customActions = {}) => {
+  return function WithAuditLog(props) {
     const { addAuditLog } = useAuditLogs();
-    const componentRef = useRef(null);
-
-    // Track actions automatically
-    useEffect(() => {
-      if (!componentRef.current) return;
-
-      const trackAction = (action, details, severity = SEVERITY.INFO, element) => {
-        addAuditLog({
-          action,
-          module: moduleName,
-          severity,
-          details,
-          element: element ? element.tagName.toLowerCase() : 'unknown',
-          timestamp: new Date().toISOString()
-        });
-      };
-
-      // Add click tracking if specified
-      if (trackedActions.includes('click')) {
-        const handleClick = (e) => {
-          const target = e.target;
-          const actionName = target.getAttribute('data-action') ||
-            target.closest('[data-action]')?.getAttribute('data-action');
-
-          if (actionName) {
-            trackAction(
-              actionName,
-              `User clicked on ${target.tagName.toLowerCase()} with action "${actionName}"`,
-              SEVERITY.INFO,
-              target
-            );
-          }
-        };
-
-        componentRef.current.addEventListener('click', handleClick);
-
-        return () => {
-          componentRef.current.removeEventListener('click', handleClick);
-        };
-      }
-
-      // Add more tracking types as needed
-
-    }, [moduleName, trackedActions, addAuditLog]);
-
-    return <WrappedComponent {...props} ref={componentRef} />;
+    const logAction = useCallback((action, details, severity = SEVERITY.INFO, additionalData = {}) => {
+      addAuditLog({ action, module: moduleName, severity, details, ...additionalData });
+    }, [addAuditLog]);
+    return <WrappedComponent {...props} logAction={logAction} actions={{ ...ACTIONS, ...customActions }} />;
   };
-};
-
-// Example of how to use the audit logging in a form component
-export const AuditedForm = ({ moduleName, onSubmit, initialValues, fields, ...props }) => {
-  const { addAuditLog } = useAuditLogs();
-  const [values, setValues] = useState(initialValues || {});
-  const [errors, setErrors] = useState({});
-
-  const handleChange = (name, value) => {
-    setValues(prev => ({ ...prev, [name]: value }));
-
-    // Log field changes
-    addAuditLog({
-      action: 'FIELD_CHANGE',
-      module: moduleName,
-      details: `Field "${name}" changed to "${value}"`
-    });
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-
-    // Validate form
-    const validationErrors = {};
-    fields.forEach(field => {
-      if (field.required && !values[field.name]) {
-        validationErrors[field.name] = `${field.label} is required`;
-      }
-    });
-
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-
-      // Log validation error
-      addAuditLog({
-        action: 'VALIDATION_ERROR',
-        module: moduleName,
-        severity: SEVERITY.ERROR,
-        details: `Form validation failed: ${Object.keys(validationErrors).join(', ')}`
-      });
-      return;
-    }
-
-    // Log successful submission
-    addAuditLog({
-      action: 'FORM_SUBMIT',
-      module: moduleName,
-      severity: SEVERITY.SUCCESS,
-      details: `Form submitted with values: ${JSON.stringify(values)}`
-    });
-
-    // Call parent onSubmit
-    if (onSubmit) {
-      onSubmit(values);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} {...props}>
-      {fields.map(field => (
-        <div key={field.name}>
-          <label>{field.label}</label>
-          <input
-            type={field.type || 'text'}
-            value={values[field.name] || ''}
-            onChange={(e) => handleChange(field.name, e.target.value)}
-            data-action={field.action || 'change'}
-          />
-          {errors[field.name] && (
-            <div className="error">{errors[field.name]}</div>
-          )}
-        </div>
-      ))}
-      <button type="submit">Submit</button>
-    </form>
-  );
 };
 
 export default function AuditLogs() {

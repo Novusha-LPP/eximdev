@@ -8,8 +8,9 @@ const vendorSchema = new mongoose.Schema({
     type: String, 
     default: "Supplier",
     set: (value) => {
+      if (!value) return "Supplier";
       // Trim and normalize the value
-      const normalized = value.trim();
+      const normalized = typeof value === 'string' ? value.trim() : String(value).trim();
       
       // Map common variations to standard values
       const typeMap = {
@@ -56,4 +57,6 @@ const vendorSchema = new mongoose.Schema({
 
 vendorSchema.plugin(auditPlugin, { documentType: "ItVendor" });
 
-export default mongoose.model("ItVendor", vendorSchema);
+const ItVendor = mongoose.models.ItVendor || mongoose.model("ItVendor", vendorSchema);
+
+export default ItVendor;

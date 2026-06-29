@@ -20,6 +20,7 @@ import {
 
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import AddIcon from "@mui/icons-material/Add";
+import { useModuleAuditLogs } from "./AuditLogs";
 
 
 const EMPTY_FORM = {
@@ -43,6 +44,7 @@ export default function ContractManagement() {
   const [editId, setEditId] = useState(null);
 
   const [form, setForm] = useState({ ...EMPTY_FORM });
+  const { logCreate, logUpdate, logDelete } = useModuleAuditLogs("Contract");
 
 
   // GET CONTRACTS
@@ -139,8 +141,8 @@ export default function ContractManagement() {
       coverage_details: form.coverage_details.trim(),
       renewal_reminder_days:
         Number(form.renewal_reminder_days) || 30,
-      start_date: form.start_date,
-      end_date: form.end_date
+      start_date: new Date(form.start_date),
+      end_date: new Date(form.end_date)
 
     };
 
@@ -150,25 +152,17 @@ export default function ContractManagement() {
 
 
     try {
-
-
       if (editId) {
-
         await itHelpdeskAPI.contracts.update(
           editId,
           payload
         );
-
       }
       else {
-
         await itHelpdeskAPI.contracts.create(
           payload
         );
-
       }
-
-
 
       // close modal
       setShowModal(false);
@@ -199,8 +193,8 @@ export default function ContractManagement() {
 
 
   // DELETE
-  const handleDelete = async (id) => {
-
+  const handleDelete = async (e, id) => {
+    e.stopPropagation();
 
     if (!window.confirm("Delete this contract?"))
       return;
@@ -209,7 +203,6 @@ export default function ContractManagement() {
     try {
 
       await itHelpdeskAPI.contracts.remove(id);
-
       fetchData();
 
     }
@@ -419,7 +412,7 @@ export default function ContractManagement() {
 
                             color="error"
 
-                            onClick={() => handleDelete(c._id)}
+                            onClick={(e) => handleDelete(e, c._id)}
 
                           >
                             Delete

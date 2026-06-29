@@ -1,10 +1,10 @@
-
 import express from "express";
 import mongoose from "mongoose";
 import Contract from "../../model/it-helpdesk/contractModel.mjs";
-import auditMiddleware from "../../middleware/auditTrail.mjs";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
 
 const router = express.Router();
+router.use(authMiddleware);
 
 const validateId = (req, res, next) => {
   if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -29,7 +29,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-router.post("/", auditMiddleware("ITContract"), async (req, res) => {
+router.post("/", async (req, res) => {
   try {
     const contract = new Contract(req.body);
     await contract.save();

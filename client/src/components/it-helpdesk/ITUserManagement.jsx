@@ -18,7 +18,7 @@ import HeadsetIcon from "@mui/icons-material/Headset";
 import MouseIcon from "@mui/icons-material/Mouse";
 
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_STRING || "http://localhost:9006/api",
+  baseURL: process.env.REACT_APP_API_STRING || "http://192.168.2.12:9006/api",
   withCredentials: true,
 });
 

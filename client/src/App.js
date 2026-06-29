@@ -10,6 +10,9 @@ import { useNavigate, Routes, Route } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
 import AmcPublicForm from "./pages/AmcPublicForm";
+import ItHelpdeskPage from "./pages/ItHelpdeskPage";
+import { AuditLogProvider } from "./components/it-helpdesk/AuditLogs";
+import { itHelpdeskAPI } from "./api/itHelpdeskAPI";
 
 import { Toaster } from "react-hot-toast";
 
@@ -21,7 +24,7 @@ function App() {
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/me`, { withCredentials: true });
+        const res = await itHelpdeskAPI.admin.myBranches();
         setUser(res.data);
       } catch (e) {
         setUser(null);
@@ -76,15 +79,18 @@ function App() {
 
   return (
     <UserContext.Provider value={{ user, setUser }}>
-      <Toaster position="top-right" reverseOrder={false} />
-      <LocalizationProvider dateAdapter={AdapterDateFns}>
-        <div className="App">
-          <Routes>
-            <Route path="/amc-entry" element={<AmcPublicForm />} />
-            <Route path="*" element={user ? <HomePage /> : <LoginPage />} />
-          </Routes>
-        </div>
-      </LocalizationProvider>
+      <AuditLogProvider>
+        <Toaster position="top-right" reverseOrder={false} />
+        <LocalizationProvider dateAdapter={AdapterDateFns}>
+          <div className="App">
+            <Routes>
+              <Route path="/amc-entry" element={<AmcPublicForm />} />
+              <Route path="/it-helpdesk/*" element={user ? <ItHelpdeskPage /> : <LoginPage />} />
+              <Route path="*" element={user ? <HomePage /> : <LoginPage />} />
+            </Routes>
+          </div>
+        </LocalizationProvider>
+      </AuditLogProvider>
     </UserContext.Provider>
   );
 }

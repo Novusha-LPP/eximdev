@@ -1,7 +1,10 @@
 import React, { createContext, useContext } from "react";
 
-const AuditLogContext = createContext(null);
-
+const AuditLogContext = createContext({
+    logAction: async (data) => {
+        console.log("AUDIT LOG (no provider):", data);
+    }
+});
 
 export const AuditLogProvider = ({ children }) => {
 
@@ -24,14 +27,7 @@ export const AuditLogProvider = ({ children }) => {
 
 
 export const useAuditLogs = () => {
-
     const context = useContext(AuditLogContext);
-
-    if (!context) {
-        throw new Error(
-            "useAuditLogs must be used within an AuditLogProvider"
-        );
-    }
-
+    // Ab error nahi aayega - default value milegi
     return context;
 };

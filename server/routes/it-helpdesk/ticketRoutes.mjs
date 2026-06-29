@@ -2,8 +2,10 @@
 import express from "express";
 import mongoose from "mongoose";
 import Ticket from "../../model/it-helpdesk/ticketModel.mjs";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
 
 const router = express.Router();
+router.use(authMiddleware);
 
 const validateId = (req, res, next) => {
   if (!mongoose.Types.ObjectId.isValid(req.params.id)) {

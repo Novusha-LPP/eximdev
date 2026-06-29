@@ -262,10 +262,16 @@ router.get("/api/audit-trail/document/:documentId", authMiddleware, async (req, 
 router.post("/api/audit-trail/custom", authMiddleware, async (req, res) => {
   try {
     const { action, module, details, severity, user } = req.body;
-    
+
+    // Do not log VIEW/read operations
+    const normalizedAction = action ? action.toUpperCase().replace(/\s+/g, '_') : "CUSTOM";
+    if (normalizedAction === 'VIEW') {
+      return res.status(200).json({ success: true, skipped: true, reason: 'VIEW actions are not logged' });
+    }
+
     const newLog = new AuditTrailModel({
       documentType: module || "Custom",
-      action: action ? action.toUpperCase().replace(/\s+/g, '_') : "CUSTOM",
+      action: normalizedAction,
       username: user || req.user.username || req.user.email || "System",
       userId: req.user.id || req.user._id || "system",
       heading: details || `Custom action performed in ${module}`,
@@ -906,6 +912,42 @@ router.get("/api/audit-trail/activity-timeline", async (req, res) => {
     res.json({ dailyActivity: results });
   } catch (error) {
     res.status(500).json({ message: "Error fetching activity timeline", error: error.message });
+  }
+});
+
+// Delete audit logs — optionally scoped to a module (any authenticated user)
+router.delete("/api/audit-trail", authMiddleware, async (req, res) => {
+  try {
+    const { documentType } = req.query;
+    const filter = {};
+    if (documentType) filter.documentType = documentType;
+
+    const result = await AuditTrailModel.deleteMany(filter);
+    res.json({
+      success: true,
+      deletedCount: result.deletedCount,
+      message: documentType
+        ? `Deleted ${result.deletedCount} logs for module "${documentType}".`
+        : `Deleted all ${result.deletedCount} audit logs.`
+    });
+  } catch (error) {
+    console.error("Error deleting audit logs:", error);
+    res.status(500).json({ message: "Error deleting audit logs", error: error.message });
+  }
+});
+
+// Delete a single audit log by ID
+router.delete("/api/audit-trail/:id", authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await AuditTrailModel.findByIdAndDelete(id);
+    if (!deleted) {
+      return res.status(404).json({ message: "Audit log not found." });
+    }
+    res.json({ success: true, message: "Audit log deleted." });
+  } catch (error) {
+    console.error("Error deleting audit log:", error);
+    res.status(500).json({ message: "Error deleting audit log", error: error.message });
   }
 });
 

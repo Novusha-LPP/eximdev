@@ -520,7 +520,7 @@ app.use(getYears);
 app.use(login);
 app.use(logout);
 app.use(me);
-app.use("/api/users", userRoutes);
+
 
 // handle delete
 app.use(handleS3Deletation);
@@ -734,6 +734,7 @@ app.use("/api/it-helpdesk/vendors", vendorRoutes);
 app.use("/api/it-helpdesk/contracts", contractRoutes);
 app.use("/api/it-helpdesk/licenses", licenseRoutes);
 app.use("/api/it-helpdesk/inventory", inventoryRoutes);
+app.use("/api/it-helpdesk/users", userRoutes);
 
 // Document Collection Module
 app.use(documentCollectionRoutes);

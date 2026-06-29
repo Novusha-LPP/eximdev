@@ -3,7 +3,7 @@ import axios from 'axios';
 import { format } from 'date-fns';
 import {
     ResponsiveContainer, ComposedChart, BarChart, Bar, Cell, Line, XAxis, YAxis,
-    CartesianGrid, Tooltip, Legend, Area, PieChart, Pie
+    CartesianGrid, Tooltip, Legend, Area, PieChart, Pie, ReferenceLine
 } from 'recharts';
 import { getTransportDates, TRANSPORT_BASE, TRANSPORT_HEADERS } from './reports-helper';
 
@@ -491,7 +491,7 @@ const FleetUtilizationReport = ({
 
     // Daily aggregation for trend & spreadsheet
     const dailyData = useMemo(() => {
-        return dispatches.map(d => {
+        const raw = dispatches.map(d => {
             const dateStr = d.date ? d.date.slice(0, 10) : '—';
             const fleet = d.fleetStatus || [];
             const active = d.activeLRs || [];
@@ -557,6 +557,18 @@ const FleetUtilizationReport = ({
                 totalTrips: closed.length
             };
         }).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        return raw.map((d, index) => {
+            const start = Math.max(0, index - 6);
+            const subset = raw.slice(start, index + 1);
+            const avgUtil = subset.reduce((acc, x) => acc + x.utilPercent, 0) / subset.length;
+            const avgTrips = subset.reduce((acc, x) => acc + x.totalTrips, 0) / subset.length;
+            return {
+                ...d,
+                utilMovingAvg: parseFloat(avgUtil.toFixed(1)),
+                tripsMovingAvg: parseFloat(avgTrips.toFixed(1))
+            };
+        });
     }, [dispatches, totalFleetNum]);
 
     // Active dispatch (merged for range views)
@@ -859,6 +871,17 @@ const FleetUtilizationReport = ({
         return result;
     }, [fleetSummaryData, fleetSearchQuery, fleetSortConfig]);
 
+    const avgOorVal = useMemo(() => {
+        if (!spreadsheetTotals) return null;
+        return parseFloat(spreadsheetTotals.oorPercent);
+    }, [spreadsheetTotals]);
+
+    const avgTripsVal = useMemo(() => {
+        if (dailyData.length === 0) return null;
+        const total = dailyData.reduce((acc, d) => acc + d.totalTrips, 0);
+        return parseFloat((total / dailyData.length).toFixed(1));
+    }, [dailyData]);
+
     const requestFleetSort = (key) => {
         setFleetSortConfig(prev => ({ key, direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc' }));
     };
@@ -1088,6 +1111,8 @@ const FleetUtilizationReport = ({
             {norParts.map((txt, i) => <SubBadge key={i} text={txt} />)}
         </div>
     ) : null;
+
+
 
     // ═════════════════════════════════════════════════════════════════════════════
     //  RENDER
@@ -1525,8 +1550,12 @@ const FleetUtilizationReport = ({
                                         <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} domain={[0, 100]} tickFormatter={v => `${v}%`} />
                                         <Tooltip contentStyle={{ backgroundColor: 'rgba(255,255,255,0.95)', border: '1px solid rgba(226,232,240,0.6)', borderRadius: '16px', boxShadow: '0 12px 40px rgba(0,0,0,0.08)', backdropFilter: 'blur(10px)' }} formatter={v => [`${v}%`, 'Utilization']} />
                                         <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '12px' }} />
-                                        <Area type="monotone" name="Utilization Rate" dataKey="utilPercent" stroke="#0ea5e9" strokeWidth={2.5} fill="url(#colorUtilTrend)" />
-                                        <Line type="monotone" name="Trend Line" dataKey="utilPercent" stroke="#2563eb" strokeWidth={3.5} dot={false} activeDot={{ r: 6 }} />
+                                        <Area type="monotone" name="Utilization Rate" dataKey="utilPercent" stroke="#0ea5e9" strokeWidth={2} fill="url(#colorUtilTrend)" />
+                                        <Line type="monotone" name="7-Day Moving Avg (Trend)" dataKey="utilMovingAvg" stroke="#2563eb" strokeWidth={3} strokeDasharray="5 5" dot={false} activeDot={{ r: 6 }} />
+                                        {avgOorVal !== null && !isNaN(avgOorVal) && (
+                                            <ReferenceLine y={avgOorVal} stroke="#ef4444" strokeWidth={1.5} strokeDasharray="3 3"
+                                                label={{ value: `Avg: ${avgOorVal}%`, fill: '#ef4444', fontSize: '10px', fontWeight: 700, position: 'insideTopRight' }} />
+                                        )}
                                     </ComposedChart>
                                 </ResponsiveContainer>
                             </div>
@@ -1550,42 +1579,17 @@ const FleetUtilizationReport = ({
                                         <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} allowDecimals={false} />
                                         <Tooltip contentStyle={{ backgroundColor: 'rgba(255,255,255,0.95)', border: '1px solid rgba(226,232,240,0.6)', borderRadius: '16px', boxShadow: '0 12px 40px rgba(0,0,0,0.08)', backdropFilter: 'blur(10px)' }} formatter={v => [v, 'Trips']} />
                                         <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '12px' }} />
-                                        <Area type="monotone" name="Trips Count" dataKey="totalTrips" stroke="#8b5cf6" strokeWidth={2.5} fill="url(#colorTripsTrend)" />
-                                        <Line type="monotone" name="Trend Line" dataKey="totalTrips" stroke="#6d28d9" strokeWidth={3.5} dot={false} activeDot={{ r: 6 }} />
+                                        <Area type="monotone" name="Trips Count" dataKey="totalTrips" stroke="#8b5cf6" strokeWidth={2} fill="url(#colorTripsTrend)" />
+                                        <Line type="monotone" name="7-Day Moving Avg (Trend)" dataKey="tripsMovingAvg" stroke="#6d28d9" strokeWidth={3} strokeDasharray="5 5" dot={false} activeDot={{ r: 6 }} />
+                                        {avgTripsVal !== null && !isNaN(avgTripsVal) && (
+                                            <ReferenceLine y={avgTripsVal} stroke="#ef4444" strokeWidth={1.5} strokeDasharray="3 3"
+                                                label={{ value: `Avg: ${avgTripsVal}`, fill: '#ef4444', fontSize: '10px', fontWeight: 700, position: 'insideTopRight' }} />
+                                        )}
                                     </ComposedChart>
                                 </ResponsiveContainer>
                             </div>
                         </div>
 
-                        {/* Capacity Allocation & Sourcing Mix */}
-                        <div className="fleet-chart-card" style={{ gridColumn: '1 / -1', marginTop: '12px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
-                                <div>
-                                    <h3>📊 Fleet Sourcing Mix & Utilization Analysis</h3>
-                                    <span className="sub">Optimizing dispatch costs by comparing own vs. hired trips against active fleet capacity</span>
-                                </div>
-                                <div style={{ background: 'rgba(99, 102, 241, 0.05)', padding: '6px 12px', borderRadius: '10px', fontSize: '12px', fontWeight: 600, color: '#4f46e5', border: '1px solid rgba(99, 102, 241, 0.1)' }}>
-                                    Cost Optimization View
-                                </div>
-                            </div>
-                            <div style={{ width: '100%', height: 350, marginTop: '24px' }}>
-                                <ResponsiveContainer>
-                                    <ComposedChart data={dailyData} margin={{ top: 15, right: -5, left: -5, bottom: 0 }}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(226,232,240,0.4)" />
-                                        <XAxis dataKey="dateStr" stroke="#94a3b8" fontSize={11} tickLine={false} />
-                                        <YAxis yAxisId="left" stroke="#94a3b8" fontSize={11} tickLine={false} allowDecimals={false}
-                                            label={{ value: 'Dispatches Count', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: '#64748b', fontSize: '11px', fontWeight: 700 } }} />
-                                        <YAxis yAxisId="right" orientation="right" stroke="#94a3b8" fontSize={11} tickLine={false} domain={[0, 100]} tickFormatter={v => `${v}%`}
-                                            label={{ value: 'Own Fleet Utilization %', angle: 90, position: 'insideRight', style: { textAnchor: 'middle', fill: '#0ea5e9', fontSize: '11px', fontWeight: 700 } }} />
-                                        <Tooltip contentStyle={{ backgroundColor: 'rgba(255,255,255,0.95)', border: '1px solid rgba(226,232,240,0.6)', borderRadius: '16px', boxShadow: '0 12px 40px rgba(0,0,0,0.08)', backdropFilter: 'blur(10px)' }} />
-                                        <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', paddingTop: '16px' }} />
-                                        <Bar yAxisId="left" stackId="trips" name="Own Trips fulfilled" dataKey="ownTrips" fill="#6366f1" radius={[0, 0, 0, 0]} />
-                                        <Bar yAxisId="left" stackId="trips" name="Hired Trips fulfilled" dataKey="hiredTrips" fill="#f59e0b" radius={[6, 6, 0, 0]} />
-                                        <Line yAxisId="right" type="monotone" name="Own Fleet Utilization Rate" dataKey="utilPercent" stroke="#0ea5e9" strokeWidth={3.5} dot={{ r: 5, stroke: '#fff', strokeWidth: 2 }} activeDot={{ r: 7 }} />
-                                    </ComposedChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
                     </div>
 
                     {/* Fleet Summary Vehicle Table */}

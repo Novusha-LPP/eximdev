@@ -4,14 +4,14 @@ import auditPlugin from "../../plugins/auditPlugin.mjs";
 const vendorSchema = new mongoose.Schema({
   name: { type: String, required: true, unique: true, trim: true },
   vendor_code: { type: String, trim: true },
-  vendor_type: { 
-    type: String, 
+  vendor_type: {
+    type: String,
     default: "Supplier",
     set: (value) => {
       if (!value) return "Supplier";
       // Trim and normalize the value
       const normalized = typeof value === 'string' ? value.trim() : String(value).trim();
-      
+
       // Map common variations to standard values
       const typeMap = {
         "hardware": "Hardware",
@@ -30,12 +30,12 @@ const vendorSchema = new mongoose.Schema({
         "vendor": "Supplier",
         "supplier": "Supplier"
       };
-      
+
       // Return mapped value if exists, otherwise return the normalized value
       return typeMap[normalized.toLowerCase()] || normalized;
     },
     validate: {
-      validator: function(v) {
+      validator: function (v) {
         // Allow any string but log a warning for non-standard values
         const standardTypes = ["Transporter", "CHA", "Shipping Line", "Supplier", "Service Provider", "Other", "Hardware", "Software", "Network", "General"];
         if (!standardTypes.includes(v)) {

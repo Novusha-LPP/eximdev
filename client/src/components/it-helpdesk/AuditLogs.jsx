@@ -522,15 +522,23 @@ const AuditLogsComponent = () => {
   const handleSearch = useMemo(() => debounce((value) => setSearchTerm(value), 300), []);
 
   const filteredLogs = useMemo(() => {
+    const term = searchTerm.toLowerCase();
     return auditLogs.filter(log => {
-      const matchesSearch =
-        log.user.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        log.details.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesUser = !filterUser || log.user === filterUser;
-      const matchesAction = !filterAction || log.action === filterAction;
-      const matchesIp = !filterIp || log.ip_address === filterIp;
-      const matchesModule = !filterModule || log.module === filterModule;
+      const formattedTime = log.timestamp
+        ? new Date(log.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) +
+          ' ' + new Date(log.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+        : '';
+      const matchesSearch = !term ||
+        (log.user || '').toLowerCase().includes(term) ||
+        (log.action || '').toLowerCase().includes(term) ||
+        (log.details || '').toLowerCase().includes(term) ||
+        (log.module || '').toLowerCase().includes(term) ||
+        (log.ip_address || '').toLowerCase().includes(term) ||
+        formattedTime.toLowerCase().includes(term);
+      const matchesUser = !filterUser || (log.user || '') === filterUser;
+      const matchesAction = !filterAction || (log.action || '').toUpperCase() === filterAction.toUpperCase();
+      const matchesIp = !filterIp || (log.ip_address || '') === filterIp;
+      const matchesModule = !filterModule || (log.module || '') === filterModule;
       const matchesTab = tabValue === "all" ||
         (tabValue === "recent" && new Date(log.timestamp) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)) ||
         (tabValue === "errors" && log.severity === SEVERITY.ERROR) ||
@@ -733,7 +741,9 @@ const AuditLogsComponent = () => {
               <Grid item xs={12} md={2}>
                 <Select size="small" fullWidth value={filterAction} onChange={(e) => setFilterAction(e.target.value)} displayEmpty>
                   <MenuItem value="">All Actions</MenuItem>
-                  {Object.values(ACTIONS).map(a => <MenuItem key={a} value={a}>{a}</MenuItem>)}
+                  <MenuItem value="CREATE">Create</MenuItem>
+                  <MenuItem value="UPDATE">Update</MenuItem>
+                  <MenuItem value="DELETE">Delete</MenuItem>
                 </Select>
               </Grid>
               <Grid item xs={12} md={3}>

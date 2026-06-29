@@ -475,6 +475,7 @@ function JobDetails() {
 
   // Step 1: Fetch job data preview and show in dialog
   const handleUploadToImexcube = async (targetSenderID = imexcubeSenderID) => {
+    const finalSenderID = (typeof targetSenderID === "string") ? targetSenderID : imexcubeSenderID;
     const jobNumber = data?.job_number;
     if (!jobNumber) {
       setImexcubeSnackbar({ open: true, message: "Job number not found", severity: "error" });
@@ -489,7 +490,7 @@ function JobDetails() {
     try {
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/scmCube/job-data-preview`,
-        { params: { job_number: jobNumber, senderID: targetSenderID } }
+        { params: { job_number: jobNumber, senderID: finalSenderID } }
       );
       setImexcubePreviewData(res.data);
       setImexcubeRawPayloadString(JSON.stringify(res.data.rawPayload || res.data, null, 2));

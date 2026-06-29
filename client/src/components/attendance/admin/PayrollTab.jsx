@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import {
-  FiSettings, FiDollarSign, FiClock, FiPlus, FiTrash2,
+  FiSettings, FiClock, FiPlus, FiTrash2,
   FiCalendar, FiLock, FiUnlock, FiFileText, FiCheck, FiRefreshCw,
   FiInfo
 } from 'react-icons/fi';
@@ -355,7 +355,7 @@ const PayrollTab = ({ employeeId, companyId, employeeName }) => {
       <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
         {[
           { id: 'config', label: 'Payroll Config', icon: <FiSettings /> },
-          { id: 'structure', label: 'Salary Breakup', icon: <FiDollarSign /> },
+          { id: 'structure', label: 'Salary Breakup', icon: <span style={{ fontWeight: 'bold', fontSize: '14px', lineHeight: 1 }}>₹</span> },
           { id: 'summary', label: 'Monthly Summary', icon: <FiCalendar /> }
         ].map(s => (
           <button
@@ -576,7 +576,7 @@ const PayrollTab = ({ employeeId, companyId, employeeName }) => {
           ) : (
             <form onSubmit={handleStructureSave} style={S.card}>
               <div style={S.title}>
-                <FiDollarSign /> Salary Breakup
+                Salary Breakup
               </div>
 
               {/* Active Config Info Card */}
@@ -621,13 +621,17 @@ const PayrollTab = ({ employeeId, companyId, employeeName }) => {
                 </div>
 
                 <div>
-                  <label style={S.label}>Total Amount (₹)</label>
+                  <label style={S.label}>Total Monthly Amount (₹)</label>
                   <input
                     type="number"
+                    placeholder="Enter monthly amount"
                     value={structure.gross_salary}
                     onChange={e => setStructure(prev => ({ ...prev, gross_salary: parseFloat(e.target.value) || 0 }))}
                     style={S.input}
                   />
+                  <span style={{ fontSize: '11px', color: THEME.muted, display: 'block', marginTop: '4px' }}>
+                    * Enter monthly value (Gross, CTC, and Net are all considered monthly)
+                  </span>
                 </div>
 
                 <div>
@@ -900,7 +904,7 @@ const PayrollTab = ({ employeeId, companyId, employeeName }) => {
                 <div style={{ ...S.card, background: '#f0fdf4', borderColor: '#bbf7d0' }}>
                   <div style={{ ...S.title, color: '#166534', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                      <FiDollarSign /> Payslip Summary
+                       Payslip Summary
                     </span>
                     <button
                       type="button"

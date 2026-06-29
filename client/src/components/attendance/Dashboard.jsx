@@ -514,7 +514,7 @@ export default function Dashboard() {
   /* -- Quick actions -- */
   const hodActions = [
     { icon: <FiCheckSquare size={14} />, lbl: 'Leave Approvals', sub: `${pendingLeaves.length} pending`, path: '/attendance/hod/leave-approval', count: pendingLeaves.length },
-    { icon: <FiFileText size={14} />, lbl: 'Regularizations', sub: `${pendingRegs.length} pending`, path: '/attendance/hod/regularization-approval', count: pendingRegs.length },
+    { icon: <FiFileText size={14} />, lbl: 'Regularizations', sub: `${pendingRegs.length} pending`, path: '/attendance/admin/employee/all', count: pendingRegs.length },
     { icon: <FiActivity size={14} />, lbl: 'Team Report', sub: 'Attendance & analytics', path: '/attendance/hod/report', count: 0 },
     { icon: <FiCalendar size={14} />, lbl: 'Apply My Leave', sub: 'Submit a leave request', path: '/attendance/leave', count: 0 },
   ];

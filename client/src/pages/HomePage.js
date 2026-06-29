@@ -36,7 +36,6 @@ import LeaveManagement from "../components/attendance/LeaveManagement.jsx";
 import Regularization from "../components/attendance/Regularization.jsx";
 import HODDashboard from "../components/attendance/HODDashboard.jsx";
 import LeaveApproval from "../components/attendance/LeaveApproval.jsx";
-import RegularizationApproval from "../components/attendance/RegularizationApproval.jsx";
 import AdminDashboard from "../components/attendance/AdminDashboard.jsx";
 import AttendanceReport from "../components/attendance/AttendanceReport.jsx";
 import EmployeeProfileWorkspace from "../components/attendance/admin/EmployeeProfileWorkspace.jsx";
@@ -1204,7 +1203,6 @@ function HomePageContent() {
                   <Route path="holiday-calendar" element={<HolidayManagement readOnly />} />
                   <Route path="hod-dashboard" element={<HODDashboard />} />
                   <Route path="hod/leave-approval" element={<LeaveApproval />} />
-                  <Route path="hod/regularization-approval" element={<RegularizationApproval />} />
                   <Route path="admin" element={<AdminDashboard />} />
                   <Route path="admin/attendance" element={<AttendanceReport isAdmin />} />
                   <Route path="admin/leave-approval" element={<LeaveApproval />} />

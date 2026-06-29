@@ -46,8 +46,8 @@ const ADMIN_BASE_MENU = [
 
 const ADMIN_PRIVILEGED_MENU = [
     { section: 'Company' },
-    // { path: '/attendance/hod/report', icon: FiActivity, label: 'Team Report', requiresAllowedAdmin: true },
-    // { path: '/attendance/admin/attendance', icon: FiUsers, label: 'Company Report', requiresAllowedAdmin: true },
+    { path: '/attendance/hod/report', icon: FiActivity, label: 'Team Report', requiresAllowedAdmin: true },
+    { path: '/attendance/admin/attendance', icon: FiUsers, label: 'Company Report', requiresAllowedAdmin: true },
     { path: '/attendance/teams', icon: FiUser, label: 'Teams', requiresAllowedAdmin: true },
     { path: '/attendance/hod/leave-approval', icon: FiCheckSquare, label: 'Approvals', requiresAllowedAdmin: true },
     { section: 'Configuration' },

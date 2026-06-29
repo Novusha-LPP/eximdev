@@ -1385,6 +1385,36 @@ const useImportJobForm = () => {
           }
         }
 
+        // --- CTH / HS CODE VALIDATION ---
+        if (description_details) {
+          for (let i = 0; i < description_details.length; i++) {
+            const row = description_details[i];
+            if (row.cth_no) {
+              const clean = String(row.cth_no).trim();
+              if (clean && !/^\d{8,}$/.test(clean)) {
+                setSnackbar({
+                  open: true,
+                  message: `Row ${i + 1}: HS Code (CTH No) must be at least 8 digits long and contain only numbers.`,
+                  severity: "error"
+                });
+                return;
+              }
+            }
+          }
+        }
+
+        if (cth_no) {
+          const clean = String(cth_no).trim();
+          if (clean && !/^\d{8,}$/.test(clean)) {
+            setSnackbar({
+              open: true,
+              message: "Job-level CTH No must be at least 8 digits long and contain only numbers.",
+              severity: "error"
+            });
+            return;
+          }
+        }
+
         const payload = {
           ...values,
           year, // <-- MANDATORY for backend

@@ -33,6 +33,7 @@ import {
 import FormControlLabel from "@mui/material/FormControlLabel";
 import { IconButton } from "@mui/material";
 import Autocomplete from "@mui/material/Autocomplete";
+import CircularProgress from "@mui/material/CircularProgress";
 import FileUpload from "../../components/gallery/FileUpload";
 import ImagePreview from "../../components/gallery/ImagePreview";
 import ConfirmDialog from "../../components/gallery/ConfirmDialog";
@@ -382,6 +383,51 @@ const ImportCreateJob = () => {
   const [isCheckingDuplicate, setIsCheckingDuplicate] = useState(false);
   const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
   const [nextJobNumber, setNextJobNumber] = useState("");
+
+  const [cthOptions, setCthOptions] = useState({});
+  const [cthLoading, setCthLoading] = useState({});
+  const cthTimeoutRef = React.useRef({});
+
+  const fetchCthOptions = async (query, rowIndex) => {
+    if (!query || query.length < 4) {
+      setCthOptions(prev => ({ ...prev, [rowIndex]: [] }));
+      return;
+    }
+    setCthLoading(prev => ({ ...prev, [rowIndex]: true }));
+    try {
+      const response = await axios.get(`${process.env.REACT_APP_API_STRING}/search?query=${query}&addToRecent=false`, {
+        withCredentials: true
+      });
+      if (response.data && response.data.results) {
+        const cthResults = response.data.results;
+        const uniqueCodes = Array.from(new Set(cthResults.map(item => item.hs_code))).filter(Boolean);
+        setCthOptions(prev => ({ ...prev, [rowIndex]: uniqueCodes }));
+      } else {
+        setCthOptions(prev => ({ ...prev, [rowIndex]: [] }));
+      }
+    } catch (error) {
+      console.error("Error fetching CTH options:", error);
+      setCthOptions(prev => ({ ...prev, [rowIndex]: [] }));
+    } finally {
+      setCthLoading(prev => ({ ...prev, [rowIndex]: false }));
+    }
+  };
+
+  const handleCthInputChange = (event, newInputValue, rowIndex) => {
+    updateDescriptionRow(rowIndex, "cth_no", newInputValue);
+    
+    if (cthTimeoutRef.current[rowIndex]) {
+      clearTimeout(cthTimeoutRef.current[rowIndex]);
+    }
+    
+    if (newInputValue && newInputValue.length >= 4) {
+      cthTimeoutRef.current[rowIndex] = setTimeout(() => {
+        fetchCthOptions(newInputValue, rowIndex);
+      }, 500);
+    } else {
+      setCthOptions(prev => ({ ...prev, [rowIndex]: [] }));
+    }
+  };
 
   const fetchNextJobNumber = async () => {
     if (isEditMode) {
@@ -2942,7 +2988,7 @@ const ImportCreateJob = () => {
                           { h: <span>Unit <span style={{ color: 'red' }}>*</span></span>, w: "120px" },
                           { h: "Unit Price", w: "120px" },
                           { h: "Amount", w: "120px" },
-                          { h: "CTH", w: "150px" },
+                          { h: "CTH", w: "160px" },
                           { h: "Clearance", w: "180px" },
                           { h: "LIC SR", w: "100px" },
                           { h: "FOC Item", w: "100px" },
@@ -3082,14 +3128,47 @@ const ImportCreateJob = () => {
                             />
                           </td>
                           <td style={{ padding: '8px 6px', verticalAlign: 'middle' }}>
-                            <TextField
+                            <Autocomplete
                               size="small"
+                              freeSolo
                               fullWidth
-                              placeholder="CTH No"
-                              value={row.cth_no || ""}
-                              onChange={(e) => updateDescriptionRow(rowIndex, "cth_no", e.target.value)}
-                              sx={compactInput}
+                              disableClearable
+                              options={cthOptions[rowIndex] || []}
+                              getOptionLabel={(option) => typeof option === 'string' ? option : option}
+                              loading={cthLoading[rowIndex]}
+                              inputValue={row.cth_no || ""}
+                              onInputChange={(event, newInputValue) => handleCthInputChange(event, newInputValue, rowIndex)}
+                              onChange={(event, newValue) => {
+                                const selectedCode = typeof newValue === 'string' ? newValue : newValue || "";
+                                updateDescriptionRow(rowIndex, "cth_no", selectedCode);
+                              }}
+                              renderInput={(params) => (
+                                <TextField
+                                  {...params}
+                                  placeholder="CTH No"
+                                  sx={compactInput}
+                                  InputProps={{
+                                    ...params.InputProps,
+                                    endAdornment: (
+                                      <React.Fragment>
+                                        {cthLoading[rowIndex] ? <CircularProgress color="inherit" size={12} /> : null}
+                                        {params.InputProps.endAdornment}
+                                      </React.Fragment>
+                                    ),
+                                  }}
+                                />
+                              )}
+                              renderOption={(props, option) => (
+                                <li {...props} key={option}>
+                                  {option}
+                                </li>
+                              )}
                             />
+                            {row.cth_no && (row.cth_no.length < 8 || !/^\d+$/.test(row.cth_no)) && (
+                              <div style={{ color: '#ef4444', fontSize: '10px', marginTop: '2px', fontWeight: '500' }}>
+                                Invalid CTH
+                              </div>
+                            )}
                           </td>
                           <td style={{ padding: '8px 6px', verticalAlign: 'middle' }}>
                             <TextField

@@ -589,6 +589,28 @@ function useFetchJobDetails(
         toast.error("Please wait, loading CTH documents...");
         return;
       }
+
+      // --- CTH / HS CODE VALIDATION ---
+      if (values.description_details) {
+        for (let i = 0; i < values.description_details.length; i++) {
+          const row = values.description_details[i];
+          if (row.cth_no) {
+            const clean = String(row.cth_no).trim();
+            if (clean && !/^\d{8,}$/.test(clean)) {
+              toast.error(`Row ${i + 1}: HS Code (CTH No) must be at least 8 digits long and contain only numbers.`);
+              return;
+            }
+          }
+        }
+      }
+
+      if (values.cth_no) {
+        const clean = String(values.cth_no).trim();
+        if (clean && !/^\d{8,}$/.test(clean)) {
+          toast.error("Job-level CTH No must be at least 8 digits long and contain only numbers.");
+          return;
+        }
+      }
       // Filter documents that are sent to e-Sanchit
       const sentDocuments = cthDocuments.filter(
         (doc) => doc.is_sent_to_esanchit === true

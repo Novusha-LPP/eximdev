@@ -667,6 +667,35 @@ function JobDetails() {
     storedSearchParams
   );
 
+  const [cthOptions, setCthOptions] = useState({});
+  const [cthLoading, setCthLoading] = useState({});
+  const cthTimeoutRef = useRef({});
+
+  const fetchCthOptions = async (query, rowIndex) => {
+    if (!query || query.length < 4) {
+      setCthOptions(prev => ({ ...prev, [rowIndex]: [] }));
+      return;
+    }
+    setCthLoading(prev => ({ ...prev, [rowIndex]: true }));
+    try {
+      const response = await axios.get(`${process.env.REACT_APP_API_STRING}/search?query=${query}&addToRecent=false`, {
+        withCredentials: true
+      });
+      if (response.data && response.data.results) {
+        const cthResults = response.data.results;
+        const uniqueCodes = Array.from(new Set(cthResults.map(item => item.hs_code))).filter(Boolean);
+        setCthOptions(prev => ({ ...prev, [rowIndex]: uniqueCodes }));
+      } else {
+        setCthOptions(prev => ({ ...prev, [rowIndex]: [] }));
+      }
+    } catch (error) {
+      console.error("Error fetching CTH options:", error);
+      setCthOptions(prev => ({ ...prev, [rowIndex]: [] }));
+    } finally {
+      setCthLoading(prev => ({ ...prev, [rowIndex]: false }));
+    }
+  };
+
   const totalInvoiceValue = (formik?.values?.invoice_details || []).reduce((acc, row) => acc + (parseFloat(row.product_value) || 0), 0);
   const totalProductAmount = (formik?.values?.description_details || []).reduce((acc, row) => acc + (parseFloat(row.amount) || 0), 0);
 
@@ -4188,7 +4217,7 @@ function JobDetails() {
                             { label: "Sr No", width: "45px", align: "center" },
                             { label: "Inv SR", width: "80px", align: "left" },
                             { label: "Description", minWidth: "280px", align: "left" },
-                            { label: "RITC (HS Code)", width: "120px", align: "left" },
+                            { label: "RITC (HS Code)", width: "150px", align: "left" },
                             { label: "Quantity", width: "240px", align: "left" },
                             { label: "Unit Price", width: "100px", align: "left" },
                             { label: "Currency", width: "90px", align: "left" },
@@ -4295,15 +4324,61 @@ function JobDetails() {
                               />
                             </td>
                             {/* RITC (HS Code) */}
-                            <td style={{ padding: "8px 6px", width: "120px", verticalAlign: "middle" }}>
-                              <TextField
+                            <td style={{ padding: "8px 6px", width: "150px", verticalAlign: "middle" }}>
+                              <Autocomplete
                                 size="small"
+                                freeSolo
                                 fullWidth
-                                value={row.cth_no || ""}
-                                onChange={(e) => updateDescriptionRow(rowIndex, "cth_no", e.target.value)}
+                                disableClearable
                                 disabled={isDescriptionTableReadOnly}
-                                sx={compactInputSx}
+                                options={cthOptions[rowIndex] || []}
+                                getOptionLabel={(option) => typeof option === 'string' ? option : option}
+                                loading={cthLoading[rowIndex]}
+                                inputValue={row.cth_no || ""}
+                                onInputChange={(event, newInputValue) => {
+                                  updateDescriptionRow(rowIndex, "cth_no", newInputValue);
+                                  if (cthTimeoutRef.current[rowIndex]) {
+                                    clearTimeout(cthTimeoutRef.current[rowIndex]);
+                                  }
+                                  if (newInputValue && newInputValue.length >= 4) {
+                                    cthTimeoutRef.current[rowIndex] = setTimeout(() => {
+                                      fetchCthOptions(newInputValue, rowIndex);
+                                    }, 500);
+                                  } else {
+                                    setCthOptions(prev => ({ ...prev, [rowIndex]: [] }));
+                                  }
+                                }}
+                                onChange={(event, newValue) => {
+                                  const selectedCode = typeof newValue === 'string' ? newValue : newValue || "";
+                                  updateDescriptionRow(rowIndex, "cth_no", selectedCode);
+                                }}
+                                renderInput={(params) => (
+                                  <TextField
+                                    {...params}
+                                    fullWidth
+                                    sx={compactInputSx}
+                                    InputProps={{
+                                      ...params.InputProps,
+                                      endAdornment: (
+                                        <React.Fragment>
+                                          {cthLoading[rowIndex] ? <CircularProgress color="inherit" size={12} /> : null}
+                                          {params.InputProps.endAdornment}
+                                        </React.Fragment>
+                                      ),
+                                    }}
+                                  />
+                                )}
+                                renderOption={(props, option) => (
+                                  <li {...props} key={option}>
+                                    {option}
+                                  </li>
+                                )}
                               />
+                              {row.cth_no && (row.cth_no.length < 8 || !/^\d+$/.test(row.cth_no)) && (
+                                <div style={{ color: '#ef4444', fontSize: '10px', marginTop: '2px', fontWeight: '500' }}>
+                                  Invalid CTH
+                                </div>
+                              )}
                             </td>
                             {/* Quantity */}
                             <td style={{ padding: "8px 6px", width: "240px", verticalAlign: "middle" }}>

@@ -2,7 +2,7 @@ import { MongoClient } from "mongodb";
 import mongoose from "mongoose";
 import { migrateJobs, migrateGandhidhamJobs } from "../utils/migrationLogic.mjs";
 
-const SKIP_COLLECTIONS = ["cths", "audittrails", "users"];
+const SKIP_COLLECTIONS = ["cths", "audittrails", "users", "graph_notifications"];
 
 export async function syncProductionToLocal(options = { onProgress: null }) {
     const { runSync = true, runMigrateJobs = false, runMigrateGandhidham = false, onProgress = null } = options;
@@ -27,8 +27,15 @@ export async function syncProductionToLocal(options = { onProgress: null }) {
     };
 
     try {
-        sourceClient = new MongoClient(SOURCE_URI);
-        localClient = new MongoClient(LOCAL_URI);
+        const clientOptions = {
+            serverSelectionTimeoutMS: 60000,
+            connectTimeoutMS: 60000,
+            socketTimeoutMS: 600000,
+            heartbeatFrequencyMS: 30000,
+        };
+
+        sourceClient = new MongoClient(SOURCE_URI, clientOptions);
+        localClient = new MongoClient(LOCAL_URI, clientOptions);
 
         console.log("🔄 Connecting to databases...");
         await localClient.connect();
@@ -72,64 +79,95 @@ export async function syncProductionToLocal(options = { onProgress: null }) {
                 console.log(`➡ Syncing collection: ${name}`);
                 if (onProgress) onProgress({ phase: `Syncing: ${name}`, current: colIndex, total: totalCols });
 
-                const sourceCollection = sourceDb.collection(name);
-                const localCollection = localDb.collection(name);
+                let success = false;
+                let retries = 3;
+                let lastError = null;
 
-                const data = await sourceCollection.find({}).toArray();
-
-                // Replace local data
-                await localCollection.deleteMany({});
-                if (data.length > 0) {
-                    let cleanedData = data;
-
-                    // Deduplicate data if there are unique indexes on the local collection
+                while (retries > 0 && !success) {
                     try {
-                        const indexes = await localCollection.indexes();
-                        const uniqueIndexes = indexes.filter(idx => idx.unique);
+                        const sourceCollection = sourceDb.collection(name);
+                        const localCollection = localDb.collection(name);
 
-                        if (uniqueIndexes.length > 0) {
-                            const getNestedValue = (obj, path) => {
-                                return path.split('.').reduce((acc, part) => acc && acc[part], obj);
-                            };
+                        const data = await sourceCollection.find({}).toArray();
 
-                            for (const index of uniqueIndexes) {
-                                const keyFields = Object.keys(index.key);
-                                if (keyFields.length === 1 && keyFields[0] === "_id") continue;
+                        // Replace local data
+                        await localCollection.deleteMany({});
+                        if (data.length > 0) {
+                            let cleanedData = data;
 
-                                const seen = new Set();
-                                const filtered = [];
+                            // Deduplicate data if there are unique indexes on the local collection
+                            try {
+                                const indexes = await localCollection.indexes();
+                                const uniqueIndexes = indexes.filter(idx => idx.unique);
 
-                                // Process from newest to oldest (reverse order) to keep the latest record in case of duplicate keys
-                                for (let i = cleanedData.length - 1; i >= 0; i--) {
-                                    const item = cleanedData[i];
-                                    const keyParts = keyFields.map(field => {
-                                        const val = getNestedValue(item, field);
-                                        if (val && typeof val === 'object' && val.toString) {
-                                            return val.toString();
+                                if (uniqueIndexes.length > 0) {
+                                    const getNestedValue = (obj, path) => {
+                                        return path.split('.').reduce((acc, part) => acc && acc[part], obj);
+                                    };
+
+                                    for (const index of uniqueIndexes) {
+                                        const keyFields = Object.keys(index.key);
+                                        if (keyFields.length === 1 && keyFields[0] === "_id") continue;
+
+                                        const seen = new Set();
+                                        const filtered = [];
+
+                                        // Process from newest to oldest (reverse order) to keep the latest record in case of duplicate keys
+                                        for (let i = cleanedData.length - 1; i >= 0; i--) {
+                                            const item = cleanedData[i];
+                                            const keyParts = keyFields.map(field => {
+                                                const val = getNestedValue(item, field);
+                                                if (val && typeof val === 'object' && val.toString) {
+                                                    return val.toString();
+                                                }
+                                                return String(val);
+                                            });
+                                            const keyStr = keyParts.join("::");
+
+                                            if (!seen.has(keyStr)) {
+                                                seen.add(keyStr);
+                                                filtered.push(item);
+                                            } else {
+                                                console.log(`⚠️ Duplicate key found and removed in collection ${name}: ${keyStr} for index ${index.name}`);
+                                            }
                                         }
-                                        return String(val);
-                                    });
-                                    const keyStr = keyParts.join("::");
-
-                                    if (!seen.has(keyStr)) {
-                                        seen.add(keyStr);
-                                        filtered.push(item);
-                                    } else {
-                                        console.log(`⚠️ Duplicate key found and removed in collection ${name}: ${keyStr} for index ${index.name}`);
+                                        cleanedData = filtered.reverse();
                                     }
                                 }
-                                cleanedData = filtered.reverse();
+                            } catch (e) {
+                                console.warn(`Could not verify unique indexes for collection ${name}:`, e.message);
+                            }
+
+                            await localCollection.insertMany(cleanedData);
+                        }
+
+                        results.sync.push({ collection: name, count: data.length });
+                        console.log(`   ✅ ${data.length} records synced`);
+                        success = true;
+                    } catch (err) {
+                        retries--;
+                        lastError = err;
+                        console.warn(`⚠️ Error syncing collection ${name}. Retries left: ${retries}. Error: ${err.message}`);
+                        
+                        if (retries > 0) {
+                            const delayMs = 5000;
+                            console.log(`   Waiting ${delayMs / 1000}s before retrying connection & sync...`);
+                            await new Promise(resolve => setTimeout(resolve, delayMs));
+
+                            try {
+                                console.log("   🔄 Attempting to re-establish connection to MongoDB...");
+                                await sourceClient.connect();
+                                await localClient.connect();
+                            } catch (connErr) {
+                                console.warn(`   ⚠️ Re-connection attempt failed: ${connErr.message}`);
                             }
                         }
-                    } catch (e) {
-                        console.warn(`Could not verify unique indexes for collection ${name}:`, e.message);
                     }
-
-                    await localCollection.insertMany(cleanedData);
                 }
 
-                results.sync.push({ collection: name, count: data.length });
-                console.log(`   ✅ ${data.length} records synced`);
+                if (!success) {
+                    throw lastError || new Error(`Failed to sync collection ${name} after multiple retries.`);
+                }
             }
         } else {
             console.log("⏭ Skipping production data sync...");

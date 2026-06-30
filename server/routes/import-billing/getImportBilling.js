@@ -524,7 +524,9 @@ router.get(
       branchId,
       category,
       transactionType,
-      workMode = 'Payment'
+      workMode = 'Payment',
+      startDate,
+      endDate
     } = req.query;
 
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
@@ -587,7 +589,27 @@ router.get(
         });
       }
 
-      const transTypeField = workMode === 'Purchase Book' ? 'purchase_book_transaction_type' : 'payment_request_transaction_type';
+      if (startDate || endDate) {
+        const dateFilter = {};
+        if (startDate) dateFilter.$gte = new Date(startDate);
+        if (endDate) {
+          const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999);
+          dateFilter.$lte = end;
+        }
+        
+        let requestNos = [];
+        if (workMode === 'Purchase Book') {
+          const entries = await PurchaseBookEntryModel.find({ createdAt: dateFilter }).select('entryNo').lean();
+          requestNos = entries.map(e => e.entryNo);
+        } else {
+          const requests = await PaymentRequestModel.find({ createdAt: dateFilter }).select('requestNo').lean();
+          requestNos = requests.map(r => r.requestNo);
+        }
+        matchConditions.$and.push({ [`charges.${filterField}`]: { $in: requestNos } });
+      }
+
+      const transTypeField = 'payment_request_transaction_type';
 
       if (transactionType && transactionType !== "All") {
         matchConditions.$and.push({
@@ -618,6 +640,9 @@ router.get(
                           { $ne: [`$$charge.${statusField}`, "Paid"] },
                           { $ne: [`$$charge.${statusField}`, "Rejected"] },
                           { $ne: [`$$charge.${isApprovedField}`, true] },
+                          ...(transactionType && transactionType !== "All" ? [
+                            { $eq: [{ $toLower: `$$charge.${transTypeField}` }, transactionType.toLowerCase()] }
+                          ] : [])
                         ],
                       },
                     },
@@ -688,6 +713,7 @@ router.get(
             branch_code: 1,
             trade_type: 1,
             mode: 1,
+            ie_code_no: 1,
             charges: {
               $filter: {
                 input: { $ifNull: ["$charges", []] },
@@ -700,6 +726,9 @@ router.get(
                     { $ne: [`$$charge.${statusField}`, "Paid"] },
                     { $ne: [`$$charge.${statusField}`, "Rejected"] },
                     { $ne: [`$$charge.${isApprovedField}`, true] },
+                    ...(transactionType && transactionType !== "All" ? [
+                      { $eq: [{ $toLower: `$$charge.${transTypeField}` }, transactionType.toLowerCase()] }
+                    ] : [])
                   ],
                 },
               },
@@ -817,7 +846,10 @@ router.get(
       branchId,
       category,
       workMode = 'Payment',
-      requestDate
+      requestDate,
+      transactionType = 'All',
+      startDate,
+      endDate
     } = req.query;
 
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
@@ -846,7 +878,25 @@ router.get(
         ],
       };
 
-      if (requestDate) {
+      if (startDate || endDate) {
+        const dateFilter = {};
+        if (startDate) dateFilter.$gte = new Date(startDate);
+        if (endDate) {
+          const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999);
+          dateFilter.$lte = end;
+        }
+        
+        let requestNos = [];
+        if (workMode === 'Purchase Book') {
+          const entries = await PurchaseBookEntryModel.find({ createdAt: dateFilter }).select('entryNo').lean();
+          requestNos = entries.map(e => e.entryNo);
+        } else {
+          const requests = await PaymentRequestModel.find({ createdAt: dateFilter }).select('requestNo').lean();
+          requestNos = requests.map(r => r.requestNo);
+        }
+        matchConditions.$and.push({ [`charges.${filterField}`]: { $in: requestNos } });
+      } else if (requestDate) {
         let requestNos = [];
         if (workMode === 'Purchase Book') {
           const entries = await PurchaseBookEntryModel.find({ entryDate: requestDate }).select('entryNo').lean();
@@ -856,6 +906,14 @@ router.get(
           requestNos = requests.map(r => r.requestNo);
         }
         matchConditions.$and.push({ [`charges.${filterField}`]: { $in: requestNos } });
+      }
+
+      const transTypeField = 'payment_request_transaction_type';
+
+      if (transactionType && transactionType !== "All") {
+        matchConditions.$and.push({
+          [`charges.${transTypeField}`]: { $regex: new RegExp(`^${transactionType}$`, "i") },
+        });
       }
 
       const branchMatch = getBranchMatch(branchId, category);
@@ -908,6 +966,9 @@ router.get(
                           { $ne: [`$$charge.${filterField}`, "undefined"] },
                           { $eq: [`$$charge.${isApprovedField}`, true] },
                           { $ne: [`$$charge.${statusField}`, "Paid"] },
+                          ...(transactionType && transactionType !== "All" ? [
+                            { $eq: [{ $toLower: `$$charge.${transTypeField}` }, transactionType.toLowerCase()] }
+                          ] : [])
                         ],
                       },
                     },
@@ -929,6 +990,7 @@ router.get(
             year: 1,
             importer: 1,
             shipping_line_airline: 1,
+            ie_code_no: 1,
             custom_house: 1,
             all_documents: 1,
             cth_documents: 1,
@@ -950,6 +1012,9 @@ router.get(
                     { $eq: [`$$charge.${isApprovedField}`, true] },
                     { $ne: [`$$charge.${statusField}`, "Paid"] },
                     { $ne: [`$$charge.${statusField}`, "Rejected"] },
+                    ...(transactionType && transactionType !== "All" ? [
+                      { $eq: [{ $toLower: `$$charge.${transTypeField}` }, transactionType.toLowerCase()] }
+                    ] : [])
                   ],
                 },
               },
@@ -987,7 +1052,7 @@ router.get(
   "/api/get-payment-completed-jobs",
   applyUserIcdFilter,
   async (req, res) => {
-    const { page = 1, limit = 100, search = "", importer, year, branchId, category, startDate, endDate, workMode = 'Payment' } = req.query;
+    const { page = 1, limit = 100, search = "", importer, year, branchId, category, startDate, endDate, workMode = 'Payment', transactionType = 'All' } = req.query;
 
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
     const pageNumber = parseInt(page, 10);
@@ -1076,6 +1141,14 @@ router.get(
         matchConditions.$and.push(buildSearchQuery(search.trim()));
       }
 
+      const transTypeField = 'payment_request_transaction_type';
+
+      if (transactionType && transactionType !== "All") {
+        matchConditions.$and.push({
+          [`charges.${transTypeField}`]: { $regex: new RegExp(`^${transactionType}$`, "i") },
+        });
+      }
+
       const pipeline = [
         { $match: matchConditions },
         {
@@ -1094,6 +1167,9 @@ router.get(
                           { $ne: [`$$charge.${filterField}`, "undefined"] },
                           { $ne: [`$$charge.${statusField}`, "Paid"] },
                           { $ne: [`$$charge.${statusField}`, "Rejected"] },
+                          ...(transactionType && transactionType !== "All" ? [
+                            { $eq: [{ $toLower: `$$charge.${transTypeField}` }, transactionType.toLowerCase()] }
+                          ] : [])
                         ],
                       },
                     },
@@ -1115,6 +1191,9 @@ router.get(
                           { $gt: [{ $strLenCP: `$$charge.${filterField}` }, 1] },
                           { $ne: [`$$charge.${filterField}`, "undefined"] },
                           { $eq: [`$$charge.${statusField}`, "Paid"] },
+                          ...(transactionType && transactionType !== "All" ? [
+                            { $eq: [{ $toLower: `$$charge.${transTypeField}` }, transactionType.toLowerCase()] }
+                          ] : [])
                         ],
                       },
                     },
@@ -1167,6 +1246,7 @@ router.get(
             year: 1,
             importer: 1,
             shipping_line_airline: 1,
+            ie_code_no: 1,
             custom_house: 1,
             gateway_igm_date: 1,
             discharge_date: 1,
@@ -1201,6 +1281,9 @@ router.get(
                     { $gt: [{ $strLenCP: `$$charge.${filterField}` }, 1] },
                     { $ne: [`$$charge.${filterField}`, "undefined"] },
                     { $eq: [`$$charge.${statusField}`, "Paid"] },
+                    ...(transactionType && transactionType !== "All" ? [
+                      { $eq: [{ $toLower: `$$charge.${transTypeField}` }, transactionType.toLowerCase()] }
+                    ] : [])
                   ],
                 },
               },
@@ -1390,7 +1473,64 @@ router.get("/api/get-payment-request-details/:requestNo(*)", async (req, res) =>
       }
     }
 
-    res.status(200).json({ ...request, importer, attachments, isPurchaseBook });
+    let paymentRequestNo = null;
+    let purchaseBookNo = null;
+
+    if (isPurchaseBook) {
+      purchaseBookNo = request.entryNo || request.requestNo;
+      if (request.chargeRef) {
+        const pr = await PaymentRequestModel.findOne({ chargeRef: request.chargeRef }).select('requestNo').lean();
+        if (pr) {
+          paymentRequestNo = pr.requestNo;
+        }
+      }
+    } else {
+      paymentRequestNo = request.requestNo;
+      if (request.chargeRef) {
+        const pb = await PurchaseBookEntryModel.findOne({ chargeRef: request.chargeRef }).select('entryNo').lean();
+        if (pb) {
+          purchaseBookNo = pb.entryNo;
+        }
+      }
+    }
+
+    // Double check from job's charges if still missing
+    if (jobRef && (!paymentRequestNo || !purchaseBookNo)) {
+      try {
+        const job = await JobModel.findById(jobRef).select('charges').lean();
+        if (job && job.charges) {
+          let linkedCharge;
+          if (chargeRef) {
+            linkedCharge = job.charges.find(c => c._id && c._id.toString() === chargeRef);
+          }
+          if (!linkedCharge) {
+            linkedCharge = job.charges.find(c => 
+              (c.cost?.partyName?.toUpperCase() === request.paymentTo?.toUpperCase()) ||
+              (c.chargeHead?.toUpperCase() === request.againstBill?.toUpperCase())
+            );
+          }
+          if (linkedCharge) {
+            if (linkedCharge.purchase_book_no && !purchaseBookNo) {
+              purchaseBookNo = linkedCharge.purchase_book_no;
+            }
+            if (linkedCharge.payment_request_no && !paymentRequestNo) {
+              paymentRequestNo = linkedCharge.payment_request_no;
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching linked job details for cross-reference:", err);
+      }
+    }
+
+    res.status(200).json({ 
+      ...request, 
+      importer, 
+      attachments, 
+      isPurchaseBook,
+      paymentRequestNo,
+      purchaseBookNo
+    });
   } catch (err) {
     console.error("Error fetching payment request details:", err);
     res.status(500).json({ message: "Internal server error" });

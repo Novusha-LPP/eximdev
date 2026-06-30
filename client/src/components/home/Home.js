@@ -64,7 +64,18 @@ function Home() {
     getUser();
   }, [user]);
 
+  let sopsGrouped = false;
   const categorizedModules = data?.modules?.reduce((acc, module) => {
+    if (["RM Procurement SOP", "Tyre Procurement SOP", "Fleet Insurance SOP"].includes(module)) {
+      if (!sopsGrouped) {
+        const category = "Accounts";
+        if (!acc[category]) acc[category] = [];
+        acc[category].push("Procurement & Insurance SOPs");
+        sopsGrouped = true;
+      }
+      return acc;
+    }
+
     const category = moduleCategories[module] || "Uncategorized";
     if (!acc[category]) acc[category] = [];
     acc[category].push(module);

@@ -14,21 +14,17 @@ import {
 } from "@mui/material";
 import { Save, Cancel } from "@mui/icons-material";
 import useTabs from "../../../customHooks/useTabs";
-import Stage1SalesOrder from "./Stage1SalesOrder";
-import Stage2PurchaseRequest from "./Stage2PurchaseRequest";
-import Stage3SupplierQuotation from "./Stage3SupplierQuotation";
-import Stage4PricingValidation from "./Stage4PricingValidation";
-import Stage5FinanceApproval from "./Stage5FinanceApproval";
-import Stage6PaymentUtr from "./Stage6PaymentUtr";
-import Stage7OrderDispatch from "./Stage7OrderDispatch";
-import Stage8Grn from "./Stage8Grn";
+import Stage1PurchaseRequest from "./Stage1PurchaseRequest";
+import Stage2SupplierQuotation from "./Stage2SupplierQuotation";
+import Stage3FinanceApproval from "./Stage3FinanceApproval";
+import Stage4PaymentUtr from "./Stage4PaymentUtr";
+import Stage5OrderDispatch from "./Stage5OrderDispatch";
+import Stage6Grn from "./Stage6Grn";
 
 const statusOptions = [
   "Draft",
-  "Sales Order",
   "PR Raised",
   "Quotation Received",
-  "Pricing Validated",
   "Finance Approved",
   "Payment Done",
   "Order Placed",
@@ -38,59 +34,39 @@ const statusOptions = [
 
 const emptyPr = {
   prNumber: "",
-  salesOrderRefNo: "",
+  poNumber: "",
   status: "Draft",
   stage1: {
-    productLines: [],
-    rmEstimates: [],
-    partitionDetails: {},
-    productionTimeline: {},
-    signOff: {},
+    itemsRequired: [],
+    routingChecklist: [],
+    hodValidation: {},
   },
   stage2: {
-    rawMaterials: [],
-    binProductReference: {},
-    productionHeadApproval: {},
-    actionLog: [],
+    suppliers: [{}, {}, {}],
+    routingChecklist: [],
   },
   stage3: {
-    suppliers: [],
-    documentsVerified: {},
-    actionLog: [],
-  },
-  stage4: {
-    rateValidations: [],
-    overallChecklist: {},
-    decision: {},
-    actionLog: [],
-  },
-  stage5: {
     reviewChecklist: {},
     decision: {},
     signOff: {},
-    actionLog: [],
   },
-  stage6: {
+  stage4: {
     supplierBankDetails: {},
     paymentDetails: {},
     accountingSignOff: {},
-    utrIntimation: {},
-    actionLog: [],
+    utrSharing: {},
   },
-  stage7: {
-    followUpLog: [],
+  stage5: {
     dispatchDetails: {},
-    rmDispatchBreakdown: [],
   },
-  stage8: {
-    rmReceiptInspection: [],
-    documentChecklist: {},
-    returnRejectionNote: {},
+  stage6: {
+    itemsReceived: [],
+    qualityConformanceCheck: {},
     approvals: [],
   },
 };
 
-function RmProcurementForm({ pr, isView, onSaved, onCancel }) {
+function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
   const [value, setValue] = useState(0);
   const [formData, setFormData] = useState(emptyPr);
   const [loading, setLoading] = useState(false);
@@ -101,13 +77,13 @@ function RmProcurementForm({ pr, isView, onSaved, onCancel }) {
     if (pr?._id) {
       setLoading(true);
       axios
-        .get(`${process.env.REACT_APP_API_STRING}/rm-procurement/${pr._id}`)
+        .get(`${process.env.REACT_APP_API_STRING}/tyre-procurement/${pr._id}`)
         .then((res) => {
           setFormData(mergeWithEmpty(res.data.data || emptyPr));
         })
         .catch((err) => {
-          console.error("Error fetching PR:", err);
-          alert("Failed to fetch PR details");
+          console.error("Error fetching Tyre PR:", err);
+          alert("Failed to fetch Tyre PR details");
         })
         .finally(() => setLoading(false));
     } else {
@@ -124,8 +100,6 @@ function RmProcurementForm({ pr, isView, onSaved, onCancel }) {
     stage4: { ...emptyPr.stage4, ...(data.stage4 || {}) },
     stage5: { ...emptyPr.stage5, ...(data.stage5 || {}) },
     stage6: { ...emptyPr.stage6, ...(data.stage6 || {}) },
-    stage7: { ...emptyPr.stage7, ...(data.stage7 || {}) },
-    stage8: { ...emptyPr.stage8, ...(data.stage8 || {}) },
   });
 
   const handleChange = useCallback((field, val) => {
@@ -144,14 +118,14 @@ function RmProcurementForm({ pr, isView, onSaved, onCancel }) {
     setSaving(true);
     try {
       if (pr?._id) {
-        await axios.put(`${process.env.REACT_APP_API_STRING}/rm-procurement/${pr._id}`, formData);
+        await axios.put(`${process.env.REACT_APP_API_STRING}/tyre-procurement/${pr._id}`, formData);
       } else {
-        await axios.post(`${process.env.REACT_APP_API_STRING}/rm-procurement`, formData);
+        await axios.post(`${process.env.REACT_APP_API_STRING}/tyre-procurement`, formData);
       }
       onSaved();
     } catch (err) {
-      console.error("Error saving PR:", err);
-      alert(err.response?.data?.message || "Failed to save PR");
+      console.error("Error saving Tyre PR:", err);
+      alert(err.response?.data?.message || "Failed to save Tyre PR");
     } finally {
       setSaving(false);
     }
@@ -162,14 +136,12 @@ function RmProcurementForm({ pr, isView, onSaved, onCancel }) {
   };
 
   const stageTabs = [
-    { label: "1. Sales Order", component: Stage1SalesOrder },
-    { label: "2. Purchase Request", component: Stage2PurchaseRequest },
-    { label: "3. Supplier Quotation", component: Stage3SupplierQuotation },
-    { label: "4. Pricing Validation", component: Stage4PricingValidation },
-    { label: "5. Finance Approval", component: Stage5FinanceApproval },
-    { label: "6. Payment & UTR", component: Stage6PaymentUtr },
-    { label: "7. Order & Dispatch", component: Stage7OrderDispatch },
-    { label: "8. RM GRN", component: Stage8Grn },
+    { label: "1. Purchase Request", component: Stage1PurchaseRequest },
+    { label: "2. Supplier Quotation", component: Stage2SupplierQuotation },
+    { label: "3. Finance Approval", component: Stage3FinanceApproval },
+    { label: "4. Payment & UTR", component: Stage4PaymentUtr },
+    { label: "5. Order & Dispatch", component: Stage5OrderDispatch },
+    { label: "6. Site GRN", component: Stage6Grn },
   ];
 
   if (loading) {
@@ -182,26 +154,12 @@ function RmProcurementForm({ pr, isView, onSaved, onCancel }) {
 
   return (
     <Box>
-      <fieldset disabled={isView} style={{ border: "none", padding: 0, margin: 0 }}>
       <Paper sx={{ p: 2, mb: 2 }}>
         <Typography variant="h6" gutterBottom>
-          {isView ? "View Purchase Request" : (pr?._id ? "Edit Purchase Request" : "Create Purchase Request")}
+          {isView ? "View Tyre Purchase Request" : (pr?._id ? "Edit Tyre Purchase Request" : "Create Tyre Purchase Request")}
         </Typography>
+        <fieldset disabled={isView} style={{ border: "none", padding: 0, margin: 0 }}>
         <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ mb: 2 }}>
-          <TextField
-            label="PR Number *"
-            value={formData.prNumber}
-            onChange={(e) => handleChange("prNumber", e.target.value)}
-            fullWidth
-            size="small"
-          />
-          <TextField
-            label="Sales Order Reference No."
-            value={formData.salesOrderRefNo}
-            onChange={(e) => handleChange("salesOrderRefNo", e.target.value)}
-            fullWidth
-            size="small"
-          />
           <TextField
             select
             label="Status"
@@ -217,8 +175,8 @@ function RmProcurementForm({ pr, isView, onSaved, onCancel }) {
             ))}
           </TextField>
         </Stack>
+        </fieldset>
       </Paper>
-      </fieldset>
 
       <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
         <Tabs
@@ -226,7 +184,7 @@ function RmProcurementForm({ pr, isView, onSaved, onCancel }) {
           onChange={handleChangeTab}
           variant="scrollable"
           scrollButtons="auto"
-          aria-label="rm procurement stage tabs"
+          aria-label="tyre procurement stage tabs"
         >
           {stageTabs.map((tab, idx) => (
             <Tab key={idx} label={tab.label} {...a11yProps(idx)} value={idx} />
@@ -269,4 +227,4 @@ function RmProcurementForm({ pr, isView, onSaved, onCancel }) {
   );
 }
 
-export default React.memo(RmProcurementForm);
+export default React.memo(TyreProcurementForm);

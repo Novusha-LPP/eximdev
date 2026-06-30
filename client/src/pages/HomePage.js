@@ -144,7 +144,10 @@ import DutyCalculator from "../components/import-utility-tool/duty-calculator/Du
 import ImportBillingTab from "../components/Import-billing/ImportBillingTab.js";
 import AllUsersPage from "./AllUsersPage.js";
 import BillingReports from "../components/accounts/BillingReports.js";
+import ProcurementInsuranceSopsContainer from "../components/accounts/ProcurementInsuranceSopsContainer.js";
 import RmProcurementSop from "../components/accounts/rmProcurementSop/RmProcurementSop.js";
+import TyreProcurementSop from "../components/accounts/tyreProcurementSop/TyreProcurementSop.js";
+import FleetInsuranceSop from "../components/accounts/fleetInsuranceSop/FleetInsuranceSop.js";
 
 // Analytics
 import AnalyticsLayout from "../components/analytics/AnalyticsLayout";
@@ -976,6 +979,32 @@ function HomePageContent() {
                   }
                 />
 
+                <Route
+                  path="/tyre-procurement"
+                  element={
+                    <ProtectedRoute requiredModule="Tyre Procurement SOP">
+                      <TyreProcurementSop />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/fleet-insurance"
+                  element={
+                    <ProtectedRoute requiredModule="Fleet Insurance SOP">
+                      <FleetInsuranceSop />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/procurement-insurance-sops"
+                  element={
+                    <ProtectedRoute requiredModule="Accounts">
+                      <ProcurementInsuranceSopsContainer />
+                    </ProtectedRoute>
+                  }
+                />
 
                 {/* import billing */}
                 <Route

@@ -6,9 +6,17 @@ import { Box } from "@mui/material";
 function TyreProcurementSop() {
   const [view, setView] = useState("list"); // list, form
   const [selectedPr, setSelectedPr] = useState(null);
+  const [isView, setIsView] = useState(false);
 
   const handleEdit = useCallback((pr) => {
     setSelectedPr(pr);
+    setIsView(false);
+    setView("form");
+  }, []);
+
+  const handleView = useCallback((pr) => {
+    setSelectedPr(pr);
+    setIsView(true);
     setView("form");
   }, []);
 
@@ -30,10 +38,11 @@ function TyreProcurementSop() {
   return (
     <Box sx={{ p: 1 }}>
       {view === "list" ? (
-        <TyreProcurementList onEdit={handleEdit} onCreate={handleCreate} />
+        <TyreProcurementList onEdit={handleEdit} onView={handleView} onCreate={handleCreate} />
       ) : (
         <TyreProcurementForm
           pr={selectedPr}
+          isView={isView}
           onSaved={handleSaved}
           onCancel={handleCancel}
         />

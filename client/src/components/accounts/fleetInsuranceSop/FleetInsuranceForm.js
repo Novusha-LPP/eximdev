@@ -48,12 +48,33 @@ const emptyRecord = {
   renewed: "",
   newExpiryDate: "",
   renewedDate: "",
+  // F Data-NEW fields
+  renewalDate: "",
+  engineNumber: "",
+  chassisNumber: "",
+  cubicCapacityKw: "",
+  mfgYear: "",
+  electricalAccessoriesIdv: "",
+  cngKitIdv: "",
+  totalIdv: "",
+  odPremium: "",
+  imt24: "",
+  imt25: "",
+  totalOdPremium: "",
+  imt17: "",
+  imt252: "",
+  imt28: "",
+  imt29: "",
+  liabilityPremium: "",
+  totalGst: "",
+  totalPolicyPremium: "",
+  // Quotation Comparison
   quotations: [],
   selectedInsurerL1: "",
   reasonForSelection: "",
 };
 
-function FleetInsuranceForm({ proposal, onSaved, onCancel }) {
+function FleetInsuranceForm({ proposal, isView, onSaved, onCancel }) {
   const [formData, setFormData] = useState(emptyRecord);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -149,25 +170,28 @@ function FleetInsuranceForm({ proposal, onSaved, onCancel }) {
     <Box sx={{ pb: 5 }}>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: "bold", color: "#1a237e" }}>
-          {proposal?._id ? "Edit Vehicle Record" : "Add Vehicle Record"}
+          {isView ? "View Vehicle Record" : (proposal?._id ? "Edit Vehicle Record" : "Add Vehicle Record")}
         </Typography>
         <Box sx={{ display: "flex", gap: 2 }}>
-          <Button
-            variant="contained"
-            startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
-            onClick={handleSave}
-            disabled={saving}
-          >
-            Save Record
-          </Button>
+          {!isView && (
+            <Button
+              variant="contained"
+              startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
+              onClick={handleSave}
+              disabled={saving}
+            >
+              Save Record
+            </Button>
+          )}
           <Button variant="outlined" startIcon={<Cancel />} onClick={onCancel} disabled={saving}>
-            Cancel
+            {isView ? "Back" : "Cancel"}
           </Button>
         </Box>
       </Box>
 
-      {/* Vehicle Details */}
-      <Paper sx={{ p: 3, mb: 3 }}>
+      <fieldset disabled={isView} style={{ border: "none", padding: 0, margin: 0 }}>
+        {/* Vehicle Details */}
+        <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h6" gutterBottom color="primary">
           1. Vehicle Details
         </Typography>
@@ -207,6 +231,27 @@ function FleetInsuranceForm({ proposal, onSaved, onCancel }) {
         </Grid>
       </Paper>
 
+      {/* Vehicle Technical Details */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h6" gutterBottom color="primary">
+          1B. Vehicle Technical Details
+        </Typography>
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField label="Engine Number" value={formData.engineNumber} onChange={(e) => handleChange("engineNumber", e.target.value)} fullWidth size="small" />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField label="Chassis Number" value={formData.chassisNumber} onChange={(e) => handleChange("chassisNumber", e.target.value)} fullWidth size="small" />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField label="Cubic Capacity / KW / GVW" value={formData.cubicCapacityKw} onChange={(e) => handleChange("cubicCapacityKw", e.target.value)} fullWidth size="small" placeholder="e.g. 5883 / 45500" />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField label="Mfg. Year / Reg Date" value={formData.mfgYear} onChange={(e) => handleChange("mfgYear", e.target.value)} fullWidth size="small" placeholder="e.g. 2018 / 13-06-2018" />
+          </Grid>
+        </Grid>
+      </Paper>
+
       {/* Previous Policy Details */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Typography variant="h6" gutterBottom color="primary">
@@ -227,20 +272,83 @@ function FleetInsuranceForm({ proposal, onSaved, onCancel }) {
           </Grid>
 
           <Grid item xs={12} sm={6} md={3}>
-            <TextField label="IDV (₹)" type="number" value={formData.idv} onChange={(e) => handleChange("idv", e.target.value)} fullWidth size="small" />
+            <TextField label="Vehicle IDV (₹)" type="number" value={formData.idv} onChange={(e) => handleChange("idv", e.target.value)} fullWidth size="small" />
           </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField label="Electrical Accessories IDV (₹)" type="number" value={formData.electricalAccessoriesIdv} onChange={(e) => handleChange("electricalAccessoriesIdv", e.target.value)} fullWidth size="small" />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField label="CNG Kit IDV (₹)" type="number" value={formData.cngKitIdv} onChange={(e) => handleChange("cngKitIdv", e.target.value)} fullWidth size="small" />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField label="Total IDV (₹)" type="number" value={formData.totalIdv || ((Number(formData.idv) || 0) + (Number(formData.electricalAccessoriesIdv) || 0) + (Number(formData.cngKitIdv) || 0))} fullWidth size="small" InputProps={{ readOnly: true }} sx={{ "& .MuiInputBase-root": { backgroundColor: "#f5f5f5" } }} />
+          </Grid>
+
           <Grid item xs={12} sm={6} md={3}>
             <TextField label="Premium Amount (₹)" type="number" value={formData.premiumAmount} onChange={(e) => handleChange("premiumAmount", e.target.value)} fullWidth size="small" />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <TextField label="NCB" type="number" value={formData.ncbPercentage} onChange={(e) => handleChange("ncbPercentage", e.target.value)} fullWidth size="small" />
+            <TextField label="NCB (%)" type="number" value={formData.ncbPercentage} onChange={(e) => handleChange("ncbPercentage", e.target.value)} fullWidth size="small" />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <TextField label="Premium (₹)" type="number" value={formData.premium} onChange={(e) => handleChange("premium", e.target.value)} fullWidth size="small" />
           </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField label="Renewal Date" type="date" InputLabelProps={{ shrink: true }} value={formatDateValue(formData.renewalDate)} onChange={(e) => handleChange("renewalDate", e.target.value)} fullWidth size="small" />
+          </Grid>
 
           <Grid item xs={12}>
             <TextField label="Remarks" multiline rows={2} value={formData.remarks} onChange={(e) => handleChange("remarks", e.target.value)} fullWidth size="small" />
+          </Grid>
+        </Grid>
+      </Paper>
+
+      {/* Insurance Premium Breakdown */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h6" gutterBottom color="primary">
+          2B. Insurance Premium Breakdown
+        </Typography>
+        <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+          Granular premium breakdown from the insurance portal data.
+        </Typography>
+        <Grid container spacing={2}>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField label="OD Premium (₹)" type="number" value={formData.odPremium} onChange={(e) => handleChange("odPremium", e.target.value)} fullWidth size="small" />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField label="IMT 23 (₹)" type="number" value={formData.imt23} onChange={(e) => handleChange("imt23", e.target.value)} fullWidth size="small" />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField label="IMT 24 (₹)" type="number" value={formData.imt24} onChange={(e) => handleChange("imt24", e.target.value)} fullWidth size="small" />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField label="IMT 25 (₹)" type="number" value={formData.imt25} onChange={(e) => handleChange("imt25", e.target.value)} fullWidth size="small" />
+          </Grid>
+
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField label="Total OD Premium (₹)" type="number" value={formData.totalOdPremium} onChange={(e) => handleChange("totalOdPremium", e.target.value)} fullWidth size="small" />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField label="IMT 17 (₹)" type="number" value={formData.imt17} onChange={(e) => handleChange("imt17", e.target.value)} fullWidth size="small" />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField label="IMT 252 (₹)" type="number" value={formData.imt252} onChange={(e) => handleChange("imt252", e.target.value)} fullWidth size="small" />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField label="IMT 28 (₹)" type="number" value={formData.imt28} onChange={(e) => handleChange("imt28", e.target.value)} fullWidth size="small" />
+          </Grid>
+
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField label="IMT 29 (₹)" type="number" value={formData.imt29} onChange={(e) => handleChange("imt29", e.target.value)} fullWidth size="small" />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField label="Liability Premium (₹)" type="number" value={formData.liabilityPremium} onChange={(e) => handleChange("liabilityPremium", e.target.value)} fullWidth size="small" />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField label="Total GST (₹)" type="number" value={formData.totalGst} onChange={(e) => handleChange("totalGst", e.target.value)} fullWidth size="small" />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField label="Total Policy Premium (₹)" type="number" value={formData.totalPolicyPremium} onChange={(e) => handleChange("totalPolicyPremium", e.target.value)} fullWidth size="small" />
           </Grid>
         </Grid>
       </Paper>
@@ -285,14 +393,20 @@ function FleetInsuranceForm({ proposal, onSaved, onCancel }) {
                     <TextField type="number" value={q.totalPremium} onChange={(e) => handleQuotationChange(idx, "totalPremium", e.target.value)} size="small" />
                   </TableCell>
                   <TableCell align="center">
-                    <Button size="small" variant="contained" color="success" onClick={() => handleSelectL1(idx)} sx={{ mr: 1 }}>Select L1</Button>
-                    <Button size="small" color="error" onClick={() => handleRemoveQuotation(idx)}>X</Button>
+                    {!isView && (
+                      <>
+                        <Button size="small" variant="contained" color="success" onClick={() => handleSelectL1(idx)} sx={{ mr: 1 }}>Select L1</Button>
+                        <Button size="small" color="error" onClick={() => handleRemoveQuotation(idx)}>X</Button>
+                      </>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-          <Button variant="outlined" size="small" onClick={handleAddQuotation} sx={{ mt: 1 }}>+ Add Quotation</Button>
+          {!isView && (
+            <Button variant="outlined" size="small" onClick={handleAddQuotation} sx={{ mt: 1 }}>+ Add Quotation</Button>
+          )}
         </Box>
 
         <Grid container spacing={2}>
@@ -324,9 +438,6 @@ function FleetInsuranceForm({ proposal, onSaved, onCancel }) {
             <TextField label="RSD TAKEN (₹)" type="number" value={formData.rsdTaken} onChange={(e) => handleChange("rsdTaken", e.target.value)} fullWidth size="small" />
           </Grid>
 
-          <Grid item xs={12} sm={6} md={4}>
-            <TextField label="IMT 23" type="number" value={formData.imt23} onChange={(e) => handleChange("imt23", e.target.value)} fullWidth size="small" />
-          </Grid>
           <Grid item xs={12} sm={6} md={4}>
             <TextField select label="Zero Dep + Towing Cover" value={formData.zeroDepTowingCover} onChange={(e) => handleChange("zeroDepTowingCover", e.target.value)} fullWidth size="small">
               <MenuItem value="YES">YES</MenuItem>
@@ -361,6 +472,7 @@ function FleetInsuranceForm({ proposal, onSaved, onCancel }) {
           </Grid>
         </Grid>
       </Paper>
+      </fieldset>
     </Box>
   );
 }

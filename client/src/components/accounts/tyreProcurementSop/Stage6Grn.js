@@ -21,7 +21,7 @@ const yesNoOptions = ["Yes", "No"];
 const acceptedOptions = ["Accepted", "Rejected"];
 const typeOptions = ["New", "Remould"];
 
-function Stage6Grn({ data, onChange }) {
+function Stage6Grn({ data, onChange, globalData, onGlobalChange }) {
   const updateField = (field, value) => {
     onChange({ [field]: value });
   };
@@ -123,8 +123,9 @@ function Stage6Grn({ data, onChange }) {
         <Grid item xs={12} md={3}>
           <TextField
             label="PR Number"
-            value={data.prNumber || ""}
-            onChange={(e) => updateField("prNumber", e.target.value)}
+            value={globalData?.prNumber || ""}
+            onChange={() => {}}
+            InputProps={{ readOnly: true, sx: { backgroundColor: "#f5f5f5" } }}
             fullWidth
             size="small"
           />
@@ -132,8 +133,9 @@ function Stage6Grn({ data, onChange }) {
         <Grid item xs={12} md={3}>
           <TextField
             label="PO Number"
-            value={data.poNumber || ""}
-            onChange={(e) => updateField("poNumber", e.target.value)}
+            value={globalData?.poNumber || ""}
+            onChange={() => {}}
+            InputProps={{ readOnly: true, sx: { backgroundColor: "#f5f5f5" } }}
             fullWidth
             size="small"
           />

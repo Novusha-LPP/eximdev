@@ -17,7 +17,7 @@ import {
 const decisionOptions = ["", "APPROVED", "REJECTED"];
 const statusOptions = ["", "Pending", "Done"];
 
-function Stage2PurchaseRequest({ data, onChange }) {
+function Stage2PurchaseRequest({ data, onChange, globalData, onGlobalChange }) {
   const updateField = (field, value) => onChange({ [field]: value });
   const updateNested = (group, field, value) =>
     onChange({ [group]: { ...data[group], [field]: value } });
@@ -90,8 +90,8 @@ function Stage2PurchaseRequest({ data, onChange }) {
         <Grid item xs={12} md={6}>
           <TextField
             label="PR Number"
-            value={data.prNumber || ""}
-            onChange={(e) => updateField("prNumber", e.target.value)}
+            value={globalData?.prNumber || ""}
+            onChange={(e) => onGlobalChange("prNumber", e.target.value)}
             fullWidth
             size="small"
           />

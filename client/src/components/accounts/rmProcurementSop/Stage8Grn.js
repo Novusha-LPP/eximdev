@@ -21,7 +21,7 @@ const conditionOptions = ["", "OK", "Damaged"];
 const acceptRejectOptions = ["", "Accepted", "Rejected"];
 const approvalStatusOptions = ["", "GRN Done", "PR Closed"];
 
-function Stage8Grn({ data, onChange }) {
+function Stage8Grn({ data, onChange, globalData, onGlobalChange }) {
   const updateField = (field, value) => onChange({ [field]: value });
   const updateNested = (group, field, value) =>
     onChange({ [group]: { ...data[group], [field]: value } });
@@ -124,8 +124,9 @@ function Stage8Grn({ data, onChange }) {
         <Grid item xs={12} md={6}>
           <TextField
             label="PR Number (Reference)"
-            value={data.prNumber || ""}
-            onChange={(e) => updateField("prNumber", e.target.value)}
+            value={globalData?.prNumber || ""}
+            onChange={() => {}}
+            InputProps={{ readOnly: true, sx: { backgroundColor: "#f5f5f5" } }}
             fullWidth
             size="small"
           />
@@ -133,8 +134,9 @@ function Stage8Grn({ data, onChange }) {
         <Grid item xs={12} md={6}>
           <TextField
             label="PO / Order Reference No."
-            value={data.poOrderReferenceNo || ""}
-            onChange={(e) => updateField("poOrderReferenceNo", e.target.value)}
+            value={globalData?.poNumber || ""}
+            onChange={() => {}}
+            InputProps={{ readOnly: true, sx: { backgroundColor: "#f5f5f5" } }}
             fullWidth
             size="small"
           />

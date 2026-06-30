@@ -21,7 +21,7 @@ const bottomOptions = ["Flat", "Ribbed"];
 const handleOptions = ["Open", "Close"];
 const lidOptions = ["Yes", "No"];
 
-function Stage1SalesOrder({ data, onChange }) {
+function Stage1SalesOrder({ data, onChange, globalData, onGlobalChange }) {
   const updateField = (field, value) => {
     onChange({ [field]: value });
   };

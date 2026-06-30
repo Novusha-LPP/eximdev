@@ -17,9 +17,9 @@ import {
   CircularProgress,
   Stack,
 } from "@mui/material";
-import { Edit, Delete, GetApp, Add, FileDownload } from "@mui/icons-material";
+import { Edit, Delete, GetApp, Add, FileDownload, Visibility } from "@mui/icons-material";
 
-function TyreProcurementList({ onEdit, onCreate }) {
+function TyreProcurementList({ onEdit, onView, onCreate }) {
   const [data, setData] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -170,7 +170,10 @@ function TyreProcurementList({ onEdit, onCreate }) {
                     <TableCell>{row.status}</TableCell>
                     <TableCell>{new Date(row.createdAt).toLocaleDateString("en-GB")}</TableCell>
                     <TableCell align="center">
-                      <IconButton size="small" color="primary" onClick={() => onEdit(row)}>
+                      <IconButton size="small" color="info" onClick={() => onView(row)} title="View">
+                        <Visibility fontSize="small" />
+                      </IconButton>
+                      <IconButton size="small" color="primary" onClick={() => onEdit(row)} title="Edit">
                         <Edit fontSize="small" />
                       </IconButton>
                       <IconButton size="small" color="secondary" onClick={() => handleExport(row._id, row.prNumber)}>

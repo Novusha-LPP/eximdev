@@ -19,7 +19,7 @@ import {
 const yesNoOptions = ["", "Yes", "No"];
 const statusOptions = ["", "Pending", "Done"];
 
-function Stage3SupplierQuotation({ data, onChange }) {
+function Stage3SupplierQuotation({ data, onChange, globalData, onGlobalChange }) {
   const updateField = (field, value) => onChange({ [field]: value });
   const getInitializedSuppliers = () => {
     const suppliers = data.suppliers || [];
@@ -78,8 +78,9 @@ function Stage3SupplierQuotation({ data, onChange }) {
         <Grid item xs={12} md={6}>
           <TextField
             label="PR Number"
-            value={data.prNumber || ""}
-            onChange={(e) => updateField("prNumber", e.target.value)}
+            value={globalData?.prNumber || ""}
+            onChange={() => {}}
+            InputProps={{ readOnly: true, sx: { backgroundColor: "#f5f5f5" } }}
             fullWidth
             size="small"
           />

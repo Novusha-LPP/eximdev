@@ -17,7 +17,7 @@ import {
   Select,
 } from "@mui/material";
 
-function Stage2SupplierQuotation({ data, onChange }) {
+function Stage2SupplierQuotation({ data, onChange, globalData, onGlobalChange }) {
   const updateField = (field, value) => {
     onChange({ [field]: value });
   };
@@ -81,8 +81,9 @@ function Stage2SupplierQuotation({ data, onChange }) {
         <Grid item xs={12} md={3}>
           <TextField
             label="PR Number"
-            value={data.prNumber || ""}
-            onChange={(e) => updateField("prNumber", e.target.value)}
+            value={globalData?.prNumber || ""}
+            onChange={() => {}}
+            InputProps={{ readOnly: true, sx: { backgroundColor: "#f5f5f5" } }}
             fullWidth
             size="small"
           />
@@ -90,8 +91,8 @@ function Stage2SupplierQuotation({ data, onChange }) {
         <Grid item xs={12} md={3}>
           <TextField
             label="PO Number"
-            value={data.poNumber || ""}
-            onChange={(e) => updateField("poNumber", e.target.value)}
+            value={globalData?.poNumber || ""}
+            onChange={(e) => onGlobalChange("poNumber", e.target.value)}
             fullWidth
             size="small"
           />

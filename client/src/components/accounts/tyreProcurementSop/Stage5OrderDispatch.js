@@ -10,7 +10,7 @@ import {
 
 const confirmationOptions = ["WhatsApp", "Email", "Call"];
 
-function Stage5OrderDispatch({ data, onChange }) {
+function Stage5OrderDispatch({ data, onChange, globalData, onGlobalChange }) {
   const updateField = (field, value) => {
     onChange({ [field]: value });
   };
@@ -28,8 +28,9 @@ function Stage5OrderDispatch({ data, onChange }) {
         <Grid item xs={12} md={3}>
           <TextField
             label="PR Number"
-            value={data.prNumber || ""}
-            onChange={(e) => updateField("prNumber", e.target.value)}
+            value={globalData?.prNumber || ""}
+            onChange={() => {}}
+            InputProps={{ readOnly: true, sx: { backgroundColor: "#f5f5f5" } }}
             fullWidth
             size="small"
           />
@@ -37,8 +38,9 @@ function Stage5OrderDispatch({ data, onChange }) {
         <Grid item xs={12} md={3}>
           <TextField
             label="PO Number (if applicable)"
-            value={data.poNumber || ""}
-            onChange={(e) => updateField("poNumber", e.target.value)}
+            value={globalData?.poNumber || ""}
+            onChange={() => {}}
+            InputProps={{ readOnly: true, sx: { backgroundColor: "#f5f5f5" } }}
             fullWidth
             size="small"
           />

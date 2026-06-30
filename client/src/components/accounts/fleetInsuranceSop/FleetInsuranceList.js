@@ -18,9 +18,9 @@ import {
   Stack,
   MenuItem
 } from "@mui/material";
-import { Edit, Delete, GetApp, Add, FileDownload } from "@mui/icons-material";
+import { Edit, Delete, GetApp, Add, FileDownload, Visibility } from "@mui/icons-material";
 
-function FleetInsuranceList({ onEdit, onCreate }) {
+function FleetInsuranceList({ onEdit, onView, onCreate }) {
   const [data, setData] = useState([]);
   const [total, setTotal] = useState(0);
   const currentMonth = new Date().getMonth() + 1;
@@ -216,8 +216,10 @@ function FleetInsuranceList({ onEdit, onCreate }) {
               <TableRow sx={{ backgroundColor: "#1a237e" }}>
                 <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>Reg No</TableCell>
                 <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>Owner</TableCell>
+                <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>Engine No</TableCell>
                 <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>Insurer</TableCell>
                 <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>Prev Premium (₹)</TableCell>
+                <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>Total Policy Premium (₹)</TableCell>
                 <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>New Premium Quote (₹)</TableCell>
                 <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>Renewed?</TableCell>
                 <TableCell sx={{ color: "#fff", fontWeight: "bold" }} align="center">Actions</TableCell>
@@ -226,17 +228,23 @@ function FleetInsuranceList({ onEdit, onCreate }) {
             <TableBody>
               {data.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center">No records found</TableCell>
+                  <TableCell colSpan={9} align="center">No records found</TableCell>
                 </TableRow>
               ) : (
                 data.map((row) => (
                   <TableRow key={row._id} hover>
                     <TableCell sx={{ fontWeight: "bold" }}>{row.registrationNo}</TableCell>
                     <TableCell>{row.owner || "-"}</TableCell>
+                    <TableCell>{row.engineNumber || "-"}</TableCell>
                     <TableCell>{row.insuranceCompany || "-"}</TableCell>
                     <TableCell>
                       {row.premiumAmount 
                         ? Number(row.premiumAmount).toLocaleString("en-IN", { style: "currency", currency: "INR" })
+                        : "-"}
+                    </TableCell>
+                    <TableCell>
+                      {row.totalPolicyPremium 
+                        ? Number(row.totalPolicyPremium).toLocaleString("en-IN", { style: "currency", currency: "INR" })
                         : "-"}
                     </TableCell>
                     <TableCell>
@@ -246,6 +254,9 @@ function FleetInsuranceList({ onEdit, onCreate }) {
                     </TableCell>
                     <TableCell>{row.renewed || "NO"}</TableCell>
                     <TableCell align="center">
+                      <IconButton size="small" color="info" onClick={() => onView(row)}>
+                        <Visibility fontSize="small" />
+                      </IconButton>
                       <IconButton size="small" color="primary" onClick={() => onEdit(row)}>
                         <Edit fontSize="small" />
                       </IconButton>

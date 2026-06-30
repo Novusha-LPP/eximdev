@@ -21,7 +21,7 @@ import { Add, Delete, CloudDownload } from "@mui/icons-material";
 const approvalOptions = ["WhatsApp", "Phone Call", "Email", "In-Person"];
 const tyreTypeOptions = ["New Tyre", "Remould Tyre"];
 
-function Stage1PurchaseRequest({ data, onChange }) {
+function Stage1PurchaseRequest({ data, onChange, globalData, onGlobalChange }) {
   const updateField = (field, value) => {
     onChange({ [field]: value });
   };
@@ -107,8 +107,8 @@ function Stage1PurchaseRequest({ data, onChange }) {
         <Grid item xs={12} md={4}>
           <TextField
             label="PR Number"
-            value={data.prNumber || ""}
-            onChange={(e) => updateField("prNumber", e.target.value)}
+            value={globalData?.prNumber || ""}
+            onChange={(e) => onGlobalChange("prNumber", e.target.value)}
             fullWidth
             size="small"
           />

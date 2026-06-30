@@ -44,6 +44,27 @@ const fleetInsuranceSopSchema = new mongoose.Schema(
     newExpiryDate: { type: Date },
     renewedDate: { type: Date },
 
+    // ─── F Data-NEW Fields (Insurance Portal Granular Data) ───
+    renewalDate: { type: Date },
+    engineNumber: { type: String },
+    chassisNumber: { type: String },
+    cubicCapacityKw: { type: String }, // "5883 / 45500" format from Excel
+    mfgYear: { type: String },        // "2018 / 13-06-2018" format from Excel
+    electricalAccessoriesIdv: { type: Number, default: 0 },
+    cngKitIdv: { type: Number, default: 0 },
+    totalIdv: { type: Number, default: 0 },       // vehicleIDV + electricalIDV + cngKitIDV
+    odPremium: { type: Number, default: 0 },
+    imt24: { type: Number, default: 0 },
+    imt25: { type: Number, default: 0 },
+    totalOdPremium: { type: Number, default: 0 },  // OD + IMT23 + IMT24 + IMT25 + NCB
+    imt17: { type: Number, default: 0 },
+    imt252: { type: Number, default: 0 },
+    imt28: { type: Number, default: 0 },
+    imt29: { type: Number, default: 0 },
+    liabilityPremium: { type: Number, default: 0 },
+    totalGst: { type: Number, default: 0 },
+    totalPolicyPremium: { type: Number, default: 0 },
+
     // Quotation Comparison Data (UI only, doesn't break Excel format)
     quotations: { type: [quotationSchema], default: [] },
     selectedInsurerL1: { type: String },

@@ -18,7 +18,7 @@ const yesNoOptions = ["", "Yes", "No"];
 const decisionOptions = ["", "APPROVED", "REJECTED", "On Hold"];
 const statusOptions = ["", "Pending", "Done"];
 
-function Stage5FinanceApproval({ data, onChange }) {
+function Stage5FinanceApproval({ data, onChange, globalData, onGlobalChange }) {
   const updateField = (field, value) => onChange({ [field]: value });
   const updateNested = (group, field, value) =>
     onChange({ [group]: { ...data[group], [field]: value } });
@@ -57,8 +57,9 @@ function Stage5FinanceApproval({ data, onChange }) {
         <Grid item xs={12} md={6}>
           <TextField
             label="PR Number"
-            value={data.prNumber || ""}
-            onChange={(e) => updateField("prNumber", e.target.value)}
+            value={globalData?.prNumber || ""}
+            onChange={() => {}}
+            InputProps={{ readOnly: true, sx: { backgroundColor: "#f5f5f5" } }}
             fullWidth
             size="small"
           />

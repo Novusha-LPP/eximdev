@@ -17,9 +17,9 @@ import {
   Chip,
   Pagination,
 } from "@mui/material";
-import { Edit, Delete, Add, FileDownload, Search } from "@mui/icons-material";
+import { Edit, Delete, Add, FileDownload, Search, Visibility } from "@mui/icons-material";
 
-function RmProcurementList({ onEdit, onCreate }) {
+function RmProcurementList({ onEdit, onView, onCreate }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
@@ -133,7 +133,7 @@ function RmProcurementList({ onEdit, onCreate }) {
                   <TableCell>Supplier (L1)</TableCell>
                   <TableCell>Status</TableCell>
                   <TableCell>Created</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell align="center">Actions</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -154,8 +154,11 @@ function RmProcurementList({ onEdit, onCreate }) {
                       <Chip label={item.status} color={getStatusColor(item.status)} size="small" />
                     </TableCell>
                     <TableCell>{item.createdAt ? new Date(item.createdAt).toLocaleDateString("en-GB") : "-"}</TableCell>
-                    <TableCell align="right">
-                      <IconButton size="small" onClick={() => onEdit(item)} title="Edit">
+                    <TableCell align="center">
+                      <IconButton size="small" color="info" onClick={() => onView(item)} title="View">
+                        <Visibility fontSize="small" />
+                      </IconButton>
+                      <IconButton size="small" color="primary" onClick={() => onEdit(item)} title="Edit">
                         <Edit fontSize="small" />
                       </IconButton>
                       <IconButton size="small" onClick={() => handleExport(item._id, item.prNumber)} title="Export Excel">

@@ -114,7 +114,149 @@ router.delete("/fleet-insurance-sop/:id", authMiddleware, async (req, res) => {
   }
 });
 
-// EXPORT to Excel
+// ─── Shared Excel Helpers ───
+
+const formatDate = (d) => {
+  if (!d) return "";
+  const date = new Date(d);
+  return `${date.getDate().toString().padStart(2, "0")}.${(date.getMonth() + 1).toString().padStart(2, "0")}.${date.getFullYear()}`;
+};
+
+const policyPortalHeaders = [
+  "Sr. No.",
+  "Registration No.",
+  "Registration Date",
+  "MAKE/MODEL",
+  "From",
+  "To",
+  "Model",
+  "Size",
+  "Owner",
+  "From",
+  "To",
+  "Insurance Company",
+  "Policy No",
+  "GVW",
+  "IDV",
+  "Premium Amount",
+  "Remarks",
+  "NCB",
+  "PREMIUM",
+  "", // Empty column as per original
+  "This year idv",
+  "NEW IDV",
+  "NCB",
+  "RSD TAKEN",
+  "IMT 23",
+  "zero dep+ Towing cover 20000",
+  "PREMIUM QUOTE",
+  "RENEWED",
+  "NEW EXPIRY DT",
+  "RENEWED DT"
+];
+
+const fDataNewHeaders = [
+  "Sr No",
+  "Renewal Date",
+  "REGISTRATION NUMBER",
+  "Policy No.",
+  "Period of Insurance(From)",
+  "Period of Insurance(To)",
+  "ENGINE NUMBER",
+  "CHASSIS NUMBER",
+  "MAKE/MODEL",
+  "CUBIC CAPACITY/KW/GVW",
+  "MFG. YEAR / REGISTRATION DATE",
+  "VEHICLE IDV",
+  "ELECTRICAL ACCESSORIES IDV",
+  "CNG KIT IDV",
+  "TOTAL IDV (VALUE)",
+  "OD PREMIUM",
+  "IMT23",
+  "IMT24",
+  "IMT25",
+  "No Claim Bonus",
+  "TOTAL OD PREMIUM",
+  "IMT17",
+  "IMT252",
+  "IMT28",
+  "IMT29",
+  "LIABILITY PREMIUM",
+  "TOTAL GST",
+  "TOTAL POLICY PREMIUM",
+  "REMARKS"
+];
+
+function policyPortalRow(doc) {
+  return [
+    doc.srNo || "",
+    doc.registrationNo || "",
+    formatDate(doc.registrationDate),
+    doc.makeModel || "",
+    formatDate(doc.fromOwner),
+    formatDate(doc.toOwner),
+    doc.modelType || "",
+    doc.size || "",
+    doc.owner || "",
+    formatDate(doc.policyFromDate),
+    formatDate(doc.policyToDate),
+    doc.insuranceCompany || "",
+    doc.policyNo || "",
+    doc.gvw || "",
+    doc.idv || "",
+    doc.premiumAmount || "",
+    doc.remarks || "",
+    doc.ncbPercentage || "",
+    doc.premium || "",
+    "", // Empty
+    doc.thisYearIdv || "",
+    doc.newIdv || "",
+    doc.newNcbPercentage || "",
+    doc.rsdTaken || "",
+    doc.imt23 || "",
+    doc.zeroDepTowingCover || "",
+    doc.premiumQuote || "",
+    doc.renewed || "",
+    formatDate(doc.newExpiryDate),
+    formatDate(doc.renewedDate)
+  ];
+}
+
+function fDataNewRow(doc) {
+  return [
+    doc.srNo || "",
+    formatDate(doc.renewalDate),
+    doc.registrationNo || "",
+    doc.policyNo || "",
+    formatDate(doc.policyFromDate),
+    formatDate(doc.policyToDate),
+    doc.engineNumber || "",
+    doc.chassisNumber || "",
+    doc.makeModel || "",
+    doc.cubicCapacityKw || (doc.gvw ? String(doc.gvw) : ""),
+    doc.mfgYear || formatDate(doc.registrationDate),
+    doc.idv || 0,
+    doc.electricalAccessoriesIdv || 0,
+    doc.cngKitIdv || 0,
+    doc.totalIdv || ((doc.idv || 0) + (doc.electricalAccessoriesIdv || 0) + (doc.cngKitIdv || 0)),
+    doc.odPremium || 0,
+    doc.imt23 || 0,
+    doc.imt24 || 0,
+    doc.imt25 || 0,
+    doc.ncbPercentage || 0,
+    doc.totalOdPremium || 0,
+    doc.imt17 || 0,
+    doc.imt252 || 0,
+    doc.imt28 || 0,
+    doc.imt29 || 0,
+    doc.liabilityPremium || 0,
+    doc.totalGst || 0,
+    doc.totalPolicyPremium || doc.premiumAmount || 0,
+    doc.remarks || ""
+  ];
+}
+
+// EXPORT to Excel (single record — both sheets)
 router.get("/fleet-insurance-sop/:id/export", authMiddleware, async (req, res) => {
   try {
     const doc = await FleetInsuranceSopModel.findById(req.params.id).lean();
@@ -122,80 +264,13 @@ router.get("/fleet-insurance-sop/:id/export", authMiddleware, async (req, res) =
 
     const wb = XLSX.utils.book_new();
 
-    const headers = [
-      "Sr. No.",
-      "Registration No.",
-      "Registration Date",
-      "MAKE/MODEL",
-      "From",
-      "To",
-      "Model",
-      "Size",
-      "Owner",
-      "From",
-      "To",
-      "Insurance Company",
-      "Policy No",
-      "GVW",
-      "IDV",
-      "Premium Amount",
-      "Remarks",
-      "NCB",
-      "PREMIUM",
-      "", // Empty column as per original
-      "This year idv",
-      "NEW IDV",
-      "NCB",
-      "RSD TAKEN",
-      "IMT 23",
-      "zero dep+ Towing cover 20000",
-      "PREMIUM QUOTE",
-      "RENEWED",
-      "NEW EXPIRY DT",
-      "RENEWED DT"
-    ];
+    // Sheet 1: Policy Portal format
+    const ws1 = XLSX.utils.aoa_to_sheet([policyPortalHeaders, policyPortalRow(doc)]);
+    XLSX.utils.book_append_sheet(wb, ws1, "Policy Portal");
 
-    const formatDate = (d) => {
-      if (!d) return "";
-      const date = new Date(d);
-      return `${date.getDate().toString().padStart(2, "0")}.${(date.getMonth() + 1).toString().padStart(2, "0")}.${date.getFullYear()}`;
-    };
-
-    const row = [
-      doc.srNo || "",
-      doc.registrationNo || "",
-      formatDate(doc.registrationDate),
-      doc.makeModel || "",
-      formatDate(doc.fromOwner),
-      formatDate(doc.toOwner),
-      doc.modelType || "",
-      doc.size || "",
-      doc.owner || "",
-      formatDate(doc.policyFromDate),
-      formatDate(doc.policyToDate),
-      doc.insuranceCompany || "",
-      doc.policyNo || "",
-      doc.gvw || "",
-      doc.idv || "",
-      doc.premiumAmount || "",
-      doc.remarks || "",
-      doc.ncbPercentage || "",
-      doc.premium || "",
-      "", // Empty
-      doc.thisYearIdv || "",
-      doc.newIdv || "",
-      doc.newNcbPercentage || "",
-      doc.rsdTaken || "",
-      doc.imt23 || "",
-      doc.zeroDepTowingCover || "",
-      doc.premiumQuote || "",
-      doc.renewed || "",
-      formatDate(doc.newExpiryDate),
-      formatDate(doc.renewedDate)
-    ];
-
-    const ws = XLSX.utils.aoa_to_sheet([headers, row]);
-    XLSX.utils.book_append_sheet(wb, ws, "Policy Data");
+    // Sheet 2: F Data-NEW format
+    const ws2 = XLSX.utils.aoa_to_sheet([fDataNewHeaders, fDataNewRow(doc)]);
+    XLSX.utils.book_append_sheet(wb, ws2, "F Data-NEW");
 
     const excelBuffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
 
@@ -208,7 +283,7 @@ router.get("/fleet-insurance-sop/:id/export", authMiddleware, async (req, res) =
   }
 });
 
-// BULK EXPORT to Excel
+// BULK EXPORT to Excel (both sheets)
 router.get("/fleet-insurance-sop/export/bulk", authMiddleware, async (req, res) => {
   try {
     const { search = "", month = "", year = "" } = req.query;
@@ -242,84 +317,17 @@ router.get("/fleet-insurance-sop/export/bulk", authMiddleware, async (req, res) 
 
     const wb = XLSX.utils.book_new();
 
-    const headers = [
-      "Sr. No.",
-      "Registration No.",
-      "Registration Date",
-      "MAKE/MODEL",
-      "From",
-      "To",
-      "Model",
-      "Size",
-      "Owner",
-      "From",
-      "To",
-      "Insurance Company",
-      "Policy No",
-      "GVW",
-      "IDV",
-      "Premium Amount",
-      "Remarks",
-      "NCB",
-      "PREMIUM",
-      "", // Empty column as per original
-      "This year idv",
-      "NEW IDV",
-      "NCB",
-      "RSD TAKEN",
-      "IMT 23",
-      "zero dep+ Towing cover 20000",
-      "PREMIUM QUOTE",
-      "RENEWED",
-      "NEW EXPIRY DT",
-      "RENEWED DT"
-    ];
+    // Sheet 1: Policy Portal
+    const aoaPP = [policyPortalHeaders];
+    docs.forEach(doc => aoaPP.push(policyPortalRow(doc)));
+    const ws1 = XLSX.utils.aoa_to_sheet(aoaPP);
+    XLSX.utils.book_append_sheet(wb, ws1, "Policy Portal");
 
-    const formatDate = (d) => {
-      if (!d) return "";
-      const date = new Date(d);
-      return `${date.getDate().toString().padStart(2, "0")}.${(date.getMonth() + 1).toString().padStart(2, "0")}.${date.getFullYear()}`;
-    };
-
-    const aoaData = [headers];
-
-    docs.forEach(doc => {
-      aoaData.push([
-        doc.srNo || "",
-        doc.registrationNo || "",
-        formatDate(doc.registrationDate),
-        doc.makeModel || "",
-        formatDate(doc.fromOwner),
-        formatDate(doc.toOwner),
-        doc.modelType || "",
-        doc.size || "",
-        doc.owner || "",
-        formatDate(doc.policyFromDate),
-        formatDate(doc.policyToDate),
-        doc.insuranceCompany || "",
-        doc.policyNo || "",
-        doc.gvw || "",
-        doc.idv || "",
-        doc.premiumAmount || "",
-        doc.remarks || "",
-        doc.ncbPercentage || "",
-        doc.premium || "",
-        "", // Empty
-        doc.thisYearIdv || "",
-        doc.newIdv || "",
-        doc.newNcbPercentage || "",
-        doc.rsdTaken || "",
-        doc.imt23 || "",
-        doc.zeroDepTowingCover || "",
-        doc.premiumQuote || "",
-        doc.renewed || "",
-        formatDate(doc.newExpiryDate),
-        formatDate(doc.renewedDate)
-      ]);
-    });
-
-    const ws = XLSX.utils.aoa_to_sheet(aoaData);
-    XLSX.utils.book_append_sheet(wb, ws, "Monthly Policy Data");
+    // Sheet 2: F Data-NEW
+    const aoaFD = [fDataNewHeaders];
+    docs.forEach(doc => aoaFD.push(fDataNewRow(doc)));
+    const ws2 = XLSX.utils.aoa_to_sheet(aoaFD);
+    XLSX.utils.book_append_sheet(wb, ws2, "F Data-NEW");
 
     const excelBuffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
     
@@ -341,44 +349,16 @@ router.get("/fleet-insurance-sop/export/bulk", authMiddleware, async (req, res) 
   }
 });
 
-// EXPORT template
+// EXPORT template (both sheets)
 router.get("/fleet-insurance-sop/template/download", authMiddleware, async (req, res) => {
   try {
     const wb = XLSX.utils.book_new();
-    const headers = [
-      "Sr. No.",
-      "Registration No.",
-      "Registration Date",
-      "MAKE/MODEL",
-      "From",
-      "To",
-      "Model",
-      "Size",
-      "Owner",
-      "From",
-      "To",
-      "Insurance Company",
-      "Policy No",
-      "GVW",
-      "IDV",
-      "Premium Amount",
-      "Remarks",
-      "NCB",
-      "PREMIUM",
-      "", // Empty column as per original
-      "This year idv",
-      "NEW IDV",
-      "NCB",
-      "RSD TAKEN",
-      "IMT 23",
-      "zero dep+ Towing cover 20000",
-      "PREMIUM QUOTE",
-      "RENEWED",
-      "NEW EXPIRY DT",
-      "RENEWED DT"
-    ];
-    const ws = XLSX.utils.aoa_to_sheet([headers]);
-    XLSX.utils.book_append_sheet(wb, ws, "Policy Data");
+
+    const ws1 = XLSX.utils.aoa_to_sheet([policyPortalHeaders]);
+    XLSX.utils.book_append_sheet(wb, ws1, "Policy Portal");
+
+    const ws2 = XLSX.utils.aoa_to_sheet([fDataNewHeaders]);
+    XLSX.utils.book_append_sheet(wb, ws2, "F Data-NEW");
 
     const excelBuffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
 
@@ -392,3 +372,4 @@ router.get("/fleet-insurance-sop/template/download", authMiddleware, async (req,
 });
 
 export default router;
+

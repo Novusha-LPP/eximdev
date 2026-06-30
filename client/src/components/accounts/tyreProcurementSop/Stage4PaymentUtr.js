@@ -11,7 +11,7 @@ import {
 const methodOptions = ["NEFT", "RTGS", "IMPS", "Cheque", "UPI"];
 const sharingOptions = ["WhatsApp", "Email", "Call"];
 
-function Stage4PaymentUtr({ data, onChange }) {
+function Stage4PaymentUtr({ data, onChange, globalData, onGlobalChange }) {
   const updateField = (field, value) => {
     onChange({ [field]: value });
   };
@@ -29,8 +29,9 @@ function Stage4PaymentUtr({ data, onChange }) {
         <Grid item xs={12} md={3}>
           <TextField
             label="PO Number & Date"
-            value={data.poNumberDate || ""}
-            onChange={(e) => updateField("poNumberDate", e.target.value)}
+            value={globalData?.poNumber || ""}
+            onChange={() => {}}
+            InputProps={{ readOnly: true, sx: { backgroundColor: "#f5f5f5" } }}
             fullWidth
             size="small"
           />

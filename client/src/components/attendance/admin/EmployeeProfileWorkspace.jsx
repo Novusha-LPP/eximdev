@@ -1011,7 +1011,9 @@ const filteredEmployees = useMemo(() => {
         const end   = moment(dlEnd).format('YYYY-MM-DD');
 
         let response;
-        if (teamId && teamId !== 'all') {
+        if (!id) {
+          response = await attendanceAPI.getAdminAttendanceReport(start, end, undefined, 'all');
+        } else if (teamId && teamId !== 'all') {
           response = await attendanceAPI.getTeamAttendanceReport(start, end, teamId);
         } else {
           response = await attendanceAPI.getAdminAttendanceReport(start, end, undefined, 'all');
@@ -1376,7 +1378,9 @@ const filteredEmployees = useMemo(() => {
 
     try {
       let response;
-      if (teamId && teamId !== 'all') {
+      if (!id) {
+        response = await attendanceAPI.getAdminAttendanceReport(startDate, endDate, undefined, 'all');
+      } else if (teamId && teamId !== 'all') {
         response = await attendanceAPI.getTeamAttendanceReport(startDate, endDate, teamId);
       } else {
         response = await attendanceAPI.getAdminAttendanceReport(startDate, endDate, undefined, 'all');
@@ -1539,8 +1543,51 @@ const filteredEmployees = useMemo(() => {
         byCompany[co].push(e);
       });
 
-      // Build one sheet per company
-      Object.entries(byCompany).sort(([a], [b]) => a.localeCompare(b)).forEach(([companyName, employees]) => {
+      // ── Create Summary sheet first ──
+      const summaryWs = workbook.addWorksheet('Summary');
+      summaryWs.views = [{ state: 'frozen', ySplit: 3 }];
+
+      const sTitleRow = summaryWs.addRow([`All Companies  |  Attendance Summary: ${startDate}  →  ${endDate}`]);
+      sTitleRow.font = { bold: true, size: 13, name: 'Arial', color: { argb: 'FFFFFFFF' } };
+      sTitleRow.height = 28;
+      sTitleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+      sTitleRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+      summaryWs.mergeCells(`A1:M1`);
+
+      summaryWs.addRow([]);
+
+      const sHeaderRow = summaryWs.addRow(['Company', 'Headcount', 'Present', 'Absent', 'Half Day', 'Half Day Leaves', 'Full Day Leaves', 'Complete Leaves', 'Opening Balance', 'PL Taken', 'LWP Taken', 'Available Balance', 'Avg Hrs/Day']);
+      sHeaderRow.height = 22;
+      styleHeader(sHeaderRow, 'FF334155', 'FFFFFFFF');
+
+      // ── Build one sheet per company and populate Summary rows ──
+      Object.entries(byCompany).sort(([a], [b]) => a.localeCompare(b)).forEach(([companyName, employees], idx) => {
+        // Write row to Summary worksheet
+        const summaryRow = summaryWs.addRow([
+          companyName,
+          employees.length,
+          employees.reduce((s, e) => s + getPayrollPresentDays(e), 0),
+          employees.reduce((s, e) => s + (e.absent || 0),  0),
+          employees.reduce((s, e) => s + getActualHalfDays(e), 0),
+          employees.reduce((s, e) => s + getHalfDayLeaveCountForReport(e), 0),
+          employees.reduce((s, e) => s + getFullDayLeaveCountForReport(e), 0),
+          employees.reduce((s, e) => s + getLeaveCountForReport(e), 0),
+          sumLeaveMetric(employees, 'opening_balance'),
+          sumLeaveMetric(employees, 'privilege_taken'),
+          sumLeaveMetric(employees, 'lwp_taken'),
+          sumLeaveMetric(employees, 'available_balance'),
+          (employees.reduce((s,e) => s + parseFloat(e.avgHours||0), 0) / employees.length).toFixed(1),
+        ]);
+        summaryRow.height = 20;
+        if (idx % 2 === 0) {
+          summaryRow.eachCell(cell => {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+          });
+        }
+        summaryRow.getCell(1).font = { bold: true, name: 'Arial', size: 10 };
+        [2,3,4,5,6,7,8,9,10,11,12,13].forEach(c => { summaryRow.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' }; });
+
+        // Add the company's own worksheet
         const ws = workbook.addWorksheet(companyName.substring(0, 31));
 
         const titleRow = ws.addRow([`${companyName}  |  Attendance Report: ${startDate}  →  ${endDate}`]);
@@ -1565,7 +1612,7 @@ const filteredEmployees = useMemo(() => {
           pending : 'FFF97316',
         };
 
-        employees.forEach((e, idx) => {
+        employees.forEach((e, idxInner) => {
           const leaveMetrics = getLeaveMetrics(e.id);
           const openingBalance = leaveMetrics.opening_balance ?? 0;
           const privilegeTaken = getPrivilegeTakenForReport(e);
@@ -1591,7 +1638,7 @@ const filteredEmployees = useMemo(() => {
           row.getCell(1).font = { bold: true, name: 'Arial', size: 10 };
           row.getCell(1).alignment = { vertical: 'middle' };
 
-          if (idx % 2 === 0) {
+          if (idxInner % 2 === 0) {
             row.eachCell(cell => {
               cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
             });
@@ -1646,64 +1693,9 @@ const filteredEmployees = useMemo(() => {
         ws.views = [{ state: 'frozen', ySplit: 3 }];
       });
 
-      // General Summary sheet
-      const summaryWs = workbook.addWorksheet('Summary');
-      summaryWs.views = [{ state: 'frozen', ySplit: 3 }];
-
-      const sTitleRow = summaryWs.addRow([`All Companies  |  Attendance Summary: ${startDate}  →  ${endDate}`]);
-      sTitleRow.font = { bold: true, size: 13, name: 'Arial', color: { argb: 'FFFFFFFF' } };
-      sTitleRow.height = 28;
-      sTitleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
-      sTitleRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
-      summaryWs.mergeCells(`A1:M1`);
-
-      summaryWs.addRow([]);
-
-      const sHeaderRow = summaryWs.addRow(['Company', 'Headcount', 'Present', 'Absent', 'Half Day', 'Half Day Leaves', 'Full Day Leaves', 'Complete Leaves', 'Opening Balance', 'PL Taken', 'LWP Taken', 'Available Balance', 'Avg Hrs/Day']);
-      sHeaderRow.height = 22;
-      styleHeader(sHeaderRow, 'FF334155', 'FFFFFFFF');
-
-      Object.entries(byCompany).sort(([a], [b]) => a.localeCompare(b)).forEach(([co, emps], idx) => {
-        const row = summaryWs.addRow([
-          co,
-          emps.length,
-          emps.reduce((s, e) => s + getPayrollPresentDays(e), 0),
-          emps.reduce((s, e) => s + e.absent,  0),
-          emps.reduce((s, e) => s + getActualHalfDays(e), 0),
-          emps.reduce((s, e) => s + getHalfDayLeaveCountForReport(e), 0),
-          emps.reduce((s, e) => s + getFullDayLeaveCountForReport(e), 0),
-          emps.reduce((s, e) => s + getLeaveCountForReport(e), 0),
-          sumLeaveMetric(emps, 'opening_balance'),
-          sumLeaveMetric(emps, 'privilege_taken'),
-          sumLeaveMetric(emps, 'lwp_taken'),
-          sumLeaveMetric(emps, 'available_balance'),
-          (emps.reduce((s,e) => s + parseFloat(e.avgHours||0), 0) / emps.length).toFixed(1),
-        ]);
-        row.height = 20;
-        if (idx % 2 === 0) {
-          row.eachCell(cell => {
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
-          });
-        }
-        row.getCell(1).font = { bold: true, name: 'Arial', size: 10 };
-        [2,3,4,5,6,7,8,9,10,11,12,13].forEach(c => { row.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' }; });
-      });
-
       summaryWs.getColumn(1).width = 32;
       [2,3,4,5,6,7,8,9,10,11,12].forEach(c => summaryWs.getColumn(c).width = 15);
       summaryWs.getColumn(13).width = 14;
-
-      const summarySheet = workbook._worksheets.find(ws => ws && ws.name === 'Summary');
-      if (summarySheet) {
-        workbook._worksheets = [
-          undefined,
-          summarySheet,
-          ...workbook._worksheets.filter(ws => ws && ws.name !== 'Summary')
-        ];
-        workbook._worksheets.forEach((ws, i) => {
-          if (ws) ws.id = i;
-        });
-      }
 
       const buffer = await workbook.xlsx.writeBuffer();
       const fileName = `Attendance_Summary_${moment(startDate).format('MMM_YYYY')}.xlsx`;
@@ -1714,6 +1706,360 @@ const filteredEmployees = useMemo(() => {
       console.error('Summary directory export failed:', e);
       toast.dismiss(lt);
       toast.error('Failed to generate summary report');
+    } finally {
+      setEpwDlLoading(false);
+      setEpwDlModal(p => ({ ...p, open: false }));
+    }
+  };
+
+  const handleLeaveExport = async () => {
+    const { startDate: dlStart, endDate: dlEnd, groupBy: dlGroupBy } = epwDlModal;
+    if (!dlStart || !dlEnd) return;
+    setEpwDlLoading(true);
+    const lt = toast.loading('Preparing Leave Report…');
+    try {
+      let response;
+      if (!id) {
+        response = await attendanceAPI.getAdminAttendanceReport(dlStart, dlEnd, undefined, 'all');
+      } else if (teamId && teamId !== 'all') {
+        response = await attendanceAPI.getTeamAttendanceReport(dlStart, dlEnd, teamId);
+      } else {
+        response = await attendanceAPI.getAdminAttendanceReport(dlStart, dlEnd, undefined, 'all');
+      }
+
+      const reportDataRaw = response?.data || [];
+      const reportDataEnriched = await enrichReportWithLeaveBalance(reportDataRaw);
+
+      const enrichHistoryWithSundayOverride = (history) => {
+        if (!Array.isArray(history)) return [];
+        return history.map(day => {
+          const isSunday = moment(day.date || day.attendance_date).day() === 0;
+          if (isSunday) {
+            return {
+              ...day,
+              status: 'weekly_off'
+            };
+          }
+          return day;
+        });
+      };
+
+      const processedReportData = reportDataEnriched.map(e => ({
+        ...e,
+        history: enrichHistoryWithSundayOverride(e.history)
+      }));
+
+      const reportMetricsById = new Map(processedReportData.map(row => [String(row.id || row._id), row]));
+
+      const styleHeader = (row, bgArgb, textArgb = 'FF0F172A') => {
+        row.eachCell(cell => {
+          cell.font  = { bold: true, color: { argb: textArgb }, name: 'Arial', size: 10 };
+          cell.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
+          cell.border = {
+            top: { style: 'thin' }, left: { style: 'thin' },
+            bottom: { style: 'thin' }, right: { style: 'thin' }
+          };
+          cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        });
+      };
+
+      const roundLeave = (value) => Math.round(Number(value || 0) * 10) / 10;
+      const getLeaveMetrics = (employeeId) => reportMetricsById.get(String(employeeId)) || {};
+      const isPrivilegeLeave = (leaveType = '') => {
+        const type = String(leaveType || '').toLowerCase();
+        return type.includes('privilege') || type.includes('earned');
+      };
+      const isLwpLeave = (leaveType = '') => {
+        const type = String(leaveType || '').toLowerCase();
+        return type.includes('lwp') || type.includes('without pay');
+      };
+      const getPayrollPresentDays = (employee) => {
+        if (!Array.isArray(employee.history) || employee.history.length === 0) {
+          return Number(employee.present || 0) + Number(employee.late || 0) + Number(employee.halfDay || 0);
+        }
+
+        return roundLeave(employee.history.reduce((total, day) => {
+          const status = String(day?.status || '').toLowerCase();
+          const leaveType = day?.leaveType || day?.leave_type || '';
+
+          if (status === 'present' || status === 'late' || status === 'weekly_off' || status === 'holiday') return total + 1;
+          if (status === 'leave') return isPrivilegeLeave(leaveType) ? total + 1 : total;
+          if (status === 'half_day') {
+            if (isPrivilegeLeave(leaveType)) return total + 1;
+            if (isLwpLeave(leaveType)) return total + 0.5;
+            return total + 1;
+          }
+
+          return total;
+        }, 0));
+      };
+      const isHalfDayLeave = (day) => Boolean(day?.is_half_day_leave || day?.is_half_day || day?.isHalfDayLeave);
+      const getActualHalfDays = (employee) => {
+        if (!Array.isArray(employee.history) || employee.history.length === 0) return Number(employee.halfDay || 0);
+
+        return roundLeave(employee.history.reduce((total, day) => {
+          const status = String(day?.status || '').toLowerCase();
+          const leaveType = day?.leaveType || day?.leave_type || '';
+          if (status === 'half_day' && !leaveType && !isHalfDayLeave(day)) return total + 1;
+          return total;
+        }, 0));
+      };
+      const getLeaveTakenDays = (employee, matcher) => {
+        if (!Array.isArray(employee.history) || employee.history.length === 0) return 0;
+
+        return roundLeave(employee.history.reduce((total, day) => {
+          const status = String(day?.status || '').toLowerCase();
+          const leaveType = day?.leaveType || day?.leave_type || '';
+
+          if (!matcher(leaveType)) return total;
+          if (status === 'leave') return total + (isHalfDayLeave(day) ? 0.5 : 1);
+          if (status === 'half_day') return total + 0.5;
+
+          return total;
+        }, 0));
+      };
+      const getLeaveCountForReport = (employee) => {
+        if (!Array.isArray(employee.history) || employee.history.length === 0) return Number(employee.leaves || 0);
+
+        return roundLeave(employee.history.reduce((total, day) => {
+          const status = String(day?.status || '').toLowerCase();
+          const leaveType = day?.leaveType || day?.leave_type || '';
+
+          if (status === 'leave') return total + (isHalfDayLeave(day) ? 0.5 : 1);
+          if (status === 'half_day' && (leaveType || isHalfDayLeave(day))) return total + 0.5;
+
+          return total;
+        }, 0));
+      };
+      const getHalfDayLeaveCountForReport = (employee) => {
+        if (!Array.isArray(employee.history) || employee.history.length === 0) return 0;
+
+        return roundLeave(employee.history.reduce((total, day) => {
+          const status = String(day?.status || '').toLowerCase();
+          const leaveType = day?.leaveType || day?.leave_type || '';
+          if (status === 'half_day' && (leaveType || isHalfDayLeave(day))) return total + 1;
+          if (status === 'leave' && isHalfDayLeave(day)) return total + 1;
+          return total;
+        }, 0));
+      };
+      const getFullDayLeaveCountForReport = (employee) => {
+        if (!Array.isArray(employee.history) || employee.history.length === 0) return Number(employee.leaves || 0);
+
+        return roundLeave(employee.history.reduce((total, day) => {
+          const status = String(day?.status || '').toLowerCase();
+          if (status === 'leave' && !isHalfDayLeave(day)) return total + 1;
+          return total;
+        }, 0));
+      };
+      const getPrivilegeTakenForReport = (employee) => getLeaveTakenDays(employee, isPrivilegeLeave);
+      const getLwpTakenForReport = (employee) => getLeaveTakenDays(employee, isLwpLeave);
+      const getAvailableBalanceForReport = (employee) => {
+        const metrics = getLeaveMetrics(employee.id);
+        return Math.max(0, roundLeave(Number(metrics.opening_balance || 0) - getPrivilegeTakenForReport(employee)));
+      };
+      const sumLeaveMetric = (employees, key) => roundLeave(
+        employees.reduce((sum, employee) => {
+          const metrics = getLeaveMetrics(employee.id);
+          let value;
+          if (key === 'available_balance') value = getAvailableBalanceForReport(employee);
+          else if (key === 'privilege_taken') value = getPrivilegeTakenForReport(employee);
+          else if (key === 'lwp_taken') value = getLwpTakenForReport(employee);
+          else value = metrics[key] ?? 0;
+          return sum + Number(value || 0);
+        }, 0)
+      );
+
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'Exim Application';
+
+      const groups = {};
+      if (dlGroupBy === 'organization') {
+        filteredEmployees.forEach(emp => {
+          const key = emp.company_id?.company_name || 'No Organization';
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(emp);
+        });
+      } else if (dlGroupBy === 'team') {
+        filteredEmployees.forEach(emp => {
+          const key = getEmployeeTeamName(emp);
+          if (!groups[key]) groups[key] = [];
+          groups[key].push(emp);
+        });
+      } else {
+        groups['All Employees'] = filteredEmployees;
+      }
+
+      const sortedGroupNames = sortGroupNamesWithRabsLast(Object.keys(groups));
+
+      // ── Create Summary sheet first ──
+      const summaryWs = workbook.addWorksheet('Summary');
+      summaryWs.views = [{ state: 'frozen', ySplit: 3 }];
+
+      const sTitleRow = summaryWs.addRow([`All Groups  |  Leave & Attendance Report: ${dlStart}  →  ${dlEnd}`]);
+      sTitleRow.font = { bold: true, size: 13, name: 'Arial', color: { argb: 'FFFFFFFF' } };
+      sTitleRow.height = 28;
+      sTitleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+      sTitleRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+      summaryWs.mergeCells(`A1:M1`);
+
+      summaryWs.addRow([]);
+
+      const sHeaderRow = summaryWs.addRow(['Group', 'Headcount', 'Present', 'Absent', 'Half Day', 'Half Day Leaves', 'Full Day Leaves', 'Complete Leaves', 'Opening Balance', 'PL Taken', 'LWP Taken', 'Available Balance', 'Avg Hrs/Day']);
+      sHeaderRow.height = 22;
+      styleHeader(sHeaderRow, 'FF334155', 'FFFFFFFF');
+
+      // ── Build worksheets and populate Summary rows ──
+      sortedGroupNames.forEach((groupName, idx) => {
+        const employees = groups[groupName];
+        if (!employees || employees.length === 0) return;
+
+        const activeEmps = employees.map(emp => reportMetricsById.get(String(emp._id))).filter(Boolean);
+        if (activeEmps.length === 0) return;
+
+        // Write row to Summary worksheet
+        const summaryRow = summaryWs.addRow([
+          groupName,
+          activeEmps.length,
+          activeEmps.reduce((s, e) => s + getPayrollPresentDays(e), 0),
+          activeEmps.reduce((s, e) => s + (e.absent || 0),  0),
+          activeEmps.reduce((s, e) => s + getActualHalfDays(e), 0),
+          activeEmps.reduce((s, e) => s + getHalfDayLeaveCountForReport(e), 0),
+          activeEmps.reduce((s, e) => s + getFullDayLeaveCountForReport(e), 0),
+          activeEmps.reduce((s, e) => s + getLeaveCountForReport(e), 0),
+          sumLeaveMetric(activeEmps, 'opening_balance'),
+          sumLeaveMetric(activeEmps, 'privilege_taken'),
+          sumLeaveMetric(activeEmps, 'lwp_taken'),
+          sumLeaveMetric(activeEmps, 'available_balance'),
+          (activeEmps.reduce((s,e) => s + parseFloat(e.avgHours||0), 0) / activeEmps.length).toFixed(1),
+        ]);
+        summaryRow.height = 20;
+        if (idx % 2 === 0) {
+          summaryRow.eachCell(cell => {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+          });
+        }
+        summaryRow.getCell(1).font = { bold: true, name: 'Arial', size: 10 };
+        [2,3,4,5,6,7,8,9,10,11,12,13].forEach(c => { summaryRow.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' }; });
+
+        // Add the group's own worksheet
+        const ws = workbook.addWorksheet(groupName.substring(0, 31));
+
+        const titleRow = ws.addRow([`${groupName}  |  Leave & Attendance Report: ${dlStart}  →  ${dlEnd}`]);
+        titleRow.font = { bold: true, size: 13, name: 'Arial', color: { argb: 'FFFFFFFF' } };
+        titleRow.height = 28;
+        titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+        titleRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+        ws.mergeCells(`A${titleRow.number}:L${titleRow.number}`);
+
+        ws.addRow([]);
+
+        const COLS = ['Employee', 'Present', 'Absent', 'Half Day', 'Half Day Leaves', 'Full Day Leaves', 'Complete Leaves', 'Opening Balance', 'PL Taken', 'LWP Taken', 'Available Balance', 'Avg Hours/Day'];
+        const headerRow = ws.addRow(COLS);
+        headerRow.height = 22;
+        styleHeader(headerRow, 'FF334155', 'FFFFFFFF');
+
+        const STATUS_COLORS = {
+          present : 'FF10b981',
+          absent  : 'FFef4444',
+          halfDay : 'FF3b82f6',
+          leaves  : 'FF8b5cf6',
+          pending : 'FFf97316',
+        };
+
+        activeEmps.forEach((e, idxInner) => {
+          const leaveMetrics = getLeaveMetrics(e.id);
+          const openingBalance = leaveMetrics.opening_balance ?? 0;
+          const privilegeTaken = getPrivilegeTakenForReport(e);
+          const lwpTaken = getLwpTakenForReport(e);
+          const availableBalance = getAvailableBalanceForReport(e);
+
+          const row = ws.addRow([
+            e.name,
+            getPayrollPresentDays(e),
+            e.absent,
+            getActualHalfDays(e),
+            getHalfDayLeaveCountForReport(e),
+            getFullDayLeaveCountForReport(e),
+            getLeaveCountForReport(e),
+            roundLeave(openingBalance),
+            roundLeave(privilegeTaken),
+            roundLeave(lwpTaken),
+            roundLeave(availableBalance),
+            e.avgHours,
+          ]);
+
+          row.height = 20;
+          row.getCell(1).font = { bold: true, name: 'Arial', size: 10 };
+          row.getCell(1).alignment = { vertical: 'middle' };
+
+          if (idxInner % 2 === 0) {
+            row.eachCell(cell => {
+              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+            });
+          }
+
+          [[2, STATUS_COLORS.present], [3, STATUS_COLORS.absent], [4, STATUS_COLORS.halfDay],
+           [5, STATUS_COLORS.leaves], [6, STATUS_COLORS.leaves], [7, STATUS_COLORS.leaves],
+           [8, STATUS_COLORS.pending], [9, STATUS_COLORS.pending], [10, STATUS_COLORS.pending],
+           [11, STATUS_COLORS.pending]]
+          .forEach(([col, color]) => {
+            const cell = row.getCell(col);
+            cell.font = { bold: true, color: { argb: color }, name: 'Arial', size: 10 };
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          });
+
+          row.getCell(12).alignment = { horizontal: 'center', vertical: 'middle' };
+
+          row.eachCell(cell => {
+            cell.border = {
+              bottom: { style: 'hair', color: { argb: 'FFE2E8F0' } },
+              right:  { style: 'hair', color: { argb: 'FFE2E8F0' } },
+            };
+          });
+        });
+
+        ws.addRow([]);
+
+        const totalRow = ws.addRow([
+          `Total  (${activeEmps.length} employees)`,
+          activeEmps.reduce((s, e) => s + getPayrollPresentDays(e), 0),
+          activeEmps.reduce((s, e) => s + (e.absent || 0), 0),
+          activeEmps.reduce((s, e) => s + getActualHalfDays(e), 0),
+          activeEmps.reduce((s, e) => s + getHalfDayLeaveCountForReport(e), 0),
+          activeEmps.reduce((s, e) => s + getFullDayLeaveCountForReport(e), 0),
+          activeEmps.reduce((s, e) => s + getLeaveCountForReport(e), 0),
+          sumLeaveMetric(activeEmps, 'opening_balance'),
+          sumLeaveMetric(activeEmps, 'privilege_taken'),
+          sumLeaveMetric(activeEmps, 'lwp_taken'),
+          sumLeaveMetric(activeEmps, 'available_balance'),
+          (() => {
+            const total = activeEmps.reduce((s, e) => s + parseFloat(e.avgHours || 0), 0);
+            return activeEmps.length > 0 ? (total / activeEmps.length).toFixed(1) : '0.0';
+          })(),
+        ]);
+        totalRow.height = 22;
+        styleHeader(totalRow, 'FF1E293B', 'FFFFFFFF');
+
+        ws.getColumn(1).width = 30;
+        [2,3,4,5,6,7,8,9,10,11].forEach(c => ws.getColumn(c).width = 15);
+        ws.getColumn(12).width = 16;
+
+        ws.views = [{ state: 'frozen', ySplit: 3 }];
+      });
+
+      summaryWs.getColumn(1).width = 32;
+      [2,3,4,5,6,7,8,9,10,11,12].forEach(c => summaryWs.getColumn(c).width = 15);
+      summaryWs.getColumn(13).width = 14;
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const fileName = `Leave_Report_${dlStart}_to_${dlEnd}.xlsx`;
+      saveAs(new Blob([buffer], { type: 'application/octet-stream' }), fileName);
+      toast.dismiss(lt);
+      toast.success('Leave report exported successfully');
+    } catch (err) {
+      console.error('Leave export failed:', err);
+      toast.dismiss(lt);
+      toast.error('Failed to export leave report');
     } finally {
       setEpwDlLoading(false);
       setEpwDlModal(p => ({ ...p, open: false }));
@@ -1807,14 +2153,14 @@ const filteredEmployees = useMemo(() => {
             >
               <FiDownload size={14} /> Attendance Report
             </button>
-            {/* <button
-              onClick={() => setEpwDlModal(p => ({ ...p, open: true, exportType: 'summary' }))}
-              style={{ display:'flex', alignItems:'center', gap:'6px', padding:'8px 16px', background:'linear-gradient(135deg,#10b981,#059669)', color:'#fff', border:'none', borderRadius:'9px', fontSize:'12px', fontWeight:'700', cursor:'pointer', boxShadow:'0 4px 12px rgba(16,185,129,0.25)', transition:'all 0.2s' }}
+            <button
+              onClick={() => setEpwDlModal(p => ({ ...p, open: true, exportType: 'leave' }))}
+              style={{ display:'flex', alignItems:'center', gap:'6px', padding:'8px 16px', background:'linear-gradient(135deg,#7c3aed,#5b21b6)', color:'#fff', border:'none', borderRadius:'9px', fontSize:'12px', fontWeight:'700', cursor:'pointer', boxShadow:'0 4px 12px rgba(124,58,237,0.25)', transition:'all 0.2s' }}
               onMouseEnter={e => e.currentTarget.style.transform='translateY(-1px)'}
               onMouseLeave={e => e.currentTarget.style.transform='translateY(0)'}
             >
-              <FiDownload size={14} /> Export Excel
-            </button> */}
+              <FiDownload size={14} /> Leave Report
+            </button>
           </div>
         </div>
 
@@ -2084,17 +2430,17 @@ const filteredEmployees = useMemo(() => {
           <div style={{ position:'fixed', inset:0, background:'rgba(15,23,42,0.55)', backdropFilter:'blur(4px)', zIndex:100001, display:'flex', alignItems:'center', justifyContent:'center', padding:'16px' }} onClick={() => setEpwDlModal(p => ({ ...p, open:false }))}>
             <div style={{ background:'#fff', borderRadius:'16px', width:'100%', maxWidth:'460px', overflow:'hidden', boxShadow:'0 24px 60px rgba(0,0,0,0.25)' }} onClick={e => e.stopPropagation()}>
               {/* Modal Header */}
-              <div style={{ padding:'20px 24px', background: epwDlModal.exportType === 'summary' ? 'linear-gradient(135deg,#10b981,#059669)' : 'linear-gradient(135deg,#0f172a,#1e293b)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <div style={{ padding:'20px 24px', background: epwDlModal.exportType === 'leave' ? 'linear-gradient(135deg,#7c3aed,#5b21b6)' : epwDlModal.exportType === 'summary' ? 'linear-gradient(135deg,#10b981,#059669)' : 'linear-gradient(135deg,#0f172a,#1e293b)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                 <div>
                   <div style={{ fontSize:'16px', fontWeight:'800', color:'#fff', display:'flex', alignItems:'center', gap:'8px' }}>
-                    <FiDownload size={16} color={epwDlModal.exportType === 'summary' ? '#a7f3d0' : '#60a5fa'} />
-                    {epwDlModal.exportType === 'summary' ? 'Export Summary Excel' : 'Download Attendance Report'}
+                    <FiDownload size={16} color={epwDlModal.exportType === 'leave' ? '#ddd6fe' : epwDlModal.exportType === 'summary' ? '#a7f3d0' : '#60a5fa'} />
+                    {epwDlModal.exportType === 'leave' ? 'Export Leave Report' : epwDlModal.exportType === 'summary' ? 'Export Summary Excel' : 'Download Attendance Report'}
                   </div>
-                  <div style={{ fontSize:'11px', color: epwDlModal.exportType === 'summary' ? '#d1fae5' : '#94a3b8', marginTop:'4px' }}>
-                    {epwDlModal.exportType === 'summary' ? 'Configure your summary export options below' : 'Configure your export options below'}
+                  <div style={{ fontSize:'11px', color: epwDlModal.exportType === 'leave' ? '#ddd6fe' : epwDlModal.exportType === 'summary' ? '#d1fae5' : '#94a3b8', marginTop:'4px' }}>
+                    {epwDlModal.exportType === 'leave' ? 'Configure your leave report export options below' : epwDlModal.exportType === 'summary' ? 'Configure your summary export options below' : 'Configure your export options below'}
                   </div>
                 </div>
-                <button onClick={() => setEpwDlModal(p => ({ ...p, open:false }))} style={{ background:'rgba(255,255,255,0.1)', border:'none', borderRadius:'7px', width:'28px', height:'28px', cursor:'pointer', color: epwDlModal.exportType === 'summary' ? '#d1fae5' : '#94a3b8', fontSize:'18px', display:'flex', alignItems:'center', justifyContent:'center' }}>×</button>
+                <button onClick={() => setEpwDlModal(p => ({ ...p, open:false }))} style={{ background:'rgba(255,255,255,0.1)', border:'none', borderRadius:'7px', width:'28px', height:'28px', cursor:'pointer', color: epwDlModal.exportType === 'leave' ? '#ddd6fe' : epwDlModal.exportType === 'summary' ? '#d1fae5' : '#94a3b8', fontSize:'18px', display:'flex', alignItems:'center', justifyContent:'center' }}>×</button>
               </div>
 
               {/* Modal Body */}
@@ -2141,7 +2487,7 @@ const filteredEmployees = useMemo(() => {
                   </select>
                 </div>
 
-                {/* Group By - only display for detailed report */}
+                {/* Group By - display for detailed and leave report */}
                 {epwDlModal.exportType !== 'summary' && (
                   <div>
                     <div style={{ fontSize:'11px', fontWeight:'800', color:'#334155', textTransform:'uppercase', letterSpacing:'0.06em', marginBottom:'10px' }}>📊 Group Sheets By</div>
@@ -2169,12 +2515,14 @@ const filteredEmployees = useMemo(() => {
                 )}
 
                 {/* Filename Preview */}
-                <div style={{ padding:'10px 14px', background: epwDlModal.exportType === 'summary' ? '#ecfdf5' : '#f0fdf4', border: epwDlModal.exportType === 'summary' ? '1px solid #a7f3d0' : '1px solid #bbf7d0', borderRadius:'8px', fontSize:'11px', color: epwDlModal.exportType === 'summary' ? '#065f46' : '#166534' }}>
+                <div style={{ padding:'10px 14px', background: epwDlModal.exportType === 'leave' ? '#f5f3ff' : epwDlModal.exportType === 'summary' ? '#ecfdf5' : '#f0fdf4', border: epwDlModal.exportType === 'leave' ? '1px solid #ddd6fe' : epwDlModal.exportType === 'summary' ? '1px solid #a7f3d0' : '1px solid #bbf7d0', borderRadius:'8px', fontSize:'11px', color: epwDlModal.exportType === 'leave' ? '#5b21b6' : epwDlModal.exportType === 'summary' ? '#065f46' : '#166534' }}>
                   <span style={{ fontWeight:'700' }}>📁 File: </span>
                   <span style={{ fontFamily:'monospace' }}>
-                    {epwDlModal.exportType === 'summary'
-                      ? `Attendance_Summary_${moment(epwDlModal.startDate).format('MMM_YYYY')}.xlsx`
-                      : `Attendance_Report_${moment(epwDlModal.startDate).format('MMMM YYYY').replace(' ','')}_v${epwDlVersionRef.current + 1}.xlsx`}
+                    {epwDlModal.exportType === 'leave'
+                      ? `Leave_Report_${moment(epwDlModal.startDate).format('YYYY_MM_DD')}_to_${moment(epwDlModal.endDate).format('YYYY_MM_DD')}.xlsx`
+                      : epwDlModal.exportType === 'summary'
+                        ? `Attendance_Summary_${moment(epwDlModal.startDate).format('MMM_YYYY')}.xlsx`
+                        : `Attendance_Report_${moment(epwDlModal.startDate).format('MMMM YYYY').replace(' ','')}_v${epwDlVersionRef.current + 1}.xlsx`}
                   </span>
                 </div>
               </div>
@@ -2189,6 +2537,14 @@ const filteredEmployees = useMemo(() => {
                     style={{ ...S.btn('green'), padding:'9px 22px', fontWeight:'700', opacity:(epwDlLoading || !epwDlModal.startDate || !epwDlModal.endDate) ? 0.6 : 1, display:'flex', alignItems:'center', gap:'6px' }}
                   >
                     {epwDlLoading ? <><span style={{ display:'inline-block', width:'12px', height:'12px', border:'2px solid #fff', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/> Generating…</> : <><FiDownload size={13}/> Download Summary</>}
+                  </button>
+                ) : epwDlModal.exportType === 'leave' ? (
+                  <button
+                    onClick={handleLeaveExport}
+                    disabled={epwDlLoading || !epwDlModal.startDate || !epwDlModal.endDate}
+                    style={{ ...S.btn('primary'), background: 'linear-gradient(135deg,#7c3aed,#5b21b6)', borderColor: '#5b21b6', padding:'9px 22px', fontWeight:'700', opacity:(epwDlLoading || !epwDlModal.startDate || !epwDlModal.endDate) ? 0.6 : 1, display:'flex', alignItems:'center', gap:'6px' }}
+                  >
+                    {epwDlLoading ? <><span style={{ display:'inline-block', width:'12px', height:'12px', border:'2px solid #fff', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite' }}/> Generating…</> : <><FiDownload size={13}/> Download Leave Report</>}
                   </button>
                 ) : (
                   <button

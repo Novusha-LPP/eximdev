@@ -557,7 +557,7 @@ export const updateUserProfile = async (req, res) => {
 
 export const toggleEmployeeOperatorStatus = async (req, res) => {
   try {
-    const { employeeId, is_operator } = req.body;
+    const { employeeId, is_operator, category } = req.body;
 
     if (!employeeId || is_operator === undefined) {
       return res.status(400).json({ success: false, message: 'employeeId and is_operator are required' });
@@ -574,6 +574,9 @@ export const toggleEmployeeOperatorStatus = async (req, res) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
     user.is_operator = !!is_operator;
+    if (category) {
+      user.category = category;
+    }
     await user.save();
 
     // 2. Find existing active config
@@ -603,6 +606,7 @@ export const toggleEmployeeOperatorStatus = async (req, res) => {
       employee_id: employeeId,
       company_id: companyId,
       is_operator: !!is_operator,
+      category: category || user.category || 'Management',
       payroll_type: resolvedPayrollType,
       monthly_salary: existingActive?.monthly_salary || user.monthly_salary || 0,
       daily_wage: existingActive?.daily_wage || 0,
@@ -620,9 +624,10 @@ export const toggleEmployeeOperatorStatus = async (req, res) => {
       success: true,
       data: {
         is_operator: user.is_operator,
+        category: user.category,
         payrollConfig: newConfig
       },
-      message: `Successfully set category to ${is_operator ? 'Operator' : 'Management'} for ${user.username}`
+      message: `Successfully set category to ${category || (is_operator ? 'Operator' : 'Management')} for ${user.username}`
     });
   } catch (error) {
     console.error('toggleEmployeeOperatorStatus error:', error);

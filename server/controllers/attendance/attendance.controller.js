@@ -263,7 +263,7 @@ const findLeaveForDateLocal = (leaves, dayMomentLocal) => {
     });
 };
 
-const REPORT_USER_SELECT_FIELDS = '_id first_name last_name username designation company_id department_id branch_id weekoff_policy_id holiday_policy_id shift_id';
+const REPORT_USER_SELECT_FIELDS = '_id first_name last_name username designation company_id department_id branch_id weekoff_policy_id holiday_policy_id shift_id employee_code hod_id employment_type category';
 const REPORT_COMPANY_POPULATE = { path: 'company_id', select: 'company_name attendance_config' };
 const REPORT_ATTENDANCE_SELECT_FIELDS = 'employee_id attendance_date first_in last_out is_auto_punch_out status is_late late_by_minutes is_early_in early_in_minutes is_early_exit early_exit_minutes total_work_hours half_day_session shift_id';
 const REPORT_LEAVE_SELECT_FIELDS = 'employee_id leave_policy_id leave_type from_date to_date approval_status is_half_day is_start_half_day is_end_half_day half_day_session start_half_session end_half_session reason';
@@ -1818,9 +1818,7 @@ export const getPayrollData = async (req, res) => {
         const query = {
             role: { $nin: ['ADMIN', 'Admin', 'driver', 'Driver'] }
         };
-        if (process.env.NODE_ENV === 'production') {
-            query.username = { $ne: 'dev_master' };
-        }
+        query.username = { $ne: 'dev_master' };
         
         // Add company filter - try both formats
         if (mongoose.Types.ObjectId.isValid(companyId)) {
@@ -1999,9 +1997,7 @@ export const getPayrollEmployees = async (req, res) => {
             ],
             role: { $nin: ['ADMIN', 'Admin', 'driver', 'Driver'] }
         };
-        if (process.env.NODE_ENV === 'production') {
-            employeesQuery.username = { $ne: 'dev_master' };
-        }
+        employeesQuery.username = { $ne: 'dev_master' };
         if (restrictedIds) {
             employeesQuery._id = { $in: restrictedIds.map(id => new mongoose.Types.ObjectId(id)) };
         }
@@ -2165,9 +2161,7 @@ export const getAdminAttendanceReport = async (req, res) => {
             isActive: true,
             role: { $nin: ['driver', 'Driver'] }
         };
-        if (process.env.NODE_ENV === 'production') {
-            userQuery.username = { $ne: 'dev_master' };
-        }
+        userQuery.username = { $ne: 'dev_master' };
         if (companyId) {
             userQuery.company_id = companyId;
         }
@@ -2192,6 +2186,8 @@ export const getAdminAttendanceReport = async (req, res) => {
             .select(REPORT_USER_SELECT_FIELDS)
             .populate(REPORT_COMPANY_POPULATE)
             .populate({ path: 'shift_id', select: 'shift_name start_time end_time' })
+            .populate({ path: 'department_id', select: 'department_name' })
+            .populate({ path: 'hod_id', select: 'first_name last_name username' })
             .lean();
 
         if (employees.length === 0) {
@@ -2204,16 +2200,21 @@ export const getAdminAttendanceReport = async (req, res) => {
         const activeTeams = await TeamModel.find({
             'members.userId': { $in: employeeIds },
             isActive: { $ne: false }
-        }).select('_id members.userId').lean();
+        }).select('_id name members.userId').lean();
 
         const teamIdsByEmployee = new Map();
+        const teamNamesByEmployee = new Map();
         for (const team of activeTeams) {
             const teamId = String(team._id);
+            const teamName = team.name;
             for (const member of team.members || []) {
                 const memberId = member?.userId ? String(member.userId) : null;
                 if (!memberId) continue;
                 if (!teamIdsByEmployee.has(memberId)) teamIdsByEmployee.set(memberId, []);
                 teamIdsByEmployee.get(memberId).push(teamId);
+
+                if (!teamNamesByEmployee.has(memberId)) teamNamesByEmployee.set(memberId, []);
+                teamNamesByEmployee.get(memberId).push(teamName);
             }
         }
 
@@ -2267,7 +2268,14 @@ export const getAdminAttendanceReport = async (req, res) => {
                 leavesByEmployee.get(empKey) || [],
                 {
                     company_id: emp.company_id?._id || emp.company_id,
-                    company_name: emp.company_id?.company_name || '---'
+                    company_name: emp.company_id?.company_name || '---',
+                    employee_code: emp.employee_code || '',
+                    employment_type: emp.employment_type || 'Full Time',
+                    department_id: emp.department_id,
+                    department: emp.department_id?.department_name || '',
+                    hod_id: emp.hod_id,
+                    team_name: (teamNamesByEmployee.get(empKey) || []).join(', ') || 'Unassigned',
+                    team: (teamNamesByEmployee.get(empKey) || []).join(', ') || 'Unassigned'
                 },
                 { teamIds }
             );
@@ -2301,12 +2309,16 @@ export const getTeamAttendanceReport = async (req, res) => {
             if (team) {
                 const isPrimary = team.hodId && team.hodId.toString() === hodId.toString();
                 const isSecondary = req.user.role === 'HOD' && team.members.some(m => m.userId && m.userId.toString() === hodId.toString());
-                if (isPrimary || isSecondary) {
+                if (isPrimary || isSecondary || req.user.role === 'ADMIN') {
                     teams = [team];
                 }
             }
         } else {
-            teams = await getHodTeams(hodId);
+            if (req.user.role === 'ADMIN') {
+                teams = await TeamModel.find({ isActive: { $ne: false } });
+            } else {
+                teams = await getHodTeams(hodId);
+            }
         }
         const memberUserIds = new Set();
         teams.forEach(team => {
@@ -2327,13 +2339,13 @@ export const getTeamAttendanceReport = async (req, res) => {
             isActive: true,
             role: { $nin: ['driver', 'Driver'] }
         };
-        if (process.env.NODE_ENV === 'production') {
-            empQuery.username = { $ne: 'dev_master' };
-        }
+        empQuery.username = { $ne: 'dev_master' };
         const employees = await User.find(empQuery)
             .select(REPORT_USER_SELECT_FIELDS)
             .populate(REPORT_COMPANY_POPULATE)
             .populate({ path: 'shift_id', select: 'shift_name start_time end_time' })
+            .populate({ path: 'department_id', select: 'department_name' })
+            .populate({ path: 'hod_id', select: 'first_name last_name username' })
             .lean();
 
         if (employees.length === 0) {
@@ -2343,13 +2355,18 @@ export const getTeamAttendanceReport = async (req, res) => {
         const employeeIds = employees.map(e => e._id);
 
         const teamIdsByEmployee = new Map();
+        const teamNamesByEmployee = new Map();
         for (const team of teams) {
             const teamIdStr = String(team._id);
+            const teamName = team.name;
             for (const member of team.members || []) {
                 const memberId = member?.userId ? String(member.userId) : null;
                 if (!memberId) continue;
                 if (!teamIdsByEmployee.has(memberId)) teamIdsByEmployee.set(memberId, []);
                 teamIdsByEmployee.get(memberId).push(teamIdStr);
+
+                if (!teamNamesByEmployee.has(memberId)) teamNamesByEmployee.set(memberId, []);
+                teamNamesByEmployee.get(memberId).push(teamName);
             }
         }
 
@@ -2395,7 +2412,17 @@ export const getTeamAttendanceReport = async (req, res) => {
                 endDate,
                 attendanceByEmployee.get(empKey) || [],
                 leavesByEmployee.get(empKey) || [],
-                { department: emp.department_id?.department_name || 'General' },
+                {
+                    company_id: emp.company_id?._id || emp.company_id,
+                    company_name: emp.company_id?.company_name || '---',
+                    employee_code: emp.employee_code || '',
+                    employment_type: emp.employment_type || 'Full Time',
+                    department_id: emp.department_id,
+                    department: emp.department_id?.department_name || 'General',
+                    hod_id: emp.hod_id,
+                    team_name: (teamNamesByEmployee.get(empKey) || []).join(', ') || 'Unassigned',
+                    team: (teamNamesByEmployee.get(empKey) || []).join(', ') || 'Unassigned'
+                },
                 { teamIds }
             );
         });

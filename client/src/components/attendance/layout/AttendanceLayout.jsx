@@ -2,7 +2,8 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import {
     FiHome, FiClock, FiFileText, FiCalendar, FiUser,
-    FiCheckSquare, FiUsers, FiActivity, FiLogIn, FiLogOut
+    FiCheckSquare, FiUsers, FiActivity, FiLogIn, FiLogOut,
+    FiBarChart2
 } from 'react-icons/fi';
 import { useContext } from 'react';
 import { UserContext } from '../../../contexts/UserContext';
@@ -50,6 +51,7 @@ const ADMIN_PRIVILEGED_MENU = [
     { path: '/attendance/admin/attendance', icon: FiUsers, label: 'Company Report', requiresAllowedAdmin: true },
     { path: '/attendance/teams', icon: FiUser, label: 'Teams', requiresAllowedAdmin: true },
     { path: '/attendance/hod/leave-approval', icon: FiCheckSquare, label: 'Approvals', requiresAllowedAdmin: true },
+    { path: '/attendance/admin/reports', icon: FiBarChart2, label: 'Reports', requiresAllowedAdmin: true },
     { section: 'Configuration' },
     { path: '/attendance/admin/holidays', icon: FiCalendar, label: 'Holiday Policies', requiresAllowedAdmin: true },
     { path: '/attendance/admin/weekoff-policies', icon: FiClock, label: 'Week-Off Policies', requiresAllowedAdmin: true },

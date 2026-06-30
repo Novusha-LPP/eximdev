@@ -6,6 +6,7 @@ const employeePayrollConfigSchema = new mongoose.Schema({
 
   // ─── Operator Identification ─────────────────────────────────────────
   is_operator: { type: Boolean, default: false },
+  category: { type: String, default: 'Management' },
   // true  = OPERATOR  (daily wage, OT eligible)
   // false = MANAGEMENT (monthly salary, no OT)
 

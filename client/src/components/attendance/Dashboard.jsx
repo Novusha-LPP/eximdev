@@ -186,7 +186,7 @@ export default function Dashboard() {
   const [companies, setCompanies] = useState([]);
 
   const username = String(user?.username || '').toLowerCase();
-  const isAuthorizedAdmin = AUTHORIZED_DASHBOARD_ADMINS.has(username);
+  const isAuthorizedAdmin = AUTHORIZED_DASHBOARD_ADMINS.has(username) || user?.isAttendanceAllowedAdmin === true;
   const [weekOff, setWeekOff] = useState(0);
 
   /* -- Fetch -- */
@@ -247,11 +247,16 @@ export default function Dashboard() {
       masterAPI.getCompanies().then(res => {
         if (res?.success) {
           const list = res.data || [];
-          setCompanies(list);
+          const isRabsAdmin = String(user?.company || '').toLowerCase().includes('rabs') || String(user?.department || '').toLowerCase().includes('rabs');
+          const filteredList = list.filter(c => {
+            const name = String(c.company_name || '').toLowerCase();
+            return isRabsAdmin ? name.includes('rabs') : !name.includes('rabs');
+          });
+          setCompanies(filteredList);
         }
       }).catch(err => console.error('Failed to load companies', err));
     }
-  }, [isAuthorizedAdmin]);
+  }, [isAuthorizedAdmin, user]);
 
 
 
@@ -291,7 +296,7 @@ export default function Dashboard() {
             team: row.team_name || row.team || 'Unassigned',
             status,
             inTime: row.latestRecord?.first_in || todayRecord.check_in || null,
-            outTime: row.latestRecord?.last_out || todayRecord.check_out || null,
+            outTime: row.latestRecord?.check_out || todayRecord.check_out || null,
             lateMinutes: Number(row.latestRecord?.late_by_minutes ?? todayRecord.late_by_minutes ?? 0),
             leave: todayRecord.leaveType || todayRecord.leave_type ? {
               type: todayRecord.leaveType || todayRecord.leave_type,
@@ -301,21 +306,29 @@ export default function Dashboard() {
           };
         });
 
+        const isRabsAdmin = String(user?.company || '').toLowerCase().includes('rabs') || String(user?.department || '').toLowerCase().includes('rabs');
+        const filteredRows = normalizedRows.filter(row => {
+          const comp = String(row.organization || '').toLowerCase();
+          const dept = String(row.department || '').toLowerCase();
+          const hasRabs = comp.includes('rabs') || dept.includes('rabs');
+          return isRabsAdmin ? hasRabs : !hasRabs;
+        });
+
         const stats = {
-          total: normalizedRows.length,
-          present: normalizedRows.filter(e => ['present', 'late', 'half_day'].includes(e.status)).length,
-          absent: normalizedRows.filter(e => e.status === 'absent').length,
-          onLeave: normalizedRows.filter(e => ['leave', 'pending_leave'].includes(e.status)).length,
-          halfDay: normalizedRows.filter(e => e.status === 'half_day').length,
-          late: normalizedRows.filter(e => e.status === 'late').length
+          total: filteredRows.length,
+          present: filteredRows.filter(e => ['present', 'late', 'half_day'].includes(e.status)).length,
+          absent: filteredRows.filter(e => e.status === 'absent').length,
+          onLeave: filteredRows.filter(e => ['leave', 'pending_leave'].includes(e.status)).length,
+          halfDay: filteredRows.filter(e => e.status === 'half_day').length,
+          late: filteredRows.filter(e => e.status === 'late').length
         };
 
         setAdminData({
           success: true,
           stats,
-          dailySummary: normalizedRows,
-          summaryRows: normalizedRows,
-          employees: normalizedRows
+          dailySummary: filteredRows,
+          summaryRows: filteredRows,
+          employees: filteredRows
         });
       }
     } catch { 
@@ -323,7 +336,7 @@ export default function Dashboard() {
     } finally { 
       setAdminLoading(false); 
     }
-  }, [isAuthorizedAdmin, isHOD]);
+  }, [isAuthorizedAdmin, isHOD, user]);
 
   useEffect(() => {
     if (activeTab === 'daily' && (isAuthorizedAdmin || isHOD)) {

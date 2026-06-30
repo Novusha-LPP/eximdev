@@ -35,6 +35,7 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
   const [groupBy, setGroupBy] = useState('none');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   const [modalConfig, setModalConfig] = useState({
     isOpen: false,
@@ -45,6 +46,7 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
 
   useEffect(() => {
     setCurrentPage(1);
+    setStatusFilter('all');
   }, [data]);
 
   const openModal = (type) => {
@@ -128,7 +130,15 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
     return '';
   };
 
-  const sortedSummary = [...dailySummary].sort((a, b) => {
+  const filteredDailySummary = statusFilter === 'all'
+    ? dailySummary
+    : dailySummary.filter(e => {
+        if (statusFilter === 'present') return ['present', 'late', 'half_day'].includes(e.status);
+        if (statusFilter === 'leave') return ['leave', 'pending_leave'].includes(e.status);
+        return e.status === statusFilter;
+      });
+
+  const sortedSummary = [...filteredDailySummary].sort((a, b) => {
     if (groupBy !== 'none') {
       const groupA = groupValueFor(a);
       const groupB = groupValueFor(b);
@@ -139,9 +149,9 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
   });
 
   // Pagination Logic
-  const totalPages = Math.max(1, Math.ceil(dailySummary.length / itemsPerPage));
+  const totalPages = Math.max(1, Math.ceil(filteredDailySummary.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedData = dailySummary.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedData = filteredDailySummary.slice(startIndex, startIndex + itemsPerPage);
   const tableData = groupBy === 'none' ? paginatedData : sortedSummary;
 
   const handleMonthChange = (val) => {
@@ -205,6 +215,24 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
                 </select>
               </div>
             )}
+            <div className="adb-company-filter-wrap">
+              <FiFilter className="adb-dp-icon" />
+              <select
+                className="adb-company-select"
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+              >
+                <option value="all">All Statuses</option>
+                <option value="present">Present</option>
+                <option value="absent">Absent</option>
+                <option value="late">Late</option>
+                <option value="half_day">Half Day</option>
+                <option value="leave">Leave</option>
+              </select>
+            </div>
          </div>
       </div>
 

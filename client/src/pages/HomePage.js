@@ -48,6 +48,7 @@ import LockAttendance from "../components/attendance/admin/LockAttendance.jsx";
 import PayrollExport from "../components/attendance/admin/PayrollExport.jsx";
 import AttendanceSettings from "../components/attendance/admin/Settings.jsx";
 import CompanyManagement from "../components/attendance/admin/CompanyManagement.jsx";
+import AttendanceReports from "../components/attendance/admin/AttendanceReports.jsx";
 // Submission
 import SubmissionTabs from "../components/submission/SubmissionTabs.js";
 import SubmissionJob from "../components/submission/SubmissionJob.js";
@@ -1215,6 +1216,7 @@ function HomePageContent() {
                   <Route path="admin/companies" element={<CompanyManagement />} />
                   <Route path="admin/lock" element={<LockAttendance />} />
                   <Route path="admin/payroll" element={<PayrollExport />} />
+                  <Route path="admin/reports" element={<AttendanceReports />} />
                   <Route path="admin/settings" element={<AttendanceSettings />} />
                   <Route path="hod/report" element={<AttendanceReport />} />
                   <Route path="report" element={<AttendanceReport isAdmin />} />

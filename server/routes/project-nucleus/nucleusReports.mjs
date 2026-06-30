@@ -584,15 +584,14 @@ router.get("/pending-job-summaries", authMiddleware, applyUserBranchFilter, asyn
         const { filterType, month, year, quarter, startDate, endDate, day, branchId, category } = req.query;
         const branchMatch = getBranchMatch(branchId, category, req.authorizedBranchIds);
 
-        // Base: pending, non-cancelled jobs
-        const matchStage = {
-            status: { $regex: "^pending$", $options: "i" },
+        // Base: all non-cancelled jobs
+        const baseMatchStage = {
             be_no: { $not: { $regex: "^cancelled$", $options: "i" } },
             ...branchMatch,
         };
 
         const pipeline = [
-            { $match: matchStage },
+            { $match: baseMatchStage },
             // Parse job_date for date filtering
             {
                 $addFields: {
@@ -677,32 +676,14 @@ router.get("/pending-job-summaries", authMiddleware, applyUserBranchFilter, asyn
             pipeline.push({ $match: dateMatch });
         }
 
-        // Two combination facets:
-        //  1) Branch + Employee
-        //  2) Branch + Port + Employee
+        // Use $facet to calculate total jobs created vs pending jobs breakdown
         pipeline.push({
             $facet: {
-                byBranchEmployee: [
-                    {
-                        $group: {
-                            _id: {
-                                branch: { $ifNull: ["$branch_code", "Unassigned"] },
-                                employee: { $ifNull: ["$job_owner", "Unassigned"] },
-                            },
-                            count: { $sum: 1 },
-                        },
-                    },
-                    { $sort: { "_id.branch": 1, count: -1 } },
-                    {
-                        $project: {
-                            _id: 0,
-                            branch: "$_id.branch",
-                            employee: "$_id.employee",
-                            count: 1,
-                        },
-                    },
+                totalJobsCreated: [
+                    { $count: "count" }
                 ],
-                byBranchPortEmployee: [
+                pendingJobsData: [
+                    { $match: { status: { $regex: "^pending$", $options: "i" } } },
                     {
                         $group: {
                             _id: {
@@ -711,7 +692,7 @@ router.get("/pending-job-summaries", authMiddleware, applyUserBranchFilter, asyn
                                 employee: { $ifNull: ["$job_owner", "Unassigned"] },
                             },
                             count: { $sum: 1 },
-                        },
+                        }
                     },
                     { $sort: { "_id.branch": 1, "_id.port": 1, count: -1 } },
                     {
@@ -721,15 +702,68 @@ router.get("/pending-job-summaries", authMiddleware, applyUserBranchFilter, asyn
                             port: "$_id.port",
                             employee: "$_id.employee",
                             count: 1,
-                        },
-                    },
+                        }
+                    }
                 ],
-            },
+                categoryData: [
+                    { $match: { status: { $regex: "^pending$", $options: "i" } } },
+                    {
+                        $group: {
+                            _id: { $ifNull: ["$detailed_status", "Uncategorized"] },
+                            count: { $sum: 1 },
+                        }
+                    },
+                    { $sort: { count: -1 } },
+                    {
+                        $project: {
+                            _id: 0,
+                            category: "$_id",
+                            count: 1,
+                        }
+                    }
+                ]
+            }
         });
 
-        const results = await JobModel.aggregate(pipeline);
-        const data = results[0] || { byBranchEmployee: [], byBranchPortEmployee: [] };
-        res.json(data);
+        const result = await JobModel.aggregate(pipeline);
+        
+        const totalCreated = result[0]?.totalJobsCreated[0]?.count || 0;
+        const pendingData = result[0]?.pendingJobsData || [];
+        const categoryData = result[0]?.categoryData || [];
+
+        // Fetch independent SEA and AIR counts matching the exact Import Billing logic
+        const baseBillingQuery = {
+            ...branchMatch,
+            $and: [
+                { status: { $regex: "^pending$", $options: "i" } },
+                { bill_document_sent_to_accounts: { $exists: true, $nin: [null, ""] } },
+                {
+                    $or: [
+                        { billing_completed_date: { $exists: false } },
+                        { billing_completed_date: "" },
+                        { billing_completed_date: null },
+                        {
+                            $and: [
+                                { billing_completed_date: { $exists: true, $ne: "" } },
+                                { dsr_queries: { $elemMatch: { select_module: "Accounts", resolved: { $ne: true } } } }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        };
+
+        const readyForBillingSeaCount = await JobModel.countDocuments({
+            ...baseBillingQuery,
+            mode: { $in: ["SEA", "sea", "Sea"] }
+        });
+
+        const readyForBillingAirCount = await JobModel.countDocuments({
+            ...baseBillingQuery,
+            mode: { $in: ["AIR", "air", "Air"] }
+        });
+
+        res.json({ totalCreated, data: pendingData, categoryData, readyForBillingSeaCount, readyForBillingAirCount });
     } catch (error) {
         console.error("Error fetching pending job summaries:", error);
         res.status(500).json({ error: "Internal Server Error" });

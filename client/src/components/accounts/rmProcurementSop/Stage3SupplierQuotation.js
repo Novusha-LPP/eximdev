@@ -19,23 +19,26 @@ import {
 const yesNoOptions = ["", "Yes", "No"];
 const statusOptions = ["", "Pending", "Done"];
 
-function Stage3SupplierQuotation({ data, onChange }) {
+function Stage3SupplierQuotation({ data, onChange, globalData, onGlobalChange }) {
   const updateField = (field, value) => onChange({ [field]: value });
-  const updateSupplier = (idx, path, value) => {
+  const getInitializedSuppliers = () => {
     const suppliers = data.suppliers || [];
-    const updated = suppliers.map((s, i) =>
+    const updated = [...suppliers];
+    while (updated.length < 3) {
+      updated.push({ general: {} });
+    }
+    return updated;
+  };
+
+  const suppliers = getInitializedSuppliers();
+
+  const updateSupplier = (idx, path, value) => {
+    const currentSuppliers = getInitializedSuppliers();
+    const updated = currentSuppliers.map((s, i) =>
       i === idx ? setPath({ ...s }, path, value) : s
     );
     onChange({ suppliers: updated });
   };
-
-  const ensureSuppliers = () => {
-    const suppliers = data.suppliers || [];
-    while (suppliers.length < 3) suppliers.push({ general: {} });
-    return suppliers;
-  };
-
-  const suppliers = ensureSuppliers();
 
   const updateCheckbox = (field, checked) => {
     onChange({ documentsVerified: { ...data.documentsVerified, [field]: checked } });
@@ -43,7 +46,26 @@ function Stage3SupplierQuotation({ data, onChange }) {
 
   const actionLog = data.actionLog || [];
   const updateActionLog = (idx, field, value) => {
-    const updated = actionLog.map((item, i) => (i === idx ? { ...item, [field]: value } : item));
+    const updated = [...actionLog];
+    for (let i = 0; i <= idx; i++) {
+      if (!updated[i]) {
+        updated[i] = {
+          actionTask: [
+            "Quotations collected (min 2–3 per RM type)",
+            "Document checklist verified for L1 supplier",
+            "Sent to Pricing Team for validation",
+          ][i] || "",
+          responsiblePerson: [
+            "Purchase Officer",
+            "Purchase Officer",
+            "Purchase Officer",
+          ][i] || "",
+          dateTime: "",
+          status: "",
+        };
+      }
+    }
+    updated[idx] = { ...updated[idx], [field]: value };
     onChange({ actionLog: updated });
   };
 
@@ -56,8 +78,9 @@ function Stage3SupplierQuotation({ data, onChange }) {
         <Grid item xs={12} md={6}>
           <TextField
             label="PR Number"
-            value={data.prNumber || ""}
-            onChange={(e) => updateField("prNumber", e.target.value)}
+            value={globalData?.prNumber || ""}
+            onChange={() => {}}
+            InputProps={{ readOnly: true, sx: { backgroundColor: "#f5f5f5" } }}
             fullWidth
             size="small"
           />

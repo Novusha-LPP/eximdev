@@ -843,23 +843,26 @@ router.get("/api/scmCube/get-imexcube-job-details", async (req, res) => {
 
     // Step 2: Fetch job details from IMEXCUBE
     let detailsRes;
-    const getJobUrl = `${IMEXCUBE_BASE_URL}/api/v1/GetJobDetails/getimpdetails`;
+    const getJobUrl = `${IMEXCUBE_BASE_URL}/api/v1/GetJobDetails/get-impdetails`;
     try {
-      detailsRes = await axios.get(getJobUrl, {
-        params: {
-          Method: "GET",
-          "User Job No.": job_number
+      detailsRes = await axios({
+        method: "GET",
+        url: getJobUrl,
+        data: {
+          Method: "GetJobInfo",
+          User_Job_No: job_number
         },
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          accept: "*/*"
         },
         timeout: 30000
       });
     } catch (err) {
-      // Fallback 1: Try capitalized GetImpDetails if first attempt returned 404
+      // Fallback 1: Try old getimpdetails endpoint with query params if first attempt returned 404
       if (err.response?.status === 404) {
-        const fallbackUrl = `${IMEXCUBE_BASE_URL}/api/v1/GetJobDetails/GetImpDetails`;
+        const fallbackUrl = `${IMEXCUBE_BASE_URL}/api/v1/GetJobDetails/getimpdetails`;
         try {
           detailsRes = await axios.get(fallbackUrl, {
             params: {

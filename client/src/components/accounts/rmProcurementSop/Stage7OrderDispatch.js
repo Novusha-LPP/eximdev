@@ -16,7 +16,7 @@ import {
 } from "@mui/material";
 import { Add, Delete } from "@mui/icons-material";
 
-function Stage7OrderDispatch({ data, onChange }) {
+function Stage7OrderDispatch({ data, onChange, globalData, onGlobalChange }) {
   const updateField = (field, value) => onChange({ [field]: value });
   const updateNested = (group, field, value) =>
     onChange({ [group]: { ...data[group], [field]: value } });
@@ -31,7 +31,30 @@ function Stage7OrderDispatch({ data, onChange }) {
 
   const breakdown = data.rmDispatchBreakdown || [];
   const updateBreakdown = (idx, field, value) => {
-    const updated = breakdown.map((item, i) => (i === idx ? { ...item, [field]: value } : item));
+    const updated = [...breakdown];
+    for (let i = 0; i <= idx; i++) {
+      if (!updated[i]) {
+        updated[i] = {
+          rmType: [
+            "Virgin HDPE Granule",
+            "rHDPE Granule",
+            "Colour Masterbatch",
+            "UV Masterbatch",
+          ][i] || "",
+          grade: [
+            "ICOL-180M50",
+            "Blue / Grey",
+            "Blue / Grey",
+            "Standard UV",
+          ][i] || "",
+          qtyDispatchedKg: "",
+          noOfBags: "",
+          batchNo: "",
+          remarks: "",
+        };
+      }
+    }
+    updated[idx] = { ...updated[idx], [field]: value };
     onChange({ rmDispatchBreakdown: updated });
   };
 
@@ -44,8 +67,9 @@ function Stage7OrderDispatch({ data, onChange }) {
         <Grid item xs={12} md={6}>
           <TextField
             label="PR Number"
-            value={data.prNumber || ""}
-            onChange={(e) => updateField("prNumber", e.target.value)}
+            value={globalData?.prNumber || ""}
+            onChange={() => {}}
+            InputProps={{ readOnly: true, sx: { backgroundColor: "#f5f5f5" } }}
             fullWidth
             size="small"
           />

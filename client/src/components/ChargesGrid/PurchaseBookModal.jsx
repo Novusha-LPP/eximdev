@@ -103,9 +103,11 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
 
                 const totalVal = isReimbursement
                     ? (taxableVal !== '' ? (parseFloat(taxableVal) - tdsVal).toFixed(2) : '')
-                    : ((initialData.amount !== undefined && initialData.amount !== null && initialData.amount !== '')
-                        ? parseFloat(initialData.amount).toFixed(2)
-                        : (initialData.netPayable ? parseFloat(initialData.netPayable).toFixed(2) : ''));
+                    : (initialData.netPayable !== undefined && initialData.netPayable !== null && initialData.netPayable !== '')
+                        ? parseFloat(initialData.netPayable).toFixed(2)
+                        : ((initialData.amount !== undefined && initialData.amount !== null && initialData.amount !== '')
+                            ? (parseFloat(initialData.amount) - tdsVal).toFixed(2)
+                            : '');
 
                 setFormData(prev => ({
                     ...prev,
@@ -167,6 +169,8 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
         setFormData(prev => {
             const updated = { ...prev, [name]: value };
 
+            const isReimbursement = updated["Charge Head Category"]?.toLowerCase() === 'reimbursement';
+
             // If Category is changed to Reimbursement, sync Taxable Value to Total (subtracting TDS) and clear GST fields
             if (name === "Charge Head Category" && value?.toLowerCase() === 'reimbursement') {
                 const taxNum = parseFloat(updated["Taxable Value"]) || 0;
@@ -179,7 +183,7 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
             }
 
             // Sync taxable value to total (deducting/adding TDS) if category is Reimbursement
-            if (updated["Charge Head Category"]?.toLowerCase() === 'reimbursement') {
+            if (isReimbursement) {
                 const tdsVal = parseFloat(updated["TDS"]) || 0;
                 if (name === "Total") {
                     const totalNum = parseFloat(value) || 0;
@@ -191,6 +195,35 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                     const taxNum = parseFloat(updated["Taxable Value"]) || 0;
                     const tdsNum = parseFloat(value) || 0;
                     updated["Total"] = (taxNum - tdsNum).toFixed(2);
+                }
+            } else {
+                // For non-reimbursement (Margin, etc.)
+                // 1. If Taxable Value, GST%, or GSTIN No changes, update GST amounts (CGST, SGST, IGST)
+                if (name === "GSTIN No" || name === "Taxable Value" || name === "GST%") {
+                    const gstin = updated["GSTIN No"] || "";
+                    const taxable = parseFloat(updated["Taxable Value"]) || 0;
+                    const gstRate = parseFloat(updated["GST%"]) || 0;
+                    const totalGst = Number((taxable * (gstRate / 100)).toFixed(2));
+
+                    if (gstin.trim().startsWith("24")) {
+                        updated["CGST"] = totalGst > 0 ? (totalGst / 2).toFixed(2) : "";
+                        updated["SGST"] = totalGst > 0 ? (totalGst / 2).toFixed(2) : "";
+                        updated["IGST"] = "";
+                    } else {
+                        updated["CGST"] = "";
+                        updated["SGST"] = "";
+                        updated["IGST"] = totalGst > 0 ? totalGst.toFixed(2) : "";
+                    }
+                }
+
+                // 2. If Taxable Value, CGST, SGST, IGST, or TDS changes (or gets updated above), recalculate Total
+                if (name === "Taxable Value" || name === "GST%" || name === "GSTIN No" || name === "CGST" || name === "SGST" || name === "IGST" || name === "TDS") {
+                    const taxNum = parseFloat(updated["Taxable Value"]) || 0;
+                    const cgstNum = parseFloat(updated["CGST"]) || 0;
+                    const sgstNum = parseFloat(updated["SGST"]) || 0;
+                    const igstNum = parseFloat(updated["IGST"]) || 0;
+                    const tdsNum = parseFloat(updated["TDS"]) || 0;
+                    updated["Total"] = (taxNum + cgstNum + sgstNum + igstNum - tdsNum).toFixed(2);
                 }
             }
 

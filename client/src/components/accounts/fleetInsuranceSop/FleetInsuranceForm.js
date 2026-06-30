@@ -135,6 +135,19 @@ function FleetInsuranceForm({ proposal, isView, onSaved, onCancel }) {
   const handleQuotationChange = (index, field, val) => {
     const newQuotations = [...(formData.quotations || [])];
     newQuotations[index][field] = val;
+    
+    // Auto-calculate total premium for the quotation
+    if (field === "odPremium" || field === "liabilityPremium") {
+      const od = Number(newQuotations[index].odPremium) || 0;
+      const liab = Number(newQuotations[index].liabilityPremium) || 0;
+      newQuotations[index].totalPremium = od + liab;
+      
+      // If this quotation is currently selected as L1, update the New Premium Quote as well
+      if (formData.selectedInsurerL1 && formData.selectedInsurerL1 === newQuotations[index].insuranceCompany) {
+        setFormData((prev) => ({ ...prev, premiumQuote: od + liab }));
+      }
+    }
+    
     setFormData((prev) => ({ ...prev, quotations: newQuotations }));
   };
 
@@ -157,6 +170,50 @@ function FleetInsuranceForm({ proposal, isView, onSaved, onCancel }) {
   const formatDateValue = (dateStr) => {
     return dateStr ? String(dateStr).split("T")[0] : "";
   };
+
+  const handleRegistrationBlur = async (e) => {
+    const regNo = e.target.value?.trim();
+    if (!regNo || proposal?._id) return; // Only fetch history on new records
+
+    try {
+      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/history/${encodeURIComponent(regNo)}`);
+      const history = res.data;
+      if (history) {
+        setFormData((prev) => ({
+          ...prev,
+          // Vehicle Info
+          owner: prev.owner || history.owner || "",
+          makeModel: prev.makeModel || history.makeModel || "",
+          modelType: prev.modelType || history.modelType || "",
+          size: prev.size || history.size || "",
+          gvw: prev.gvw || history.gvw || "",
+          engineNumber: prev.engineNumber || history.engineNumber || "",
+          chassisNumber: prev.chassisNumber || history.chassisNumber || "",
+          cubicCapacityKw: prev.cubicCapacityKw || history.cubicCapacityKw || "",
+          mfgYear: prev.mfgYear || history.mfgYear || "",
+          // Map previous total policy premium to current Prev Premium
+          premiumAmount: history.totalPolicyPremium || history.premiumAmount || prev.premiumAmount || "",
+        }));
+      }
+    } catch (err) {
+      if (err.response?.status !== 404) {
+        console.error("Error fetching vehicle history:", err);
+      }
+    }
+  };
+
+  // Auto-calculate Total Policy Premium
+  useEffect(() => {
+    const od = Number(formData.totalOdPremium) || 0;
+    const liab = Number(formData.liabilityPremium) || 0;
+    const gst = Number(formData.totalGst) || 0;
+    const calculatedTotal = od + liab + gst;
+    
+    // Only update if it's different and if there is actual data entered for the components
+    if (formData.totalPolicyPremium !== calculatedTotal && (od > 0 || liab > 0 || gst > 0)) {
+        setFormData(prev => ({ ...prev, totalPolicyPremium: calculatedTotal }));
+    }
+  }, [formData.totalOdPremium, formData.liabilityPremium, formData.totalGst, formData.totalPolicyPremium]);
 
   if (loading) {
     return (
@@ -200,7 +257,15 @@ function FleetInsuranceForm({ proposal, isView, onSaved, onCancel }) {
             <TextField label="Sr. No." type="number" value={formData.srNo} onChange={(e) => handleChange("srNo", e.target.value)} fullWidth size="small" />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <TextField label="Registration No. *" value={formData.registrationNo} onChange={(e) => handleChange("registrationNo", e.target.value)} fullWidth size="small" required />
+            <TextField 
+              label="Registration No. *" 
+              value={formData.registrationNo} 
+              onChange={(e) => handleChange("registrationNo", e.target.value)} 
+              onBlur={handleRegistrationBlur}
+              fullWidth 
+              size="small" 
+              required 
+            />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <TextField label="Registration Date" type="date" InputLabelProps={{ shrink: true }} value={formatDateValue(formData.registrationDate)} onChange={(e) => handleChange("registrationDate", e.target.value)} fullWidth size="small" />
@@ -285,7 +350,7 @@ function FleetInsuranceForm({ proposal, isView, onSaved, onCancel }) {
           </Grid>
 
           <Grid item xs={12} sm={6} md={3}>
-            <TextField label="Premium Amount (₹)" type="number" value={formData.premiumAmount} onChange={(e) => handleChange("premiumAmount", e.target.value)} fullWidth size="small" />
+            <TextField label="Prev Premium (₹)" type="number" value={formData.premiumAmount} onChange={(e) => handleChange("premiumAmount", e.target.value)} fullWidth size="small" />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <TextField label="NCB (%)" type="number" value={formData.ncbPercentage} onChange={(e) => handleChange("ncbPercentage", e.target.value)} fullWidth size="small" />
@@ -348,7 +413,7 @@ function FleetInsuranceForm({ proposal, isView, onSaved, onCancel }) {
             <TextField label="Total GST (₹)" type="number" value={formData.totalGst} onChange={(e) => handleChange("totalGst", e.target.value)} fullWidth size="small" />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <TextField label="Total Policy Premium (₹)" type="number" value={formData.totalPolicyPremium} onChange={(e) => handleChange("totalPolicyPremium", e.target.value)} fullWidth size="small" />
+            <TextField label="Total Policy Premium (₹)" type="number" value={formData.totalPolicyPremium || ((Number(formData.totalOdPremium) || 0) + (Number(formData.liabilityPremium) || 0) + (Number(formData.totalGst) || 0))} onChange={(e) => handleChange("totalPolicyPremium", e.target.value)} fullWidth size="small" />
           </Grid>
         </Grid>
       </Paper>
@@ -390,7 +455,7 @@ function FleetInsuranceForm({ proposal, isView, onSaved, onCancel }) {
                     <TextField type="number" value={q.liabilityPremium} onChange={(e) => handleQuotationChange(idx, "liabilityPremium", e.target.value)} size="small" />
                   </TableCell>
                   <TableCell>
-                    <TextField type="number" value={q.totalPremium} onChange={(e) => handleQuotationChange(idx, "totalPremium", e.target.value)} size="small" />
+                    <TextField type="number" value={q.totalPremium || ((Number(q.odPremium) || 0) + (Number(q.liabilityPremium) || 0))} onChange={(e) => handleQuotationChange(idx, "totalPremium", e.target.value)} size="small" />
                   </TableCell>
                   <TableCell align="center">
                     {!isView && (

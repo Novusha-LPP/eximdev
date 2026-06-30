@@ -65,6 +65,29 @@ router.get("/fleet-insurance-sop/:id", authMiddleware, async (req, res) => {
   }
 });
 
+// GET historical record by Registration No (most recent one)
+router.get("/fleet-insurance-sop/history/:registrationNo", authMiddleware, async (req, res) => {
+  try {
+    const { registrationNo } = req.params;
+    if (!registrationNo) {
+      return res.status(400).json({ message: "Registration number required" });
+    }
+
+    const record = await FleetInsuranceSopModel.findOne({ 
+      registrationNo: new RegExp(`^${registrationNo}$`, "i") 
+    }).sort({ createdAt: -1 });
+
+    if (!record) {
+      return res.status(404).json({ message: "No history found for this vehicle" });
+    }
+
+    res.status(200).json(record);
+  } catch (error) {
+    console.error("Error fetching vehicle history:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 // CREATE new record
 router.post("/fleet-insurance-sop", authMiddleware, async (req, res) => {
   try {

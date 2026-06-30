@@ -1,108 +1,87 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import { dirname, join } from "path";
+import { fileURLToPath } from "url";
 import FleetInsuranceSopModel from "../model/accounts/fleetInsuranceSop.mjs";
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+dotenv.config({ path: join(__dirname, "../.env") });
 
-const MONGODB_URI = process.env.DEV_MONGODB_URI || "mongodb://localhost:27017/eximdev";
-
-const makes = ["Tata", "Ashok Leyland", "Mahindra", "Eicher", "BharatBenz"];
-const types = ["Truck", "Trailer", "Tanker", "LCV", "HCV"];
-const sizes = ["20 FT", "40 FT", "32 FT"];
-const insurers = ["ICICI Lombard", "HDFC ERGO", "Tata AIG", "Bajaj Allianz", "New India Assurance", "SBI general Insurance"];
-
-const generateRandomDate = (start, end) => {
-  return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
-};
+const MONGODB_URI = process.env.DEV_MONGODB_URI || "mongodb://localhost:27017/exim";
 
 const seedData = async () => {
   try {
-    await mongoose.connect(MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
-    console.log("Connected to MongoDB...");
+    await mongoose.connect(MONGODB_URI);
+    console.log("Connected to MongoDB for seeding...");
 
-    // Clear existing dummy data if any, or just add new
+    // Clean existing data
     await FleetInsuranceSopModel.deleteMany({});
+    console.log("Cleaned existing Fleet Insurance data.");
 
-    const dummyRecords = [];
-    const now = new Date();
-    const threeMonthsAgo = new Date();
-    threeMonthsAgo.setMonth(now.getMonth() - 3);
+    // Create a historical record for MH01AB1234 (created 1 year ago)
+    const historyDate = new Date();
+    historyDate.setFullYear(historyDate.getFullYear() - 1);
 
-    for (let i = 1; i <= 100; i++) {
-      const createdDate = generateRandomDate(threeMonthsAgo, now);
-      
-      const makeModel = makes[Math.floor(Math.random() * makes.length)];
-      const modelType = types[Math.floor(Math.random() * types.length)];
-      const size = sizes[Math.floor(Math.random() * sizes.length)];
-      
-      const registrationDate = new Date(createdDate.getTime() - Math.floor(Math.random() * 5 * 365 * 24 * 60 * 60 * 1000));
-      const policyFromDate = new Date(createdDate.getTime() - 365 * 24 * 60 * 60 * 1000);
-      const policyToDate = new Date(createdDate.getTime() - 1 * 24 * 60 * 60 * 1000);
+    await FleetInsuranceSopModel.create({
+      registrationNo: "MH01AB1234",
+      owner: "Acme Logistics",
+      makeModel: "Tata Prima",
+      insuranceCompany: "HDFC Ergo",
+      policyNo: "POL-123456789",
+      premiumAmount: 45000,
+      totalPolicyPremium: 50000,
+      premiumQuote: 50000,
+      renewed: "YES",
+      createdAt: historyDate
+    });
 
-      const newExpiryDate = new Date(createdDate.getTime() + 365 * 24 * 60 * 60 * 1000);
+    // Create a historical record for DL01XY9876 (created 1 year ago)
+    await FleetInsuranceSopModel.create({
+      registrationNo: "DL01XY9876",
+      owner: "Global Transporters",
+      makeModel: "Ashok Leyland",
+      insuranceCompany: "ICICI Lombard",
+      policyNo: "POL-987654321",
+      premiumAmount: 60000,
+      totalPolicyPremium: 62000,
+      premiumQuote: 62000,
+      renewed: "YES",
+      createdAt: historyDate
+    });
 
-      const oldIdv = Math.floor(500000 + Math.random() * 2500000);
-      const newIdv = oldIdv - (oldIdv * 0.1); // 10% dep
-      
-      const isRenewed = Math.random() > 0.3 ? "YES" : "NO";
+    // Create a current record for MH01AB1234 (current month/year) showing an INCREASE (should be red)
+    await FleetInsuranceSopModel.create({
+      registrationNo: "MH01AB1234",
+      owner: "Acme Logistics",
+      makeModel: "Tata Prima",
+      insuranceCompany: "HDFC Ergo",
+      policyNo: "POL-123456789-R",
+      premiumAmount: 50000,        // from previous totalPolicyPremium
+      totalPolicyPremium: 58000,
+      premiumQuote: 58000,         // > 50000, so should appear RED
+      renewed: "YES",
+      createdAt: new Date()
+    });
 
-      const record = {
-        srNo: i,
-        registrationNo: `MH-43-${String(Math.floor(1000 + Math.random() * 9000))}`,
-        registrationDate,
-        makeModel,
-        fromOwner: registrationDate,
-        toOwner: new Date(),
-        modelType,
-        size,
-        owner: "AlVision Transport Ltd",
-        policyFromDate,
-        policyToDate,
-        insuranceCompany: insurers[Math.floor(Math.random() * insurers.length)],
-        policyNo: `POL-${Math.floor(100000 + Math.random() * 900000)}`,
-        gvw: Math.floor(5000 + Math.random() * 20000),
-        idv: oldIdv,
-        premiumAmount: Math.floor(15000 + Math.random() * 30000),
-        remarks: "Dummy seed data",
-        ncbPercentage: Math.floor(Math.random() * 5) * 5,
-        premium: Math.floor(10000 + Math.random() * 20000),
-        thisYearIdv: oldIdv,
-        newIdv: newIdv,
-        newNcbPercentage: Math.floor(Math.random() * 5) * 5,
-        rsdTaken: 0,
-        imt23: 0,
-        zeroDepTowingCover: Math.random() > 0.5 ? "YES" : "NO",
-        premiumQuote: Math.floor(18000 + Math.random() * 25000),
-        renewed: isRenewed,
-        newExpiryDate: isRenewed === "YES" ? newExpiryDate : null,
-        renewedDate: isRenewed === "YES" ? createdDate : null,
-        createdAt: createdDate,
-        updatedAt: createdDate,
-      };
+    // Create a current record for DL01XY9876 (current month/year) showing a DECREASE (should be green)
+    await FleetInsuranceSopModel.create({
+      registrationNo: "DL01XY9876",
+      owner: "Global Transporters",
+      makeModel: "Ashok Leyland",
+      insuranceCompany: "ICICI Lombard",
+      policyNo: "POL-987654321-R",
+      premiumAmount: 62000,        // from previous totalPolicyPremium
+      totalPolicyPremium: 59000,
+      premiumQuote: 59000,         // < 62000, so should appear GREEN
+      renewed: "YES",
+      createdAt: new Date()
+    });
 
-      dummyRecords.push(record);
-    }
-
-    for (const record of dummyRecords) {
-      try {
-        await FleetInsuranceSopModel.create([record], { validateBeforeSave: false });
-        console.log(`Created ${record.registrationNo}`);
-      } catch (err) {
-        if (err.code === 11000) {
-          console.log(`Duplicate skipped: ${record.registrationNo}`);
-        } else {
-          console.error(`Error inserting ${record.registrationNo}:`, err.message);
-        }
-      }
-    }
-
-    console.log(`Successfully added ${dummyRecords.length} records!`);
+    console.log("Seeding completed successfully.");
     process.exit(0);
-  } catch (err) {
-    console.error("Failed to seed data", err);
+  } catch (error) {
+    console.error("Error seeding data:", error);
     process.exit(1);
   }
 };

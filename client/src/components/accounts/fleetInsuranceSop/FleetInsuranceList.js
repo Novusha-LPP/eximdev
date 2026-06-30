@@ -247,7 +247,12 @@ function FleetInsuranceList({ onEdit, onView, onCreate }) {
                         ? Number(row.totalPolicyPremium).toLocaleString("en-IN", { style: "currency", currency: "INR" })
                         : "-"}
                     </TableCell>
-                    <TableCell>
+                    <TableCell sx={{ 
+                      color: row.premiumQuote && row.premiumAmount 
+                        ? (Number(row.premiumQuote) > Number(row.premiumAmount) ? "red" : Number(row.premiumQuote) < Number(row.premiumAmount) ? "green" : "inherit")
+                        : "inherit",
+                      fontWeight: row.premiumQuote && row.premiumAmount && Number(row.premiumQuote) !== Number(row.premiumAmount) ? "bold" : "normal"
+                    }}>
                       {row.premiumQuote 
                         ? Number(row.premiumQuote).toLocaleString("en-IN", { style: "currency", currency: "INR" })
                         : "-"}

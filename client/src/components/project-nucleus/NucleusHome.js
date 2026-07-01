@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { format, startOfWeek, endOfWeek } from 'date-fns';
+import { BranchContext } from '../../contexts/BranchContext';
 import './NucleusHome.css';
 
 // Import refactored report components
@@ -23,6 +24,7 @@ import ExportPulseReport from './reports/ExportPulseReport';
 import ImportPendingSummaryReport from './reports/ImportPendingSummaryReport';
 
 const NucleusHome = () => {
+    const { selectedCategory, selectedBranchGroup } = useContext(BranchContext);
     // Categories Configuration
     const reportCategories = [
         {
@@ -147,21 +149,7 @@ const NucleusHome = () => {
         fetchReports();
     }, []);
 
-    // Force sensible default date filter type for transport/elock reports
-    useEffect(() => {
-        if (['fleet_utilization', 'elock_utilization', 'elock_billing', 'transport_accounts'].includes(activeReport)) {
-            setFilterType('day');
-            setSelectedDay(format(new Date(), 'yyyy-MM-dd'));
-        } else {
-            if (filterType === 'day') {
-                setFilterType('month');
-            } else if (activeReport === 'import_pending_summary') {
-                setFilterType('all');
-                setSelectedDay(format(new Date(), 'yyyy-MM-dd'));
-            }
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeReport]);
+
 
     const renderActiveReport = () => {
         if (loading && ['fine', 'penalty'].includes(activeReport)) {
@@ -315,6 +303,8 @@ const NucleusHome = () => {
                         selectedQuarter={selectedQuarter}
                         dateRange={dateRange}
                         selectedDay={selectedDay}
+                        category={selectedCategory}
+                        branchId={selectedBranchGroup === 'all' ? '' : selectedBranchGroup}
                     />
                 );
             default:
@@ -385,7 +375,17 @@ const NucleusHome = () => {
                                             <div
                                                 key={report.id}
                                                 className={`report-item ${activeReport === report.id ? 'active' : ''}`}
-                                                onClick={() => setActiveReport(report.id)}
+                                                onClick={() => {
+                                                    setActiveReport(report.id);
+                                                    if (['fleet_utilization', 'elock_utilization', 'elock_billing', 'transport_accounts'].includes(report.id)) {
+                                                        setFilterType('day');
+                                                        setSelectedDay(format(new Date(), 'yyyy-MM-dd'));
+                                                    } else {
+                                                        if (filterType === 'day') {
+                                                            setFilterType('month');
+                                                        }
+                                                    }
+                                                }}
                                             >
                                                 {report.label}
                                             </div>

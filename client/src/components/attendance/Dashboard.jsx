@@ -717,7 +717,7 @@ export default function Dashboard() {
                           </div>
                         </div>
                       </div>
-                      {req._kind !== 'reg' && (
+                      {req._kind !== 'reg' && req.canAct && (
                         <div className="approval-actions" onClick={e => e.stopPropagation()}>
                           <button
                             className="act approve"

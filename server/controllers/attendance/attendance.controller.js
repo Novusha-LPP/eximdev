@@ -24,6 +24,7 @@ import { WorkHoursCalculator } from '../../services/attendance/WorkHoursCalculat
 import { AttendanceStatusResolver } from '../../services/attendance/AttendanceStatusResolver.js';
 import { ALLOWED_USERNAMES } from '../../middleware/requireAllowedAdmin.mjs';
 import { isRestrictedAllowedAdmin, getRestrictedEmployeeIds } from '../../utils/attendance/allowedAdminRestriction.mjs';
+import { canActorActOnLeave } from './HOD.controller.js';
 
 // --- HELPERS ---
 const resolveCompanyId = (req) => {
@@ -392,6 +393,7 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
     let actualHalfDay = 0;
     let actualMissedPunch = 0;
     let actualTotalHours = 0;
+    let actualDaysWithHours = 0;
 
     const compactHistory = [];
     let curr = moment(startDate).tz('Asia/Kolkata').startOf('day');
@@ -435,6 +437,15 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
             if (rec.is_early_in) actualEarlyIn++;
             if (rec.is_early_exit) actualEarlyOut++;
             actualTotalHours += rec.total_work_hours || 0;
+
+            if (rec.first_in && rec.last_out) {
+                const diff = moment(rec.last_out).diff(moment(rec.first_in), 'hours', true);
+                if (diff >= 0 && diff < 24) {
+                    const statusLower = String(hStatus || '').toLowerCase();
+                    const isHalf = statusLower === 'half_day' || statusLower === 'leave';
+                    actualDaysWithHours += isHalf ? 0.5 : 1;
+                }
+            }
         } else {
             const { weekOffPolicy, holidayPolicy } = await getPoliciesForYear(curr.year());
             const dayDate = curr.toDate();
@@ -465,7 +476,7 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
         curr.add(1, 'day');
     }
 
-    const avgHoursValue = (actualPresent + actualHalfDay) > 0 ? (actualTotalHours / (actualPresent + actualHalfDay)) : 0;
+    const avgHoursValue = actualDaysWithHours > 0 ? (actualTotalHours / actualDaysWithHours) : 0;
     const avgHoursH = Math.floor(avgHoursValue);
     const avgHoursM = Math.floor((avgHoursValue - avgHoursH) * 60);
 
@@ -489,7 +500,7 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
         missedPunch: actualMissedPunch,
         avgHours: `${avgHoursH}h ${avgHoursM}m`,
         raw_total_hours: actualTotalHours,
-        raw_total_present_days: actualPresent + actualHalfDay,
+        raw_total_present_days: actualDaysWithHours,
         history: compactHistory,
         weekoff_policy_id: firstPolicyBucket.weekOffPolicy?._id || null,
         weekoff_policy_name: firstPolicyBucket.weekOffPolicy?.policy_name || null,
@@ -1783,7 +1794,8 @@ export const getAdminDashboardData = async (req, res) => {
             return true;
         });
 
-        const pendingLeaves = filteredPendingLeaves.map(leave => {
+        const pendingLeaves = await Promise.all(filteredPendingLeaves.map(async leave => {
+            const canAct = await canActorActOnLeave(leave, req.user);
             return {
                 id: leave._id,
                 employeeName: leave.employee_id.first_name ? `${leave.employee_id.first_name} ${leave.employee_id.last_name || ''}`.trim() : leave.employee_id.username,
@@ -1797,9 +1809,10 @@ export const getAdminDashboardData = async (req, res) => {
                 reason: leave.reason,
                 approvalStage: leave.approval_stage,
                 appliedOn: leave.createdAt,
-                createdAt: leave.createdAt
+                createdAt: leave.createdAt,
+                canAct
             };
-        });
+        }));
 
         // 5. Pending Regularization Requests for Admin
         const regularizationQuery = {

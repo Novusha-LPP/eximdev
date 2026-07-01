@@ -24,6 +24,7 @@ router.post('/regularization', attendanceAuthBridge, attendanceCtrl.requestRegul
 router.post('/regularization/cancel/:id', attendanceAuthBridge, attendanceCtrl.cancelRegularization);
 router.post('/regularization/approve/:id', attendanceAuthBridge, attendanceCtrl.approveRegularization);
 router.get('/correction-notifications/count', attendanceAuthBridge, attendanceCtrl.getPendingCorrectionCount);
+router.get('/pending-leaves/count', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), hodCtrl.getPendingLeavesCount);
 
 // HOD / Manager Routes
 router.post('/calculate-daily', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.calculateDailyAttendance);

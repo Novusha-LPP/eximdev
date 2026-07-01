@@ -95,6 +95,7 @@ const AttendanceLayout = () => {
     const [punchStatus, setPunchStatus] = useState(null);
     const [punching, setPunching] = useState(false);
     const [pendingCorrectionCount, setPendingCorrectionCount] = useState(0);
+    const [pendingLeavesCount, setPendingLeavesCount] = useState(0);
 
     // Provide a fallback in case user is not loaded yet
     const role = user?.role || 'EMPLOYEE';
@@ -153,15 +154,41 @@ const AttendanceLayout = () => {
         } catch { /* silently fail */ }
     }, []);
 
+    const fetchPendingLeavesCount = useCallback(async () => {
+        try {
+            const res = await attendanceAPI.getPendingLeavesCount();
+            if (res && typeof res.count === 'number') {
+                setPendingLeavesCount(res.count);
+            }
+        } catch { /* silently fail */ }
+    }, []);
+
     useEffect(() => { fetchPunchStatus(); }, [fetchPunchStatus]);
 
     useEffect(() => {
         if (user) {
             fetchPendingCorrectionCount();
-            const interval = setInterval(fetchPendingCorrectionCount, 5 * 60 * 1000);
+            fetchPendingLeavesCount();
+            const interval = setInterval(() => {
+                fetchPendingCorrectionCount();
+                fetchPendingLeavesCount();
+            }, 5 * 60 * 1000);
             return () => clearInterval(interval);
         }
-    }, [user, fetchPendingCorrectionCount]);
+    }, [user, fetchPendingCorrectionCount, fetchPendingLeavesCount]);
+
+    useEffect(() => {
+        const handler = () => {
+            fetchPendingCorrectionCount();
+            fetchPendingLeavesCount();
+        };
+        window.addEventListener('attendance-updated', handler);
+        window.addEventListener('leave-balance-updated', handler);
+        return () => {
+            window.removeEventListener('attendance-updated', handler);
+            window.removeEventListener('leave-balance-updated', handler);
+        };
+    }, [fetchPendingCorrectionCount, fetchPendingLeavesCount]);
 
     const handleQuickPunch = async () => {
         const isIn = punchStatus?.isInSession ?? (punchStatus?.first_in && !punchStatus?.last_out);
@@ -241,6 +268,15 @@ const AttendanceLayout = () => {
                                     <span className="nav-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                         {item.label}
                                         {['Teams', 'Team Attendance'].includes(item.label) && pendingCorrectionCount > 0 && (
+                                            <span style={{
+                                                width: '6px',
+                                                height: '6px',
+                                                backgroundColor: '#dc2626',
+                                                borderRadius: '50%',
+                                                display: 'inline-block'
+                                            }} />
+                                        )}
+                                        {item.label === 'Approvals' && pendingLeavesCount > 0 && (
                                             <span style={{
                                                 width: '6px',
                                                 height: '6px',

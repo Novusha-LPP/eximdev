@@ -415,9 +415,19 @@ const LeaveApproval = () => {
     (r.leaveType || '').toLowerCase().includes(approvalsSearch.toLowerCase())
   ), [requests, approvalsSearch]);
 
+  const sortedRequests = useMemo(() => {
+    return [...filteredRequests].sort((a, b) => {
+      if (a.canAct && !b.canAct) return -1;
+      if (!a.canAct && b.canAct) return 1;
+      const dateA = new Date(a.appliedOn || a.createdAt || 0);
+      const dateB = new Date(b.appliedOn || b.createdAt || 0);
+      return dateB - dateA;
+    });
+  }, [filteredRequests]);
+
   const groupedRequests = useMemo(() => {
-    if (groupBy === 'none') return { 'All Requests': filteredRequests };
-    const grouped = filteredRequests.reduce((acc, req) => {
+    if (groupBy === 'none') return { 'All Requests': sortedRequests };
+    const grouped = sortedRequests.reduce((acc, req) => {
       const key = groupBy === 'organization' ? (req.organizationName || 'General') : (req.teamName || 'No Team');
       if (!acc[key]) acc[key] = [];
       acc[key].push(req);
@@ -427,7 +437,7 @@ const LeaveApproval = () => {
       acc[key] = grouped[key];
       return acc;
     }, {});
-  }, [filteredRequests, groupBy]);
+  }, [sortedRequests, groupBy]);
 
   const groupedHistory = useMemo(() => {
     if (groupBy === 'none') return { 'All History': history.filter(h => (h.employeeName || '').toLowerCase().includes(historySearch.toLowerCase()) || (h.leaveType || '').toLowerCase().includes(historySearch.toLowerCase())) };

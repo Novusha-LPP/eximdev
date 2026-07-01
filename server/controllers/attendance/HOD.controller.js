@@ -2198,3 +2198,46 @@ export const getAdminLeaveRequests = async (req, res) => {
 export const deleteLeaveApplication = async (req, res) => {
     return res.status(403).json({ message: 'Unauthorized: The Delete History feature has been disabled.' });
 };
+
+export const getPendingLeavesCount = async (req, res) => {
+    try {
+        const actor = req.user;
+        if (!actor) {
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
+
+        const actorPendingQuery = getActorPendingLeaveQuery(actor);
+        const leaves = await LeaveApplication.find(actorPendingQuery)
+            .populate('employee_id', 'first_name last_name username role hod_id')
+            .populate('current_approver_id', 'first_name last_name username role');
+
+        let count = 0;
+        const actorUsername = String(actor.username || '').toLowerCase();
+        const actorIdStr = String(actor._id);
+        const actorRoleNorm = String(actor.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+        const isAdmin = actorRoleNorm === 'ADMIN';
+
+        for (const leave of leaves) {
+            if (!leave.employee_id) continue;
+            // Apply role & username filters
+            if (String(leave.employee_id.role || '').trim().toLowerCase() === 'driver') continue;
+            if (process.env.NODE_ENV === 'production' && leave.employee_id.username === 'dev_master') continue;
+            
+            // Apply self-exclusion for non-allowed admins
+            if (isAdmin && !ALLOWED_USERNAMES.has(actorUsername)) {
+                const requesterId = leave.employee_id._id ? leave.employee_id._id.toString() : leave.employee_id.toString();
+                if (requesterId === actorIdStr) continue;
+            }
+
+            if (await canActorActOnLeave(leave, actor)) {
+                count++;
+            }
+        }
+
+        res.json({ success: true, count });
+    } catch (err) {
+        console.error('Error in getPendingLeavesCount:', err);
+        res.status(500).json({ message: 'Server error' });
+    }
+};
+

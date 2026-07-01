@@ -274,13 +274,26 @@ const recoverActivePoliciesFromBalances = async ({ targetId, currentYear, assign
         ...(companyId ? { company_id: companyId } : {})
     });
 
+    // Check if we are missing any leave types that are in the user's balances
+    const balanceLeaveTypes = [...new Set(balances
+        .map((b) => String(b.leave_type || '').toLowerCase().trim())
+        .filter(Boolean))];
+
+    const recoveredLeaveTypes = new Set(recoveredPolicies.map(p => String(p.leave_type || '').toLowerCase().trim()));
+    const missingLeaveTypes = balanceLeaveTypes.filter(type => !recoveredLeaveTypes.has(type));
+
+    if (missingLeaveTypes.length > 0) {
+        const additionalPolicies = await LeavePolicy.find({
+            status: 'active',
+            leave_type: { $in: missingLeaveTypes },
+            ...(companyId ? { company_id: companyId } : {})
+        });
+        recoveredPolicies = [...recoveredPolicies, ...additionalPolicies];
+    }
+
     if (recoveredPolicies.length > 0) {
         return recoveredPolicies;
     }
-
-    const balanceLeaveTypes = balances
-        .map((b) => String(b.leave_type || '').toLowerCase().trim())
-        .filter(Boolean);
 
     if (!balanceLeaveTypes.length) {
         return [];
@@ -288,7 +301,7 @@ const recoverActivePoliciesFromBalances = async ({ targetId, currentYear, assign
 
     recoveredPolicies = await LeavePolicy.find({
         status: 'active',
-        leave_type: { $in: [...new Set(balanceLeaveTypes)] },
+        leave_type: { $in: balanceLeaveTypes },
         ...(companyId ? { company_id: companyId } : {})
     });
 

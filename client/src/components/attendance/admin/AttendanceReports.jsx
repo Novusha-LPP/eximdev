@@ -203,6 +203,7 @@ const Skeleton = () => (
 // ── Daily Log Sub-Table ──────────────────────────────────
 const DailyLogTable = React.memo(({ history, shiftName }) => {
   const [showPopup, setShowPopup] = useState(false);
+  const [useHoursMinutes, setUseHoursMinutes] = useState(true);
   const sorted = useMemo(() =>
     [...(history || [])].sort((a, b) => new Date(a.date || a.attendance_date) - new Date(b.date || b.attendance_date)),
     [history]
@@ -236,11 +237,76 @@ const DailyLogTable = React.memo(({ history, shiftName }) => {
     );
   };
 
+  const formatHours = (val) => {
+    if (val === null || val === undefined) return '—';
+    if (!useHoursMinutes) {
+      return `${val.toFixed(1)}h`;
+    }
+    const h = Math.floor(val);
+    let m = Math.round((val - h) * 60);
+    let displayH = h;
+    if (m === 60) {
+      displayH += 1;
+      m = 0;
+    }
+    return `${displayH}h ${m}m`;
+  };
+
+  const getHoursMinutesText = (val) => {
+    const h = Math.floor(val);
+    let m = Math.round((val - h) * 60);
+    let displayH = h;
+    if (m === 60) {
+      displayH += 1;
+      m = 0;
+    }
+    const parts = [];
+    if (displayH > 0) parts.push(`${displayH} hour${displayH === 1 ? '' : 's'}`);
+    if (m > 0 || displayH === 0) parts.push(`${m} minute${m === 1 ? '' : 's'}`);
+    return parts.join(' ');
+  };
+
+  const getHoursMinutesCompact = (val) => {
+    const h = Math.floor(val);
+    let m = Math.round((val - h) * 60);
+    let displayH = h;
+    if (m === 60) {
+      displayH += 1;
+      m = 0;
+    }
+    return `${displayH}h ${m}m`;
+  };
+
   return (
     <table className="atr-log-table">
       <thead>
         <tr>
-          <th>DATE</th><th>DAY</th><th style={{ textAlign: 'left' }}>SHIFT</th><th>STATUS</th><th>IN TIME</th><th>OUT TIME</th><th>HOURS</th>
+          <th>DATE</th>
+          <th>DAY</th>
+          <th style={{ textAlign: 'left' }}>SHIFT</th>
+          <th>STATUS</th>
+          <th>IN TIME</th>
+          <th>OUT TIME</th>
+          <th>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+              <span>HOURS</span>
+              <button 
+                onClick={() => setUseHoursMinutes(!useHoursMinutes)}
+                style={{
+                  background: '#f1f5f9',
+                  border: '1px solid #cbd5e1',
+                  color: '#475569',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '9px',
+                  padding: '2px 4px',
+                  fontWeight: '500'
+                }}
+              >
+                {useHoursMinutes ? 'Decimal' : 'H:M'}
+              </button>
+            </div>
+          </th>
         </tr>
       </thead>
       <tbody>
@@ -257,7 +323,8 @@ const DailyLogTable = React.memo(({ history, shiftName }) => {
             if (diff >= 0 && diff < 24) { 
               wh = diff; 
               totalHours += diff; 
-              const isHalf = String(log.status || '').toLowerCase() === 'half_day';
+              const statusLower = String(log.status || '').toLowerCase();
+              const isHalf = statusLower === 'half_day' || statusLower === 'leave';
               daysWithHours += isHalf ? 0.5 : 1;
             }
           }
@@ -269,7 +336,7 @@ const DailyLogTable = React.memo(({ history, shiftName }) => {
               <td>{renderStatusBadge(log.status)}</td>
               <td>{fdt(log.first_in)}</td>
               <td>{fdt(log.last_out)}</td>
-              <td>{wh !== null ? `${wh.toFixed(1)}h` : '—'}</td>
+              <td>{wh !== null ? formatHours(wh) : '—'}</td>
             </tr>
           );
         })}
@@ -279,7 +346,7 @@ const DailyLogTable = React.memo(({ history, shiftName }) => {
             <>
               <tr className="atr-log-total">
                 <td colSpan={6} style={{ textAlign: 'right', fontWeight: 700 }}>Total Worked Hours</td>
-                <td style={{ fontWeight: 700 }}>{totalHours.toFixed(1)}h</td>
+                <td style={{ fontWeight: 700 }}>{formatHours(totalHours)}</td>
               </tr>
               <tr className="atr-log-total" style={{ borderTop: 'none' }}>
                 <td colSpan={6} style={{ textAlign: 'right', fontWeight: 700, paddingTop: '4px' }}>
@@ -331,10 +398,10 @@ const DailyLogTable = React.memo(({ history, shiftName }) => {
                           <strong>Formula:</strong> Total Hours / Days with logged hours
                         </div>
                         <div style={{ borderTop: '1px solid #334155', paddingTop: '8px', color: '#94a3b8', fontFamily: 'monospace' }}>
-                          • Total Worked: <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>{totalHours.toFixed(1)} hrs</span><br/>
+                          • Total Worked: <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>{getHoursMinutesText(totalHours)}</span><br/>
                           • Logged Days: <span style={{ color: '#3b82f6', fontWeight: 'bold' }}>{daysWithHours} days</span><br/>
-                          • Calculation: {totalHours.toFixed(1)} / {daysWithHours}<br/>
-                          • Result: <span style={{ color: '#10b981', fontWeight: 'bold' }}>{avgHours.toFixed(1)} hrs/day</span>
+                          • Calculation: {getHoursMinutesCompact(totalHours)} ÷ {daysWithHours}<br/>
+                          • Result: <span style={{ color: '#10b981', fontWeight: 'bold' }}>{getHoursMinutesText(avgHours)}/day</span>
                         </div>
                         <div 
                           style={{
@@ -352,7 +419,9 @@ const DailyLogTable = React.memo(({ history, shiftName }) => {
                     )}
                   </span>
                 </td>
-                <td style={{ fontWeight: 700, paddingTop: '4px' }}>{avgHours.toFixed(1)}h/day</td>
+                <td style={{ fontWeight: 700, paddingTop: '4px' }}>
+                  {useHoursMinutes ? `${getHoursMinutesCompact(avgHours)}/day` : `${avgHours.toFixed(1)}h/day`}
+                </td>
               </tr>
             </>
           );

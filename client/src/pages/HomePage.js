@@ -254,37 +254,36 @@ function HomePageContent() {
     }
   }, [user]);
 
-  if (isChangingBranch) {
-    return (
-      <Box sx={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: '100vw',
-        height: '100vh',
-        backgroundColor: 'rgba(249, 250, 251, 0.7)',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 9999,
-        backdropFilter: 'blur(8px)'
-      }}>
-        <CircularProgress size={60} thickness={4} sx={{ color: '#1a237e', mb: 2 }} />
-        <Typography variant="h5" sx={{ color: '#1a237e', fontWeight: 600, letterSpacing: '0.5px' }}>
-          Switching Branch...
-        </Typography>
-        <Typography variant="body2" sx={{ color: '#666', mt: 1 }}>
-          Please wait while we prepare your workspace
-        </Typography>
-      </Box>
-    );
-  }
+
 
   return (
     <TabValueContext.Provider value={{ tabValue, setTabValue }}>
       <SearchQueryProvider>
         <Box sx={{ display: "flex" }}>
+        {isChangingBranch && (
+          <Box sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            backgroundColor: 'rgba(249, 250, 251, 0.7)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 9999,
+            backdropFilter: 'blur(8px)'
+          }}>
+            <CircularProgress size={60} thickness={4} sx={{ color: '#1a237e', mb: 2 }} />
+            <Typography variant="h5" sx={{ color: '#1a237e', fontWeight: 600, letterSpacing: '0.5px' }}>
+              Switching Branch...
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#666', mt: 1 }}>
+              Please wait while we prepare your workspace
+            </Typography>
+          </Box>
+        )}
           <CssBaseline />
           <Snackbar
             open={Boolean(user?.passwordExpired && !passwordAlertDismissed)}

@@ -16,6 +16,7 @@ const ImportPendingSummaryReport = ({
     selectedQuarter,
     dateRange,
     selectedDay,
+    category,
 }) => {
     const navigate = useNavigate();
     const [rawQueryData, setRawQueryData] = useState([]);
@@ -267,19 +268,11 @@ const ImportPendingSummaryReport = ({
         return branches;
     }, [tableRows]);
 
-    // Auto expand branches/ports if there are only a few items
+    // Auto expand branches/ports disabled - defaults to closed
     useEffect(() => {
         if (Object.keys(groupedData).length > 0) {
-            const initialBranches = {};
-            const initialPorts = {};
-            Object.values(groupedData).forEach(b => {
-                initialBranches[b.name] = true; // Auto expand all branches initially
-                Object.values(b.ports).forEach(p => {
-                    initialPorts[`${b.name}-${p.name}`] = true; // Auto expand ports
-                });
-            });
-            setExpandedBranches(initialBranches);
-            setExpandedPorts(initialPorts);
+            setExpandedBranches({});
+            setExpandedPorts({});
         }
     }, [groupedData]);
 
@@ -308,42 +301,31 @@ const ImportPendingSummaryReport = ({
             }}>
                 {/* Total Pending Jobs */}
                 <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)', borderLeft: '4px solid #3b82f6' }}>
-                    <h3 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Pending Jobs</h3>
+                    <h3 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Job Count</h3>
                     <div style={{ fontSize: '28px', fontWeight: 700, color: '#0f172a' }}>{totalPending}</div>
                 </div>
 
-                {/* Highest Branch Load */}
-                <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)', borderLeft: '4px solid #10b981' }}>
-                    <h3 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Highest Branch Load</h3>
-                    <div style={{ fontSize: '24px', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', height: '34px' }}>{topBranch}</div>
-                </div>
-
-
-
-                {/* Top Pending Stage */}
-                <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)', borderLeft: '4px solid #8b5cf6' }}>
-                    <h3 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Top Pending Stage</h3>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
-                        <div style={{ fontSize: '24px', fontWeight: 700, color: '#0f172a', lineHeight: '1.2' }}>{topCategory}</div>
-                        <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 500 }}>({topCategoryCount} jobs)</div>
-                    </div>
-                </div>
-
                 {/* Jobs Pending Billing (Accounts) - SEA */}
-                <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)', borderLeft: '4px solid #f59e0b' }}>
-                    <h3 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ready for Billing (SEA)</h3>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                        <div style={{ fontSize: '28px', fontWeight: 700, color: '#0f172a' }}>{readyForBillingSeaCount}</div>
+                {(!category || category.toLowerCase() === 'sea' || category.toLowerCase() === 'all') && (
+                    <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)', borderLeft: '4px solid #f59e0b' }}>
+                        <h3 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ready to Send to Billing (SEA)</h3>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                            <div style={{ fontSize: '28px', fontWeight: 700, color: '#0f172a' }}>{readyForBillingSeaCount}</div>
+                            <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>(Financial Year)</div>
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Jobs Pending Billing (Accounts) - AIR */}
-                <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)', borderLeft: '4px solid #06b6d4' }}>
-                    <h3 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ready for Billing (AIR)</h3>
-                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                        <div style={{ fontSize: '28px', fontWeight: 700, color: '#0f172a' }}>{readyForBillingAirCount}</div>
+                {(!category || category.toLowerCase() === 'air' || category.toLowerCase() === 'all') && (
+                    <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)', borderLeft: '4px solid #06b6d4' }}>
+                        <h3 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ready to Send to Billing (AIR)</h3>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                            <div style={{ fontSize: '28px', fontWeight: 700, color: '#0f172a' }}>{readyForBillingAirCount}</div>
+                            <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>(Financial Year)</div>
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
 
             {/* Main Tabs (Data vs Visuals) */}
@@ -384,49 +366,6 @@ const ImportPendingSummaryReport = ({
                 </button>
             </div>
 
-            {/* Interactive Filters (Only for Data View) */}
-            {mainTab === 'data' && (
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'flex-end',
-                    alignItems: 'center',
-                    marginBottom: '20px',
-                    background: '#f8fafc',
-                    padding: '12px 16px',
-                    borderRadius: '12px',
-                    border: '1px solid #e2e8f0'
-                }}>
-                    {/* View Mode Toggle */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>Table Format:</span>
-                        <div style={{ display: 'flex', background: '#e2e8f0', padding: '2px', borderRadius: '8px' }}>
-                            {[
-                                { value: 'grouped', label: '📁 Hierarchical' },
-                                { value: 'flat', label: '📄 Flat List' }
-                            ].map(opt => (
-                                <button
-                                    key={opt.value}
-                                    onClick={() => setViewMode(opt.value)}
-                                    style={{
-                                        padding: '6px 12px',
-                                        borderRadius: '6px',
-                                        border: 'none',
-                                        background: viewMode === opt.value ? '#fff' : 'transparent',
-                                        color: viewMode === opt.value ? '#0f172a' : '#64748b',
-                                        fontWeight: 600,
-                                        fontSize: '12px',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.2s',
-                                        boxShadow: viewMode === opt.value ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
-                                    }}
-                                >
-                                    {opt.label}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* ─── VISUALS VIEW ─────────────────────────────────────────── */}
             {mainTab === 'visuals' && (
@@ -459,21 +398,7 @@ const ImportPendingSummaryReport = ({
                             </div>
                         </div>
 
-                        {/* Top Employees Bar */}
-                        <div style={{ flex: '2 1 600px', background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                            <h3 style={{ marginTop: 0, color: '#1e293b', fontSize: '16px' }}>Top 10 Employees by Workload (Excl. Unassigned)</h3>
-                            <div style={{ height: '280px', width: '100%' }}>
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={topEmployeesData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                                        <XAxis dataKey="name" tick={{ fontSize: 12 }} interval={0} angle={-15} textAnchor="end" height={60} />
-                                        <YAxis />
-                                        <RechartsTooltip cursor={{ fill: '#f1f5f9' }} />
-                                        <Bar dataKey="count" fill="#8b5cf6" radius={[4, 4, 0, 0]} name="Pending Jobs" />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
+
                     </div>
 
                     {/* Branch vs Port Stacked Bar */}
@@ -501,14 +426,14 @@ const ImportPendingSummaryReport = ({
             {/* ─── DATA VIEW ────────────────────────────────────────────── */}
             {mainTab === 'data' && (
                 <div>
-                    {viewMode === 'grouped' ? (
-                        /* Hierarchical Collapsible Layout */
+                    
+
                         <div className="nucleus-table-wrapper" style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                             <table className="nucleus-table" style={{ margin: 0 }}>
                                 <thead style={{ background: '#f8fafc' }}>
                                     <tr>
                                         <th style={{ width: '60px' }}>S.No</th>
-                                        <th>Branch / Port / Employee</th>
+                                        <th>Branch / Port</th>
                                         <th style={{ textAlign: 'right', width: '220px' }}>Pending Jobs (Click to view list)</th>
                                     </tr>
                                 </thead>
@@ -550,7 +475,7 @@ const ImportPendingSummaryReport = ({
                                                                     boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
                                                                 }}
                                                             >
-                                                                {branch.count} 🔍
+                                                                {branch.count}
                                                             </span>
                                                         </td>
                                                     </tr>
@@ -567,11 +492,11 @@ const ImportPendingSummaryReport = ({
                                                                     <td></td>
                                                                     <td style={{ paddingLeft: '32px' }}>
                                                                         <div 
-                                                                            onClick={() => hasAssigned && togglePort(portKey)}
+                                                                            /* removed */
                                                                             style={{ cursor: hasAssigned ? 'pointer' : 'default', display: 'inline-flex', alignItems: 'center', gap: '8px', userSelect: 'none' }}
                                                                         >
                                                                             <span style={{ fontSize: '8px', color: '#64748b', width: '10px' }}>
-                                                                                {hasAssigned ? (isPortExpanded ? '▼' : '▶') : '•'}
+                                                                                '•'
                                                                             </span>
                                                                             <span className="handler-tag" style={{ background: '#fef3c7', color: '#b45309', fontWeight: 600, padding: '3px 8px', fontSize: '12px' }}>
                                                                                 ⚓ Port: {port.name}
@@ -596,42 +521,12 @@ const ImportPendingSummaryReport = ({
                                                                                 boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
                                                                             }}
                                                                         >
-                                                                            {port.count} 🔍
+                                                                            {port.count}
                                                                         </span>
                                                                     </td>
                                                                 </tr>
 
-                                                                {/* Employee Level Rows */}
-                                                                {isPortExpanded && hasAssigned && assignedEmployees.map((emp, empIdx) => (
-                                                                    <tr key={empIdx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                                                        <td></td>
-                                                                        <td style={{ paddingLeft: '64px', color: '#475569', fontWeight: 500, fontSize: '13px' }}>
-                                                                            👤 {emp.name}
-                                                                        </td>
-                                                                        <td style={{ textAlign: 'right' }}>
-                                                                            <span 
-                                                                                onClick={() => handleDrillDown(emp.name)}
-                                                                                title={`Click to view jobs assigned to ${emp.name}`}
-                                                                                style={{
-                                                                                    display: 'inline-flex',
-                                                                                    alignItems: 'center',
-                                                                                    gap: '4px',
-                                                                                    minWidth: '42px',
-                                                                                    padding: '2px 10px',
-                                                                                    borderRadius: '20px',
-                                                                                    fontSize: '11px',
-                                                                                    fontWeight: 600,
-                                                                                    background: 'rgba(0, 105, 92, 0.08)',
-                                                                                    color: '#00695c',
-                                                                                    cursor: 'pointer'
-                                                                                }}
-                                                                            >
-                                                                                {emp.count} 🔍
-                                                                            </span>
-                                                                        </td>
-                                                                    </tr>
-                                                                ))}
-                                                            </React.Fragment>
+                                                                </React.Fragment>
                                                         );
                                                     })}
                                                 </React.Fragment>
@@ -647,86 +542,9 @@ const ImportPendingSummaryReport = ({
                                 </tbody>
                             </table>
                         </div>
-                    ) : (
-                        /* Flat List Layout */
-                        <div className="nucleus-table-wrapper" style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                            <table className="nucleus-table" style={{ margin: 0 }}>
-                                <thead style={{ background: '#f8fafc' }}>
-                                    <tr>
-                                        <th style={{ width: '50px' }}>S.No</th>
-                                        <th onClick={() => handleSort('branch')} style={{ cursor: 'pointer' }}>
-                                            Branch{getSortIcon('branch')}
-                                        </th>
-                                        <th onClick={() => handleSort('port')} style={{ cursor: 'pointer' }}>
-                                            Port{getSortIcon('port')}
-                                        </th>
-                                        <th onClick={() => handleSort('employee')} style={{ cursor: 'pointer' }}>
-                                            Employee{getSortIcon('employee')}
-                                        </th>
-                                        <th onClick={() => handleSort('count')} style={{ cursor: 'pointer', textAlign: 'right' }}>
-                                            Pending Jobs (Click to view list){getSortIcon('count')}
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {tableRows.length > 0 ? (
-                                        tableRows.map((row, idx) => (
-                                            <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                                <td style={{ fontWeight: 500, color: '#64748b' }}>{idx + 1}</td>
-                                                <td>
-                                                    <span className="handler-tag" style={{ background: '#e0f2fe', color: '#0369a1', fontWeight: 600 }}>
-                                                        {row.branch || '—'}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <span className="handler-tag" style={{ background: '#fef3c7', color: '#b45309', fontWeight: 600 }}>
-                                                        {row.port || '—'}
-                                                    </span>
-                                                </td>
-                                                <td style={{ fontWeight: 500, color: '#334155' }}>{row.employee || '—'}</td>
-                                                <td style={{ textAlign: 'right' }}>
-                                                    <span 
-                                                        onClick={() => handleDrillDown(row.employee === 'Unassigned' ? row.port : row.employee)}
-                                                        title="Click to view list of these jobs"
-                                                        style={{
-                                                            display: 'inline-flex',
-                                                            alignItems: 'center',
-                                                            gap: '4px',
-                                                            minWidth: '48px',
-                                                            padding: '4px 12px',
-                                                            borderRadius: '20px',
-                                                            fontSize: '13px',
-                                                            fontWeight: 700,
-                                                            textAlign: 'center',
-                                                            background: 'rgba(0, 105, 92, 0.08)',
-                                                            color: '#00695c',
-                                                            cursor: 'pointer',
-                                                            transition: 'all 0.2s',
-                                                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                                                        }}
-                                                        onMouseEnter={(e) => e.target.style.background = 'rgba(0, 105, 92, 0.15)'}
-                                                        onMouseLeave={(e) => e.target.style.background = 'rgba(0, 105, 92, 0.08)'}
-                                                    >
-                                                        {row.count} 🔍
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    ) : (
-                                        <tr>
-                                            <td colSpan="5" style={{ textAlign: 'center', color: '#6b7280', padding: '40px' }}>
-                                                No pending jobs found for the selected period.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
+                    
                 </div>
             )}
         </div>
     );
-};
-
-export default ImportPendingSummaryReport;
+};export default ImportPendingSummaryReport;

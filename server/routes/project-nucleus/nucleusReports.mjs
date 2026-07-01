@@ -731,10 +731,29 @@ router.get("/pending-job-summaries", authMiddleware, applyUserBranchFilter, asyn
         const pendingData = result[0]?.pendingJobsData || [];
         const categoryData = result[0]?.categoryData || [];
 
+        // Calculate the financial year string to match Import Billing default filters
+        let financialYear;
+        if (year) {
+            const y = parseInt(year);
+            const m = month !== undefined && month !== '' ? parseInt(month) + 1 : new Date().getMonth() + 1;
+            const currentTwoDigits = String(y).slice(-2);
+            const prevTwoDigits = String((y - 1) % 100).padStart(2, "0");
+            const nextTwoDigits = String((y + 1) % 100).padStart(2, "0");
+            financialYear = m >= 4 ? `${currentTwoDigits}-${nextTwoDigits}` : `${prevTwoDigits}-${currentTwoDigits}`;
+        } else {
+            const currentYear = new Date().getFullYear();
+            const currentMonth = new Date().getMonth() + 1;
+            const prevTwoDigits = String((currentYear - 1) % 100).padStart(2, "0");
+            const currentTwoDigits = String(currentYear).slice(-2);
+            const nextTwoDigits = String((currentYear + 1) % 100).padStart(2, "0");
+            financialYear = currentMonth >= 4 ? `${currentTwoDigits}-${nextTwoDigits}` : `${prevTwoDigits}-${currentTwoDigits}`;
+        }
+
         // Fetch independent SEA and AIR counts matching the exact Import Billing logic
+        // We do NOT apply branchMatch here to match the exact behavior of the Import Billing dashboard (which currently ignores branch limits).
         const baseBillingQuery = {
-            ...branchMatch,
             $and: [
+                { year: financialYear },
                 { status: { $regex: "^pending$", $options: "i" } },
                 { bill_document_sent_to_accounts: { $exists: true, $nin: [null, ""] } },
                 {

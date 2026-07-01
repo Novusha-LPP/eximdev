@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { format, startOfWeek, endOfWeek } from 'date-fns';
+import { BranchContext } from '../../contexts/BranchContext';
 import './NucleusHome.css';
 
 // Import refactored report components
@@ -23,6 +24,7 @@ import ExportPulseReport from './reports/ExportPulseReport';
 import ImportPendingSummaryReport from './reports/ImportPendingSummaryReport';
 
 const NucleusHome = () => {
+    const { selectedCategory, selectedBranchGroup } = useContext(BranchContext);
     // Categories Configuration
     const reportCategories = [
         {
@@ -301,6 +303,8 @@ const NucleusHome = () => {
                         selectedQuarter={selectedQuarter}
                         dateRange={dateRange}
                         selectedDay={selectedDay}
+                        category={selectedCategory}
+                        branchId={selectedBranchGroup === 'all' ? '' : selectedBranchGroup}
                     />
                 );
             default:

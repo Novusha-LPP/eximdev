@@ -74,7 +74,7 @@ export const BranchProvider = ({ children }) => {
         
         setIsChangingBranch(true);
         setTimeout(() => {
-            window.location.reload();
+            setIsChangingBranch(false);
         }, 500);
     };
 
@@ -84,7 +84,7 @@ export const BranchProvider = ({ children }) => {
         
         setIsChangingBranch(true);
         setTimeout(() => {
-            window.location.reload();
+            setIsChangingBranch(false);
         }, 500);
     };
 

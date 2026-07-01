@@ -1536,6 +1536,39 @@ export const getRegularizations = async (req, res) => {
     }
 };
 
+const STAGE_2_APPROVER_USERNAME = 'shalini_arun';
+const FINAL_APPROVER_USERNAMES = new Set(['manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'uday_zope']);
+const LEAVE_STAGE = {
+    HOD: 'stage_1_hod',
+    SHALINI: 'stage_2_shalini',
+    FINAL: 'stage_3_final'
+};
+const PENDING_STATUSES = ['pending', 'pending_hod', 'pending_shalini', 'pending_final'];
+
+const getActorPendingLeaveQuery = (actor) => {
+    const actorId = actor._id?._id || actor._id;
+    const actorUsername = String(actor.username || '').toLowerCase();
+
+    if (actorUsername === STAGE_2_APPROVER_USERNAME) {
+        return {
+            approval_status: { $in: PENDING_STATUSES },
+            approval_stage: { $in: [LEAVE_STAGE.HOD, LEAVE_STAGE.SHALINI, LEAVE_STAGE.FINAL] }
+        };
+    }
+
+    if (FINAL_APPROVER_USERNAMES.has(actorUsername)) {
+        return {
+            approval_status: { $in: PENDING_STATUSES }
+        };
+    }
+
+    return {
+        approval_status: { $in: PENDING_STATUSES },
+        current_approver_id: actorId,
+        employee_id: { $ne: actorId }
+    };
+};
+
 export const getAdminDashboardData = async (req, res) => {
     try {
         const roleNorm = String(req.user?.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
@@ -1726,6 +1759,72 @@ export const getAdminDashboardData = async (req, res) => {
             module: log.module
         }));
 
+        // 4. Pending Leave Applications for Admin
+        const actorPendingQuery = getActorPendingLeaveQuery(req.user);
+        const dashboardPendingQuery = {
+            ...actorPendingQuery
+        };
+        if (companyId) {
+            dashboardPendingQuery.company_id = companyId;
+        }
+
+        const pendingLeavesRaw = await LeaveApplication.find(dashboardPendingQuery)
+            .populate('employee_id', 'first_name last_name username company_id role hod_id')
+            .populate('company_id', 'company_name')
+            .populate('current_approver_id', 'first_name last_name username role')
+            .populate('leave_policy_id', 'leave_type policy_name')
+            .sort({ createdAt: -1 })
+            .limit(100);
+
+        const filteredPendingLeaves = pendingLeavesRaw.filter(leave => {
+            if (!leave.employee_id) return false;
+            if (String(leave.employee_id.role || '').trim().toLowerCase() === 'driver') return false;
+            if (process.env.NODE_ENV === 'production' && leave.employee_id.username === 'dev_master') return false;
+            return true;
+        });
+
+        const pendingLeaves = filteredPendingLeaves.map(leave => {
+            return {
+                id: leave._id,
+                employeeName: leave.employee_id.first_name ? `${leave.employee_id.first_name} ${leave.employee_id.last_name || ''}`.trim() : leave.employee_id.username,
+                organizationName: leave.company_id?.company_name || leave.employee_id?.company_id?.company_name || null,
+                leaveType: leave.leave_policy_id?.leave_type || leave.leave_type || 'Unknown',
+                fromDate: leave.from_date,
+                toDate: leave.to_date,
+                totalDays: leave.total_days,
+                is_half_day: leave.is_half_day,
+                half_day_session: leave.half_day_session,
+                reason: leave.reason,
+                approvalStage: leave.approval_stage,
+                appliedOn: leave.createdAt,
+                createdAt: leave.createdAt
+            };
+        });
+
+        // 5. Pending Regularization Requests for Admin
+        const regularizationQuery = {
+            status: 'pending',
+            employee_id: { $in: empIdList }
+        };
+        if (companyId) regularizationQuery.company_id = companyId;
+
+        const pendingRegularizationRaw = await RegularizationRequest.find(regularizationQuery)
+            .populate('employee_id', 'first_name last_name username')
+            .sort({ createdAt: -1 })
+            .limit(10);
+
+        const pendingRegularization = pendingRegularizationRaw.map(reg => {
+            return {
+                id: reg._id,
+                employeeName: reg.employee_id.first_name ? `${reg.employee_id.first_name} ${reg.employee_id.last_name || ''}`.trim() : reg.employee_id.username,
+                employeeUsername: reg.employee_id.username,
+                employeeId: reg.employee_id._id,
+                date: reg.attendance_date,
+                type: reg.regularization_type,
+                reason: reg.reason
+            };
+        });
+
         res.json({
             success: true,
             data: {
@@ -1739,6 +1838,8 @@ export const getAdminDashboardData = async (req, res) => {
                 },
                 dailySummary,
                 activity,
+                pendingLeaves,
+                pendingRegularization,
                 timestamp: new Date()
             }
         });
@@ -1748,7 +1849,6 @@ export const getAdminDashboardData = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 };
-
 
 export const lockMonthAttendance = async (req, res) => {
     try {

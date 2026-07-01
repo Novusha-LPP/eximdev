@@ -19,6 +19,7 @@ import {
   DialogContent,
   DialogActions,
   Snackbar,
+  Popover,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
@@ -52,6 +53,9 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery); // Debounced search query
   const limit = 100; // Number of items per page
   const [totalJobs, setTotalJobs] = useState(0); // Total job count
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [excelPopoverAnchor, setExcelPopoverAnchor] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
   const [importers, setImporters] = useState("");
@@ -150,7 +154,9 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
       selectedYearState,
       unresolvedOnly = false,
       selectedBranch = "all",
-      selectedCategory = "all"
+      selectedCategory = "all",
+      fromDateVal = "",
+      toDateVal = ""
     ) => {
       setLoading(true);
       try {
@@ -167,7 +173,9 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
               unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
               branchId: selectedBranch || "all", // ✅ Add branchId parameter
               category: selectedCategory || "all", // ✅ Add category parameter
-              workMode
+              workMode,
+              fromDate: fromDateVal,
+              toDate: toDateVal
             },
           }
         );
@@ -193,7 +201,7 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
         setLoading(false);
       }
     },
-    [limit, selectedImporter, selectedYearState, workMode] // ✅ Add selectedYear as a dependency
+    [limit, selectedImporter, selectedYearState, workMode, fromDate, toDate] // ✅ Add selectedYear, fromDate, toDate as dependencies
   );
 
   // ✅ Fetch jobs when `selectedYear` changes
@@ -207,7 +215,9 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
         selectedYearState,
         showUnresolvedOnly,
         selectedBranch,
-        selectedCategory
+        selectedCategory,
+        "",
+        ""
       );
     }
   }, [
@@ -258,7 +268,9 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
             unresolvedOnly: showUnresolvedOnly.toString(),
             branchId: selectedBranch || "all",
             category: selectedCategory || "all",
-            workMode
+            workMode,
+            fromDate,
+            toDate
           },
         }
       );
@@ -269,12 +281,44 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
         return;
       }
 
+      // Sort jobs chronologically (ascending) by bill_document_sent_to_accounts
+      const sortedJobs = [...jobs].sort((a, b) => {
+        const valA = a.bill_document_sent_to_accounts;
+        const valB = b.bill_document_sent_to_accounts;
+        if (!valA && !valB) return 0;
+        if (!valA) return 1;
+        if (!valB) return -1;
+        const dateA = new Date(valA);
+        const dateB = new Date(valB);
+        return dateA - dateB;
+      });
+
       // Map to requested fields
-      const excelData = jobs.map((job) => ({
-        "Job Number": job.job_number || job.job_no || "",
-        "Importer Name": job.importer || "",
-        "BL Number": job.awb_bl_no || ""
-      }));
+      const excelData = sortedJobs.map((job) => {
+        const sentDateRaw = job.bill_document_sent_to_accounts;
+        let formattedSentDate = "-";
+        if (sentDateRaw) {
+          const date = new Date(sentDateRaw);
+          formattedSentDate = isNaN(date)
+            ? sentDateRaw
+            : date.toLocaleString("en-IN", {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: true,
+              });
+        }
+
+        return {
+          "Job Number": job.job_number || job.job_no || "",
+          "Importer Name": job.importer || "",
+          "BL Number": job.awb_bl_no || "",
+          "Bill Doc Sent To Accounts": formattedSentDate,
+        };
+      });
 
       const worksheet = XLSX.utils.json_to_sheet(excelData);
       
@@ -282,7 +326,8 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
       const colWidths = [
         { wch: 25 }, // Job Number
         { wch: 35 }, // Importer Name
-        { wch: 25 }  // BL Number
+        { wch: 25 }, // BL Number
+        { wch: 30 }  // Bill Doc Sent To Accounts
       ];
       worksheet['!cols'] = colWidths;
 
@@ -375,7 +420,7 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
       setRejectDialogOpen(false);
       setRejectData({ remark: "" });
       setSelectedRowData(null);
-      fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYearState, showUnresolvedOnly, selectedBranch, selectedCategory);
+      fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYearState, showUnresolvedOnly, selectedBranch, selectedCategory, "", "");
     } catch (error) {
       console.error("Error rejecting job:", error);
       setSnackbar({ open: true, message: "Failed to reject job", severity: "error" });
@@ -734,8 +779,11 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
         style={{
           display: "flex",
           justifyContent: "space-around",
-          alignItems: "flex-start",
+          alignItems: "center",
           width: "100%",
+          flexWrap: "wrap",
+          gap: "12px",
+          paddingBottom: "10px"
         }}
       >
         {/* Job Count Display */}
@@ -804,7 +852,7 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
             variant="contained"
             color="success"
             size="small"
-            onClick={handleDownloadExcel}
+            onClick={(e) => setExcelPopoverAnchor(e.currentTarget)}
             sx={{
               borderRadius: 3,
               textTransform: "none",
@@ -825,6 +873,89 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
           >
             Download Excel
           </Button>
+
+          <Popover
+            open={Boolean(excelPopoverAnchor)}
+            anchorEl={excelPopoverAnchor}
+            onClose={() => setExcelPopoverAnchor(null)}
+            anchorOrigin={{
+              vertical: 'bottom',
+              horizontal: 'left',
+            }}
+            transformOrigin={{
+              vertical: 'top',
+              horizontal: 'left',
+            }}
+            PaperProps={{
+              sx: {
+                p: 3,
+                width: '320px',
+                mt: 1,
+                borderRadius: 3,
+                boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2
+              }
+            }}
+          >
+            <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: '#1a237e', mb: 1 }}>
+              SELECT SENT FOR BILLING DATE RANGE
+            </Typography>
+            <TextField
+              type="date"
+              label="From Date"
+              size="small"
+              value={fromDate}
+              onChange={(e) => setFromDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              fullWidth
+            />
+            <TextField
+              type="date"
+              label="To Date"
+              size="small"
+              value={toDate}
+              onChange={(e) => setToDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              fullWidth
+            />
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
+              <Button
+                size="small"
+                color="error"
+                onClick={() => {
+                  setFromDate("");
+                  setToDate("");
+                }}
+                sx={{ textTransform: "none" }}
+              >
+                Clear
+              </Button>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => setExcelPopoverAnchor(null)}
+                  sx={{ textTransform: "none" }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="success"
+                  onClick={() => {
+                    handleDownloadExcel();
+                    setExcelPopoverAnchor(null);
+                  }}
+                  sx={{ textTransform: "none" }}
+                >
+                  Download
+                </Button>
+              </Box>
+            </Box>
+          </Popover>
 
           <Box sx={{ position: "relative" }}>
             <Button

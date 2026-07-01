@@ -63,6 +63,16 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
   const voucherRef = React.useRef();
 
+  // Read URL query parameter for drill-down searching
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const urlSearch = params.get("search");
+    if (urlSearch) {
+      setSearchQuery(urlSearch);
+      setDebouncedSearchQuery(urlSearch);
+    }
+  }, [location.search, setSearchQuery]);
+
   console.log(currentTab, "tab");
 
   // Get importer list for MUI autocomplete

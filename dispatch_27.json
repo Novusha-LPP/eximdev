@@ -1,0 +1,649 @@
+{
+  "success": true,
+  "startDate": "2026-06-27T00:00:00.000Z",
+  "endDate": "2026-06-27T00:00:00.000Z",
+  "totalDays": 1,
+  "fleetStatus": [
+    {
+      "_id": "6a3f4b289d761f6f7bd5aec3",
+      "date": "2026-06-27T00:00:00.000Z",
+      "vehicleNumber": "GJ01AU4504",
+      "status": [
+        "Driver on Leave"
+      ],
+      "otherStatusText": null,
+      "lastSummary": "Created by System (Auto-Clone)",
+      "vehicleType": "20 feet 2 axle trailer"
+    },
+    {
+      "_id": "6a3f4b289d761f6f7bd5aecd",
+      "date": "2026-06-27T00:00:00.000Z",
+      "vehicleNumber": "GJ01CV4935",
+      "status": [
+        "Under trip"
+      ],
+      "otherStatusText": null,
+      "lastSummary": "Created by System (Auto-Clone)",
+      "vehicleType": "20 feet 10 wheel truck"
+    },
+    {
+      "_id": "6a3f4b289d761f6f7bd5aecb",
+      "date": "2026-06-27T00:00:00.000Z",
+      "vehicleNumber": "GJ08AW8599",
+      "status": [
+        "Driver on Leave"
+      ],
+      "otherStatusText": null,
+      "lastSummary": "Created by System (Auto-Clone)",
+      "vehicleType": "40 feet 3 axle trailer"
+    },
+    {
+      "_id": "6a3f4b289d761f6f7bd5aec5",
+      "date": "2026-06-27T00:00:00.000Z",
+      "vehicleNumber": "GJ12BT7142",
+      "status": [
+        "Maintenance"
+      ],
+      "otherStatusText": null,
+      "lastSummary": "Created by System (Auto-Clone)",
+      "vehicleType": "40 feet 3 axle trailer"
+    },
+    {
+      "_id": "6a3f4b289d761f6f7bd5aeeb",
+      "date": "2026-06-27T00:00:00.000Z",
+      "vehicleNumber": "GJ12BX8779",
+      "status": [
+        "Driver on Leave"
+      ],
+      "otherStatusText": null,
+      "lastSummary": "Created by System (Auto-Clone)",
+      "vehicleType": "40 feet 3 axle trailer"
+    },
+    {
+      "_id": "6a3f4b289d761f6f7bd5aee3",
+      "date": "2026-06-27T00:00:00.000Z",
+      "vehicleNumber": "GJ12Z1317",
+      "status": [
+        "Maintenance",
+        "No Driver"
+      ],
+      "otherStatusText": null,
+      "lastSummary": "Created by System (Auto-Clone)",
+      "vehicleType": "20 feet 2 axle trailer"
+    },
+    {
+      "_id": "6a3f4b289d761f6f7bd5aed9",
+      "date": "2026-06-27T00:00:00.000Z",
+      "vehicleNumber": "GJ12Z3234",
+      "status": [
+        "Driver on Leave"
+      ],
+      "otherStatusText": null,
+      "lastSummary": "Created by System (Auto-Clone)",
+      "vehicleType": "20 feet 2 axle trailer"
+    },
+    {
+      "_id": "6a3f4b289d761f6f7bd5aed1",
+      "date": "2026-06-27T00:00:00.000Z",
+      "vehicleNumber": "GJ15X8939",
+      "status": [
+        "Others"
+      ],
+      "otherStatusText": "Driver on 4935",
+      "lastSummary": "Created by System (Auto-Clone)",
+      "vehicleType": "20 feet 10 wheel truck"
+    },
+    {
+      "_id": "6a41317c9d761f6f7be1b28d",
+      "date": "2026-06-27T00:00:00.000Z",
+      "vehicleNumber": "GJ18AV4735",
+      "status": [
+        "Maintenance"
+      ],
+      "otherStatusText": null,
+      "lastSummary": "Updated by ajay_singh",
+      "vehicleType": "20 feet 10 wheel truck"
+    },
+    {
+      "_id": "6a3f4b289d761f6f7bd5aed5",
+      "date": "2026-06-27T00:00:00.000Z",
+      "vehicleNumber": "GJ18AV7468",
+      "status": [
+        "Under detention"
+      ],
+      "otherStatusText": null,
+      "lastSummary": "Created by System (Auto-Clone)",
+      "vehicleType": "40 feet 3 axle tipper trailer"
+    },
+    {
+      "_id": "6a3f4b289d761f6f7bd5aed7",
+      "date": "2026-06-27T00:00:00.000Z",
+      "vehicleNumber": "GJ18AV8971",
+      "status": [
+        "Driver on Leave"
+      ],
+      "otherStatusText": null,
+      "lastSummary": "Created by System (Auto-Clone)",
+      "vehicleType": "40 feet 3 axle trailer"
+    },
+    {
+      "_id": "6a3f4b289d761f6f7bd5aedb",
+      "date": "2026-06-27T00:00:00.000Z",
+      "vehicleNumber": "GJ18AX6955",
+      "status": [
+        "Under detention"
+      ],
+      "otherStatusText": null,
+      "lastSummary": "Created by System (Auto-Clone)",
+      "vehicleType": "20 feet 2 axle tipper trailer"
+    },
+    {
+      "_id": "6a3f4b289d761f6f7bd5aedd",
+      "date": "2026-06-27T00:00:00.000Z",
+      "vehicleNumber": "GJ18AZ0849",
+      "status": [
+        "Driver on Leave"
+      ],
+      "otherStatusText": null,
+      "lastSummary": "Created by System (Auto-Clone)",
+      "vehicleType": "20 feet 2 axle tipper trailer"
+    },
+    {
+      "_id": "6a3f4b289d761f6f7bd5aee9",
+      "date": "2026-06-27T00:00:00.000Z",
+      "vehicleNumber": "GJ18AZ4229",
+      "status": [
+        "Driver on Leave"
+      ],
+      "otherStatusText": null,
+      "lastSummary": "Created by System (Auto-Clone)",
+      "vehicleType": "40 feet 3 axle trailer"
+    },
+    {
+      "_id": "6a3f4b289d761f6f7bd5aee7",
+      "date": "2026-06-27T00:00:00.000Z",
+      "vehicleNumber": "GJ18AZ4495",
+      "status": [
+        "IDLE"
+      ],
+      "otherStatusText": null,
+      "lastSummary": "Created by System (Auto-Clone)",
+      "vehicleType": "Bolero Pick-Up"
+    },
+    {
+      "_id": "6a3f4b289d761f6f7bd5aedf",
+      "date": "2026-06-27T00:00:00.000Z",
+      "vehicleNumber": "GJ18AZ5394",
+      "status": [
+        "Driver on Leave"
+      ],
+      "otherStatusText": null,
+      "lastSummary": "Created by System (Auto-Clone)",
+      "vehicleType": "20 feet 2 axle trailer"
+    },
+    {
+      "_id": "6a3f4b289d761f6f7bd5aec9",
+      "date": "2026-06-27T00:00:00.000Z",
+      "vehicleNumber": "GJ18AZ5588",
+      "status": [
+        "Driver on Leave"
+      ],
+      "otherStatusText": null,
+      "lastSummary": "Created by System (Auto-Clone)",
+      "vehicleType": "20 feet 2 axle tipper trailer"
+    },
+    {
+      "_id": "6a3f4b289d761f6f7bd5aec7",
+      "date": "2026-06-27T00:00:00.000Z",
+      "vehicleNumber": "GJ18BV5224",
+      "status": [
+        "Under trip"
+      ],
+      "otherStatusText": null,
+      "lastSummary": "Created by System (Auto-Clone)",
+      "vehicleType": "20 feet 2 axle tipper trailer"
+    },
+    {
+      "_id": "6a3f4b289d761f6f7bd5aee1",
+      "date": "2026-06-27T00:00:00.000Z",
+      "vehicleNumber": "GJ18BV6050",
+      "status": [
+        "Driver on Leave"
+      ],
+      "otherStatusText": null,
+      "lastSummary": "Created by System (Auto-Clone)",
+      "vehicleType": "20 feet 2 axle trailer"
+    },
+    {
+      "_id": "6a3f4b289d761f6f7bd5aee5",
+      "date": "2026-06-27T00:00:00.000Z",
+      "vehicleNumber": "GJ18BV8816",
+      "status": [
+        "Accident",
+        "No Driver"
+      ],
+      "otherStatusText": null,
+      "lastSummary": "Created by System (Auto-Clone)",
+      "vehicleType": "40 feet 3 axle tipper trailer"
+    },
+    {
+      "_id": "6a3f4b289d761f6f7bd5aed3",
+      "date": "2026-06-27T00:00:00.000Z",
+      "vehicleNumber": "GJ18BW1144",
+      "status": [
+        "Under trip"
+      ],
+      "otherStatusText": null,
+      "lastSummary": "Created by System (Auto-Clone)",
+      "vehicleType": "20 feet 2 axle tipper trailer"
+    },
+    {
+      "_id": "6a3f4b289d761f6f7bd5aeed",
+      "date": "2026-06-27T00:00:00.000Z",
+      "vehicleNumber": "GJ18BW6133",
+      "status": [
+        "No Driver"
+      ],
+      "otherStatusText": null,
+      "lastSummary": "Created by System (Auto-Clone)",
+      "vehicleType": "40 feet 3 axle trailer"
+    },
+    {
+      "_id": "6a3f4b289d761f6f7bd5aeef",
+      "date": "2026-06-27T00:00:00.000Z",
+      "vehicleNumber": "GJ18BW6733",
+      "status": [
+        "Under trip"
+      ],
+      "otherStatusText": null,
+      "lastSummary": "Created by System (Auto-Clone)",
+      "vehicleType": "40 feet 3 axle trailer"
+    },
+    {
+      "_id": "6a3f4b289d761f6f7bd5aef1",
+      "date": "2026-06-27T00:00:00.000Z",
+      "vehicleNumber": "GJ18BW7814",
+      "status": [
+        "Under detention"
+      ],
+      "otherStatusText": null,
+      "lastSummary": "Created by System (Auto-Clone)",
+      "vehicleType": "40 feet 3 axle trailer"
+    },
+    {
+      "_id": "6a3f4b289d761f6f7bd5aecf",
+      "date": "2026-06-27T00:00:00.000Z",
+      "vehicleNumber": "GJ20U7188",
+      "status": [
+        "Maintenance"
+      ],
+      "otherStatusText": null,
+      "lastSummary": "Created by System (Auto-Clone)",
+      "vehicleType": "20 feet 10 wheel truck"
+    }
+  ],
+  "activeLRs": [],
+  "closedLRs": [
+    {
+      "_id": "6a3ffaea9d761f6f7bdd3721",
+      "container_id": "6a3ffaea9d761f6f7bdd3722",
+      "import_export": "Import",
+      "branch": "ICD Khodiyar",
+      "consignee": "Arfin India Limited",
+      "consignor": "Suraj Forwarders & Shipping Agencies",
+      "type_of_vehicle": "40 feet 3 axle trailer",
+      "tr_no": "LR/KHD/01043/26-27",
+      "vehicle_no": "GJ18AX6284",
+      "container_number": "HLXU8168728",
+      "seal_no": "-",
+      "dispatchClosedDate": "2026-06-27T00:00:00.000Z",
+      "own_hired": "Own"
+    },
+    {
+      "_id": "6a3e99109d761f6f7bd2960a",
+      "container_id": "6a3e99109d761f6f7bd2960c",
+      "import_export": "Import",
+      "branch": "ICD Sanand",
+      "consignee": "Aryan Stainless International Private Limited",
+      "consignor": "Guru Prakash Enterprise",
+      "type_of_vehicle": "20 feet 10 wheel truck",
+      "tr_no": "LR/SND/00872/26-27",
+      "vehicle_no": "GJ01CV4935",
+      "container_number": "MSNU3305831",
+      "seal_no": "-",
+      "dispatchClosedDate": "2026-06-27T00:00:00.000Z",
+      "own_hired": "Own"
+    },
+    {
+      "_id": "6a3e99109d761f6f7bd2960a",
+      "container_id": "6a3e99109d761f6f7bd2960b",
+      "import_export": "Import",
+      "branch": "ICD Sanand",
+      "consignee": "Aryan Stainless International Private Limited",
+      "consignor": "Guru Prakash Enterprise",
+      "type_of_vehicle": "20 feet 2 axle trailer",
+      "tr_no": "LR/SND/00864/26-27",
+      "vehicle_no": "GJ03AT3289",
+      "container_number": "UETU3192172",
+      "seal_no": "-",
+      "dispatchClosedDate": "2026-06-27T00:00:00.000Z",
+      "own_hired": "Hired"
+    },
+    {
+      "_id": "6a3ff9579d761f6f7bdcfce7",
+      "container_id": "6a3ff9579d761f6f7bdcfce8",
+      "import_export": "Import",
+      "branch": "ICD Sanand",
+      "consignee": "Baheti Recycling Industries Limited",
+      "consignor": "Unique Speditorer Pvt Ltd",
+      "type_of_vehicle": "40 feet 3 axle trailer",
+      "tr_no": "LR/SND/00862/26-27",
+      "vehicle_no": "GJ18BW7814",
+      "container_number": "FCIU9751698",
+      "seal_no": "-",
+      "dispatchClosedDate": "2026-06-27T00:00:00.000Z",
+      "own_hired": "Own"
+    },
+    {
+      "_id": "6a3ffc429d761f6f7bdd4ec1",
+      "container_id": "6a3ffc429d761f6f7bdd4ec2",
+      "import_export": "Import",
+      "branch": "ICD Sanand",
+      "consignee": "Baheti Recycling Industries Limited",
+      "consignor": "Suraj Forwarders & Shipping Agencies",
+      "type_of_vehicle": "20 feet 2 axle trailer",
+      "tr_no": "LR/SND/00863/26-27",
+      "vehicle_no": "GJ01CZ1811",
+      "container_number": "CAIU3064952",
+      "seal_no": "-",
+      "dispatchClosedDate": "2026-06-27T00:00:00.000Z",
+      "own_hired": "Hired"
+    },
+    {
+      "_id": "6a3f8d0d9d761f6f7bd8f6f3",
+      "container_id": "6a3f8d0d9d761f6f7bd8f6f4",
+      "import_export": "Import",
+      "branch": "ICD Khodiyar",
+      "consignee": "Bhumi Electro India Private Limited",
+      "consignor": "Suraj Forwarders & Shipping Agencies",
+      "type_of_vehicle": "20 feet 2 axle tipper trailer",
+      "tr_no": "LR/KHD/01038/26-27",
+      "vehicle_no": "GJ18BV9156",
+      "container_number": "TCLU3257346",
+      "seal_no": "101634/76675",
+      "dispatchClosedDate": "2026-06-27T00:00:00.000Z",
+      "own_hired": "Own"
+    },
+    {
+      "_id": "6a3fa2339d761f6f7bd97b7d",
+      "container_id": "6a3fa2339d761f6f7bd97b7e",
+      "import_export": "Import",
+      "branch": "Port Mundra",
+      "consignee": "Gujarat Victory Forgings Ltd.",
+      "consignor": "Suraj Forwarders & Shipping Agencies",
+      "type_of_vehicle": "20 feet 2 axle tipper trailer",
+      "tr_no": "LR/MND/00091/26-27",
+      "vehicle_no": "GJ18BW1144",
+      "container_number": "TCLU7531500",
+      "seal_no": "K0699169",
+      "dispatchClosedDate": "2026-06-27T00:00:00.000Z",
+      "own_hired": "Own"
+    },
+    {
+      "_id": "6a4003939d761f6f7bdd9bde",
+      "container_id": "6a4003939d761f6f7bdd9bdf",
+      "import_export": "Import",
+      "branch": "ICD Khodiyar",
+      "consignee": "Guru Rajendra Metalloys India Pvt Ltd",
+      "consignor": "Ribhus International Pvt. Ltd",
+      "type_of_vehicle": "40 feet 3 axle trailer",
+      "tr_no": "LR/KHD/01044/26-27",
+      "vehicle_no": "GJ02Y7811",
+      "container_number": "HLBU1479802",
+      "seal_no": "828581",
+      "dispatchClosedDate": "2026-06-27T00:00:00.000Z",
+      "own_hired": "Hired"
+    },
+    {
+      "_id": "6a3fbca69d761f6f7bda9943",
+      "container_id": "6a3fbca69d761f6f7bda9944",
+      "import_export": "Import",
+      "branch": "Automove",
+      "consignee": "India Japan Lighting Pvt Ltd",
+      "consignor": "Rabs Industries India Private Limited",
+      "type_of_vehicle": "Eicher",
+      "tr_no": "LR/ATM/00199/26-27",
+      "vehicle_no": "GJ02ZZ3695",
+      "container_number": "LOOSECARGOO",
+      "seal_no": "-",
+      "dispatchClosedDate": "2026-06-27T00:00:00.000Z",
+      "own_hired": "Hired"
+    },
+    {
+      "_id": "6a372783e9a90e97c1ad101f",
+      "container_id": "6a372783e9a90e97c1ad1023",
+      "import_export": "Import",
+      "branch": "ICD Khodiyar",
+      "consignee": "Modern Insulators Limited",
+      "consignor": "Suraj Forwarders & Shipping Agencies",
+      "type_of_vehicle": "20 feet 12 wheel truck",
+      "tr_no": "LR/KHD/01039/26-27",
+      "vehicle_no": "GJ12BV4566",
+      "container_number": "TGCU2076196",
+      "seal_no": "-",
+      "dispatchClosedDate": "2026-06-27T00:00:00.000Z",
+      "own_hired": "Hired"
+    },
+    {
+      "_id": "6a372783e9a90e97c1ad101f",
+      "container_id": "6a372783e9a90e97c1ad1024",
+      "import_export": "Import",
+      "branch": "ICD Khodiyar",
+      "consignee": "Modern Insulators Limited",
+      "consignor": "Suraj Forwarders & Shipping Agencies",
+      "type_of_vehicle": "20 feet 12 wheel truck",
+      "tr_no": "LR/KHD/01040/26-27",
+      "vehicle_no": "GJ12BV4698",
+      "container_number": "FCIU4094749",
+      "seal_no": "-",
+      "dispatchClosedDate": "2026-06-27T00:00:00.000Z",
+      "own_hired": "Hired"
+    },
+    {
+      "_id": "6a38fa7ce9a90e97c1b28cf2",
+      "container_id": "6a38fa7ce9a90e97c1b28cf4",
+      "import_export": "Import",
+      "branch": "ICD Khodiyar",
+      "consignee": "Nandeshwari Steel Ltd",
+      "consignor": "Suraj Forwarders & Shipping Agencies",
+      "type_of_vehicle": "40 feet 3 axle tipper trailer",
+      "tr_no": "LR/KHD/01037/26-27",
+      "vehicle_no": "GJ18AV7468",
+      "container_number": "DFSU7100427",
+      "seal_no": "RPM001090",
+      "dispatchClosedDate": "2026-06-27T00:00:00.000Z",
+      "own_hired": "Own"
+    },
+    {
+      "_id": "6a38fa7ce9a90e97c1b28cf2",
+      "container_id": "6a38fa7ce9a90e97c1b28cf5",
+      "import_export": "Import",
+      "branch": "ICD Khodiyar",
+      "consignee": "Nandeshwari Steel Ltd",
+      "consignor": "Suraj Forwarders & Shipping Agencies",
+      "type_of_vehicle": "40 feet 3 axle tipper trailer",
+      "tr_no": "LR/KHD/01045/26-27",
+      "vehicle_no": "GJ18AV7468",
+      "container_number": "HLXU8426524",
+      "seal_no": "001088",
+      "dispatchClosedDate": "2026-06-27T00:00:00.000Z",
+      "own_hired": "Own"
+    },
+    {
+      "_id": "6a38fa7ce9a90e97c1b28cf2",
+      "container_id": "6a38fa7ce9a90e97c1b28cf6",
+      "import_export": "Import",
+      "branch": "ICD Khodiyar",
+      "consignee": "Nandeshwari Steel Ltd",
+      "consignor": "Suraj Forwarders & Shipping Agencies",
+      "type_of_vehicle": "40 feet 3 axle tipper trailer",
+      "tr_no": "LR/KHD/01046/26-27",
+      "vehicle_no": "GJ18AV7468",
+      "container_number": "BMOU5759500",
+      "seal_no": "001082",
+      "dispatchClosedDate": "2026-06-27T00:00:00.000Z",
+      "own_hired": "Own"
+    },
+    {
+      "_id": "6a3d6410367cbd13cbcf57ab",
+      "container_id": "6a3d6410367cbd13cbcf57ad",
+      "import_export": "Import",
+      "branch": "ICD Sanand",
+      "consignee": "Rajputana Stainless Limited",
+      "consignor": "Suraj Forwarders & Shipping Agencies",
+      "type_of_vehicle": "40 feet 3 axle trailer",
+      "tr_no": "LR/SND/00861/26-27",
+      "vehicle_no": "GJ01CX2097",
+      "container_number": "OOLU8822623",
+      "seal_no": "-",
+      "dispatchClosedDate": "2026-06-27T00:00:00.000Z",
+      "own_hired": "Own"
+    },
+    {
+      "_id": "6a3ff7d39d761f6f7bdcd018",
+      "container_id": "6a3ff7d39d761f6f7bdcd019",
+      "import_export": "Import",
+      "branch": "ICD Khodiyar",
+      "consignee": "Resurge Alloys Limited",
+      "consignor": "Suraj Forwarders & Shipping Agencies",
+      "type_of_vehicle": "20 feet 2 axle tipper trailer",
+      "tr_no": "LR/KHD/01041/26-27",
+      "vehicle_no": "GJ18BV9156",
+      "container_number": "SEKU1769565",
+      "seal_no": "343146",
+      "dispatchClosedDate": "2026-06-27T00:00:00.000Z",
+      "own_hired": "Own"
+    },
+    {
+      "_id": "6a3ff95b9d761f6f7bdd02ca",
+      "container_id": "6a3ff95b9d761f6f7bdd02cb",
+      "import_export": "Import",
+      "branch": "ICD Khodiyar",
+      "consignee": "Shree Yogiraj Industries",
+      "consignor": "Arbuda Pipe",
+      "type_of_vehicle": "20 feet 2 axle tipper trailer",
+      "tr_no": "LR/KHD/01042/26-27",
+      "vehicle_no": "GJ18BV5428",
+      "container_number": "DPWU2075952",
+      "seal_no": "1373402",
+      "dispatchClosedDate": "2026-06-27T00:00:00.000Z",
+      "own_hired": "Own"
+    },
+    {
+      "_id": "6a3ea3f59d761f6f7bd3b5bb",
+      "container_id": "6a3ea3f59d761f6f7bd3b5c0",
+      "import_export": "Import",
+      "branch": "ICD Sanand",
+      "consignee": "Ventana Speciality Private Limited",
+      "consignor": "Suraj Forwarders & Shipping Agencies",
+      "type_of_vehicle": "20 feet 2 axle trailer",
+      "tr_no": "LR/SND/00865/26-27",
+      "vehicle_no": "GJ01HT6794",
+      "container_number": "PRSU2317210",
+      "seal_no": "-",
+      "dispatchClosedDate": "2026-06-27T00:00:00.000Z",
+      "own_hired": "Hired"
+    },
+    {
+      "_id": "6a4006069d761f6f7bddd95d",
+      "container_id": "6a4006069d761f6f7bddd95e",
+      "import_export": "Import",
+      "branch": "ICD Sanand",
+      "consignee": "Ventana Speciality Private Limited",
+      "consignor": "Suraj Forwarders & Shipping Agencies",
+      "type_of_vehicle": "20 feet 2 axle trailer",
+      "tr_no": "LR/SND/00866/26-27",
+      "vehicle_no": "GJ01BT8675",
+      "container_number": "FTAU1094560",
+      "seal_no": "-",
+      "dispatchClosedDate": "2026-06-27T00:00:00.000Z",
+      "own_hired": "Hired"
+    },
+    {
+      "_id": "6a4006069d761f6f7bddd95d",
+      "container_id": "6a4006069d761f6f7bddd95f",
+      "import_export": "Import",
+      "branch": "ICD Sanand",
+      "consignee": "Ventana Speciality Private Limited",
+      "consignor": "Suraj Forwarders & Shipping Agencies",
+      "type_of_vehicle": "20 feet 2 axle trailer",
+      "tr_no": "LR/SND/00867/26-27",
+      "vehicle_no": "GJ01ET8811",
+      "container_number": "SEGU3269203",
+      "seal_no": "-",
+      "dispatchClosedDate": "2026-06-27T00:00:00.000Z",
+      "own_hired": "Hired"
+    },
+    {
+      "_id": "6a400a949d761f6f7bde1717",
+      "container_id": "6a400a949d761f6f7bde1718",
+      "import_export": "Import",
+      "branch": "ICD Sanand",
+      "consignee": "Ventana Speciality Private Limited",
+      "consignor": "Suraj Forwarders & Shipping Agencies",
+      "type_of_vehicle": "20 feet 2 axle tipper trailer",
+      "tr_no": "LR/SND/00868/26-27",
+      "vehicle_no": "GJ12Z1090",
+      "container_number": "WHSU0221651",
+      "seal_no": "-",
+      "dispatchClosedDate": "2026-06-27T00:00:00.000Z",
+      "own_hired": "Own"
+    },
+    {
+      "_id": "6a400a949d761f6f7bde1717",
+      "container_id": "6a400a949d761f6f7bde1719",
+      "import_export": "Import",
+      "branch": "ICD Sanand",
+      "consignee": "Ventana Speciality Private Limited",
+      "consignor": "Suraj Forwarders & Shipping Agencies",
+      "type_of_vehicle": "20 feet 2 axle trailer",
+      "tr_no": "LR/SND/00869/26-27",
+      "vehicle_no": "GJ12Z1089",
+      "container_number": "WHSU0273948",
+      "seal_no": "-",
+      "dispatchClosedDate": "2026-06-27T00:00:00.000Z",
+      "own_hired": "Own"
+    },
+    {
+      "_id": "6a400a949d761f6f7bde1717",
+      "container_id": "6a400a949d761f6f7bde171a",
+      "import_export": "Import",
+      "branch": "ICD Sanand",
+      "consignee": "Ventana Speciality Private Limited",
+      "consignor": "Suraj Forwarders & Shipping Agencies",
+      "type_of_vehicle": "20 feet 12 wheel truck",
+      "tr_no": "LR/SND/00870/26-27",
+      "vehicle_no": "GJ18AU8480",
+      "container_number": "WHSU2470437",
+      "seal_no": "-",
+      "dispatchClosedDate": "2026-06-27T00:00:00.000Z",
+      "own_hired": "Own"
+    },
+    {
+      "_id": "6a400a949d761f6f7bde1717",
+      "container_id": "6a400a949d761f6f7bde171b",
+      "import_export": "Import",
+      "branch": "ICD Sanand",
+      "consignee": "Ventana Speciality Private Limited",
+      "consignor": "Suraj Forwarders & Shipping Agencies",
+      "type_of_vehicle": "20 feet 2 axle trailer",
+      "tr_no": "LR/SND/00871/26-27",
+      "vehicle_no": "GJ12Z2989",
+      "container_number": "WHSU2930506",
+      "seal_no": "-",
+      "dispatchClosedDate": "2026-06-27T00:00:00.000Z",
+      "own_hired": "Own"
+    }
+  ],
+  "exceptions": []
+}

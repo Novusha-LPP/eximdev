@@ -1082,8 +1082,8 @@ const FleetUtilizationReport = ({
 
     // ── Build Subtext Labels ─────────────────────────────────────────────────────
 
-    const unassignedCount = Math.max(0, (metrics.onRoadCount || 0) - (metrics.underTrip || 0));
-    const unassignedPct = metrics.fleetSize > 0 ? `(${((unassignedCount / metrics.fleetSize) * 100).toFixed(0)}%)` : '';
+    const todayOnRoadCount = Math.max(0, (metrics.onRoadCount || 0) - (metrics.underTrip || 0));
+    const todayOnRoadPct = metrics.fleetSize > 0 ? `(${((todayOnRoadCount / metrics.fleetSize) * 100).toFixed(0)}%)` : '';
     const SubBadge = ({ text }) => (
         <span style={{ display: 'inline-flex', alignItems: 'center', background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.06)', padding: '3px 8px', borderRadius: '8px', fontSize: '11px', fontWeight: 700, color: 'inherit', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
             {text}
@@ -1092,7 +1092,8 @@ const FleetUtilizationReport = ({
 
     const onRoadParts = [];
     if (metrics.underTrip > 0) onRoadParts.push(`Under Trip: ${metrics.underTrip} ${metrics.underTripPct}`);
-    if (unassignedCount > 0) onRoadParts.push(`Unassigned: ${unassignedCount} ${unassignedPct}`);
+    if (metrics.underDetention > 0) onRoadParts.push(`Under Detention: ${metrics.underDetention} ${metrics.underDetentionPct}`);
+    if (todayOnRoadCount > 0) onRoadParts.push(`Today On Road: ${todayOnRoadCount} ${todayOnRoadPct}`);
     const onRoadSubtext = onRoadParts.length > 0 ? (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
             {onRoadParts.map((txt, i) => <SubBadge key={i} text={txt} />)}

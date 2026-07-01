@@ -401,24 +401,7 @@ const ImportPendingSummaryReport = ({
 
                     </div>
 
-                    {/* Branch vs Port Stacked Bar */}
-                    <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                        <h3 style={{ marginTop: 0, color: '#1e293b', fontSize: '16px' }}>Branch vs Port Job Distribution</h3>
-                        <div style={{ height: '340px', width: '100%' }}>
-                            <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={branchPortChartData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                                    <XAxis dataKey="branch" />
-                                    <YAxis />
-                                    <RechartsTooltip cursor={{ fill: '#f1f5f9' }} />
-                                    <Legend />
-                                    {uniquePorts.map((port, idx) => (
-                                        <Bar key={port} dataKey={port} stackId="a" fill={COLORS[idx % COLORS.length]} />
-                                    ))}
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </div>
-                    </div>
+
 
                 </div>
             )}

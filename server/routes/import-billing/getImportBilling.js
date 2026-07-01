@@ -11,24 +11,31 @@ import JobCounterModel from "../../model/jobCounterModel.mjs";
 const router = express.Router();
 
 // Function to build the search query
-const buildSearchQuery = (search) => ({
-  $or: [
-    { job_no: { $regex: search, $options: "i" } },
-    { job_number: { $regex: search, $options: "i" } },
-    { year: { $regex: search, $options: "i" } },
-    { importer: { $regex: search, $options: "i" } },
-    { custom_house: { $regex: search, $options: "i" } },
-    { consignment_type: { $regex: search, $options: "i" } },
-    { type_of_b_e: { $regex: search, $options: "i" } },
-    { awb_bl_no: { $regex: search, $options: "i" } },
-    { be_no: { $regex: search, $options: "i" } },
-    { "charges.purchase_book_no": { $regex: search, $options: "i" } },
-    { "charges.payment_request_no": { $regex: search, $options: "i" } },
-    { detailed_status: { $regex: search, $options: "i" } },
-    { "container_nos.container_number": { $regex: search, $options: "i" } },
-    { "container_nos.size": { $regex: search, $options: "i" } },
-  ],
-});
+const buildSearchQuery = (search) => {
+  const isSearchUnassigned = search.toLowerCase() === "unassigned";
+  return {
+    $or: [
+      { job_no: { $regex: search, $options: "i" } },
+      { job_number: { $regex: search, $options: "i" } },
+      { year: { $regex: search, $options: "i" } },
+      { importer: { $regex: search, $options: "i" } },
+      { custom_house: { $regex: search, $options: "i" } },
+      { consignment_type: { $regex: search, $options: "i" } },
+      { type_of_b_e: { $regex: search, $options: "i" } },
+      { awb_bl_no: { $regex: search, $options: "i" } },
+      { be_no: { $regex: search, $options: "i" } },
+      { "charges.purchase_book_no": { $regex: search, $options: "i" } },
+      { "charges.payment_request_no": { $regex: search, $options: "i" } },
+      { detailed_status: { $regex: search, $options: "i" } },
+      { "container_nos.container_number": { $regex: search, $options: "i" } },
+      { "container_nos.size": { $regex: search, $options: "i" } },
+      isSearchUnassigned 
+        ? { $or: [{ job_owner: { $exists: false } }, { job_owner: "" }, { job_owner: null }, { job_owner: "Unassigned" }] }
+        : { job_owner: { $regex: search, $options: "i" } },
+      { port_of_reporting: { $regex: search, $options: "i" } },
+    ],
+  };
+};
 
 // ==================== SHARED SORTING LOGIC ====================
 

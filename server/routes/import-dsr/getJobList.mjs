@@ -153,7 +153,7 @@ const criticalFields = `
   hss_address hss_address_details hss_branch_id hss_city hss_ie_code_no hss_postal_code hss_country hss_ad_code
   invoice_number invoice_date delivery_chalan_file fine_amount penalty_amount 
   penalty_by_us penalty_by_importer other_do_documents intrest_ammount sws_ammount igst_ammount 
-  bcd_ammount assessable_ammount
+  bcd_ammount assessable_ammount total_inv_value inv_currency detention_from 
   gross_weight job_net_weight payment_method
   shipping_line_invoice_imgs obl_telex_bl document_received_date
   concor_invoice_and_receipt_copy thar_invoices hasti_invoices icd_cfs_invoice_img cfs_name charges

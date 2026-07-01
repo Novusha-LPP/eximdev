@@ -157,6 +157,8 @@ router.get(
       branchId,
       category,
       transactionType,
+      fromDate,
+      toDate,
     } = req.query;
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
 
@@ -174,31 +176,51 @@ router.get(
     try {
       const skip = (pageNumber - 1) * limitNumber;
 
-      const baseQuery = {
-        $and: [
-          { status: { $regex: /^pending$/i } },
-          {
-            bill_document_sent_to_accounts: {
-              $exists: true,
-              $nin: [null, ""],
+      let baseQuery;
+
+      if (fromDate || toDate) {
+        const dateCondition = {};
+        if (fromDate) {
+          dateCondition.$gte = `${fromDate}T00:00:00`;
+        }
+        if (toDate) {
+          dateCondition.$lte = `${toDate}T23:59:59`;
+        }
+
+        baseQuery = {
+          $and: [
+            {
+              bill_document_sent_to_accounts: dateCondition,
             },
-          },
-          {
-            $or: [
-              { billing_completed_date: { $exists: false } },
-              { billing_completed_date: "" },
-              { billing_completed_date: null },
-              // Include if has billing completed date but ALSO has unresolved queries for Accounts
-              {
-                $and: [
-                  { billing_completed_date: { $exists: true, $ne: "" } },
-                  { dsr_queries: { $elemMatch: { select_module: "Accounts", resolved: { $ne: true } } } }
-                ]
-              }
-            ],
-          },
-        ],
-      };
+          ],
+        };
+      } else {
+        baseQuery = {
+          $and: [
+            { status: { $regex: /^pending$/i } },
+            {
+              bill_document_sent_to_accounts: {
+                $exists: true,
+                $nin: [null, ""],
+              },
+            },
+            {
+              $or: [
+                { billing_completed_date: { $exists: false } },
+                { billing_completed_date: "" },
+                { billing_completed_date: null },
+                // Include if has billing completed date but ALSO has unresolved queries for Accounts
+                {
+                  $and: [
+                    { billing_completed_date: { $exists: true, $ne: "" } },
+                    { dsr_queries: { $elemMatch: { select_module: "Accounts", resolved: { $ne: true } } } }
+                  ]
+                }
+              ],
+            },
+          ],
+        };
+      }
 
       if (unresolvedOnly === "true") {
         baseQuery.$and.push({
@@ -210,7 +232,7 @@ router.get(
         baseQuery.$and.push(buildSearchQuery(search.trim()));
       }
 
-      if (selectedYear) {
+      if (selectedYear && !(fromDate || toDate)) {
         baseQuery.$and.push({ year: selectedYear });
       }
 

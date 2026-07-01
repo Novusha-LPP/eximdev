@@ -56,6 +56,115 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
     try {
         const { type, year, branchId, mode, detailedStatus, dateFilterType, startDate, endDate, format } = req.query;
 
+        if (type === 'gpj') {
+            const matchQuery = {
+                $and: [
+                    { status: { $not: { $regex: "^completed", $options: "i" } } },
+                    { isCompleted: { $ne: true } },
+                    { status: { $not: { $regex: "^cancelled", $options: "i" } } },
+                    { isJobCanceled: { $ne: true } }
+                ]
+            };
+
+            // Apply the year filter
+            if ((!dateFilterType || dateFilterType === 'job_year') && year) {
+                matchQuery.$and.push({ year: year });
+            }
+
+            // Apply branch/mode filters
+            const branchMatch = getBranchMatch(branchId, mode, req.authorizedBranchIds);
+            if (Object.keys(branchMatch).length > 0) {
+                if (branchId && branchId !== 'all' && mongoose.Types.ObjectId.isValid(branchId)) {
+                    const branch = await BranchModel.findById(branchId).lean();
+                    if (branch) {
+                        const { branch_id, ...rest } = branchMatch;
+                        matchQuery.$and.push({
+                            $or: [
+                                { branch_id: branch._id },
+                                { branch_code: branch.branch_code }
+                            ],
+                            ...rest
+                        });
+                    } else {
+                        matchQuery.$and.push(branchMatch);
+                    }
+                } else {
+                    matchQuery.$and.push(branchMatch);
+                }
+            }
+
+            // Date Range Filter logic
+            if (dateFilterType === 'request_date' && startDate && endDate) {
+                matchQuery.$and.push({
+                    createdAt: {
+                        $gte: new Date(startDate),
+                        $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999))
+                    }
+                });
+            } else if (dateFilterType === 'completion_date' && startDate && endDate) {
+                matchQuery.$and.push({
+                    billing_completed_date: {
+                        $gte: `${startDate}T00:00`,
+                        $lte: `${endDate}T23:59`
+                    }
+                });
+            }
+
+            const jobs = await JobModel.find(matchQuery).sort({ createdAt: -1 }).lean();
+            const excelData = jobs.map((job) => {
+                const containerCount = job.container_count || (job.container_nos || []).length || 0;
+                const containerNos = (job.container_nos || []).map(c => c.container_number).filter(Boolean).join(" , ") || "";
+                const noOfContainer = job.no_of_container || "";
+                const beHeading = job.description || (job.description_details && job.description_details[0]?.description) || "";
+
+                return {
+                    "Job No": job.job_no || job.job_number || "",
+                    "Job Date": formatDateToDDMMMYYYY(job.job_date),
+                    "BE No": job.be_no || "",
+                    "BE Date": formatDateToDDMMMYYYY(job.be_date),
+                    "Importer": job.importer || "",
+                    "Custom House": job.custom_house || "",
+                    "Container Count": containerCount,
+                    "Container Nos.": containerNos,
+                    "B/E Heading": beHeading,
+                    "No Of Container": noOfContainer,
+                };
+            });
+
+            if (format === 'json') {
+                return res.status(200).json(excelData);
+            }
+
+            if (excelData.length === 0) {
+                return res.status(404).json({ error: "No general pending jobs found for the selected filters." });
+            }
+
+            const workbook = xlsx.utils.book_new();
+            const worksheet = xlsx.utils.json_to_sheet(excelData);
+
+            // Auto-fit columns
+            const range = xlsx.utils.decode_range(worksheet['!ref']);
+            const colWidths = [];
+            for (let col = range.s.c; col <= range.e.c; col++) {
+                let maxWidth = 10;
+                for (let row = range.s.r; row <= range.e.r; row++) {
+                    const cell = worksheet[xlsx.utils.encode_cell({ r: row, c: col })];
+                    if (cell && cell.v) {
+                        maxWidth = Math.max(maxWidth, String(cell.v).length + 2);
+                    }
+                }
+                colWidths.push({ wch: Math.min(maxWidth, 50) });
+            }
+            worksheet['!cols'] = colWidths;
+
+            xlsx.utils.book_append_sheet(workbook, worksheet, "General Pending Jobs");
+            const buffer = xlsx.write(workbook, { type: "buffer", bookType: "xlsx" });
+
+            res.setHeader("Content-Disposition", `attachment; filename="General_Pending_Jobs.xlsx"`);
+            res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            return res.send(buffer);
+        }
+
         // Base match stage
         const jobMatchStage = {};
 
@@ -122,6 +231,11 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
                     ]
                 }
             );
+        } else if (type === 'tds') {
+            conditions.push(
+                { "charges.cost.tdsAmount": { $gt: 0 } },
+                { "charges.purchase_book_no": { $exists: true, $ne: null, $ne: "" } }
+            );
         } else {
             const chargeMatchField = type === 'pr' ? "charges.payment_request_no" : "charges.purchase_book_no";
             conditions.push({ [chargeMatchField]: { $exists: true, $ne: null, $ne: "" } });
@@ -147,6 +261,8 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
                 conditions.push({ "charges.purchase_book_approved_at": { $gte: start, $lte: end } });
             } else if (type === 'pr_no_pb') {
                 conditions.push({ "charges.payment_request_approved_at": { $gte: start, $lte: end } });
+            } else if (type === 'tds') {
+                conditions.push({ "charges.purchase_book_approved_at": { $gte: start, $lte: end } });
             } else { // type === 'all'
                 conditions.push({
                     $or: [
@@ -241,6 +357,89 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
                 compDate = formatDateToDDMMMYYYY(row.purchase_book_approved_at);
             }
 
+            const isReimbursement = row.category && row.category.toLowerCase() === 'reimbursement';
+            let basicAmount = row.basicAmount !== undefined && row.basicAmount !== null ? row.basicAmount : 0;
+            let gstAmount = row.gstAmount !== undefined && row.gstAmount !== null ? row.gstAmount : 0;
+            const tdsAmount = row.tdsAmount !== undefined && row.tdsAmount !== null ? row.tdsAmount : 0;
+            const netPayable = row.netPayable !== undefined && row.netPayable !== null ? row.netPayable : 0;
+            
+            let totalVal = basicAmount + gstAmount;
+
+            if (isReimbursement) {
+                const totalAmt = netPayable + tdsAmount;
+                gstAmount = parseFloat((totalAmt * 18 / 118).toFixed(2));
+                basicAmount = parseFloat((totalAmt - gstAmount).toFixed(2));
+                totalVal = totalAmt;
+            } else {
+                totalVal = basicAmount + gstAmount;
+            }
+
+            // ── Purchase Book Report — column names matching Export project ──
+            if (type === 'pb') {
+                const record = {
+                    "S.No": index + 1,
+                    "Job No": row.job_number || row.job_no,
+                    "Importer": row.importer,
+                    "Mode": row.mode,
+                    "Branch": row.branch_code,
+                    "Custom House": row.custom_house,
+                    "B/E No": row.be_no,
+                    "B/E Date": formatDateToDDMMMYYYY(row.be_date),
+                    "Charge Head": row.chargeHead,
+                    "Charge Category": row.category,
+                    "Supplier": row.partyName,
+                    "Trans No.": row.purchase_book_no,
+                    "Status": row.purchase_book_status,
+                    "SAC/HSN": row.sacHsn,
+                    "Date": reqDate,
+                    "Completion Date": compDate,
+                    "Inv No": row.invoice_number,
+                    "Inv Date": formatDateToDDMMMYYYY(row.invoice_date),
+                    "Invoice Value": isReimbursement
+                        ? (row.rate !== undefined && row.rate !== null ? row.rate : 0)
+                        : (row.invoice_value !== undefined && row.invoice_value !== null ? row.invoice_value : ""),
+                    "Taxable": basicAmount,
+                    "GST": gstAmount,
+                    "TDS": tdsAmount,
+                    "Total": totalVal,
+                    "Net Amount": netPayable,
+                    "Remark": row.remark
+                };
+                return record;
+            }
+
+            // ── TDS Payable Register — column names matching Export project ──
+            if (type === 'tds') {
+                const record = {
+                    "S.No": index + 1,
+                    "Job No": row.job_number || row.job_no,
+                    "Importer": row.importer,
+                    "Mode": row.mode,
+                    "Branch": row.branch_code,
+                    "Custom House": row.custom_house,
+                    "B/E No": row.be_no,
+                    "B/E Date": formatDateToDDMMMYYYY(row.be_date),
+                    "Charge Head": row.chargeHead,
+                    "Charge Category": row.category,
+                    "Party Name": row.partyName,
+                    "Trans No.": row.purchase_book_no,
+                    "PB Status": row.purchase_book_status,
+                    "SAC/HSN": row.sacHsn,
+                    "Purchase Book Date": reqDate,
+                    "Completion Date": compDate,
+                    "Vendor Ref No.": row.invoice_number,
+                    "Inv Date": formatDateToDDMMMYYYY(row.invoice_date),
+                    "Taxable Amount (INR)": basicAmount,
+                    "GST Amount (INR)": gstAmount,
+                    "TDS Amount (INR)": tdsAmount,
+                    "Total Amount (INR)": totalVal,
+                    "Net Amount (INR)": netPayable,
+                    "Remark": row.remark
+                };
+                return record;
+            }
+
+            // ── Default columns for pr / pr_no_pb / all ──
             const record = {
                 "S.No": index + 1,
                 "Job Number": row.job_number || row.job_no,
@@ -256,7 +455,7 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
             };
 
             // Conditionally include Purchase Book or Payment Request columns
-            if (type === 'pb' || type === 'all') {
+            if (type === 'all') {
                 record["PB Number"] = row.purchase_book_no;
                 record["PB Status"] = row.purchase_book_status;
             }
@@ -272,13 +471,14 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
                 "Completion Date": compDate,
                 "Invoice No": row.invoice_number,
                 "Invoice Date": formatDateToDDMMMYYYY(row.invoice_date),
-                "Invoice Value": row.category && row.category.toLowerCase() === 'reimbursement' 
+                "Invoice Value": isReimbursement 
                     ? (row.rate !== undefined && row.rate !== null ? row.rate : 0)
                     : (row.invoice_value !== undefined && row.invoice_value !== null ? row.invoice_value : ""),
-                "Basic Amount": row.basicAmount !== undefined && row.basicAmount !== null ? row.basicAmount : 0,
-                "GST Amount": row.gstAmount !== undefined && row.gstAmount !== null ? row.gstAmount : 0,
-                "TDS Amount": row.tdsAmount !== undefined && row.tdsAmount !== null ? row.tdsAmount : 0,
-                "Net Payable": row.netPayable !== undefined && row.netPayable !== null ? row.netPayable : 0,
+                "Basic Amount": basicAmount,
+                "GST Amount": gstAmount,
+                "TDS Amount": tdsAmount,
+                "Total Amount": totalVal,
+                "Net Payable": netPayable,
                 "Remark": row.remark
             });
 
@@ -308,12 +508,20 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
         }
         worksheet['!cols'] = colWidths;
 
-        const sheetName = type === 'pr' ? "Payment Request Report" : "Purchase Book Report";
+        let sheetName = "Billing Charges Report";
+        if (type === 'pr') sheetName = "Payment Request Report";
+        else if (type === 'pb') sheetName = "Purchase Book Report";
+        else if (type === 'tds') sheetName = "TDS Payable Register";
+        else if (type === 'pr_no_pb') sheetName = "PR Pending Purchase Book";
+
         xlsx.utils.book_append_sheet(workbook, worksheet, sheetName);
 
         const buffer = xlsx.write(workbook, { type: "buffer", bookType: "xlsx" });
 
-        const filename = type === 'pr' ? "Payment_Request_Report.xlsx" : "Purchase_Book_Report.xlsx";
+        let filename = "Billing_Charges_Report.xlsx";
+        if (type === 'pr') filename = "Payment_Request_Report.xlsx";
+        else if (type === 'pb') filename = "Purchase_Book_Report.xlsx";
+        else if (type === 'tds') filename = "TDS_Payable_Register.xlsx";
         res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
         res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         res.send(buffer);

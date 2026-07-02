@@ -1834,7 +1834,8 @@ export const getAdminDashboardData = async (req, res) => {
                 employeeId: reg.employee_id._id,
                 date: reg.attendance_date,
                 type: reg.regularization_type,
-                reason: reg.reason
+                reason: reg.reason,
+                canAct: true
             };
         });
 

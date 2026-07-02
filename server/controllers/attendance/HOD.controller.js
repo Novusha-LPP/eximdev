@@ -1094,7 +1094,8 @@ export const getDashboard = async (req, res) => {
                     teamName: getTeamNameForMember(reg.employee_id._id),
                     date: reg.attendance_date,
                     type: reg.regularization_type,
-                    reason: reg.reason
+                    reason: reg.reason,
+                    canAct: true
                 })),
                 // department: {
                 //     name: department?.department_name || 'Department',

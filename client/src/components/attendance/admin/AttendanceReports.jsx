@@ -450,6 +450,7 @@ const AttendanceReports = () => {
   const [empTypeFilter, setEmpTypeFilter] = useState('all');
   const [managerFilter, setManagerFilter] = useState('all');
   const [deptFilter, setDeptFilter] = useState('all');
+  const [excelGrouping, setExcelGrouping] = useState('organization'); // 'organization', 'team', 'single'
 
   // Data
   const [reportData, setReportData] = useState([]);
@@ -813,62 +814,155 @@ const AttendanceReports = () => {
       const { saveAs } = await import('file-saver');
       const wb = new ExcelJS.Workbook();
       wb.creator = 'AlVision Exim';
+      
       const navy = { argb: 'FF1B365D' };
       const white = { argb: 'FFFFFFFF' };
 
-      // Group by company
-      const byCompany = {};
-      processedData.forEach(e => {
-        const co = (e.company_name || '').trim() || 'Unassigned';
-        if (!byCompany[co]) byCompany[co] = [];
-        byCompany[co].push(e);
-      });
+      // Grouping based on selected excelGrouping
+      const byGroup = {};
+      if (excelGrouping === 'single') {
+        byGroup['Attendance Report'] = processedData;
+      } else if (excelGrouping === 'team') {
+        processedData.forEach(e => {
+          const team = getEmployeeTeamName(e);
+          if (!byGroup[team]) byGroup[team] = [];
+          byGroup[team].push(e);
+        });
+      } else {
+        // Default: organization-wise
+        processedData.forEach(e => {
+          const co = (e.company_name || '').trim() || 'Unassigned';
+          if (!byGroup[co]) byGroup[co] = [];
+          byGroup[co].push(e);
+        });
+      }
 
-      Object.entries(byCompany).sort(([a], [b]) => a.localeCompare(b)).forEach(([companyName, employees]) => {
-        const ws = wb.addWorksheet(companyName.substring(0, 31));
+      // Helper: style a header row
+      const styleHeader = (row, bgArgb, textArgb = 'FFFFFFFF') => {
+        row.eachCell(cell => {
+          cell.font  = { bold: true, color: { argb: textArgb }, name: 'Arial', size: 10 };
+          cell.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+            left: { style: 'thin', color: { argb: 'FF94A3B8' } },
+            bottom: { style: 'thin', color: { argb: 'FF94A3B8' } },
+            right: { style: 'thin', color: { argb: 'FF94A3B8' } }
+          };
+          cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        });
+      };
 
-        // Org header
-        const orgRow = ws.addRow([companyName.toUpperCase()]);
-        orgRow.height = 30;
-        orgRow.getCell(1).font = { bold: true, size: 14, name: 'Arial', color: white };
-        orgRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: navy };
-        orgRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
-        ws.mergeCells(`A${orgRow.number}:G${orgRow.number}`);
+      const roundLeave = (value) => Math.round(Number(value || 0) * 10) / 10;
 
-        // Period header
-        const periodRow = ws.addRow([`Attendance Log — ${moment(startDate).format('MMMM YYYY')}`]);
-        periodRow.height = 22;
-        periodRow.getCell(1).font = { bold: true, size: 11, name: 'Arial', color: white };
-        periodRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: navy };
-        periodRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
-        ws.mergeCells(`A${periodRow.number}:G${periodRow.number}`);
+      const STATUS_COLORS = {
+        present : 'FF10b981',
+        absent  : 'FFef4444',
+        halfDay : 'FF3b82f6',
+        leaves  : 'FF8b5cf6',
+        pending : 'FFf97316',
+      };
 
-        const summaryRows = [];
+      Object.entries(byGroup).sort(([a], [b]) => a.localeCompare(b)).forEach(([groupName, employees]) => {
+        const ws = wb.addWorksheet(groupName.substring(0, 31));
+
+        // Set column properties/widths
+        ws.columns = [
+          { key: 'col1', width: 26 }, // Employee/Date
+          { key: 'col2', width: 14 }, // Present/Day
+          { key: 'col3', width: 32 }, // Absent/Shift
+          { key: 'col4', width: 18 }, // HalfDay/Status
+          { key: 'col5', width: 16 }, // InTime
+          { key: 'col6', width: 16 }, // OutTime
+          { key: 'col7', width: 16 }, // Total Hours / Complete Leaves
+          { key: 'col8', width: 16 }, // Opening Balance
+          { key: 'col9', width: 12 }, // PL Taken
+          { key: 'col10', width: 12 }, // LWP Taken
+          { key: 'col11', width: 18 }, // Available Balance
+          { key: 'col12', width: 18 }  // Avg Hours/Day
+        ];
+
         employees.forEach(emp => {
           const logs = emp.history || [];
-          let empPresent = 0, empAbsent = 0, empHalfDay = 0, empLeaves = 0, empTotalHours = 0;
           const empName = emp.name || emp.username || '';
 
-          if (ws.rowCount > 2) ws.addRow([]);
+          const r1 = ws.addRow(['---']);
+          const r2 = ws.addRow([`Attendance Log — ${moment(startDate).format('MMMM YYYY')}`]);
+          const r3 = ws.addRow([empName]);
 
-          // Employee name header
-          const empHeaderRow = ws.addRow([empName]);
-          empHeaderRow.height = 22;
-          ws.mergeCells(`A${empHeaderRow.number}:G${empHeaderRow.number}`);
-          empHeaderRow.getCell(1).font = { bold: true, color: white, name: 'Arial', size: 11 };
-          empHeaderRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2B6CB0' } };
-          empHeaderRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+          // Merge cells A to G for title blocks
+          ws.mergeCells(r1.number, 1, r1.number, 7);
+          ws.mergeCells(r2.number, 1, r2.number, 7);
+          ws.mergeCells(r3.number, 1, r3.number, 7);
 
-          // Subheaders
-          const subRow = ws.addRow(['Date', 'Day', 'Shift', 'Status', 'In Time', 'Out Time', 'Total Hours']);
-          subRow.height = 20;
-          subRow.eachCell(cell => {
-            cell.font = { bold: true, color: white, name: 'Arial', size: 10 };
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B82F6' } };
-            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          // Style title rows
+          const titleColor = 'FF1F385C'; // Premium Navy Blue
+          [r1, r2, r3].forEach((row, rIdx) => {
+            row.height = rIdx === 2 ? 26 : 22;
+            row.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: titleColor } };
+            row.getCell(1).font = { bold: true, color: white, name: 'Arial', size: rIdx === 2 ? 11 : 10 };
+            row.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
           });
 
+          // Summary Headers (Row 4)
+          const COLS = ['Employee', 'Present', 'Absent', 'Half Day', 'Half Day Leaves', 'Full Day Leaves', 'Complete Leaves', 'Opening Balance', 'PL Taken', 'LWP Taken', 'Available Balance', 'Avg Hours/Day'];
+          const sumHeaderRow = ws.addRow(COLS);
+          sumHeaderRow.height = 22;
+          styleHeader(sumHeaderRow, 'FF334155', 'FFFFFFFF'); // Slate gray
+
+          // Summary Values (Row 5)
+          const sumValRow = ws.addRow([
+            empName,
+            emp._present,
+            emp._absent,
+            emp._halfDay,
+            emp._halfDayLeaves,
+            emp._fullDayLeaves,
+            emp._leaves,
+            roundLeave(emp._openingBalance),
+            roundLeave(emp._plTaken),
+            roundLeave(emp._lwpTaken),
+            roundLeave(emp._availableBalance),
+            emp._avgHours ? emp._avgHours.toFixed(1) + 'h' : '0h'
+          ]);
+          sumValRow.height = 22;
+          sumValRow.getCell(1).font = { bold: true, name: 'Arial', size: 10 };
+          sumValRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+
+          // Colour-code summary cells
+          [[2, STATUS_COLORS.present], [3, STATUS_COLORS.absent], [4, STATUS_COLORS.halfDay],
+           [5, STATUS_COLORS.leaves], [6, STATUS_COLORS.leaves], [7, STATUS_COLORS.leaves],
+           [8, STATUS_COLORS.pending], [9, STATUS_COLORS.pending], [10, STATUS_COLORS.pending],
+           [11, STATUS_COLORS.pending]]
+          .forEach(([col, color]) => {
+            const cell = sumValRow.getCell(col);
+            cell.font = { bold: true, color: { argb: color }, name: 'Arial', size: 10 };
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          });
+          sumValRow.getCell(12).alignment = { horizontal: 'center', vertical: 'middle' };
+
+          // Border on summary cells
+          sumValRow.eachCell(cell => {
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+              left: { style: 'thin', color: { argb: 'FF94A3B8' } },
+              bottom: { style: 'thin', color: { argb: 'FF94A3B8' } },
+              right: { style: 'thin', color: { argb: 'FF94A3B8' } }
+            };
+          });
+
+          // Blank row spacer (Row 6)
+          ws.addRow([]);
+
+          // Details Headers (Row 7)
+          const detailCols = ['Date', 'Day', 'Shift', 'Status', 'In Time', 'Out Time', 'Total Hours'];
+          const detailHeaderRow = ws.addRow(detailCols);
+          detailHeaderRow.height = 22;
+          styleHeader(detailHeaderRow, 'FF1E40AF', 'FFFFFFFF'); // Royal blue
+
+          // Daily records logs (Row 8+)
+          let empTotalHours = 0;
           const sortedLogs = [...logs].sort((a, b) => new Date(a.date) - new Date(b.date));
+
           sortedLogs.forEach(log => {
             const sn = log.shift_id?.shift_name || emp.shift_id?.shift_name || '';
             const st = log.shift_id?.start_time || emp.shift_id?.start_time || '';
@@ -878,56 +972,74 @@ const AttendanceReports = () => {
             let wh = '';
             if (log.first_in && log.last_out) {
               const diff = moment(log.last_out).diff(moment(log.first_in), 'hours', true);
-              if (diff > 0 && diff < 24) { wh = diff.toFixed(1) + ' hrs'; empTotalHours += diff; }
+              if (diff > 0 && diff < 24) {
+                wh = diff.toFixed(1) + ' hrs';
+                empTotalHours += diff;
+              }
             }
 
-            const sLower = String(log.status || '').toLowerCase();
-            ws.addRow([moment(log.date).format('DD-MM-YYYY'), moment(log.date).format('ddd'), shiftStr, formatDisplayStatus(log.status), fdt(log.first_in), fdt(log.last_out), wh]);
+            const statusLabel = formatDisplayStatus(log.status);
 
-            if (sLower === 'present' || sLower === 'late' || sLower === 'holiday') empPresent++;
-            else if (sLower === 'absent') empAbsent++;
-            else if (sLower === 'half_day') empHalfDay++;
-            else if (sLower === 'leave' || sLower === 'pending_leave') empLeaves++;
+            const dayRow = ws.addRow([
+              moment(log.date).format('DD-MM-YYYY'),
+              moment(log.date).format('ddd'),
+              shiftStr,
+              statusLabel,
+              fdt(log.first_in),
+              fdt(log.last_out),
+              wh
+            ]);
+            dayRow.height = 20;
+
+            // Center align all except Shift (Col 3)
+            [1, 2, 4, 5, 6, 7].forEach(c => {
+              dayRow.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' };
+            });
+            dayRow.getCell(3).alignment = { horizontal: 'left', vertical: 'middle' };
+
+            dayRow.eachCell(cell => {
+              cell.font = { name: 'Arial', size: 10 };
+              cell.border = {
+                top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+              };
+            });
+
+            // Color code status label
+            const sCell = dayRow.getCell(4);
+            sCell.font = { bold: true, name: 'Arial', size: 10 };
+            if (statusLabel === 'Present') sCell.font.color = { argb: 'FF10B981' };
+            else if (statusLabel === 'Absent') sCell.font.color = { argb: 'FFEF4444' };
+            else if (statusLabel === 'Half Day') sCell.font.color = { argb: 'FF3B82F6' };
+            else if (statusLabel === 'Leave') sCell.font.color = { argb: 'FF8B5CF6' };
+            else if (statusLabel === 'Weekly Off') sCell.font.color = { argb: 'FF64748B' };
+            else if (statusLabel === 'Holiday') sCell.font.color = { argb: 'FFD97706' };
           });
 
-          // Total hours row
-          ws.addRow(['Total Worked Hours', '', '', '', '', '', `${empTotalHours.toFixed(1)} hrs`]);
+          // Total worked hours row
+          const totRow = ws.addRow([
+            'Total Worked Hours',
+            '', '', '', '', '',
+            `${empTotalHours.toFixed(1)} hrs`
+          ]);
+          totRow.height = 22;
+          totRow.getCell(1).font = { bold: true, name: 'Arial', size: 10 };
+          totRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+          totRow.getCell(7).font = { bold: true, name: 'Arial', size: 10 };
+          totRow.getCell(7).alignment = { horizontal: 'center', vertical: 'middle' };
 
-          summaryRows.push({
-            name: empName, present: empPresent, absent: empAbsent, halfDay: empHalfDay, leaves: empLeaves,
-            total: sortedLogs.length, totalHours: empTotalHours,
-            openingBalance: emp._openingBalance, privilegeTaken: emp._plTaken,
-            lwpTaken: emp._lwpTaken, availableBalance: emp._availableBalance
+          totRow.eachCell(cell => {
+            cell.border = {
+              top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+              bottom: { style: 'thin', color: { argb: 'FF94A3B8' } }
+            };
           });
+
+          // Blank separator row before next employee
+          ws.addRow([]);
         });
-
-        // Summary section
-        ws.addRow([]);
-        ws.addRow([]);
-        const sumTitle = ws.addRow(['--- SUMMARY ---']);
-        sumTitle.getCell(1).font = { bold: true, size: 11, name: 'Arial', color: white };
-        sumTitle.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: navy };
-        ws.mergeCells(`A${sumTitle.number}:K${sumTitle.number}`);
-
-        const sumHeader = ws.addRow(['Employee', 'Present', 'Absent', 'Half Day', 'Leaves', 'Total Records', 'Total Hours', 'Opening Balance', 'PL Taken', 'LWP Taken', 'Available Balance']);
-        sumHeader.eachCell(cell => {
-          cell.font = { bold: true, color: white, name: 'Arial', size: 10 };
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
-          cell.alignment = { horizontal: 'center', vertical: 'middle' };
-        });
-
-        summaryRows.forEach(sr => {
-          ws.addRow([sr.name, sr.present, sr.absent, sr.halfDay, sr.leaves, sr.total, `${sr.totalHours.toFixed(1)} hrs`, sr.openingBalance, sr.privilegeTaken, sr.lwpTaken, sr.availableBalance]);
-        });
-
-        ws.getColumn(1).width = 14;
-        ws.getColumn(2).width = 10;
-        ws.getColumn(3).width = 28;
-        ws.getColumn(4).width = 18;
-        ws.getColumn(5).width = 15;
-        ws.getColumn(6).width = 15;
-        ws.getColumn(7).width = 15;
-        [8, 9, 10, 11].forEach(c => { ws.getColumn(c).width = 18; });
       });
 
       const buffer = await wb.xlsx.writeBuffer();
@@ -988,6 +1100,27 @@ const AttendanceReports = () => {
           </div>
         </div>
         <div className="atr-header-actions">
+          <select
+            value={excelGrouping}
+            onChange={e => setExcelGrouping(e.target.value)}
+            className="atr-btn"
+            style={{
+              padding: '0 12px',
+              fontSize: '13px',
+              borderRadius: '8px',
+              border: '1px solid #cbd5e1',
+              background: '#fff',
+              color: '#0f172a',
+              outline: 'none',
+              cursor: 'pointer',
+              height: '34px',
+              marginRight: '8px'
+            }}
+          >
+            <option value="organization">Organization-wise</option>
+            <option value="team">Team-wise</option>
+            <option value="single">Single Sheet</option>
+          </select>
           <button className="atr-btn" onClick={fetchReport} disabled={loading}>
             <FiRefreshCw size={14} className={loading ? 'atr-spin' : ''} />
             Refresh

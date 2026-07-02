@@ -824,7 +824,7 @@ const filteredEmployees = useMemo(() => {
         const params = empCompanyId ? { company_id: empCompanyId } : {};
         const [lr, wor, hor, sr] = await Promise.all([
           masterAPI.getLeavePolicies({ limit:500, ...params }).catch(()=>({ data:[] })),
-          masterAPI.getWeekOffPolicies(params).catch(()=>({ data:[] })),
+          masterAPI.getWeekOffPolicies({ all_companies: true, ...params }).catch(()=>({ data:[] })),
           masterAPI.getHolidayPolicies({ year:new Date().getFullYear(), all_companies:true, ...params }).catch(()=>({ data:[] })),
           masterAPI.getShifts({ limit:500, all_companies:true, ...params }).catch(()=>({ data:[] }))
         ]);

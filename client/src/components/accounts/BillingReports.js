@@ -249,6 +249,8 @@ const PendingBillingUtility = () => {
     { value: "pb", label: "Purchase Book Report" },
     { value: "pr", label: "Payment Request Report" },
     { value: "pr_no_pb", label: "PR Pending Purchase Book" },
+    { value: "tds", label: "TDS Payable Register" },
+    { value: "gpj", label: "General Pending Jobs" },
     { value: "all", label: "Unified PB & PR Report" },
   ];
 
@@ -462,7 +464,9 @@ const PendingBillingUtility = () => {
         pr: `Payment_Request_Report_${dateLabel}.xlsx`,
         pb: `Purchase_Book_Report_${dateLabel}.xlsx`,
         pr_no_pb: `PR_Pending_PB_Report_${dateLabel}.xlsx`,
-        all: `Unified_Billing_Charges_Report_${dateLabel}.xlsx`
+        tds: `TDS_Payable_Register_${dateLabel}.xlsx`,
+        all: `Unified_Billing_Charges_Report_${dateLabel}.xlsx`,
+        gpj: `General_Pending_Jobs_${dateLabel}.xlsx`
       };
       const filename = filenames[filters.reportType] || `Report_${dateLabel}.xlsx`;
       

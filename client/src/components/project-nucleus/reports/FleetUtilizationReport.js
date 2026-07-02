@@ -1102,10 +1102,6 @@ const FleetUtilizationReport = ({
 
     const norParts = [];
     if (metrics.breakdown > 0) norParts.push(`Breakdown: ${metrics.breakdown} ${metrics.breakdownPct}`);
-    if (metrics.maint > 0) norParts.push(`Maint: ${metrics.maint} ${metrics.maintPct}`);
-    if (metrics.onLeave > 0) norParts.push(`Leave: ${metrics.onLeave} ${metrics.onLeavePct}`);
-    if (metrics.accident > 0) norParts.push(`Accident: ${metrics.accident} ${metrics.accidentPct}`);
-    if (metrics.noDriver > 0) norParts.push(`No Driver: ${metrics.noDriver} ${metrics.noDriverPct}`);
     
     const notOnRoadSubtext = norParts.length > 0 ? (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>

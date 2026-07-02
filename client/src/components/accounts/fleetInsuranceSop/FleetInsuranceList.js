@@ -18,9 +18,9 @@ import {
   Stack,
   MenuItem
 } from "@mui/material";
-import { Edit, Delete, GetApp, Add, FileDownload, Visibility } from "@mui/icons-material";
+import { Edit, Delete, GetApp, Add, FileDownload, Visibility, Autorenew } from "@mui/icons-material";
 
-function FleetInsuranceList({ onEdit, onView, onCreate }) {
+function FleetInsuranceList({ onViewHistory, onRenew, onCreate }) {
   const [data, setData] = useState([]);
   const [total, setTotal] = useState(0);
   const currentMonth = new Date().getMonth() + 1;
@@ -32,6 +32,45 @@ function FleetInsuranceList({ onEdit, onView, onCreate }) {
   const [month, setMonth] = useState(String(currentMonth));
   const [year, setYear] = useState(String(currentYear));
   const [loading, setLoading] = useState(false);
+  
+  const [filters, setFilters] = useState({
+    regNo: "",
+    owner: "",
+    size: "",
+    modelType: "",
+    premiumAmount: "",
+    premiumQuote: "",
+    expiryDate: "",
+    renewed: ""
+  });
+  
+  const [filterOptions, setFilterOptions] = useState({
+    owners: [],
+    sizes: [],
+    models: []
+  });
+
+  const fetchFilterOptions = async () => {
+    try {
+      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/filters/options`);
+      setFilterOptions({
+        owners: res.data.owners || [],
+        sizes: res.data.sizes || [],
+        models: res.data.models || []
+      });
+    } catch (err) {
+      console.error("Error fetching filter options:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchFilterOptions();
+  }, []);
+
+  const handleFilterChange = (field, value) => {
+    setFilters(prev => ({ ...prev, [field]: value }));
+    setPage(0);
+  };
 
   const fetchRecords = async () => {
     setLoading(true);
@@ -43,6 +82,7 @@ function FleetInsuranceList({ onEdit, onView, onCreate }) {
           year,
           page: page + 1,
           limit: rowsPerPage,
+          ...filters
         },
       });
       setData(res.data.data || []);
@@ -55,8 +95,12 @@ function FleetInsuranceList({ onEdit, onView, onCreate }) {
   };
 
   useEffect(() => {
-    fetchRecords();
-  }, [page, rowsPerPage, search, month, year]);
+    // using a small debounce for filters if needed, or just fetch directly.
+    const delay = setTimeout(() => {
+      fetchRecords();
+    }, 500);
+    return () => clearTimeout(delay);
+  }, [page, rowsPerPage, search, month, year, filters]);
 
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this Record?")) return;
@@ -138,6 +182,21 @@ function FleetInsuranceList({ onEdit, onView, onCreate }) {
     setPage(0);
   };
 
+  const getExpiryDateColor = (dateStr) => {
+    if (!dateStr) return "inherit";
+    const expiry = new Date(dateStr);
+    const now = new Date();
+    expiry.setHours(0, 0, 0, 0);
+    now.setHours(0, 0, 0, 0);
+    const diffTime = expiry.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays < 0) return "red";
+    if (diffDays === 0) return "red";
+    if (diffDays <= 7) return "orange";
+    return "green";
+  };
+
   return (
     <Box>
       <Paper sx={{ p: 2, mb: 2 }}>
@@ -216,13 +275,53 @@ function FleetInsuranceList({ onEdit, onView, onCreate }) {
               <TableRow sx={{ backgroundColor: "#1a237e" }}>
                 <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>Reg No</TableCell>
                 <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>Owner</TableCell>
-                <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>Engine No</TableCell>
-                <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>Insurer</TableCell>
-                <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>Prev Premium (₹)</TableCell>
-                <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>Total Policy Premium (₹)</TableCell>
+                <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>Size</TableCell>
+                <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>Model</TableCell>
+                <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>Previous Premium (₹)</TableCell>
                 <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>New Premium Quote (₹)</TableCell>
+                <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>Expiry Date</TableCell>
                 <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>Renewed?</TableCell>
                 <TableCell sx={{ color: "#fff", fontWeight: "bold" }} align="center">Actions</TableCell>
+              </TableRow>
+              <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
+                <TableCell padding="none" sx={{ px: 1 }}>
+                  <TextField size="small" placeholder="Filter..." value={filters.regNo} onChange={(e) => handleFilterChange("regNo", e.target.value)} variant="standard" fullWidth />
+                </TableCell>
+                <TableCell padding="none" sx={{ px: 1 }}>
+                  <TextField select size="small" value={filters.owner} onChange={(e) => handleFilterChange("owner", e.target.value)} variant="standard" fullWidth SelectProps={{ displayEmpty: true }} >
+                    <MenuItem value="">All</MenuItem>
+                    {filterOptions.owners.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
+                  </TextField>
+                </TableCell>
+                <TableCell padding="none" sx={{ px: 1 }}>
+                  <TextField select size="small" value={filters.size} onChange={(e) => handleFilterChange("size", e.target.value)} variant="standard" fullWidth SelectProps={{ displayEmpty: true }}>
+                    <MenuItem value="">All</MenuItem>
+                    {filterOptions.sizes.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
+                  </TextField>
+                </TableCell>
+                <TableCell padding="none" sx={{ px: 1 }}>
+                  <TextField select size="small" value={filters.modelType} onChange={(e) => handleFilterChange("modelType", e.target.value)} variant="standard" fullWidth SelectProps={{ displayEmpty: true }}>
+                    <MenuItem value="">All</MenuItem>
+                    {filterOptions.models.map(opt => <MenuItem key={opt} value={opt}>{opt}</MenuItem>)}
+                  </TextField>
+                </TableCell>
+                <TableCell padding="none" sx={{ px: 1 }}>
+                  <TextField size="small" placeholder="Filter..." value={filters.premiumAmount} onChange={(e) => handleFilterChange("premiumAmount", e.target.value)} variant="standard" fullWidth />
+                </TableCell>
+                <TableCell padding="none" sx={{ px: 1 }}>
+                  <TextField size="small" placeholder="Filter..." value={filters.premiumQuote} onChange={(e) => handleFilterChange("premiumQuote", e.target.value)} variant="standard" fullWidth />
+                </TableCell>
+                <TableCell padding="none" sx={{ px: 1 }}>
+                  <TextField size="small" placeholder="Filter date..." value={filters.expiryDate} onChange={(e) => handleFilterChange("expiryDate", e.target.value)} variant="standard" fullWidth />
+                </TableCell>
+                <TableCell padding="none" sx={{ px: 1 }}>
+                  <TextField select size="small" value={filters.renewed} onChange={(e) => handleFilterChange("renewed", e.target.value)} variant="standard" fullWidth SelectProps={{ displayEmpty: true }}>
+                    <MenuItem value="">All</MenuItem>
+                    <MenuItem value="YES">Yes</MenuItem>
+                    <MenuItem value="NO">No</MenuItem>
+                  </TextField>
+                </TableCell>
+                <TableCell></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -235,16 +334,11 @@ function FleetInsuranceList({ onEdit, onView, onCreate }) {
                   <TableRow key={row._id} hover>
                     <TableCell sx={{ fontWeight: "bold" }}>{row.registrationNo}</TableCell>
                     <TableCell>{row.owner || "-"}</TableCell>
-                    <TableCell>{row.engineNumber || "-"}</TableCell>
-                    <TableCell>{row.insuranceCompany || "-"}</TableCell>
+                    <TableCell>{row.size || "-"}</TableCell>
+                    <TableCell>{row.modelType || "-"}</TableCell>
                     <TableCell>
                       {row.premiumAmount 
                         ? Number(row.premiumAmount).toLocaleString("en-IN", { style: "currency", currency: "INR" })
-                        : "-"}
-                    </TableCell>
-                    <TableCell>
-                      {row.totalPolicyPremium 
-                        ? Number(row.totalPolicyPremium).toLocaleString("en-IN", { style: "currency", currency: "INR" })
                         : "-"}
                     </TableCell>
                     <TableCell sx={{ 
@@ -257,13 +351,16 @@ function FleetInsuranceList({ onEdit, onView, onCreate }) {
                         ? Number(row.premiumQuote).toLocaleString("en-IN", { style: "currency", currency: "INR" })
                         : "-"}
                     </TableCell>
+                    <TableCell sx={{ color: getExpiryDateColor(row.policyToDate), fontWeight: "bold" }}>
+                      {row.policyToDate ? new Date(row.policyToDate).toLocaleDateString("en-IN") : "-"}
+                    </TableCell>
                     <TableCell>{row.renewed || "NO"}</TableCell>
                     <TableCell align="center">
-                      <IconButton size="small" color="info" onClick={() => onView(row)}>
+                      <IconButton size="small" color="primary" onClick={() => onViewHistory(row.registrationNo)} title="View Vehicle History">
                         <Visibility fontSize="small" />
                       </IconButton>
-                      <IconButton size="small" color="primary" onClick={() => onEdit(row)}>
-                        <Edit fontSize="small" />
+                      <IconButton size="small" color="success" onClick={() => onRenew(row)} title="Renew Policy">
+                        <Autorenew fontSize="small" />
                       </IconButton>
                       <IconButton size="small" color="secondary" onClick={() => handleExport(row._id, row.registrationNo)}>
                         <GetApp fontSize="small" />

@@ -9,7 +9,7 @@ const router = express.Router();
 // GET all records with pagination and search
 router.get("/fleet-insurance-sop", authMiddleware, async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = "", month = "", year = "" } = req.query;
+    const { page = 1, limit = 10, search = "", month = "", year = "", regNo, owner, size, modelType, premiumAmount, premiumQuote, expiryDate, renewed } = req.query;
     const query = {};
 
     if (search) {
@@ -20,33 +20,102 @@ router.get("/fleet-insurance-sop", authMiddleware, async (req, res) => {
         { policyNo: { $regex: search, $options: "i" } }
       ];
     }
+    
+    if (regNo) query.registrationNo = { $regex: regNo, $options: "i" };
+    if (owner) query.owner = owner;
+    if (size) query.size = size;
+    if (modelType) query.modelType = modelType;
+    if (premiumAmount) query.premiumAmount = Number(premiumAmount);
+    if (premiumQuote) query.premiumQuote = Number(premiumQuote);
+    if (renewed) {
+      if (renewed.toUpperCase() === "YES") {
+        query.renewed = { $regex: "^yes$", $options: "i" };
+      } else if (renewed.toUpperCase() === "NO") {
+        query.$or = [
+          { renewed: { $regex: "^no$", $options: "i" } },
+          { renewed: null },
+          { renewed: "" }
+        ];
+      }
+    }
+    if (expiryDate) {
+      // filter by date string exact match or range. A simple regex on date string won't work well on Date type.
+      // Usually users type a date. We can parse it and match the start/end of that day.
+      const date = new Date(expiryDate);
+      if (!isNaN(date.getTime())) {
+        const startOfDay = new Date(date.setHours(0, 0, 0, 0));
+        const endOfDay = new Date(date.setHours(23, 59, 59, 999));
+        query.policyToDate = { $gte: startOfDay, $lte: endOfDay };
+      }
+    }
 
     if (year && month) {
       // month is 1-12
       const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
       const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59);
-      query.createdAt = { $gte: startDate, $lte: endDate };
+      query.policyFromDate = { $gte: startDate, $lte: endDate };
     } else if (year) {
       const startDate = new Date(parseInt(year), 0, 1);
       const endDate = new Date(parseInt(year), 12, 0, 23, 59, 59);
-      query.createdAt = { $gte: startDate, $lte: endDate };
+      query.policyFromDate = { $gte: startDate, $lte: endDate };
     } else if (month) {
       const currentYear = new Date().getFullYear();
       const startDate = new Date(currentYear, parseInt(month) - 1, 1);
       const endDate = new Date(currentYear, parseInt(month), 0, 23, 59, 59);
-      query.createdAt = { $gte: startDate, $lte: endDate };
+      query.policyFromDate = { $gte: startDate, $lte: endDate };
     }
 
-    const data = await FleetInsuranceSopModel.find(query)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit));
+    const pipeline = [
+      { $match: query },
+      { $sort: { policyToDate: -1, createdAt: -1 } },
+      {
+        $group: {
+          _id: { $toLower: "$registrationNo" },
+          latestDoc: { $first: "$$ROOT" }
+        }
+      },
+      { $replaceRoot: { newRoot: "$latestDoc" } },
+      { $sort: { registrationDate: -1, policyFromDate: -1, createdAt: -1 } },
+      {
+        $facet: {
+          data: [
+            { $skip: (page - 1) * limit },
+            { $limit: parseInt(limit) }
+          ],
+          totalCount: [
+            { $count: "count" }
+          ]
+        }
+      }
+    ];
 
-    const total = await FleetInsuranceSopModel.countDocuments(query);
+    console.log("Fleet Insurance query:", JSON.stringify(query));
+
+    const result = await FleetInsuranceSopModel.aggregate(pipeline);
+    const data = result[0].data;
+    const total = result[0].totalCount[0] ? result[0].totalCount[0].count : 0;
 
     res.status(200).json({ data, total, page: parseInt(page), limit: parseInt(limit) });
   } catch (error) {
     console.error("Error fetching Fleet Insurance SOP records:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// GET filter options (distinct values for owner, size, modelType)
+router.get("/fleet-insurance-sop/filters/options", authMiddleware, async (req, res) => {
+  try {
+    const owners = await FleetInsuranceSopModel.distinct("owner");
+    const sizes = await FleetInsuranceSopModel.distinct("size");
+    const models = await FleetInsuranceSopModel.distinct("modelType");
+    
+    res.status(200).json({
+      owners: owners.filter(Boolean),
+      sizes: sizes.filter(Boolean),
+      models: models.filter(Boolean)
+    });
+  } catch (error) {
+    console.error("Error fetching filter options:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 });
@@ -73,15 +142,15 @@ router.get("/fleet-insurance-sop/history/:registrationNo", authMiddleware, async
       return res.status(400).json({ message: "Registration number required" });
     }
 
-    const record = await FleetInsuranceSopModel.findOne({ 
-      registrationNo: new RegExp(`^${registrationNo}$`, "i") 
-    }).sort({ createdAt: -1 });
+    const records = await FleetInsuranceSopModel.find({
+      registrationNo: new RegExp(`^${registrationNo}$`, "i")
+    }).sort({ policyFromDate: -1, createdAt: -1 });
 
-    if (!record) {
+    if (!records || records.length === 0) {
       return res.status(404).json({ message: "No history found for this vehicle" });
     }
 
-    res.status(200).json(record);
+    res.status(200).json(records);
   } catch (error) {
     console.error("Error fetching vehicle history:", error);
     res.status(500).json({ message: "Internal server error" });
@@ -324,16 +393,16 @@ router.get("/fleet-insurance-sop/export/bulk", authMiddleware, async (req, res) 
     if (year && month) {
       const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
       const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59);
-      query.createdAt = { $gte: startDate, $lte: endDate };
+      query.policyFromDate = { $gte: startDate, $lte: endDate };
     } else if (year) {
       const startDate = new Date(parseInt(year), 0, 1);
       const endDate = new Date(parseInt(year), 12, 0, 23, 59, 59);
-      query.createdAt = { $gte: startDate, $lte: endDate };
+      query.policyFromDate = { $gte: startDate, $lte: endDate };
     } else if (month) {
       const currentYear = new Date().getFullYear();
       const startDate = new Date(currentYear, parseInt(month) - 1, 1);
       const endDate = new Date(currentYear, parseInt(month), 0, 23, 59, 59);
-      query.createdAt = { $gte: startDate, $lte: endDate };
+      query.policyFromDate = { $gte: startDate, $lte: endDate };
     }
 
     const docs = await FleetInsuranceSopModel.find(query).sort({ createdAt: -1 }).lean();

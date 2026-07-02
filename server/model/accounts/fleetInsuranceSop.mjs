@@ -69,6 +69,15 @@ const fleetInsuranceSopSchema = new mongoose.Schema(
     quotations: { type: [quotationSchema], default: [] },
     selectedInsurerL1: { type: String },
     reasonForSelection: { type: String },
+
+    // Renewal Workflow Fields
+    prNumber: { type: String },
+    prDate: { type: Date },
+    financialApprovalStatus: { type: String, enum: ["Draft", "Pending", "Approved", "Rejected"], default: "Draft" },
+    paymentUtr: { type: String },
+    paymentDate: { type: Date },
+    renewalStatus: { type: String, enum: ["Pending", "Renewed", "Not Renewed"], default: "Pending" },
+    tat: { type: Number },
   },
   { timestamps: true }
 );

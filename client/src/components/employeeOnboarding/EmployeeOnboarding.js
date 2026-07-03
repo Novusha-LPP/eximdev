@@ -49,10 +49,16 @@ function EmployeeOnboarding() {
         ) : (
           <>
             <Tabs value={value} onChange={handleChange} aria-label="Employee Onboarding tabs">
-              <Tab label="Complete Onboarding" {...a11yProps(0)} />
+              {user.username === "afzal_ghanchi" && <Tab label="Onboard Employee" {...a11yProps(0)} />}
+              <Tab label="Complete Onboarding" {...a11yProps(user.username === "afzal_ghanchi" ? 1 : 0)} />
             </Tabs>
             <div className="hr-tab-content">
-              <CustomTabPanel value={value} index={0}>
+              {user.username === "afzal_ghanchi" && (
+                <CustomTabPanel value={value} index={0}>
+                  <OnboardEmployee />
+                </CustomTabPanel>
+              )}
+              <CustomTabPanel value={value} index={user.username === "afzal_ghanchi" ? 1 : 0}>
                 <CompleteOnboarding />
               </CustomTabPanel>
             </div>

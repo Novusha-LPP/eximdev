@@ -830,7 +830,7 @@ const KPISheet = ({ sheetId: propSheetId, isPopup = false }) => {
                                                         type="number"
                                                         min="0"
                                                         onKeyPress={(e) => { if (e.key === '-' || e.key === 'e') e.preventDefault(); }}
-                                                        value={row.daily_values[day] || ''}
+                                                        value={row.daily_values[day] ?? ''}
                                                         onChange={(e) => handleCellChange(row.row_id, day, e.target.value)}
                                                         disabled={isLocked(day)}
                                                     />

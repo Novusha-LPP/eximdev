@@ -4150,7 +4150,6 @@ export const migrateEmployee = async (req, res) => {
 
         // Map LeaveBalances and Applications to Destination Org's Policies
         const sourceBalances = await LeaveBalance.find({ employee_id: employeeId }).populate('leave_policy_id');
-       // const destOrgPolicies = await LeavePolicy.find({ company_id: destinationOrgId, status: 'active' });
         
         // Create an equivalent policy lookup map by leave_code
         const policyMap = new Map();
@@ -4166,10 +4165,30 @@ export const migrateEmployee = async (req, res) => {
             
             balance.company_id = destinationOrgId;
             if (destPolicyId) {
-                balance.leave_policy_id = destPolicyId;
+                // Check if a destination balance record already exists for this policy
+                const existingDestBalance = await LeaveBalance.findOne({
+                    employee_id: employeeId,
+                    leave_policy_id: destPolicyId,
+                    year: balance.year
+                });
+
+                if (existingDestBalance) {
+                    // Merge records: preserve the old custom opening balance, carried forward, etc.
+                    existingDestBalance.opening_balance = balance.opening_balance;
+                    existingDestBalance.carried_forward = balance.carried_forward || existingDestBalance.carried_forward;
+                    existingDestBalance.encashed = balance.encashed || existingDestBalance.encashed;
+                    existingDestBalance.company_id = destinationOrgId;
+                    await existingDestBalance.save();
+
+                    // Delete the source balance to avoid unique constraint duplicates
+                    await LeaveBalance.deleteOne({ _id: balance._id });
+                } else {
+                    balance.leave_policy_id = destPolicyId;
+                    await balance.save();
+                }
+            } else {
+                await balance.save();
             }
-            // If no exact match (leave_code), record stays pointing to old policy or we can handle it
-            await balance.save();
         }
 
         // Update LeaveApplications to new company & mapped policy

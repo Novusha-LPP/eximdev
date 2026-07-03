@@ -871,7 +871,9 @@ const filteredEmployees = useMemo(() => {
     if (!id) { toast.error('No employee ID'); return; }
     if (!balanceForm.leave_policy_id) { toast.error('Select a leave policy'); return; }
     try {
-      const ob = Number(balanceForm.opening_balance)||0, u = Number(balanceForm.used)||0, p = Number(balanceForm.pending)||0;
+      const ob = Number(balanceForm.opening_balance)||0, u = Number(balanceForm.used)||0;
+      const existing = (profile?.balances||[]).find(b => String(b.leave_policy_id?._id||b.leave_policy_id||b._id) === String(balanceForm.leave_policy_id));
+      const p = existing ? Number(existing.pending ?? existing.pending_approval ?? 0) : 0;
       if (ob<0||u<0||p<0) { toast.error('Values cannot be negative'); return; }
       await leaveAPI.updateBalance(id, { leave_policy_id:balanceForm.leave_policy_id, opening_balance:ob, used:u, pending:p });
       toast.success('Leave balance updated');
@@ -2888,20 +2890,24 @@ const filteredEmployees = useMemo(() => {
                   {isEditingBalance&&<span style={{ marginLeft:'8px', fontSize:'11px', color:'#92400e', background:'#fffbeb', border:'1px solid #fde68a', padding:'2px 8px', borderRadius:'6px' }}>Editing: {editingBalancePolicyLabel}</span>}
                 </div>
                 <form onSubmit={handleUpdateBalance} style={{ display:'flex', flexWrap:'wrap', gap:'12px', alignItems:'flex-end' }}>
-                  {[
-                    ['Policy', <select key="p" style={{ ...S.input, width:'180px' }} value={String(balanceForm.leave_policy_id)} onChange={e=>setBalanceForm({ ...balanceForm, leave_policy_id:e.target.value })}>
-                      <option value="">Select policy</option>
-                      {availablePolicies.map(p=><option key={p._id} value={String(p._id)}>{p.policy_name||p.leave_type}</option>)}
-                    </select>],
-                    ['Opening', <input key="ob" type="number" step="1" style={{ ...S.input, width:'90px' }} value={balanceForm.opening_balance} onChange={e=>setBalanceForm(p=>({ ...p, opening_balance:e.target.value }))}/>],
-                    ['Used', <input key="u" type="number" step="1" style={{ ...S.input, width:'80px' }} value={balanceForm.used} onChange={e=>setBalanceForm({ ...balanceForm, used:e.target.value })}/>],
-                    ['Pending', <input key="pd" type="number" step="1" style={{ ...S.input, width:'80px' }} value={balanceForm.pending} onChange={e=>setBalanceForm({ ...balanceForm, pending:e.target.value })}/>],
-                  ].map(([lbl,ctrl],i)=>(
-                    <div key={i}>
-                      <div style={{ fontSize:'11px', fontWeight:'700', color:'#000', marginBottom:'4px' }}>{lbl}</div>
-                      {ctrl}
-                    </div>
-                  ))}
+                  {(() => {
+                    const selectedPolicy = (leavePolicies||[]).find(p=>String(p._id)===String(balanceForm.leave_policy_id)) || (profile?.balances||[]).find(b=>String(b.leave_policy_id?._id||b.leave_policy_id||b._id)===String(balanceForm.leave_policy_id));
+                    const isLwpSel = String(selectedPolicy?.leave_type || selectedPolicy?.leave_policy_id?.leave_type || '').toLowerCase().includes('lwp');
+                    return [
+                      ['Policy', <select key="p" style={{ ...S.input, width:'180px' }} value={String(balanceForm.leave_policy_id)} onChange={e=>setBalanceForm({ ...balanceForm, leave_policy_id:e.target.value })}>
+                        <option value="">Select policy</option>
+                        {availablePolicies.map(p=><option key={p._id} value={String(p._id)}>{p.policy_name||p.leave_type}</option>)}
+                      </select>],
+                      ['Opening', <input key="ob" type="number" step="1" style={{ ...S.input, width:'90px' }} value={balanceForm.opening_balance} onChange={e=>setBalanceForm(p=>({ ...p, opening_balance:e.target.value }))}/>],
+                      ['Used', <input key="u" type="number" step="1" style={{ ...S.input, width:'80px' }} value={balanceForm.used} onChange={e=>setBalanceForm({ ...balanceForm, used:e.target.value })}/>],
+                      ['Pending', <input key="pd" type="text" style={{ ...S.input, width:'80px' }} disabled value={isLwpSel ? 'Unlimited' : Math.max(0, (Number(balanceForm.opening_balance) || 0) - (Number(balanceForm.used) || 0))} />],
+                    ].map(([lbl,ctrl],i)=>(
+                      <div key={i}>
+                        <div style={{ fontSize:'11px', fontWeight:'700', color:'#000', marginBottom:'4px' }}>{lbl}</div>
+                        {ctrl}
+                      </div>
+                    ));
+                  })()}
                   <div style={{ display:'flex', gap:'6px' }}>
                     <button type="submit" style={{ ...S.btn(isEditingBalance?'amber':'green') }}>{isEditingBalance?'Update':'Save'}</button>
                     <button type="button" onClick={()=>setShowLeaveBalanceForm(false)} style={{ ...S.btn('ghost') }}>Cancel</button>
@@ -2936,7 +2942,7 @@ const filteredEmployees = useMemo(() => {
                           <td style={{ padding:'8px 12px' }}>{b.leave_policy_id?.policy_name||b.leave_type||'Policy'}</td>
                           <td style={{ padding:'8px 12px', textAlign:'right' }}>{formatLeaveDays(b.opening_balance||0)}</td>
                           <td style={{ padding:'8px 12px', textAlign:'right' }}>{formatLeaveDays(b.used??b.consumed??0)}</td>
-                          <td style={{ padding:'8px 12px', textAlign:'right' }}>{formatLeaveDays(b.pending??b.pending_approval??0)}</td>
+                          <td style={{ padding:'8px 12px', textAlign:'right' }}>{isLwp ? 'Unlimited' : formatLeaveDays(Math.max(0, (b.opening_balance || 0) - (b.used ?? b.consumed ?? 0)))}</td>
                           <td style={{ padding:'8px 12px', textAlign:'right' }}>
                             <button onClick={()=>{ setBalanceForm({ leave_policy_id:rid, opening_balance:b.opening_balance||0, used:b.used??b.consumed??0, pending:b.pending??b.pending_approval??0 }); setShowLeaveBalanceForm(true); }} disabled={isRowEditing} style={{ ...S.btn('ghost'), fontSize:'11px', opacity:isRowEditing?0.5:1 }}>{isRowEditing?'Editing…':'Edit'}</button>
                           </td>

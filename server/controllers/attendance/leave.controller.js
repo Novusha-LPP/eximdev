@@ -566,54 +566,47 @@ const rabsCompany = await Company.findOne({ company_name: /RABS Industries India
             year: currentYear
         });
 
-        const yearStart = moment.utc(`${currentYear}-01-01`).startOf('day').toDate();
-        const yearEnd = moment.utc(`${currentYear}-12-31`).endOf('day').toDate();
-        const usedAgg = await LeaveApplication.aggregate([
-            {
-                $match: {
-                    employee_id: new mongoose.Types.ObjectId(targetId),
-                    approval_status: { $in: ['pending', 'approved'] },
-                    from_date: { $lte: yearEnd },
-                    to_date: { $gte: yearStart }
-                }
-            },
-            {
-                $group: {
-                    _id: {
-                        policy_id: '$leave_policy_id',
-                        status: '$approval_status'
-                    },
-                    used: { $sum: '$total_days' }
-                }
-            }
-        ]);
-        const usageByPolicy = new Map();
-        for (const row of usedAgg) {
-            const policyId = String(row._id?.policy_id || '');
-            if (!policyId) continue;
-            const current = usageByPolicy.get(policyId) || { approved: 0, pending: 0 };
-            current[row._id.status] = Number(row.used || 0);
-            usageByPolicy.set(policyId, current);
-        }
+        // 3. Merge Policies with Balances and sync them in database
+        const formattedData = [];
+        for (const policy of policies) {
+            let userBalance = pickBalanceForPolicy(balances, policy);
 
-        // 3. Merge Policies with Balances
-        const formattedData = policies.map(policy => {
-            const userBalance = pickBalanceForPolicy(balances, policy);
+            if (!userBalance) {
+                const quota = getDefaultOpeningBalance(policy);
+                userBalance = new LeaveBalance({
+                    company_id: targetEmployee.company_id,
+                    employee_id: targetId,
+                    leave_policy_id: policy._id,
+                    leave_type: policy.leave_type,
+                    year: currentYear,
+                    opening_balance: quota,
+                    used: 0,
+                    pending_approval: 0,
+                    closing_balance: quota
+                });
+                await userBalance.save();
+            } else {
+                userBalance = await syncBalanceFromApplications({
+                    employeeId: targetId,
+                    year: currentYear,
+                    policy,
+                    balanceRecord: userBalance
+                });
+            }
 
             // Determine if this is an unpaid policy (LWP)
             const isUnpaidPolicy = String(policy?.leave_type || '').toLowerCase() === 'lwp';
 
             // Extract balance values
             const openingBalance = userBalance?.opening_balance ?? getDefaultOpeningBalance(policy);
-            const applicationUsage = usageByPolicy.get(String(policy._id)) || {};
             
-            let used = Number(userBalance?.used ?? userBalance?.consumed ?? applicationUsage.approved ?? 0);
-            let pending = Number(userBalance?.pending_approval ?? userBalance?.pending ?? applicationUsage.pending ?? 0);
+            let used = Number(userBalance?.used ?? 0);
+            let pending = Number(userBalance?.pending_approval ?? 0);
 
             if (isRabsUser) {
                 // For RABS, used count includes both approved and pending.
-                const approvedCount = Number(userBalance?.used ?? userBalance?.consumed ?? applicationUsage.approved ?? 0);
-                const pendingCount = Number(userBalance?.pending_approval ?? userBalance?.pending ?? applicationUsage.pending ?? 0);
+                const approvedCount = Number(userBalance?.used ?? 0);
+                const pendingCount = Number(userBalance?.pending_approval ?? 0);
                 used = approvedCount + pendingCount;
                 // Pending represents remaining balance (opening - used)
                 pending = Math.max(0, Number(openingBalance || 0) - used);
@@ -626,7 +619,7 @@ const rabsCompany = await Company.findOne({ company_name: /RABS Industries India
                     ? Math.max(0, (openingBalance > 1000000 ? 2000 : openingBalance) - used - pending)
                     : Math.max(0, Number(openingBalance || 0) - used - pending));
             
-            return {
+            formattedData.push({
                 _id: policy._id,
                 leave_type: policy.leave_type,
                 name: policy.policy_name,
@@ -653,8 +646,8 @@ const rabsCompany = await Company.findOne({ company_name: /RABS Industries India
                     pending: pending,
                     remaining: availableFromBalance
                 }
-            };
-        });
+            });
+        }
         // console.log('[Leave Balance] Returning', formattedData.length, 'leave types');
         res.json({ data: formattedData });
     } catch (err) {

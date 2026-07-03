@@ -352,6 +352,26 @@ router.get(
             { be_no: { $regex: "^cancelled$", $options: "i" } },
           ],
         });
+      } else if (statusLower === "billing_confirmation") {
+        query.$and.push(
+          { bill_document_sent_to_accounts: { $exists: true, $nin: [null, ""] } },
+          {
+            $or: [
+              { billing_confirmation_date: { $exists: false } },
+              { billing_confirmation_date: null },
+              { billing_confirmation_date: "" }
+            ]
+          },
+          {
+            $or: [
+              { billing_completed_date: { $exists: false } },
+              { billing_completed_date: null },
+              { billing_completed_date: "" }
+            ]
+          },
+          { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
+          { status: { $not: { $regex: "^cancelled$", $options: "i" } } }
+        );
       } else {
         query.$and.push(
           { status: { $regex: `^${status}$`, $options: "i" } },

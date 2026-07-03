@@ -8,6 +8,7 @@ const allModules = [
   "Import - Operations",
   "Import - Add",
   "Import - Billing",
+  "Billing Confirmation",
   "Import Utility Tool",
   "Report",
   "Audit Trail",

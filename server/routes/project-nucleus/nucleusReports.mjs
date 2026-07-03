@@ -756,6 +756,7 @@ router.get("/pending-job-summaries", authMiddleware, applyUserBranchFilter, asyn
                 { year: financialYear },
                 { status: { $regex: "^pending$", $options: "i" } },
                 { bill_document_sent_to_accounts: { $exists: true, $nin: [null, ""] } },
+                { billing_confirmation_date: { $exists: true, $nin: [null, ""] } },
                 {
                     $or: [
                         { billing_completed_date: { $exists: false } },

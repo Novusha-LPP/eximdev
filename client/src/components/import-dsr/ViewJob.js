@@ -2228,6 +2228,83 @@ function JobDetails() {
                       </Col>
 
                       <Col xs={12} md={6} lg={3} className="pb-3">
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "10px",
+                            marginBottom: "6px",
+                          }}
+                        >
+                          <Checkbox
+                            size="small"
+                            style={{ padding: "0" }}
+                            checked={!!formik.values.billing_confirmation_date}
+                            disabled={user?.role !== "Admin" && !user?.modules?.includes("Billing Confirmation")}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                const dt = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                                formik.setFieldValue("billing_confirmation_date", dt);
+                              } else {
+                                formik.setFieldValue("billing_confirmation_date", "");
+                              }
+                            }}
+                          />
+                          <span style={{ fontWeight: "600", color: "#495057" }}>
+                            Confirm for Billing:
+                          </span>
+                          <span
+                            style={{
+                              fontWeight: "700",
+                              color: formik.values.billing_confirmation_date
+                                ? "#28a745"
+                                : "#dc3545",
+                            }}
+                          >
+                            {formik.values.billing_confirmation_date
+                              ? new Date(
+                                  formik.values.billing_confirmation_date
+                                ).toLocaleString("en-US", {
+                                  timeZone: "Asia/Kolkata",
+                                  month: "short",
+                                  day: "2-digit",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                  hour12: true,
+                                })
+                              : "Pending"}
+                          </span>
+                        </div>
+                        {(user?.role === "Admin" || user?.modules?.includes("Billing Confirmation")) && (
+                          <div>
+                            <TextField
+                              type="datetime-local"
+                              fullWidth
+                              size="small"
+                              variant="outlined"
+                              id="billing_confirmation_date"
+                              name="billing_confirmation_date"
+                              value={
+                                formik.values.billing_confirmation_date
+                                  ? formatDateForInput(
+                                      formik.values.billing_confirmation_date
+                                    )
+                                  : ""
+                              }
+                              onChange={(e) =>
+                                formik.setFieldValue(
+                                  "billing_confirmation_date",
+                                  e.target.value
+                                )
+                              }
+                              InputLabelProps={{ shrink: true }}
+                              sx={compactInputSx}
+                            />
+                          </div>
+                        )}
+                      </Col>
+
+                      <Col xs={12} md={6} lg={3} className="pb-3">
                         <div style={{ fontSize: "0.95rem", marginBottom: "6px" }}>
                           <span
                             style={{

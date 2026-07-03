@@ -199,6 +199,12 @@ router.get(
             {
               bill_document_sent_to_accounts: dateCondition,
             },
+            {
+              billing_confirmation_date: {
+                $exists: true,
+                $nin: [null, ""],
+              },
+            },
           ],
         };
       } else {
@@ -207,6 +213,12 @@ router.get(
             { status: { $regex: /^pending$/i } },
             {
               bill_document_sent_to_accounts: {
+                $exists: true,
+                $nin: [null, ""],
+              },
+            },
+            {
+              billing_confirmation_date: {
                 $exists: true,
                 $nin: [null, ""],
               },
@@ -1919,6 +1931,7 @@ router.patch("/api/reject-billing-job/:id", async (req, res) => {
       {
         $set: {
           bill_document_sent_to_accounts: "",
+          billing_confirmation_date: "",
           billing_reject_remark: remark || "",
         },
       },

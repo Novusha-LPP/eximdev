@@ -548,6 +548,7 @@ function useFetchJobDetails(
       completed_operation_date: "",
       esanchit_completed_date_time: "",
       bill_document_sent_to_accounts: "",
+      billing_confirmation_date: "",
       do_completed: "",
       import_terms: "",
       // container_rail_out_date: ""   
@@ -778,6 +779,7 @@ function useFetchJobDetails(
             completed_operation_date: values.completed_operation_date,
             esanchit_completed_date_time: values.esanchit_completed_date_time,
             bill_document_sent_to_accounts: values.bill_document_sent_to_accounts,
+            billing_confirmation_date: values.billing_confirmation_date,
             do_completed: values.do_completed,
             import_terms: values.import_terms,
             freight: values.freight,
@@ -1171,6 +1173,7 @@ function useFetchJobDetails(
         completed_operation_date: safeValue(data.completed_operation_date),
         esanchit_completed_date_time: safeValue(data.esanchit_completed_date_time),
         bill_document_sent_to_accounts: safeValue(data.bill_document_sent_to_accounts),
+        billing_confirmation_date: safeValue(data.billing_confirmation_date),
         do_completed: safeValue(data.do_completed),
         import_terms: safeValue(data.import_terms),
         freight: safeValue(data.freight),

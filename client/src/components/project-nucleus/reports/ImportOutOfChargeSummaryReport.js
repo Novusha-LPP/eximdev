@@ -9,7 +9,7 @@ import {
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#d0ed57', '#a4de6c'];
 
-const ImportPendingSummaryReport = ({
+const ImportOutOfChargeSummaryReport = ({
     filterType,
     selectedMonth,
     selectedYear,
@@ -42,7 +42,7 @@ const ImportPendingSummaryReport = ({
         const fetchSummaries = async () => {
             setLoading(true);
             try {
-                const endpoint = getEndpoint('/project-nucleus/pending-job-summaries');
+                const endpoint = getEndpoint('/project-nucleus/out-of-charge-summaries');
                 const params = {
                     filterType,
                     month: selectedMonth,
@@ -115,7 +115,7 @@ const ImportPendingSummaryReport = ({
     // ─── Data Aggregation for KPIs ───────────────────────────────
     
     // Fixed reference totals based on unfiltered raw data
-    const totalPendingRaw = useMemo(() =>
+    const totalOutOfChargeRaw = useMemo(() =>
         rawQueryData.reduce((s, r) => s + r.count, 0),
         [rawQueryData]
     );
@@ -129,22 +129,22 @@ const ImportPendingSummaryReport = ({
     );
 
     const assignedJobsCount = useMemo(() =>
-        totalJobsCreated > 0 ? (totalJobsCreated - unassignedJobsCount) : (totalPendingRaw - unassignedJobsCount),
-        [totalJobsCreated, totalPendingRaw, unassignedJobsCount]
+        totalJobsCreated > 0 ? (totalJobsCreated - unassignedJobsCount) : (totalOutOfChargeRaw - unassignedJobsCount),
+        [totalJobsCreated, totalOutOfChargeRaw, unassignedJobsCount]
     );
 
     const assignmentPercentage = useMemo(() => {
         // If there are no jobs created in this period, everything is implicitly perfectly assigned (100%)
-        const denominator = totalJobsCreated > 0 ? totalJobsCreated : totalPendingRaw;
+        const denominator = totalJobsCreated > 0 ? totalJobsCreated : totalOutOfChargeRaw;
         if (denominator === 0) return 100;
         return ((assignedJobsCount / denominator) * 100).toFixed(0);
-    }, [totalJobsCreated, totalPendingRaw, assignedJobsCount]);
+    }, [totalJobsCreated, totalOutOfChargeRaw, assignedJobsCount]);
 
     // Simplified dataset (no assignment filtering)
     const filteredData = rawQueryData;
 
     // Active KPI Total (updates with assignment filter)
-    const totalPending = useMemo(() =>
+    const totalOutOfCharge = useMemo(() =>
         filteredData.reduce((s, r) => s + r.count, 0),
         [filteredData]
     );
@@ -299,10 +299,10 @@ const ImportPendingSummaryReport = ({
                 gap: '20px',
                 marginBottom: '24px'
             }}>
-                {/* Total Pending Jobs */}
+                {/* Total Out of Charge Jobs */}
                 <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)', borderLeft: '4px solid #3b82f6' }}>
                     <h3 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Job Count</h3>
-                    <div style={{ fontSize: '28px', fontWeight: 700, color: '#0f172a' }}>{totalPending}</div>
+                    <div style={{ fontSize: '28px', fontWeight: 700, color: '#0f172a' }}>{totalOutOfCharge}</div>
                 </div>
 
                 {/* Jobs Pending Billing (Accounts) - SEA */}
@@ -374,7 +374,7 @@ const ImportPendingSummaryReport = ({
                     <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
                         {/* Branch Load Donut */}
                         <div style={{ flex: '1 1 400px', background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                            <h3 style={{ marginTop: 0, color: '#1e293b', fontSize: '16px' }}>Pending Jobs by Branch</h3>
+                            <h3 style={{ marginTop: 0, color: '#1e293b', fontSize: '16px' }}>Out of Charge Jobs by Branch</h3>
                             <div style={{ height: '280px', width: '100%' }}>
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
@@ -417,7 +417,7 @@ const ImportPendingSummaryReport = ({
                                     <tr>
                                         <th style={{ width: '60px' }}>S.No</th>
                                         <th>Branch / Port</th>
-                                        <th style={{ textAlign: 'right', width: '220px' }}>Pending Jobs (Click to view list)</th>
+                                        <th style={{ textAlign: 'right', width: '220px' }}>Out of Charge Jobs (Click to view list)</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -443,7 +443,7 @@ const ImportPendingSummaryReport = ({
                                                         <td style={{ textAlign: 'right' }}>
                                                             <span 
                                                                 onClick={() => handleDrillDown(branch.name)}
-                                                                title={`Click to view all pending jobs in ${branch.name}`}
+                                                                title={`Click to view all out of charge jobs in ${branch.name}`}
                                                                 style={{
                                                                     display: 'inline-flex',
                                                                     alignItems: 'center',
@@ -475,11 +475,11 @@ const ImportPendingSummaryReport = ({
                                                                     <td></td>
                                                                     <td style={{ paddingLeft: '32px' }}>
                                                                         <div 
-                                                                            onClick={() => hasAssigned && togglePort(portKey)}
+                                                                            /* removed */
                                                                             style={{ cursor: hasAssigned ? 'pointer' : 'default', display: 'inline-flex', alignItems: 'center', gap: '8px', userSelect: 'none' }}
                                                                         >
                                                                             <span style={{ fontSize: '8px', color: '#64748b', width: '10px' }}>
-                                                                                {hasAssigned ? (isPortExpanded ? '▼' : '▶') : '•'}
+                                                                                '•'
                                                                             </span>
                                                                             <span className="handler-tag" style={{ background: '#fef3c7', color: '#b45309', fontWeight: 600, padding: '3px 8px', fontSize: '12px' }}>
                                                                                 ⚓ Port: {port.name}
@@ -489,7 +489,7 @@ const ImportPendingSummaryReport = ({
                                                                     <td style={{ textAlign: 'right' }}>
                                                                         <span 
                                                                             onClick={() => handleDrillDown(port.name)}
-                                                                            title={`Click to view all pending jobs in port ${port.name}`}
+                                                                            title={`Click to view all out of charge jobs in port ${port.name}`}
                                                                             style={{
                                                                                 display: 'inline-flex',
                                                                                 alignItems: 'center',
@@ -509,36 +509,6 @@ const ImportPendingSummaryReport = ({
                                                                     </td>
                                                                 </tr>
 
-                                                                {/* Employee Level Rows */}
-                                                                {isPortExpanded && hasAssigned && assignedEmployees.map((emp, empIdx) => (
-                                                                    <tr key={empIdx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                                                        <td></td>
-                                                                        <td style={{ paddingLeft: '64px', color: '#475569', fontWeight: 500, fontSize: '13px' }}>
-                                                                            👤 {emp.name}
-                                                                        </td>
-                                                                        <td style={{ textAlign: 'right' }}>
-                                                                            <span 
-                                                                                onClick={() => handleDrillDown(emp.name)}
-                                                                                title={`Click to view jobs assigned to ${emp.name}`}
-                                                                                style={{
-                                                                                    display: 'inline-flex',
-                                                                                    alignItems: 'center',
-                                                                                    gap: '4px',
-                                                                                    minWidth: '42px',
-                                                                                    padding: '2px 10px',
-                                                                                    borderRadius: '20px',
-                                                                                    fontSize: '11px',
-                                                                                    fontWeight: 600,
-                                                                                    background: 'rgba(0, 105, 92, 0.08)',
-                                                                                    color: '#00695c',
-                                                                                    cursor: 'pointer'
-                                                                                }}
-                                                                            >
-                                                                                {emp.count}
-                                                                            </span>
-                                                                        </td>
-                                                                    </tr>
-                                                                ))}
                                                                 </React.Fragment>
                                                         );
                                                     })}
@@ -548,7 +518,7 @@ const ImportPendingSummaryReport = ({
                                     ) : (
                                         <tr>
                                             <td colSpan="3" style={{ textAlign: 'center', color: '#6b7280', padding: '40px' }}>
-                                                No pending jobs found for the selected period.
+                                                No out of charge jobs found for the selected period.
                                             </td>
                                         </tr>
                                     )}
@@ -560,4 +530,4 @@ const ImportPendingSummaryReport = ({
             )}
         </div>
     );
-};export default ImportPendingSummaryReport;
+};export default ImportOutOfChargeSummaryReport;

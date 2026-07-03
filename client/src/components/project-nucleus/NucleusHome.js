@@ -22,6 +22,7 @@ import TransportAccountsReport from './reports/TransportAccountsReport';
 import KarmaReport from './reports/KarmaReport';
 import ExportPulseReport from './reports/ExportPulseReport';
 import ImportPendingSummaryReport from './reports/ImportPendingSummaryReport';
+import ImportOutOfChargeSummaryReport from './reports/ImportOutOfChargeSummaryReport';
 
 const NucleusHome = () => {
     const { selectedCategory, selectedBranchGroup } = useContext(BranchContext);
@@ -35,7 +36,8 @@ const NucleusHome = () => {
                 { id: 'fine', label: 'Bill of Entry – Fine Report' },
                 { id: 'penalty', label: 'Bill of Entry – Penalty Report' },
                 { id: 'top10', label: 'Top 10 Importers' },
-                { id: 'import_pending_summary', label: 'Pending Job Summary' }
+                { id: 'import_pending_summary', label: 'Pending Job Summary' },
+                { id: 'import_out_of_charge_summary', label: 'Out of Charge Summary' }
             ]
         },
         { 
@@ -297,6 +299,19 @@ const NucleusHome = () => {
             case 'import_pending_summary':
                 return (
                     <ImportPendingSummaryReport
+                        filterType={filterType}
+                        selectedMonth={selectedMonth}
+                        selectedYear={selectedYear}
+                        selectedQuarter={selectedQuarter}
+                        dateRange={dateRange}
+                        selectedDay={selectedDay}
+                        category={selectedCategory}
+                        branchId={selectedBranchGroup === 'all' ? '' : selectedBranchGroup}
+                    />
+                );
+            case 'import_out_of_charge_summary':
+                return (
+                    <ImportOutOfChargeSummaryReport
                         filterType={filterType}
                         selectedMonth={selectedMonth}
                         selectedYear={selectedYear}

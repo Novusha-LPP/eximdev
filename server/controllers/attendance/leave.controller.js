@@ -585,7 +585,8 @@ const rabsCompany = await Company.findOne({ company_name: /RABS Industries India
                     closing_balance: quota
                 });
                 await userBalance.save();
-            } else {
+
+                // Sync on first creation to bring in backdated leaves
                 userBalance = await syncBalanceFromApplications({
                     employeeId: targetId,
                     year: currentYear,

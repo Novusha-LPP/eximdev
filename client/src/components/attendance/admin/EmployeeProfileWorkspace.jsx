@@ -323,15 +323,13 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
   }, [balanceForm.leave_policy_id, profile?.balances]);
 
   const availablePolicies = useMemo(() => {
-    const assigned = new Set((profile?.balances||[]).map(b=>String(b.leave_policy_id?._id||b.leave_policy_id||b._id)));
+    const empCompanyId = String(profile?.employee?.company_id?._id || profile?.employee?.company_id || '');
     return (leavePolicies||[]).filter(p => {
-      const pId = String(p._id);
-      const isPriv = (p.policy_name||p.leave_type||'').toLowerCase().includes('privilege');
-      if (isPriv&&assigned.has(pId)&&String(balanceForm.leave_policy_id)!==pId) return false;
-      if (!isEditingBalance&&assigned.has(pId)) return false;
+      const policyCompanyId = String(p.company_id?._id || p.company_id || '');
+      if (empCompanyId && policyCompanyId && policyCompanyId !== empCompanyId) return false;
       return true;
     });
-  }, [leavePolicies, profile?.balances, balanceForm.leave_policy_id, isEditingBalance]);
+  }, [leavePolicies, profile?.employee?.company_id]);
 
   const editingBalancePolicyLabel = useMemo(() => {
     if (!isEditingBalance||!balanceForm.leave_policy_id) return '';
@@ -2882,37 +2880,68 @@ const filteredEmployees = useMemo(() => {
         {/* ══ LEAVE TAB ══════════════════════════════════════════════════════ */}
         {tab==='leave' && (
           <div style={{ display:'flex', flexDirection:'column', gap:'20px' }}>
-            {/* Balance Form */}
+            {/* Leave Balance Form Dialog Box */}
             {showLeaveBalanceForm && (
-              <div style={{ padding:'16px', background:'#fff', border:`1px solid ${isEditingBalance?THEME.amber:THEME.green}`, borderLeft:`4px solid ${isEditingBalance?THEME.amber:THEME.green}`, borderRadius:'8px' }}>
-                <div style={{ fontSize:'13px', fontWeight:'700', color:isEditingBalance?THEME.amber:THEME.green, marginBottom:'12px' }}>
-                  {isEditingBalance?'Edit Leave Balance':'Add Leave Balance'}
-                  {isEditingBalance&&<span style={{ marginLeft:'8px', fontSize:'11px', color:'#92400e', background:'#fffbeb', border:'1px solid #fde68a', padding:'2px 8px', borderRadius:'6px' }}>Editing: {editingBalancePolicyLabel}</span>}
-                </div>
-                <form onSubmit={handleUpdateBalance} style={{ display:'flex', flexWrap:'wrap', gap:'12px', alignItems:'flex-end' }}>
-                  {(() => {
-                    const selectedPolicy = (leavePolicies||[]).find(p=>String(p._id)===String(balanceForm.leave_policy_id)) || (profile?.balances||[]).find(b=>String(b.leave_policy_id?._id||b.leave_policy_id||b._id)===String(balanceForm.leave_policy_id));
-                    const isLwpSel = String(selectedPolicy?.leave_type || selectedPolicy?.leave_policy_id?.leave_type || '').toLowerCase().includes('lwp');
-                    return [
-                      ['Policy', <select key="p" style={{ ...S.input, width:'180px' }} value={String(balanceForm.leave_policy_id)} onChange={e=>setBalanceForm({ ...balanceForm, leave_policy_id:e.target.value })}>
-                        <option value="">Select policy</option>
-                        {availablePolicies.map(p=><option key={p._id} value={String(p._id)}>{p.policy_name||p.leave_type}</option>)}
-                      </select>],
-                      ['Opening', <input key="ob" type="number" step="1" style={{ ...S.input, width:'90px' }} value={balanceForm.opening_balance} onChange={e=>setBalanceForm(p=>({ ...p, opening_balance:e.target.value }))}/>],
-                      ['Used', <input key="u" type="number" step="1" style={{ ...S.input, width:'80px' }} value={balanceForm.used} onChange={e=>setBalanceForm({ ...balanceForm, used:e.target.value })}/>],
-                      ['Pending', <input key="pd" type="text" style={{ ...S.input, width:'80px' }} disabled value={isLwpSel ? 'Unlimited' : Math.max(0, (Number(balanceForm.opening_balance) || 0) - (Number(balanceForm.used) || 0))} />],
-                    ].map(([lbl,ctrl],i)=>(
-                      <div key={i}>
-                        <div style={{ fontSize:'11px', fontWeight:'700', color:'#000', marginBottom:'4px' }}>{lbl}</div>
-                        {ctrl}
-                      </div>
-                    ));
-                  })()}
-                  <div style={{ display:'flex', gap:'6px' }}>
-                    <button type="submit" style={{ ...S.btn(isEditingBalance?'amber':'green') }}>{isEditingBalance?'Update':'Save'}</button>
-                    <button type="button" onClick={()=>setShowLeaveBalanceForm(false)} style={{ ...S.btn('ghost') }}>Cancel</button>
+              <div style={{ position:'fixed', inset:0, background:'rgba(15,23,42,0.4)', backdropFilter:'blur(2px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000 }}>
+                <div style={{ background:'#fff', borderRadius:'14px', width:'100%', maxWidth:'420px', padding:'22px', boxShadow:'0 20px 40px rgba(0,0,0,0.18)', display:'flex', flexDirection:'column', gap:'16px' }}>
+                  
+                  {/* Title */}
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:`1px solid ${THEME.border}`, paddingBottom:'12px' }}>
+                    <div style={{ fontSize:'15px', fontWeight:'800', color:THEME.navy }}>
+                      {isEditingBalance ? 'Edit Leave Balance' : 'Add Leave Balance'}
+                    </div>
+                    <button type="button" onClick={()=>setShowLeaveBalanceForm(false)} style={{ background:'none', border:'none', fontSize:'20px', color:THEME.muted, cursor:'pointer', fontWeight:'700', padding:0 }}>×</button>
                   </div>
-                </form>
+                  
+                  {/* Form */}
+                  <form onSubmit={handleUpdateBalance} style={{ display:'flex', flexDirection:'column', gap:'16px' }}>
+                    
+                    {/* Policy Input */}
+                    <div style={{ display:'flex', flexDirection:'column', gap:'5px' }}>
+                      <label style={{ fontSize:'11px', fontWeight:'700', color:'#475569' }}>Policy Name</label>
+                      {isEditingBalance ? (
+                        <input type="text" style={{ ...S.input, background:'#f8fafc', color:'#475569' }} disabled value={editingBalancePolicyLabel} />
+                      ) : (
+                        <select style={{ ...S.input }} value={String(balanceForm.leave_policy_id)} onChange={e=>setBalanceForm({ ...balanceForm, leave_policy_id:e.target.value })}>
+                          <option value="">Select policy</option>
+                          {availablePolicies.map(p=><option key={p._id} value={String(p._id)}>{p.policy_name||p.leave_type}</option>)}
+                        </select>
+                      )}
+                    </div>
+
+                    {/* Numeric Inputs Grid */}
+                    {(() => {
+                      const selectedPolicy = (leavePolicies||[]).find(p=>String(p._id)===String(balanceForm.leave_policy_id)) || (profile?.balances||[]).find(b=>String(b.leave_policy_id?._id||b.leave_policy_id||b._id)===String(balanceForm.leave_policy_id));
+                      const isLwpSel = String(selectedPolicy?.leave_type || selectedPolicy?.leave_policy_id?.leave_type || '').toLowerCase().includes('lwp');
+                      
+                      return (
+                        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'10px' }}>
+                          <div style={{ display:'flex', flexDirection:'column', gap:'5px' }}>
+                            <label style={{ fontSize:'11px', fontWeight:'700', color:'#475569' }}>Opening</label>
+                            <input type="number" step="1" style={{ ...S.input }} value={balanceForm.opening_balance} onChange={e=>setBalanceForm(p=>({ ...p, opening_balance:e.target.value }))}/>
+                          </div>
+                          
+                          <div style={{ display:'flex', flexDirection:'column', gap:'5px' }}>
+                            <label style={{ fontSize:'11px', fontWeight:'700', color:'#475569' }}>Used</label>
+                            <input type="number" step="1" style={{ ...S.input }} value={balanceForm.used} onChange={e=>setBalanceForm({ ...balanceForm, used:e.target.value })}/>
+                          </div>
+                          
+                          <div style={{ display:'flex', flexDirection:'column', gap:'5px' }}>
+                            <label style={{ fontSize:'11px', fontWeight:'700', color:'#475569' }}>Pending</label>
+                            <input type="text" style={{ ...S.input }} disabled value={isLwpSel ? 'Unlimited' : Math.max(0, (Number(balanceForm.opening_balance) || 0) - (Number(balanceForm.used) || 0))} />
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Footer Actions */}
+                    <div style={{ display:'flex', gap:'8px', marginTop:'8px', justifyContent:'flex-end' }}>
+                      <button type="button" onClick={()=>setShowLeaveBalanceForm(false)} style={{ ...S.btn('ghost'), flex:1 }}>Cancel</button>
+                      <button type="submit" style={{ ...S.btn(isEditingBalance?'amber':'green'), flex:1 }}>{isEditingBalance?'Update':'Save'}</button>
+                    </div>
+
+                  </form>
+                </div>
               </div>
             )}
 

@@ -21,6 +21,34 @@ export function normalizeHsCode(code) {
 }
 
 /**
+ * Converts a quantity between different units (e.g. KGS and MTS).
+ */
+export function convertQuantity(qty, fromUnit, toUnit) {
+  const f = String(fromUnit || "").toLowerCase().trim().replace(/[^a-z]/g, "");
+  const t = String(toUnit || "").toLowerCase().trim().replace(/[^a-z]/g, "");
+
+  if (f === t) return qty;
+
+  // KGS -> MTS
+  if (
+    (f === "kgs" || f === "kg" || f === "kilogram" || f === "kilograms") &&
+    (t === "mts" || t === "mt" || t === "metricton" || t === "metrictons")
+  ) {
+    return qty / 1000;
+  }
+
+  // MTS -> KGS
+  if (
+    (f === "mts" || f === "mt" || f === "metricton" || f === "metrictons") &&
+    (t === "kgs" || t === "kg" || t === "kilogram" || t === "kilograms")
+  ) {
+    return qty * 1000;
+  }
+
+  return qty;
+}
+
+/**
  * Get the latest USD import rate from CurrencyRate collection.
  * Falls back to 84 (approximate INR/USD) if not found.
  */
@@ -124,11 +152,17 @@ export async function validateLicenseUtilization(descriptionDetails, currentJobI
       job_id: { $ne: currentJobId }
     }).session(session).lean();
 
-    const totalOtherQty = otherRecords.reduce((sum, r) => sum + (r.qty || 0), 0);
-    const totalUtilizedQty = totalOtherQty + requestedQty;
+    const licenseUnit = licenseItem.unit || "MTS";
+    const requestedQtyInLicUnit = convertQuantity(requestedQty, row.unit, licenseUnit);
+
+    const totalOtherQtyInLicUnit = otherRecords.reduce((sum, r) => {
+      return sum + convertQuantity(r.qty || 0, r.unit, licenseUnit);
+    }, 0);
+
+    const totalUtilizedQty = totalOtherQtyInLicUnit + requestedQtyInLicUnit;
 
     if (totalUtilizedQty > licensedQty) {
-      throw new Error(`Row ${i + 1}: Utilized quantity exceeds authorized quantity (Licensed: ${licensedQty}, Utilized: ${totalUtilizedQty}).`);
+      throw new Error(`Row ${i + 1}: Utilized quantity exceeds authorized quantity (Licensed: ${licensedQty}, Utilized: ${Math.round(totalUtilizedQty * 1000) / 1000}).`);
     }
 
     // F. Value available (check balance excluding this job)
@@ -248,7 +282,10 @@ export async function recalculateLicenseUtilization(authorizationNo, session = n
       const matchingRecords = recordsBySr[itemSrNo] || [];
 
       // Sum utilization records
-      const totalUtilizedQty = matchingRecords.reduce((sum, r) => sum + (r.qty || 0), 0);
+      const licenseUnit = item.unit || "MTS";
+      const totalUtilizedQty = matchingRecords.reduce((sum, r) => {
+        return sum + convertQuantity(r.qty || 0, r.unit, licenseUnit);
+      }, 0);
       const totalUtilizedUsd = matchingRecords.reduce((sum, r) => sum + (r.cif_usd || 0), 0);
       const totalUtilizedInr = matchingRecords.reduce((sum, r) => sum + (r.cif_inr || 0), 0);
 
@@ -374,6 +411,31 @@ export async function recalculateLicenseUtilizationForJob(jobDoc, session = null
         cifInr = rawAmount * exrate;
       }
 
+      // Convert quantity to the License Authorization item's unit if specified
+      const cleanedLicenseNo = String(licenseNo).replace(/^LIC\//i, "").trim();
+      const auth = await AuthorizationRegistrationModel.findOne({
+        $or: [
+          { registration_no: licenseNo },
+          { licence_no: licenseNo },
+          { job_no: licenseNo },
+          { job_no: cleanedLicenseNo }
+        ]
+      }).session(session).lean();
+
+      let targetUnit = row.unit || "";
+      let convertedQty = qtyVal;
+
+      if (auth) {
+        const licenseItem = (auth.import_details_array || []).find((item, index) => {
+          const itemSrNo = item.sr_no || (index + 1);
+          return itemSrNo === licenseSr;
+        });
+        if (licenseItem && licenseItem.unit) {
+          targetUnit = licenseItem.unit;
+          convertedQty = convertQuantity(qtyVal, row.unit, targetUnit);
+        }
+      }
+
       await LicenseUtilizationModel.create([{
         authorization_no: licenseNo,
         license_sr: licenseSr,
@@ -383,8 +445,8 @@ export async function recalculateLicenseUtilizationForJob(jobDoc, session = null
         be_date: jobDoc.be_date || "",
         hs_code: row.cth_no || row.hs_code || "",
         item_description: row.description || "",
-        qty: qtyVal,
-        unit: row.unit || "",
+        qty: convertedQty,
+        unit: targetUnit,
         cif_usd: Math.round(cifUsd * 100) / 100,
         cif_inr: Math.round(cifInr * 100) / 100,
         exchange_rate_used: exrate,

@@ -2519,6 +2519,20 @@ function JobDetails() {
                         onChange={formik.handleChange} InputLabelProps={{ shrink: true }} sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={3} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>
+                        {isAirMode(data?.mode) ? "Flight Name" : "Vessel Name"}
+                      </label>
+                      <TextField fullWidth size="small" variant="outlined" id="vessel_flight" name="vessel_flight"
+                        value={formik.values.vessel_flight || ""} onChange={formik.handleChange}
+                        placeholder={isAirMode(data?.mode) ? "Enter Flight No" : "Enter Vessel Name"} sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={3} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Voyage No</label>
+                      <TextField fullWidth size="small" variant="outlined" id="voyage_no" name="voyage_no"
+                        value={formik.values.voyage_no || ""} onChange={formik.handleChange}
+                        placeholder="Enter Voyage No" sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={3} lg={2} className="mb-3">
                       <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>ETA Date</label>
                       <TextField fullWidth size="small" variant="outlined" type="datetime-local" id="vessel_berthing" name="vessel_berthing"
                         value={formik.values.vessel_berthing ? (formik.values.vessel_berthing.length === 10 ? `${formik.values.vessel_berthing}T00:00` : formik.values.vessel_berthing) : ""}

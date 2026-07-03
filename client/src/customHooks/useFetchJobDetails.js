@@ -442,6 +442,8 @@ function useFetchJobDetails(
       obl_telex_bl: "",
       is_obl_recieved: false,
       document_received_date: "",
+      vessel_flight: "",
+      voyage_no: "",
       vessel_berthing: "",
       hawb_hbl_no: "",
       hawb_hbl_date: "",
@@ -655,6 +657,8 @@ function useFetchJobDetails(
             cth_documents: updatedCthDocuments,
             documents: selectedDocuments,
             checkedDocs: values.checkedDocs,
+            vessel_flight: values.vessel_flight,
+            voyage_no: values.voyage_no,
             vessel_berthing: values.vessel_berthing,
             hawb_hbl_no: values.hawb_hbl_no,
             hawb_hbl_date: values.hawb_hbl_date,
@@ -943,6 +947,8 @@ function useFetchJobDetails(
         is_obl_recieved: safeValue(data.is_obl_recieved, false),
         document_received_date: safeValue(data.document_received_date),
         arrival_date: safeValue(data.arrival_date),
+        vessel_flight: safeValue(data.vessel_flight, ""),
+        voyage_no: safeValue(data.voyage_no, ""),
         vessel_berthing: safeValue(data.vessel_berthing)
           ? new Date(data.vessel_berthing).toLocaleDateString("en-CA").split("/").reverse().join("-")
           : "",

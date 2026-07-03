@@ -259,6 +259,26 @@ export default function TrackingTab({
 
       <div style={rowStyle}>
         <div style={fieldStyle}>
+          <label style={labelStyle}>{data?.mode === 'AIR' ? 'Flight Name' : 'Vessel Name'}:</label>
+          <input
+            type="text"
+            style={inputStyle}
+            value={formik.values.vessel_flight || ""}
+            onChange={(e) => formik.setFieldValue("vessel_flight", e.target.value)}
+            placeholder={data?.mode === 'AIR' ? 'Enter Flight No' : 'Enter Vessel Name'}
+          />
+        </div>
+        <div style={fieldStyle}>
+          <label style={labelStyle}>Voyage No:</label>
+          <input
+            type="text"
+            style={inputStyle}
+            value={formik.values.voyage_no || ""}
+            onChange={(e) => formik.setFieldValue("voyage_no", e.target.value)}
+            placeholder="Enter Voyage No"
+          />
+        </div>
+        <div style={fieldStyle}>
           <label style={labelStyle}>ETA Date:</label>
           <input
             type="datetime-local"

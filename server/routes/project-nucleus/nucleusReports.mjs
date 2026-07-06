@@ -587,6 +587,19 @@ router.get("/pending-job-summaries", authMiddleware, applyUserBranchFilter, icdF
 
         const baseMatchStage = {
             be_no: { $not: { $regex: "^cancelled$", $options: "i" } },
+            status: { $regex: "^pending$", $options: "i" },
+            bill_document_sent_to_accounts: { $exists: true, $nin: [null, ""] },
+            $or: [
+                { billing_completed_date: { $exists: false } },
+                { billing_completed_date: "" },
+                { billing_completed_date: null },
+                {
+                    $and: [
+                        { billing_completed_date: { $exists: true, $ne: "" } },
+                        { dsr_queries: { $elemMatch: { select_module: "Accounts", resolved: { $ne: true } } } }
+                    ]
+                }
+            ],
             ...branchMatch,
         };
 

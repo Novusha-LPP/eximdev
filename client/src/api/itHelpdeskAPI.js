@@ -14,10 +14,17 @@ export const itHelpdeskAPI = {
   tickets: {
     getAll: (params = {}) => api.get("/it-helpdesk/tickets", { params }).then((r) => r.data),
     getStats: () => api.get("/it-helpdesk/tickets/stats").then((r) => r.data),
+    getReport: (params = {}) => api.get("/it-helpdesk/tickets/report", { params }).then((r) => r.data),
     getById: (id) => api.get(`/it-helpdesk/tickets/${id}`).then((r) => r.data),
     create: (payload) => api.post("/it-helpdesk/tickets", payload).then((r) => r.data),
     update: (id, payload) => api.put(`/it-helpdesk/tickets/${id}`, payload).then((r) => r.data),
     remove: (id) => api.delete(`/it-helpdesk/tickets/${id}`).then((r) => r.data),
+    assign: (id, payload) => api.post(`/it-helpdesk/tickets/${id}/assign`, payload).then((r) => r.data),
+    addHistory: (id, payload) => api.post(`/it-helpdesk/tickets/${id}/history`, payload).then((r) => r.data),
+    uploadAttachment: (id, formData) =>
+      api.post(`/it-helpdesk/tickets/${id}/attachments`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      }).then((r) => r.data),
   },
   vendors: {
     getAll: (params = {}) => api.get("/it-helpdesk/vendors", { params }).then((r) => r.data),

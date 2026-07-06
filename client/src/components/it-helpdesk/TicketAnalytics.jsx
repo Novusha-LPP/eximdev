@@ -86,90 +86,47 @@ export default function TicketAnalytics() {
   const fetchAnalytics = async () => {
     setLoading(true);
     try {
-      // In a real implementation, this would fetch from the API
-      // const response = await itHelpdeskAPI.tickets.getAnalytics(timePeriod);
-      // setStats(response.data.stats || {});
-      // setTopPerformers(response.data.topPerformers || []);
-      // setTicketsNeedingAttention(response.data.ticketsNeedingAttention || []);
+      // Calculate date range based on timePeriod
+      const toDate = new Date();
+      let fromDate = new Date();
+      if (timePeriod === "Today") fromDate.setDate(fromDate.getDate() - 1);
+      else if (timePeriod === "Last 7 Days") fromDate.setDate(fromDate.getDate() - 7);
+      else if (timePeriod === "Last 30 Days") fromDate.setDate(fromDate.getDate() - 30);
+      else if (timePeriod === "Last Quarter") fromDate.setMonth(fromDate.getMonth() - 3);
+      else if (timePeriod === "Last Year") fromDate.setFullYear(fromDate.getFullYear() - 1);
+      else fromDate = null; // All Time
 
-      // Mock data for now
-      const mockStats = {
-        totalTickets: 156,
-        openTickets: 42,
-        resolvedTickets: 89,
-        closedTickets: 25,
-        criticalTickets: 8,
-        averageResolutionTime: "2.5 days",
-        ticketsByCategory: {
-          Hardware: 45,
-          Software: 62,
-          Network: 28,
-          Access: 15,
-          Other: 6,
-        },
-        ticketsByPriority: {
-          Low: 35,
-          Medium: 78,
-          High: 32,
-          Critical: 11,
-        },
-        ticketsByStatus: {
-          New: 12,
-          Open: 18,
-          "In Progress": 24,
-          Pending: 8,
-          Resolved: 65,
-          Closed: 25,
-        },
-        ticketsByAssignee: {
-          "John Doe": 32,
-          "Jane Smith": 28,
-          "Robert Johnson": 24,
-          "Emily Davis": 18,
-          "Michael Wilson": 15,
-          "Unassigned": 39,
-        },
-        ticketsByMonth: {
-          "Jan": 45,
-          "Feb": 52,
-          "Mar": 38,
-          "Apr": 41,
-          "May": 48,
-          "Jun": 56,
-        },
-        resolutionTrend: [
-          { month: "Jan", resolved: 32 },
-          { month: "Feb", resolved: 38 },
-          { month: "Mar", resolved: 29 },
-          { month: "Apr", resolved: 35 },
-          { month: "May", resolved: 42 },
-          { month: "Jun", resolved: 48 },
-        ],
-        workloadDistribution: [
-          { name: "John Doe", value: 32 },
-          { name: "Jane Smith", value: 28 },
-          { name: "Robert Johnson", value: 24 },
-          { name: "Emily Davis", value: 18 },
-          { name: "Michael Wilson", value: 15 },
-          { name: "Unassigned", value: 39 },
-        ],
+      const params = {};
+      if (fromDate) {
+        params.from = fromDate.toISOString();
+        params.to = toDate.toISOString();
+      }
+
+      const res = await itHelpdeskAPI.tickets.getReport(params);
+      const { byStatus, byCategory, byPriority, byDepartment, recentActivity } = res.data;
+
+      // Transform array data into mapped objects for the UI
+      const mapData = (arr) => arr.reduce((acc, curr) => ({ ...acc, [curr._id || "Unknown"]: curr.count }), {});
+
+      const transformedStats = {
+        totalTickets: byStatus.reduce((acc, curr) => acc + curr.count, 0),
+        openTickets: byStatus.find(s => s._id === "New" || s._id === "Assigned" || s._id === "In Progress")?.count || 0,
+        resolvedTickets: byStatus.find(s => s._id === "Resolved")?.count || 0,
+        closedTickets: byStatus.find(s => s._id === "Closed")?.count || 0,
+        criticalTickets: byPriority.find(p => p._id === "Critical")?.count || 0,
+        averageResolutionTime: "N/A", // Need a complex aggregation for accurate avg time
+        ticketsByCategory: mapData(byCategory),
+        ticketsByPriority: mapData(byPriority),
+        ticketsByStatus: mapData(byStatus),
+        ticketsByAssignee: mapData(byDepartment), // Repurposing assignee UI for department in this view
+        ticketsByMonth: mapData(recentActivity),
+        resolutionTrend: recentActivity.map(r => ({ month: r._id, resolved: r.count })),
+        workloadDistribution: byDepartment.map(d => ({ name: d._id || "Unknown", value: d.count })),
       };
 
-      const mockTopPerformers = [
-        { name: "John Doe", resolvedTickets: 28, avgResolutionTime: "1.2 days" },
-        { name: "Jane Smith", resolvedTickets: 24, avgResolutionTime: "1.5 days" },
-        { name: "Robert Johnson", resolvedTickets: 20, avgResolutionTime: "1.8 days" },
-      ];
-
-      const mockTicketsNeedingAttention = [
-        { id: "TKT-001", title: "Network connectivity issue", priority: "High", daysOpen: 5 },
-        { id: "TKT-003", title: "Software installation request", priority: "Medium", daysOpen: 3 },
-        { id: "TKT-005", title: "Printer not working", priority: "Low", daysOpen: 7 },
-      ];
-
-      setStats(mockStats);
-      setTopPerformers(mockTopPerformers);
-      setTicketsNeedingAttention(mockTicketsNeedingAttention);
+      setStats(transformedStats);
+      setTopPerformers([]); // Optional: implement top performers query in backend
+      setTicketsNeedingAttention([]);
     } catch (error) {
       console.error("Error fetching analytics:", error);
       toast.error("Failed to fetch analytics data");

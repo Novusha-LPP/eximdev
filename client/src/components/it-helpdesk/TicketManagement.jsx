@@ -12,6 +12,7 @@ import TicketWorkflow from "./TicketWorkflow";
 import EmailNotifications from "./EmailNotifications";
 import TicketEscalation from "./TicketEscalation";
 import AttachmentUpload from "./AttachmentUpload";
+import TicketDetailDrawer from "./TicketDetailDrawer";
 import {
   Box,
   Button,
@@ -45,6 +46,7 @@ import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SearchIcon from "@mui/icons-material/Search";
+import VisibilityIcon from "@mui/icons-material/Visibility";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import WarningIcon from "@mui/icons-material/Warning";
@@ -88,6 +90,9 @@ export default function TicketManagement() {
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [saving, setSaving] = useState(false);
+  
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [detailTicketId, setDetailTicketId] = useState(null);
   
   // New state for additional modules
   const [activeTab, setActiveTab] = useState("raise-ticket");
@@ -533,6 +538,14 @@ export default function TicketManagement() {
                           {t.assigned_to?.username || t.raised_by?.username || "—"}
                         </TableCell>
                         <TableCell align="right">
+                          <Tooltip title="View Details">
+                            <IconButton size="small" color="primary" onClick={() => {
+                              setDetailTicketId(t._id);
+                              setDrawerOpen(true);
+                            }}>
+                              <VisibilityIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
                           <Tooltip title="Edit">
                             <IconButton size="small" onClick={() => handleOpen(t)}>
                               <EditIcon fontSize="small" />
@@ -804,6 +817,14 @@ No Users Found
           </Button>
         </DialogActions>
       </Dialog>
+      
+      <TicketDetailDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        ticketId={detailTicketId}
+        onUpdate={() => fetchData(pagination.page)}
+        users={users}
+      />
           </Box>
         )}
 

@@ -8,6 +8,8 @@ import DownloadIcon from "@mui/icons-material/Download";
 import DescriptionIcon from "@mui/icons-material/Description";
 import * as XLSX from "xlsx";
 
+import TicketAnalytics from "./TicketAnalytics";
+
 const REPORT_TYPES = [
   { value: "assets", label: "Asset Report" },
   { value: "tickets", label: "Ticket Report" },
@@ -17,6 +19,7 @@ const REPORT_TYPES = [
 ];
 
 export default function ITReports() {
+  const [tabIndex, setTabIndex] = useState(0);
   const [reportType, setReportType] = useState("assets");
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -34,8 +37,8 @@ export default function ITReports() {
   };
 
   useEffect(() => {
-    fetchReport();
-  }, [reportType]);
+    if (tabIndex === 0) fetchReport();
+  }, [reportType, tabIndex]);
 
   const getColumns = () => {
     switch (reportType) {
@@ -159,10 +162,19 @@ export default function ITReports() {
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h5" fontWeight={700}>Reports & Analytics</Typography>
-        <Button variant="outlined" startIcon={<DownloadIcon />} onClick={exportToExcel}>Export</Button>
+        {tabIndex === 0 && <Button variant="outlined" startIcon={<DownloadIcon />} onClick={exportToExcel}>Export</Button>}
       </Box>
 
-      <Card sx={{ mb: 3 }}>
+      <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
+        <Tabs value={tabIndex} onChange={(e, v) => setTabIndex(v)}>
+          <Tab label="Data Exports" />
+          <Tab label="Ticket Analytics" />
+        </Tabs>
+      </Box>
+
+      {tabIndex === 0 && (
+        <>
+          <Card sx={{ mb: 3 }}>
         <CardContent>
           <TextField
             select
@@ -200,7 +212,7 @@ export default function ITReports() {
                 </TableRow>
               ) : (
                 data.map((item) => (
-                  <TableRow key={item._id}>
+                  <TableRow key={item._id || item.ticket_id || item.asset_tag || item.name}>
                     {renderRow(item)}
                   </TableRow>
                 ))
@@ -209,6 +221,10 @@ export default function ITReports() {
           </Table>
         </TableContainer>
       )}
+        </>
+      )}
+
+      {tabIndex === 1 && <TicketAnalytics />}
     </Box>
   );
 }

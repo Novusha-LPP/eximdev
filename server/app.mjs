@@ -767,6 +767,9 @@ app.use('/api/master', masterAttendanceRoutes);
 app.use('/uploads/leaves', express.static(
   path.join(path.dirname(fileURLToPath(import.meta.url)), 'uploads', 'leaves')
 ));
+app.use('/uploads/it-helpdesk', express.static(
+  path.join(path.dirname(fileURLToPath(import.meta.url)), 'uploads', 'it-helpdesk')
+));
 // ─────────────────────────────────────────────────────────────────────────────
 // scmCube API
 app.use(scmCubeRoutes);

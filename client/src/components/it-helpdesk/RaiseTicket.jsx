@@ -48,7 +48,7 @@ const TICKET_CATEGORIES = ["Hardware", "Software", "Network", "Access", "Other"]
 const TICKET_SUB_CATEGORIES = ["Desktop", "Laptop", "Printer", "Phone", "SIM", "Routing", "Switch", "Firewall", "Wi-Fi", "LAN", "WAN", "VPN", "Email", "Access Card", "Software Install", "License", "Other"];
 const TICKET_PRIORITIES = ["Low", "Medium", "High", "Critical"];
 const TICKET_SEVERITY = ["Low", "Medium", "High", "Critical"];
-const TICKET_TYPES = ["Incident", "Service Request", "Problem", "Change Request", "Other"];
+const TICKET_TYPES = ["Incident", "Service Request", "Problem", "Change Request", "Maintenance", "Other"];
 
 export default function RaiseTicket() {
   const [loading, setLoading] = useState(false);

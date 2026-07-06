@@ -68,14 +68,6 @@ const ImportPendingSummaryReport = ({
         if (isAll || category.toUpperCase() === 'SEA') activeJobs.push(...fetchedSeaJobs);
         if (isAll || category.toUpperCase() === 'AIR') activeJobs.push(...fetchedAirJobs);
         
-        // Filter out jobs that have unresolved Accounts queries (they are not "Billing Ready")
-        activeJobs = activeJobs.filter(job => {
-            const hasUnresolved = job.dsr_queries?.some(
-                q => q.select_module === 'Accounts' && q.resolved !== true
-            );
-            return !hasUnresolved;
-        });
-
         return activeJobs.map(job => ({
             branch: job.branch_code || 'Unassigned',
             port: job.custom_house || 'Unassigned',
@@ -120,8 +112,8 @@ const ImportPendingSummaryReport = ({
                 ]);
                 
                 if (seaRes.data || airRes.data) {
-                    const seaCount = (seaRes.data?.totalJobs || 0) - (seaRes.data?.unresolvedCount || 0);
-                    const airCount = (airRes.data?.totalJobs || 0) - (airRes.data?.unresolvedCount || 0);
+                    const seaCount = (seaRes.data?.totalJobs || 0);
+                    const airCount = (airRes.data?.totalJobs || 0);
                     const seaJobs = seaRes.data?.jobs || [];
                     const airJobs = airRes.data?.jobs || [];
                     

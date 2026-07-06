@@ -87,12 +87,12 @@ const ImportPendingSummaryReport = ({
                 const res = await axios.get(endpoint, {
                     params: {
                         filterType,
-                        month,
-                        year: (filterType === 'year' || filterType === 'quarter' || filterType === 'month' || filterType === 'date-range') ? year : (selectedFinancialYear || '26-27'),
-                        quarter,
-                        startDate,
-                        endDate,
-                        day,
+                        month: selectedMonth,
+                        year: (filterType === 'year' || filterType === 'quarter' || filterType === 'month' || filterType === 'date-range') ? selectedYear : (selectedFinancialYear || '26-27'),
+                        quarter: selectedQuarter,
+                        startDate: dateRange?.startDate,
+                        endDate: dateRange?.endDate,
+                        day: selectedDay,
                         branchId,
                         category
                     },
@@ -127,7 +127,7 @@ const ImportPendingSummaryReport = ({
             }
         };
         fetchSummaries();
-    }, [filterType, month, year, quarter, startDate, endDate, day, selectedFinancialYear, branchId, category]);
+    }, [filterType, selectedMonth, selectedYear, selectedQuarter, dateRange, selectedDay, selectedFinancialYear, branchId, category]);
 
     // Handle sort for flat list
     const handleSort = (key) => {

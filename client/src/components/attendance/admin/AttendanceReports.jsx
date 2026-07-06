@@ -441,6 +441,39 @@ const AttendanceReports = () => {
   // Filters
   const [startDate, setStartDate] = useState(currentMonthStart);
   const [endDate, setEndDate] = useState(currentMonthEnd);
+
+  // Year and Month Dropdown Filter States
+  const years = useMemo(() => {
+    const currentYear = moment().year();
+    return [currentYear + 1, currentYear, currentYear - 1, currentYear - 2];
+  }, []);
+
+  const months = useMemo(() => [
+    { value: 0, label: 'January' },
+    { value: 1, label: 'February' },
+    { value: 2, label: 'March' },
+    { value: 3, label: 'April' },
+    { value: 4, label: 'May' },
+    { value: 5, label: 'June' },
+    { value: 6, label: 'July' },
+    { value: 7, label: 'August' },
+    { value: 8, label: 'September' },
+    { value: 9, label: 'October' },
+    { value: 10, label: 'November' },
+    { value: 11, label: 'December' }
+  ], []);
+
+  const [selectedYear, setSelectedYear] = useState(moment(currentMonthStart).year());
+  const [selectedMonth, setSelectedMonth] = useState(moment(currentMonthStart).month());
+
+  // Sync dropdowns when startDate changes externally
+  useEffect(() => {
+    const mDate = moment(startDate);
+    if (mDate.isValid()) {
+      setSelectedYear(mDate.year());
+      setSelectedMonth(mDate.month());
+    }
+  }, [startDate]);
   const [orgFilter, setOrgFilter] = useState('all');
   const [teamFilter, setTeamFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -1311,17 +1344,70 @@ const AttendanceReports = () => {
           </div>
         </div>
         <div className="atr-header-actions">
-          {/* Quick month chips */}
-          <div className="atr-month-chips" style={{ borderTop: 'none', marginTop: 0, paddingTop: 0, marginRight: '8px', display: 'flex', gap: '4px' }}>
-            {quickMonths.map(m => (
-              <button
-                key={m.start}
-                className={`atr-month-chip ${activeMonth?.start === m.start ? 'active' : ''}`}
-                onClick={() => selectMonth(m)}
-              >
-                {m.label}
-              </button>
-            ))}
+          {/* Year select dropdown */}
+          <div style={{ display: 'flex', alignItems: 'center', marginRight: '8px' }}>
+            <span style={{ fontSize: '13px', color: '#64748b', marginRight: '6px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600' }}>
+              <FiCalendar size={13} />
+              Year
+            </span>
+            <select
+              value={selectedYear}
+              onChange={(e) => {
+                const yr = parseInt(e.target.value, 10);
+                setSelectedYear(yr);
+                setStartDate(moment().year(yr).month(selectedMonth).startOf('month').format('YYYY-MM-DD'));
+                setEndDate(moment().year(yr).month(selectedMonth).endOf('month').format('YYYY-MM-DD'));
+              }}
+              className="atr-btn"
+              style={{
+                padding: '0 12px',
+                fontSize: '13px',
+                borderRadius: '8px',
+                border: '1px solid #cbd5e1',
+                background: '#fff',
+                color: '#0f172a',
+                outline: 'none',
+                cursor: 'pointer',
+                height: '34px'
+              }}
+            >
+              {years.map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Month select dropdown */}
+          <div style={{ display: 'flex', alignItems: 'center', marginRight: '8px' }}>
+            <span style={{ fontSize: '13px', color: '#64748b', marginRight: '6px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600' }}>
+              <FiCalendar size={13} />
+              Month
+            </span>
+            <select
+              value={selectedMonth}
+              onChange={(e) => {
+                const mn = parseInt(e.target.value, 10);
+                setSelectedMonth(mn);
+                setStartDate(moment().year(selectedYear).month(mn).startOf('month').format('YYYY-MM-DD'));
+                setEndDate(moment().year(selectedYear).month(mn).endOf('month').format('YYYY-MM-DD'));
+              }}
+              className="atr-btn"
+              style={{
+                padding: '0 12px',
+                fontSize: '13px',
+                borderRadius: '8px',
+                border: '1px solid #cbd5e1',
+                background: '#fff',
+                color: '#0f172a',
+                outline: 'none',
+                cursor: 'pointer',
+                height: '34px'
+              }}
+            >
+              {months.map(m => (
+                <option key={m.value} value={m.value}>{m.label}</option>
+              ))}
+            </select>
           </div>
 
           <select

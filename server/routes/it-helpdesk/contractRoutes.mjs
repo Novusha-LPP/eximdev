@@ -2,6 +2,7 @@ import express from "express";
 import mongoose from "mongoose";
 import Contract from "../../model/it-helpdesk/contractModel.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
+import logger from "../../logger.js";
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -25,6 +26,7 @@ router.get("/", async (req, res) => {
       .sort({ end_date: 1 });
     res.json({ success: true, data });
   } catch (err) {
+    logger.error(`Error fetching contracts: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -35,6 +37,7 @@ router.post("/", async (req, res) => {
     await contract.save();
     res.status(201).json({ success: true, data: contract });
   } catch (err) {
+    logger.error(`Error creating contract: ${err.message}`);
     res.status(500).json({ success: false, message: err.message, error: err.name });
   }
 });
@@ -44,6 +47,7 @@ router.put("/:id", validateId, async (req, res) => {
     const contract = await Contract.findByIdAndUpdate(req.params.id, req.body, { new: true });
     res.json({ success: true, data: contract });
   } catch (err) {
+    logger.error(`Error updating contract: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -53,6 +57,7 @@ router.delete("/:id", validateId, async (req, res) => {
     await Contract.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: "Contract deleted" });
   } catch (err) {
+    logger.error(`Error deleting contract: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });
   }
 });

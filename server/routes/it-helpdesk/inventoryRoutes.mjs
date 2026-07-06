@@ -2,6 +2,7 @@ import express from "express";
 import mongoose from "mongoose";
 import Inventory from "../../model/it-helpdesk/inventoryModel.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
+import logger from "../../logger.js";
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -22,6 +23,7 @@ router.get("/", async (req, res) => {
     const data = await Inventory.find(filter).sort({ item_name: 1 });
     res.json({ success: true, data });
   } catch (err) {
+    logger.error(`Error fetching inventory: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -32,6 +34,7 @@ router.post("/", async (req, res) => {
     await item.save();
     res.status(201).json({ success: true, data: item });
   } catch (err) {
+    logger.error(`Error creating inventory item: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -41,6 +44,7 @@ router.put("/:id", validateId, async (req, res) => {
     const item = await Inventory.findByIdAndUpdate(req.params.id, req.body, { new: true });
     res.json({ success: true, data: item });
   } catch (err) {
+    logger.error(`Error updating inventory item: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -50,6 +54,7 @@ router.delete("/:id", validateId, async (req, res) => {
     await Inventory.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: "Inventory item deleted" });
   } catch (err) {
+    logger.error(`Error deleting inventory item: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });
   }
 });

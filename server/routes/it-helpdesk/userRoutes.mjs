@@ -2,6 +2,7 @@ import express from "express";
 import mongoose from "mongoose";
 import ITHelpdeskUser from "../../model/it-helpdesk/userModel.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
+import logger from "../../logger.js";
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -43,6 +44,7 @@ router.post("/", async (req, res) => {
       data: user,
     });
   } catch (err) {
+    logger.error(`Error creating IT helpdesk user: ${err.message}`);
     res.status(500).json({
       success: false,
       message: err.message,
@@ -60,6 +62,7 @@ router.get("/", async (req, res) => {
       data: users,
     });
   } catch (err) {
+    logger.error(`Error fetching IT helpdesk users: ${err.message}`);
     res.status(500).json({
       success: false,
       message: err.message,
@@ -84,6 +87,7 @@ router.get("/:id", validateId, async (req, res) => {
       data: user,
     });
   } catch (err) {
+    logger.error(`Error fetching IT helpdesk user: ${err.message}`);
     res.status(500).json({
       success: false,
       message: err.message,
@@ -113,6 +117,7 @@ router.put("/:id", validateId, async (req, res) => {
       data: user,
     });
   } catch (err) {
+    logger.error(`Error updating IT helpdesk user: ${err.message}`);
     res.status(500).json({
       success: false,
       message: err.message,
@@ -137,6 +142,7 @@ router.delete("/:id", validateId, async (req, res) => {
       message: "User deleted successfully",
     });
   } catch (err) {
+    logger.error(`Error deleting IT helpdesk user: ${err.message}`);
     res.status(500).json({
       success: false,
       message: err.message,

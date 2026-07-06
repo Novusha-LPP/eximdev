@@ -2,6 +2,7 @@ import express from "express";
 import mongoose from "mongoose";
 import Vendor from "../../model/it-helpdesk/vendorModel.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
+import logger from "../../logger.js";
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -18,6 +19,7 @@ router.get("/", async (req, res) => {
     const data = await Vendor.find({ is_active: true }).sort({ createdAt: -1 });
     res.json({ success: true, data });
   } catch (err) {
+    logger.error(`Error fetching vendors: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -48,6 +50,7 @@ router.post("/", async (req, res) => {
   } catch (err) {
     console.error("Error creating vendor:", err);
     console.error("Error stack:", err.stack);
+    logger.error(`Error creating vendor: ${err.message}`, { stack: err.stack });
     
     // Provide more detailed error information
     let errorMessage = "Error creating vendor";
@@ -96,6 +99,7 @@ router.put("/:id", validateId, async (req, res) => {
   } catch (err) {
     console.error("Error updating vendor:", err);
     console.error("Error stack:", err.stack);
+    logger.error(`Error updating vendor: ${err.message}`, { stack: err.stack });
     
     // Provide more detailed error information
     let errorMessage = "Error updating vendor";
@@ -117,6 +121,7 @@ router.delete("/:id", validateId, async (req, res) => {
     await Vendor.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: "Vendor deleted" });
   } catch (err) {
+    logger.error(`Error deleting vendor: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });
   }
 });

@@ -2,6 +2,7 @@ import express from "express";
 import mongoose from "mongoose";
 import License from "../../model/it-helpdesk/licenseModel.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
+import logger from "../../logger.js";
 
 const router = express.Router();
 
@@ -25,6 +26,7 @@ router.get("/", async (req, res) => {
       .sort({ expiry_date: 1 });
     res.json({ success: true, data });
   } catch (err) {
+    logger.error(`Error fetching licenses: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -35,6 +37,7 @@ router.post("/", async (req, res) => {
     await license.save();
     res.status(201).json({ success: true, data: license });
   } catch (err) {
+    logger.error(`Error creating license: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -44,6 +47,7 @@ router.put("/:id", validateId, async (req, res) => {
     const license = await License.findByIdAndUpdate(req.params.id, req.body, { new: true });
     res.json({ success: true, data: license });
   } catch (err) {
+    logger.error(`Error updating license: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -53,6 +57,7 @@ router.delete("/:id", validateId, async (req, res) => {
     await License.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: "License deleted" });
   } catch (err) {
+    logger.error(`Error deleting license: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });
   }
 });

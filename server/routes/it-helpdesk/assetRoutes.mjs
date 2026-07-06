@@ -3,6 +3,7 @@ import express from "express";
 import mongoose from "mongoose";
 import Asset from "../../model/it-helpdesk/assetModel.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
+import logger from "../../logger.js";
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -298,6 +299,7 @@ const validateAssetPayload = async (req, res, next) => {
 
     next();
   } catch (err) {
+    logger.error(`Error validating asset payload: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });
   }
 };
@@ -321,6 +323,7 @@ router.get("/", async (req, res) => {
     ]);
     res.json({ success: true, data, pagination: { total, page: parseInt(page), limit: parseInt(limit) } });
   } catch (err) {
+    logger.error(`Error fetching assets: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -335,6 +338,7 @@ router.get("/stats", async (_req, res) => {
     ]);
     res.json({ success: true, data: { total, assigned, available, inRepair } });
   } catch (err) {
+    logger.error(`Error fetching asset stats: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -345,6 +349,7 @@ router.post("/", validateAssetPayload, async (req, res) => {
     await asset.save();
     res.status(201).json({ success: true, data: asset });
   } catch (err) {
+    logger.error(`Error creating asset: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -354,6 +359,7 @@ router.put("/:id", validateId, validateAssetPayload, async (req, res) => {
     const asset = await Asset.findByIdAndUpdate(req.params.id, req.body, { new: true });
     res.json({ success: true, data: asset });
   } catch (err) {
+    logger.error(`Error updating asset: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -363,6 +369,7 @@ router.delete("/:id", validateId, async (req, res) => {
     await Asset.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: "Asset deleted" });
   } catch (err) {
+    logger.error(`Error deleting asset: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });
   }
 });

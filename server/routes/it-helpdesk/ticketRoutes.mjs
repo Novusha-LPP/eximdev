@@ -3,6 +3,7 @@ import express from "express";
 import mongoose from "mongoose";
 import Ticket from "../../model/it-helpdesk/ticketModel.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
+import logger from "../../logger.js";
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -48,6 +49,7 @@ router.get("/", async (req, res) => {
     ]);
     res.json({ success: true, data, pagination: { total, page: parseInt(page), limit: parseInt(limit) } });
   } catch (err) {
+    logger.error(`Error fetching tickets: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -68,6 +70,7 @@ router.get("/stats", async (_req, res) => {
       data: { total, newCount, assigned, inProgress, pending, resolved, closed } 
     });
   } catch (err) {
+    logger.error(`Error fetching ticket stats: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -105,6 +108,7 @@ router.post("/", async (req, res) => {
     await ticket.save();
     res.status(201).json({ success: true, data: ticket });
   } catch (err) {
+    logger.error(`Error creating ticket: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -119,6 +123,7 @@ router.put("/:id", validateId, async (req, res) => {
       .populate("assigned_to", "username email");
     res.json({ success: true, data: ticket });
   } catch (err) {
+    logger.error(`Error updating ticket: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -128,6 +133,7 @@ router.delete("/:id", validateId, async (req, res) => {
     await Ticket.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: "Ticket deleted" });
   } catch (err) {
+    logger.error(`Error deleting ticket: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });
   }
 });

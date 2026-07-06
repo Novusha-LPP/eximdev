@@ -13,6 +13,7 @@ import EmailNotifications from "./EmailNotifications";
 import TicketEscalation from "./TicketEscalation";
 import AttachmentUpload from "./AttachmentUpload";
 import TicketDetailDrawer from "./TicketDetailDrawer";
+import * as XLSX from "xlsx";
 import {
   Box,
   Button,
@@ -106,6 +107,43 @@ export default function TicketManagement() {
   const [emailNotifications, setEmailNotifications] = useState([]);
   const [escalationRules, setEscalationRules] = useState([]);
   const [attachments, setAttachments] = useState([]);
+
+  const handleExportAllToExcel = async () => {
+    try {
+      toast.loading("Preparing export...", { id: "export-tickets" });
+      // Fetch all tickets with a very high limit
+      const res = await itHelpdeskAPI.tickets.getAll({ limit: 10000 });
+      const allTickets = res.data || [];
+      if (allTickets.length === 0) {
+        toast.error("No tickets found to export", { id: "export-tickets" });
+        return;
+      }
+      const wb = XLSX.utils.book_new();
+      const wsData = [
+        ["Ticket ID", "Title", "Description", "Category", "Priority", "Status", "Assigned To", "Raised By", "Department", "Created Date"]
+      ];
+      allTickets.forEach(t => {
+        wsData.push([
+          t.ticket_id || t._id,
+          t.title || "",
+          t.description || "",
+          t.category || "",
+          t.priority || "",
+          t.status || "",
+          t.assigned_to?.username || t.assigned_to?.email || "—",
+          t.raised_by?.username || t.raised_by?.email || t.requester_name || "—",
+          t.department || "—",
+          t.createdAt ? new Date(t.createdAt).toLocaleString() : "—"
+        ]);
+      });
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+      XLSX.utils.book_append_sheet(wb, ws, "Tickets");
+      XLSX.writeFile(wb, "Helpdesk_Tickets.xlsx");
+      toast.success("Export downloaded successfully", { id: "export-tickets" });
+    } catch (err) {
+      toast.error("Failed to export tickets", { id: "export-tickets" });
+    }
+  };
 
   const fetchData = useCallback(
     async (page = 1) => {
@@ -377,6 +415,9 @@ export default function TicketManagement() {
           </Typography>
         </Box>
         <Box display="flex" gap={1}>
+          <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleExportAllToExcel}>
+            Export Excel
+          </Button>
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => fetchData(pagination.page)}>
             Refresh
           </Button>

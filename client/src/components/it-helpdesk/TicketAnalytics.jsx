@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import * as XLSX from "xlsx";
 import toast from "react-hot-toast";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import {
@@ -81,6 +82,8 @@ export default function TicketAnalytics() {
   });
   const [topPerformers, setTopPerformers] = useState([]);
   const [ticketsNeedingAttention, setTicketsNeedingAttention] = useState([]);
+  const [reportTickets, setReportTickets] = useState([]);
+  const [reportLoading, setReportLoading] = useState(false);
 
   // Fetch analytics data
   const fetchAnalytics = async () => {
@@ -135,9 +138,76 @@ export default function TicketAnalytics() {
     }
   };
 
+  // Fetch all tickets for the reports tab
+  const fetchReportTickets = async () => {
+    setReportLoading(true);
+    try {
+      const res = await itHelpdeskAPI.tickets.getAll({ limit: 10000 });
+      setReportTickets(res.data || []);
+    } catch (err) {
+      console.error("Error fetching report tickets:", err);
+      toast.error("Failed to load report data");
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  const handleGenerateReport = () => {
+    if (!reportTickets.length) return;
+    const wb = XLSX.utils.book_new();
+
+    // Sheet 1: All Tickets
+    const allData = [["Ticket ID", "Title", "Category", "Priority", "Status", "Department", "Assigned To", "Created Date"]];
+    reportTickets.forEach(t => allData.push([
+      t.ticket_id || t._id,
+      t.title || "",
+      t.category || "",
+      t.priority || "",
+      t.status || "",
+      t.department || "—",
+      t.assigned_to?.username || t.assigned_to?.email || "Unassigned",
+      t.createdAt ? new Date(t.createdAt).toLocaleString() : ""
+    ]));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(allData), "All Tickets");
+
+    // Sheet 2: Open Tickets
+    const openStatuses = ["New", "Open", "In Progress", "Assigned", "Pending"];
+    const openData = [["Ticket ID", "Title", "Priority", "Status", "Department", "Created Date"]];
+    reportTickets.filter(t => openStatuses.includes(t.status)).forEach(t => openData.push([
+      t.ticket_id || t._id,
+      t.title || "",
+      t.priority || "",
+      t.status || "",
+      t.department || "—",
+      t.createdAt ? new Date(t.createdAt).toLocaleString() : ""
+    ]));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(openData), "Open Tickets");
+
+    // Sheet 3: By Status Summary
+    const statusMap = {};
+    reportTickets.forEach(t => { statusMap[t.status] = (statusMap[t.status] || 0) + 1; });
+    const statusData = [["Status", "Count"]];
+    Object.entries(statusMap).forEach(([k, v]) => statusData.push([k, v]));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(statusData), "By Status");
+
+    // Sheet 4: By Priority Summary
+    const priorityMap = {};
+    reportTickets.forEach(t => { priorityMap[t.priority] = (priorityMap[t.priority] || 0) + 1; });
+    const priorityData = [["Priority", "Count"]];
+    Object.entries(priorityMap).forEach(([k, v]) => priorityData.push([k, v]));
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(priorityData), "By Priority");
+
+    XLSX.writeFile(wb, `Ticket_Reports_${new Date().toLocaleDateString().replace(/\//g, "-")}.xlsx`);
+    toast.success("Report downloaded successfully!");
+  };
+
   useEffect(() => {
     fetchAnalytics();
   }, [timePeriod]);
+
+  useEffect(() => {
+    if (activeTab === 3) fetchReportTickets();
+  }, [activeTab]);
 
   // Get priority color
   const getPriorityColor = (priority) => {
@@ -582,39 +652,140 @@ export default function TicketAnalytics() {
           )}
 
           {activeTab === 3 && (
-            <Card>
-              <CardContent>
-                <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                  <Typography variant="h6" fontWeight={600}>
-                    Ticket Reports
-                  </Typography>
-                  <Button variant="contained" startIcon={<DownloadIcon />}>
-                    Generate Report
-                  </Button>
-                </Box>
-                <Divider sx={{ mb: 2 }} />
-                <Grid container spacing={2}>
-                  <Grid item xs={12} md={4}>
-                    <Paper sx={{ p: 2, textAlign: "center" }}>
-                      <Typography variant="body1" fontWeight={500}>Open Tickets Report</Typography>
-                      <Typography variant="caption" color="text.secondary">List of all open tickets</Typography>
-                    </Paper>
+            <Box>
+              {/* Report Header */}
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                <Typography variant="h6" fontWeight={600}>Ticket Reports</Typography>
+                <Button
+                  variant="contained"
+                  startIcon={<DownloadIcon />}
+                  onClick={handleGenerateReport}
+                  disabled={reportLoading || reportTickets.length === 0}
+                >
+                  {reportLoading ? "Loading..." : "Download Excel Report"}
+                </Button>
+              </Box>
+
+              {reportLoading ? (
+                <Box display="flex" justifyContent="center" py={5}><CircularProgress /></Box>
+              ) : (
+                <Grid container spacing={3}>
+                  {/* Summary Cards */}
+                  {[
+                    { label: "Total Tickets", value: reportTickets.length, color: "primary.main" },
+                    { label: "Open / In Progress", value: reportTickets.filter(t => ["New","Open","In Progress","Assigned","Pending"].includes(t.status)).length, color: "warning.main" },
+                    { label: "Resolved", value: reportTickets.filter(t => t.status === "Resolved").length, color: "success.main" },
+                    { label: "Critical Priority", value: reportTickets.filter(t => t.priority === "Critical").length, color: "error.main" },
+                  ].map(card => (
+                    <Grid item xs={6} md={3} key={card.label}>
+                      <Card sx={{ border: `2px solid`, borderColor: card.color }}>
+                        <CardContent sx={{ textAlign: "center", py: 2 }}>
+                          <Typography variant="h4" fontWeight={700} color={card.color}>{card.value}</Typography>
+                          <Typography variant="caption" color="text.secondary">{card.label}</Typography>
+                        </CardContent>
+                      </Card>
+                    </Grid>
+                  ))}
+
+                  {/* Tickets by Status Table */}
+                  <Grid item xs={12} md={6}>
+                    <Card>
+                      <CardContent>
+                        <Typography variant="h6" fontWeight={600} mb={2}>Tickets by Status</Typography>
+                        <Divider sx={{ mb: 2 }} />
+                        {Object.entries(
+                          reportTickets.reduce((acc, t) => { acc[t.status || "Unknown"] = (acc[t.status || "Unknown"] || 0) + 1; return acc; }, {})
+                        ).sort((a, b) => b[1] - a[1]).map(([status, count]) => (
+                          <Box key={status} display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
+                            <Box display="flex" alignItems="center" gap={1}>
+                              <Chip label={status} size="small" color={getStatusColor(status)} />
+                            </Box>
+                            <Box display="flex" alignItems="center" gap={1}>
+                              <Typography fontWeight={600}>{count}</Typography>
+                              <Box sx={{ width: 80, height: 8, bgcolor: "grey.200", borderRadius: 4, overflow: "hidden" }}>
+                                <Box sx={{ height: "100%", bgcolor: "primary.main", width: `${(count / reportTickets.length) * 100}%` }} />
+                              </Box>
+                              <Typography variant="caption" color="text.secondary">{Math.round((count / reportTickets.length) * 100)}%</Typography>
+                            </Box>
+                          </Box>
+                        ))}
+                      </CardContent>
+                    </Card>
                   </Grid>
-                  <Grid item xs={12} md={4}>
-                    <Paper sx={{ p: 2, textAlign: "center" }}>
-                      <Typography variant="body1" fontWeight={500}>Resolution Time Report</Typography>
-                      <Typography variant="caption" color="text.secondary">Average resolution time by category</Typography>
-                    </Paper>
+
+                  {/* Tickets by Priority Table */}
+                  <Grid item xs={12} md={6}>
+                    <Card>
+                      <CardContent>
+                        <Typography variant="h6" fontWeight={600} mb={2}>Tickets by Priority</Typography>
+                        <Divider sx={{ mb: 2 }} />
+                        {Object.entries(
+                          reportTickets.reduce((acc, t) => { acc[t.priority || "Unknown"] = (acc[t.priority || "Unknown"] || 0) + 1; return acc; }, {})
+                        ).sort((a, b) => b[1] - a[1]).map(([priority, count]) => (
+                          <Box key={priority} display="flex" justifyContent="space-between" alignItems="center" mb={1.5}>
+                            <Chip label={priority} size="small" color={getPriorityColor(priority)} />
+                            <Box display="flex" alignItems="center" gap={1}>
+                              <Typography fontWeight={600}>{count}</Typography>
+                              <Box sx={{ width: 80, height: 8, bgcolor: "grey.200", borderRadius: 4, overflow: "hidden" }}>
+                                <Box sx={{ height: "100%", bgcolor: "error.main", width: `${(count / reportTickets.length) * 100}%` }} />
+                              </Box>
+                              <Typography variant="caption" color="text.secondary">{Math.round((count / reportTickets.length) * 100)}%</Typography>
+                            </Box>
+                          </Box>
+                        ))}
+                      </CardContent>
+                    </Card>
                   </Grid>
-                  <Grid item xs={12} md={4}>
-                    <Paper sx={{ p: 2, textAlign: "center" }}>
-                      <Typography variant="body1" fontWeight={500}>Performance Report</Typography>
-                      <Typography variant="caption" color="text.secondary">Agent performance metrics</Typography>
-                    </Paper>
+
+                  {/* Open Tickets List */}
+                  <Grid item xs={12}>
+                    <Card>
+                      <CardContent>
+                        <Typography variant="h6" fontWeight={600} mb={2}>
+                          Open Tickets ({reportTickets.filter(t => ["New","Open","In Progress","Assigned","Pending"].includes(t.status)).length})
+                        </Typography>
+                        <Divider sx={{ mb: 2 }} />
+                        <Box sx={{ overflowX: "auto" }}>
+                          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+                            <thead>
+                              <tr style={{ background: "#f5f5f5" }}>
+                                {["Ticket ID", "Title", "Category", "Priority", "Status", "Department", "Created"].map(col => (
+                                  <th key={col} style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, borderBottom: "1px solid #e0e0e0" }}>{col}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {reportTickets
+                                .filter(t => ["New","Open","In Progress","Assigned","Pending"].includes(t.status))
+                                .slice(0, 20)
+                                .map((t, i) => (
+                                  <tr key={t._id} style={{ background: i % 2 === 0 ? "#fff" : "#fafafa" }}>
+                                    <td style={{ padding: "8px 12px", borderBottom: "1px solid #f0f0f0", fontFamily: "monospace", fontSize: 12 }}>{t.ticket_id || t._id?.slice(-6)}</td>
+                                    <td style={{ padding: "8px 12px", borderBottom: "1px solid #f0f0f0" }}>{t.title}</td>
+                                    <td style={{ padding: "8px 12px", borderBottom: "1px solid #f0f0f0" }}>{t.category || "—"}</td>
+                                    <td style={{ padding: "8px 12px", borderBottom: "1px solid #f0f0f0" }}>{t.priority || "—"}</td>
+                                    <td style={{ padding: "8px 12px", borderBottom: "1px solid #f0f0f0" }}>{t.status}</td>
+                                    <td style={{ padding: "8px 12px", borderBottom: "1px solid #f0f0f0" }}>{t.department || "—"}</td>
+                                    <td style={{ padding: "8px 12px", borderBottom: "1px solid #f0f0f0", fontSize: 12 }}>{t.createdAt ? new Date(t.createdAt).toLocaleDateString() : "—"}</td>
+                                  </tr>
+                                ))}
+                              {reportTickets.filter(t => ["New","Open","In Progress","Assigned","Pending"].includes(t.status)).length === 0 && (
+                                <tr><td colSpan={7} style={{ padding: "20px", textAlign: "center", color: "#999" }}>No open tickets found</td></tr>
+                              )}
+                            </tbody>
+                          </table>
+                          {reportTickets.filter(t => ["New","Open","In Progress","Assigned","Pending"].includes(t.status)).length > 20 && (
+                            <Typography variant="caption" color="text.secondary" mt={1} display="block" textAlign="center">
+                              Showing first 20 records. Download Excel for full list.
+                            </Typography>
+                          )}
+                        </Box>
+                      </CardContent>
+                    </Card>
                   </Grid>
                 </Grid>
-              </CardContent>
-            </Card>
+              )}
+            </Box>
           )}
         </CardContent>
       </Card>

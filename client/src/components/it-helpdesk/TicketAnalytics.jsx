@@ -108,28 +108,106 @@ export default function TicketAnalytics() {
       const res = await itHelpdeskAPI.tickets.getReport(params);
       const { byStatus, byCategory, byPriority, byDepartment, recentActivity } = res.data;
 
+      // Also fetch all tickets to derive Needing Attention, top performers, avg resolution
+      const allRes = await itHelpdeskAPI.tickets.getAll({ limit: 5000 });
+      const allTickets = allRes.data || [];
+
       // Transform array data into mapped objects for the UI
       const mapData = (arr) => arr.reduce((acc, curr) => ({ ...acc, [curr._id || "Unknown"]: curr.count }), {});
 
+      // Correct open count: sum ALL open-like statuses
+      const OPEN_STATUSES = ["New", "Open", "In Progress", "Assigned", "Pending"];
+      const openCount = byStatus
+        .filter(s => OPEN_STATUSES.includes(s._id))
+        .reduce((sum, s) => sum + s.count, 0);
+
+      // Resolved + Closed count
+      const resolvedCount = byStatus
+        .filter(s => s._id === "Resolved" || s._id === "Closed")
+        .reduce((sum, s) => sum + s.count, 0);
+
+      const closedCount = byStatus.find(s => s._id === "Closed")?.count || 0;
+      const criticalCount = byPriority.find(p => p._id === "Critical")?.count || 0;
+
+      // Compute avg resolution time from tickets with both createdAt and updatedAt where status is Resolved/Closed
+      const resolvedTickets = allTickets.filter(t =>
+        (t.status === "Resolved" || t.status === "Closed") && t.createdAt && t.updatedAt
+      );
+      let avgResolutionTime = "N/A";
+      if (resolvedTickets.length > 0) {
+        const totalHours = resolvedTickets.reduce((sum, t) => {
+          const diff = new Date(t.updatedAt) - new Date(t.createdAt);
+          return sum + diff / (1000 * 60 * 60);
+        }, 0);
+        const avgHours = totalHours / resolvedTickets.length;
+        if (avgHours < 24) avgResolutionTime = `${Math.round(avgHours)}h`;
+        else avgResolutionTime = `${Math.round(avgHours / 24)}d`;
+      }
+
+      // Tickets Needing Attention: open tickets older than 2 days, sorted by priority and age
+      const PRIORITY_ORDER = { Critical: 0, High: 1, Medium: 2, Low: 3 };
+      const now = new Date();
+      const needingAttention = allTickets
+        .filter(t => OPEN_STATUSES.includes(t.status))
+        .map(t => ({
+          id: t.ticket_id || t._id,
+          title: t.title,
+          priority: t.priority || "Low",
+          status: t.status,
+          daysOpen: Math.floor((now - new Date(t.createdAt)) / (1000 * 60 * 60 * 24)),
+        }))
+        .sort((a, b) =>
+          (PRIORITY_ORDER[a.priority] ?? 9) - (PRIORITY_ORDER[b.priority] ?? 9) ||
+          b.daysOpen - a.daysOpen
+        )
+        .slice(0, 10);
+
+      // Top Performers: agents with most resolved tickets
+      const agentMap = {};
+      allTickets
+        .filter(t => (t.status === "Resolved" || t.status === "Closed") && t.assigned_to)
+        .forEach(t => {
+          const name = t.assigned_to?.username || t.assigned_to?.email || "Unknown";
+          if (!agentMap[name]) agentMap[name] = { name, resolvedTickets: 0, totalTime: 0, count: 0 };
+          agentMap[name].resolvedTickets += 1;
+          if (t.createdAt && t.updatedAt) {
+            agentMap[name].totalTime += new Date(t.updatedAt) - new Date(t.createdAt);
+            agentMap[name].count += 1;
+          }
+        });
+      const performers = Object.values(agentMap)
+        .sort((a, b) => b.resolvedTickets - a.resolvedTickets)
+        .slice(0, 5)
+        .map(a => ({
+          name: a.name,
+          resolvedTickets: a.resolvedTickets,
+          avgResolutionTime: a.count > 0
+            ? (() => {
+                const h = Math.round(a.totalTime / a.count / (1000 * 60 * 60));
+                return h < 24 ? `${h}h avg` : `${Math.round(h / 24)}d avg`;
+              })()
+            : "N/A",
+        }));
+
       const transformedStats = {
         totalTickets: byStatus.reduce((acc, curr) => acc + curr.count, 0),
-        openTickets: byStatus.find(s => s._id === "New" || s._id === "Assigned" || s._id === "In Progress")?.count || 0,
-        resolvedTickets: byStatus.find(s => s._id === "Resolved")?.count || 0,
-        closedTickets: byStatus.find(s => s._id === "Closed")?.count || 0,
-        criticalTickets: byPriority.find(p => p._id === "Critical")?.count || 0,
-        averageResolutionTime: "N/A", // Need a complex aggregation for accurate avg time
+        openTickets: openCount,
+        resolvedTickets: resolvedCount,
+        closedTickets: closedCount,
+        criticalTickets: criticalCount,
+        averageResolutionTime: avgResolutionTime,
         ticketsByCategory: mapData(byCategory),
         ticketsByPriority: mapData(byPriority),
         ticketsByStatus: mapData(byStatus),
-        ticketsByAssignee: mapData(byDepartment), // Repurposing assignee UI for department in this view
+        ticketsByAssignee: mapData(byDepartment),
         ticketsByMonth: mapData(recentActivity),
         resolutionTrend: recentActivity.map(r => ({ month: r._id, resolved: r.count })),
         workloadDistribution: byDepartment.map(d => ({ name: d._id || "Unknown", value: d.count })),
       };
 
       setStats(transformedStats);
-      setTopPerformers([]); // Optional: implement top performers query in backend
-      setTicketsNeedingAttention([]);
+      setTopPerformers(performers);
+      setTicketsNeedingAttention(needingAttention);
     } catch (error) {
       console.error("Error fetching analytics:", error);
       toast.error("Failed to fetch analytics data");
@@ -448,35 +526,29 @@ export default function TicketAnalytics() {
                   </Box>
                   <Divider sx={{ mb: 2 }} />
                   <List>
-                    {ticketsNeedingAttention.map((ticket) => (
-                      <ListItem key={ticket.id}>
+                    {ticketsNeedingAttention.length === 0 ? (
+                      <Typography color="text.secondary" textAlign="center" py={2}>No open tickets needing attention 🎉</Typography>
+                    ) : ticketsNeedingAttention.map((ticket) => (
+                      <ListItem key={ticket.id} divider>
                         <ListItemAvatar>
-                          <Avatar>
-                            <ErrorIcon color={getPriorityColor(ticket.priority)} />
+                          <Avatar sx={{ bgcolor: ticket.priority === "Critical" ? "error.main" : ticket.priority === "High" ? "warning.main" : "primary.main" }}>
+                            <ErrorIcon />
                           </Avatar>
                         </ListItemAvatar>
                         <ListItemText
                           primary={
                             <Box display="flex" justifyContent="space-between" alignItems="center">
-                              <Typography variant="body1">{ticket.title}</Typography>
-                              <Chip 
-                                label={ticket.id} 
-                                size="small" 
-                                variant="outlined" 
-                                color={getPriorityColor(ticket.priority)}
-                              />
+                              <Typography variant="body1" fontWeight={500}>{ticket.title}</Typography>
+                              <Chip label={ticket.id} size="small" variant="outlined" color={getPriorityColor(ticket.priority)} />
                             </Box>
                           }
                           secondary={
-                            <Box display="flex" alignItems="center" gap={2}>
+                            <Box display="flex" alignItems="center" gap={2} mt={0.5}>
                               <Typography variant="body2" color="text.secondary">
-                                Open for {ticket.daysOpen} days
+                                {ticket.daysOpen === 0 ? "Opened today" : `Open for ${ticket.daysOpen} day${ticket.daysOpen > 1 ? "s" : ""}`}
                               </Typography>
-                              <Chip 
-                                label={ticket.priority} 
-                                size="small" 
-                                color={getPriorityColor(ticket.priority)}
-                              />
+                              <Chip label={ticket.priority} size="small" color={getPriorityColor(ticket.priority)} />
+                              <Chip label={ticket.status} size="small" variant="outlined" />
                             </Box>
                           }
                         />
@@ -575,33 +647,26 @@ export default function TicketAnalytics() {
                     </Box>
                     <Divider sx={{ mb: 2 }} />
                     <List>
-                      {topPerformers.map((performer, index) => (
-                        <ListItem key={index}>
+                      {topPerformers.length === 0 ? (
+                        <Typography color="text.secondary" textAlign="center" py={3}>No resolved tickets assigned to agents yet.</Typography>
+                      ) : topPerformers.map((performer, index) => (
+                        <ListItem key={index} divider>
                           <ListItemAvatar>
-                            <Avatar>
-                              <TrendingUpIcon color="success" />
+                            <Avatar sx={{ bgcolor: index === 0 ? "warning.main" : "primary.main", fontWeight: 700 }}>
+                              #{index + 1}
                             </Avatar>
                           </ListItemAvatar>
                           <ListItemText
                             primary={
                               <Box display="flex" justifyContent="space-between" alignItems="center">
-                                <Typography variant="body1">{performer.name}</Typography>
-                                <Chip 
-                                  label={`#${index + 1}`} 
-                                  size="small" 
-                                  color="primary"
-                                />
+                                <Typography variant="body1" fontWeight={500}>{performer.name}</Typography>
+                                <Chip label={`${performer.resolvedTickets} resolved`} size="small" color="success" />
                               </Box>
                             }
                             secondary={
-                              <Box display="flex" alignItems="center" gap={2}>
-                                <Typography variant="body2" color="text.secondary">
-                                  {performer.resolvedTickets} tickets resolved
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary">
-                                  Avg. {performer.avgResolutionTime}
-                                </Typography>
-                              </Box>
+                              <Typography variant="body2" color="text.secondary" mt={0.5}>
+                                Avg resolution time: {performer.avgResolutionTime}
+                              </Typography>
                             }
                           />
                         </ListItem>

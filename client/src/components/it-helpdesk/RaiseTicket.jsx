@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useContext } from "react";
 import toast from "react-hot-toast";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import {
@@ -16,7 +16,6 @@ import {
   MenuItem,
   Chip,
   Divider,
-  Alert,
   Stack,
 } from "@mui/material";
 import {
@@ -26,14 +25,12 @@ import {
   Person as PersonIcon,
   Business as BusinessIcon,
   Email as EmailIcon,
-  Phone as PhoneIcon,
   LocationOn as LocationOnIcon,
   CalendarToday as CalendarTodayIcon,
   Schedule as ScheduleIcon,
   PriorityHigh as PriorityHighIcon,
   Category as CategoryIcon,
   Description as DescriptionIcon,
-  Title as TitleIcon,
   Close as CloseIcon,
 } from "@mui/icons-material";
 
@@ -41,61 +38,76 @@ import {
   List,
   ListItem,
   ListItemText,
-  InputAdornment
+  InputAdornment,
 } from "@mui/material";
 
+import { UserContext } from "../../contexts/UserContext";
+
 const TICKET_CATEGORIES = ["Hardware", "Software", "Network", "Access", "Other"];
-const TICKET_SUB_CATEGORIES = ["Desktop", "Laptop", "Printer", "Phone", "SIM", "Routing", "Switch", "Firewall", "Wi-Fi", "LAN", "WAN", "VPN", "Email", "Access Card", "Software Install", "License", "Other"];
+const TICKET_SUB_CATEGORIES = [
+  "Desktop", "Laptop", "Printer", "Phone", "SIM",
+  "Routing", "Switch", "Firewall", "Wi-Fi", "LAN", "WAN", "VPN",
+  "Email", "Access Card", "Software Install", "License", "Other",
+];
 const TICKET_PRIORITIES = ["Low", "Medium", "High", "Critical"];
 const TICKET_SEVERITY = ["Low", "Medium", "High", "Critical"];
 const TICKET_TYPES = ["Incident", "Service Request", "Problem", "Change Request", "Maintenance", "Other"];
 
+// Statuses available to Admin when updating
+const ADMIN_STATUSES = ["Open", "In Progress", "Closed"];
+
+// Default assigned IT person
+const DEFAULT_ASSIGNEE = "Vikash";
+
+const INITIAL_FORM = {
+  description: "",
+  category: "Hardware",
+  subCategory: "",
+  priority: "",       // optional — no default
+  severity: "Medium",
+  type: "Incident",
+  status: "New",      // default New for employees
+  assigned_to: DEFAULT_ASSIGNEE,
+  requesterName: "",
+  department: "",
+  contactInformation: "",
+  location: "",
+  dueDate: "",
+  estimatedTime: "",
+  tags: [],
+};
+
 export default function RaiseTicket() {
+  const { user } = useContext(UserContext);
+  const isAdmin = user?.role === "Admin";
+
   const [loading, setLoading] = useState(false);
   const [attachments, setAttachments] = useState([]);
-  const [ticketForm, setTicketForm] = useState({
-    title: "",
-    description: "",
-    category: "Hardware",
-    subCategory: "",
-    priority: "Medium",
-    severity: "Medium",
-    type: "Incident",
-    requesterName: "",
-    department: "",
-    contactInformation: "",
-    location: "",
-    dueDate: "",
-    estimatedTime: "",
-    tags: [],
-  });
+  const [ticketForm, setTicketForm] = useState(INITIAL_FORM);
 
   // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setTicketForm(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setTicketForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Handle file upload
+  // Handle file upload (optional)
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files);
-    setAttachments(prev => [...prev, ...files]);
+    setAttachments((prev) => [...prev, ...files]);
   };
 
   // Remove attachment
   const removeAttachment = (index) => {
-    setAttachments(prev => prev.filter((_, i) => i !== index));
+    setAttachments((prev) => prev.filter((_, i) => i !== index));
   };
 
   // Add tag
   const addTag = (e) => {
     if (e.key === "Enter" && e.target.value.trim()) {
-      setTicketForm(prev => ({
+      setTicketForm((prev) => ({
         ...prev,
-        tags: [...prev.tags, e.target.value.trim()]
+        tags: [...prev.tags, e.target.value.trim()],
       }));
       e.target.value = "";
     }
@@ -103,68 +115,52 @@ export default function RaiseTicket() {
 
   // Remove tag
   const removeTag = (index) => {
-    setTicketForm(prev => ({
+    setTicketForm((prev) => ({
       ...prev,
-      tags: prev.tags.filter((_, i) => i !== index)
+      tags: prev.tags.filter((_, i) => i !== index),
     }));
+  };
+
+  const handleReset = () => {
+    setTicketForm(INITIAL_FORM);
+    setAttachments([]);
   };
 
   // Submit ticket
   const handleSubmit = async () => {
-    if (!ticketForm.title || !ticketForm.description) {
-      toast.error("Title and description are required");
+    if (!ticketForm.description) {
+      toast.error("Description is required");
       return;
     }
 
     setLoading(true);
     try {
-      // Create FormData for file uploads
       const formData = new FormData();
-      formData.append("title", ticketForm.title);
+      // Title is auto-generated from category + type since field is removed
+      const autoTitle = `[${ticketForm.type}] ${ticketForm.category}${ticketForm.subCategory ? " - " + ticketForm.subCategory : ""}`;
+      formData.append("title", autoTitle);
       formData.append("description", ticketForm.description);
       formData.append("category", ticketForm.category);
       formData.append("subcategory", ticketForm.subCategory);
-      formData.append("priority", ticketForm.priority);
+      if (ticketForm.priority) formData.append("priority", ticketForm.priority);
       formData.append("severity", ticketForm.severity);
       formData.append("type", ticketForm.type);
+      formData.append("status", ticketForm.status);
+      formData.append("assigned_to_name", ticketForm.assigned_to);
       formData.append("requester_name", ticketForm.requesterName);
       formData.append("department", ticketForm.department);
       formData.append("contact_information", ticketForm.contactInformation);
       formData.append("location", ticketForm.location);
-      formData.append("sla_due_date", ticketForm.sla_due_date);
-      formData.append("estimated_time", ticketForm.estimatedTime);
+      if (ticketForm.dueDate) formData.append("sla_due_date", ticketForm.dueDate);
+      if (ticketForm.estimatedTime) formData.append("estimated_time", ticketForm.estimatedTime);
       formData.append("tags", JSON.stringify(ticketForm.tags));
 
-      // Add attachments
-      attachments.forEach(file => {
-        formData.append("attachments", file);
-      });
+      // Attachments are optional
+      attachments.forEach((file) => formData.append("attachments", file));
 
-      // Submit to API
-      // const response = await itHelpdeskAPI.tickets.create(formData);
-      // toast.success("Ticket raised successfully");
-
-      // Mock implementation
-      toast.success("Ticket raised successfully");
-
-      // Reset form
-      setTicketForm({
-        title: "",
-        description: "",
-        category: "Hardware",
-        subCategory: "",
-        priority: "Medium",
-        severity: "Medium",
-        type: "Incident",
-        requesterName: "",
-        department: "",
-        contactInformation: "",
-        location: "",
-        dueDate: "",
-        estimatedTime: "",
-        tags: [],
-      });
-      setAttachments([]);
+      await itHelpdeskAPI.tickets.create(formData);
+      toast.success("Ticket raised successfully!");
+      handleReset();
     } catch (error) {
       console.error("Error raising ticket:", error);
       toast.error("Failed to raise ticket");
@@ -177,50 +173,35 @@ export default function RaiseTicket() {
     <Box p={3}>
       <Card sx={{ boxShadow: 3 }}>
         <CardContent>
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-            <Box display="flex" alignItems="center" gap={1}>
-              <AddIcon color="primary" />
-              <Typography variant="h5" fontWeight={700}>
-                Raise New Ticket
-              </Typography>
-            </Box>
+          {/* Header */}
+          <Box display="flex" alignItems="center" gap={1} mb={3}>
+            <AddIcon color="primary" />
+            <Typography variant="h5" fontWeight={700}>
+              Raise New Ticket
+            </Typography>
           </Box>
 
           <Grid container spacing={3}>
-            {/* Basic Information */}
+            {/* ── Basic Information ── */}
             <Grid item xs={12}>
-              <Typography variant="h6" fontWeight={600} mb={2}>
+              <Typography variant="h6" fontWeight={600} mb={1}>
                 Basic Information
               </Typography>
               <Divider sx={{ mb: 2 }} />
             </Grid>
 
+            {/* Description */}
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Title / Subject"
-                name="title"
-                value={ticketForm.title}
-                onChange={handleInputChange}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <TitleIcon />
-                    </InputAdornment>
-                  ),
-                }}
-              />
-            </Grid>
-
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
+                required
                 label="Description"
                 name="description"
                 value={ticketForm.description}
                 onChange={handleInputChange}
                 multiline
                 rows={4}
+                placeholder="Describe your issue in detail..."
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -230,59 +211,64 @@ export default function RaiseTicket() {
                 }}
               />
             </Grid>
-<Grid item xs={6}>
-<TextField
-  select
-  label="Status"
-  size="small"
-  fullWidth
-  required
-  value={ticketForm.status}
-  onChange={(e) =>
-    setTicketForm((prev) => ({
-      ...prev,
-      status: e.target.value
-    }))
-  }
->
 
-    <MenuItem value="New">
-      New
-    </MenuItem>
+            {/* Status — Admin sees limited options; Employee sees "New" fixed */}
+            <Grid item xs={12} md={6}>
+              {isAdmin ? (
+                <FormControl fullWidth>
+                  <InputLabel>Status</InputLabel>
+                  <Select
+                    name="status"
+                    value={ticketForm.status}
+                    onChange={handleInputChange}
+                    label="Status"
+                  >
+                    {ADMIN_STATUSES.map((s) => (
+                      <MenuItem key={s} value={s}>{s}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              ) : (
+                <TextField
+                  fullWidth
+                  label="Status"
+                  value="New"
+                  disabled
+                  helperText="New tickets always start with status: New"
+                />
+              )}
+            </Grid>
 
-    <MenuItem value="Assigned">
-      Assigned
-    </MenuItem>
+            {/* Assigned To — defaults to Vikash */}
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Assigned To"
+                name="assigned_to"
+                value={ticketForm.assigned_to}
+                onChange={handleInputChange}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <PersonIcon />
+                    </InputAdornment>
+                  ),
+                }}
+                helperText="Default IT assignee: Vikash"
+              />
+            </Grid>
 
-    <MenuItem value="In Progress">
-      In Progress
-    </MenuItem>
-
-    <MenuItem value="Pending">
-      Pending
-    </MenuItem>
-
-    <MenuItem value="Resolved">
-      Resolved
-    </MenuItem>
-
-    <MenuItem value="Closed">
-      Closed
-    </MenuItem>
-
-  </TextField>
-</Grid>
-
-            {/* Category and Priority */}
+            {/* ── Category & Priority ── */}
             <Grid item xs={12}>
-              <Typography variant="h6" fontWeight={600} mb={2}>
-                Category and Priority
+              <Typography variant="h6" fontWeight={600} mb={1}>
+                Category &amp; Priority
               </Typography>
               <Divider sx={{ mb: 2 }} />
             </Grid>
 
+            {/* Category */}
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
+              <FormControl fullWidth required>
                 <InputLabel>Category</InputLabel>
                 <Select
                   name="category"
@@ -290,10 +276,10 @@ export default function RaiseTicket() {
                   onChange={handleInputChange}
                   label="Category"
                 >
-                  {TICKET_CATEGORIES.map(category => (
+                  {TICKET_CATEGORIES.map((category) => (
                     <MenuItem key={category} value={category}>
                       <Box display="flex" alignItems="center" gap={1}>
-                        <CategoryIcon />
+                        <CategoryIcon fontSize="small" />
                         {category}
                       </Box>
                     </MenuItem>
@@ -302,6 +288,7 @@ export default function RaiseTicket() {
               </FormControl>
             </Grid>
 
+            {/* Subcategory */}
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Subcategory</InputLabel>
@@ -312,9 +299,7 @@ export default function RaiseTicket() {
                   label="Subcategory"
                 >
                   <MenuItem value="">Select Subcategory</MenuItem>
-                  {TICKET_SUB_CATEGORIES
-                    .filter(sub => sub.toLowerCase().includes(ticketForm.category.toLowerCase()) || ticketForm.category === "Other")
-                    .map(subcategory => (
+                  {TICKET_SUB_CATEGORIES.map((subcategory) => (
                     <MenuItem key={subcategory} value={subcategory}>
                       {subcategory}
                     </MenuItem>
@@ -323,19 +308,21 @@ export default function RaiseTicket() {
               </FormControl>
             </Grid>
 
+            {/* Priority — optional */}
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
-                <InputLabel>Priority</InputLabel>
+                <InputLabel>Priority (Optional)</InputLabel>
                 <Select
                   name="priority"
                   value={ticketForm.priority}
                   onChange={handleInputChange}
-                  label="Priority"
+                  label="Priority (Optional)"
                 >
-                  {TICKET_PRIORITIES.map(priority => (
+                  <MenuItem value=""><em>Not specified</em></MenuItem>
+                  {TICKET_PRIORITIES.map((priority) => (
                     <MenuItem key={priority} value={priority}>
                       <Box display="flex" alignItems="center" gap={1}>
-                        <PriorityHighIcon />
+                        <PriorityHighIcon fontSize="small" />
                         {priority}
                       </Box>
                     </MenuItem>
@@ -344,6 +331,7 @@ export default function RaiseTicket() {
               </FormControl>
             </Grid>
 
+            {/* Severity */}
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Severity</InputLabel>
@@ -353,7 +341,7 @@ export default function RaiseTicket() {
                   onChange={handleInputChange}
                   label="Severity"
                 >
-                  {TICKET_SEVERITY.map(severity => (
+                  {TICKET_SEVERITY.map((severity) => (
                     <MenuItem key={severity} value={severity}>
                       {severity}
                     </MenuItem>
@@ -362,6 +350,7 @@ export default function RaiseTicket() {
               </FormControl>
             </Grid>
 
+            {/* Ticket Type */}
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Ticket Type</InputLabel>
@@ -371,7 +360,7 @@ export default function RaiseTicket() {
                   onChange={handleInputChange}
                   label="Ticket Type"
                 >
-                  {TICKET_TYPES.map(type => (
+                  {TICKET_TYPES.map((type) => (
                     <MenuItem key={type} value={type}>
                       {type}
                     </MenuItem>
@@ -380,9 +369,9 @@ export default function RaiseTicket() {
               </FormControl>
             </Grid>
 
-            {/* Requester Information */}
+            {/* ── Requester Information ── */}
             <Grid item xs={12}>
-              <Typography variant="h6" fontWeight={600} mb={2}>
+              <Typography variant="h6" fontWeight={600} mb={1}>
                 Requester Information
               </Typography>
               <Divider sx={{ mb: 2 }} />
@@ -425,7 +414,7 @@ export default function RaiseTicket() {
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Contact Information"
+                label="Contact Information (Email / Phone)"
                 name="contactInformation"
                 value={ticketForm.contactInformation}
                 onChange={handleInputChange}
@@ -456,9 +445,9 @@ export default function RaiseTicket() {
               />
             </Grid>
 
-            {/* Additional Information */}
+            {/* ── Additional Information ── */}
             <Grid item xs={12}>
-              <Typography variant="h6" fontWeight={600} mb={2}>
+              <Typography variant="h6" fontWeight={600} mb={1}>
                 Additional Information
               </Typography>
               <Divider sx={{ mb: 2 }} />
@@ -505,11 +494,11 @@ export default function RaiseTicket() {
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Tags"
+                label="Tags (optional)"
                 onKeyPress={addTag}
                 placeholder="Press Enter to add tags"
               />
-              <Box mt={1} display="flex" flexWrap gap={1}>
+              <Box mt={1} display="flex" flexWrap="wrap" gap={1}>
                 {ticketForm.tags.map((tag, index) => (
                   <Chip
                     key={index}
@@ -522,10 +511,13 @@ export default function RaiseTicket() {
               </Box>
             </Grid>
 
-            {/* Attachments */}
+            {/* ── Attachments (Optional) ── */}
             <Grid item xs={12}>
-              <Typography variant="h6" fontWeight={600} mb={2}>
-                Attachments
+              <Typography variant="h6" fontWeight={600} mb={1}>
+                Attachments{" "}
+                <Typography component="span" variant="body2" color="text.secondary">
+                  (Optional)
+                </Typography>
               </Typography>
               <Divider sx={{ mb: 2 }} />
             </Grid>
@@ -537,7 +529,7 @@ export default function RaiseTicket() {
                 startIcon={<AttachFileIcon />}
                 sx={{ mb: 2 }}
               >
-                Upload Files
+                Upload Files (Optional)
                 <input
                   type="file"
                   hidden
@@ -547,9 +539,9 @@ export default function RaiseTicket() {
               </Button>
 
               {attachments.length > 0 && (
-                <List>
+                <List dense>
                   {attachments.map((file, index) => (
-                    <ListItem key={index}>
+                    <ListItem key={index} divider>
                       <ListItemText
                         primary={file.name}
                         secondary={`${(file.size / 1024).toFixed(2)} KB`}
@@ -557,6 +549,7 @@ export default function RaiseTicket() {
                       <Button
                         color="error"
                         size="small"
+                        startIcon={<CloseIcon />}
                         onClick={() => removeAttachment(index)}
                       >
                         Remove
@@ -567,37 +560,19 @@ export default function RaiseTicket() {
               )}
             </Grid>
 
-            {/* Submit Button */}
+            {/* ── Submit Actions ── */}
             <Grid item xs={12}>
               <Box display="flex" justifyContent="flex-end" gap={2}>
                 <Button
                   variant="outlined"
                   startIcon={<CloseIcon />}
-                  onClick={() => {
-                    setTicketForm({
-                      title: "",
-                      description: "",
-                      category: "Hardware",
-                      subCategory: "",
-                      priority: "Medium",
-                      severity: "Medium",
-                      type: "Incident",
-                      requesterName: "",
-                      department: "",
-                      contactInformation: "",
-                      location: "",
-                      dueDate: "",
-                      estimatedTime: "",
-                      tags: [],
-                    });
-                    setAttachments([]);
-                  }}
+                  onClick={handleReset}
                 >
                   Clear
                 </Button>
                 <Button
                   variant="contained"
-                  startIcon={loading ? <CircularProgress size={20} /> : <SendIcon />}
+                  startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SendIcon />}
                   onClick={handleSubmit}
                   disabled={loading}
                 >

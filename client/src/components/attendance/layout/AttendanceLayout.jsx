@@ -49,7 +49,7 @@ const ADMIN_PRIVILEGED_MENU = [
     { section: 'Company' },
     { path: '/attendance/hod/report', icon: FiActivity, label: 'Team Report', requiresAllowedAdmin: true },
     { path: '/attendance/admin/attendance', icon: FiUsers, label: 'Company Report', requiresAllowedAdmin: true },
-    { path: '/attendance/teams', icon: FiUser, label: 'Teams', requiresAllowedAdmin: true },
+    { path: '/attendance/teams', icon: FiUser, label: 'Employee Directory', requiresAllowedAdmin: true },
     { path: '/attendance/hod/leave-approval', icon: FiCheckSquare, label: 'Approvals', requiresAllowedAdmin: true },
     { path: '/attendance/admin/reports', icon: FiBarChart2, label: 'Reports', requiresAllowedAdmin: true },
     { section: 'Configuration' },
@@ -111,8 +111,11 @@ const AttendanceLayout = () => {
     let baseMenu = isAllowedAdmin
         ? ADMIN_BASE_MENU.filter(item => !item.hideForAllowedAdmin)
         : ADMIN_BASE_MENU;
+    let privilegedMenu = isAllowedAdmin
+        ? ADMIN_PRIVILEGED_MENU.filter(item => item.label !== 'Team Report' && item.label !== 'Company Report')
+        : ADMIN_PRIVILEGED_MENU;
     let menu = isAdmin
-        ? [...baseMenu, ...(isAllowedAdmin ? ADMIN_PRIVILEGED_MENU : [])]
+        ? [...baseMenu, ...(isAllowedAdmin ? privilegedMenu : [])]
         : (isHOD ? [...HOD_MENU] : [...EMPLOYEE_MENU]);
 
     // IF ADMIN and NOT ALLOWED but isHOD (from API), Inject HOD menu items

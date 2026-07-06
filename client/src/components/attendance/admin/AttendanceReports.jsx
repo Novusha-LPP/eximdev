@@ -1054,6 +1054,216 @@ const AttendanceReports = () => {
     }
   };
 
+  const handleExportIndividualExcel = async (emp) => {
+    const lt = toast.loading(`Generating Excel report for ${emp.name || emp.username}…`);
+    try {
+      const ExcelJS = await import('exceljs');
+      const { saveAs } = await import('file-saver');
+      const wb = new ExcelJS.Workbook();
+      wb.creator = 'AlVision Exim';
+      
+      const white = { argb: 'FFFFFFFF' };
+      const ws = wb.addWorksheet((emp.name || emp.username || 'Attendance').substring(0, 31));
+
+      // Style helper
+      const styleHeader = (row, bgArgb, textArgb = 'FFFFFFFF') => {
+        row.eachCell(cell => {
+          cell.font  = { bold: true, color: { argb: textArgb }, name: 'Arial', size: 10 };
+          cell.fill  = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+            left: { style: 'thin', color: { argb: 'FF94A3B8' } },
+            bottom: { style: 'thin', color: { argb: 'FF94A3B8' } },
+            right: { style: 'thin', color: { argb: 'FF94A3B8' } }
+          };
+          cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        });
+      };
+
+      const roundLeave = (value) => Math.round(Number(value || 0) * 10) / 10;
+
+      const logs = emp.history || [];
+      const empName = emp.name || emp.username || '';
+
+      const r1 = ws.addRow(['---']);
+      const r2 = ws.addRow([`Attendance Log — ${moment(startDate).format('MMMM YYYY')}`]);
+      const r3 = ws.addRow([empName]);
+
+      ws.mergeCells(r1.number, 1, r1.number, 12);
+      ws.mergeCells(r2.number, 1, r2.number, 12);
+      ws.mergeCells(r3.number, 1, r3.number, 12);
+
+      const titleColor = 'FF1F385C';
+      [r1, r2, r3].forEach((row, rIdx) => {
+        row.height = rIdx === 2 ? 26 : 22;
+        row.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: titleColor } };
+        row.getCell(1).font = { bold: true, color: white, name: 'Arial', size: rIdx === 2 ? 11 : 10 };
+        row.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+      });
+
+      // Summary Headers (Row 4)
+      const COLS = ['Employee', 'Present', 'Absent', 'Half Day', 'Half Day Leaves', 'Full Day Leaves', 'Complete Leaves', 'Opening Balance', 'PL Taken', 'LWP Taken', 'Available Balance', 'Avg Hours/Day'];
+      
+      ws.columns = [
+        { key: 'col1', width: 26 },
+        { key: 'col2', width: 14 },
+        { key: 'col3', width: 32 },
+        { key: 'col4', width: 18 },
+        { key: 'col5', width: 16 },
+        { key: 'col6', width: 16 },
+        { key: 'col7', width: 16 },
+        { key: 'col8', width: 16 },
+        { key: 'col9', width: 12 },
+        { key: 'col10', width: 12 },
+        { key: 'col11', width: 18 },
+        { key: 'col12', width: 18 }
+      ];
+
+      const sumHeaderRow = ws.addRow(COLS);
+      sumHeaderRow.height = 22;
+      styleHeader(sumHeaderRow, 'FF334155', 'FFFFFFFF');
+
+      // Summary Values (Row 5)
+      const sumValRow = ws.addRow([
+        empName,
+        emp._present,
+        emp._absent,
+        emp._halfDay,
+        emp._halfDayLeaves,
+        emp._fullDayLeaves,
+        emp._leaves,
+        roundLeave(emp._openingBalance),
+        roundLeave(emp._plTaken),
+        roundLeave(emp._lwpTaken),
+        roundLeave(emp._availableBalance),
+        emp._avgHours ? emp._avgHours.toFixed(1) + 'h' : '0h'
+      ]);
+      sumValRow.height = 22;
+      sumValRow.getCell(1).font = { bold: true, name: 'Arial', size: 10 };
+      sumValRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+
+      const STATUS_COLORS = {
+        present : 'FF10b981',
+        absent  : 'FFef4444',
+        halfDay : 'FF3b82f6',
+        leaves  : 'FF8b5cf6',
+        pending : 'FFf97316',
+      };
+
+      [[2, STATUS_COLORS.present], [3, STATUS_COLORS.absent], [4, STATUS_COLORS.halfDay],
+       [5, STATUS_COLORS.leaves], [6, STATUS_COLORS.leaves], [7, STATUS_COLORS.leaves],
+       [8, STATUS_COLORS.pending], [9, STATUS_COLORS.pending], [10, STATUS_COLORS.pending],
+       [11, STATUS_COLORS.pending]]
+      .forEach(([col, color]) => {
+        const cell = sumValRow.getCell(col);
+        cell.font = { bold: true, color: { argb: color }, name: 'Arial', size: 10 };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      });
+      sumValRow.getCell(12).alignment = { horizontal: 'center', vertical: 'middle' };
+
+      sumValRow.eachCell(cell => {
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+          left: { style: 'thin', color: { argb: 'FF94A3B8' } },
+          bottom: { style: 'thin', color: { argb: 'FF94A3B8' } },
+          right: { style: 'thin', color: { argb: 'FF94A3B8' } }
+        };
+      });
+
+      ws.addRow([]);
+
+      // Details Headers (Row 7)
+      const detailCols = ['Date', 'Day', 'Shift', 'Status', 'In Time', 'Out Time', 'Total Hours'];
+      const detailHeaderRow = ws.addRow(detailCols);
+      detailHeaderRow.height = 22;
+      styleHeader(detailHeaderRow, 'FF1E40AF', 'FFFFFFFF');
+
+      let empTotalHours = 0;
+      const sortedLogs = [...logs].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+      sortedLogs.forEach(log => {
+        const sn = log.shift_id?.shift_name || emp.shift_id?.shift_name || '';
+        const st = log.shift_id?.start_time || emp.shift_id?.start_time || '';
+        const et = log.shift_id?.end_time || emp.shift_id?.end_time || '';
+        const shiftStr = sn ? (st && et ? `${sn} ${st}–${et}` : sn) : '—';
+        const fdt = v => v ? moment(v).format('h:mm A') : '';
+        let wh = '';
+        if (log.first_in && log.last_out) {
+          const diff = moment(log.last_out).diff(moment(log.first_in), 'hours', true);
+          if (diff > 0 && diff < 24) {
+            wh = diff.toFixed(1) + ' hrs';
+            empTotalHours += diff;
+          }
+        }
+
+        const statusLabel = formatDisplayStatus(log.status);
+
+        const dayRow = ws.addRow([
+          moment(log.date).format('DD-MM-YYYY'),
+          moment(log.date).format('ddd'),
+          shiftStr,
+          statusLabel,
+          fdt(log.first_in),
+          fdt(log.last_out),
+          wh
+        ]);
+        dayRow.height = 20;
+
+        [1, 2, 4, 5, 6, 7].forEach(c => {
+          dayRow.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' };
+        });
+        dayRow.getCell(3).alignment = { horizontal: 'left', vertical: 'middle' };
+
+        dayRow.eachCell(cell => {
+          cell.font = { name: 'Arial', size: 10 };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+          };
+        });
+
+        const sCell = dayRow.getCell(4);
+        sCell.font = { bold: true, name: 'Arial', size: 10 };
+        if (statusLabel === 'Present') sCell.font.color = { argb: 'FF10B981' };
+        else if (statusLabel === 'Absent') sCell.font.color = { argb: 'FFEF4444' };
+        else if (statusLabel === 'Half Day') sCell.font.color = { argb: 'FF3B82F6' };
+        else if (statusLabel === 'Leave') sCell.font.color = { argb: 'FF8B5CF6' };
+        else if (statusLabel === 'Weekly Off') sCell.font.color = { argb: 'FF64748B' };
+        else if (statusLabel === 'Holiday') sCell.font.color = { argb: 'FFD97706' };
+      });
+
+      const totRow = ws.addRow([
+        'Total Worked Hours',
+        '', '', '', '', '',
+        `${empTotalHours.toFixed(1)} hrs`
+      ]);
+      totRow.height = 22;
+      totRow.getCell(1).font = { bold: true, name: 'Arial', size: 10 };
+      totRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
+      totRow.getCell(7).font = { bold: true, name: 'Arial', size: 10 };
+      totRow.getCell(7).alignment = { horizontal: 'center', vertical: 'middle' };
+
+      totRow.eachCell(cell => {
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+          bottom: { style: 'thin', color: { argb: 'FF94A3B8' } }
+        };
+      });
+
+      const buf = await wb.xlsx.writeBuffer();
+      const filename = `Attendance_${empName.replace(/\s+/g, '_')}_${moment(startDate).format('MMM_YYYY')}.xlsx`;
+      saveAs(new Blob([buf]), filename);
+      toast.dismiss(lt);
+      toast.success('Excel generated successfully!');
+    } catch (err) {
+      console.error(err);
+      toast.dismiss(lt);
+      toast.error('Failed to export report');
+    }
+  };
+
   // ── Column definitions ─────────────────────────────────
   const columns = [
     { key: 'name', label: 'Employee', sortable: true },
@@ -1068,6 +1278,7 @@ const AttendanceReports = () => {
     { key: '_lwpTaken', label: 'LWP Taken', sortable: true, center: true, cls: 'metric-red' },
     { key: '_availableBalance', label: 'Avail Bal', sortable: true, center: true, cls: 'metric-green' },
     { key: '_avgHours', label: 'Avg Hrs', sortable: true, center: true },
+    { key: 'action', label: 'Action', sortable: false, center: true },
   ];
 
   // ── Grand totals ───────────────────────────────────────
@@ -1100,6 +1311,19 @@ const AttendanceReports = () => {
           </div>
         </div>
         <div className="atr-header-actions">
+          {/* Quick month chips */}
+          <div className="atr-month-chips" style={{ borderTop: 'none', marginTop: 0, paddingTop: 0, marginRight: '8px', display: 'flex', gap: '4px' }}>
+            {quickMonths.map(m => (
+              <button
+                key={m.start}
+                className={`atr-month-chip ${activeMonth?.start === m.start ? 'active' : ''}`}
+                onClick={() => selectMonth(m)}
+              >
+                {m.label}
+              </button>
+            ))}
+          </div>
+
           <select
             value={excelGrouping}
             onChange={e => setExcelGrouping(e.target.value)}
@@ -1212,18 +1436,7 @@ const AttendanceReports = () => {
             </button>
           </div>
         </div>
-        {/* Quick month chips */}
-        <div className="atr-month-chips">
-          {quickMonths.map(m => (
-            <button
-              key={m.start}
-              className={`atr-month-chip ${activeMonth?.start === m.start ? 'active' : ''}`}
-              onClick={() => selectMonth(m)}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
+
       </div>
 
       {/* ── Loading ─────────────────────────────────────── */}
@@ -1423,7 +1636,35 @@ const AttendanceReports = () => {
                             </td>
                             {columns.slice(1).map(col => (
                               <td key={col.key} className={`${col.center ? 'center' : ''} ${col.cls || ''}`}>
-                                {col.key === '_avgHours' ? `${roundLeave(emp[col.key])}h` : roundLeave(emp[col.key])}
+                                {col.key === 'action' ? (
+                                  <button
+                                    className="atr-btn atr-btn-export-row"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleExportIndividualExcel(emp);
+                                    }}
+                                    title="Export to Excel"
+                                    style={{
+                                      padding: '4px 8px',
+                                      fontSize: '11px',
+                                      borderRadius: '4px',
+                                      background: '#1e40af',
+                                      color: '#fff',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px'
+                                    }}
+                                  >
+                                    <FiDownload size={11} />
+                                    Export
+                                  </button>
+                                ) : col.key === '_avgHours' ? (
+                                  `${roundLeave(emp[col.key])}h`
+                                ) : (
+                                  roundLeave(emp[col.key])
+                                )}
                               </td>
                             ))}
                           </tr>
@@ -1490,7 +1731,13 @@ const AttendanceReports = () => {
                       <td style={{ textAlign: 'left' }}>Total ({processedData.length} employees)</td>
                       {columns.slice(1).map(col => (
                         <td key={col.key} className="center">
-                          {col.key === '_avgHours' ? `${roundLeave(grandTotals[col.key])}h` : roundLeave(grandTotals[col.key])}
+                          {col.key === 'action' ? (
+                            ''
+                          ) : col.key === '_avgHours' ? (
+                            `${roundLeave(grandTotals[col.key])}h`
+                          ) : (
+                            roundLeave(grandTotals[col.key])
+                          )}
                         </td>
                       ))}
                     </tr>

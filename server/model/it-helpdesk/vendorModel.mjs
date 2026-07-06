@@ -60,3 +60,7 @@ vendorSchema.plugin(auditPlugin, { documentType: "ItVendor" });
 const ItVendor = mongoose.models.ItVendor || mongoose.model("ItVendor", vendorSchema);
 
 export default ItVendor;
+
+
+
+

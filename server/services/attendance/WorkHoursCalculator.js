@@ -35,7 +35,20 @@ export class WorkHoursCalculator {
     }
 
     // Filter only IN/OUT punches (ignore BREAK_START/BREAK_END for now)
-    const inOutPunches = punches.filter(p => ['IN', 'OUT'].includes(p.punch_type));
+    const rawInOutPunches = punches.filter(p => ['IN', 'OUT'].includes(p.punch_type));
+
+    // Deduplicate consecutive punches of the same type (keep first IN, keep first OUT)
+    const inOutPunches = [];
+    for (const p of rawInOutPunches) {
+      if (inOutPunches.length === 0) {
+        inOutPunches.push(p);
+      } else {
+        const lastPunch = inOutPunches[inOutPunches.length - 1];
+        if (lastPunch.punch_type !== p.punch_type) {
+          inOutPunches.push(p);
+        }
+      }
+    }
 
     // Group into sessions: consecutive IN followed by OUT
     let currentSessionNumber = 0;

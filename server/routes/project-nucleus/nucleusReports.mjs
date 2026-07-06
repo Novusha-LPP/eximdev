@@ -584,9 +584,21 @@ router.get("/pending-job-summaries", authMiddleware, applyUserBranchFilter, asyn
         const { filterType, month, year, quarter, startDate, endDate, day, branchId, category } = req.query;
         const branchMatch = getBranchMatch(branchId, category, req.authorizedBranchIds);
 
-        // Base: all non-cancelled jobs
         const baseMatchStage = {
             be_no: { $not: { $regex: "^cancelled$", $options: "i" } },
+            status: { $regex: "^pending$", $options: "i" },
+            bill_document_sent_to_accounts: { $exists: true, $nin: [null, ""] },
+            $or: [
+                { billing_completed_date: { $exists: false } },
+                { billing_completed_date: "" },
+                { billing_completed_date: null },
+                {
+                    $and: [
+                        { billing_completed_date: { $exists: true, $ne: "" } },
+                        { dsr_queries: { $elemMatch: { select_module: "Accounts", resolved: { $ne: true } } } }
+                    ]
+                }
+            ],
             ...branchMatch,
         };
 
@@ -721,6 +733,14 @@ router.get("/pending-job-summaries", authMiddleware, applyUserBranchFilter, asyn
                             count: 1,
                         }
                     }
+                ],
+                seaCountData: [
+                    { $match: { mode: { $in: ["SEA", "sea", "Sea"] } } },
+                    { $count: "count" }
+                ],
+                airCountData: [
+                    { $match: { mode: { $in: ["AIR", "air", "Air"] } } },
+                    { $count: "count" }
                 ]
             }
         });
@@ -730,63 +750,8 @@ router.get("/pending-job-summaries", authMiddleware, applyUserBranchFilter, asyn
         const totalCreated = result[0]?.totalJobsCreated[0]?.count || 0;
         const pendingData = result[0]?.pendingJobsData || [];
         const categoryData = result[0]?.categoryData || [];
-
-        // Calculate the financial year string to match Import Billing default filters
-        let financialYear;
-        if (year) {
-            const y = parseInt(year);
-            const m = month !== undefined && month !== '' ? parseInt(month) + 1 : new Date().getMonth() + 1;
-            const currentTwoDigits = String(y).slice(-2);
-            const prevTwoDigits = String((y - 1) % 100).padStart(2, "0");
-            const nextTwoDigits = String((y + 1) % 100).padStart(2, "0");
-            financialYear = m >= 4 ? `${currentTwoDigits}-${nextTwoDigits}` : `${prevTwoDigits}-${currentTwoDigits}`;
-        } else {
-            const currentYear = new Date().getFullYear();
-            const currentMonth = new Date().getMonth() + 1;
-            const prevTwoDigits = String((currentYear - 1) % 100).padStart(2, "0");
-            const currentTwoDigits = String(currentYear).slice(-2);
-            const nextTwoDigits = String((currentYear + 1) % 100).padStart(2, "0");
-            financialYear = currentMonth >= 4 ? `${currentTwoDigits}-${nextTwoDigits}` : `${prevTwoDigits}-${currentTwoDigits}`;
-        }
-
-        // Fetch independent SEA and AIR counts matching the exact Import Billing logic
-        const baseBillingQuery = {
-            $and: [
-                { status: { $regex: "^pending$", $options: "i" } },
-                { bill_document_sent_to_accounts: { $exists: true, $nin: [null, ""] } },
-                {
-                    $or: [
-                        { billing_completed_date: { $exists: false } },
-                        { billing_completed_date: "" },
-                        { billing_completed_date: null },
-                        {
-                            $and: [
-                                { billing_completed_date: { $exists: true, $ne: "" } },
-                                { dsr_queries: { $elemMatch: { select_module: "Accounts", resolved: { $ne: true } } } }
-                            ]
-                        }
-                    ]
-                }
-            ]
-        };
-
-        if (year) {
-            baseBillingQuery.$and.push({ year: year });
-        }
-        
-        if (Object.keys(branchMatch).length > 0) {
-            baseBillingQuery.$and.push(branchMatch);
-        }
-
-        const readyForBillingSeaCount = await JobModel.countDocuments({
-            ...baseBillingQuery,
-            mode: { $in: ["SEA", "sea", "Sea"] }
-        });
-
-        const readyForBillingAirCount = await JobModel.countDocuments({
-            ...baseBillingQuery,
-            mode: { $in: ["AIR", "air", "Air"] }
-        });
+        const readyForBillingSeaCount = result[0]?.seaCountData[0]?.count || 0;
+        const readyForBillingAirCount = result[0]?.airCountData[0]?.count || 0;
 
         res.json({ totalCreated, data: pendingData, categoryData, readyForBillingSeaCount, readyForBillingAirCount });
     } catch (error) {

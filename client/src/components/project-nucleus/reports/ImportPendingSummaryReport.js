@@ -60,21 +60,7 @@ const ImportPendingSummaryReport = ({
     selectedFinancialYear,
 }) => {
     const navigate = useNavigate();
-    const [fetchedSeaJobs, setFetchedSeaJobs] = useState([]);
-    const [fetchedAirJobs, setFetchedAirJobs] = useState([]);
-    const rawQueryData = useMemo(() => {
-        let activeJobs = [];
-        const isAll = !category || category.toLowerCase() === 'all';
-        if (isAll || category.toUpperCase() === 'SEA') activeJobs.push(...fetchedSeaJobs);
-        if (isAll || category.toUpperCase() === 'AIR') activeJobs.push(...fetchedAirJobs);
-        
-        return activeJobs.map(job => ({
-            branch: job.branch_code || 'Unassigned',
-            port: job.custom_house || 'Unassigned',
-            employee: 'Unassigned',
-            count: 1
-        }));
-    }, [fetchedSeaJobs, fetchedAirJobs, category]);
+    const [rawQueryData, setRawQueryData] = useState([]);
 
     const [rawCategoryData, setRawCategoryData] = useState([]);
     const [totalJobsCreated, setTotalJobsCreated] = useState(0);
@@ -96,40 +82,38 @@ const ImportPendingSummaryReport = ({
         const fetchSummaries = async () => {
             setLoading(true);
             try {
-                // Fetch from the exact Import Billing endpoint to get the "JOB count" the user sees
-                // Also fetch with high limit to build the exact branch breakdown table without discrepancies.
-                const endpoint = `${process.env.REACT_APP_API_STRING}/get-billing-import-job`;
+                const endpoint = `${process.env.REACT_APP_API_STRING}/project-nucleus/pending-job-summaries`;
                 
-                const [seaRes, airRes] = await Promise.all([
-                    axios.get(endpoint, { 
-                        params: { year: selectedFinancialYear || '26-27', branchId: branchId || 'all', category: 'SEA', limit: 99999 }, 
-                        withCredentials: true 
-                    }),
-                    axios.get(endpoint, { 
-                        params: { year: selectedFinancialYear || '26-27', branchId: branchId || 'all', category: 'AIR', limit: 99999 }, 
-                        withCredentials: true 
-                    })
-                ]);
+                const res = await axios.get(endpoint, {
+                    params: {
+                        filterType,
+                        month,
+                        year: (filterType === 'year' || filterType === 'quarter' || filterType === 'month' || filterType === 'date-range') ? year : (selectedFinancialYear || '26-27'),
+                        quarter,
+                        startDate,
+                        endDate,
+                        day,
+                        branchId,
+                        category
+                    },
+                    withCredentials: true
+                });
                 
-                if (seaRes.data || airRes.data) {
-                    const seaCount = (seaRes.data?.totalJobs || 0);
-                    const airCount = (airRes.data?.totalJobs || 0);
-                    const seaJobs = seaRes.data?.jobs || [];
-                    const airJobs = airRes.data?.jobs || [];
+                if (res.data) {
+                    const data = res.data;
+                    const seaCount = data.readyForBillingSeaCount || 0;
+                    const airCount = data.readyForBillingAirCount || 0;
                     
                     setBillingReadyJobsCount(seaCount + airCount);
                     setReadyForBillingSeaCount(seaCount);
                     setReadyForBillingAirCount(airCount);
                     
-                    setFetchedSeaJobs(seaJobs);
-                    setFetchedAirJobs(airJobs);
-
-                    setRawCategoryData([]);
-                    setTotalJobsCreated(0);
+                    setRawQueryData(data.data || []);
+                    setRawCategoryData(data.categoryData || []);
+                    setTotalJobsCreated(data.totalCreated || 0);
                 } else {
-                    // Fallback in case backend returns old format (array)
-                    setFetchedSeaJobs([]);
-                    setFetchedAirJobs([]);
+                    // Fallback
+                    setRawQueryData([]);
                     setRawCategoryData([]);
                     setTotalJobsCreated(0);
                     setReadyForBillingSeaCount(0);
@@ -143,7 +127,7 @@ const ImportPendingSummaryReport = ({
             }
         };
         fetchSummaries();
-    }, [selectedFinancialYear, branchId]);
+    }, [filterType, month, year, quarter, startDate, endDate, day, selectedFinancialYear, branchId, category]);
 
     // Handle sort for flat list
     const handleSort = (key) => {

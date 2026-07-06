@@ -223,6 +223,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
   };
 
   const handleSelectEmployee = (emp) => {
+    sessionStorage.setItem('epw_scroll_y', window.scrollY);
     const empId = emp._id;
     const username = emp.username||empId;
     const p = teamId ? `/attendance/teams/${teamId}/user/${username}/performance` : `/attendance/admin/employee/${empId}/performance`;
@@ -776,6 +777,18 @@ const filteredEmployees = useMemo(() => {
   };
 
   useEffect(() => { if (!id) fetchAllEmployees(); }, [id]);
+
+  useEffect(() => {
+    if (!id && !gridLoading && gridEmployees.length > 0) {
+      const savedScrollY = sessionStorage.getItem('epw_scroll_y');
+      if (savedScrollY) {
+        setTimeout(() => {
+          window.scrollTo(0, parseInt(savedScrollY, 10));
+          sessionStorage.removeItem('epw_scroll_y');
+        }, 100);
+      }
+    }
+  }, [id, gridLoading, gridEmployees]);
 
   useEffect(() => {
     const fetchTeams = async () => {
@@ -2573,6 +2586,41 @@ const filteredEmployees = useMemo(() => {
         {/* ── Top Bar ── */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px', flexWrap:'wrap', gap:'10px' }}>
           <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
+            <button
+              onClick={() => {
+                setLocalEmployeeId(null);
+                const fromPath = location.state?.fromPath;
+                if (fromPath) {
+                  navigate(fromPath);
+                } else if (teamId) {
+                  navigate(`/attendance/teams/${teamId}`);
+                } else {
+                  navigate('/attendance/teams');
+                }
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                padding: '8px 16px',
+                background: '#0f172a',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '12px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(15,23,42,0.15)',
+                transition: 'all 0.2s',
+                marginRight: '8px',
+                height: '38px'
+              }}
+              onMouseEnter={e => e.currentTarget.style.transform='translateY(-1px)'}
+              onMouseLeave={e => e.currentTarget.style.transform='translateY(0)'}
+            >
+              ← Back
+            </button>
             <div style={{ width:'44px', height:'44px', borderRadius:'10px', background:profile.employee.photo?`url(${profile.employee.photo}) center/cover`:THEME.primary, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:'18px', fontWeight:'800', flexShrink:0 }}>
               {!profile.employee.photo&&(profile.employee.first_name?.[0]||profile.employee.username?.[0]||'E').toUpperCase()}
             </div>

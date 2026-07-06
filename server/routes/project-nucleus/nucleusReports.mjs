@@ -602,6 +602,10 @@ router.get("/pending-job-summaries", authMiddleware, applyUserBranchFilter, asyn
             ...branchMatch,
         };
 
+        if (year && (!filterType || filterType === "all" || filterType === "null" || filterType === "undefined")) {
+            baseMatchStage.year = year;
+        }
+
         const pipeline = [
             { $match: baseMatchStage },
             // Parse job_date for date filtering

@@ -29,6 +29,7 @@ const CFSDirectory = () => {
     name: "",
     active: "Yes",
     tds_percent: 0,
+    openingBalance: 0,
     contacts: [],
     credit_terms: "",
     cin: "",
@@ -230,6 +231,7 @@ const CFSDirectory = () => {
       name: line.name,
       active: line.active || "Yes",
       tds_percent: line.tds_percent || 0,
+      openingBalance: line.openingBalance || 0,
       contacts: line.contacts || [],
       credit_terms: line.credit_terms || "",
       cin: line.cin || "",
@@ -250,6 +252,7 @@ const CFSDirectory = () => {
       name: "",
       active: "Yes",
       tds_percent: 0,
+      openingBalance: 0,
       contacts: [],
       credit_terms: "",
       cin: "",
@@ -333,6 +336,7 @@ const CFSDirectory = () => {
                 <TableCell sx={{ background: "#f5f5f5", fontWeight: 'bold' }}>Address (Branch 0)</TableCell>
                 <TableCell sx={{ background: "#f5f5f5", fontWeight: 'bold' }}>Active</TableCell>
                 <TableCell sx={{ background: "#f5f5f5", fontWeight: 'bold' }}>TDS %</TableCell>
+                <TableCell sx={{ background: "#f5f5f5", fontWeight: 'bold' }}>Opening Balance</TableCell>
                 <TableCell align="center" sx={{ background: "#f5f5f5", fontWeight: 'bold' }}>Action</TableCell>
               </TableRow>
             </TableHead>
@@ -362,6 +366,7 @@ const CFSDirectory = () => {
                   </TableCell>
                   <TableCell>{line.active}</TableCell>
                   <TableCell>{line.tds_percent || 0}%</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>₹ {Number(line.openingBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}</TableCell>
                   <TableCell align="center">
                     <IconButton size="small" onClick={() => handleEdit(line)} color="primary">
                         <EditIcon fontSize="small" />
@@ -374,7 +379,7 @@ const CFSDirectory = () => {
               ))}
               {filteredList.length === 0 && (
                 <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ p: 4 }}>
+                    <TableCell colSpan={8} align="center" sx={{ p: 4 }}>
                       No Terminal entries found.
                     </TableCell>
                 </TableRow>
@@ -425,6 +430,13 @@ const CFSDirectory = () => {
               placeholder="Corporate Identification Number"
               value={formData.cin}
               onChange={(e) => setFormData({ ...formData, cin: e.target.value.toUpperCase() })}
+            />
+            <TextField
+              fullWidth
+              label="Opening Balance"
+              type="number"
+              value={formData.openingBalance}
+              onChange={(e) => setFormData({ ...formData, openingBalance: parseFloat(e.target.value) || 0 })}
             />
 
             <Box sx={{ gridColumn: 'span 2', mt: 3 }}>

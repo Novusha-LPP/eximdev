@@ -281,6 +281,27 @@ const EditChargeModal = ({
         updated[index][section] = updated[index][section] || {};
         updated[index][section][field] = value;
 
+        if (field === 'tdsPercent') {
+          const valNum = parseFloat(value) || 0;
+          if (valNum === 1 || valNum === 2) {
+            updated[index][section].tdsCategory = '94C';
+          }
+        }
+
+        if (field === 'isTds') {
+          if (value === true) {
+            const pct = parseFloat(updated[index][section].tdsPercent) || 0;
+            if (pct === 1) {
+              updated[index][section].tdsCategory = '94C';
+            } else {
+              updated[index][section].tdsPercent = 2;
+              updated[index][section].tdsCategory = '94C';
+            }
+          } else {
+            updated[index][section].tdsCategory = '';
+          }
+        }
+
         // Synchronize 'url' (attachments) between revenue and cost
         if (field === 'url' || field === 'url_draft' || field === 'url_final') {
           const otherSection = section === 'revenue' ? 'cost' : 'revenue';
@@ -507,6 +528,7 @@ const EditChargeModal = ({
       if (matchedSL && matchedSL.tds_percent > 0) {
         sectionRef.isTds = true;
         sectionRef.tdsPercent = matchedSL.tds_percent;
+        sectionRef.tdsCategory = '94C';
       }
     }
 
@@ -1478,7 +1500,6 @@ const EditChargeModal = ({
                                         >
                                           <option value="94C_1">TDS ON CONTRACT 94C - 1023- 1%</option>
                                           <option value="94C_2">TDS ON CONTRACT 94C - 1024 -2%</option>
-                                          <option value="94I">94I</option>
                                         </select>
                                       </div>
                                     )}

@@ -3,6 +3,7 @@ import JobModel from "../../model/jobModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import { applyUserBranchFilter } from "../../middleware/branchMiddleware.mjs";
+import { icdFilter, applyUserImporterFilter } from "../../middleware/icdFilter.mjs";
 import UserModel from "../../model/userModel.mjs";
 import { getBranchMatch } from "../../utils/branchFilter.mjs";
 import CustomerKycModel from "../../model/CustomerKyc/customerKycModel.mjs";
@@ -579,7 +580,7 @@ router.get("/karma-leaderboard", async (req, res) => {
 });
 
 // ─── Import Pending Job Summaries (Combination Filters) ───────────────────────
-router.get("/pending-job-summaries", authMiddleware, applyUserBranchFilter, async (req, res) => {
+router.get("/pending-job-summaries", authMiddleware, applyUserBranchFilter, icdFilter, applyUserImporterFilter, async (req, res) => {
     try {
         const { filterType, month, year, quarter, startDate, endDate, day, branchId, category } = req.query;
         const branchMatch = getBranchMatch(branchId, category, req.authorizedBranchIds);
@@ -588,6 +589,14 @@ router.get("/pending-job-summaries", authMiddleware, applyUserBranchFilter, asyn
             be_no: { $not: { $regex: "^cancelled$", $options: "i" } },
             ...branchMatch,
         };
+
+        if (req.icdFilterCondition) {
+            Object.assign(baseMatchStage, req.icdFilterCondition);
+        }
+        
+        if (req.importerFilterCondition) {
+            Object.assign(baseMatchStage, req.importerFilterCondition);
+        }
 
         if (year && (!filterType || filterType === "all" || filterType === "null" || filterType === "undefined")) {
             baseMatchStage.year = year;

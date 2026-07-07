@@ -580,38 +580,52 @@ router.get("/karma-leaderboard", async (req, res) => {
 });
 
 // ─── Import Pending Job Summaries (Combination Filters) ───────────────────────
-router.get("/pending-job-summaries", authMiddleware, applyUserBranchFilter, icdFilter, applyUserImporterFilter, async (req, res) => {
+router.get("/pending-job-summaries", authMiddleware, icdFilter, async (req, res) => {
     try {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
         const { filterType, month, year, quarter, startDate, endDate, day, branchId, category } = req.query;
-        const branchMatch = getBranchMatch(branchId, category, req.authorizedBranchIds);
+        
+        // Build branch/category match manually to match Import Billing behavior
+        // (Import Billing doesn't restrict by user's assigned branches)
+        const branchMatch = {};
+        const isAll = !branchId || branchId.toString().toLowerCase() === "all" || branchId === "";
+        if (!isAll) {
+            const mongoose = (await import('mongoose')).default;
+            if (mongoose.Types.ObjectId.isValid(branchId)) {
+                branchMatch.branch_id = new mongoose.Types.ObjectId(branchId);
+            } else {
+                branchMatch.branch_id = branchId;
+            }
+        }
+        if (category && category.toString().toLowerCase() !== "all") {
+            const catStr = category.toString();
+            branchMatch.mode = { $in: [catStr, catStr.toLowerCase(), catStr.toUpperCase()] };
+        }
 
         const baseMatchStage = {
             be_no: { $not: { $regex: "^cancelled$", $options: "i" } },
-            status: { $regex: "^pending$", $options: "i" },
-            bill_document_sent_to_accounts: { $exists: true, $nin: [null, ""] },
-            $or: [
-                { billing_completed_date: { $exists: false } },
-                { billing_completed_date: "" },
-                { billing_completed_date: null },
-                {
-                    $and: [
-                        { billing_completed_date: { $exists: true, $ne: "" } },
-                        { dsr_queries: { $elemMatch: { select_module: "Accounts", resolved: { $ne: true } } } }
-                    ]
-                }
-            ],
             ...branchMatch,
         };
 
         if (req.icdFilterCondition) {
             Object.assign(baseMatchStage, req.icdFilterCondition);
         }
-        
-        if (req.importerFilterCondition) {
-            Object.assign(baseMatchStage, req.importerFilterCondition);
-        }
 
-        if (year && (!filterType || filterType === "all" || filterType === "null" || filterType === "undefined")) {
+        // DEBUG: temporary logging to file
+        const debugInfo = {
+            timestamp: new Date().toISOString(),
+            query: req.query,
+            userRole: req.user?.role,
+            username: req.user?.username,
+            branchMatch,
+            icdFilterCondition: req.icdFilterCondition,
+            importerFilterCondition: req.importerFilterCondition,
+            baseMatchStage,
+            authorizedBranchIds: req.authorizedBranchIds,
+        };
+        import('fs').then(fs => fs.writeFileSync('/home/aiserver/eximdev/server/scratch/debug_output.json', JSON.stringify(debugInfo, null, 2)));
+
+        if (year && (!filterType || filterType === "all" || filterType === "fin-year" || filterType === "null" || filterType === "undefined")) {
             baseMatchStage.year = year;
         }
 
@@ -785,6 +799,9 @@ router.get("/pending-job-summaries", authMiddleware, applyUserBranchFilter, icdF
         const categoryData = result[0]?.categoryData || [];
         const readyForBillingSeaCount = result[0]?.seaCountData[0]?.count || 0;
         const readyForBillingAirCount = result[0]?.airCountData[0]?.count || 0;
+
+        // DEBUG: temporary logging
+        console.log('[DEBUG /pending-job-summaries] RESULT: totalCreated:', totalCreated, 'pendingData.length:', pendingData.length, 'sea:', readyForBillingSeaCount, 'air:', readyForBillingAirCount);
 
         res.json({ totalCreated, data: pendingData, categoryData, readyForBillingSeaCount, readyForBillingAirCount });
     } catch (error) {

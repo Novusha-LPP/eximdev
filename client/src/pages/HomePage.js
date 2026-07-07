@@ -36,7 +36,6 @@ import LeaveManagement from "../components/attendance/LeaveManagement.jsx";
 import Regularization from "../components/attendance/Regularization.jsx";
 import HODDashboard from "../components/attendance/HODDashboard.jsx";
 import LeaveApproval from "../components/attendance/LeaveApproval.jsx";
-import RegularizationApproval from "../components/attendance/RegularizationApproval.jsx";
 import AdminDashboard from "../components/attendance/AdminDashboard.jsx";
 import AttendanceReport from "../components/attendance/AttendanceReport.jsx";
 import EmployeeProfileWorkspace from "../components/attendance/admin/EmployeeProfileWorkspace.jsx";
@@ -49,6 +48,7 @@ import LockAttendance from "../components/attendance/admin/LockAttendance.jsx";
 import PayrollExport from "../components/attendance/admin/PayrollExport.jsx";
 import AttendanceSettings from "../components/attendance/admin/Settings.jsx";
 import CompanyManagement from "../components/attendance/admin/CompanyManagement.jsx";
+import AttendanceReports from "../components/attendance/admin/AttendanceReports.jsx";
 // Submission
 import SubmissionTabs from "../components/submission/SubmissionTabs.js";
 import SubmissionJob from "../components/submission/SubmissionJob.js";
@@ -145,7 +145,10 @@ import DutyCalculator from "../components/import-utility-tool/duty-calculator/Du
 import ImportBillingTab from "../components/Import-billing/ImportBillingTab.js";
 import AllUsersPage from "./AllUsersPage.js";
 import BillingReports from "../components/accounts/BillingReports.js";
+import ProcurementInsuranceSopsContainer from "../components/accounts/ProcurementInsuranceSopsContainer.js";
 import RmProcurementSop from "../components/accounts/rmProcurementSop/RmProcurementSop.js";
+import TyreProcurementSop from "../components/accounts/tyreProcurementSop/TyreProcurementSop.js";
+import FleetInsuranceSop from "../components/accounts/fleetInsuranceSop/FleetInsuranceSop.js";
 
 // Analytics
 import AnalyticsLayout from "../components/analytics/AnalyticsLayout";
@@ -976,6 +979,32 @@ function HomePageContent() {
                   }
                 />
 
+                <Route
+                  path="/tyre-procurement"
+                  element={
+                    <ProtectedRoute requiredModule="Tyre Procurement SOP">
+                      <TyreProcurementSop />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/fleet-insurance"
+                  element={
+                    <ProtectedRoute requiredModule="Fleet Insurance SOP">
+                      <FleetInsuranceSop />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/procurement-insurance-sops"
+                  element={
+                    <ProtectedRoute requiredModule="Accounts">
+                      <ProcurementInsuranceSopsContainer />
+                    </ProtectedRoute>
+                  }
+                />
 
                 {/* import billing */}
                 <Route
@@ -1203,7 +1232,6 @@ function HomePageContent() {
                   <Route path="holiday-calendar" element={<HolidayManagement readOnly />} />
                   <Route path="hod-dashboard" element={<HODDashboard />} />
                   <Route path="hod/leave-approval" element={<LeaveApproval />} />
-                  <Route path="hod/regularization-approval" element={<RegularizationApproval />} />
                   <Route path="admin" element={<AdminDashboard />} />
                   <Route path="admin/attendance" element={<AttendanceReport isAdmin />} />
                   <Route path="admin/leave-approval" element={<LeaveApproval />} />
@@ -1216,6 +1244,7 @@ function HomePageContent() {
                   <Route path="admin/companies" element={<CompanyManagement />} />
                   <Route path="admin/lock" element={<LockAttendance />} />
                   <Route path="admin/payroll" element={<PayrollExport />} />
+                  <Route path="admin/reports" element={<AttendanceReports />} />
                   <Route path="admin/settings" element={<AttendanceSettings />} />
                   <Route path="hod/report" element={<AttendanceReport />} />
                   <Route path="report" element={<AttendanceReport isAdmin />} />

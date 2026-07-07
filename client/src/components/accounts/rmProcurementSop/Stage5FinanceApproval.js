@@ -18,14 +18,33 @@ const yesNoOptions = ["", "Yes", "No"];
 const decisionOptions = ["", "APPROVED", "REJECTED", "On Hold"];
 const statusOptions = ["", "Pending", "Done"];
 
-function Stage5FinanceApproval({ data, onChange }) {
+function Stage5FinanceApproval({ data, onChange, globalData, onGlobalChange }) {
   const updateField = (field, value) => onChange({ [field]: value });
   const updateNested = (group, field, value) =>
     onChange({ [group]: { ...data[group], [field]: value } });
 
   const actionLog = data.actionLog || [];
   const updateActionLog = (idx, field, value) => {
-    const updated = actionLog.map((item, i) => (i === idx ? { ...item, [field]: value } : item));
+    const updated = [...actionLog];
+    for (let i = 0; i <= idx; i++) {
+      if (!updated[i]) {
+        updated[i] = {
+          actionTask: [
+            "Finance review checklist completed",
+            "Purchase APPROVED / REJECTED decision recorded",
+            "Forwarded to Accounting Team for payment processing",
+          ][i] || "",
+          responsiblePerson: [
+            "Finance Manager",
+            "Finance Manager",
+            "Finance Manager",
+          ][i] || "",
+          dateTime: "",
+          status: "",
+        };
+      }
+    }
+    updated[idx] = { ...updated[idx], [field]: value };
     onChange({ actionLog: updated });
   };
 
@@ -38,8 +57,9 @@ function Stage5FinanceApproval({ data, onChange }) {
         <Grid item xs={12} md={6}>
           <TextField
             label="PR Number"
-            value={data.prNumber || ""}
-            onChange={(e) => updateField("prNumber", e.target.value)}
+            value={globalData?.prNumber || ""}
+            onChange={() => {}}
+            InputProps={{ readOnly: true, sx: { backgroundColor: "#f5f5f5" } }}
             fullWidth
             size="small"
           />

@@ -48,6 +48,32 @@ const { Title, Text } = Typography;
 const { Sider, Content } = Layout;
 const { Option } = Select;
 
+const PREDEFINED_CATEGORIES = [
+  'Management',
+  'Accountant',
+  'Dispatch',
+  'Helper',
+  'Housekeeping',
+  'HR',
+  'Maintenance',
+  'Operator',
+  'Pantry',
+  'Production',
+  'QC Inspection',
+  'Quality',
+  'SPOC',
+  'Tool',
+  'Security'
+];
+
+const isOperatorCategory = (category) => {
+  const lower = String(category || '').toLowerCase();
+  if (['management', 'hr', 'spoc', 'accountant'].includes(lower)) {
+    return false;
+  }
+  return true;
+};
+
 function HodManagement() {
     const { user } = useContext(UserContext);
     const [teams, setTeams] = useState([]);
@@ -69,6 +95,10 @@ function HodManagement() {
     const [teamToEdit, setTeamToEdit] = useState(null);
     const [hodModules, setHodModules] = useState([]); // HOD's assigned modules
     const [allUsers, setAllUsers] = useState([]); // All users for Admin to select HOD
+    const [customCategoryModalVisible, setCustomCategoryModalVisible] = useState(false);
+    const [customCategoryName, setCustomCategoryName] = useState('');
+    const [customCategoryIsOperator, setCustomCategoryIsOperator] = useState(false);
+    const [targetEmployeeId, setTargetEmployeeId] = useState(null);
 
     const [form] = Form.useForm();
     const [editForm] = Form.useForm();
@@ -319,18 +349,20 @@ function HodManagement() {
         }
     };
 
-    const handleToggleOperatorStatus = async (userId, isOperator) => {
+    const handleToggleOperatorStatus = async (userId, category, isOperatorVal) => {
+        const isOperator = isOperatorVal !== undefined ? isOperatorVal : isOperatorCategory(category);
         try {
             const res = await axios.post(`${process.env.REACT_APP_API_STRING}/payroll/config/toggle-operator`, {
                 employeeId: userId,
-                is_operator: isOperator
+                is_operator: isOperator,
+                category: category
             });
             if (res.data.success) {
                 message.success(res.data.message || "Updated employee category successfully");
                 setTeamMembers(prev => prev.map(m => {
                     const idStr = (m._id || m.userId)?.toString();
                     if (idStr === userId?.toString()) {
-                        return { ...m, is_operator: isOperator };
+                        return { ...m, is_operator: isOperator, category: category };
                     }
                     return m;
                 }));
@@ -401,24 +433,47 @@ function HodManagement() {
                 return <Tag color="cyan">{dept}</Tag>;
             },
         },
-        {
+        ...(selectedTeam?.name?.toUpperCase() === 'RABS' ? [{
             title: "Category",
             key: "category",
             render: (_, record) => {
                 const canEdit = user?.role === 'Admin' || user?.isAttendanceAllowedAdmin === true;
+                const currentVal = record.category || (record.is_operator === true ? "Operator" : "Management");
+
+                // Dynamically collect custom categories from team members list
+                const customCats = [...new Set(
+                    teamMembers
+                        .map(m => m.category)
+                        .filter(c => c && !PREDEFINED_CATEGORIES.includes(c))
+                )];
+                const categoriesList = [...PREDEFINED_CATEGORIES, ...customCats];
+
                 return (
                     <Select
-                        value={record.is_operator === true ? "Operator" : "Management"}
+                        value={currentVal}
                         disabled={!canEdit}
-                        onChange={(val) => handleToggleOperatorStatus(record._id || record.userId, val === "Operator")}
-                        style={{ width: 130 }}
+                        onChange={(val) => {
+                            if (val === "__CREATE_CUSTOM__") {
+                                setTargetEmployeeId(record._id || record.userId);
+                                setCustomCategoryName('');
+                                setCustomCategoryIsOperator(false);
+                                setCustomCategoryModalVisible(true);
+                            } else {
+                                handleToggleOperatorStatus(record._id || record.userId, val, isOperatorCategory(val));
+                            }
+                        }}
+                        style={{ width: 140 }}
                     >
-                        <Option value="Management">Management</Option>
-                        <Option value="Operator">Operator</Option>
+                        {categoriesList.map(cat => (
+                            <Option key={cat} value={cat}>{cat}</Option>
+                        ))}
+                        <Option value="__CREATE_CUSTOM__" style={{ color: '#2563eb', fontWeight: 'bold', borderTop: '1px solid #f0f0f0' }}>
+                            + Custom Category
+                        </Option>
                     </Select>
                 );
             }
-        },
+        }] : []),
         {
             title: "Status",
             key: "status",
@@ -1062,6 +1117,43 @@ function HodManagement() {
                 destroyOnClose
             >
                 {profileUser && <UserProfile username={profileUser} />}
+            </Modal>
+
+            {/* Custom Category Modal */}
+            <Modal
+                title="Create Custom Category"
+                open={customCategoryModalVisible}
+                onCancel={() => setCustomCategoryModalVisible(false)}
+                onOk={() => {
+                    if (!customCategoryName.trim()) {
+                        message.warning("Please enter a category name");
+                        return;
+                    }
+                    handleToggleOperatorStatus(targetEmployeeId, customCategoryName.trim(), customCategoryIsOperator);
+                    setCustomCategoryModalVisible(false);
+                }}
+            >
+                <div style={{ padding: '10px 0' }}>
+                    <div style={{ marginBottom: 15 }}>
+                        <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>Category Name</label>
+                        <Input
+                            placeholder="e.g. Packer, Supervisor"
+                            value={customCategoryName}
+                            onChange={e => setCustomCategoryName(e.target.value)}
+                        />
+                    </div>
+                    <div>
+                        <label style={{ display: 'block', marginBottom: 5, fontWeight: 600 }}>Classification / Payroll Type</label>
+                        <Select
+                            value={customCategoryIsOperator ? "Operator" : "Management"}
+                            onChange={val => setCustomCategoryIsOperator(val === "Operator")}
+                            style={{ width: '100%' }}
+                        >
+                            <Option value="Management">Management (Monthly salary, No Overtime)</Option>
+                            <Option value="Operator">Operator (Daily wage, Overtime Eligible)</Option>
+                        </Select>
+                    </div>
+                </div>
             </Modal>
         </Layout>
     );

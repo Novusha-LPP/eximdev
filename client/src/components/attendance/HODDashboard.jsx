@@ -367,7 +367,7 @@ const HODDashboard = () => {
                 ))}
                 {regCount > 5 && (
                   <div style={{padding:'.75rem 1.125rem',textAlign:'center'}}>
-                    <button className="hod-btn" onClick={() => navigate('/attendance/hod/regularization-approval')}>
+                    <button className="hod-btn" onClick={() => navigate('/attendance/admin/employee/all')}>
                       View all {regCount} requests <FiArrowRight size={12}/>
                     </button>
                   </div>

@@ -468,12 +468,14 @@ function JobDetails() {
   const [imexcubeShowEditor, setImexcubeShowEditor] = useState(false);
   const [imexcubeErrorDialog, setImexcubeErrorDialog] = useState({ open: false, title: "", message: "", details: null });
   const [imexcubeRawPayloadString, setImexcubeRawPayloadString] = useState("");
+  const [imexcubeSenderID, setImexcubeSenderID] = useState("SURAJAHD");
 
   // Import Terms state
   const [importTerms, setImportTerms] = useState("CIF");
 
   // Step 1: Fetch job data preview and show in dialog
-  const handleUploadToImexcube = async () => {
+  const handleUploadToImexcube = async (targetSenderID = imexcubeSenderID) => {
+    const finalSenderID = (typeof targetSenderID === "string") ? targetSenderID : imexcubeSenderID;
     const jobNumber = data?.job_number;
     if (!jobNumber) {
       setImexcubeSnackbar({ open: true, message: "Job number not found", severity: "error" });
@@ -488,7 +490,7 @@ function JobDetails() {
     try {
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/scmCube/job-data-preview`,
-        { params: { job_number: jobNumber } }
+        { params: { job_number: jobNumber, senderID: finalSenderID } }
       );
       setImexcubePreviewData(res.data);
       setImexcubeRawPayloadString(JSON.stringify(res.data.rawPayload || res.data, null, 2));
@@ -550,6 +552,7 @@ function JobDetails() {
         `${process.env.REACT_APP_API_STRING}/scmCube/upload-to-imexcube`,
         {
           job_number: jobNumber,
+          senderID: imexcubeSenderID,
           ...(parsedPayload && { customPayload: parsedPayload })
         }
       );
@@ -663,6 +666,35 @@ function JobDetails() {
     setFileSnackbar,
     storedSearchParams
   );
+
+  const [cthOptions, setCthOptions] = useState({});
+  const [cthLoading, setCthLoading] = useState({});
+  const cthTimeoutRef = useRef({});
+
+  const fetchCthOptions = async (query, rowIndex) => {
+    if (!query || query.length < 4) {
+      setCthOptions(prev => ({ ...prev, [rowIndex]: [] }));
+      return;
+    }
+    setCthLoading(prev => ({ ...prev, [rowIndex]: true }));
+    try {
+      const response = await axios.get(`${process.env.REACT_APP_API_STRING}/search?query=${query}&addToRecent=false`, {
+        withCredentials: true
+      });
+      if (response.data && response.data.results) {
+        const cthResults = response.data.results;
+        const uniqueCodes = Array.from(new Set(cthResults.map(item => item.hs_code))).filter(Boolean);
+        setCthOptions(prev => ({ ...prev, [rowIndex]: uniqueCodes }));
+      } else {
+        setCthOptions(prev => ({ ...prev, [rowIndex]: [] }));
+      }
+    } catch (error) {
+      console.error("Error fetching CTH options:", error);
+      setCthOptions(prev => ({ ...prev, [rowIndex]: [] }));
+    } finally {
+      setCthLoading(prev => ({ ...prev, [rowIndex]: false }));
+    }
+  };
 
   const totalInvoiceValue = (formik?.values?.invoice_details || []).reduce((acc, row) => acc + (parseFloat(row.product_value) || 0), 0);
   const totalProductAmount = (formik?.values?.description_details || []).reduce((acc, row) => acc + (parseFloat(row.amount) || 0), 0);
@@ -2196,6 +2228,83 @@ function JobDetails() {
                       </Col>
 
                       <Col xs={12} md={6} lg={3} className="pb-3">
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "10px",
+                            marginBottom: "6px",
+                          }}
+                        >
+                          <Checkbox
+                            size="small"
+                            style={{ padding: "0" }}
+                            checked={!!formik.values.billing_confirmation_date}
+                            disabled={user?.role !== "Admin" && !user?.modules?.includes("Billing Confirmation")}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                const dt = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                                formik.setFieldValue("billing_confirmation_date", dt);
+                              } else {
+                                formik.setFieldValue("billing_confirmation_date", "");
+                              }
+                            }}
+                          />
+                          <span style={{ fontWeight: "600", color: "#495057" }}>
+                            Confirm for Billing:
+                          </span>
+                          <span
+                            style={{
+                              fontWeight: "700",
+                              color: formik.values.billing_confirmation_date
+                                ? "#28a745"
+                                : "#dc3545",
+                            }}
+                          >
+                            {formik.values.billing_confirmation_date
+                              ? new Date(
+                                  formik.values.billing_confirmation_date
+                                ).toLocaleString("en-US", {
+                                  timeZone: "Asia/Kolkata",
+                                  month: "short",
+                                  day: "2-digit",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                  hour12: true,
+                                })
+                              : "Pending"}
+                          </span>
+                        </div>
+                        {(user?.role === "Admin" || user?.modules?.includes("Billing Confirmation")) && (
+                          <div>
+                            <TextField
+                              type="datetime-local"
+                              fullWidth
+                              size="small"
+                              variant="outlined"
+                              id="billing_confirmation_date"
+                              name="billing_confirmation_date"
+                              value={
+                                formik.values.billing_confirmation_date
+                                  ? formatDateForInput(
+                                      formik.values.billing_confirmation_date
+                                    )
+                                  : ""
+                              }
+                              onChange={(e) =>
+                                formik.setFieldValue(
+                                  "billing_confirmation_date",
+                                  e.target.value
+                                )
+                              }
+                              InputLabelProps={{ shrink: true }}
+                              sx={compactInputSx}
+                            />
+                          </div>
+                        )}
+                      </Col>
+
+                      <Col xs={12} md={6} lg={3} className="pb-3">
                         <div style={{ fontSize: "0.95rem", marginBottom: "6px" }}>
                           <span
                             style={{
@@ -2485,6 +2594,20 @@ function JobDetails() {
                       <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Net Weight (KGS)</label>
                       <TextField fullWidth size="small" variant="outlined" id="job_net_weight" name="job_net_weight" value={formik.values.job_net_weight || ""}
                         onChange={formik.handleChange} InputLabelProps={{ shrink: true }} sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={3} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>
+                        {isAirMode(data?.mode) ? "Flight Name" : "Vessel Name"}
+                      </label>
+                      <TextField fullWidth size="small" variant="outlined" id="vessel_flight" name="vessel_flight"
+                        value={formik.values.vessel_flight || ""} onChange={formik.handleChange}
+                        placeholder={isAirMode(data?.mode) ? "Enter Flight No" : "Enter Vessel Name"} sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={3} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Voyage No</label>
+                      <TextField fullWidth size="small" variant="outlined" id="voyage_no" name="voyage_no"
+                        value={formik.values.voyage_no || ""} onChange={formik.handleChange}
+                        placeholder="Enter Voyage No" sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={3} lg={2} className="mb-3">
                       <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>ETA Date</label>
@@ -4185,7 +4308,7 @@ function JobDetails() {
                             { label: "Sr No", width: "45px", align: "center" },
                             { label: "Inv SR", width: "80px", align: "left" },
                             { label: "Description", minWidth: "280px", align: "left" },
-                            { label: "RITC (HS Code)", width: "120px", align: "left" },
+                            { label: "RITC (HS Code)", width: "150px", align: "left" },
                             { label: "Quantity", width: "240px", align: "left" },
                             { label: "Unit Price", width: "100px", align: "left" },
                             { label: "Currency", width: "90px", align: "left" },
@@ -4292,15 +4415,61 @@ function JobDetails() {
                               />
                             </td>
                             {/* RITC (HS Code) */}
-                            <td style={{ padding: "8px 6px", width: "120px", verticalAlign: "middle" }}>
-                              <TextField
+                            <td style={{ padding: "8px 6px", width: "150px", verticalAlign: "middle" }}>
+                              <Autocomplete
                                 size="small"
+                                freeSolo
                                 fullWidth
-                                value={row.cth_no || ""}
-                                onChange={(e) => updateDescriptionRow(rowIndex, "cth_no", e.target.value)}
+                                disableClearable
                                 disabled={isDescriptionTableReadOnly}
-                                sx={compactInputSx}
+                                options={cthOptions[rowIndex] || []}
+                                getOptionLabel={(option) => typeof option === 'string' ? option : option}
+                                loading={cthLoading[rowIndex]}
+                                inputValue={row.cth_no || ""}
+                                onInputChange={(event, newInputValue) => {
+                                  updateDescriptionRow(rowIndex, "cth_no", newInputValue);
+                                  if (cthTimeoutRef.current[rowIndex]) {
+                                    clearTimeout(cthTimeoutRef.current[rowIndex]);
+                                  }
+                                  if (newInputValue && newInputValue.length >= 4) {
+                                    cthTimeoutRef.current[rowIndex] = setTimeout(() => {
+                                      fetchCthOptions(newInputValue, rowIndex);
+                                    }, 500);
+                                  } else {
+                                    setCthOptions(prev => ({ ...prev, [rowIndex]: [] }));
+                                  }
+                                }}
+                                onChange={(event, newValue) => {
+                                  const selectedCode = typeof newValue === 'string' ? newValue : newValue || "";
+                                  updateDescriptionRow(rowIndex, "cth_no", selectedCode);
+                                }}
+                                renderInput={(params) => (
+                                  <TextField
+                                    {...params}
+                                    fullWidth
+                                    sx={compactInputSx}
+                                    InputProps={{
+                                      ...params.InputProps,
+                                      endAdornment: (
+                                        <React.Fragment>
+                                          {cthLoading[rowIndex] ? <CircularProgress color="inherit" size={12} /> : null}
+                                          {params.InputProps.endAdornment}
+                                        </React.Fragment>
+                                      ),
+                                    }}
+                                  />
+                                )}
+                                renderOption={(props, option) => (
+                                  <li {...props} key={option}>
+                                    {option}
+                                  </li>
+                                )}
                               />
+                              {row.cth_no && (row.cth_no.length < 8 || !/^\d+$/.test(row.cth_no)) && (
+                                <div style={{ color: '#ef4444', fontSize: '10px', marginTop: '2px', fontWeight: '500' }}>
+                                  Invalid CTH
+                                </div>
+                              )}
                             </td>
                             {/* Quantity */}
                             <td style={{ padding: "8px 6px", width: "240px", verticalAlign: "middle" }}>
@@ -6023,9 +6192,28 @@ function JobDetails() {
             <Box>
               <Box sx={{ display: "flex", gap: 2, mb: 2, flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" }}>
                 <Box>
-                  <Typography variant="subtitle2" sx={{ color: "#666", mb: 1 }}>
-                    Review the job data before uploading:
-                  </Typography>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap", mb: 1.5 }}>
+                    <Typography variant="subtitle2" sx={{ color: "#666" }}>
+                      Review the job data before uploading:
+                    </Typography>
+                    <FormControl size="small" variant="outlined" sx={{ minWidth: 160 }}>
+                      <InputLabel id="imexcube-senderid-select-label">Sender ID</InputLabel>
+                      <Select
+                        labelId="imexcube-senderid-select-label"
+                        id="imexcube-senderid-select"
+                        label="Sender ID"
+                        value={imexcubeSenderID}
+                        onChange={(e) => {
+                          const newSender = e.target.value;
+                          setImexcubeSenderID(newSender);
+                          handleUploadToImexcube(newSender);
+                        }}
+                      >
+                        <MenuItem value="SURAJAHD">SURAJAHD (Default)</MenuItem>
+                        <MenuItem value="SURAJAMD">SURAJAMD</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Box>
                   {!imexcubeShowEditor && (
                     <Box sx={{ mb: 2 }}>
                       <Box sx={{ display: "flex", gap: 1.5, fontSize: "0.75rem", mb: 1.5 }}>

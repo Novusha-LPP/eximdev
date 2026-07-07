@@ -11,6 +11,7 @@ const payrollSummarySchema = new mongoose.Schema({
 
   // Config snapshot at generation time
   is_operator: { type: Boolean },
+  category: { type: String },
   payroll_type: { type: String, enum: ['MONTHLY', 'DAILY_WAGE'] },
 
   // Attendance aggregation

@@ -2,7 +2,8 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import {
     FiHome, FiClock, FiFileText, FiCalendar, FiUser,
-    FiCheckSquare, FiUsers, FiActivity, FiLogIn, FiLogOut
+    FiCheckSquare, FiUsers, FiActivity, FiLogIn, FiLogOut,
+    FiBarChart2
 } from 'react-icons/fi';
 import { useContext } from 'react';
 import { UserContext } from '../../../contexts/UserContext';
@@ -46,10 +47,11 @@ const ADMIN_BASE_MENU = [
 
 const ADMIN_PRIVILEGED_MENU = [
     { section: 'Company' },
-    // { path: '/attendance/hod/report', icon: FiActivity, label: 'Team Report', requiresAllowedAdmin: true },
-    // { path: '/attendance/admin/attendance', icon: FiUsers, label: 'Company Report', requiresAllowedAdmin: true },
-    { path: '/attendance/teams', icon: FiUser, label: 'Teams', requiresAllowedAdmin: true },
+    { path: '/attendance/hod/report', icon: FiActivity, label: 'Team Report', requiresAllowedAdmin: true },
+    { path: '/attendance/admin/attendance', icon: FiUsers, label: 'Company Report', requiresAllowedAdmin: true },
+    { path: '/attendance/teams', icon: FiUser, label: 'Employee Directory', requiresAllowedAdmin: true },
     { path: '/attendance/hod/leave-approval', icon: FiCheckSquare, label: 'Approvals', requiresAllowedAdmin: true },
+    { path: '/attendance/admin/reports', icon: FiBarChart2, label: 'Reports', requiresAllowedAdmin: true },
     { section: 'Configuration' },
     { path: '/attendance/admin/holidays', icon: FiCalendar, label: 'Holiday Policies', requiresAllowedAdmin: true },
     { path: '/attendance/admin/weekoff-policies', icon: FiClock, label: 'Week-Off Policies', requiresAllowedAdmin: true },
@@ -93,6 +95,7 @@ const AttendanceLayout = () => {
     const [punchStatus, setPunchStatus] = useState(null);
     const [punching, setPunching] = useState(false);
     const [pendingCorrectionCount, setPendingCorrectionCount] = useState(0);
+    const [pendingLeavesCount, setPendingLeavesCount] = useState(0);
 
     // Provide a fallback in case user is not loaded yet
     const role = user?.role || 'EMPLOYEE';
@@ -108,8 +111,11 @@ const AttendanceLayout = () => {
     let baseMenu = isAllowedAdmin
         ? ADMIN_BASE_MENU.filter(item => !item.hideForAllowedAdmin)
         : ADMIN_BASE_MENU;
+    let privilegedMenu = isAllowedAdmin
+        ? ADMIN_PRIVILEGED_MENU.filter(item => item.label !== 'Team Report' && item.label !== 'Company Report')
+        : ADMIN_PRIVILEGED_MENU;
     let menu = isAdmin
-        ? [...baseMenu, ...(isAllowedAdmin ? ADMIN_PRIVILEGED_MENU : [])]
+        ? [...baseMenu, ...(isAllowedAdmin ? privilegedMenu : [])]
         : (isHOD ? [...HOD_MENU] : [...EMPLOYEE_MENU]);
 
     // IF ADMIN and NOT ALLOWED but isHOD (from API), Inject HOD menu items
@@ -151,15 +157,41 @@ const AttendanceLayout = () => {
         } catch { /* silently fail */ }
     }, []);
 
+    const fetchPendingLeavesCount = useCallback(async () => {
+        try {
+            const res = await attendanceAPI.getPendingLeavesCount();
+            if (res && typeof res.count === 'number') {
+                setPendingLeavesCount(res.count);
+            }
+        } catch { /* silently fail */ }
+    }, []);
+
     useEffect(() => { fetchPunchStatus(); }, [fetchPunchStatus]);
 
     useEffect(() => {
         if (user) {
             fetchPendingCorrectionCount();
-            const interval = setInterval(fetchPendingCorrectionCount, 5 * 60 * 1000);
+            fetchPendingLeavesCount();
+            const interval = setInterval(() => {
+                fetchPendingCorrectionCount();
+                fetchPendingLeavesCount();
+            }, 5 * 60 * 1000);
             return () => clearInterval(interval);
         }
-    }, [user, fetchPendingCorrectionCount]);
+    }, [user, fetchPendingCorrectionCount, fetchPendingLeavesCount]);
+
+    useEffect(() => {
+        const handler = () => {
+            fetchPendingCorrectionCount();
+            fetchPendingLeavesCount();
+        };
+        window.addEventListener('attendance-updated', handler);
+        window.addEventListener('leave-balance-updated', handler);
+        return () => {
+            window.removeEventListener('attendance-updated', handler);
+            window.removeEventListener('leave-balance-updated', handler);
+        };
+    }, [fetchPendingCorrectionCount, fetchPendingLeavesCount]);
 
     const handleQuickPunch = async () => {
         const isIn = punchStatus?.isInSession ?? (punchStatus?.first_in && !punchStatus?.last_out);
@@ -239,6 +271,15 @@ const AttendanceLayout = () => {
                                     <span className="nav-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                         {item.label}
                                         {['Teams', 'Team Attendance'].includes(item.label) && pendingCorrectionCount > 0 && (
+                                            <span style={{
+                                                width: '6px',
+                                                height: '6px',
+                                                backgroundColor: '#dc2626',
+                                                borderRadius: '50%',
+                                                display: 'inline-block'
+                                            }} />
+                                        )}
+                                        {item.label === 'Approvals' && pendingLeavesCount > 0 && (
                                             <span style={{
                                                 width: '6px',
                                                 height: '6px',

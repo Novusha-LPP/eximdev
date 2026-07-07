@@ -35,6 +35,7 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
   const [groupBy, setGroupBy] = useState('none');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   const [modalConfig, setModalConfig] = useState({
     isOpen: false,
@@ -45,6 +46,7 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
 
   useEffect(() => {
     setCurrentPage(1);
+    setStatusFilter('all');
   }, [data]);
 
   const openModal = (type) => {
@@ -128,7 +130,15 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
     return '';
   };
 
-  const sortedSummary = [...dailySummary].sort((a, b) => {
+  const filteredDailySummary = statusFilter === 'all'
+    ? dailySummary
+    : dailySummary.filter(e => {
+        if (statusFilter === 'present') return ['present', 'late', 'half_day'].includes(e.status);
+        if (statusFilter === 'leave') return ['leave', 'pending_leave'].includes(e.status);
+        return e.status === statusFilter;
+      });
+
+  const sortedSummary = [...filteredDailySummary].sort((a, b) => {
     if (groupBy !== 'none') {
       const groupA = groupValueFor(a);
       const groupB = groupValueFor(b);
@@ -139,9 +149,9 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
   });
 
   // Pagination Logic
-  const totalPages = Math.max(1, Math.ceil(dailySummary.length / itemsPerPage));
+  const totalPages = Math.max(1, Math.ceil(filteredDailySummary.length / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedData = dailySummary.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedData = filteredDailySummary.slice(startIndex, startIndex + itemsPerPage);
   const tableData = groupBy === 'none' ? paginatedData : sortedSummary;
 
   const handleMonthChange = (val) => {
@@ -205,11 +215,39 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
                 </select>
               </div>
             )}
+            <div className="adb-company-filter-wrap">
+              <FiFilter className="adb-dp-icon" />
+              <select
+                className="adb-company-select"
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+              >
+                <option value="all">All Statuses</option>
+                <option value="present">Present</option>
+                <option value="absent">Absent</option>
+                <option value="late">Late</option>
+                <option value="half_day">Half Day</option>
+                <option value="leave">Leave</option>
+              </select>
+            </div>
          </div>
       </div>
 
       <div className="adb-analytics-grid">
-        <div className="adb-ms-card clickable" onClick={() => openModal('present')}>
+        <div 
+          className="adb-ms-card clickable" 
+          onClick={() => {
+            setStatusFilter(statusFilter === 'present' ? 'all' : 'present');
+            setCurrentPage(1);
+          }}
+          style={{
+            borderColor: statusFilter === 'present' ? COLORS.present : 'var(--border)',
+            boxShadow: statusFilter === 'present' ? `0 0 0 2px ${COLORS.present}33` : 'var(--shadow-sm)'
+          }}
+        >
             <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', color: COLORS.present }}><FiUsers /></div>
             <div className="adb-ms-info">
                 <span className="adb-ms-val">{stats.present}</span>
@@ -217,14 +255,34 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
             </div>
         </div>
 
-        <div className="adb-ms-card clickable" onClick={() => openModal('leave')}>
+        <div 
+          className="adb-ms-card clickable" 
+          onClick={() => {
+            setStatusFilter(statusFilter === 'leave' ? 'all' : 'leave');
+            setCurrentPage(1);
+          }}
+          style={{
+            borderColor: statusFilter === 'leave' ? COLORS.leave : 'var(--border)',
+            boxShadow: statusFilter === 'leave' ? `0 0 0 2px ${COLORS.leave}33` : 'var(--shadow-sm)'
+          }}
+        >
             <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: COLORS.leave }}><FiCalendar /></div>
             <div className="adb-ms-info">
                 <span className="adb-ms-val">{stats.onLeave}</span>
                 <span className="adb-ms-lbl">On Leave</span>
             </div>
         </div>
-        <div className="adb-ms-card clickable" onClick={() => openModal('absent')}>
+        <div 
+          className="adb-ms-card clickable" 
+          onClick={() => {
+            setStatusFilter(statusFilter === 'absent' ? 'all' : 'absent');
+            setCurrentPage(1);
+          }}
+          style={{
+            borderColor: statusFilter === 'absent' ? COLORS.absent : 'var(--border)',
+            boxShadow: statusFilter === 'absent' ? `0 0 0 2px ${COLORS.absent}33` : 'var(--shadow-sm)'
+          }}
+        >
             <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: COLORS.absent }}><FiXCircle /></div>
             <div className="adb-ms-info">
                 <span className="adb-ms-val">{stats.absent}</span>
@@ -236,7 +294,14 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
       <div className="adb-dashboard-row">
         <div className="adb-summary-table-wrap">
             <div className="adb-table-header">
-              <h3 className="adb-card-title"><FiUsers /> Employee Daily Summary</h3>
+              <h3 className="adb-card-title">
+                <FiUsers /> {
+                  statusFilter === 'present' ? 'Total Present' :
+                  statusFilter === 'leave' ? 'On Leave' :
+                  statusFilter === 'absent' ? 'Absent' :
+                  'Employee Daily Summary'
+                }
+              </h3>
               <div className="adb-table-header-actions">
                 {groupBy === 'none' && dailySummary.length > itemsPerPage && (
                     <div className="adb-pagination-controls">

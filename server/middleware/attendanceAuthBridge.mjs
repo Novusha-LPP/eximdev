@@ -77,7 +77,7 @@ const attendanceAuthBridge = async (req, res, next) => {
     // fields (company_id, shift_id, department_id) are current.
     // This prevents stale JWT payloads from causing "Company not found" errors.
     const freshUser = await UserModel.findById(verified._id)
-      .select('_id username first_name last_name role company company_id department_id shift_id weekoff_policy_id holiday_policy_id attendance_settings current_status last_punch_date last_punch_type employment_type gender leave_settings isAttendanceAllowedAdmin is_operator')
+      .select('_id username first_name last_name role company company_id department_id shift_id weekoff_policy_id holiday_policy_id attendance_settings current_status last_punch_date last_punch_type employment_type gender leave_settings isAttendanceAllowedAdmin is_operator category')
       .lean();
 
     if (!freshUser) {

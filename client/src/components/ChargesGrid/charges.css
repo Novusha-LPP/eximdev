@@ -270,3 +270,29 @@
 .charges-sel-count { font-size: 11px; color: #3a6a9a; margin-left:auto; }
 .charges-add-modal-footer { background: #c8d4e0; border-top: 1px solid #9aacbd; padding: 8px 12px; display: flex; justify-content: flex-end; gap: 6px; flex-shrink:0; }
 .charges-no-results { padding: 12px; text-align: center; color: #8aA0b0; font-style: italic; }
+
+/* Auto-save Loading Indicator Pulse */
+.charges-loading-dot-pulse {
+  width: 8px;
+  height: 8px;
+  background-color: #1976d2;
+  border-radius: 50%;
+  display: inline-block;
+  animation: charges-pulse 1.2s infinite ease-in-out;
+}
+
+@keyframes charges-pulse {
+  0% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+}
+

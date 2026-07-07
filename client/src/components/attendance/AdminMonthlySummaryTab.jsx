@@ -1,18 +1,21 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { 
   FiUsers, FiCalendar, FiSearch, FiDownload, FiFilter, FiChevronLeft, FiChevronRight
 } from 'react-icons/fi';
 import attendanceAPI from '../../api/attendance/attendance.api';
 import masterAPI from '../../api/attendance/master.api';
 import EmployeeAttendanceDetailModal from './EmployeeAttendanceDetailModal';
+import { UserContext } from '../../contexts/UserContext';
 import toast from 'react-hot-toast';
 import moment from 'moment';
 
 const AdminMonthlySummaryTab = ({ currentMonth, onMonthChange, companies = [], selectedCompanyId, onCompanyChange }) => {
+  const { user } = useContext(UserContext);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState([]);
   const [teams, setTeams] = useState([]);
   const [selectedTeamId, setSelectedTeamId] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [groupBy] = useState('none');
   const [currentPage, setCurrentPage] = useState(1);
@@ -36,21 +39,17 @@ const AdminMonthlySummaryTab = ({ currentMonth, onMonthChange, companies = [], s
   }, [currentMonth, selectedCompanyId]);
 
   const loadTeams = useCallback(async () => {
-    if (!selectedCompanyId) {
-      setTeams([]);
-      return;
-    }
     try {
-      const res = await masterAPI.getTeamsByCompany(selectedCompanyId);
+      const res = await masterAPI.getTeams();
       if (res?.success) setTeams(res.teams || []);
     } catch (err) {
       console.error('Failed to load teams', err);
     }
-  }, [selectedCompanyId]);
+  }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
   useEffect(() => { loadTeams(); }, [loadTeams]);
-  useEffect(() => { setCurrentPage(1); }, [currentMonth, selectedCompanyId, selectedTeamId, searchTerm, groupBy]);
+  useEffect(() => { setCurrentPage(1); }, [currentMonth, selectedCompanyId, selectedTeamId, statusFilter, searchTerm, groupBy]);
 
   const filteredData = data.filter(emp => {
     const name = String(emp.name || '').toLowerCase();
@@ -59,7 +58,24 @@ const AdminMonthlySummaryTab = ({ currentMonth, onMonthChange, companies = [], s
     const teamName = String(emp.teamName || emp.team || '').toLowerCase();
     const matchesSearch = !searchTerm || [name, code, department, teamName].some(value => value.includes(searchTerm.toLowerCase()));
     const matchesTeam = selectedTeamId === 'all' || String(emp.teamId || emp.team_name || '').toLowerCase() === String(selectedTeamId).toLowerCase();
-    return matchesSearch && matchesTeam;
+    
+    let matchesStatus = true;
+    if (statusFilter !== 'all') {
+      const present = Number(emp.stats?.present || 0);
+      const absent = Number(emp.stats?.absent || 0);
+      const leave = Number(emp.stats?.leave || 0);
+      if (statusFilter === 'present') matchesStatus = present > 0;
+      else if (statusFilter === 'absent') matchesStatus = absent > 0;
+      else if (statusFilter === 'leave') matchesStatus = leave > 0;
+      else if (statusFilter === 'absent_heavy') matchesStatus = absent >= 3;
+      else if (statusFilter === 'perfect') matchesStatus = absent === 0;
+    }
+
+    const isRabsAdmin = String(user?.company || '').toLowerCase().includes('rabs') || String(user?.department || '').toLowerCase().includes('rabs');
+    const isEmpRabs = String(emp.organization || emp.company_name || emp.company || '').toLowerCase().includes('rabs') || department.includes('rabs');
+    const matchesRabsScope = isRabsAdmin ? isEmpRabs : !isEmpRabs;
+
+    return matchesSearch && matchesTeam && matchesStatus && matchesRabsScope;
   });
 
   const sortedData = [...filteredData].sort((a, b) => {
@@ -162,6 +178,23 @@ const AdminMonthlySummaryTab = ({ currentMonth, onMonthChange, companies = [], s
               {teams.map(t => (
                 <option key={t._id} value={t._id}>{t.name}</option>
               ))}
+            </select>
+          </div>
+
+          <div className="adb-company-filter-wrap">
+            <span className="adb-filter-lbl">Status</span>
+            <FiFilter className="adb-dp-icon" />
+            <select
+              className="adb-company-select"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <option value="all">All Statuses</option>
+              <option value="present">Present (1+ Days)</option>
+              <option value="absent">Absent (1+ Days)</option>
+              <option value="leave">On Leave (1+ Days)</option>
+              <option value="absent_heavy">3+ Absences</option>
+              <option value="perfect">Perfect Attendance</option>
             </select>
           </div>
 

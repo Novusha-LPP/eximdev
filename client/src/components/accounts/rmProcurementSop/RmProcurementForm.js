@@ -90,7 +90,7 @@ const emptyPr = {
   },
 };
 
-function RmProcurementForm({ pr, onSaved, onCancel }) {
+function RmProcurementForm({ pr, isView, onSaved, onCancel }) {
   const [value, setValue] = useState(0);
   const [formData, setFormData] = useState(emptyPr);
   const [loading, setLoading] = useState(false);
@@ -182,9 +182,10 @@ function RmProcurementForm({ pr, onSaved, onCancel }) {
 
   return (
     <Box>
+      <fieldset disabled={isView} style={{ border: "none", padding: 0, margin: 0 }}>
       <Paper sx={{ p: 2, mb: 2 }}>
         <Typography variant="h6" gutterBottom>
-          {pr?._id ? "Edit Purchase Request" : "Create Purchase Request"}
+          {isView ? "View Purchase Request" : (pr?._id ? "Edit Purchase Request" : "Create Purchase Request")}
         </Typography>
         <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ mb: 2 }}>
           <TextField
@@ -217,6 +218,7 @@ function RmProcurementForm({ pr, onSaved, onCancel }) {
           </TextField>
         </Stack>
       </Paper>
+      </fieldset>
 
       <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
         <Tabs
@@ -236,25 +238,31 @@ function RmProcurementForm({ pr, onSaved, onCancel }) {
         const Component = tab.component;
         return (
           <CustomTabPanel key={idx} value={value} index={idx}>
-            <Component
-              data={formData[`stage${idx + 1}`]}
-              onChange={(stageData) => handleStageChange(`stage${idx + 1}`, stageData)}
-            />
+            <fieldset disabled={isView} style={{ border: "none", padding: 0, margin: 0 }}>
+              <Component
+                data={formData[`stage${idx + 1}`]}
+                globalData={formData}
+                onGlobalChange={handleChange}
+                onChange={(stageData) => handleStageChange(`stage${idx + 1}`, stageData)}
+              />
+            </fieldset>
           </CustomTabPanel>
         );
       })}
 
       <Box sx={{ display: "flex", gap: 2, mt: 3 }}>
-        <Button
-          variant="contained"
-          startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
-          onClick={handleSave}
-          disabled={saving}
-        >
-          Save PR
-        </Button>
+        {!isView && (
+          <Button
+            variant="contained"
+            startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
+            onClick={handleSave}
+            disabled={saving}
+          >
+            Save PR
+          </Button>
+        )}
         <Button variant="outlined" startIcon={<Cancel />} onClick={onCancel} disabled={saving}>
-          Cancel
+          {isView ? "Back" : "Cancel"}
         </Button>
       </Box>
     </Box>

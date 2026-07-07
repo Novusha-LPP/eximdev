@@ -9,7 +9,6 @@
  */
 
 import PayrollRun from '../../model/attendance/PayrollRun.js';
-import PayrollLock from '../../model/attendance/PayrollLock.js';
 import AttendanceRecord from '../../model/attendance/AttendanceRecord.js';
 
 const PayrollLockService = {
@@ -27,22 +26,6 @@ const PayrollLockService = {
     if (run.payroll_status === 'COMPLETED') {
       throw new Error('Payroll is already completed.');
     }
-    if (run.payroll_status === 'PROCESSING') {
-      throw new Error('Payroll is currently processing. Wait for it to finish.');
-    }
-
-    // Verify attendance lock exists for this month
-    const yearMonth = `${run.payroll_year}-${String(run.payroll_month).padStart(2, '0')}`;
-    const attendanceLock = await PayrollLock.findOne({
-      company_id: run.company_id,
-      year_month: yearMonth,
-      is_locked: true
-    });
-
-    if (!attendanceLock) {
-      throw new Error(`Attendance must be locked for ${yearMonth} before locking payroll.`);
-    }
-
     run.payroll_status = 'LOCKED';
     run.locked_by = lockedBy;
     run.locked_at = new Date();

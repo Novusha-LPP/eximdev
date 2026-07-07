@@ -84,6 +84,8 @@ import reminderRoutes, {
 import accountLedger from "./routes/accounts/Ledger/accountLedger.mjs";
 import getBillCover from "./routes/accounts/getBillCover.mjs";
 import rmProcurementSopRoutes from "./routes/accounts/rmProcurementSop.mjs";
+import tyreProcurementSopRoutes from "./routes/accounts/tyreProcurementSop.mjs";
+import fleetInsuranceSopRoutes from "./routes/accounts/fleetInsuranceSop.mjs";
 
 // Documentation
 import updateDocumentationJob from "./routes/documentation/updateDocumentationJob.mjs";
@@ -427,6 +429,7 @@ app.use(
       "http://eximdev.s3-website.ap-south-1.amazonaws.com",
       "http://localhost:3000",
       "http://localhost:3001",
+      "http://localhost:3002",
       "http://localhost:9007",
       "http://127.0.0.1:3000",
       "http://127.0.0.1:3001",
@@ -512,6 +515,8 @@ app.use("/api", reminderRoutes);
 app.use("/api", accountLedger);
 app.use("/api", getBillCover);
 app.use("/api", rmProcurementSopRoutes);
+app.use("/api", tyreProcurementSopRoutes);
+app.use("/api", fleetInsuranceSopRoutes);
 app.use("/api/billing", invoiceGenerator);
 
 // Documentation
@@ -961,4 +966,6 @@ if (!disableCluster && cluster.isPrimary) {
 }
 
 export default app;
+// Trivial change to force nodemon reload of environment variables
+
 

@@ -444,7 +444,18 @@ function JobDetailsStaticData(props) {
           <div style={{ display: "flex", flexWrap: "wrap", gap: "20px", alignItems: "center", flex: 1 }}>
             <div style={{ display: "flex", flexDirection: "column" }}>
               <span style={{ fontSize: "0.75rem", color: "#6c757d", fontWeight: "600" }}>Job Number</span>
-              <span style={{ fontSize: "0.95rem", fontWeight: "700", color: "#212529" }}>{props.data?.job_number || props.params.job_no}</span>
+              <span style={{ fontSize: "0.95rem", fontWeight: "700", color: "#212529", display: "flex", alignItems: "center" }}>
+                {props.data?.job_number || props.params.job_no}
+                <Tooltip title="Copy Job Number">
+                  <IconButton
+                    size="small"
+                    onClick={(e) => handleCopy(e, props.data?.job_number || props.params.job_no)}
+                    sx={{ ml: 0.5, p: 0.2 }}
+                  >
+                    <ContentCopyIcon sx={{ fontSize: "14px" }} />
+                  </IconButton>
+                </Tooltip>
+              </span>
             </div>
 
             <div style={{ width: "1px", height: "30px", background: "#e0e0e0" }}></div>
@@ -535,8 +546,19 @@ function JobDetailsStaticData(props) {
           {/* Header */}
           <Row style={{ marginBottom: "15px", borderBottom: "1px solid #eee", paddingBottom: "10px", alignItems: "center" }}>
             <Col className="d-flex align-items-center justify-content-between">
-              <h5 style={{ fontSize: "1.1rem", fontWeight: "700", margin: 0 }}>
-                Job Number: {props.data?.job_number || props.params.job_no} | Custom House: {props.data?.custom_house}
+              <h5 style={{ fontSize: "1.1rem", fontWeight: "700", margin: 0, display: "flex", alignItems: "center", flexWrap: "wrap" }}>
+                Job Number: {props.data?.job_number || props.params.job_no}
+                <Tooltip title="Copy Job Number">
+                  <IconButton
+                    size="small"
+                    onClick={(e) => handleCopy(e, props.data?.job_number || props.params.job_no)}
+                    sx={{ ml: 0.5, p: 0.2 }}
+                  >
+                    <ContentCopyIcon sx={{ fontSize: "14px" }} />
+                  </IconButton>
+                </Tooltip>
+                <span style={{ margin: "0 8px" }}>|</span>
+                Custom House: {props.data?.custom_house}
                 {props.data?.be_no ? null : props.data?.priorityJob &&
                   (props.data.priorityJob === "High Priority" ||
                     props.data.priorityJob === "Priority") && (

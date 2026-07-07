@@ -17,20 +17,67 @@ import {
 const decisionOptions = ["", "APPROVED", "REJECTED"];
 const statusOptions = ["", "Pending", "Done"];
 
-function Stage2PurchaseRequest({ data, onChange }) {
+function Stage2PurchaseRequest({ data, onChange, globalData, onGlobalChange }) {
   const updateField = (field, value) => onChange({ [field]: value });
   const updateNested = (group, field, value) =>
     onChange({ [group]: { ...data[group], [field]: value } });
 
   const rawMaterials = data.rawMaterials || [];
   const updateMaterial = (idx, field, value) => {
-    const updated = rawMaterials.map((item, i) => (i === idx ? { ...item, [field]: value } : item));
+    const updated = [...rawMaterials];
+    for (let i = 0; i <= idx; i++) {
+      if (!updated[i]) {
+        updated[i] = {
+          rmType: [
+            "Virgin HDPE Granule",
+            "rHDPE Granule (Recycled)",
+            "Colour Masterbatch",
+            "UV Masterbatch",
+          ][i] || "",
+          grade: [
+            "ICOL - 180M50",
+            "Blue / Grey Grade",
+            "Blue / Grey",
+            "Standard UV Grade",
+          ][i] || "",
+          requiredQty: "",
+          unit: i < 4 ? "kg" : "",
+          preferredSupplier: "",
+          requiredCertificatesDocuments: [
+            "COA, MSDS, Mfg Certificate, Test Report",
+            "Material Quality Declaration",
+            "Technical Data Sheet (TDS)",
+            "Technical Data Sheet (TDS)",
+          ][i] || "",
+        };
+      }
+    }
+    updated[idx] = { ...updated[idx], [field]: value };
     onChange({ rawMaterials: updated });
   };
 
   const actionLog = data.actionLog || [];
   const updateActionLog = (idx, field, value) => {
-    const updated = actionLog.map((item, i) => (i === idx ? { ...item, [field]: value } : item));
+    const updated = [...actionLog];
+    for (let i = 0; i <= idx; i++) {
+      if (!updated[i]) {
+        updated[i] = {
+          actionTask: [
+            "PR raised by factory person",
+            "Reviewed & approved by Production Head",
+            "PR forwarded to Purchase Officer",
+          ][i] || "",
+          responsiblePerson: [
+            "Factory PR Person",
+            "Production Head",
+            "Production Head / PR Person",
+          ][i] || "",
+          dateTime: "",
+          status: "",
+        };
+      }
+    }
+    updated[idx] = { ...updated[idx], [field]: value };
     onChange({ actionLog: updated });
   };
 
@@ -43,8 +90,8 @@ function Stage2PurchaseRequest({ data, onChange }) {
         <Grid item xs={12} md={6}>
           <TextField
             label="PR Number"
-            value={data.prNumber || ""}
-            onChange={(e) => updateField("prNumber", e.target.value)}
+            value={globalData?.prNumber || ""}
+            onChange={(e) => onGlobalChange("prNumber", e.target.value)}
             fullWidth
             size="small"
           />

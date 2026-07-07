@@ -1,3 +1,4 @@
+import { YearContext } from "../../contexts/yearContext.js";
 import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import { format, startOfWeek, endOfWeek } from 'date-fns';
@@ -22,6 +23,7 @@ import TransportAccountsReport from './reports/TransportAccountsReport';
 import KarmaReport from './reports/KarmaReport';
 import ExportPulseReport from './reports/ExportPulseReport';
 import ImportPendingSummaryReport from './reports/ImportPendingSummaryReport';
+import ImportOutOfChargeSummaryReport from './reports/ImportOutOfChargeSummaryReport';
 
 const NucleusHome = () => {
     const { selectedCategory, selectedBranchGroup } = useContext(BranchContext);
@@ -35,7 +37,8 @@ const NucleusHome = () => {
                 { id: 'fine', label: 'Bill of Entry – Fine Report' },
                 { id: 'penalty', label: 'Bill of Entry – Penalty Report' },
                 { id: 'top10', label: 'Top 10 Importers' },
-                { id: 'import_pending_summary', label: 'Pending Job Summary' }
+                { id: 'import_pending_summary', label: 'Pending Job Summary' },
+                { id: 'import_out_of_charge_summary', label: 'Out of Charge Summary' }
             ]
         },
         { 
@@ -106,7 +109,11 @@ const NucleusHome = () => {
         .find(r => r.id === activeReport);
 
     // Date Filter State
-    const [filterType, setFilterType] = useState('month'); // Default to month
+    const { selectedYearState, setSelectedYearState } = React.useContext(YearContext);
+    const [filterType, setFilterType] = useState('year');
+    const [financialYears, setFinancialYears] = useState(['26-27', '25-26', '24-25', '23-24']);
+    const selectedFinancialYear = selectedYearState || '26-27';
+    const setSelectedFinancialYear = setSelectedYearState;
     const [selectedDay, setSelectedDay] = useState(format(new Date(), 'yyyy-MM-dd'));
 
     // Custom Date Filter Values
@@ -118,6 +125,16 @@ const NucleusHome = () => {
     // Base Compliance Data State (Shared for Fine and Penalty)
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    // Auto-switch filter type based on report
+    useEffect(() => {
+        if (['import_pending_summary', 'import_out_of_charge_summary'].includes(activeReport)) {
+            setFilterType('fin-year');
+        } else {
+            if (filterType === 'fin-year') setFilterType('year');
+        }
+    }, [activeReport]);
+
 
     const currentYear = new Date().getFullYear();
     const years = Array.from({ length: 7 }, (_, i) => currentYear - 5 + i);
@@ -168,6 +185,7 @@ const NucleusHome = () => {
                         data={data}
                         filterType={filterType}
                         dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
                         selectedMonth={selectedMonth}
                         selectedYear={selectedYear}
                         selectedQuarter={selectedQuarter}
@@ -180,6 +198,7 @@ const NucleusHome = () => {
                         data={data}
                         filterType={filterType}
                         dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
                         selectedMonth={selectedMonth}
                         selectedYear={selectedYear}
                         selectedQuarter={selectedQuarter}
@@ -194,6 +213,7 @@ const NucleusHome = () => {
                         selectedYear={selectedYear}
                         selectedQuarter={selectedQuarter}
                         dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
                     />
                 );
             case 'udyam':
@@ -214,6 +234,7 @@ const NucleusHome = () => {
                         selectedYear={selectedYear}
                         selectedQuarter={selectedQuarter}
                         dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
                         selectedDay={selectedDay}
                     />
                 );
@@ -225,6 +246,7 @@ const NucleusHome = () => {
                         selectedYear={selectedYear}
                         selectedQuarter={selectedQuarter}
                         dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
                         selectedDay={selectedDay}
                     />
                 );
@@ -236,6 +258,7 @@ const NucleusHome = () => {
                         selectedYear={selectedYear}
                         selectedQuarter={selectedQuarter}
                         dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
                         selectedDay={selectedDay}
                     />
                 );
@@ -247,6 +270,7 @@ const NucleusHome = () => {
                         selectedYear={selectedYear}
                         selectedQuarter={selectedQuarter}
                         dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
                         selectedDay={selectedDay}
                     />
                 );
@@ -258,6 +282,7 @@ const NucleusHome = () => {
                         selectedYear={selectedYear}
                         selectedQuarter={selectedQuarter}
                         dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
                         selectedDay={selectedDay}
                     />
                 );
@@ -269,6 +294,7 @@ const NucleusHome = () => {
                         selectedYear={selectedYear}
                         selectedQuarter={selectedQuarter}
                         dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
                         selectedDay={selectedDay}
                     />
                 );
@@ -280,6 +306,7 @@ const NucleusHome = () => {
                         selectedYear={selectedYear}
                         selectedQuarter={selectedQuarter}
                         dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
                         selectedDay={selectedDay}
                     />
                 );
@@ -291,6 +318,7 @@ const NucleusHome = () => {
                         selectedYear={selectedYear}
                         selectedQuarter={selectedQuarter}
                         dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
                         selectedDay={selectedDay}
                     />
                 );
@@ -302,6 +330,21 @@ const NucleusHome = () => {
                         selectedYear={selectedYear}
                         selectedQuarter={selectedQuarter}
                         dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
+                        selectedDay={selectedDay}
+                        category={selectedCategory}
+                        branchId={selectedBranchGroup === 'all' ? '' : selectedBranchGroup}
+                    />
+                );
+            case 'import_out_of_charge_summary':
+                return (
+                    <ImportOutOfChargeSummaryReport
+                        filterType={filterType}
+                        selectedMonth={selectedMonth}
+                        selectedYear={selectedYear}
+                        selectedQuarter={selectedQuarter}
+                        dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
                         selectedDay={selectedDay}
                         category={selectedCategory}
                         branchId={selectedBranchGroup === 'all' ? '' : selectedBranchGroup}
@@ -313,7 +356,7 @@ const NucleusHome = () => {
     };
 
     // Determine if date controls are needed (udyam, training, client login analytics, new_customers don't need them)
-    const showDateControls = !['udyam', 'training', 'client_login_analytics', 'new_customers', 'export_pulse'].includes(activeReport);
+    const showDateControls = !['udyam', 'training', 'client_login_analytics', 'new_customers', 'export_pulse', 'import_pending_summary'].includes(activeReport);
 
     return (
         <div className="nucleus-layout">
@@ -380,6 +423,8 @@ const NucleusHome = () => {
                                                     if (['fleet_utilization', 'elock_utilization', 'elock_billing', 'transport_accounts'].includes(report.id)) {
                                                         setFilterType('day');
                                                         setSelectedDay(format(new Date(), 'yyyy-MM-dd'));
+                                                    } else if (['import_pending_summary'].includes(report.id)) {
+                                                        setFilterType('fin-year');
                                                     } else {
                                                         if (filterType === 'day') {
                                                             setFilterType('month');
@@ -427,6 +472,7 @@ const NucleusHome = () => {
                                         <option value="month">Month Wise</option>
                                         <option value="quarter">Quarter Wise</option>
                                         <option value="year">Year Wise</option>
+                                        {["import_pending_summary", "import_out_of_charge_summary"].includes(activeReport) && <option value="fin-year">Financial Year</option>}
                                         <option value="date-range">Date Range</option>
                                         <option value="all">Unfiltered (All Time)</option>
                                     </select>
@@ -514,6 +560,20 @@ const NucleusHome = () => {
                                             onChange={(e) => setSelectedYear(e.target.value)}
                                         >
                                             {years.map(y => <option key={y} value={y}>{y}</option>)}
+                                        </select>
+                                    </div>
+                                )}
+
+                                {filterType === 'fin-year' && (
+                                    <div className="custom-inputs">
+                                        <select
+                                            className="nucleus-select"
+                                            value={selectedFinancialYear}
+                                            onChange={(e) => setSelectedFinancialYear(e.target.value)}
+                                        >
+                                            {financialYears.map(y => (
+                                                <option key={y} value={y}>{y}</option>
+                                            ))}
                                         </select>
                                     </div>
                                 )}

@@ -442,6 +442,8 @@ function useFetchJobDetails(
       obl_telex_bl: "",
       is_obl_recieved: false,
       document_received_date: "",
+      vessel_flight: "",
+      voyage_no: "",
       vessel_berthing: "",
       hawb_hbl_no: "",
       hawb_hbl_date: "",
@@ -546,6 +548,7 @@ function useFetchJobDetails(
       completed_operation_date: "",
       esanchit_completed_date_time: "",
       bill_document_sent_to_accounts: "",
+      billing_confirmation_date: "",
       do_completed: "",
       import_terms: "",
       // container_rail_out_date: ""   
@@ -588,6 +591,28 @@ function useFetchJobDetails(
       if (isCthDocsLoading) {
         toast.error("Please wait, loading CTH documents...");
         return;
+      }
+
+      // --- CTH / HS CODE VALIDATION ---
+      if (values.description_details) {
+        for (let i = 0; i < values.description_details.length; i++) {
+          const row = values.description_details[i];
+          if (row.cth_no) {
+            const clean = String(row.cth_no).trim();
+            if (clean && !/^\d{8,}$/.test(clean)) {
+              toast.error(`Row ${i + 1}: HS Code (CTH No) must be at least 8 digits long and contain only numbers.`);
+              return;
+            }
+          }
+        }
+      }
+
+      if (values.cth_no) {
+        const clean = String(values.cth_no).trim();
+        if (clean && !/^\d{8,}$/.test(clean)) {
+          toast.error("Job-level CTH No must be at least 8 digits long and contain only numbers.");
+          return;
+        }
       }
       // Filter documents that are sent to e-Sanchit
       const sentDocuments = cthDocuments.filter(
@@ -633,6 +658,8 @@ function useFetchJobDetails(
             cth_documents: updatedCthDocuments,
             documents: selectedDocuments,
             checkedDocs: values.checkedDocs,
+            vessel_flight: values.vessel_flight,
+            voyage_no: values.voyage_no,
             vessel_berthing: values.vessel_berthing,
             hawb_hbl_no: values.hawb_hbl_no,
             hawb_hbl_date: values.hawb_hbl_date,
@@ -752,6 +779,7 @@ function useFetchJobDetails(
             completed_operation_date: values.completed_operation_date,
             esanchit_completed_date_time: values.esanchit_completed_date_time,
             bill_document_sent_to_accounts: values.bill_document_sent_to_accounts,
+            billing_confirmation_date: values.billing_confirmation_date,
             do_completed: values.do_completed,
             import_terms: values.import_terms,
             freight: values.freight,
@@ -921,6 +949,8 @@ function useFetchJobDetails(
         is_obl_recieved: safeValue(data.is_obl_recieved, false),
         document_received_date: safeValue(data.document_received_date),
         arrival_date: safeValue(data.arrival_date),
+        vessel_flight: safeValue(data.vessel_flight, ""),
+        voyage_no: safeValue(data.voyage_no, ""),
         vessel_berthing: safeValue(data.vessel_berthing)
           ? new Date(data.vessel_berthing).toLocaleDateString("en-CA").split("/").reverse().join("-")
           : "",
@@ -1143,6 +1173,7 @@ function useFetchJobDetails(
         completed_operation_date: safeValue(data.completed_operation_date),
         esanchit_completed_date_time: safeValue(data.esanchit_completed_date_time),
         bill_document_sent_to_accounts: safeValue(data.bill_document_sent_to_accounts),
+        billing_confirmation_date: safeValue(data.billing_confirmation_date),
         do_completed: safeValue(data.do_completed),
         import_terms: safeValue(data.import_terms),
         freight: safeValue(data.freight),

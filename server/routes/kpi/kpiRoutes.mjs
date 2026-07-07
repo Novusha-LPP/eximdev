@@ -1095,6 +1095,7 @@ router.put("/api/kpi/sheet/entry", verifyToken, auditMiddleware("KPI_Sheet"), as
         }
         row.total = sum;
 
+        sheet.markModified('rows');
         await sheet.save();
         console.log("PUT /api/kpi/sheet/entry - Success");
         res.json(sheet);

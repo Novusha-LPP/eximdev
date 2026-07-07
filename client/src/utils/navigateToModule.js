@@ -10,6 +10,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/update-employee-data");
     case "Import - DSR":
       return navigate("/import-dsr");
+    case "Billing Confirmation":
+      return navigate("/import-dsr", { state: { tabValue: 1, tabIndex: 3 } });
     case "Report":
       return navigate("/report");
     case "Audit Trail":
@@ -50,6 +52,12 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/billing-reports");
     case "RM Procurement SOP":
       return navigate("/rm-procurement");
+    case "Tyre Procurement SOP":
+      return navigate("/tyre-procurement");
+    case "Fleet Insurance SOP":
+      return navigate("/fleet-insurance");
+    case "Procurement & Insurance SOPs":
+      return navigate("/procurement-insurance-sops");
     case "Customer KYC":
       return navigate("/customer-kyc");
     case "Exit Feedback":

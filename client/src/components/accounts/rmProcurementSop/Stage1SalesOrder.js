@@ -21,7 +21,7 @@ const bottomOptions = ["Flat", "Ribbed"];
 const handleOptions = ["Open", "Close"];
 const lidOptions = ["Yes", "No"];
 
-function Stage1SalesOrder({ data, onChange }) {
+function Stage1SalesOrder({ data, onChange, globalData, onGlobalChange }) {
   const updateField = (field, value) => {
     onChange({ [field]: value });
   };
@@ -47,7 +47,30 @@ function Stage1SalesOrder({ data, onChange }) {
   };
 
   const updateRmEstimate = (idx, field, value) => {
-    const updated = rmEstimates.map((item, i) => (i === idx ? { ...item, [field]: value } : item));
+    const updated = [...rmEstimates];
+    for (let i = 0; i <= idx; i++) {
+      if (!updated[i]) {
+        updated[i] = {
+          rmType: [
+            "Virgin HDPE Granule",
+            "rHDPE Granule (Recycled)",
+            "Colour Masterbatch",
+            "UV Masterbatch",
+          ][i] || "",
+          grade: [
+            "ICOL - 180M50",
+            "Blue / Grey Grade",
+            "Blue / Grey",
+            "Standard UV Grade",
+          ][i] || "",
+          requiredQty: "",
+          unit: "kg",
+          currentStock: "",
+          netRmToPurchase: "",
+        };
+      }
+    }
+    updated[idx] = { ...updated[idx], [field]: value };
     onChange({ rmEstimates: updated });
   };
 

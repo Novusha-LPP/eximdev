@@ -57,7 +57,7 @@ router.get("/api/download-report/:years/:status", async (req, res) => {
     if (detailedStatus && detailedStatus !== "all") {
       const mappedStatus = statusMapping[detailedStatus] || detailedStatus;
       jobs = jobs.filter((job) => job.detailed_status === mappedStatus);
-    } else {
+    } else if (!detailedStatus) {
       jobs = jobs.filter((job) => job.detailed_status !== "Billing Pending");
     }
 

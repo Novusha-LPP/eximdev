@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, memo } from 'react';
+import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import FileUploadModal from './FileUploadModal';
 import RequestPaymentModal from './RequestPaymentModal';
@@ -40,6 +40,72 @@ const EditChargeModal = ({
 }) => {
   const [formData, setFormData] = useState([]);
   const [localImporterName, setLocalImporterName] = useState(importerName || '');
+  const [saveStatus, setSaveStatus] = useState(''); // '', 'saving', 'saved', 'error'
+  const debounceTimeoutRef = useRef(null);
+  const formDataRef = useRef(formData);
+
+  useEffect(() => {
+    formDataRef.current = formData;
+  }, [formData]);
+
+  const saveRow = useCallback(async (index) => {
+    const charge = formDataRef.current[index];
+    if (charge && charge._id && updateCharge) {
+      setSaveStatus('saving');
+      try {
+        const res = await updateCharge(charge._id, charge);
+        if (res && res.success === false) {
+          setSaveStatus('error');
+        } else {
+          setSaveStatus('saved');
+        }
+      } catch (err) {
+        console.error("Auto-save failed:", err);
+        setSaveStatus('error');
+      }
+    }
+  }, [updateCharge]);
+
+  const triggerAutoSave = useCallback((index, immediate = false) => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    if (immediate) {
+      saveRow(index);
+    } else {
+      setSaveStatus('saving');
+      debounceTimeoutRef.current = setTimeout(() => {
+        saveRow(index);
+      }, 1000);
+    }
+  }, [saveRow]);
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleClose = async () => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
+    setSaveStatus('saving');
+    try {
+      for (const charge of formData) {
+        if (charge && charge._id && updateCharge) {
+          await updateCharge(charge._id, charge);
+        }
+      }
+      setSaveStatus('saved');
+    } catch (err) {
+      console.error("Failed to save changes before closing:", err);
+      setSaveStatus('error');
+    }
+    onClose();
+  };
 
   useEffect(() => {
     if (importerName) {
@@ -509,6 +575,18 @@ const EditChargeModal = ({
         setActiveDropdown({ index: null, section: null });
       }
     }
+
+    // Auto-save triggers
+    const immediateFields = [
+      'category', 'isHeader', 'basis', 'overrideAutoRate', 'partyType', 
+      'currency', 'branchIndex', 'isGst', 'copyToCost', 'isTds', 'tdsCategory',
+      'url', 'url_draft', 'url_final'
+    ];
+    if (immediateFields.includes(field)) {
+      triggerAutoSave(index, true);
+    } else {
+      triggerAutoSave(index, false);
+    }
   };
 
   const handleSelectParty = (index, section, item) => {
@@ -586,6 +664,7 @@ const EditChargeModal = ({
 
     updated[index].revenue = revenue;
     setFormData(updated);
+    triggerAutoSave(index, true);
   };
 
   const handleCopyToRevenue = (index) => {
@@ -628,10 +707,7 @@ const EditChargeModal = ({
 
     updated[index].revenue = revenue;
     setFormData(updated);
-  };
-
-  const handleSave = (shouldClose = true) => {
-    onSave(formData, shouldClose);
+    triggerAutoSave(index, true);
   };
 
   const togglePanel = (idx, panel) => {
@@ -744,16 +820,16 @@ const EditChargeModal = ({
 
                     <div className="charges-form-row" style={{ gridColumn: 'span 2' }}>
                       <span className="charges-form-label">Invoice Number</span>
-                      <input type="text" disabled={effectiveReadOnly} value={row.invoice_number || ''} onChange={e => handleFieldChange(i, 'invoice_number', e.target.value)} />
+                      <input type="text" disabled={effectiveReadOnly} value={row.invoice_number || ''} onChange={e => handleFieldChange(i, 'invoice_number', e.target.value)} onBlur={() => triggerAutoSave(i, true)} />
                     </div>
                     <div className="charges-form-row" style={{ gridColumn: 'span 2' }}>
                       <span className="charges-form-label">Invoice Date</span>
-                      <input type="date" disabled={effectiveReadOnly} value={row.invoice_date || ''} onChange={e => handleFieldChange(i, 'invoice_date', e.target.value)} />
+                      <input type="date" disabled={effectiveReadOnly} value={row.invoice_date || ''} onChange={e => handleFieldChange(i, 'invoice_date', e.target.value)} onBlur={() => triggerAutoSave(i, true)} />
                     </div>
 
                     <div className="charges-form-row" style={{ gridColumn: 'span 2' }}>
                       <span className="charges-form-label">SAC/HSN code</span>
-                      <input type="text" disabled={effectiveReadOnly} placeholder="e.g. 996511" value={row.sacHsn || ''} onChange={e => handleFieldChange(i, 'sacHsn', e.target.value)} />
+                      <input type="text" disabled={effectiveReadOnly} placeholder="e.g. 996511" value={row.sacHsn || ''} onChange={e => handleFieldChange(i, 'sacHsn', e.target.value)} onBlur={() => triggerAutoSave(i, true)} />
                     </div>
                     <div className="charges-form-row" style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span className="charges-form-label" style={{ marginBottom: 0 }}>Is Header?</span>
@@ -890,7 +966,7 @@ const EditChargeModal = ({
 
                     <div className="charges-form-row" style={{ gridColumn: 'span 4' }}>
                       <span className="charges-form-label">Remark</span>
-                      <input type="text" disabled={effectiveReadOnly} value={row.remark || ''} onChange={e => handleFieldChange(i, 'remark', e.target.value)} />
+                      <input type="text" disabled={effectiveReadOnly} value={row.remark || ''} onChange={e => handleFieldChange(i, 'remark', e.target.value)} onBlur={() => triggerAutoSave(i, true)} />
                     </div>
                   </div>
                 </div>
@@ -937,7 +1013,7 @@ const EditChargeModal = ({
                             <div className="charges-expand-panel charges-open">
                               <div className="charges-ep-desc-row">
                                 <span className="charges-ep-label">Charge Description</span>
-                                <input type="text" className="charges-ep-desc-input" disabled={effectiveReadOnly} value={row.revenue?.chargeDescription || ''} onChange={e => handleFieldChange(i, 'chargeDescription', e.target.value, 'revenue')} />
+                                <input type="text" className="charges-ep-desc-input" disabled={effectiveReadOnly} value={row.revenue?.chargeDescription || ''} onChange={e => handleFieldChange(i, 'chargeDescription', e.target.value, 'revenue')} onBlur={() => triggerAutoSave(i, true)} />
                               </div>
                               <div className="charges-ep-desc-row">
                                 <span className="charges-ep-label">Attachment</span>
@@ -1044,8 +1120,8 @@ const EditChargeModal = ({
                                 <div className="charges-ep-row">
                                   <span className="charges-ep-label">Qty/Unit</span>
                                   <div className="charges-ep-inline">
-                                    <input type="number" step="0.01" disabled={effectiveReadOnly} value={row.revenue?.qty || ''} onChange={e => handleFieldChange(i, 'qty', e.target.value, 'revenue')} />
-                                    <input type="text" disabled={effectiveReadOnly} value={row.revenue?.unit || ''} onChange={e => handleFieldChange(i, 'unit', e.target.value, 'revenue')} />
+                                    <input type="number" step="0.01" disabled={effectiveReadOnly} value={row.revenue?.qty || ''} onChange={e => handleFieldChange(i, 'qty', e.target.value, 'revenue')} onBlur={() => triggerAutoSave(i, true)} />
+                                    <input type="text" disabled={effectiveReadOnly} value={row.revenue?.unit || ''} onChange={e => handleFieldChange(i, 'unit', e.target.value, 'revenue')} onBlur={() => triggerAutoSave(i, true)} />
                                   </div>
                                 </div>
                                 <div className="charges-ep-row">
@@ -1057,7 +1133,7 @@ const EditChargeModal = ({
                                 <div className="charges-ep-row">
                                   <span className="charges-ep-label">Rate</span>
                                   <div className="charges-ep-inline">
-                                    <input type="number" step="0.01" disabled={effectiveReadOnly} value={row.revenue?.rate || ''} onChange={e => handleFieldChange(i, 'rate', e.target.value, 'revenue')} />
+                                    <input type="number" step="0.01" disabled={effectiveReadOnly} value={row.revenue?.rate || ''} onChange={e => handleFieldChange(i, 'rate', e.target.value, 'revenue')} onBlur={() => triggerAutoSave(i, true)} />
                                     <select disabled={effectiveReadOnly} value={row.revenue?.currency || 'INR'} onChange={e => handleFieldChange(i, 'currency', e.target.value, 'revenue')}>
                                       <option>INR</option><option>USD</option><option>EUR</option>
                                     </select>
@@ -1073,6 +1149,7 @@ const EditChargeModal = ({
                                         value={row.revenue?.partyName || ''}
                                         onChange={e => handleFieldChange(i, 'partyName', e.target.value, 'revenue')}
                                         onFocus={() => !effectiveReadOnly && setActiveDropdown({ index: i, section: 'revenue' })}
+                                        onBlur={() => triggerAutoSave(i, true)}
                                       />
                                       <button type="button" className="charges-ep-search-btn" disabled={effectiveReadOnly}>🔍</button>
                                     </div>
@@ -1130,7 +1207,7 @@ const EditChargeModal = ({
                                     <input type="checkbox" disabled={effectiveReadOnly} checked={row.revenue?.isGst !== false} onChange={e => handleFieldChange(i, 'isGst', e.target.checked, 'revenue')} />
                                     {row.revenue?.isGst !== false && (
                                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        <input type="number" disabled={effectiveReadOnly} style={{ width: '50px' }} value={row.revenue?.gstRate ?? 18} onChange={e => handleFieldChange(i, 'gstRate', e.target.value, 'revenue')} />
+                                        <input type="number" disabled={effectiveReadOnly} style={{ width: '50px' }} value={row.revenue?.gstRate ?? 18} onChange={e => handleFieldChange(i, 'gstRate', e.target.value, 'revenue')} onBlur={() => triggerAutoSave(i, true)} />
                                         <span style={{ fontSize: '11px' }}>%</span>
                                       </div>
                                     )}
@@ -1139,7 +1216,7 @@ const EditChargeModal = ({
                                 <div className="charges-ep-row">
                                   <span className="charges-ep-label">Basic Amount</span>
                                   <div className="charges-ep-inline">
-                                    <input type="number" step="0.01" disabled={effectiveReadOnly} className="ep-input-small" style={{ background: '#fff', border: '1px solid #ddd', borderRadius: '4px', padding: '2px 6px', width: '100%' }} value={row.revenue?.basicAmount || ''} onChange={e => handleFieldChange(i, 'basicAmount', e.target.value, 'revenue')} />
+                                    <input type="number" step="0.01" disabled={effectiveReadOnly} className="ep-input-small" style={{ background: '#fff', border: '1px solid #ddd', borderRadius: '4px', padding: '2px 6px', width: '100%' }} value={row.revenue?.basicAmount || ''} onChange={e => handleFieldChange(i, 'basicAmount', e.target.value, 'revenue')} onBlur={() => triggerAutoSave(i, true)} />
                                   </div>
                                 </div>
                                 <div className="charges-ep-row">
@@ -1208,7 +1285,7 @@ const EditChargeModal = ({
                             <div className="charges-expand-panel charges-open">
                               <div className="charges-ep-desc-row">
                                 <span className="charges-ep-label">Charge Description</span>
-                                <input type="text" className="charges-ep-desc-input" disabled={effectiveReadOnly} value={row.cost?.chargeDescription || ''} onChange={e => handleFieldChange(i, 'chargeDescription', e.target.value, 'cost')} />
+                                <input type="text" className="charges-ep-desc-input" disabled={effectiveReadOnly} value={row.cost?.chargeDescription || ''} onChange={e => handleFieldChange(i, 'chargeDescription', e.target.value, 'cost')} onBlur={() => triggerAutoSave(i, true)} />
                               </div>
                               <div className="charges-ep-desc-row" style={{ backgroundColor: '#f8f9fa', padding: '4px', borderRadius: '4px', border: '1px solid #e9ecef', marginBottom: '8px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', flex: 1, gap: '10px' }}>
@@ -1343,8 +1420,8 @@ const EditChargeModal = ({
                                 <div className="charges-ep-row">
                                   <span className="charges-ep-label">Qty/Unit</span>
                                   <div className="charges-ep-inline">
-                                    <input type="number" step="0.01" disabled={effectiveReadOnly} value={row.cost?.qty || ''} onChange={e => handleFieldChange(i, 'qty', e.target.value, 'cost')} />
-                                    <input type="text" disabled={effectiveReadOnly} value={row.cost?.unit || ''} onChange={e => handleFieldChange(i, 'unit', e.target.value, 'cost')} />
+                                    <input type="number" step="0.01" disabled={effectiveReadOnly} value={row.cost?.qty || ''} onChange={e => handleFieldChange(i, 'qty', e.target.value, 'cost')} onBlur={() => triggerAutoSave(i, true)} />
+                                    <input type="text" disabled={effectiveReadOnly} value={row.cost?.unit || ''} onChange={e => handleFieldChange(i, 'unit', e.target.value, 'cost')} onBlur={() => triggerAutoSave(i, true)} />
                                   </div>
                                 </div>
                                 <div className="charges-ep-row">
@@ -1356,7 +1433,7 @@ const EditChargeModal = ({
                                 <div className="charges-ep-row">
                                   <span className="charges-ep-label">Rate</span>
                                   <div className="charges-ep-inline">
-                                    <input type="number" step="0.01" disabled={effectiveReadOnly} value={row.cost?.rate || ''} onChange={e => handleFieldChange(i, 'rate', e.target.value, 'cost')} />
+                                    <input type="number" step="0.01" disabled={effectiveReadOnly} value={row.cost?.rate || ''} onChange={e => handleFieldChange(i, 'rate', e.target.value, 'cost')} onBlur={() => triggerAutoSave(i, true)} />
                                     <select disabled={effectiveReadOnly} value={row.cost?.currency || 'INR'} onChange={e => handleFieldChange(i, 'currency', e.target.value, 'cost')}>
                                       <option>INR</option><option>USD</option><option>EUR</option>
                                     </select>
@@ -1372,6 +1449,7 @@ const EditChargeModal = ({
                                         value={row.cost?.partyName || ''}
                                         onChange={e => handleFieldChange(i, 'partyName', e.target.value, 'cost')}
                                         onFocus={() => !effectiveReadOnly && setActiveDropdown({ index: i, section: 'cost' })}
+                                        onBlur={() => triggerAutoSave(i, true)}
                                       />
                                       <button type="button" className="charges-ep-search-btn" disabled={effectiveReadOnly}>🔍</button>
                                     </div>
@@ -1452,7 +1530,7 @@ const EditChargeModal = ({
                                     <input type="checkbox" disabled={effectiveReadOnly} checked={row.cost?.isGst !== false} onChange={e => handleFieldChange(i, 'isGst', e.target.checked, 'cost')} />
                                     {row.cost?.isGst !== false && (
                                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                        <input type="number" disabled={effectiveReadOnly} style={{ width: '50px' }} value={row.cost?.gstRate || ''} onChange={e => handleFieldChange(i, 'gstRate', e.target.value, 'cost')} />
+                                        <input type="number" disabled={effectiveReadOnly} style={{ width: '50px' }} value={row.cost?.gstRate || ''} onChange={e => handleFieldChange(i, 'gstRate', e.target.value, 'cost')} onBlur={() => triggerAutoSave(i, true)} />
                                         <span style={{ fontSize: '11px' }}>%</span>
                                       </div>
                                     )}
@@ -1461,7 +1539,7 @@ const EditChargeModal = ({
                                 <div className="charges-ep-row">
                                   <span className="charges-ep-label">Basic Amount</span>
                                   <div className="charges-ep-inline">
-                                    <input type="number" step="0.01" disabled={effectiveReadOnly} className="ep-input-small" style={{ background: '#fff', border: '1px solid #ddd', borderRadius: '4px', padding: '2px 6px', width: '100%' }} value={row.cost?.basicAmount || ''} onChange={e => handleFieldChange(i, 'basicAmount', e.target.value, 'cost')} />
+                                    <input type="number" step="0.01" disabled={effectiveReadOnly} className="ep-input-small" style={{ background: '#fff', border: '1px solid #ddd', borderRadius: '4px', padding: '2px 6px', width: '100%' }} value={row.cost?.basicAmount || ''} onChange={e => handleFieldChange(i, 'basicAmount', e.target.value, 'cost')} onBlur={() => triggerAutoSave(i, true)} />
                                   </div>
                                 </div>
                                 <div className="charges-ep-row">
@@ -1477,7 +1555,7 @@ const EditChargeModal = ({
                                     {row.cost?.isTds && (
                                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                          <input type="number" disabled={effectiveReadOnly} style={{ width: '50px' }} value={row.cost?.tdsPercent ?? 0} onChange={e => handleFieldChange(i, 'tdsPercent', e.target.value, 'cost')} />
+                                          <input type="number" disabled={effectiveReadOnly} style={{ width: '50px' }} value={row.cost?.tdsPercent ?? 0} onChange={e => handleFieldChange(i, 'tdsPercent', e.target.value, 'cost')} onBlur={() => triggerAutoSave(i, true)} />
                                           <span style={{ fontSize: '11px' }}>%</span>
                                         </div>
                                         <select
@@ -1718,26 +1796,27 @@ const EditChargeModal = ({
             );
           })}
         </div>
-        <div className="charges-modal-footer">
-          {(() => {
-            const user = JSON.parse(localStorage.getItem("exim_user") || "{}");
-            const role = (user?.role || "").toLowerCase();
-            const isAuth = role === "admin" || role === "head_of_department" || role === "hod";
-
-            const allLocked = formData.every(row => {
-              const hasPR = row.payment_request_no && String(row.payment_request_no).trim().length > 0;
-              const hasPB = row.purchase_book_no && String(row.purchase_book_no).trim().length > 0;
-              return (hasPR || hasPB) && !isAuth;
-            });
-            const showUpdate = !readOnlyBase;
-            return (
-              <>
-                {showUpdate && <button type="button" className="charges-btn" onClick={() => handleSave(false)}>Update</button>}
-                {showUpdate && <button type="button" className="charges-btn" onClick={() => handleSave(true)}>Update & Close</button>}
-                <button type="button" className="charges-btn" onClick={onClose} style={{ marginRight: '30px' }}>{!showUpdate ? 'Close' : 'Cancel'}</button>
-              </>
-            );
-          })()}
+        <div className="charges-modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="charges-save-status" style={{ fontSize: '12px', marginLeft: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {saveStatus === 'saving' && (
+              <span style={{ color: '#1976d2', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <span className="charges-loading-dot-pulse"></span> Saving changes...
+              </span>
+            )}
+            {saveStatus === 'saved' && (
+              <span style={{ color: '#2e7d32', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                ✓ All changes saved
+              </span>
+            )}
+            {saveStatus === 'error' && (
+              <span style={{ color: '#d32f2f', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                ✗ Error saving changes
+              </span>
+            )}
+          </div>
+          <button type="button" className="charges-btn" onClick={handleClose} style={{ marginRight: '30px' }}>
+            Close
+          </button>
         </div>
       </div>
 

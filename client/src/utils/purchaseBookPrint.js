@@ -84,7 +84,7 @@ export const generatePurchaseBookPDF = (data, logoUrl) => {
         currentY += 8;
 
         // --- 3. To & Detail Split ---
-        const detailHeight = 45;
+        const detailHeight = 50;
         doc.rect(margin, currentY, contentWidth, detailHeight);
         doc.line(margin + contentWidth / 2, currentY, margin + contentWidth / 2, currentY + detailHeight);
 
@@ -115,17 +115,18 @@ export const generatePurchaseBookPDF = (data, logoUrl) => {
         };
 
         const displayDate = data.entryDate || data.requestDate || data.supplierInvDate;
-        drawDetailRow('Voucher No.', data.entryNo || data.requestNo, currentY + 10);
-        drawDetailRow('Date', formatDate(displayDate), currentY + 15);
-        drawDetailRow('Mode', 'Bank Payment', currentY + 20);
+        drawDetailRow('Payment Req. No.', data.paymentRequestNo || (!data.isPurchaseBook ? data.requestNo : '-'), currentY + 10);
+        drawDetailRow('Purchase Book No.', data.purchaseBookNo || (data.isPurchaseBook ? data.entryNo : '-'), currentY + 15);
+        drawDetailRow('Date', formatDate(displayDate), currentY + 20);
+        drawDetailRow('Mode', 'Bank Payment', currentY + 25);
         const cleanUtr = String(data.utrNumber || '-').replace(/^\d{2}[-/]\d{2}[-/]\d{4}\s*/, '');
-        drawDetailRow('RTGS No.', cleanUtr, currentY + 25);
-        drawDetailRow('Ref Date', formatDate(data.entryDate || data.requestDate), currentY + 30);
+        drawDetailRow('RTGS No.', cleanUtr, currentY + 30);
+        drawDetailRow('Ref Date', formatDate(data.entryDate || data.requestDate), currentY + 35);
         
         doc.setFont('helvetica', 'bold');
-        drawDetailRow('Gross Payment', 'INR ' + grossVal.toLocaleString('en-IN', { minimumFractionDigits: 2 }), currentY + 35);
-        drawDetailRow('Less TDS.', tds.toLocaleString('en-IN', { minimumFractionDigits: 2 }), currentY + 40);
-        drawDetailRow('Net Payment.', 'INR ' + net.toLocaleString('en-IN', { minimumFractionDigits: 2 }) + ' CR', currentY + 45);
+        drawDetailRow('Gross Payment', 'INR ' + grossVal.toLocaleString('en-IN', { minimumFractionDigits: 2 }), currentY + 40);
+        drawDetailRow('Less TDS.', tds.toLocaleString('en-IN', { minimumFractionDigits: 2 }), currentY + 45);
+        drawDetailRow('Net Payment.', 'INR ' + net.toLocaleString('en-IN', { minimumFractionDigits: 2 }) + ' CR', currentY + 50);
 
         currentY += detailHeight + 5;
 

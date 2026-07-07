@@ -91,7 +91,9 @@ class AttendanceEngine {
                 // Only consider IN punches that occur on the date being processed.
                 // This prevents the next day's shift from being counted in this day's record.
                 if (punch.punch_date_str === date) {
-                    lastInPunch = punch;
+                    if (!lastInPunch) {
+                        lastInPunch = punch;
+                    }
                 }
             } else if (punch.punch_type === 'OUT' && lastInPunch) {
                 cumulativeMs += (punch.punch_time - lastInPunch.punch_time);
@@ -329,7 +331,12 @@ class AttendanceEngine {
                     is_half_day: recordIsHalfDay,
                     half_day_session: leave?.half_day_session,
                     is_on_leave: !!leaveId,
-                    leave_application_id: leaveId
+                    leave_application_id: leaveId,
+                    has_incomplete_session: status === 'incomplete',
+                    missed_punch: status === 'incomplete',
+                    missed_punch_reason: status === 'incomplete' ? (existingRecordAdminCheck?.missed_punch_reason || 'timeout_12h') : null,
+                    missed_punch_marked_at: status === 'incomplete' ? (existingRecordAdminCheck?.missed_punch_marked_at || new Date()) : null,
+                    missed_punch_source: status === 'incomplete' ? (existingRecordAdminCheck?.missed_punch_source || 'system') : null
                 },
                 { upsert: true, new: true }
             );
@@ -371,7 +378,12 @@ class AttendanceEngine {
                     year_month: moment.utc(date).format('YYYY-MM'),
                     total_work_hours: 0,
                     processed_at: new Date(),
-                    processed_by: 'system'
+                    processed_by: 'system',
+                    has_incomplete_session: false,
+                    missed_punch: false,
+                    missed_punch_reason: null,
+                    missed_punch_marked_at: null,
+                    missed_punch_source: null
                 },
                 { upsert: true, new: true }
             );

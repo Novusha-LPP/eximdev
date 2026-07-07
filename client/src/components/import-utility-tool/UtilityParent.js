@@ -63,7 +63,7 @@ const UtilityParent = () => {
 
     try {
       // Use fetch instead of axios for easier SSE handling with POST
-      const response = await fetch(`${apiBase}/utility/sync-production`, {
+      const response = await fetch(`${apiBase}/utility/sync-production?force=true`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

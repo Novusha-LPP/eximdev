@@ -9,6 +9,7 @@ import RmProcurementForm from "./RmProcurementForm";
 function RmProcurementSop() {
   const [value, setValue] = useState(0);
   const [selectedPr, setSelectedPr] = useState(null);
+  const [isView, setIsView] = useState(false);
   const { a11yProps, CustomTabPanel } = useTabs();
 
   const handleChange = (event, newValue) => {
@@ -17,27 +18,37 @@ function RmProcurementSop() {
 
   const handleEdit = useCallback((pr) => {
     setSelectedPr(pr);
+    setIsView(false);
+    setValue(1);
+  }, []);
+
+  const handleView = useCallback((pr) => {
+    setSelectedPr(pr);
+    setIsView(true);
     setValue(1);
   }, []);
 
   const handleCreate = useCallback(() => {
     setSelectedPr(null);
+    setIsView(false);
     setValue(1);
   }, []);
 
   const handleSaved = useCallback(() => {
     setSelectedPr(null);
+    setIsView(false);
     setValue(0);
   }, []);
 
   const handleCancel = useCallback(() => {
     setSelectedPr(null);
+    setIsView(false);
     setValue(0);
   }, []);
 
   const tabs = [
     { label: "PR List", index: 0 },
-    { label: selectedPr ? "Edit PR" : "Create PR", index: 1 },
+    { label: isView ? "View PR" : (selectedPr ? "Edit PR" : "Create PR"), index: 1 },
   ];
 
   return (
@@ -50,11 +61,12 @@ function RmProcurementSop() {
         </Tabs>
       </Box>
       <CustomTabPanel value={value} index={0}>
-        <RmProcurementList onEdit={handleEdit} onCreate={handleCreate} />
+        <RmProcurementList onEdit={handleEdit} onView={handleView} onCreate={handleCreate} />
       </CustomTabPanel>
       <CustomTabPanel value={value} index={1}>
         <RmProcurementForm
           pr={selectedPr}
+          isView={isView}
           onSaved={handleSaved}
           onCancel={handleCancel}
         />

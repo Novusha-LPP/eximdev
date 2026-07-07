@@ -127,6 +127,7 @@ const userSchema = new Schema({
   monthly_salary: { type: Number, default: 0 },
   isAttendanceAllowedAdmin: { type: Boolean, default: false },
   is_operator: { type: Boolean, default: false },
+  category: { type: String, default: 'Management' },
 
   // ─── Profile / HR / Payroll fields ──────────────────────────────────────────
   pf_joining_date: { type: Date },

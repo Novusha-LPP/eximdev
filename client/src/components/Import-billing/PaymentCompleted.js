@@ -68,6 +68,7 @@ function PaymentCompleted({ workMode = "Payment" }) {
   const [dateFilterType, setDateFilterType] = useState("single"); // 'single', 'range', 'today', 'week', 'month', 'year'
   const [anchorEl, setAnchorEl] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [selectedTransactionType, setSelectedTransactionType] = useState("All");
 
   const handleAdvancedClick = (event) => setAnchorEl(event.currentTarget);
   const handleAdvancedClose = () => setAnchorEl(null);
@@ -90,6 +91,7 @@ function PaymentCompleted({ workMode = "Payment" }) {
             category: selectedCategory || "all",
             startDate: start,
             endDate: end,
+            transactionType: selectedTransactionType,
             workMode,
           },
         }
@@ -380,7 +382,8 @@ function PaymentCompleted({ workMode = "Payment" }) {
       selectedBranch = "all",
       selectedCategory = "all",
       startDate = "",
-      endDate = ""
+      endDate = "",
+      transactionType = "All"
     ) => {
       setLoading(true);
       try {
@@ -394,10 +397,11 @@ function PaymentCompleted({ workMode = "Payment" }) {
               importer: selectedImporter?.trim() || "",
               year: selectedYearState || "",
               username: username || "",
-              branchId: selectedBranch || "all", // ✅ Add branchId parameter
-              category: selectedCategory || "all", // ✅ Add category parameter
+              branchId: selectedBranch || "all",
+              category: selectedCategory || "all",
               startDate,
               endDate,
+              transactionType,
               workMode
             },
           }
@@ -439,7 +443,7 @@ function PaymentCompleted({ workMode = "Payment" }) {
         selectedCategory,
         start,
         end,
-        workMode
+        selectedTransactionType
       );
     }
   }, [
@@ -452,6 +456,7 @@ function PaymentCompleted({ workMode = "Payment" }) {
     selectedBranch,
     selectedCategory,
     calculateDates,
+    selectedTransactionType,
     workMode
   ]);
 
@@ -631,7 +636,14 @@ function PaymentCompleted({ workMode = "Payment" }) {
         enableSorting: false,
         size: 150,
         Cell: ({ cell }) => {
-          const { be_no, be_date, awb_bl_no } = cell.row.original;
+          const { be_no, be_date, awb_bl_no, charges, ie_code_no } = cell.row.original;
+          const hasCustomsDuty = charges && charges.some(c => 
+            c.chargeHead && (
+              c.chargeHead.toUpperCase() === "CUSTOMS DUTY" || 
+              c.chargeHead.toUpperCase() === "CUSTOM DUTY" ||
+              c.chargeHead.toUpperCase().includes("CUSTOMS DUTY")
+            )
+          );
           return (
             <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
               <div style={{ fontSize: "11px", fontWeight: "bold", color: "#1a237e", display: "flex", alignItems: "center" }}>
@@ -664,6 +676,27 @@ function PaymentCompleted({ workMode = "Payment" }) {
                   </IconButton>
                 )}
               </div>
+              {hasCustomsDuty && (
+                <div style={{ 
+                  fontSize: "11px", 
+                  fontWeight: "bold", 
+                  color: "#d32f2f", 
+                  marginTop: "4px",
+                  padding: "2px 4px",
+                  backgroundColor: "#ffebee",
+                  borderRadius: "4px",
+                  width: "fit-content",
+                  display: "flex",
+                  alignItems: "center"
+                }}>
+                  IE CODE: {ie_code_no || "-"}
+                  {ie_code_no && (
+                    <IconButton size="small" onClick={(e) => handleCopy(e, ie_code_no)} sx={{ ml: 0.5, p: 0.2 }}>
+                      <ContentCopyIcon sx={{ fontSize: "10px" }} />
+                    </IconButton>
+                  )}
+                </div>
+              )}
             </div>
           );
         },
@@ -980,6 +1013,22 @@ function PaymentCompleted({ workMode = "Payment" }) {
           sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
         />
 
+        <TextField 
+          select 
+          size="small" 
+          label="Transaction Type" 
+          value={selectedTransactionType} 
+          onChange={(e) => {
+            setSelectedTransactionType(e.target.value);
+            setPage(1);
+          }} 
+          sx={{ width: "180px", marginRight: "20px" }}
+        >
+          {["All", "NEFT", "CHEQUE", "CASH", "IMPS", "RTGS", "ONLINE", "DEMAND DRAFT", "ODEX"].map(type => (
+            <MenuItem key={type} value={type}>{type}</MenuItem>
+          ))}
+        </TextField>
+
         {/* Completion Date Filter */}
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', ml: 2 }}>
           <Typography variant="caption" sx={{ fontWeight: 'bold', color: '#1a237e' }}>COMPLETED ON:</Typography>
@@ -1154,15 +1203,27 @@ function PaymentCompleted({ workMode = "Payment" }) {
                   </Grid>
 
                   <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
-                    <Typography variant="caption" fontWeight="bold">
-                      {selectedPaymentRequest.isPurchaseBook ? "Entry No" : "Request No"}
-                    </Typography>
+                    <Typography variant="caption" fontWeight="bold">Payment Request No</Typography>
                   </Grid>
                   <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography variant="body2" fontWeight="bold">{selectedPaymentRequest.requestNo}</Typography>
-                    <IconButton size="small" onClick={(e) => handleCopy(e, selectedPaymentRequest.requestNo)} title="Copy No">
-                      <ContentCopyIcon sx={{ fontSize: '1rem' }} />
-                    </IconButton>
+                    <Typography variant="body2" fontWeight="bold">{selectedPaymentRequest.paymentRequestNo || "-"}</Typography>
+                    {selectedPaymentRequest.paymentRequestNo && (
+                      <IconButton size="small" onClick={(e) => handleCopy(e, selectedPaymentRequest.paymentRequestNo)} title="Copy PR No">
+                        <ContentCopyIcon sx={{ fontSize: '1rem' }} />
+                      </IconButton>
+                    )}
+                  </Grid>
+
+                  <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>
+                    <Typography variant="caption" fontWeight="bold">Purchase Book No</Typography>
+                  </Grid>
+                  <Grid item xs={8} sx={{ borderBottom: '1px solid #ccc', p: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="body2" fontWeight="bold">{selectedPaymentRequest.purchaseBookNo || "-"}</Typography>
+                    {selectedPaymentRequest.purchaseBookNo && (
+                      <IconButton size="small" onClick={(e) => handleCopy(e, selectedPaymentRequest.purchaseBookNo)} title="Copy PB No">
+                        <ContentCopyIcon sx={{ fontSize: '1rem' }} />
+                      </IconButton>
+                    )}
                   </Grid>
 
                   <Grid item xs={4} sx={{ borderRight: '1px solid #ccc', borderBottom: '1px solid #ccc', p: 1, backgroundColor: '#f5f5f5' }}>

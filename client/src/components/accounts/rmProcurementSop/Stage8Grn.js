@@ -21,28 +21,77 @@ const conditionOptions = ["", "OK", "Damaged"];
 const acceptRejectOptions = ["", "Accepted", "Rejected"];
 const approvalStatusOptions = ["", "GRN Done", "PR Closed"];
 
-function Stage8Grn({ data, onChange }) {
+function Stage8Grn({ data, onChange, globalData, onGlobalChange }) {
   const updateField = (field, value) => onChange({ [field]: value });
   const updateNested = (group, field, value) =>
     onChange({ [group]: { ...data[group], [field]: value } });
 
   const inspections = data.rmReceiptInspection || [];
+  const getInitializedInspections = (targetIdx) => {
+    const updated = [...inspections];
+    for (let i = 0; i <= targetIdx; i++) {
+      if (!updated[i]) {
+        updated[i] = {
+          rmType: [
+            "Virgin HDPE Granule",
+            "rHDPE Granule",
+            "Colour Masterbatch",
+            "UV Masterbatch",
+          ][i] || "",
+          grade: [
+            "ICOL-180M50",
+            "Blue / Grey",
+            "Blue / Grey",
+            "Standard UV",
+          ][i] || "",
+          orderedQty: "",
+          receivedQty: "",
+          physicalCondition: "",
+          acceptedRejected: "",
+          batchLotNo: "",
+          documentsReceived: {},
+        };
+      }
+    }
+    return updated;
+  };
+
   const updateInspection = (idx, field, value) => {
-    const updated = inspections.map((item, i) => (i === idx ? { ...item, [field]: value } : item));
+    const updated = getInitializedInspections(idx);
+    updated[idx] = { ...updated[idx], [field]: value };
     onChange({ rmReceiptInspection: updated });
   };
   const updateInspectionDoc = (idx, doc, checked) => {
-    const updated = inspections.map((item, i) =>
-      i === idx
-        ? { ...item, documentsReceived: { ...item.documentsReceived, [doc]: checked } }
-        : item
-    );
+    const updated = getInitializedInspections(idx);
+    updated[idx] = {
+      ...updated[idx],
+      documentsReceived: {
+        ...(updated[idx].documentsReceived || {}),
+        [doc]: checked,
+      },
+    };
     onChange({ rmReceiptInspection: updated });
   };
 
   const approvals = data.approvals || [];
   const updateApproval = (idx, field, value) => {
-    const updated = approvals.map((item, i) => (i === idx ? { ...item, [field]: value } : item));
+    const updated = [...approvals];
+    for (let i = 0; i <= idx; i++) {
+      if (!updated[i]) {
+        updated[i] = {
+          role: [
+            "Received & Inspected By (QC / Store Manager)",
+            "GRN Verified By (Production Head)",
+            "PR Closed By (Purchase Officer)",
+          ][i] || "",
+          name: "",
+          signature: "",
+          date: "",
+          status: "",
+        };
+      }
+    }
+    updated[idx] = { ...updated[idx], [field]: value };
     onChange({ approvals: updated });
   };
 
@@ -75,8 +124,9 @@ function Stage8Grn({ data, onChange }) {
         <Grid item xs={12} md={6}>
           <TextField
             label="PR Number (Reference)"
-            value={data.prNumber || ""}
-            onChange={(e) => updateField("prNumber", e.target.value)}
+            value={globalData?.prNumber || ""}
+            onChange={() => {}}
+            InputProps={{ readOnly: true, sx: { backgroundColor: "#f5f5f5" } }}
             fullWidth
             size="small"
           />
@@ -84,8 +134,9 @@ function Stage8Grn({ data, onChange }) {
         <Grid item xs={12} md={6}>
           <TextField
             label="PO / Order Reference No."
-            value={data.poOrderReferenceNo || ""}
-            onChange={(e) => updateField("poOrderReferenceNo", e.target.value)}
+            value={globalData?.poNumber || ""}
+            onChange={() => {}}
+            InputProps={{ readOnly: true, sx: { backgroundColor: "#f5f5f5" } }}
             fullWidth
             size="small"
           />

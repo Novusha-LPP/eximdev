@@ -32,16 +32,47 @@ const ElockLrCompletedReport = ({
                 if (endDate) params.endDate = endDate;
 
                 // CR-005: Query the exact same live operational dispatch range data source
-                const res = await axios.get(`${TRANSPORT_BASE}/api/vehicle-dsr/dispatch-range`, {
-                    params,
-                    headers: TRANSPORT_HEADERS,
-                    withCredentials: true
-                });
+                const dsStart = params.startDate ? new Date(params.startDate) : null;
+                const dsEnd = params.endDate ? new Date(params.endDate) : null;
 
-                if (res.data && res.data.success) {
-                    setClosedLRs(res.data.closedLRs || []);
+                if (dsStart && dsEnd && Math.round((dsEnd - dsStart) / (1000 * 60 * 60 * 24)) > 60) {
+                    let currentStart = new Date(dsStart);
+                    let combinedClosedLRs = [];
+                    while (currentStart <= dsEnd) {
+                        let currentEnd = new Date(currentStart);
+                        currentEnd.setDate(currentStart.getDate() + 50); // 50 days chunk
+                        if (currentEnd > dsEnd) currentEnd = new Date(dsEnd);
+
+                        const chunkParams = {
+                            ...params,
+                            startDate: currentStart.toISOString().slice(0, 10),
+                            endDate: currentEnd.toISOString().slice(0, 10)
+                        };
+                        const res = await axios.get(`${TRANSPORT_BASE}/api/vehicle-dsr/dispatch-range`, {
+                            params: chunkParams,
+                            headers: TRANSPORT_HEADERS,
+                            withCredentials: true
+                        });
+                        if (res.data && res.data.success && res.data.closedLRs) {
+                            combinedClosedLRs.push(...res.data.closedLRs);
+                        }
+
+                        currentStart = new Date(currentEnd);
+                        currentStart.setDate(currentStart.getDate() + 1);
+                    }
+                    setClosedLRs(combinedClosedLRs);
                 } else {
-                    setClosedLRs([]);
+                    const res = await axios.get(`${TRANSPORT_BASE}/api/vehicle-dsr/dispatch-range`, {
+                        params,
+                        headers: TRANSPORT_HEADERS,
+                        withCredentials: true
+                    });
+
+                    if (res.data && res.data.success) {
+                        setClosedLRs(res.data.closedLRs || []);
+                    } else {
+                        setClosedLRs([]);
+                    }
                 }
             } catch (err) {
                 console.error('Error fetching operational dispatch range for completed LRs:', err);

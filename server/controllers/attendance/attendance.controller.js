@@ -24,6 +24,7 @@ import { WorkHoursCalculator } from '../../services/attendance/WorkHoursCalculat
 import { AttendanceStatusResolver } from '../../services/attendance/AttendanceStatusResolver.js';
 import { ALLOWED_USERNAMES } from '../../middleware/requireAllowedAdmin.mjs';
 import { isRestrictedAllowedAdmin, getRestrictedEmployeeIds } from '../../utils/attendance/allowedAdminRestriction.mjs';
+import { canActorActOnLeave } from './HOD.controller.js';
 
 // --- HELPERS ---
 const resolveCompanyId = (req) => {
@@ -263,7 +264,7 @@ const findLeaveForDateLocal = (leaves, dayMomentLocal) => {
     });
 };
 
-const REPORT_USER_SELECT_FIELDS = '_id first_name last_name username designation company_id department_id branch_id weekoff_policy_id holiday_policy_id shift_id';
+const REPORT_USER_SELECT_FIELDS = '_id first_name last_name username designation company_id department_id branch_id weekoff_policy_id holiday_policy_id shift_id employee_code hod_id employment_type category';
 const REPORT_COMPANY_POPULATE = { path: 'company_id', select: 'company_name attendance_config' };
 const REPORT_ATTENDANCE_SELECT_FIELDS = 'employee_id attendance_date first_in last_out is_auto_punch_out status is_late late_by_minutes is_early_in early_in_minutes is_early_exit early_exit_minutes total_work_hours half_day_session shift_id';
 const REPORT_LEAVE_SELECT_FIELDS = 'employee_id leave_policy_id leave_type from_date to_date approval_status is_half_day is_start_half_day is_end_half_day half_day_session start_half_session end_half_session reason';
@@ -392,6 +393,7 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
     let actualHalfDay = 0;
     let actualMissedPunch = 0;
     let actualTotalHours = 0;
+    let actualDaysWithHours = 0;
 
     const compactHistory = [];
     let curr = moment(startDate).tz('Asia/Kolkata').startOf('day');
@@ -435,6 +437,15 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
             if (rec.is_early_in) actualEarlyIn++;
             if (rec.is_early_exit) actualEarlyOut++;
             actualTotalHours += rec.total_work_hours || 0;
+
+            if (rec.first_in && rec.last_out) {
+                const diff = moment(rec.last_out).diff(moment(rec.first_in), 'hours', true);
+                if (diff >= 0 && diff < 24) {
+                    const statusLower = String(hStatus || '').toLowerCase();
+                    const isHalf = statusLower === 'half_day' || statusLower === 'leave';
+                    actualDaysWithHours += isHalf ? 0.5 : 1;
+                }
+            }
         } else {
             const { weekOffPolicy, holidayPolicy } = await getPoliciesForYear(curr.year());
             const dayDate = curr.toDate();
@@ -465,7 +476,7 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
         curr.add(1, 'day');
     }
 
-    const avgHoursValue = (actualPresent + actualHalfDay) > 0 ? (actualTotalHours / (actualPresent + actualHalfDay)) : 0;
+    const avgHoursValue = actualDaysWithHours > 0 ? (actualTotalHours / actualDaysWithHours) : 0;
     const avgHoursH = Math.floor(avgHoursValue);
     const avgHoursM = Math.floor((avgHoursValue - avgHoursH) * 60);
 
@@ -489,7 +500,7 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
         missedPunch: actualMissedPunch,
         avgHours: `${avgHoursH}h ${avgHoursM}m`,
         raw_total_hours: actualTotalHours,
-        raw_total_present_days: actualPresent + actualHalfDay,
+        raw_total_present_days: actualDaysWithHours,
         history: compactHistory,
         weekoff_policy_id: firstPolicyBucket.weekOffPolicy?._id || null,
         weekoff_policy_name: firstPolicyBucket.weekOffPolicy?.policy_name || null,
@@ -1536,6 +1547,39 @@ export const getRegularizations = async (req, res) => {
     }
 };
 
+const STAGE_2_APPROVER_USERNAME = 'shalini_arun';
+const FINAL_APPROVER_USERNAMES = new Set(['manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'uday_zope']);
+const LEAVE_STAGE = {
+    HOD: 'stage_1_hod',
+    SHALINI: 'stage_2_shalini',
+    FINAL: 'stage_3_final'
+};
+const PENDING_STATUSES = ['pending', 'pending_hod', 'pending_shalini', 'pending_final'];
+
+const getActorPendingLeaveQuery = (actor) => {
+    const actorId = actor._id?._id || actor._id;
+    const actorUsername = String(actor.username || '').toLowerCase();
+
+    if (actorUsername === STAGE_2_APPROVER_USERNAME) {
+        return {
+            approval_status: { $in: PENDING_STATUSES },
+            approval_stage: { $in: [LEAVE_STAGE.HOD, LEAVE_STAGE.SHALINI, LEAVE_STAGE.FINAL] }
+        };
+    }
+
+    if (FINAL_APPROVER_USERNAMES.has(actorUsername)) {
+        return {
+            approval_status: { $in: PENDING_STATUSES }
+        };
+    }
+
+    return {
+        approval_status: { $in: PENDING_STATUSES },
+        current_approver_id: actorId,
+        employee_id: { $ne: actorId }
+    };
+};
+
 export const getAdminDashboardData = async (req, res) => {
     try {
         const roleNorm = String(req.user?.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
@@ -1726,6 +1770,75 @@ export const getAdminDashboardData = async (req, res) => {
             module: log.module
         }));
 
+        // 4. Pending Leave Applications for Admin
+        const actorPendingQuery = getActorPendingLeaveQuery(req.user);
+        const dashboardPendingQuery = {
+            ...actorPendingQuery
+        };
+        if (companyId) {
+            dashboardPendingQuery.company_id = companyId;
+        }
+
+        const pendingLeavesRaw = await LeaveApplication.find(dashboardPendingQuery)
+            .populate('employee_id', 'first_name last_name username company_id role hod_id')
+            .populate('company_id', 'company_name')
+            .populate('current_approver_id', 'first_name last_name username role')
+            .populate('leave_policy_id', 'leave_type policy_name')
+            .sort({ createdAt: -1 })
+            .limit(100);
+
+        const filteredPendingLeaves = pendingLeavesRaw.filter(leave => {
+            if (!leave.employee_id) return false;
+            if (String(leave.employee_id.role || '').trim().toLowerCase() === 'driver') return false;
+            if (process.env.NODE_ENV === 'production' && leave.employee_id.username === 'dev_master') return false;
+            return true;
+        });
+
+        const pendingLeaves = await Promise.all(filteredPendingLeaves.map(async leave => {
+            const canAct = await canActorActOnLeave(leave, req.user);
+            return {
+                id: leave._id,
+                employeeName: leave.employee_id.first_name ? `${leave.employee_id.first_name} ${leave.employee_id.last_name || ''}`.trim() : leave.employee_id.username,
+                organizationName: leave.company_id?.company_name || leave.employee_id?.company_id?.company_name || null,
+                leaveType: leave.leave_policy_id?.leave_type || leave.leave_type || 'Unknown',
+                fromDate: leave.from_date,
+                toDate: leave.to_date,
+                totalDays: leave.total_days,
+                is_half_day: leave.is_half_day,
+                half_day_session: leave.half_day_session,
+                reason: leave.reason,
+                approvalStage: leave.approval_stage,
+                appliedOn: leave.createdAt,
+                createdAt: leave.createdAt,
+                canAct
+            };
+        }));
+
+        // 5. Pending Regularization Requests for Admin
+        const regularizationQuery = {
+            status: 'pending',
+            employee_id: { $in: empIdList }
+        };
+        if (companyId) regularizationQuery.company_id = companyId;
+
+        const pendingRegularizationRaw = await RegularizationRequest.find(regularizationQuery)
+            .populate('employee_id', 'first_name last_name username')
+            .sort({ createdAt: -1 })
+            .limit(10);
+
+        const pendingRegularization = pendingRegularizationRaw.map(reg => {
+            return {
+                id: reg._id,
+                employeeName: reg.employee_id.first_name ? `${reg.employee_id.first_name} ${reg.employee_id.last_name || ''}`.trim() : reg.employee_id.username,
+                employeeUsername: reg.employee_id.username,
+                employeeId: reg.employee_id._id,
+                date: reg.attendance_date,
+                type: reg.regularization_type,
+                reason: reg.reason,
+                canAct: true
+            };
+        });
+
         res.json({
             success: true,
             data: {
@@ -1739,6 +1852,8 @@ export const getAdminDashboardData = async (req, res) => {
                 },
                 dailySummary,
                 activity,
+                pendingLeaves,
+                pendingRegularization,
                 timestamp: new Date()
             }
         });
@@ -1748,7 +1863,6 @@ export const getAdminDashboardData = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 };
-
 
 export const lockMonthAttendance = async (req, res) => {
     try {
@@ -1818,9 +1932,7 @@ export const getPayrollData = async (req, res) => {
         const query = {
             role: { $nin: ['ADMIN', 'Admin', 'driver', 'Driver'] }
         };
-        if (process.env.NODE_ENV === 'production') {
-            query.username = { $ne: 'dev_master' };
-        }
+        query.username = { $ne: 'dev_master' };
         
         // Add company filter - try both formats
         if (mongoose.Types.ObjectId.isValid(companyId)) {
@@ -1999,9 +2111,7 @@ export const getPayrollEmployees = async (req, res) => {
             ],
             role: { $nin: ['ADMIN', 'Admin', 'driver', 'Driver'] }
         };
-        if (process.env.NODE_ENV === 'production') {
-            employeesQuery.username = { $ne: 'dev_master' };
-        }
+        employeesQuery.username = { $ne: 'dev_master' };
         if (restrictedIds) {
             employeesQuery._id = { $in: restrictedIds.map(id => new mongoose.Types.ObjectId(id)) };
         }
@@ -2165,9 +2275,7 @@ export const getAdminAttendanceReport = async (req, res) => {
             isActive: true,
             role: { $nin: ['driver', 'Driver'] }
         };
-        if (process.env.NODE_ENV === 'production') {
-            userQuery.username = { $ne: 'dev_master' };
-        }
+        userQuery.username = { $ne: 'dev_master' };
         if (companyId) {
             userQuery.company_id = companyId;
         }
@@ -2192,6 +2300,8 @@ export const getAdminAttendanceReport = async (req, res) => {
             .select(REPORT_USER_SELECT_FIELDS)
             .populate(REPORT_COMPANY_POPULATE)
             .populate({ path: 'shift_id', select: 'shift_name start_time end_time' })
+            .populate({ path: 'department_id', select: 'department_name' })
+            .populate({ path: 'hod_id', select: 'first_name last_name username' })
             .lean();
 
         if (employees.length === 0) {
@@ -2204,16 +2314,21 @@ export const getAdminAttendanceReport = async (req, res) => {
         const activeTeams = await TeamModel.find({
             'members.userId': { $in: employeeIds },
             isActive: { $ne: false }
-        }).select('_id members.userId').lean();
+        }).select('_id name members.userId').lean();
 
         const teamIdsByEmployee = new Map();
+        const teamNamesByEmployee = new Map();
         for (const team of activeTeams) {
             const teamId = String(team._id);
+            const teamName = team.name;
             for (const member of team.members || []) {
                 const memberId = member?.userId ? String(member.userId) : null;
                 if (!memberId) continue;
                 if (!teamIdsByEmployee.has(memberId)) teamIdsByEmployee.set(memberId, []);
                 teamIdsByEmployee.get(memberId).push(teamId);
+
+                if (!teamNamesByEmployee.has(memberId)) teamNamesByEmployee.set(memberId, []);
+                teamNamesByEmployee.get(memberId).push(teamName);
             }
         }
 
@@ -2267,7 +2382,14 @@ export const getAdminAttendanceReport = async (req, res) => {
                 leavesByEmployee.get(empKey) || [],
                 {
                     company_id: emp.company_id?._id || emp.company_id,
-                    company_name: emp.company_id?.company_name || '---'
+                    company_name: emp.company_id?.company_name || '---',
+                    employee_code: emp.employee_code || '',
+                    employment_type: emp.employment_type || 'Full Time',
+                    department_id: emp.department_id,
+                    department: emp.department_id?.department_name || '',
+                    hod_id: emp.hod_id,
+                    team_name: (teamNamesByEmployee.get(empKey) || []).join(', ') || 'Unassigned',
+                    team: (teamNamesByEmployee.get(empKey) || []).join(', ') || 'Unassigned'
                 },
                 { teamIds }
             );
@@ -2301,12 +2423,16 @@ export const getTeamAttendanceReport = async (req, res) => {
             if (team) {
                 const isPrimary = team.hodId && team.hodId.toString() === hodId.toString();
                 const isSecondary = req.user.role === 'HOD' && team.members.some(m => m.userId && m.userId.toString() === hodId.toString());
-                if (isPrimary || isSecondary) {
+                if (isPrimary || isSecondary || req.user.role === 'ADMIN') {
                     teams = [team];
                 }
             }
         } else {
-            teams = await getHodTeams(hodId);
+            if (req.user.role === 'ADMIN') {
+                teams = await TeamModel.find({ isActive: { $ne: false } });
+            } else {
+                teams = await getHodTeams(hodId);
+            }
         }
         const memberUserIds = new Set();
         teams.forEach(team => {
@@ -2327,13 +2453,13 @@ export const getTeamAttendanceReport = async (req, res) => {
             isActive: true,
             role: { $nin: ['driver', 'Driver'] }
         };
-        if (process.env.NODE_ENV === 'production') {
-            empQuery.username = { $ne: 'dev_master' };
-        }
+        empQuery.username = { $ne: 'dev_master' };
         const employees = await User.find(empQuery)
             .select(REPORT_USER_SELECT_FIELDS)
             .populate(REPORT_COMPANY_POPULATE)
             .populate({ path: 'shift_id', select: 'shift_name start_time end_time' })
+            .populate({ path: 'department_id', select: 'department_name' })
+            .populate({ path: 'hod_id', select: 'first_name last_name username' })
             .lean();
 
         if (employees.length === 0) {
@@ -2343,13 +2469,18 @@ export const getTeamAttendanceReport = async (req, res) => {
         const employeeIds = employees.map(e => e._id);
 
         const teamIdsByEmployee = new Map();
+        const teamNamesByEmployee = new Map();
         for (const team of teams) {
             const teamIdStr = String(team._id);
+            const teamName = team.name;
             for (const member of team.members || []) {
                 const memberId = member?.userId ? String(member.userId) : null;
                 if (!memberId) continue;
                 if (!teamIdsByEmployee.has(memberId)) teamIdsByEmployee.set(memberId, []);
                 teamIdsByEmployee.get(memberId).push(teamIdStr);
+
+                if (!teamNamesByEmployee.has(memberId)) teamNamesByEmployee.set(memberId, []);
+                teamNamesByEmployee.get(memberId).push(teamName);
             }
         }
 
@@ -2395,7 +2526,17 @@ export const getTeamAttendanceReport = async (req, res) => {
                 endDate,
                 attendanceByEmployee.get(empKey) || [],
                 leavesByEmployee.get(empKey) || [],
-                { department: emp.department_id?.department_name || 'General' },
+                {
+                    company_id: emp.company_id?._id || emp.company_id,
+                    company_name: emp.company_id?.company_name || '---',
+                    employee_code: emp.employee_code || '',
+                    employment_type: emp.employment_type || 'Full Time',
+                    department_id: emp.department_id,
+                    department: emp.department_id?.department_name || 'General',
+                    hod_id: emp.hod_id,
+                    team_name: (teamNamesByEmployee.get(empKey) || []).join(', ') || 'Unassigned',
+                    team: (teamNamesByEmployee.get(empKey) || []).join(', ') || 'Unassigned'
+                },
                 { teamIds }
             );
         });
@@ -4009,7 +4150,6 @@ export const migrateEmployee = async (req, res) => {
 
         // Map LeaveBalances and Applications to Destination Org's Policies
         const sourceBalances = await LeaveBalance.find({ employee_id: employeeId }).populate('leave_policy_id');
-       // const destOrgPolicies = await LeavePolicy.find({ company_id: destinationOrgId, status: 'active' });
         
         // Create an equivalent policy lookup map by leave_code
         const policyMap = new Map();
@@ -4025,10 +4165,30 @@ export const migrateEmployee = async (req, res) => {
             
             balance.company_id = destinationOrgId;
             if (destPolicyId) {
-                balance.leave_policy_id = destPolicyId;
+                // Check if a destination balance record already exists for this policy
+                const existingDestBalance = await LeaveBalance.findOne({
+                    employee_id: employeeId,
+                    leave_policy_id: destPolicyId,
+                    year: balance.year
+                });
+
+                if (existingDestBalance) {
+                    // Merge records: preserve the old custom opening balance, carried forward, etc.
+                    existingDestBalance.opening_balance = balance.opening_balance;
+                    existingDestBalance.carried_forward = balance.carried_forward || existingDestBalance.carried_forward;
+                    existingDestBalance.encashed = balance.encashed || existingDestBalance.encashed;
+                    existingDestBalance.company_id = destinationOrgId;
+                    await existingDestBalance.save();
+
+                    // Delete the source balance to avoid unique constraint duplicates
+                    await LeaveBalance.deleteOne({ _id: balance._id });
+                } else {
+                    balance.leave_policy_id = destPolicyId;
+                    await balance.save();
+                }
+            } else {
+                await balance.save();
             }
-            // If no exact match (leave_code), record stays pointing to old policy or we can handle it
-            await balance.save();
         }
 
         // Update LeaveApplications to new company & mapped policy

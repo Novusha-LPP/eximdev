@@ -14,7 +14,7 @@ const router = express.Router();
  */
 router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
   try {
-    const { job_number } = req.query;
+    const { job_number, senderID } = req.query;
 
     if (!job_number) {
       return res.status(400).send({ error: "job_number is a required query parameter" });
@@ -156,7 +156,7 @@ router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
           }
           return validateChar(fy, 9, true, "Financial Year");
         })(),
-        "SenderID": validateChar("PROTRANS", 15, true, "SenderID")
+        "SenderID": validateChar(senderID || "SURAJAHD", 15, true, "SenderID")
       },
       BE_Details: {
         "Custom House Code": validateChar(resolvedCustomHouseCode, 6, true, "Custom House Code"),
@@ -200,7 +200,7 @@ router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
           return validateChar(hssVal === "YES" ? "Y" : "N", 1, true, "High sea sale flag");
         })(),
         "Port of Origin": validateChar(resolvedPortOfOriginCode, 6, true, "Port of Origin"),
-        "CHA Code": validateChar("NOVU", 15, true, "CHA Code"),
+        "CHA Code": validateChar("ABOFS1766LCH005", 15, true, "CHA Code"),
         "Country of Origin": validateChar(countryCode, 2, true, "Country of Origin"),
         "Country of Consignment": validateChar(countryCode, 2, true, "Country of Consignment"),
         "Port Of Shipment": validateChar(resolvedPortOfOriginCode, 6, true, "Port Of Shipment"),

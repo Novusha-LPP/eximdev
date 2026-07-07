@@ -22,7 +22,8 @@ const applyUserIcdFilter = async (req, res, next) => {
       req.params?.username ||
       req.query?.username ||
       req.headers['x-username'] ||
-      req.body?.username;
+      req.body?.username ||
+      req.user?.username;
 
     // If no username provided, proceed without filtering (for backward compatibility)
     if (!username) {
@@ -120,7 +121,8 @@ export const applyUserImporterFilter = async (req, res, next) => {
       req.params?.username ||
       req.query?.username ||
       req.headers['x-username'] ||
-      req.body?.username;
+      req.body?.username ||
+      req.user?.username;
 
     if (!username) {
       // Security fix: If no username is provided, do not allow open access.

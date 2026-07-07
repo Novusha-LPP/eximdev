@@ -7,7 +7,46 @@ import {
     PieChart, Pie, Cell
 } from 'recharts';
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#d0ed57', '#a4de6c'];
+const COLORS = ['#6366f1', '#ec4899', '#8b5cf6', '#14b8a6', '#f59e0b', '#ef4444', '#0ea5e9', '#10b981', '#f43f5e'];
+
+const STYLES = `
+.fleet-card {
+    background: var(--fc-bg, rgba(255, 255, 255, 0.85));
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
+    border-radius: 28px 8px 28px 28px;
+    border: var(--fc-border, 1px solid rgba(226, 232, 240, 0.8));
+    box-shadow: 0 8px 20px -2px rgba(0, 0, 0, 0.02), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: hidden;
+    position: relative;
+}
+.fleet-card::before {
+    content: '';
+    position: absolute;
+    top: -24px;
+    right: -24px;
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    background: var(--fc-accent, #cbd5e1);
+    filter: blur(35px);
+    opacity: 0.22;
+    transition: all 0.4s ease;
+    pointer-events: none;
+    z-index: 0;
+}
+.fleet-card:hover {
+    transform: translateY(-6px) scale(1.005);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 1);
+    border-color: rgba(226, 232, 240, 1);
+    z-index: 10;
+}
+.fleet-card:hover::before {
+    transform: scale(1.3);
+    opacity: 0.3;
+}
+`;
 
 const ImportPendingSummaryReport = ({
     filterType,
@@ -17,17 +56,18 @@ const ImportPendingSummaryReport = ({
     dateRange,
     selectedDay,
     category,
+    branchId,
+    selectedFinancialYear,
 }) => {
     const navigate = useNavigate();
     const [rawQueryData, setRawQueryData] = useState([]);
+
     const [rawCategoryData, setRawCategoryData] = useState([]);
     const [totalJobsCreated, setTotalJobsCreated] = useState(0);
     const [readyForBillingSeaCount, setReadyForBillingSeaCount] = useState(0);
     const [readyForBillingAirCount, setReadyForBillingAirCount] = useState(0);
-    const [loading, setLoading] = useState(true);
-    
-    // Main UI Tabs (Data vs Visuals)
-    const [mainTab, setMainTab] = useState('data'); // 'data' | 'visuals'
+    const [billingReadyJobsCount, setBillingReadyJobsCount] = useState(0);
+    const [loading, setLoading] = useState(true); // 'data' | 'visuals'
     
     // Custom filter states
     const [viewMode, setViewMode] = useState('grouped'); // 'grouped' | 'flat'
@@ -42,31 +82,43 @@ const ImportPendingSummaryReport = ({
         const fetchSummaries = async () => {
             setLoading(true);
             try {
-                const endpoint = getEndpoint('/project-nucleus/pending-job-summaries');
-                const params = {
-                    filterType,
-                    month: selectedMonth,
-                    year: selectedYear,
-                    quarter: selectedQuarter,
-                    startDate: dateRange[0] ? dateRange[0].toISOString() : null,
-                    endDate: dateRange[1] ? dateRange[1].toISOString() : null,
-                    day: selectedDay,
-                };
-                const res = await axios.get(endpoint, { params, withCredentials: true });
+                const endpoint = `${process.env.REACT_APP_API_STRING}/project-nucleus/pending-job-summaries`;
                 
-                if (res.data && res.data.data) {
-                    setRawQueryData(res.data.data);
-                    setRawCategoryData(res.data.categoryData || []);
-                    setTotalJobsCreated(res.data.totalCreated || 0);
-                    setReadyForBillingSeaCount(res.data.readyForBillingSeaCount || 0);
-                    setReadyForBillingAirCount(res.data.readyForBillingAirCount || 0);
+                const res = await axios.get(endpoint, {
+                    params: {
+                        filterType,
+                        month: selectedMonth,
+                        year: (filterType === 'year' || filterType === 'quarter' || filterType === 'month' || filterType === 'date-range') ? selectedYear : (selectedFinancialYear || '26-27'),
+                        quarter: selectedQuarter,
+                        startDate: dateRange?.startDate,
+                        endDate: dateRange?.endDate,
+                        day: selectedDay,
+                        branchId,
+                        category
+                    },
+                    withCredentials: true
+                });
+                
+                if (res.data) {
+                    const data = res.data;
+                    const seaCount = data.readyForBillingSeaCount || 0;
+                    const airCount = data.readyForBillingAirCount || 0;
+                    
+                    setBillingReadyJobsCount(seaCount + airCount);
+                    setReadyForBillingSeaCount(seaCount);
+                    setReadyForBillingAirCount(airCount);
+                    
+                    setRawQueryData(data.data || []);
+                    setRawCategoryData(data.categoryData || []);
+                    setTotalJobsCreated(data.totalCreated || 0);
                 } else {
-                    // Fallback in case backend returns old format (array)
-                    setRawQueryData(Array.isArray(res.data) ? res.data : []);
+                    // Fallback
+                    setRawQueryData([]);
                     setRawCategoryData([]);
                     setTotalJobsCreated(0);
                     setReadyForBillingSeaCount(0);
                     setReadyForBillingAirCount(0);
+                    setBillingReadyJobsCount(0);
                 }
             } catch (error) {
                 console.error('Error fetching pending job summaries:', error);
@@ -75,7 +127,7 @@ const ImportPendingSummaryReport = ({
             }
         };
         fetchSummaries();
-    }, [filterType, selectedMonth, selectedYear, selectedQuarter, dateRange, selectedDay]);
+    }, [filterType, selectedMonth, selectedYear, selectedQuarter, dateRange, selectedDay, selectedFinancialYear, branchId, category]);
 
     // Handle sort for flat list
     const handleSort = (key) => {
@@ -191,6 +243,26 @@ const ImportPendingSummaryReport = ({
             .sort((a, b) => b.value - a.value);
     }, [filteredData]);
 
+    const billingReadyPieData = useMemo(() => {
+        const data = [];
+        const isAll = !category || category.toLowerCase() === 'all';
+        if (isAll || category.toUpperCase() === 'SEA') {
+            data.push({ name: 'SEA', value: readyForBillingSeaCount || 0 });
+        }
+        if (isAll || category.toUpperCase() === 'AIR') {
+            data.push({ name: 'AIR', value: readyForBillingAirCount || 0 });
+        }
+        return data.filter(item => item.value > 0);
+    }, [readyForBillingSeaCount, readyForBillingAirCount, category]);
+
+    const displayJobCount = useMemo(() => {
+        const isAll = !category || category.toLowerCase() === 'all';
+        if (isAll) return billingReadyJobsCount;
+        if (category.toUpperCase() === 'SEA') return readyForBillingSeaCount;
+        if (category.toUpperCase() === 'AIR') return readyForBillingAirCount;
+        return billingReadyJobsCount;
+    }, [billingReadyJobsCount, readyForBillingSeaCount, readyForBillingAirCount, category]);
+
     // Chart 2: Top Employees (Bar)
     const topEmployeesData = useMemo(() => {
         const eTotals = {};
@@ -291,243 +363,116 @@ const ImportPendingSummaryReport = ({
 
     return (
         <div style={{ padding: '0 8px' }}>
-            
-            {/* KPI Cards Row */}
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                gap: '20px',
-                marginBottom: '24px'
-            }}>
-                {/* Total Pending Jobs */}
-                <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)', borderLeft: '4px solid #3b82f6' }}>
-                    <h3 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Job Count</h3>
-                    <div style={{ fontSize: '28px', fontWeight: 700, color: '#0f172a' }}>{totalPending}</div>
+            <style>{STYLES}</style>
+            {/* KPI Cards Row Removed in favor of Donut Chart */}
+
+            {/* ─── UNIFIED VIEW (CHART & DATA) ─────────────────────────── */}
+            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                
+                {/* Single Job Count Card requested by User */}
+                <div className="fleet-card" style={{ flex: '1 1 320px', maxWidth: '380px', height: '240px', padding: '24px', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', '--fc-accent': '#3b82f6' }}>
+                    <h3 style={{ marginTop: 0, color: '#1e293b', fontSize: '18px', fontWeight: 600, paddingBottom: '16px', marginBottom: '16px' }}>
+                        Job Count
+                    </h3>
+                    <div style={{ fontSize: '64px', fontWeight: 800, color: '#3b82f6', lineHeight: 1 }}>
+                        {displayJobCount}
+                    </div>
                 </div>
 
-                {/* Jobs Pending Billing (Accounts) - SEA */}
-                {(!category || category.toLowerCase() === 'sea' || category.toLowerCase() === 'all') && (
-                    <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)', borderLeft: '4px solid #f59e0b' }}>
-                        <h3 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ready to Send to Billing (SEA)</h3>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                            <div style={{ fontSize: '28px', fontWeight: 700, color: '#0f172a' }}>{readyForBillingSeaCount}</div>
-                            <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>(Financial Year)</div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Jobs Pending Billing (Accounts) - AIR */}
-                {(!category || category.toLowerCase() === 'air' || category.toLowerCase() === 'all') && (
-                    <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)', borderLeft: '4px solid #06b6d4' }}>
-                        <h3 style={{ margin: '0 0 8px 0', fontSize: '12px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ready to Send to Billing (AIR)</h3>
-                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                            <div style={{ fontSize: '28px', fontWeight: 700, color: '#0f172a' }}>{readyForBillingAirCount}</div>
-                            <div style={{ fontSize: '12px', color: '#64748b', fontWeight: 500 }}>(Financial Year)</div>
-                        </div>
-                    </div>
-                )}
-            </div>
-
-            {/* Main Tabs (Data vs Visuals) */}
-            <div style={{ display: 'flex', borderBottom: '2px solid #e2e8f0', marginBottom: '20px' }}>
-                <button
-                    onClick={() => setMainTab('data')}
-                    style={{
-                        padding: '12px 24px',
-                        background: 'none',
-                        border: 'none',
-                        borderBottom: mainTab === 'data' ? '3px solid #3b82f6' : '3px solid transparent',
-                        color: mainTab === 'data' ? '#3b82f6' : '#64748b',
-                        fontWeight: mainTab === 'data' ? 700 : 500,
-                        fontSize: '15px',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        marginBottom: '-2px'
-                    }}
-                >
-                    📑 Data Tables
-                </button>
-                <button
-                    onClick={() => setMainTab('visuals')}
-                    style={{
-                        padding: '12px 24px',
-                        background: 'none',
-                        border: 'none',
-                        borderBottom: mainTab === 'visuals' ? '3px solid #8b5cf6' : '3px solid transparent',
-                        color: mainTab === 'visuals' ? '#8b5cf6' : '#64748b',
-                        fontWeight: mainTab === 'visuals' ? 700 : 500,
-                        fontSize: '15px',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        marginBottom: '-2px'
-                    }}
-                >
-                    📊 Data Visuals
-                </button>
-            </div>
-
-
-            {/* ─── VISUALS VIEW ─────────────────────────────────────────── */}
-            {mainTab === 'visuals' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '1100px', margin: '0 auto' }}>
-                    
-                    <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-                        {/* Branch Load Donut */}
-                        <div style={{ flex: '1 1 400px', background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                            <h3 style={{ marginTop: 0, color: '#1e293b', fontSize: '16px' }}>Pending Jobs by Branch</h3>
-                            <div style={{ height: '280px', width: '100%' }}>
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie
-                                            data={branchPieData}
-                                            cx="50%"
-                                            cy="50%"
-                                            innerRadius={60}
-                                            outerRadius={100}
-                                            paddingAngle={2}
-                                            dataKey="value"
-                                        >
-                                            {branchPieData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                            ))}
-                                        </Pie>
-                                        <RechartsTooltip formatter={(value) => [`${value} jobs`, 'Pending']} />
-                                        <Legend />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
-
-
-                    </div>
-
-
-
-                </div>
-            )}
-
-            {/* ─── DATA VIEW ────────────────────────────────────────────── */}
-            {mainTab === 'data' && (
-                <div>
-                    
-
-                        <div className="nucleus-table-wrapper" style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                            <table className="nucleus-table" style={{ margin: 0 }}>
-                                <thead style={{ background: '#f8fafc' }}>
-                                    <tr>
-                                        <th style={{ width: '60px' }}>S.No</th>
-                                        <th>Branch / Port</th>
-                                        <th style={{ textAlign: 'right', width: '220px' }}>Pending Jobs (Click to view list)</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {Object.keys(groupedData).length > 0 ? (
-                                        Object.values(groupedData).map((branch, bIdx) => {
-                                            const isBranchExpanded = !!expandedBranches[branch.name];
+                <div className="fleet-card" style={{ flex: '1 1 320px', maxWidth: '380px', height: '240px', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', '--fc-accent': 'transparent' }}>
+                    <h3 style={{ marginTop: 0, color: '#1e293b', fontSize: '16px', fontWeight: 600, paddingBottom: '12px', borderBottom: '1px solid rgba(226, 232, 240, 0.6)', marginBottom: '8px', width: '100%', textAlign: 'left' }}>
+                        Branch Breakdown
+                    </h3>
+                    <div style={{ flex: 1, width: '100%', minHeight: 0 }}>
+                        {branchPieData.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
+                                    <Pie
+                                        data={branchPieData}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={45}
+                                        outerRadius={65}
+                                        paddingAngle={4}
+                                        dataKey="value"
+                                        stroke="none"
+                                        label={({ cx, cy, midAngle, innerRadius, outerRadius, value, index, name }) => {
+                                            const RADIAN = Math.PI / 180;
+                                            const radius = outerRadius * 1.25;
+                                            const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                                            const y = cy + radius * Math.sin(-midAngle * RADIAN);
                                             return (
-                                                <React.Fragment key={branch.name}>
-                                                    {/* Branch Level Row */}
-                                                    <tr style={{ background: '#f1f5f9', fontWeight: 600 }}>
-                                                        <td style={{ color: '#64748b' }}>{bIdx + 1}</td>
-                                                        <td>
-                                                            <div 
-                                                                onClick={() => toggleBranch(branch.name)}
-                                                                style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', userSelect: 'none' }}
-                                                            >
-                                                                <span style={{ fontSize: '10px', color: '#64748b', width: '12px' }}>{isBranchExpanded ? '▼' : '▶'}</span>
-                                                                <span className="handler-tag" style={{ background: '#e0f2fe', color: '#0369a1', fontWeight: 700, padding: '4px 10px', fontSize: '13px' }}>
-                                                                    🏢 Branch: {branch.name}
-                                                                </span>
-                                                            </div>
-                                                        </td>
-                                                        <td style={{ textAlign: 'right' }}>
-                                                            <span 
-                                                                onClick={() => handleDrillDown(branch.name)}
-                                                                title={`Click to view all pending jobs in ${branch.name}`}
-                                                                style={{
-                                                                    display: 'inline-flex',
-                                                                    alignItems: 'center',
-                                                                    gap: '4px',
-                                                                    padding: '4px 12px',
-                                                                    borderRadius: '20px',
-                                                                    fontSize: '12px',
-                                                                    fontWeight: 700,
-                                                                    background: '#0284c7',
-                                                                    color: '#fff',
-                                                                    cursor: 'pointer',
-                                                                    boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                                                                }}
-                                                            >
-                                                                {branch.count}
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                    
-                                                    {/* Port Level Rows */}
-                                                    {isBranchExpanded && Object.values(branch.ports).map((port) => {
-                                                        const portKey = `${branch.name}-${port.name}`;
-                                                        const isPortExpanded = !!expandedPorts[portKey];
-                                                        const assignedEmployees = port.employees.filter(emp => emp.name !== 'Unassigned');
-                                                        const hasAssigned = assignedEmployees.length > 0;
-                                                        return (
-                                                            <React.Fragment key={port.name}>
-                                                                <tr style={{ background: '#fafafa' }}>
-                                                                    <td></td>
-                                                                    <td style={{ paddingLeft: '32px' }}>
-                                                                        <div 
-                                                                            /* removed */
-                                                                            style={{ cursor: hasAssigned ? 'pointer' : 'default', display: 'inline-flex', alignItems: 'center', gap: '8px', userSelect: 'none' }}
-                                                                        >
-                                                                            <span style={{ fontSize: '8px', color: '#64748b', width: '10px' }}>
-                                                                                '•'
-                                                                            </span>
-                                                                            <span className="handler-tag" style={{ background: '#fef3c7', color: '#b45309', fontWeight: 600, padding: '3px 8px', fontSize: '12px' }}>
-                                                                                ⚓ Port: {port.name}
-                                                                            </span>
-                                                                        </div>
-                                                                    </td>
-                                                                    <td style={{ textAlign: 'right' }}>
-                                                                        <span 
-                                                                            onClick={() => handleDrillDown(port.name)}
-                                                                            title={`Click to view all pending jobs in port ${port.name}`}
-                                                                            style={{
-                                                                                display: 'inline-flex',
-                                                                                alignItems: 'center',
-                                                                                gap: '4px',
-                                                                                padding: '3px 10px',
-                                                                                borderRadius: '20px',
-                                                                                fontSize: '11px',
-                                                                                fontWeight: 700,
-                                                                                background: '#d97706',
-                                                                                color: '#fff',
-                                                                                cursor: 'pointer',
-                                                                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                                                                            }}
-                                                                        >
-                                                                            {port.count}
-                                                                        </span>
-                                                                    </td>
-                                                                </tr>
-
-                                                                </React.Fragment>
-                                                        );
-                                                    })}
-                                                </React.Fragment>
+                                                <text x={x} y={y} fill="#475569" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize="11px" fontWeight="600">
+                                                    {name} ({value})
+                                                </text>
                                             );
-                                        })
-                                    ) : (
-                                        <tr>
-                                            <td colSpan="3" style={{ textAlign: 'center', color: '#6b7280', padding: '40px' }}>
-                                                No pending jobs found for the selected period.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    
+                                        }}
+                                        labelLine={{ stroke: '#cbd5e1', strokeWidth: 1 }}
+                                    >
+                                        {branchPieData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <RechartsTooltip 
+                                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', fontSize: '12px', fontWeight: 600 }}
+                                    />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8' }}>
+                                No branch breakdown available
+                            </div>
+                        )}
+                    </div>
                 </div>
-            )}
+
+            </div>
+
+            {/* ─── BRANCH WISE SUMMARY CARDS ─────────────────────────── */}
+            <div style={{ marginTop: '24px' }}>
+                <h3 style={{ marginTop: 0, color: '#1e293b', fontSize: '18px', fontWeight: 600, paddingBottom: '16px', borderBottom: '1px solid rgba(226, 232, 240, 0.6)', marginBottom: '16px' }}>
+                    Pending Jobs by Branch
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+                    {Object.values(groupedData).map((branchData, index) => (
+                        <div key={branchData.name} className="fleet-card" style={{
+                            padding: '24px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '16px',
+                            '--fc-accent': COLORS[index % COLORS.length]
+                        }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', zIndex: 1 }}>
+                                <div style={{ fontSize: '15px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
+                                    {branchData.name}
+                                </div>
+                                <div style={{ fontSize: '32px', fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>
+                                    {branchData.count}
+                                </div>
+                            </div>
+                            
+                            {Object.values(branchData.ports).length > 0 && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '16px', borderTop: '1px solid rgba(226,232,240,0.6)', zIndex: 1 }}>
+                                    {Object.values(branchData.ports).map((portData, i) => (
+                                        <div key={portData.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(241,245,249,0.5)', padding: '10px 14px', borderRadius: '8px' }}>
+                                            <span style={{ fontSize: '13px', color: '#475569', fontWeight: 600 }}>{portData.name}</span>
+                                            <span style={{ fontSize: '14px', color: '#0f172a', fontWeight: 800 }}>{portData.count}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                    {Object.keys(groupedData).length === 0 && (
+                        <div className="fleet-card" style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', gridColumn: '1 / -1' }}>
+                            No data available
+                        </div>
+                    )}
+                </div>
+            </div>
+
         </div>
     );
-};export default ImportPendingSummaryReport;
+};
+
+export default ImportPendingSummaryReport;

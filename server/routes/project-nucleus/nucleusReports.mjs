@@ -586,19 +586,6 @@ router.get("/pending-job-summaries", authMiddleware, applyUserBranchFilter, asyn
 
         const baseMatchStage = {
             be_no: { $not: { $regex: "^cancelled$", $options: "i" } },
-            status: { $regex: "^pending$", $options: "i" },
-            bill_document_sent_to_accounts: { $exists: true, $nin: [null, ""] },
-            $or: [
-                { billing_completed_date: { $exists: false } },
-                { billing_completed_date: "" },
-                { billing_completed_date: null },
-                {
-                    $and: [
-                        { billing_completed_date: { $exists: true, $ne: "" } },
-                        { dsr_queries: { $elemMatch: { select_module: "Accounts", resolved: { $ne: true } } } }
-                    ]
-                }
-            ],
             ...branchMatch,
         };
 
@@ -692,6 +679,24 @@ router.get("/pending-job-summaries", authMiddleware, applyUserBranchFilter, asyn
             pipeline.push({ $match: dateMatch });
         }
 
+        const pendingMatchStage = {
+            $match: {
+                status: { $regex: "^pending$", $options: "i" },
+                bill_document_sent_to_accounts: { $exists: true, $nin: [null, ""] },
+                $or: [
+                    { billing_completed_date: { $exists: false } },
+                    { billing_completed_date: "" },
+                    { billing_completed_date: null },
+                    {
+                        $and: [
+                            { billing_completed_date: { $exists: true, $ne: "" } },
+                            { dsr_queries: { $elemMatch: { select_module: "Accounts", resolved: { $ne: true } } } }
+                        ]
+                    }
+                ]
+            }
+        };
+
         // Use $facet to calculate total jobs created vs pending jobs breakdown
         pipeline.push({
             $facet: {
@@ -699,7 +704,7 @@ router.get("/pending-job-summaries", authMiddleware, applyUserBranchFilter, asyn
                     { $count: "count" }
                 ],
                 pendingJobsData: [
-                    { $match: { status: { $regex: "^pending$", $options: "i" } } },
+                    pendingMatchStage,
                     {
                         $group: {
                             _id: {
@@ -722,7 +727,7 @@ router.get("/pending-job-summaries", authMiddleware, applyUserBranchFilter, asyn
                     }
                 ],
                 categoryData: [
-                    { $match: { status: { $regex: "^pending$", $options: "i" } } },
+                    pendingMatchStage,
                     {
                         $group: {
                             _id: { $ifNull: ["$detailed_status", "Uncategorized"] },
@@ -739,10 +744,12 @@ router.get("/pending-job-summaries", authMiddleware, applyUserBranchFilter, asyn
                     }
                 ],
                 seaCountData: [
+                    pendingMatchStage,
                     { $match: { mode: { $in: ["SEA", "sea", "Sea"] } } },
                     { $count: "count" }
                 ],
                 airCountData: [
+                    pendingMatchStage,
                     { $match: { mode: { $in: ["AIR", "air", "Air"] } } },
                     { $count: "count" }
                 ]

@@ -794,6 +794,10 @@ router.get("/out-of-charge-summaries", authMiddleware, applyUserBranchFilter, as
             ...branchMatch,
         };
 
+        if (year && (!filterType || filterType === "all" || filterType === "null" || filterType === "undefined")) {
+            baseMatchStage.year = year;
+        }
+
         const pipeline = [
             { $match: baseMatchStage },
             // Parse out_of_charge for date filtering

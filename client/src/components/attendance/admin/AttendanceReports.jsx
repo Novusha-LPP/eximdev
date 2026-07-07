@@ -445,7 +445,12 @@ const AttendanceReports = () => {
   // Year and Month Dropdown Filter States
   const years = useMemo(() => {
     const currentYear = moment().year();
-    return [currentYear + 1, currentYear, currentYear - 1, currentYear - 2];
+    const maxYear = Math.max(currentYear + 1, 2037);
+    const list = [];
+    for (let y = 2024; y <= maxYear; y++) {
+      list.push(y);
+    }
+    return list.reverse();
   }, []);
 
   const months = useMemo(() => [

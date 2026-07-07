@@ -237,7 +237,17 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
       </div>
 
       <div className="adb-analytics-grid">
-        <div className="adb-ms-card clickable" onClick={() => openModal('present')}>
+        <div 
+          className="adb-ms-card clickable" 
+          onClick={() => {
+            setStatusFilter(statusFilter === 'present' ? 'all' : 'present');
+            setCurrentPage(1);
+          }}
+          style={{
+            borderColor: statusFilter === 'present' ? COLORS.present : 'var(--border)',
+            boxShadow: statusFilter === 'present' ? `0 0 0 2px ${COLORS.present}33` : 'var(--shadow-sm)'
+          }}
+        >
             <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', color: COLORS.present }}><FiUsers /></div>
             <div className="adb-ms-info">
                 <span className="adb-ms-val">{stats.present}</span>
@@ -245,14 +255,34 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
             </div>
         </div>
 
-        <div className="adb-ms-card clickable" onClick={() => openModal('leave')}>
+        <div 
+          className="adb-ms-card clickable" 
+          onClick={() => {
+            setStatusFilter(statusFilter === 'leave' ? 'all' : 'leave');
+            setCurrentPage(1);
+          }}
+          style={{
+            borderColor: statusFilter === 'leave' ? COLORS.leave : 'var(--border)',
+            boxShadow: statusFilter === 'leave' ? `0 0 0 2px ${COLORS.leave}33` : 'var(--shadow-sm)'
+          }}
+        >
             <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', color: COLORS.leave }}><FiCalendar /></div>
             <div className="adb-ms-info">
                 <span className="adb-ms-val">{stats.onLeave}</span>
                 <span className="adb-ms-lbl">On Leave</span>
             </div>
         </div>
-        <div className="adb-ms-card clickable" onClick={() => openModal('absent')}>
+        <div 
+          className="adb-ms-card clickable" 
+          onClick={() => {
+            setStatusFilter(statusFilter === 'absent' ? 'all' : 'absent');
+            setCurrentPage(1);
+          }}
+          style={{
+            borderColor: statusFilter === 'absent' ? COLORS.absent : 'var(--border)',
+            boxShadow: statusFilter === 'absent' ? `0 0 0 2px ${COLORS.absent}33` : 'var(--shadow-sm)'
+          }}
+        >
             <div className="adb-ms-icon" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: COLORS.absent }}><FiXCircle /></div>
             <div className="adb-ms-info">
                 <span className="adb-ms-val">{stats.absent}</span>
@@ -264,7 +294,14 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
       <div className="adb-dashboard-row">
         <div className="adb-summary-table-wrap">
             <div className="adb-table-header">
-              <h3 className="adb-card-title"><FiUsers /> Employee Daily Summary</h3>
+              <h3 className="adb-card-title">
+                <FiUsers /> {
+                  statusFilter === 'present' ? 'Total Present' :
+                  statusFilter === 'leave' ? 'On Leave' :
+                  statusFilter === 'absent' ? 'Absent' :
+                  'Employee Daily Summary'
+                }
+              </h3>
               <div className="adb-table-header-actions">
                 {groupBy === 'none' && dailySummary.length > itemsPerPage && (
                     <div className="adb-pagination-controls">

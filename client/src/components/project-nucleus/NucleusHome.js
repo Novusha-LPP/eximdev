@@ -356,7 +356,7 @@ const NucleusHome = () => {
     };
 
     // Determine if date controls are needed (udyam, training, client login analytics, new_customers don't need them)
-    const showDateControls = !['udyam', 'training', 'client_login_analytics', 'new_customers', 'export_pulse'].includes(activeReport);
+    const showDateControls = !['udyam', 'training', 'client_login_analytics', 'new_customers', 'export_pulse', 'import_pending_summary'].includes(activeReport);
 
     return (
         <div className="nucleus-layout">
@@ -424,7 +424,7 @@ const NucleusHome = () => {
                                                         setFilterType('day');
                                                         setSelectedDay(format(new Date(), 'yyyy-MM-dd'));
                                                     } else if (['import_pending_summary'].includes(report.id)) {
-                                                        setFilterType('all');
+                                                        setFilterType('fin-year');
                                                     } else {
                                                         if (filterType === 'day') {
                                                             setFilterType('month');

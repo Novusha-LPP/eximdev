@@ -392,10 +392,43 @@ const FleetUtilizationReport = ({
 
                 // Main dispatch data
                 try {
-                    const res = await axios.get(`${TRANSPORT_BASE}/api/vehicle-dsr/dispatch-range`, {
-                        params, headers: TRANSPORT_HEADERS, withCredentials: true
-                    });
-                    if (res?.data?.success) rawDispatch = res.data;
+                    const dsStart = params.startDate ? new Date(params.startDate) : null;
+                    const dsEnd = params.endDate ? new Date(params.endDate) : null;
+                    
+                    if (dsStart && dsEnd && Math.round((dsEnd - dsStart) / (1000 * 60 * 60 * 24)) > 60) {
+                        let currentStart = new Date(dsStart);
+                        let combined = { fleetStatus: [], activeLRs: [], closedLRs: [], exceptions: [] };
+                        while (currentStart <= dsEnd) {
+                            let currentEnd = new Date(currentStart);
+                            currentEnd.setDate(currentStart.getDate() + 50); // 50 days chunk
+                            if (currentEnd > dsEnd) currentEnd = new Date(dsEnd);
+                            
+                            const chunkParams = {
+                                ...params,
+                                startDate: currentStart.toISOString().slice(0, 10),
+                                endDate: currentEnd.toISOString().slice(0, 10)
+                            };
+                            const res = await axios.get(`${TRANSPORT_BASE}/api/vehicle-dsr/dispatch-range`, {
+                                params: chunkParams, headers: TRANSPORT_HEADERS, withCredentials: true
+                            });
+                            if (res?.data?.success) {
+                                const d = res.data;
+                                if (d.fleetStatus) combined.fleetStatus.push(...d.fleetStatus);
+                                if (d.activeLRs) combined.activeLRs.push(...d.activeLRs);
+                                if (d.closedLRs) combined.closedLRs.push(...d.closedLRs);
+                                if (d.exceptions) combined.exceptions.push(...d.exceptions);
+                            }
+                            
+                            currentStart = new Date(currentEnd);
+                            currentStart.setDate(currentStart.getDate() + 1);
+                        }
+                        rawDispatch = combined;
+                    } else {
+                        const res = await axios.get(`${TRANSPORT_BASE}/api/vehicle-dsr/dispatch-range`, {
+                            params, headers: TRANSPORT_HEADERS, withCredentials: true
+                        });
+                        if (res?.data?.success) rawDispatch = res.data;
+                    }
                 } catch (e) { console.error("Error fetching dispatch range:", e); }
 
                 // Fleet size from old API
@@ -414,9 +447,16 @@ const FleetUtilizationReport = ({
                     let datesList = [];
                     if (params.startDate && params.endDate) {
                         try {
-                            let cur = new Date(params.startDate); const end = new Date(params.endDate);
-                            cur.setHours(12, 0, 0, 0); end.setHours(12, 0, 0, 0);
-                            while (cur <= end) { datesList.push(cur.toISOString().slice(0, 10)); cur.setDate(cur.getDate() + 1); }
+                            let cur = new Date(params.startDate);
+                            const end = new Date(params.endDate);
+                            const today = new Date();
+                            const maxEnd = end < today ? end : today;
+                            cur.setHours(12, 0, 0, 0);
+                            maxEnd.setHours(12, 0, 0, 0);
+                            while (cur <= maxEnd) {
+                                datesList.push(cur.toISOString().slice(0, 10));
+                                cur.setDate(cur.getDate() + 1);
+                            }
                         } catch (e) { console.error("Error generating dates", e); }
                     }
 
@@ -427,8 +467,9 @@ const FleetUtilizationReport = ({
 
                     if (datesList.length === 0) {
                         const uniq = new Set();
-                        if (params.startDate) uniq.add(params.startDate);
-                        if (params.endDate) uniq.add(params.endDate);
+                        const todayStr = new Date().toISOString().slice(0, 10);
+                        if (params.startDate && params.startDate <= todayStr) uniq.add(params.startDate);
+                        if (params.endDate && params.endDate <= todayStr) uniq.add(params.endDate);
                         rawFleet.forEach(x => { if (x.date) uniq.add(x.date.slice(0, 10)); });
                         rawClosed.forEach(x => { if (x.dispatchClosedDate) uniq.add(x.dispatchClosedDate.slice(0, 10)); });
                         rawActive.forEach(x => { if (x.lr_date) uniq.add(x.lr_date.slice(0, 10)); });
@@ -439,19 +480,53 @@ const FleetUtilizationReport = ({
 
                     const first = datesList[0], last = datesList[datesList.length - 1];
 
+                    const fleetMap = {};
+                    const fleetUpdatesByDate = {};
+                    const sortedFleet = [...rawFleet].sort((a, b) => new Date(a.date) - new Date(b.date));
+                    sortedFleet.forEach(x => {
+                        if (!x.date) return;
+                        const d = x.date.slice(0, 10);
+                        if (!fleetUpdatesByDate[d]) fleetUpdatesByDate[d] = [];
+                        fleetUpdatesByDate[d].push(x);
+                    });
+
+                    const allTrips = [...rawActive, ...rawClosed];
+
                     dailyDispatches = datesList.map(ds => {
-                        const inRange = (itemDate) => {
-                            if (!itemDate) return false;
-                            const id = itemDate.slice(0, 10);
-                            return id === ds || (ds === first && id < first) || (ds === last && id > last);
-                        };
-                        let dayFleet = rawFleet.filter(x => inRange(x.date));
-                        let dayClosed = rawClosed.filter(x => inRange(x.dispatchClosedDate));
-                        let dayActive = rawActive.filter(x => inRange(x.lr_date));
-                        let dayExceptions = rawExceptions.filter(x => inRange(x.date));
-                        dayFleet = deduplicateArray(dayFleet, v => normalizeVehicleNo(v.vehicleNumber));
-                        dayClosed = deduplicateArray(dayClosed, getLRKey);
+                        const datesToApply = Object.keys(fleetUpdatesByDate).filter(d => 
+                            (ds === first && d <= ds) || (d === ds)
+                        );
+                        datesToApply.forEach(d => {
+                            fleetUpdatesByDate[d].forEach(v => {
+                                const n = normalizeVehicleNo(v.vehicleNumber);
+                                if (n) fleetMap[n] = v;
+                            });
+                        });
+                        
+                        let dayFleet = Object.values(fleetMap);
+
+                        let dayActive = allTrips.filter(lr => {
+                            const start = lr.lr_date ? lr.lr_date.slice(0, 10) : null;
+                            if (!start || start > ds) return false;
+                            const closed = lr.dispatchClosedDate ? lr.dispatchClosedDate.slice(0, 10) : null;
+                            if (closed && closed <= ds) return false;
+                            return true;
+                        });
                         dayActive = deduplicateArray(dayActive, getLRKey);
+                        
+                        let dayClosed = rawClosed.filter(x => {
+                            if (!x.dispatchClosedDate) return false;
+                            const cd = x.dispatchClosedDate.slice(0, 10);
+                            return cd === ds || (ds === first && cd < first) || (ds === last && cd > last);
+                        });
+                        dayClosed = deduplicateArray(dayClosed, getLRKey);
+
+                        let dayExceptions = rawExceptions.filter(x => {
+                            if (!x.date) return false;
+                            const cd = x.date.slice(0, 10);
+                            return cd === ds || (ds === first && cd < first) || (ds === last && cd > last);
+                        });
+
                         return { date: `${ds}T00:00:00.000Z`, fleetStatus: dayFleet, activeLRs: dayActive, closedLRs: dayClosed, exceptions: dayExceptions };
                     });
                 }
@@ -675,7 +750,7 @@ const FleetUtilizationReport = ({
             const oos = fleetStatusList.filter(v => !hasStatus(v.status, 'IDLE'));
             return computeMetrics(totalFleetNum, oos, fleetStatusList);
         } else {
-            // Range: sum daily values
+            // Range: average daily values
             let sFS = 0, sOR = 0, sIdle = 0, sNOR = 0, sBrk = 0, sND = 0, sLv = 0, sMt = 0, sAcc = 0, sUD = 0, sUT = 0;
             const rangeCC = {};
             dailyData.forEach(d => {
@@ -685,6 +760,23 @@ const FleetUtilizationReport = ({
                 sUD += d.underDetention; sUT += d.underTrip;
                 if (d.customCategories) Object.entries(d.customCategories).forEach(([c, v]) => { rangeCC[c] = (rangeCC[c] || 0) + v; });
             });
+            
+            const numDays = dailyData.length || 1;
+            const sumFS = sFS; // keep for exact percentages if needed, but we'll calculate pct from averages
+
+            sFS = Math.round(sFS / numDays);
+            sOR = Math.round(sOR / numDays);
+            sIdle = Math.round(sIdle / numDays);
+            sNOR = Math.round(sNOR / numDays);
+            sBrk = Math.round(sBrk / numDays);
+            sND = Math.round(sND / numDays);
+            sLv = Math.round(sLv / numDays);
+            sMt = Math.round(sMt / numDays);
+            sAcc = Math.round(sAcc / numDays);
+            sUD = Math.round(sUD / numDays);
+            sUT = Math.round(sUT / numDays);
+            Object.keys(rangeCC).forEach(k => { rangeCC[k] = Math.round(rangeCC[k] / numDays); });
+
             const sOthers = Object.values(rangeCC).reduce((a, b) => a + b, 0);
             const sOtherTotal = sUD + sOthers;
             const pct = (val) => sFS <= 0 ? '' : `(${((val / sFS) * 100).toFixed(0)}%)`;

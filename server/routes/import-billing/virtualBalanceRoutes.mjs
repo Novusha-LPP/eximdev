@@ -9,14 +9,18 @@ const router = express.Router();
 // Helper to look up importer name
 async function getImporterName(jobNo) {
   if (!jobNo) return "";
-  const job = await JobModel.findOne({ job_no: jobNo.trim() }).select("importer").lean();
-  return job ? job.importer || "" : "";
+  const trimmed = jobNo.trim();
+  const job = await JobModel.findOne({
+    job_no: { $regex: new RegExp(`^${trimmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") }
+  }).select("importer importer_name name").lean();
+  if (!job) return "";
+  return job.importer || job.importer_name || job.name || "";
 }
 
 // GET /api/virtual-balance - Fetch list of virtual balances with running balances
 router.get("/api/virtual-balance", async (req, res) => {
   try {
-    const { page = 1, limit = 50, search = "", status = "" } = req.query;
+    const { page = 1, limit = 50, search = "", status = "", startDate = "", endDate = "" } = req.query;
     const pageNum = parseInt(page, 10) || 1;
     const limitNum = parseInt(limit, 10) || 50;
     const skip = (pageNum - 1) * limitNum;
@@ -86,6 +90,18 @@ router.get("/api/virtual-balance", async (req, res) => {
       filtered = filtered.filter((e) => e.status && e.status.toLowerCase() === matchStatus);
     }
 
+    if (startDate) {
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+      filtered = filtered.filter((e) => new Date(e.createdAt) >= start);
+    }
+
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      filtered = filtered.filter((e) => new Date(e.createdAt) <= end);
+    }
+
     if (search && search.trim()) {
       const term = search.trim().toLowerCase();
       filtered = filtered.filter((e) => {
@@ -132,8 +148,10 @@ router.post("/api/virtual-balance", async (req, res) => {
       return res.status(400).json({ success: false, message: "CFS Name and Amount Paid are required." });
     }
 
-    // Auto-populate partyName (importer)
-    const partyName = jobNo ? await getImporterName(jobNo) : "";
+    // Use partyName from request body if provided (client sends formatted string for multi-job)
+    const partyName = req.body.partyName !== undefined
+      ? req.body.partyName
+      : (jobNo ? await getImporterName(jobNo) : "");
 
     // Sequence generation: VB/IMP/YYYY/XXXX
     const year = new Date().getFullYear();
@@ -191,10 +209,10 @@ router.put("/api/virtual-balance/:id", async (req, res) => {
     if (cfsName) entry.cfsName = cfsName;
 
     if (jobNo !== undefined) {
-      const sanitizedJobNo = (jobNo || "").trim().toUpperCase();
-      if (sanitizedJobNo !== entry.jobNo) {
-        entry.jobNo = sanitizedJobNo;
-        entry.partyName = sanitizedJobNo ? await getImporterName(sanitizedJobNo) : "";
+      entry.jobNo = (jobNo || "").trim();
+      // Use partyName from request body if provided (client now sends formatted string)
+      if (req.body.partyName !== undefined) {
+        entry.partyName = req.body.partyName;
       }
     }
 
@@ -274,5 +292,27 @@ router.get("/api/virtual-balance/job-purchase-books", async (req, res) => {
 function escapeRegex(string) {
   return string.replace(/[/\-\\^$*+?.()|[\]{}]/g, "\\$&");
 }
+
+// GET /api/virtual-balance/jobs - Return all import jobs as {jobNo, partyName} for autocomplete
+router.get("/api/virtual-balance/jobs", async (req, res) => {
+  try {
+    const { search = "" } = req.query;
+    const query = search
+      ? { job_no: { $regex: new RegExp(escapeRegex(search.trim()), "i") } }
+      : {};
+    const jobs = await JobModel.find(query)
+      .select("job_no importer importer_name name")
+      .limit(200)
+      .lean();
+    const data = jobs.map((j) => ({
+      jobNo: j.job_no || "",
+      partyName: j.importer || j.importer_name || j.name || "",
+    }));
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error("Error fetching jobs list:", error);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
 
 export default router;

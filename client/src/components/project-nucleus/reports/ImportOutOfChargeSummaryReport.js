@@ -62,8 +62,6 @@ const ImportOutOfChargeSummaryReport = ({
     const [rawQueryData, setRawQueryData] = useState([]);
     const [rawCategoryData, setRawCategoryData] = useState([]);
     const [totalJobsCreated, setTotalJobsCreated] = useState(0);
-    const [readyForBillingSeaCount, setReadyForBillingSeaCount] = useState(0);
-    const [readyForBillingAirCount, setReadyForBillingAirCount] = useState(0);
     const [loading, setLoading] = useState(true);
     
     // Main UI Tabs (Data vs Visuals)
@@ -100,15 +98,11 @@ const ImportOutOfChargeSummaryReport = ({
                     setRawQueryData(res.data.data);
                     setRawCategoryData(res.data.categoryData || []);
                     setTotalJobsCreated(res.data.totalCreated || 0);
-                    setReadyForBillingSeaCount(res.data.readyForBillingSeaCount || 0);
-                    setReadyForBillingAirCount(res.data.readyForBillingAirCount || 0);
                 } else {
                     // Fallback in case backend returns old format (array)
                     setRawQueryData(Array.isArray(res.data) ? res.data : []);
                     setRawCategoryData([]);
                     setTotalJobsCreated(0);
-                    setReadyForBillingSeaCount(0);
-                    setReadyForBillingAirCount(0);
                 }
             } catch (error) {
                 console.error('Error fetching pending job summaries:', error);
@@ -347,8 +341,6 @@ const ImportOutOfChargeSummaryReport = ({
                         {totalOutOfCharge}
                     </div>
                 </div>
-
-
 
                 <div className="fleet-card" style={{ flex: '1 1 320px', maxWidth: '380px', height: '240px', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', '--fc-accent': 'transparent' }}>
                     <h3 style={{ marginTop: 0, color: '#1e293b', fontSize: '16px', fontWeight: 600, paddingBottom: '12px', borderBottom: '1px solid rgba(226, 232, 240, 0.6)', marginBottom: '8px', width: '100%', textAlign: 'left' }}>

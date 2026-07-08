@@ -817,14 +817,16 @@ router.get("/out-of-charge-summaries", authMiddleware, applyUserBranchFilter, as
         const { filterType, month, year, quarter, startDate, endDate, day, branchId, category } = req.query;
         const branchMatch = getBranchMatch(branchId, category, req.authorizedBranchIds);
 
-        // Base: all non-cancelled jobs
+        // Base: all non-cancelled jobs, out of charge, and matching 'Billing Ready' logic
         const baseMatchStage = {
             be_no: { $not: { $regex: "^cancelled$", $options: "i" } },
             out_of_charge: { $ne: null, $ne: "" },
+            status: { $regex: "^pending$", $options: "i" },
+            detailed_status: { $in: ["Billing Pending", "Custom Clearance Completed"] },
             ...branchMatch,
         };
 
-        if (year && (!filterType || filterType === "all" || filterType === "null" || filterType === "undefined")) {
+        if (year && (!filterType || filterType === "all" || filterType === "fin-year" || filterType === "null" || filterType === "undefined")) {
             baseMatchStage.year = year;
         }
 

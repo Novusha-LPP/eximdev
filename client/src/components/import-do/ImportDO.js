@@ -92,7 +92,7 @@ function ImportDO() {
         </CustomTabPanel>
         <CustomTabPanel value={value} index={7}>
           <Box sx={{ p: 2 }}>
-            <VirtualBalanceList />
+            <VirtualBalanceList isJobs={true} />
           </Box>
         </CustomTabPanel>
         {/* <CustomTabPanel value={value} index={5}>

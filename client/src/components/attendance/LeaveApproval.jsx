@@ -465,7 +465,7 @@ const LeaveApproval = () => {
   const TABS = useMemo(() => [
     { key: 'approvals', label: 'Leave Approvals', count: requests.length },
     { key: 'history', label: 'Leave History', count: 0 },
-    ...(canManageAdminTools ? [{ key: 'policy', label: 'Leave Policy', count: 0 }] : []),
+    // ...(canManageAdminTools ? [{ key: 'policy', label: 'Leave Policy', count: 0 }] : []),
   ], [requests.length, canManageAdminTools]);
 
   if (loading && requests.length === 0) return (

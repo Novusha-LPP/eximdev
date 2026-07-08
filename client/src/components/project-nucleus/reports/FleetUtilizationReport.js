@@ -34,7 +34,7 @@ const UTIL_COLOR = (pct) => pct >= 90 ? '#10b981' : pct >= 75 ? '#f59e0b' : '#ef
 
 const normalizeVehicleNo = (v) => v ? String(v).replace(/[^a-zA-Z0-9]/g, '').toUpperCase() : '';
 
-const getLRKey = (lr) => lr ? (lr._id || lr.lr_no || lr.job_no || (normalizeVehicleNo(lr.vehicle_no) + '_' + lr.lr_date)) : '';
+const getLRKey = (lr) => lr ? (lr.tr_no || lr.lr_no || lr.container_id || lr._id || lr.job_no || (lr.lr_date ? (normalizeVehicleNo(lr.vehicle_no) + '_' + lr.lr_date) : '')) : '';
 
 const deduplicateArray = (arr, keyFn) => {
     const map = new Map();
@@ -357,7 +357,7 @@ const FleetUtilizationReport = ({
             setLoading(true);
             try {
                 const { startDate, endDate } = getTransportDates(filterType, selectedDay, selectedYear, selectedMonth, selectedQuarter, dateRange);
-                const params = {};
+                const params = { limit: 999999 };
                 if (startDate) params.startDate = startDate;
                 if (endDate) params.endDate = endDate;
 
@@ -377,7 +377,7 @@ const FleetUtilizationReport = ({
                     const prevEnd = `${prevYear}-${String(prevMonth + 1).padStart(2, '0')}-${String(prevDays).padStart(2, '0')}`;
 
                     const resPrev = await axios.get(`${TRANSPORT_BASE}/api/vehicle-dsr/dispatch-range`, {
-                        params: { startDate: prevStart, endDate: prevEnd }, headers: TRANSPORT_HEADERS, withCredentials: true
+                        params: { startDate: prevStart, endDate: prevEnd, limit: 999999 }, headers: TRANSPORT_HEADERS, withCredentials: true
                     });
                     if (resPrev?.data?.success) {
                         const prevClosed = resPrev.data.closedLRs || [];
@@ -392,10 +392,43 @@ const FleetUtilizationReport = ({
 
                 // Main dispatch data
                 try {
-                    const res = await axios.get(`${TRANSPORT_BASE}/api/vehicle-dsr/dispatch-range`, {
-                        params, headers: TRANSPORT_HEADERS, withCredentials: true
-                    });
-                    if (res?.data?.success) rawDispatch = res.data;
+                    const dsStart = params.startDate ? new Date(params.startDate) : null;
+                    const dsEnd = params.endDate ? new Date(params.endDate) : null;
+                    
+                    if (dsStart && dsEnd && Math.round((dsEnd - dsStart) / (1000 * 60 * 60 * 24)) > 60) {
+                        let currentStart = new Date(dsStart);
+                        let combined = { fleetStatus: [], activeLRs: [], closedLRs: [], exceptions: [] };
+                        while (currentStart <= dsEnd) {
+                            let currentEnd = new Date(currentStart);
+                            currentEnd.setDate(currentStart.getDate() + 50); // 50 days chunk
+                            if (currentEnd > dsEnd) currentEnd = new Date(dsEnd);
+                            
+                            const chunkParams = {
+                                ...params,
+                                startDate: currentStart.toISOString().slice(0, 10),
+                                endDate: currentEnd.toISOString().slice(0, 10)
+                            };
+                            const res = await axios.get(`${TRANSPORT_BASE}/api/vehicle-dsr/dispatch-range`, {
+                                params: chunkParams, headers: TRANSPORT_HEADERS, withCredentials: true
+                            });
+                            if (res?.data?.success) {
+                                const d = res.data;
+                                if (d.fleetStatus) combined.fleetStatus.push(...d.fleetStatus);
+                                if (d.activeLRs) combined.activeLRs.push(...d.activeLRs);
+                                if (d.closedLRs) combined.closedLRs.push(...d.closedLRs);
+                                if (d.exceptions) combined.exceptions.push(...d.exceptions);
+                            }
+                            
+                            currentStart = new Date(currentEnd);
+                            currentStart.setDate(currentStart.getDate() + 1);
+                        }
+                        rawDispatch = combined;
+                    } else {
+                        const res = await axios.get(`${TRANSPORT_BASE}/api/vehicle-dsr/dispatch-range`, {
+                            params, headers: TRANSPORT_HEADERS, withCredentials: true
+                        });
+                        if (res?.data?.success) rawDispatch = res.data;
+                    }
                 } catch (e) { console.error("Error fetching dispatch range:", e); }
 
                 // Fleet size from old API
@@ -414,9 +447,16 @@ const FleetUtilizationReport = ({
                     let datesList = [];
                     if (params.startDate && params.endDate) {
                         try {
-                            let cur = new Date(params.startDate); const end = new Date(params.endDate);
-                            cur.setHours(12, 0, 0, 0); end.setHours(12, 0, 0, 0);
-                            while (cur <= end) { datesList.push(cur.toISOString().slice(0, 10)); cur.setDate(cur.getDate() + 1); }
+                            let cur = new Date(params.startDate);
+                            const end = new Date(params.endDate);
+                            const today = new Date();
+                            const maxEnd = end < today ? end : today;
+                            cur.setHours(12, 0, 0, 0);
+                            maxEnd.setHours(12, 0, 0, 0);
+                            while (cur <= maxEnd) {
+                                datesList.push(cur.toISOString().slice(0, 10));
+                                cur.setDate(cur.getDate() + 1);
+                            }
                         } catch (e) { console.error("Error generating dates", e); }
                     }
 
@@ -427,8 +467,9 @@ const FleetUtilizationReport = ({
 
                     if (datesList.length === 0) {
                         const uniq = new Set();
-                        if (params.startDate) uniq.add(params.startDate);
-                        if (params.endDate) uniq.add(params.endDate);
+                        const todayStr = new Date().toISOString().slice(0, 10);
+                        if (params.startDate && params.startDate <= todayStr) uniq.add(params.startDate);
+                        if (params.endDate && params.endDate <= todayStr) uniq.add(params.endDate);
                         rawFleet.forEach(x => { if (x.date) uniq.add(x.date.slice(0, 10)); });
                         rawClosed.forEach(x => { if (x.dispatchClosedDate) uniq.add(x.dispatchClosedDate.slice(0, 10)); });
                         rawActive.forEach(x => { if (x.lr_date) uniq.add(x.lr_date.slice(0, 10)); });
@@ -439,19 +480,53 @@ const FleetUtilizationReport = ({
 
                     const first = datesList[0], last = datesList[datesList.length - 1];
 
+                    const fleetMap = {};
+                    const fleetUpdatesByDate = {};
+                    const sortedFleet = [...rawFleet].sort((a, b) => new Date(a.date) - new Date(b.date));
+                    sortedFleet.forEach(x => {
+                        if (!x.date) return;
+                        const d = x.date.slice(0, 10);
+                        if (!fleetUpdatesByDate[d]) fleetUpdatesByDate[d] = [];
+                        fleetUpdatesByDate[d].push(x);
+                    });
+
+                    const allTrips = [...rawActive, ...rawClosed];
+
                     dailyDispatches = datesList.map(ds => {
-                        const inRange = (itemDate) => {
-                            if (!itemDate) return false;
-                            const id = itemDate.slice(0, 10);
-                            return id === ds || (ds === first && id < first) || (ds === last && id > last);
-                        };
-                        let dayFleet = rawFleet.filter(x => inRange(x.date));
-                        let dayClosed = rawClosed.filter(x => inRange(x.dispatchClosedDate));
-                        let dayActive = rawActive.filter(x => inRange(x.lr_date));
-                        let dayExceptions = rawExceptions.filter(x => inRange(x.date));
-                        dayFleet = deduplicateArray(dayFleet, v => normalizeVehicleNo(v.vehicleNumber));
-                        dayClosed = deduplicateArray(dayClosed, getLRKey);
+                        const datesToApply = Object.keys(fleetUpdatesByDate).filter(d => 
+                            (ds === first && d <= ds) || (d === ds)
+                        );
+                        datesToApply.forEach(d => {
+                            fleetUpdatesByDate[d].forEach(v => {
+                                const n = normalizeVehicleNo(v.vehicleNumber);
+                                if (n) fleetMap[n] = v;
+                            });
+                        });
+                        
+                        let dayFleet = Object.values(fleetMap);
+
+                        let dayActive = allTrips.filter(lr => {
+                            const start = lr.lr_date ? lr.lr_date.slice(0, 10) : null;
+                            if (!start || start > ds) return false;
+                            const closed = lr.dispatchClosedDate ? lr.dispatchClosedDate.slice(0, 10) : null;
+                            if (closed && closed <= ds) return false;
+                            return true;
+                        });
                         dayActive = deduplicateArray(dayActive, getLRKey);
+                        
+                        let dayClosed = rawClosed.filter(x => {
+                            if (!x.dispatchClosedDate) return false;
+                            const cd = x.dispatchClosedDate.slice(0, 10);
+                            return cd === ds || (ds === first && cd < first) || (ds === last && cd > last);
+                        });
+                        dayClosed = deduplicateArray(dayClosed, getLRKey);
+
+                        let dayExceptions = rawExceptions.filter(x => {
+                            if (!x.date) return false;
+                            const cd = x.date.slice(0, 10);
+                            return cd === ds || (ds === first && cd < first) || (ds === last && cd > last);
+                        });
+
                         return { date: `${ds}T00:00:00.000Z`, fleetStatus: dayFleet, activeLRs: dayActive, closedLRs: dayClosed, exceptions: dayExceptions };
                     });
                 }
@@ -470,7 +545,7 @@ const FleetUtilizationReport = ({
             setFleetSummaryLoading(true); setFleetSummaryError(null);
             try {
                 const res = await axios.get(`${TRANSPORT_BASE}/api/vehicle-dsr/fleet-summary`, {
-                    params: { fyStartYear: selectedYear || 2026 }, headers: TRANSPORT_HEADERS, withCredentials: true
+                    params: { fyStartYear: selectedYear || 2026, limit: 999999 }, headers: TRANSPORT_HEADERS, withCredentials: true
                 });
                 if (res.data?.success) setFleetSummaryData(res.data.data);
                 else setFleetSummaryError("Failed to fetch fleet summary details");
@@ -541,10 +616,10 @@ const FleetUtilizationReport = ({
 
             const ownClosed20 = closed.filter(r => String(r.own_hired || '').toLowerCase().trim() === 'own' && (String(r.type_of_vehicle || '').includes('20'))).length;
             const ownClosed40 = closed.filter(r => String(r.own_hired || '').toLowerCase().trim() === 'own' && (String(r.type_of_vehicle || '').includes('40'))).length;
-            const outsourced20 = closed.filter(r => String(r.own_hired || '').toLowerCase().trim() === 'hired' && (String(r.type_of_vehicle || '').includes('20'))).length;
-            const outsourced40 = closed.filter(r => String(r.own_hired || '').toLowerCase().trim() === 'hired' && (String(r.type_of_vehicle || '').includes('40'))).length;
-            const ownTrips = [...active, ...closed].filter(r => String(r.own_hired || '').toLowerCase().trim() === 'own').length;
-            const hiredTrips = [...active, ...closed].filter(r => String(r.own_hired || '').toLowerCase().trim() === 'hired').length;
+            const outsourced20 = closed.filter(r => String(r.own_hired || '').toLowerCase().trim() !== 'own' && (String(r.type_of_vehicle || '').includes('20'))).length;
+            const outsourced40 = closed.filter(r => String(r.own_hired || '').toLowerCase().trim() !== 'own' && (String(r.type_of_vehicle || '').includes('40'))).length;
+            const ownTrips = closed.filter(r => String(r.own_hired || '').toLowerCase().trim() === 'own').length;
+            const hiredTrips = closed.filter(r => String(r.own_hired || '').toLowerCase().trim() !== 'own').length;
 
             return {
                 date: d.date, dateStr, totalFleet: dayFleetSize, activeCount: usedForTrips,
@@ -553,7 +628,7 @@ const FleetUtilizationReport = ({
                 others, customCategories, amBreakdown, amUnderDetention, amUnderTrip, amOthers,
                 usedForTrips, oorPercent: `${oorPercentVal}%`, automove, snContainer,
                 activeLRs: active.length, ownClosed20, ownClosed40, ownTrips, hiredTrips,
-                outsourced20, outsourced40, outsourcedTotal: outsourced20 + outsourced40,
+                outsourced20, outsourced40, outsourcedTotal: hiredTrips,
                 totalTrips: closed.length
             };
         }).sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -675,7 +750,7 @@ const FleetUtilizationReport = ({
             const oos = fleetStatusList.filter(v => !hasStatus(v.status, 'IDLE'));
             return computeMetrics(totalFleetNum, oos, fleetStatusList);
         } else {
-            // Range: sum daily values
+            // Range: average daily values
             let sFS = 0, sOR = 0, sIdle = 0, sNOR = 0, sBrk = 0, sND = 0, sLv = 0, sMt = 0, sAcc = 0, sUD = 0, sUT = 0;
             const rangeCC = {};
             dailyData.forEach(d => {
@@ -685,6 +760,23 @@ const FleetUtilizationReport = ({
                 sUD += d.underDetention; sUT += d.underTrip;
                 if (d.customCategories) Object.entries(d.customCategories).forEach(([c, v]) => { rangeCC[c] = (rangeCC[c] || 0) + v; });
             });
+            
+            const numDays = dailyData.length || 1;
+            const sumFS = sFS; // keep for exact percentages if needed, but we'll calculate pct from averages
+
+            sFS = Math.round(sFS / numDays);
+            sOR = Math.round(sOR / numDays);
+            sIdle = Math.round(sIdle / numDays);
+            sNOR = Math.round(sNOR / numDays);
+            sBrk = Math.round(sBrk / numDays);
+            sND = Math.round(sND / numDays);
+            sLv = Math.round(sLv / numDays);
+            sMt = Math.round(sMt / numDays);
+            sAcc = Math.round(sAcc / numDays);
+            sUD = Math.round(sUD / numDays);
+            sUT = Math.round(sUT / numDays);
+            Object.keys(rangeCC).forEach(k => { rangeCC[k] = Math.round(rangeCC[k] / numDays); });
+
             const sOthers = Object.values(rangeCC).reduce((a, b) => a + b, 0);
             const sOtherTotal = sUD + sOthers;
             const pct = (val) => sFS <= 0 ? '' : `(${((val / sFS) * 100).toFixed(0)}%)`;
@@ -811,10 +903,10 @@ const FleetUtilizationReport = ({
         });
 
         const pct = (p, t) => t > 0 ? ((p / t) * 100).toFixed(0) : 0;
-        const automoveData = branches['Automove'] || { c20: 0, own20: 0, hired20: 0, c40: 0, own40: 0, hired40: 0, other: 0, ownOther: 0, hiredOther: 0, total: 0 };
+        const automoveData = branches['Automove'] || branches['automove'] || { c20: 0, own20: 0, hired20: 0, c40: 0, own40: 0, hired40: 0, other: 0, ownOther: 0, hiredOther: 0, total: 0 };
         const othersData = { c20: 0, own20: 0, hired20: 0, c40: 0, own40: 0, hired40: 0, other: 0, ownOther: 0, hiredOther: 0, total: 0 };
         Object.keys(branches).forEach(br => {
-            if (br !== 'Automove') {
+            if (br.toLowerCase() !== 'automove') {
                 const b = branches[br];
                 othersData.c20 += b.c20; othersData.own20 += b.own20; othersData.hired20 += b.hired20;
                 othersData.c40 += b.c40; othersData.own40 += b.own40; othersData.hired40 += b.hired40;

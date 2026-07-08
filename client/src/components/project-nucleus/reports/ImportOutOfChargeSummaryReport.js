@@ -47,8 +47,7 @@ const STYLES = `
     opacity: 0.3;
 }
 `;
-
-const ImportPendingSummaryReport = ({
+const ImportOutOfChargeSummaryReport = ({
     filterType,
     selectedMonth,
     selectedYear,
@@ -56,18 +55,19 @@ const ImportPendingSummaryReport = ({
     dateRange,
     selectedDay,
     category,
-    branchId,
     selectedFinancialYear,
+    branchId,
 }) => {
     const navigate = useNavigate();
     const [rawQueryData, setRawQueryData] = useState([]);
-
     const [rawCategoryData, setRawCategoryData] = useState([]);
     const [totalJobsCreated, setTotalJobsCreated] = useState(0);
     const [readyForBillingSeaCount, setReadyForBillingSeaCount] = useState(0);
     const [readyForBillingAirCount, setReadyForBillingAirCount] = useState(0);
-    const [billingReadyJobsCount, setBillingReadyJobsCount] = useState(0);
-    const [loading, setLoading] = useState(true); // 'data' | 'visuals'
+    const [loading, setLoading] = useState(true);
+    
+    // Main UI Tabs (Data vs Visuals)
+    const [mainTab, setMainTab] = useState('data'); // 'data' | 'visuals'
     
     // Custom filter states
     const [viewMode, setViewMode] = useState('grouped'); // 'grouped' | 'flat'
@@ -82,43 +82,33 @@ const ImportPendingSummaryReport = ({
         const fetchSummaries = async () => {
             setLoading(true);
             try {
-                const endpoint = `${process.env.REACT_APP_API_STRING}/project-nucleus/pending-job-summaries`;
+                const endpoint = getEndpoint('/project-nucleus/out-of-charge-summaries');
+                const params = {
+                    filterType,
+                    month: selectedMonth,
+                    year: (filterType === 'year' || filterType === 'quarter' || filterType === 'month' || filterType === 'date-range') ? selectedYear : (selectedFinancialYear || '26-27'),
+                    quarter: selectedQuarter,
+                    startDate: dateRange[0] ? dateRange[0].toISOString() : null,
+                    endDate: dateRange[1] ? dateRange[1].toISOString() : null,
+                    day: selectedDay,
+                    category,
+                    branchId
+                };
+                const res = await axios.get(endpoint, { params, withCredentials: true });
                 
-                const res = await axios.get(endpoint, {
-                    params: {
-                        filterType,
-                        month: selectedMonth,
-                        year: (filterType === 'year' || filterType === 'quarter' || filterType === 'month' || filterType === 'date-range') ? selectedYear : (selectedFinancialYear || '26-27'),
-                        quarter: selectedQuarter,
-                        startDate: dateRange?.startDate,
-                        endDate: dateRange?.endDate,
-                        day: selectedDay,
-                        branchId,
-                        category
-                    },
-                    withCredentials: true
-                });
-                
-                if (res.data) {
-                    const data = res.data;
-                    const seaCount = data.readyForBillingSeaCount || 0;
-                    const airCount = data.readyForBillingAirCount || 0;
-                    
-                    setBillingReadyJobsCount(seaCount + airCount);
-                    setReadyForBillingSeaCount(seaCount);
-                    setReadyForBillingAirCount(airCount);
-                    
-                    setRawQueryData(data.data || []);
-                    setRawCategoryData(data.categoryData || []);
-                    setTotalJobsCreated(data.totalCreated || 0);
+                if (res.data && res.data.data) {
+                    setRawQueryData(res.data.data);
+                    setRawCategoryData(res.data.categoryData || []);
+                    setTotalJobsCreated(res.data.totalCreated || 0);
+                    setReadyForBillingSeaCount(res.data.readyForBillingSeaCount || 0);
+                    setReadyForBillingAirCount(res.data.readyForBillingAirCount || 0);
                 } else {
-                    // Fallback
-                    setRawQueryData([]);
+                    // Fallback in case backend returns old format (array)
+                    setRawQueryData(Array.isArray(res.data) ? res.data : []);
                     setRawCategoryData([]);
                     setTotalJobsCreated(0);
                     setReadyForBillingSeaCount(0);
                     setReadyForBillingAirCount(0);
-                    setBillingReadyJobsCount(0);
                 }
             } catch (error) {
                 console.error('Error fetching pending job summaries:', error);
@@ -127,7 +117,7 @@ const ImportPendingSummaryReport = ({
             }
         };
         fetchSummaries();
-    }, [filterType, selectedMonth, selectedYear, selectedQuarter, dateRange, selectedDay, selectedFinancialYear, branchId, category]);
+    }, [filterType, selectedMonth, selectedYear, selectedQuarter, dateRange, selectedDay, selectedFinancialYear, category, branchId]);
 
     // Handle sort for flat list
     const handleSort = (key) => {
@@ -167,7 +157,7 @@ const ImportPendingSummaryReport = ({
     // ─── Data Aggregation for KPIs ───────────────────────────────
     
     // Fixed reference totals based on unfiltered raw data
-    const totalPendingRaw = useMemo(() =>
+    const totalOutOfChargeRaw = useMemo(() =>
         rawQueryData.reduce((s, r) => s + r.count, 0),
         [rawQueryData]
     );
@@ -181,22 +171,22 @@ const ImportPendingSummaryReport = ({
     );
 
     const assignedJobsCount = useMemo(() =>
-        totalJobsCreated > 0 ? (totalJobsCreated - unassignedJobsCount) : (totalPendingRaw - unassignedJobsCount),
-        [totalJobsCreated, totalPendingRaw, unassignedJobsCount]
+        totalJobsCreated > 0 ? (totalJobsCreated - unassignedJobsCount) : (totalOutOfChargeRaw - unassignedJobsCount),
+        [totalJobsCreated, totalOutOfChargeRaw, unassignedJobsCount]
     );
 
     const assignmentPercentage = useMemo(() => {
         // If there are no jobs created in this period, everything is implicitly perfectly assigned (100%)
-        const denominator = totalJobsCreated > 0 ? totalJobsCreated : totalPendingRaw;
+        const denominator = totalJobsCreated > 0 ? totalJobsCreated : totalOutOfChargeRaw;
         if (denominator === 0) return 100;
         return ((assignedJobsCount / denominator) * 100).toFixed(0);
-    }, [totalJobsCreated, totalPendingRaw, assignedJobsCount]);
+    }, [totalJobsCreated, totalOutOfChargeRaw, assignedJobsCount]);
 
     // Simplified dataset (no assignment filtering)
     const filteredData = rawQueryData;
 
     // Active KPI Total (updates with assignment filter)
-    const totalPending = useMemo(() =>
+    const totalOutOfCharge = useMemo(() =>
         filteredData.reduce((s, r) => s + r.count, 0),
         [filteredData]
     );
@@ -242,20 +232,6 @@ const ImportPendingSummaryReport = ({
             .map(([name, value]) => ({ name, value }))
             .sort((a, b) => b.value - a.value);
     }, [filteredData]);
-
-    const billingReadyPieData = useMemo(() => {
-        const data = [];
-        const isAll = !category || category.toLowerCase() === 'all';
-        if (isAll || category.toUpperCase() === 'SEA') {
-            data.push({ name: 'SEA', value: readyForBillingSeaCount || 0 });
-        }
-        if (isAll || category.toUpperCase() === 'AIR') {
-            data.push({ name: 'AIR', value: readyForBillingAirCount || 0 });
-        }
-        return data.filter(item => item.value > 0);
-    }, [readyForBillingSeaCount, readyForBillingAirCount, category]);
-
-    const displayJobCount = totalPending;
 
     // Chart 2: Top Employees (Bar)
     const topEmployeesData = useMemo(() => {
@@ -347,7 +323,7 @@ const ImportPendingSummaryReport = ({
         return (
             <div className="nucleus-loading-container">
                 <div className="nucleus-loader"></div>
-                <div style={{ marginTop: '1rem', color: '#6b7280' }}>Loading pending job summaries...</div>
+                <div style={{ marginTop: '1rem', color: '#6b7280' }}>Loading out of charge job summaries...</div>
             </div>
         );
     }
@@ -358,20 +334,21 @@ const ImportPendingSummaryReport = ({
     return (
         <div style={{ padding: '0 8px' }}>
             <style>{STYLES}</style>
-            {/* KPI Cards Row Removed in favor of Donut Chart */}
-
+            
             {/* ─── UNIFIED VIEW (CHART & DATA) ─────────────────────────── */}
             <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
                 
                 {/* Single Job Count Card requested by User */}
-                <div className="fleet-card" style={{ flex: '1 1 320px', maxWidth: '380px', height: '240px', padding: '24px', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', '--fc-accent': '#3b82f6' }}>
+                <div className="fleet-card" style={{ flex: '1 1 200px', maxWidth: '280px', height: '240px', padding: '24px', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', '--fc-accent': '#3b82f6' }}>
                     <h3 style={{ marginTop: 0, color: '#1e293b', fontSize: '18px', fontWeight: 600, paddingBottom: '16px', marginBottom: '16px' }}>
-                        Job Count
+                        Total Out of Charge
                     </h3>
                     <div style={{ fontSize: '64px', fontWeight: 800, color: '#3b82f6', lineHeight: 1 }}>
-                        {displayJobCount}
+                        {totalOutOfCharge}
                     </div>
                 </div>
+
+
 
                 <div className="fleet-card" style={{ flex: '1 1 320px', maxWidth: '380px', height: '240px', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', '--fc-accent': 'transparent' }}>
                     <h3 style={{ marginTop: 0, color: '#1e293b', fontSize: '16px', fontWeight: 600, paddingBottom: '12px', borderBottom: '1px solid rgba(226, 232, 240, 0.6)', marginBottom: '8px', width: '100%', textAlign: 'left' }}>
@@ -451,7 +428,7 @@ const ImportPendingSummaryReport = ({
             {/* ─── BRANCH WISE SUMMARY CARDS ─────────────────────────── */}
             <div style={{ marginTop: '24px' }}>
                 <h3 style={{ marginTop: 0, color: '#1e293b', fontSize: '18px', fontWeight: 600, paddingBottom: '16px', borderBottom: '1px solid rgba(226, 232, 240, 0.6)', marginBottom: '16px' }}>
-                    Pending Jobs by Branch
+                    Out of Charge Jobs by Branch
                 </h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
                     {Object.values(groupedData).map((branchData, index) => (
@@ -495,4 +472,4 @@ const ImportPendingSummaryReport = ({
     );
 };
 
-export default ImportPendingSummaryReport;
+export default ImportOutOfChargeSummaryReport;

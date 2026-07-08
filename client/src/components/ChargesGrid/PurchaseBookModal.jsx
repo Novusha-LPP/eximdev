@@ -428,7 +428,6 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                                 <select name="TDS Category" className="charges-ep-select" value={formData["TDS Category"]} onChange={handleInputChange}>
                                     <option value="94C_1">TDS ON CONTRACT 94C - 1023- 1%</option>
                                     <option value="94C_2">TDS ON CONTRACT 94C - 1024 -2%</option>
-                                    <option value="94I">94I</option>
                                 </select>
                             </div>
                             <div className="charges-ep-row" style={{ gridColumn: 'span 1' }}>

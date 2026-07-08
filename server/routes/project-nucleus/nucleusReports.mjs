@@ -3,6 +3,7 @@ import JobModel from "../../model/jobModel.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import { applyUserBranchFilter } from "../../middleware/branchMiddleware.mjs";
+import { icdFilter, applyUserImporterFilter } from "../../middleware/icdFilter.mjs";
 import UserModel from "../../model/userModel.mjs";
 import { getBranchMatch } from "../../utils/branchFilter.mjs";
 import CustomerKycModel from "../../model/CustomerKyc/customerKycModel.mjs";
@@ -579,16 +580,54 @@ router.get("/karma-leaderboard", async (req, res) => {
 });
 
 // ─── Import Pending Job Summaries (Combination Filters) ───────────────────────
-router.get("/pending-job-summaries", authMiddleware, applyUserBranchFilter, async (req, res) => {
+router.get("/pending-job-summaries", authMiddleware, icdFilter, async (req, res) => {
     try {
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
         const { filterType, month, year, quarter, startDate, endDate, day, branchId, category } = req.query;
-        const branchMatch = getBranchMatch(branchId, category, req.authorizedBranchIds);
+        
+        // Build branch/category match manually to match Import Billing behavior
+        // (Import Billing doesn't restrict by user's assigned branches)
+        const branchMatch = {};
+        const isAll = !branchId || branchId.toString().toLowerCase() === "all" || branchId === "";
+        if (!isAll) {
+            const mongoose = (await import('mongoose')).default;
+            if (mongoose.Types.ObjectId.isValid(branchId)) {
+                branchMatch.branch_id = new mongoose.Types.ObjectId(branchId);
+            } else {
+                branchMatch.branch_id = branchId;
+            }
+        }
+        if (category && category.toString().toLowerCase() !== "all") {
+            const catStr = category.toString();
+            branchMatch.mode = { $in: [catStr, catStr.toLowerCase(), catStr.toUpperCase()] };
+        }
 
-        // Base: all non-cancelled jobs
         const baseMatchStage = {
             be_no: { $not: { $regex: "^cancelled$", $options: "i" } },
             ...branchMatch,
         };
+
+        if (req.icdFilterCondition) {
+            Object.assign(baseMatchStage, req.icdFilterCondition);
+        }
+
+        // DEBUG: temporary logging to file
+        const debugInfo = {
+            timestamp: new Date().toISOString(),
+            query: req.query,
+            userRole: req.user?.role,
+            username: req.user?.username,
+            branchMatch,
+            icdFilterCondition: req.icdFilterCondition,
+            importerFilterCondition: req.importerFilterCondition,
+            baseMatchStage,
+            authorizedBranchIds: req.authorizedBranchIds,
+        };
+        import('fs').then(fs => fs.writeFileSync('/home/aiserver/eximdev/server/scratch/debug_output.json', JSON.stringify(debugInfo, null, 2)));
+
+        if (year && (!filterType || filterType === "all" || filterType === "fin-year" || filterType === "null" || filterType === "undefined")) {
+            baseMatchStage.year = year;
+        }
 
         const pipeline = [
             { $match: baseMatchStage },
@@ -676,6 +715,24 @@ router.get("/pending-job-summaries", authMiddleware, applyUserBranchFilter, asyn
             pipeline.push({ $match: dateMatch });
         }
 
+        const pendingMatchStage = {
+            $match: {
+                status: { $regex: "^pending$", $options: "i" },
+                bill_document_sent_to_accounts: { $exists: true, $nin: [null, ""] },
+                $or: [
+                    { billing_completed_date: { $exists: false } },
+                    { billing_completed_date: "" },
+                    { billing_completed_date: null },
+                    {
+                        $and: [
+                            { billing_completed_date: { $exists: true, $ne: "" } },
+                            { dsr_queries: { $elemMatch: { select_module: "Accounts", resolved: { $ne: true } } } }
+                        ]
+                    }
+                ]
+            }
+        };
+
         // Use $facet to calculate total jobs created vs pending jobs breakdown
         pipeline.push({
             $facet: {
@@ -683,7 +740,7 @@ router.get("/pending-job-summaries", authMiddleware, applyUserBranchFilter, asyn
                     { $count: "count" }
                 ],
                 pendingJobsData: [
-                    { $match: { status: { $regex: "^pending$", $options: "i" } } },
+                    pendingMatchStage,
                     {
                         $group: {
                             _id: {
@@ -706,7 +763,184 @@ router.get("/pending-job-summaries", authMiddleware, applyUserBranchFilter, asyn
                     }
                 ],
                 categoryData: [
-                    { $match: { status: { $regex: "^pending$", $options: "i" } } },
+                    pendingMatchStage,
+                    {
+                        $group: {
+                            _id: { $ifNull: ["$detailed_status", "Uncategorized"] },
+                            count: { $sum: 1 },
+                        }
+                    },
+                    { $sort: { count: -1 } },
+                    {
+                        $project: {
+                            _id: 0,
+                            category: "$_id",
+                            count: 1,
+                        }
+                    }
+                ],
+                seaCountData: [
+                    pendingMatchStage,
+                    { $match: { mode: { $in: ["SEA", "sea", "Sea"] } } },
+                    { $count: "count" }
+                ],
+                airCountData: [
+                    pendingMatchStage,
+                    { $match: { mode: { $in: ["AIR", "air", "Air"] } } },
+                    { $count: "count" }
+                ]
+            }
+        });
+
+        const result = await JobModel.aggregate(pipeline);
+        
+        const totalCreated = result[0]?.totalJobsCreated[0]?.count || 0;
+        const pendingData = result[0]?.pendingJobsData || [];
+        const categoryData = result[0]?.categoryData || [];
+        const readyForBillingSeaCount = result[0]?.seaCountData[0]?.count || 0;
+        const readyForBillingAirCount = result[0]?.airCountData[0]?.count || 0;
+
+        // DEBUG: temporary logging
+        console.log('[DEBUG /pending-job-summaries] RESULT: totalCreated:', totalCreated, 'pendingData.length:', pendingData.length, 'sea:', readyForBillingSeaCount, 'air:', readyForBillingAirCount);
+
+        res.json({ totalCreated, data: pendingData, categoryData, readyForBillingSeaCount, readyForBillingAirCount });
+    } catch (error) {
+        console.error("Error fetching pending job summaries:", error);
+        res.status(500).json({ error: "Internal Server Error" });
+    }
+});
+
+
+// Out of Charge Summary Report
+router.get("/out-of-charge-summaries", authMiddleware, applyUserBranchFilter, async (req, res) => {
+    try {
+        const { filterType, month, year, quarter, startDate, endDate, day, branchId, category } = req.query;
+        const branchMatch = getBranchMatch(branchId, category, req.authorizedBranchIds);
+
+        // Base: all non-cancelled jobs
+        const baseMatchStage = {
+            be_no: { $not: { $regex: "^cancelled$", $options: "i" } },
+            out_of_charge: { $ne: null, $ne: "" },
+            ...branchMatch,
+        };
+
+        if (year && (!filterType || filterType === "all" || filterType === "null" || filterType === "undefined")) {
+            baseMatchStage.year = year;
+        }
+
+        const pipeline = [
+            { $match: baseMatchStage },
+            // Parse out_of_charge for date filtering
+            {
+                $addFields: {
+                    parsedOocDate: {
+                        $cond: {
+                            if: {
+                                $and: [
+                                    { $ne: ["$out_of_charge", null] },
+                                    { $ne: ["$out_of_charge", ""] },
+                                    { $regexMatch: { input: "$out_of_charge", regex: /^\d{4}-\d{2}-\d{2}/ } },
+                                ],
+                            },
+                            then: { $toDate: "$out_of_charge" },
+                            else: null,
+                        },
+                    },
+                },
+            },
+            { $match: { parsedOocDate: { $ne: null } } }
+        ];
+
+        // Apply date filters
+        let dateMatch = {};
+
+        if (filterType === "day" && day) {
+            dateMatch = {
+                out_of_charge: { $regex: `^${day}` },
+            };
+        } else if (filterType === "week" && day) {
+            const refDate = new Date(day);
+            const dayOfWeek = refDate.getDay(); 
+            const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+            const weekStart = new Date(refDate);
+            weekStart.setDate(refDate.getDate() + mondayOffset);
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekStart.getDate() + 6);
+            weekEnd.setHours(23, 59, 59, 999);
+            dateMatch = {
+                parsedOocDate: { $gte: weekStart, $lte: weekEnd },
+            };
+        } else if (filterType === "month" && month !== undefined && year) {
+            const m = parseInt(month) + 1;
+            const y = parseInt(year);
+            dateMatch = {
+                $expr: {
+                    $and: [
+                        { $eq: [{ $month: "$parsedOocDate" }, m] },
+                        { $eq: [{ $year: "$parsedOocDate" }, y] },
+                    ],
+                },
+            };
+        } else if (filterType === "quarter" && quarter && year) {
+            const q = parseInt(quarter);
+            const y = parseInt(year);
+            const sm = (q - 1) * 3 + 1;
+            const em = sm + 2;
+            dateMatch = {
+                $expr: {
+                    $and: [
+                        { $gte: [{ $month: "$parsedOocDate" }, sm] },
+                        { $lte: [{ $month: "$parsedOocDate" }, em] },
+                        { $eq: [{ $year: "$parsedOocDate" }, y] },
+                    ],
+                },
+            };
+        } else if (filterType === "year" && year) {
+            const y = parseInt(year);
+            dateMatch = {
+                $expr: { $eq: [{ $year: "$parsedOocDate" }, y] },
+            };
+        } else if (filterType === "date-range" && startDate && endDate) {
+            dateMatch = {
+                parsedOocDate: {
+                    $gte: new Date(startDate),
+                    $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999)),
+                },
+            };
+        }
+
+        if (Object.keys(dateMatch).length > 0) {
+            pipeline.push({ $match: dateMatch });
+        }
+
+        pipeline.push({
+            $facet: {
+                totalJobsCreated: [
+                    { $count: "count" }
+                ],
+                outOfChargeData: [
+                    {
+                        $group: {
+                            _id: {
+                                branch: { $ifNull: ["$branch_code", "Unassigned"] },
+                                port: { $ifNull: ["$port_of_reporting", "Unassigned"] },
+                                employee: { $ifNull: ["$job_owner", "Unassigned"] },
+                            },
+                            count: { $sum: 1 },
+                        }
+                    },
+                    { $sort: { "_id.branch": 1, "_id.port": 1, count: -1 } },
+                    {
+                        $project: {
+                            _id: 0,
+                            branch: "$_id.branch",
+                            port: "$_id.port",
+                            employee: "$_id.employee",
+                            count: 1,
+                        }
+                    }
+                ],
+                categoryData: [
                     {
                         $group: {
                             _id: { $ifNull: ["$detailed_status", "Uncategorized"] },
@@ -726,68 +960,22 @@ router.get("/pending-job-summaries", authMiddleware, applyUserBranchFilter, asyn
         });
 
         const result = await JobModel.aggregate(pipeline);
-        
+
         const totalCreated = result[0]?.totalJobsCreated[0]?.count || 0;
-        const pendingData = result[0]?.pendingJobsData || [];
+        const outOfChargeData = result[0]?.outOfChargeData || [];
         const categoryData = result[0]?.categoryData || [];
 
-        // Calculate the financial year string to match Import Billing default filters
-        let financialYear;
-        if (year) {
-            const y = parseInt(year);
-            const m = month !== undefined && month !== '' ? parseInt(month) + 1 : new Date().getMonth() + 1;
-            const currentTwoDigits = String(y).slice(-2);
-            const prevTwoDigits = String((y - 1) % 100).padStart(2, "0");
-            const nextTwoDigits = String((y + 1) % 100).padStart(2, "0");
-            financialYear = m >= 4 ? `${currentTwoDigits}-${nextTwoDigits}` : `${prevTwoDigits}-${currentTwoDigits}`;
-        } else {
-            const currentYear = new Date().getFullYear();
-            const currentMonth = new Date().getMonth() + 1;
-            const prevTwoDigits = String((currentYear - 1) % 100).padStart(2, "0");
-            const currentTwoDigits = String(currentYear).slice(-2);
-            const nextTwoDigits = String((currentYear + 1) % 100).padStart(2, "0");
-            financialYear = currentMonth >= 4 ? `${currentTwoDigits}-${nextTwoDigits}` : `${prevTwoDigits}-${currentTwoDigits}`;
-        }
-
-        // Fetch independent SEA and AIR counts matching the exact Import Billing logic
-        // We do NOT apply branchMatch here to match the exact behavior of the Import Billing dashboard (which currently ignores branch limits).
-        const baseBillingQuery = {
-            $and: [
-                { year: financialYear },
-                { status: { $regex: "^pending$", $options: "i" } },
-                { bill_document_sent_to_accounts: { $exists: true, $nin: [null, ""] } },
-                { billing_confirmation_date: { $exists: true, $nin: [null, ""] } },
-                {
-                    $or: [
-                        { billing_completed_date: { $exists: false } },
-                        { billing_completed_date: "" },
-                        { billing_completed_date: null },
-                        {
-                            $and: [
-                                { billing_completed_date: { $exists: true, $ne: "" } },
-                                { dsr_queries: { $elemMatch: { select_module: "Accounts", resolved: { $ne: true } } } }
-                            ]
-                        }
-                    ]
-                }
-            ]
-        };
-
-        const readyForBillingSeaCount = await JobModel.countDocuments({
-            ...baseBillingQuery,
-            mode: { $in: ["SEA", "sea", "Sea"] }
+        res.json({
+            success: true,
+            totalCreated,
+            data: outOfChargeData,
+            categoryData
         });
-
-        const readyForBillingAirCount = await JobModel.countDocuments({
-            ...baseBillingQuery,
-            mode: { $in: ["AIR", "air", "Air"] }
-        });
-
-        res.json({ totalCreated, data: pendingData, categoryData, readyForBillingSeaCount, readyForBillingAirCount });
     } catch (error) {
-        console.error("Error fetching pending job summaries:", error);
-        res.status(500).json({ error: "Internal Server Error" });
+        console.error("Error in /out-of-charge-summaries:", error);
+        res.status(500).json({ success: false, message: "Internal server error" });
     }
 });
+
 
 export default router;

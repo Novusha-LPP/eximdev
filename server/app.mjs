@@ -131,6 +131,7 @@ import getNfimsSimsJobs from "./routes/e-sanchit/getNfimsSimsJobs.mjs";
 
 // import - billing
 import getImportBilling from "./routes/import-billing/getImportBilling.js";
+import virtualBalanceRoutes from "./routes/import-billing/virtualBalanceRoutes.mjs";
 
 // Home
 import assignModules from "./routes/home/assignModules.mjs";
@@ -626,6 +627,7 @@ app.use(getOperationPlanningList);
 
 // import billing
 app.use(getImportBilling);
+app.use(virtualBalanceRoutes);
 
 // import cth search
 app.use(getCthSearch);

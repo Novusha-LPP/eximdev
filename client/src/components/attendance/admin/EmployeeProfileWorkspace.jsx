@@ -223,6 +223,9 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
   };
 
   const handleSelectEmployee = (emp) => {
+    const mainContent = document.querySelector('.attendance-main-content');
+    const scrollY = mainContent ? mainContent.scrollTop : window.scrollY;
+    sessionStorage.setItem('epw_scroll_y', String(scrollY));
     const empId = emp._id;
     const username = emp.username||empId;
     const p = teamId ? `/attendance/teams/${teamId}/user/${username}/performance` : `/attendance/admin/employee/${empId}/performance`;
@@ -776,6 +779,29 @@ const filteredEmployees = useMemo(() => {
   };
 
   useEffect(() => { if (!id) fetchAllEmployees(); }, [id]);
+
+  useEffect(() => {
+    if (!id && !gridLoading && gridEmployees.length > 0) {
+      const savedScrollY = sessionStorage.getItem('epw_scroll_y');
+      if (savedScrollY) {
+        const targetScrollY = parseInt(savedScrollY, 10);
+        let attempts = 0;
+        const scrollInterval = setInterval(() => {
+          window.scrollTo(0, targetScrollY);
+          const mainContent = document.querySelector('.attendance-main-content');
+          if (mainContent) {
+            mainContent.scrollTop = targetScrollY;
+          }
+          attempts += 1;
+          const currentScroll = mainContent ? mainContent.scrollTop : window.scrollY;
+          if (Math.abs(currentScroll - targetScrollY) < 5 || attempts > 15) {
+            clearInterval(scrollInterval);
+            sessionStorage.removeItem('epw_scroll_y');
+          }
+        }, 50);
+      }
+    }
+  }, [id, gridLoading, gridEmployees]);
 
   useEffect(() => {
     const fetchTeams = async () => {
@@ -2573,6 +2599,41 @@ const filteredEmployees = useMemo(() => {
         {/* ── Top Bar ── */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px', flexWrap:'wrap', gap:'10px' }}>
           <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
+            <button
+              onClick={() => {
+                setLocalEmployeeId(null);
+                const fromPath = location.state?.fromPath;
+                if (fromPath) {
+                  navigate(fromPath);
+                } else if (teamId) {
+                  navigate(`/attendance/teams/${teamId}`);
+                } else {
+                  navigate('/attendance/teams');
+                }
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                padding: '8px 16px',
+                background: '#0f172a',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '12px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(15,23,42,0.15)',
+                transition: 'all 0.2s',
+                marginRight: '8px',
+                height: '38px'
+              }}
+              onMouseEnter={e => e.currentTarget.style.transform='translateY(-1px)'}
+              onMouseLeave={e => e.currentTarget.style.transform='translateY(0)'}
+            >
+              ← Back
+            </button>
             <div style={{ width:'44px', height:'44px', borderRadius:'10px', background:profile.employee.photo?`url(${profile.employee.photo}) center/cover`:THEME.primary, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:'18px', fontWeight:'800', flexShrink:0 }}>
               {!profile.employee.photo&&(profile.employee.first_name?.[0]||profile.employee.username?.[0]||'E').toUpperCase()}
             </div>
@@ -2594,17 +2655,6 @@ const filteredEmployees = useMemo(() => {
               <button onClick={handlePreviousUser} style={{ ...S.btn('primary') }}>← Prev</button>
               <button onClick={handleNextUser} style={{ ...S.btn('primary') }}>Next →</button>
             </>}
-            <button onClick={()=>{
-              setLocalEmployeeId(null);
-              const fromPath = location.state?.fromPath;
-              if (fromPath) {
-                navigate(fromPath);
-              } else if (teamId) {
-                navigate(`/attendance/teams/${teamId}`);
-              } else {
-                navigate('/attendance/teams');
-              }
-            }} style={{ ...S.btn('primary') }}>← Back</button>
           </div>
         </div>
 

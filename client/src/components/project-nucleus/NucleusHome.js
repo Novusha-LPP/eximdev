@@ -423,7 +423,7 @@ const NucleusHome = () => {
                                                     if (['fleet_utilization', 'elock_utilization', 'elock_billing', 'transport_accounts'].includes(report.id)) {
                                                         setFilterType('day');
                                                         setSelectedDay(format(new Date(), 'yyyy-MM-dd'));
-                                                    } else if (['import_pending_summary'].includes(report.id)) {
+                                                    } else if (['import_pending_summary', 'import_out_of_charge_summary'].includes(report.id)) {
                                                         setFilterType('fin-year');
                                                     } else {
                                                         if (filterType === 'day') {
@@ -458,6 +458,7 @@ const NucleusHome = () => {
                     <div className="nucleus-controls-container">
                         <div className="nucleus-filter-section">
                             <div className="filter-row custom-filter-row" style={{ marginTop: 0, paddingLeft: 0, background: 'transparent' }}>
+                                {!["import_pending_summary", "import_out_of_charge_summary"].includes(activeReport) && (
                                 <div className="filter-type-selector">
                                     <span className="filter-label" style={{ minWidth: 'auto', marginRight: '10px' }}>Filter Period:</span>
                                     <select
@@ -477,6 +478,7 @@ const NucleusHome = () => {
                                         <option value="all">Unfiltered (All Time)</option>
                                     </select>
                                 </div>
+                                )}
 
                                 {filterType === 'day' && (
                                     <div className="custom-inputs">

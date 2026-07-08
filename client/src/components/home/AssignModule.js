@@ -45,7 +45,8 @@ const allModules = [
   "Team Pulse",
   "MasterDirectory",
   "Attendance",
-  "Bill Cover"
+  "Bill Cover",
+  "Karma Points"
 ];
 
 // allowedModules: if provided, only these modules can be assigned (for HOD restriction)

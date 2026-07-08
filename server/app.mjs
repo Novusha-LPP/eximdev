@@ -249,6 +249,7 @@ import currencyRateRoutes from "./routes/currencyRate.js";
 
 // Open Points Module
 import openPointsRoutes from "./routes/open-points/openPointsRoutes.mjs";
+import teamKarmaLeaderboard from "./routes/open-points/teamKarmaLeaderboard.mjs";
 
 import analyticsRoutes from "./routes/analytics/analyticsRoutes.mjs";
 import uploadFileRoutes from "./routes/upload/uploadFile.mjs";
@@ -677,6 +678,7 @@ app.use(analyticsRoutes);
 
 // Open Points
 app.use(openPointsRoutes);
+app.use("/api/open-points", teamKarmaLeaderboard);
 
 // Upload
 app.use(uploadFileRoutes);

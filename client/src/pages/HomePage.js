@@ -168,6 +168,7 @@ import OpenPointsHome from "../components/open-points/OpenPointsHome.js";
 import ProjectWorkspace from "../components/open-points/ProjectWorkspace.js";
 import AnalyticsDashboard from "../components/open-points/AnalyticsDashboard.js";
 import MyOpenPoints from "../components/open-points/MyOpenPoints.js";
+import KarmaPointsModule from "../components/open-points/KarmaPointsModule";
 
 // Project Nucleus
 import NucleusHome from "../components/project-nucleus/NucleusHome.js";
@@ -439,6 +440,11 @@ function HomePageContent() {
                 <Route path="/" element={<Home />} />
                 <Route path="/change-password" element={<ChangePassword />} />
                 <Route path="/profile/:username" element={<UserProfile />} />
+
+
+                {/* Karma Points - New Module */}
+                <Route path="/karma-points" element={<KarmaPointsModule />} />
+
 
                 {/* Protected Routes */}
                 <Route path="/assign" element={<Assign />} />

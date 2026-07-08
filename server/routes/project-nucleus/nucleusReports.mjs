@@ -12,7 +12,7 @@ import OpenPointModel from "../../model/openPoints/openPointModel.mjs";
 
 const router = express.Router();
 
-router.get("/reports", async (req, res) => {
+router.get("/reports", authMiddleware, async (req, res) => {
     try {
         const { branchId, category } = req.query;
         const branchMatch = getBranchMatch(branchId, category);
@@ -135,7 +135,7 @@ function parseAmount(amountStr) {
 
 
 // Top 10 Importers Report
-router.get("/top-importers", async (req, res) => {
+router.get("/top-importers", authMiddleware, async (req, res) => {
     try {
         const { filterType, month, year, quarter, startDate, endDate, branchId, category } = req.query;
         const branchMatch = getBranchMatch(branchId, category);
@@ -320,7 +320,7 @@ router.get("/top-importers", async (req, res) => {
 });
 
 // Customer UDYAM Registration Details
-router.get("/customer-udyam", async (req, res) => {
+router.get("/customer-udyam", authMiddleware, async (req, res) => {
     try {
         const customers = await CustomerKycModel.find({ draft: { $ne: "true" } })
             .select("name_of_individual category approval iec_no udyam_no trainings")
@@ -353,7 +353,7 @@ router.get("/customer-udyam", async (req, res) => {
 });
 
 // Client User Login Analytics Report
-router.get("/client-login-analytics", async (req, res) => {
+router.get("/client-login-analytics", authMiddleware, async (req, res) => {
     try {
         // 1. Fetch all client users with their login details
         const clientUsers = await EximClientUserModel.find({})
@@ -398,7 +398,7 @@ router.get("/client-login-analytics", async (req, res) => {
 });
 
 // New Customers Report
-router.get("/new-customers-report", async (req, res) => {
+router.get("/new-customers-report", authMiddleware, async (req, res) => {
     try {
         const customers = await CustomerKycModel.find({
             approval: { $in: ["Approved", "Approved by HOD"] },
@@ -433,7 +433,7 @@ router.get("/new-customers-report", async (req, res) => {
 });
 
 // Karma Leaderboard Report
-router.get("/karma-leaderboard", async (req, res) => {
+router.get("/karma-leaderboard", authMiddleware, async (req, res) => {
     try {
         const { filterType, month, year, quarter, startDate, endDate } = req.query;
 

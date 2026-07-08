@@ -255,13 +255,7 @@ const ImportPendingSummaryReport = ({
         return data.filter(item => item.value > 0);
     }, [readyForBillingSeaCount, readyForBillingAirCount, category]);
 
-    const displayJobCount = useMemo(() => {
-        const isAll = !category || category.toLowerCase() === 'all';
-        if (isAll) return billingReadyJobsCount;
-        if (category.toUpperCase() === 'SEA') return readyForBillingSeaCount;
-        if (category.toUpperCase() === 'AIR') return readyForBillingAirCount;
-        return billingReadyJobsCount;
-    }, [billingReadyJobsCount, readyForBillingSeaCount, readyForBillingAirCount, category]);
+    const displayJobCount = totalPending;
 
     // Chart 2: Top Employees (Bar)
     const topEmployeesData = useMemo(() => {
@@ -386,28 +380,54 @@ const ImportPendingSummaryReport = ({
                     <div style={{ flex: 1, width: '100%', minHeight: 0 }}>
                         {branchPieData.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
-                                <PieChart margin={{ top: 10, right: 30, bottom: 10, left: 30 }}>
+                                <PieChart margin={{ top: 20, right: 40, bottom: 20, left: 40 }}>
                                     <Pie
                                         data={branchPieData}
                                         cx="50%"
                                         cy="50%"
-                                        innerRadius={45}
-                                        outerRadius={65}
-                                        paddingAngle={4}
+                                        innerRadius={35}
+                                        outerRadius={55}
+                                        paddingAngle={2}
                                         dataKey="value"
                                         stroke="none"
-                                        label={({ cx, cy, midAngle, innerRadius, outerRadius, value, index, name }) => {
+                                        labelLine={(props) => {
+                                            if (props.value === 0) return null;
+                                            const { cx, cy, midAngle, outerRadius, index } = props;
                                             const RADIAN = Math.PI / 180;
-                                            const radius = outerRadius * 1.25;
-                                            const x = cx + radius * Math.cos(-midAngle * RADIAN);
-                                            const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                                            // Stagger radius for overlapping prevention
+                                            const stagger = 1.2 + (index % 4) * 0.35;
+                                            const radius = outerRadius * stagger;
+                                            
+                                            const elbowX = cx + radius * Math.cos(-midAngle * RADIAN);
+                                            const elbowY = cy + radius * Math.sin(-midAngle * RADIAN);
+                                            
+                                            const horizontalLength = 15;
+                                            const textX = elbowX + (elbowX > cx ? horizontalLength : -horizontalLength);
+                                            
+                                            const startX = cx + outerRadius * Math.cos(-midAngle * RADIAN);
+                                            const startY = cy + outerRadius * Math.sin(-midAngle * RADIAN);
+                                            
+                                            return <polyline points={`${startX},${startY} ${elbowX},${elbowY} ${textX},${elbowY}`} stroke="#cbd5e1" strokeWidth={1} fill="none" />;
+                                        }}
+                                        label={(props) => {
+                                            if (props.value === 0) return null;
+                                            const { cx, cy, midAngle, outerRadius, name, value, index } = props;
+                                            const RADIAN = Math.PI / 180;
+                                            const stagger = 1.2 + (index % 4) * 0.35;
+                                            const radius = outerRadius * stagger;
+                                            
+                                            const elbowX = cx + radius * Math.cos(-midAngle * RADIAN);
+                                            const elbowY = cy + radius * Math.sin(-midAngle * RADIAN);
+                                            
+                                            const horizontalLength = 15;
+                                            const textX = elbowX + (elbowX > cx ? horizontalLength : -horizontalLength);
+                                            
                                             return (
-                                                <text x={x} y={y} fill="#475569" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" fontSize="11px" fontWeight="600">
+                                                <text x={textX + (elbowX > cx ? 4 : -4)} y={elbowY} fill="#475569" textAnchor={elbowX > cx ? 'start' : 'end'} dominantBaseline="central" fontSize="10px" fontWeight="600">
                                                     {name} ({value})
                                                 </text>
                                             );
                                         }}
-                                        labelLine={{ stroke: '#cbd5e1', strokeWidth: 1 }}
                                     >
                                         {branchPieData.map((entry, index) => (
                                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

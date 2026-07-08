@@ -331,7 +331,8 @@ export default function AssetManagement() {
       });
     } else {
       setEditId(null);
-      setForm({ ...EMPTY_FORM });
+      const generatedTag = `AST-${Date.now().toString().slice(-6)}`;
+      setForm({ ...EMPTY_FORM, asset_tag: generatedTag });
       setErrors({});
     }
     setShowModal(true);
@@ -392,9 +393,17 @@ export default function AssetManagement() {
       remarks: form.remarks || undefined,
     };
 
-    const payload = form.asset_type === "SIM Card"
-      ? basePayload
-      : (({ service_provider, plan_type, allocation_date, sim_number_iccid, mobile_number, monthly_plan_package, ...rest }) => rest)(basePayload);
+    let payload = { ...basePayload };
+    if (form.asset_type !== "SIM Card") {
+      delete payload.service_provider;
+      delete payload.plan_type;
+      delete payload.allocation_date;
+      delete payload.sim_number_iccid;
+      delete payload.monthly_plan_package;
+    }
+    if (form.asset_type !== "SIM Card" && form.asset_type !== "Phone") {
+      delete payload.mobile_number;
+    }
     setSaving(true);
     try {
       if (editId) {

@@ -5,7 +5,6 @@ import ITHelpdeskHome from "../components/it-helpdesk/ITHHelpdeskHome";
 import AssetManagement from "../components/it-helpdesk/AssetManagement";
 import TicketManagement from "../components/it-helpdesk/TicketManagement";
 import VendorManagement from "../components/it-helpdesk/VendorManagement";
-import ContractManagement from "../components/it-helpdesk/ContractManagement";
 import InventoryManagement from "../components/it-helpdesk/InventoryManagement";
 import LicenseManagement from "../components/it-helpdesk/LicenseManagement";
 import ITReports from "../components/it-helpdesk/ITReports";
@@ -37,7 +36,6 @@ export default function ItHelpdeskPage() {
 
 
 
-        <Route path="/contracts" element={<ContractManagement />} />
         <Route path="/inventory" element={<InventoryManagement />} />
         <Route path="/licenses" element={<LicenseManagement />} />
         <Route path="/reports" element={<ITReports />} />

@@ -16,9 +16,10 @@ const validateId = (req, res, next) => {
 
 router.get("/", async (req, res) => {
   try {
-    const { category } = req.query;
+    const { category, inventory_type } = req.query;
     const filter = {};
     if (category) filter.category = category;
+    if (inventory_type) filter.inventory_type = inventory_type;
 
     const data = await Inventory.find(filter).sort({ item_name: 1 });
     res.json({ success: true, data });

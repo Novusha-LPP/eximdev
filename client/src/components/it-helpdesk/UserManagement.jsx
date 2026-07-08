@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 
 import {
   Box,
@@ -35,6 +35,8 @@ import { toast } from "react-hot-toast";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import { useAuditCRUD } from "./AuditLogs";
 import axios from "axios";
+import { UserContext } from "../../contexts/UserContext";
+
 const USER_ROLES = ["Admin", "IT Team", "Manager", "Employee"];
 
 const GROUPS = [
@@ -51,7 +53,6 @@ const PERMISSION_CATEGORIES = [
   "Ticket Management",
   "User Management",
   "Vendor Management",
-  "Contract Management",
   "License Management",
   "Inventory Management",
   "Reporting",
@@ -79,6 +80,8 @@ const ACTIONS = {
 
 
 export default function UserManagement() {
+  const { user: loggedInUser } = useContext(UserContext);
+
   // Audit logs
   const { logCreate, logRead, logUpdate, logDelete } = useAuditCRUD("User", "User");
 
@@ -509,7 +512,7 @@ export default function UserManagement() {
                     <TableCell>Email</TableCell>
                     <TableCell>Role</TableCell>
                     <TableCell>Group</TableCell>
-                    <TableCell>Status</TableCell>
+                    <TableCell>Permissions</TableCell>
                     <TableCell>Actions</TableCell>
                   </TableRow>
                 </TableHead>
@@ -524,18 +527,37 @@ export default function UserManagement() {
                       </TableCell>
                       <TableCell>{user.group}</TableCell>
                       <TableCell>
-                        <Chip
-                          label={user.status}
-                          color={user.status === "Active" ? "success" : "error"}
-                        />
+                        {String(user.role).trim().toLowerCase() === "admin" ? (
+                          <Chip label="All Permissions" size="small" color="success" variant="outlined" />
+                        ) : user.permissions && user.permissions.length > 0 ? (
+                          <Box display="flex" gap={0.5} flexWrap="wrap">
+                            {user.permissions.map((p) => (
+                              <Chip
+                                key={p}
+                                label={p}
+                                size="small"
+                                variant="outlined"
+                                color="primary"
+                              />
+                            ))}
+                          </Box>
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">
+                            No permissions
+                          </Typography>
+                        )}
                       </TableCell>
                       <TableCell>
-                        <IconButton onClick={() => handleOpenModal(user)}>
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton onClick={() => handleDeleteUser(user.id)}>
-                          <DeleteIcon />
-                        </IconButton>
+                        {user.role !== 'Admin' && (
+                          <>
+                            <IconButton onClick={() => handleOpenModal(user)}>
+                              <EditIcon />
+                            </IconButton>
+                            <IconButton onClick={() => handleDeleteUser(user.id)}>
+                              <DeleteIcon />
+                            </IconButton>
+                          </>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -584,41 +606,35 @@ export default function UserManagement() {
 
             <Grid item xs={12}>
               <Typography variant="subtitle1" gutterBottom>Permissions</Typography>
-
-              {String(form.role).trim().toLowerCase() === 'admin' ? (
-                <Box>
-                  <Typography variant="body2" color="textSecondary" sx={{ mb: 1 }}>
-                    Permissions: All (Full Access)
-                  </Typography>
-                  <Box display="flex" gap={1} flexWrap="wrap">
-                    {PERMISSION_CATEGORIES.map((p) => (
-                      <Chip
-                        key={p}
-                        label={p}
-                        // 'default' color makes them look grey/faded
-                        color="default"
-                        // disabled makes them unclickable and faded
-                        disabled
-                        sx={{
-                          opacity: 0.5, // Manually reduce opacity to look "faded"
-                          cursor: "not-allowed"
-                        }}
-                      />
-                    ))}
-                  </Box>
-                </Box>
-              ) : (
-                <Box display="flex" gap={1} flexWrap="wrap">
-                  {PERMISSION_CATEGORIES.map((p) => (
+              
+              <Box display="flex" gap={1} flexWrap="wrap">
+                {PERMISSION_CATEGORIES.map((p) => {
+                  const isAdmin = String(form.role).trim().toLowerCase() === 'admin';
+                  const hasPermission = isAdmin || form.permissions.includes(p);
+                  
+                  return (
                     <Chip
                       key={p}
                       label={p}
-                      clickable
-                      color={form.permissions.includes(p) ? "primary" : "default"}
-                      onClick={() => handlePermissionChange(p)}
+                      clickable={!isAdmin}
+                      color={hasPermission ? "primary" : "default"}
+                      onClick={() => !isAdmin && handlePermissionChange(p)}
+                      disabled={isAdmin}
+                      sx={{
+                        ...(isAdmin && {
+                          opacity: 0.5,
+                          cursor: "not-allowed",
+                        })
+                      }}
                     />
-                  ))}
-                </Box>
+                  );
+                })}
+              </Box>
+              
+              {String(form.role).trim().toLowerCase() === 'admin' && (
+                <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
+                  Admin has all permissions (Full Access)
+                </Typography>
               )}
             </Grid>
           </Grid>

@@ -182,11 +182,11 @@ export default function TicketDetailDrawer({ open, onClose, ticketId, onUpdate, 
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="caption" color="textSecondary">Raised By</Typography>
-                    <Typography variant="body2">{ticket.raised_by?.username || ticket.requester_name || "—"}</Typography>
+                    <Typography variant="body2">{ticket.requester_name || ticket.raised_by?.username || "—"}</Typography>
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="caption" color="textSecondary">Assigned To</Typography>
-                    <Typography variant="body2">{ticket.assigned_to?.username || "Unassigned"}</Typography>
+                    <Typography variant="body2">{ticket.assigned_to?.username || ticket.assigned_to?.first_name || "Vikash"}</Typography>
                   </Grid>
                   <Grid item xs={12}>
                     <Typography variant="caption" color="textSecondary">Description</Typography>
@@ -208,7 +208,7 @@ export default function TicketDetailDrawer({ open, onClose, ticketId, onUpdate, 
                       value={statusData.status}
                       onChange={(e) => setStatusData({ ...statusData, status: e.target.value })}
                     >
-                      {["New", "Assigned", "In Progress", "Pending", "Resolved", "Closed"].map(s => (
+                      {["Open", "In Progress", "Closed"].map(s => (
                         <MenuItem key={s} value={s}>{s}</MenuItem>
                       ))}
                     </TextField>
@@ -234,46 +234,7 @@ export default function TicketDetailDrawer({ open, onClose, ticketId, onUpdate, 
                   </Grid>
                 </Grid>
 
-                <Divider sx={{ my: 3 }} />
 
-                <Typography variant="subtitle2" mb={1} display="flex" alignItems="center" gap={1}>
-                  <AssignmentIndIcon fontSize="small" /> Assign Ticket
-                </Typography>
-                <Grid container spacing={2} alignItems="center">
-                  <Grid item xs={4}>
-                    <TextField
-                      select
-                      size="small"
-                      fullWidth
-                      value={assignData.assigned_to}
-                      onChange={(e) => setAssignData({ ...assignData, assigned_to: e.target.value })}
-                    >
-                      <MenuItem value="">Unassigned</MenuItem>
-                      {users.map(u => (
-                        <MenuItem key={u._id} value={u._id}>{u.username || u.email}</MenuItem>
-                      ))}
-                    </TextField>
-                  </Grid>
-                  <Grid item xs={5}>
-                    <TextField
-                      size="small"
-                      fullWidth
-                      placeholder="Assignment remarks"
-                      value={assignData.remarks}
-                      onChange={(e) => setAssignData({ ...assignData, remarks: e.target.value })}
-                    />
-                  </Grid>
-                  <Grid item xs={3}>
-                    <Button
-                      variant="outlined"
-                      fullWidth
-                      disabled={!assignData.assigned_to || assignData.assigned_to === ticket.assigned_to?._id}
-                      onClick={handleAssign}
-                    >
-                      Assign
-                    </Button>
-                  </Grid>
-                </Grid>
               </Box>
             )}
 

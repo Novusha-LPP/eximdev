@@ -59,6 +59,15 @@ const ADMIN_STATUSES = ["Open", "In Progress", "Closed"];
 // Default assigned IT person
 const DEFAULT_ASSIGNEE = "Vikash";
 
+// Helper: returns today's date as YYYY-MM-DD
+const getTodayDate = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 const INITIAL_FORM = {
   description: "",
   category: "Hardware",
@@ -66,13 +75,13 @@ const INITIAL_FORM = {
   priority: "",       // optional — no default
   severity: "Medium",
   type: "Incident",
-  status: "New",      // default New for employees
+  status: "New",      // always New for employees
   assigned_to: DEFAULT_ASSIGNEE,
   requesterName: "",
   department: "",
   contactInformation: "",
   location: "",
-  dueDate: "",
+  dueDate: getTodayDate(),   // auto-set to today
   estimatedTime: "",
   tags: [],
 };
@@ -122,7 +131,7 @@ export default function RaiseTicket() {
   };
 
   const handleReset = () => {
-    setTicketForm(INITIAL_FORM);
+    setTicketForm({ ...INITIAL_FORM, dueDate: getTodayDate() });
     setAttachments([]);
   };
 
@@ -145,7 +154,7 @@ export default function RaiseTicket() {
       if (ticketForm.priority) formData.append("priority", ticketForm.priority);
       formData.append("severity", ticketForm.severity);
       formData.append("type", ticketForm.type);
-      formData.append("status", ticketForm.status);
+      formData.append("status", "New"); // always New when raising a ticket
       formData.append("assigned_to_name", ticketForm.assigned_to);
       formData.append("requester_name", ticketForm.requesterName);
       formData.append("department", ticketForm.department);
@@ -212,31 +221,15 @@ export default function RaiseTicket() {
               />
             </Grid>
 
-            {/* Status — Admin sees limited options; Employee sees "New" fixed */}
+            {/* Status — always "New" when raising a ticket */}
             <Grid item xs={12} md={6}>
-              {isAdmin ? (
-                <FormControl fullWidth>
-                  <InputLabel>Status</InputLabel>
-                  <Select
-                    name="status"
-                    value={ticketForm.status}
-                    onChange={handleInputChange}
-                    label="Status"
-                  >
-                    {ADMIN_STATUSES.map((s) => (
-                      <MenuItem key={s} value={s}>{s}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              ) : (
-                <TextField
-                  fullWidth
-                  label="Status"
-                  value="New"
-                  disabled
-                  helperText="New tickets always start with status: New"
-                />
-              )}
+              <TextField
+                fullWidth
+                label="Status"
+                value="New"
+                disabled
+                helperText="New tickets always start with status: New"
+              />
             </Grid>
 
             {/* Assigned To — defaults to Vikash */}
@@ -456,12 +449,14 @@ export default function RaiseTicket() {
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Due Date"
+                required
+                label="SLA Due Date"
                 name="dueDate"
                 type="date"
                 value={ticketForm.dueDate}
-                onChange={handleInputChange}
+                disabled
                 InputLabelProps={{ shrink: true }}
+                helperText="Auto-set to today's date"
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">

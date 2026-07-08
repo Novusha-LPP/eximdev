@@ -533,15 +533,7 @@ export default function ITHelpdeskHome() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} sm={6} md={4} lg={2}>
-          <Card component={Link} to="/it-helpdesk/contracts" sx={{ height: "100%", textDecoration: "none", transition: "0.2s", "&:hover": { boxShadow: 6 } }}>
-            <CardContent sx={{ textAlign: "center" }}>
-              <CategoryIcon sx={{ fontSize: 36, color: "#ef6c00", mb: 1 }} />
-              <Typography variant="subtitle1" fontWeight={600}>Contracts</Typography>
-              <Typography variant="caption" color="text.secondary">AMC & Warranty</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+
         <Grid item xs={12} sm={6} md={4} lg={2}>
           <Card component={Link} to="/it-helpdesk/inventory" sx={{ height: "100%", textDecoration: "none", transition: "0.2s", "&:hover": { boxShadow: 6 } }}>
             <CardContent sx={{ textAlign: "center" }}>

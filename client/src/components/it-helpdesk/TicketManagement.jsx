@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useContext } from "react";
 import toast from "react-hot-toast";
 import axios from "axios";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import { useModuleAuditLogs } from "./AuditLogs";
+import { UserContext } from "../../contexts/UserContext";
 import AssignTicket from "./AssignTicket";
 import PriorityManagement from "./PriorityManagement";
 import SLATracking from "./SLATracking";
@@ -59,10 +60,11 @@ import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import BusinessCenterIcon from "@mui/icons-material/BusinessCenter";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import DownloadIcon from "@mui/icons-material/Download";
+import ManageHistoryIcon from "@mui/icons-material/ManageHistory";
 
 const TICKET_CATEGORIES = ["Hardware", "Software", "Network", "Access", "Other"];
 const TICKET_PRIORITIES = ["Low", "Medium", "High", "Critical"];
-const TICKET_STATUSES = ["New", "Assigned", "In Progress", "Pending", "Resolved", "Closed"];
+const TICKET_STATUSES = ["Open", "In Progress", "Closed"];
 const USERS_FETCH_LIMIT = 200;
 
 const EMPTY_FORM = {
@@ -73,12 +75,17 @@ const EMPTY_FORM = {
   status: "New",
   type: "Incident",
   assigned_to: "",
+  requester_name: "",
   department: "",
   sla_due_date: "",
   resolution_notes: "",
+  files: [],
 };
 
 export default function TicketManagement() {
+  const { user } = useContext(UserContext);
+  const isAdmin = user?.role === "Admin";
+
   // Audit logs
   const { logCreate, logRead, logUpdate, logDelete } = useModuleAuditLogs("Helpdesk");
   const [data, setData] = useState([]);
@@ -120,18 +127,17 @@ export default function TicketManagement() {
       }
       const wb = XLSX.utils.book_new();
       const wsData = [
-        ["Ticket ID", "Title", "Description", "Category", "Priority", "Status", "Assigned To", "Raised By", "Department", "Created Date"]
+        ["Ticket ID", "Description", "Category", "Priority", "Status", "Assigned To", "Requester", "Department", "Created Date"]
       ];
       allTickets.forEach(t => {
         wsData.push([
           t.ticket_id || t._id,
-          t.title || "",
           t.description || "",
           t.category || "",
           t.priority || "",
           t.status || "",
-          t.assigned_to?.username || t.assigned_to?.email || "—",
-          t.raised_by?.username || t.raised_by?.email || t.requester_name || "—",
+          t.assigned_to?.username || t.assigned_to?.first_name || "Vikash",
+          t.requester_name || t.raised_by?.username || t.raised_by?.email || "—",
           t.department || "—",
           t.createdAt ? new Date(t.createdAt).toLocaleString() : "—"
         ]);
@@ -244,8 +250,12 @@ export default function TicketManagement() {
         record.assigned_to?._id ||
         record.assigned_to ||
         "",
+        
+      requester_name: record.requester_name || "",
 
       department: record.department || "",
+
+      files: [],
 
       sla_due_date:
         record.sla_due_date
@@ -260,8 +270,19 @@ export default function TicketManagement() {
 
     setEditId(null);
 
+    let defaultAssignedTo = "Vikash";
+    if (users && users.length > 0) {
+      const vikash = users.find(u => (u.username || u.first_name || u.email || "").toLowerCase().includes("vikash"));
+      if (vikash) defaultAssignedTo = vikash._id;
+    }
+
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
     setForm({
-      ...EMPTY_FORM
+      ...EMPTY_FORM,
+      assigned_to: defaultAssignedTo,
+      sla_due_date: today,
     });
 
   }
@@ -269,11 +290,6 @@ export default function TicketManagement() {
   setShowModal(true);
 };
  const handleSave = async () => {
-
-  if (!form.title.trim()) {
-    toast.error("Title is required");
-    return;
-  }
 
   if (!form.description.trim()) {
     toast.error("Description is required");
@@ -285,21 +301,12 @@ export default function TicketManagement() {
     return;
   }
 
-  if (!form.priority) {
-    toast.error("Priority is required");
-    return;
-  }
-
   if (!form.status) {
     toast.error("Status is required");
     return;
   }
 
-  if (!form.assigned_to) {
-    toast.error("Assigned To is required");
-    return;
-  }
-
+  // Priority and Assigned To are optional/defaulted based on requirements
   if (!form.department.trim()) {
     toast.error("Department is required");
     return;
@@ -310,18 +317,32 @@ export default function TicketManagement() {
     return;
   }
     
+    const autoTitle = `[${form.type}] ${form.category}`;
     const payload = {
       ...form,
-      assigned_to: form.assigned_to || undefined,
+      title: form.title || autoTitle,
+      status: editId ? form.status : "New", // always "New" when raising a ticket
+      assigned_to: form.assigned_to === "Vikash" ? undefined : (form.assigned_to || undefined),
+      requester_name: form.requester_name || undefined,
       sla_due_date: form.sla_due_date || undefined,
     };
     setSaving(true);
     try {
       if (editId) {
         await itHelpdeskAPI.tickets.update(editId, payload);
+        if (form.files && form.files.length > 0) {
+          const formData = new FormData();
+          form.files.forEach(file => formData.append("files", file));
+          await itHelpdeskAPI.tickets.uploadAttachment(editId, formData);
+        }
         toast.success("Ticket updated");
       } else {
-        await itHelpdeskAPI.tickets.create(payload);
+        const res = await itHelpdeskAPI.tickets.create(payload);
+        if (form.files && form.files.length > 0 && res.data && res.data._id) {
+          const formData = new FormData();
+          form.files.forEach(file => formData.append("files", file));
+          await itHelpdeskAPI.tickets.uploadAttachment(res.data._id, formData);
+        }
         toast.success("Ticket raised");
       }
       setShowModal(false);
@@ -353,16 +374,10 @@ export default function TicketManagement() {
 
   const statusColor = (s) => {
     switch (s) {
-      case "New":
+      case "Open":
         return "error";
-      case "Assigned":
-        return "info";
       case "In Progress":
         return "warning";
-      case "Pending":
-        return "default";
-      case "Resolved":
-        return "success";
       case "Closed":
         return "success";
       default:
@@ -545,10 +560,10 @@ export default function TicketManagement() {
                 <TableHead>
                   <TableRow>
                     <TableCell>Ticket ID</TableCell>
-                    <TableCell>Title</TableCell>
                     <TableCell>Category</TableCell>
                     <TableCell>Priority</TableCell>
                     <TableCell>Status</TableCell>
+                    <TableCell>Requester</TableCell>
                     <TableCell>Assigned To</TableCell>
                     <TableCell align="right">Actions</TableCell>
                   </TableRow>
@@ -566,7 +581,6 @@ export default function TicketManagement() {
                     data.map((t) => (
                       <TableRow key={t._id} hover>
                         <TableCell>{t.ticket_id || t._id}</TableCell>
-                        <TableCell>{t.title}</TableCell>
                         <TableCell>{t.category}</TableCell>
                         
                         <TableCell>
@@ -576,17 +590,29 @@ export default function TicketManagement() {
                             <Chip label={t.status} color={statusColor(t.status)} size="small" />
                         </TableCell>
                         <TableCell>
-                          {t.assigned_to?.username || t.raised_by?.username || "—"}
+                          {t.requester_name || t.raised_by?.username || "—"}
+                        </TableCell>
+                        <TableCell>
+                          {t.assigned_to?.username || t.assigned_to?.first_name || "Vikash"}
                         </TableCell>
                         <TableCell align="right">
-                          <Tooltip title="View Details">
-                            <IconButton size="small" color="primary" onClick={() => {
-                              setDetailTicketId(t._id);
-                              setDrawerOpen(true);
-                            }}>
-                              <VisibilityIcon fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
+                            <Tooltip title="Manage Status / History">
+                              <IconButton size="small" color="secondary" onClick={() => {
+                                setDetailTicketId(t._id);
+                                setDrawerOpen(true);
+                              }}>
+                                <ManageHistoryIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          {t.attachments && t.attachments.length > 0 && (
+                            <Tooltip title="View Attachment">
+                              <IconButton size="small" color="primary" onClick={() => {
+                                window.open(t.attachments[0].file_url, '_blank');
+                              }}>
+                                <VisibilityIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                           <Tooltip title="Edit">
                             <IconButton size="small" onClick={() => handleOpen(t)}>
                               <EditIcon fontSize="small" />
@@ -639,17 +665,7 @@ export default function TicketManagement() {
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
             {/* Debug: Log users data when form is rendered */}
             {console.log("Form rendering with users:", users)}
-            <Grid item xs={12}>
-              <TextField
-                label="Title"
-                required
-                size="small"
-                fullWidth
-                value={form.title}
-                required
-                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-              />
-            </Grid>
+            {/* Title removed per request, auto-generated */}
             <Grid item xs={12}>
               <TextField
                 label="Description"
@@ -682,13 +698,13 @@ export default function TicketManagement() {
             <Grid item xs={6}>
               <TextField
                 select
-                label="Priority"
+                label="Priority (Optional)"
                 size="small"
                 fullWidth
-                required
                 value={form.priority}
                 onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}
               >
+                <MenuItem value=""><em>Not specified</em></MenuItem>
                 {TICKET_PRIORITIES.map((p) => (
                   <MenuItem key={p} value={p}>
                     {p}
@@ -696,75 +712,61 @@ export default function TicketManagement() {
                 ))}
               </TextField>
             </Grid>
-        <Grid item xs={6}>
-
-<TextField
-
-select
-
-required
-
-label="Assigned To"
-
-size="small"
-
-fullWidth
-required
-
-value={form.assigned_to}
-
-onChange={(e)=>
- setForm(f=>({
-  ...f,
-  assigned_to:e.target.value
- }))
-}
-
->
-
-
-<MenuItem value="">
-Select User
-</MenuItem>
-
-
-{
-users && users.length > 0 ?
-
-users.map((user)=>(
-
-<MenuItem
-
-key={user._id}
-
-value={user._id}
-
->
-
-{
-user.username ||
-user.first_name ||
-user.email
-}
-
-
-</MenuItem>
-
-))
-
-
-:
-
-<MenuItem disabled>
-No Users Found
-</MenuItem>
-
-}
-
-
-</TextField>
-
+<Grid item xs={6}>
+{isAdmin ? (
+  <TextField
+    select
+    label="Assigned To"
+    size="small"
+    fullWidth
+    value={form.assigned_to || ""}
+    onChange={(e)=>
+      setForm(f=>({
+        ...f,
+        assigned_to:e.target.value
+      }))
+    }
+  >
+    <MenuItem value="">Select User</MenuItem>
+    {form.assigned_to === "Vikash" && <MenuItem value="Vikash">Vikash</MenuItem>}
+    {users && users.length > 0 ? (
+      users.map((user)=>(
+        <MenuItem key={user._id} value={user._id}>
+          {user.username || user.first_name || user.email}
+        </MenuItem>
+      ))
+    ) : (
+      !form.assigned_to === "Vikash" && <MenuItem disabled>No Users Found</MenuItem>
+    )}
+  </TextField>
+) : (
+  <TextField
+    select
+    label="Assigned To"
+    size="small"
+    fullWidth
+    disabled
+    value={form.assigned_to || "Vikash"}
+    helperText="Default IT Assignee"
+  >
+    <MenuItem value={form.assigned_to || "Vikash"}>
+      {form.assigned_to === "Vikash" ? "Vikash" : (
+        users?.find(u => u._id === form.assigned_to)?.username || "Vikash"
+      )}
+    </MenuItem>
+  </TextField>
+)}
 </Grid>
+            <Grid item xs={6}>
+              <TextField
+                label="Requester"
+                size="small"
+                fullWidth
+                value={form.requester_name}
+                onChange={(e) => setForm((f) => ({ ...f, requester_name: e.target.value }))}
+                helperText="Person who needs help"
+              />
+            </Grid>
             <Grid item xs={6}>
               <TextField
                 label="Department"
@@ -784,10 +786,12 @@ No Users Found
     fullWidth
     InputLabelProps={{ shrink: true }}
     value={
- form.sla_due_date
- ? form.sla_due_date.substring(0,10)
- : ""
-}
+      form.sla_due_date
+      ? form.sla_due_date.substring(0,10)
+      : (() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,"0")}-${String(n.getDate()).padStart(2,"0")}`; })()
+    }
+    disabled={!editId}
+    helperText={!editId ? "Auto-set to today's date" : undefined}
     onChange={(e) =>
       setForm((prev) => ({
         ...prev,
@@ -796,45 +800,42 @@ No Users Found
     }
   />
 </Grid>
-            <Grid item xs={6}>
-  <TextField
-    select
-    label="Status"
-    size="small"
-    fullWidth
-    required
-    value={form.status || "New"}
-    onChange={(e) =>
-      setForm((prev) => ({
-        ...prev,
-        status: e.target.value
-      }))
-    }
-  >
-
-    <MenuItem value="New">
-      New
-    </MenuItem>
-
-    <MenuItem value="Assigned">
-      Assigned
-    </MenuItem>
-
-    <MenuItem value="In Progress">
-      In Progress
-    </MenuItem>
-
-    <MenuItem value="Pending">
-      Pending
-    </MenuItem>
-
-   
-
-    <MenuItem value="Closed">
-      Closed
-    </MenuItem>
-
-  </TextField>
+<Grid item xs={6}>
+  {/* Status field — always "New" when raising, editable when editing */}
+  {editId ? (
+    <TextField
+      select
+      label="Status"
+      size="small"
+      fullWidth
+      value={form.status}
+      onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
+    >
+      {["New", "Open", "In Progress", "Closed"].map((s) => (
+        <MenuItem key={s} value={s}>{s}</MenuItem>
+      ))}
+    </TextField>
+  ) : (
+    <TextField
+      label="Status"
+      size="small"
+      fullWidth
+      value="New"
+      disabled
+      helperText="New tickets always start as New"
+    />
+  )}
+</Grid>
+<Grid item xs={12}>
+  <Typography variant="caption" color="textSecondary" sx={{ mb: 1, display: 'block' }}>
+    Attachments (Optional)
+  </Typography>
+  <input 
+    type="file" 
+    multiple 
+    onChange={(e) => setForm(f => ({ ...f, files: Array.from(e.target.files) }))} 
+    style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+  />
 </Grid>
             {/* <Grid item xs={12}>
               <TextField
@@ -853,7 +854,7 @@ No Users Found
           <Button onClick={() => setShowModal(false)} disabled={saving}>
             Cancel
           </Button>
-          <Button onClick={handleSave} variant="contained" disabled={saving || !form.title}>
+          <Button onClick={handleSave} variant="contained" disabled={saving}>
             {saving ? "Saving..." : "Save"}
           </Button>
         </DialogActions>

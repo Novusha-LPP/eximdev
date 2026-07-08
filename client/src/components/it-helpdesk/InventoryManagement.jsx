@@ -1,144 +1,473 @@
 import React, { useState, useEffect } from "react";
 import {
-  Box, Typography, Table, TableBody, TableCell,
-  TableContainer, TableHead, TableRow, CircularProgress, Button, Dialog,
-  DialogTitle, DialogContent, DialogActions, TextField, MenuItem,
+  Box,
+  Typography,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  CircularProgress,
+  Button,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  MenuItem,
+  Tabs,
+  Tab,
+  Chip,
 } from "@mui/material";
-import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
+
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
+import Inventory2Icon from "@mui/icons-material/Inventory2";
+import NewReleasesIcon from "@mui/icons-material/NewReleases";
+
+import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import { useModuleAuditLogs } from "./AuditLogs";
 
-const CATEGORIES = ["Hardware Stock", "Consumables", "Spare Parts"];
+const CATEGORIES = [
+  "Computer",
+  "Laptop",
+  "Printer",
+  "Monitor",
+  "Server",
+  "Network Device",
+  "Mobile Device",
+  "Software License",
+  "Other",
+];
+
 const EMPTY_FORM = {
-  item_name: "",
-  category: "Hardware Stock",
-  sku: "",
-  quantity: "0",
-  reorder_level: "5",
-  unit: "pcs",
-  vendor: "",
-  location: "",
-  notes: "",
+  item_id: "",
+  brand: "",
+  model: "",
+  category: "Computer",
+  inventory_type: "Old",
+  warranty_start_date: "",
+  warranty_end_date: "",
 };
 
 export default function InventoryManagement() {
-  const [data, setData] = useState([]);
-  const [vendors, setVendors] = useState([]);
+  const [activeTab, setActiveTab] = useState("old");
+  const [oldData, setOldData] = useState([]);
+  const [newData, setNewData] = useState([]);
+  const [assetsList, setAssetsList] = useState([]);
   const [loading, setLoading] = useState(true);
+
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
-  const [form, setForm] = useState({ ...EMPTY_FORM });
 
-  const { logCreate, logUpdate, logDelete } = useModuleAuditLogs("Inventory");
+  const [form, setForm] = useState(EMPTY_FORM);
+
+  const {
+    logCreate,
+    logUpdate,
+    logDelete,
+  } = useModuleAuditLogs("Inventory");
+
+  const formatDateForInput = (dateString) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    return date.toISOString().split('T')[0];
+  };
 
   const fetchData = async () => {
     setLoading(true);
+
     try {
-      const res = await itHelpdeskAPI.inventory.getAll();
-      setData(res.data || []);
-    } catch (err) { console.error(err); }
-    finally { setLoading(false); }
+      const [oldRes, newRes, assetsRes] = await Promise.all([
+        itHelpdeskAPI.inventory.getAll({
+          inventory_type: "Old",
+        }),
+        itHelpdeskAPI.inventory.getAll({
+          inventory_type: "New",
+        }),
+        itHelpdeskAPI.assets.getAll(),
+      ]);
+
+      setOldData(oldRes.data || []);
+      setNewData(newRes.data || []);
+      setAssetsList(assetsRes.data || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  useEffect(() => { fetchData(); fetchVendors(); }, []);
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-  const fetchVendors = async () => {
-    try {
-      const res = await itHelpdeskAPI.vendors.getAll();
-      setVendors(res.data || []);
-    } catch (err) { console.error(err); }
+  const handleOpenAdd = () => {
+    setEditId(null);
+
+    setForm({
+      ...EMPTY_FORM,
+      inventory_type: activeTab === "old" ? "Old" : "New",
+    });
+
+    setShowModal(true);
+  };
+
+  const handleOpenEdit = (item) => {
+    setEditId(item._id);
+
+    setForm({
+      item_id: item.item_id || "",
+      brand: item.brand || "",
+      model: item.model || "",
+      category: item.category || "Computer",
+      inventory_type: item.inventory_type || "Old",
+      warranty_start_date: formatDateForInput(item.warranty_start_date),
+      warranty_end_date: formatDateForInput(item.warranty_end_date),
+    });
+
+    setShowModal(true);
   };
 
   const handleSave = async () => {
-    // Validation: Check all fields
     if (
-      !form.item_name.trim() ||
+      !form.item_id.trim() ||
+      !form.brand.trim() ||
+      !form.model.trim() ||
       !form.category ||
-      !form.vendor ||
-      !form.quantity ||
-      !form.reorder_level ||
-      !form.unit.trim() ||
-      !form.location.trim() ||
-      !form.notes.trim()
+      !form.warranty_start_date ||
+      !form.warranty_end_date
     ) {
-      alert("Please fill all required fields");
+      alert("Please fill all required fields.");
       return;
     }
 
     const payload = {
-      ...form,
-      item_name: form.item_name.trim(),
-      unit: form.unit.trim(),
-      location: form.location.trim(),
-      notes: form.notes.trim(),
-      quantity: Number(form.quantity),
-      reorder_level: Number(form.reorder_level),
-      vendor: form.vendor,
+      item_id: form.item_id.trim(),
+      brand: form.brand.trim(),
+      model: form.model.trim(),
+      category: form.category,
+      inventory_type: form.inventory_type,
+      warranty_start_date: new Date(form.warranty_start_date),
+      warranty_end_date: new Date(form.warranty_end_date),
     };
 
     try {
-      if (editId) { 
-        await itHelpdeskAPI.inventory.update(editId, payload); 
-      } else { 
-        await itHelpdeskAPI.inventory.create(payload); 
+      if (editId) {
+        await itHelpdeskAPI.inventory.update(editId, payload);
+
+        logUpdate(
+          editId,
+          `Updated inventory item: ${form.item_id}`
+        );
+      } else {
+        await itHelpdeskAPI.inventory.create(payload);
+
+        logCreate(
+          "new-item",
+          `Created inventory item: ${form.item_id}`
+        );
       }
-      setShowModal(false); fetchData();
-    } catch (err) { console.error(err); }
+
+      setShowModal(false);
+      setForm(EMPTY_FORM);
+      fetchData();
+    } catch (err) {
+      console.error("Error saving inventory:", err);
+
+      alert(
+        err.response?.data?.message ||
+        err.message ||
+        "Failed to save inventory."
+      );
+    }
   };
 
-  const handleDelete = async (e, id) => {
+  const handleDelete = async (e, id, itemId) => {
     e.stopPropagation();
-    if (!window.confirm("Delete this item?")) return;
+
+    if (!window.confirm(`Delete "${itemId}"?`)) return;
+
     try {
       await itHelpdeskAPI.inventory.remove(id);
+
+      logDelete(
+        id,
+        `Deleted inventory item: ${itemId}`
+      );
+
       fetchData();
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete inventory item.");
+    }
   };
+
+  const currentData =
+    activeTab === "old"
+      ? oldData
+      : newData;
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h5" fontWeight={700}>Inventory & Stock</Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => { setEditId(null); setForm({ ...EMPTY_FORM }); setShowModal(true); }}>
-          Add Item
+      {/* Header */}
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        mb={2}
+      >
+        <Typography variant="h5" fontWeight={700}>
+          Inventory & Stock
+        </Typography>
+
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={handleOpenAdd}
+        >
+          Add {activeTab === "old" ? "Old" : "New"} Item
         </Button>
       </Box>
-      {loading ? <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box> : (
+
+      {/* Tabs */}
+      <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
+        <Tabs
+          value={activeTab}
+          onChange={(_, value) => setActiveTab(value)}
+        >
+          <Tab
+            value="old"
+            label={
+              <Box display="flex" alignItems="center" gap={1}>
+                <Inventory2Icon fontSize="small" />
+                Old Inventory
+                <Chip
+                  label={oldData.length}
+                  size="small"
+                  color="default"
+                />
+              </Box>
+            }
+          />
+
+          <Tab
+            value="new"
+            label={
+              <Box display="flex" alignItems="center" gap={1}>
+                <NewReleasesIcon fontSize="small" />
+                New Inventory
+                <Chip
+                  label={newData.length}
+                  size="small"
+                  color="primary"
+                />
+              </Box>
+            }
+          />
+        </Tabs>
+      </Box>
+
+      {/* Table */}
+      {loading ? (
+        <Box display="flex" justifyContent="center" py={5}>
+          <CircularProgress />
+        </Box>
+      ) : (
         <TableContainer>
           <Table>
-            <TableHead><TableRow>
-              <TableCell>Item Name</TableCell><TableCell>Category</TableCell><TableCell>Qty</TableCell><TableCell>Unit</TableCell><TableCell>Location</TableCell><TableCell align="right">Actions</TableCell>
-            </TableRow></TableHead>
+            <TableHead>
+              <TableRow>
+                <TableCell><strong>Item ID</strong></TableCell>
+                <TableCell><strong>Brand</strong></TableCell>
+                <TableCell><strong>Model</strong></TableCell>
+                <TableCell><strong>Category</strong></TableCell>
+                <TableCell><strong>Warranty Start</strong></TableCell>
+                <TableCell><strong>Warranty End</strong></TableCell>
+                <TableCell align="right">
+                  <strong>Actions</strong>
+                </TableCell>
+              </TableRow>
+            </TableHead>
+
             <TableBody>
-              {data.length === 0 ? <TableRow><TableCell colSpan={6} align="center">No items found</TableCell></TableRow> :
-                data.map((item) => <TableRow key={item._id}><TableCell>{item.item_name}</TableCell><TableCell>{item.category}</TableCell><TableCell>{item.quantity}</TableCell><TableCell>{item.unit}</TableCell><TableCell>{item.location || "—"}</TableCell><TableCell align="right"><Button size="small" onClick={() => { setEditId(item._id); setForm({ ...item }); setShowModal(true); }}>Edit</Button>&nbsp;<Button size="small" color="error" onClick={(e) => handleDelete(e, item._id)}>Delete</Button></TableCell></TableRow>)
-              }
+              {currentData.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={7}
+                    align="center"
+                  >
+                    No Inventory Found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                currentData.map((item) => (
+                  <TableRow
+                    key={item._id}
+                    hover
+                  >
+                    <TableCell>
+                      {item.item_id}
+                    </TableCell>
+
+                    <TableCell>
+                      {item.brand}
+                    </TableCell>
+
+                    <TableCell>
+                      {item.model}
+                    </TableCell>
+
+                    <TableCell>
+                      <Chip
+                        label={item.category}
+                        size="small"
+                        variant="outlined"
+                      />
+                    </TableCell>
+
+                    <TableCell>
+                      {item.warranty_start_date
+                        ? new Date(item.warranty_start_date).toISOString().split('T')[0]
+                        : "-"}
+                    </TableCell>
+
+                    <TableCell>
+                      {item.warranty_end_date
+                        ? new Date(item.warranty_end_date).toISOString().split('T')[0]
+                        : "-"}
+                    </TableCell>
+
+                    <TableCell align="right">
+                      <Button
+                        size="small"
+                        startIcon={<EditIcon />}
+                        sx={{ mr: 1 }}
+                        onClick={() => handleOpenEdit(item)}
+                      >
+                        Edit
+                      </Button>
+
+                      <Button
+                        size="small"
+                        color="error"
+                        startIcon={<DeleteIcon />}
+                        onClick={(e) => handleDelete(e, item._id, item.item_id)}
+                      >
+                        Delete
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </TableContainer>
       )}
-      <Dialog open={showModal} onClose={() => setShowModal(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{editId ? "Edit" : "New"} Inventory Item</DialogTitle>
+
+      {/* Add/Edit Modal */}
+      <Dialog
+        open={showModal}
+        onClose={() => setShowModal(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          {editId ? "Edit Inventory Item" : `Add ${activeTab === "old" ? "Old" : "New"} Item`}
+        </DialogTitle>
         <DialogContent>
-          <TextField label="Item Name *" size="small" fullWidth sx={{ mb: 2, mt: 1 }} required value={form.item_name} onChange={(e) => setForm((f) => ({ ...f, item_name: e.target.value }))} />
-          <TextField select label="Category *" size="small" fullWidth sx={{ mb: 2 }} required value={form.category} onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}>
-            {CATEGORIES.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
-          </TextField>
-          <TextField select label="Vendor *" size="small" fullWidth sx={{ mb: 2 }} required value={form.vendor} onChange={(e) => setForm((f) => ({ ...f, vendor: e.target.value }))}>
-            <MenuItem value="" disabled>Select Vendor</MenuItem>
-            {vendors.map((v) => <MenuItem key={v._id} value={v._id}>{v.name}</MenuItem>)}
-          </TextField>
-          <TextField label="Quantity *" type="number" size="small" fullWidth sx={{ mb: 2 }} required value={form.quantity} onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))} />
-          <TextField label="Reorder Level *" type="number" size="small" fullWidth sx={{ mb: 2 }} required value={form.reorder_level} onChange={(e) => setForm((f) => ({ ...f, reorder_level: e.target.value }))} />
-          <TextField label="Unit *" size="small" fullWidth sx={{ mb: 2 }} required value={form.unit} onChange={(e) => setForm((f) => ({ ...f, unit: e.target.value }))} />
-          <TextField label="Location *" size="small" fullWidth sx={{ mb: 2 }} required value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} />
-          <TextField label="Notes *" size="small" fullWidth sx={{ mb: 2 }} multiline minRows={2} required value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
+          <Box sx={{ mt: 1 }}>
+            <TextField
+              select
+              autoFocus
+              margin="dense"
+              label="Item ID (Asset ID)"
+              fullWidth
+              variant="outlined"
+              value={form.item_id}
+              onChange={(e) => setForm({ ...form, item_id: e.target.value })}
+              sx={{ mb: 2 }}
+            >
+              <MenuItem value="">
+                <em>None</em>
+              </MenuItem>
+              {assetsList.map((asset) => (
+                <MenuItem key={asset._id} value={asset.asset_tag}>
+                  {asset.asset_tag} {asset.asset_name ? `- ${asset.asset_name}` : ''}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              margin="dense"
+              label="Brand"
+              fullWidth
+              variant="outlined"
+              value={form.brand}
+              onChange={(e) => setForm({ ...form, brand: e.target.value })}
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              margin="dense"
+              label="Model"
+              fullWidth
+              variant="outlined"
+              value={form.model}
+              onChange={(e) => setForm({ ...form, model: e.target.value })}
+              sx={{ mb: 2 }}
+            />
+            <TextField
+              select
+              margin="dense"
+              label="Category"
+              fullWidth
+              variant="outlined"
+              value={form.category}
+              onChange={(e) => setForm({ ...form, category: e.target.value })}
+              sx={{ mb: 2 }}
+            >
+              {CATEGORIES.map((category) => (
+                <MenuItem key={category} value={category}>
+                  {category}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              type="date"
+              margin="dense"
+              label="Warranty Start Date"
+              fullWidth
+              variant="outlined"
+              value={form.warranty_start_date}
+              onChange={(e) => setForm({ ...form, warranty_start_date: e.target.value })}
+              sx={{ mb: 3, width: "100%", position: "relative", zIndex: 1 }}
+              InputLabelProps={{
+                shrink: true,
+              }}
+            />
+            <TextField
+              type="date"
+              margin="dense"
+              label="Warranty End Date"
+              fullWidth
+              variant="outlined"
+              value={form.warranty_end_date}
+              onChange={(e) => setForm({ ...form, warranty_end_date: e.target.value })}
+              sx={{ mb: 3, width: "100%", position: "relative", zIndex: 1 }}
+              InputLabelProps={{
+                shrink: true,
+              }}
+            />
+          </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowModal(false)}>Cancel</Button>
-          <Button onClick={handleSave} variant="contained">Save</Button>
+          <Button onClick={() => setShowModal(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} variant="contained">
+            {editId ? "Update" : `Add ${activeTab === "old" ? "Old" : "New"} Item`}
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

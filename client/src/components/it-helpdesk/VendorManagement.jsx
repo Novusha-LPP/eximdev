@@ -46,8 +46,8 @@ const VENDOR_TYPES = [
 
 const EMPTY_FORM = {
   name: "",
-  vendor_code: "",
-  vendor_type: "Supplier",
+  gst_number: "",
+  pan_number: "",
   contact_person: "",
   mobile_number: "",
   email: "",
@@ -151,21 +151,13 @@ export default function VendorManagement() {
 
 
       setForm({
-
         name: record.name || "",
-
-        vendor_code: record.vendor_code || "",
-
-        vendor_type: record.vendor_type || "Supplier",
-
+        gst_number: record.gst_number || "",
+        pan_number: record.pan_number || "",
         contact_person: record.contact_person || "",
-
         mobile_number: record.mobile_number || "",
-
         email: record.email || "",
-
         status: record.status || "Active"
-
       });
 
 
@@ -209,16 +201,12 @@ export default function VendorManagement() {
 
     if (
       !form.name.trim() ||
-      !form.vendor_code.trim() ||
       !form.contact_person.trim() ||
       !form.mobile_number.trim() ||
       !form.email.trim()
     ) {
-
       alert("Please fill required fields");
-
       return;
-
     }
 
 
@@ -231,21 +219,13 @@ export default function VendorManagement() {
 
 
       const payload = {
-
         name: form.name.trim(),
-
-        vendor_code: form.vendor_code.trim(),
-
-        vendor_type: form.vendor_type,
-
+        gst_number: form.gst_number?.trim() || "",
+        pan_number: form.pan_number?.trim() || "",
         contact_person: form.contact_person.trim(),
-
         mobile_number: form.mobile_number.trim(),
-
         email: form.email.trim(),
-
-        status: form.status
-
+        status: form.status || "Active"
       };
 
 
@@ -404,11 +384,11 @@ export default function VendorManagement() {
                 <TableRow>
 
 
-                  <TableCell>Name</TableCell>
+                  <TableCell>Company Name</TableCell>
 
-                  <TableCell>Code</TableCell>
+                  <TableCell>GST Number</TableCell>
 
-                  <TableCell>Type</TableCell>
+                  <TableCell>PAN Number</TableCell>
 
                   <TableCell>Contact</TableCell>
 
@@ -475,25 +455,12 @@ export default function VendorManagement() {
 
 
                         <TableCell>
-                          {v.vendor_code || "-"}
+                          {v.gst_number || "-"}
                         </TableCell>
 
 
-
                         <TableCell>
-
-                          <Chip
-
-                            label={v.vendor_type}
-
-                            color={
-                              typeColor(v.vendor_type)
-                            }
-
-                            size="small"
-
-                          />
-
+                          {v.pan_number || "-"}
                         </TableCell>
 
 
@@ -643,7 +610,7 @@ export default function VendorManagement() {
 
             size="small"
 
-            label="Vendor Name *"
+            label="Company Name *"
 
             margin="normal"
 
@@ -661,25 +628,23 @@ export default function VendorManagement() {
           />
 
 
-
-
           <TextField
 
             fullWidth
 
             size="small"
 
-            label="Vendor Code *"
+            label="GST Number"
 
             margin="normal"
 
-            value={form.vendor_code}
+            value={form.gst_number}
 
             onChange={(e) =>
 
               setForm({
                 ...form,
-                vendor_code: e.target.value
+                gst_number: e.target.value
               })
 
             }
@@ -687,57 +652,28 @@ export default function VendorManagement() {
           />
 
 
-
-
-
-
           <TextField
-
-            select
 
             fullWidth
 
             size="small"
 
-            label="Vendor Type"
+            label="PAN Number"
 
             margin="normal"
 
-            value={form.vendor_type}
+            value={form.pan_number}
 
             onChange={(e) =>
 
               setForm({
                 ...form,
-                vendor_type: e.target.value
+                pan_number: e.target.value
               })
 
             }
 
-          >
-
-
-            {
-
-              VENDOR_TYPES.map(x => (
-
-
-                <MenuItem
-                  key={x}
-                  value={x}
-                >
-
-                  {x}
-
-                </MenuItem>
-
-
-              ))
-
-            }
-
-
-          </TextField>
+          />
 
 
 
@@ -827,44 +763,6 @@ export default function VendorManagement() {
 
 
 
-
-          <TextField
-
-            select
-
-            fullWidth
-
-            size="small"
-
-            label="Status"
-
-            margin="normal"
-
-            value={form.status}
-
-            onChange={(e) =>
-
-              setForm({
-                ...form,
-                status: e.target.value
-              })
-
-            }
-
-          >
-
-
-            <MenuItem value="Active">
-              Active
-            </MenuItem>
-
-
-            <MenuItem value="Inactive">
-              Inactive
-            </MenuItem>
-
-
-          </TextField>
 
 
 

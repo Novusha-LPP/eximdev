@@ -49,6 +49,8 @@ const vendorSchema = new mongoose.Schema({
   contact_person: { type: String, trim: true },
   mobile_number: { type: String, trim: true },
   email: { type: String, trim: true },
+  gst_number: { type: String, trim: true },
+  pan_number: { type: String, trim: true },
   status: { type: String, enum: ["Active", "Inactive"], default: "Active" },
   amc_contracts: [{ type: mongoose.Schema.Types.ObjectId, ref: "ITContract" }],
   documents: [{ file_url: String, file_name: String, uploaded_at: { type: Date, default: Date.now } }],

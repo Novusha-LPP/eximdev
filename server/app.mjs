@@ -357,6 +357,7 @@ import shippingLineRoutes from "./routes/master-directory/shippingLineRoutes.mjs
 import supplierRoutes from "./routes/master-directory/supplierRoutes.mjs";
 import currencyRoutes from "./routes/master-directory/currencyRoutes.mjs";
 import portRoutes from "./routes/master-directory/portRoutes.mjs";
+import indianPortRoutes from "./routes/master-directory/indianPortRoutes.mjs";
 import customHouseRoutes from "./routes/master-directory/customHouseRoutes.mjs";
 import cfsRoutes from "./routes/master-directory/cfsRoutes.mjs";
 import transporterRoutes from "./routes/master-directory/transporterRoutes.mjs";
@@ -720,6 +721,7 @@ app.use("/api", shippingLineRoutes);
 app.use("/api", supplierRoutes);
 app.use("/api", currencyRoutes);
 app.use("/api", portRoutes);
+app.use("/api", indianPortRoutes);
 app.use("/api", customHouseRoutes);
 app.use("/api", cfsRoutes);
 app.use("/api", transporterRoutes);

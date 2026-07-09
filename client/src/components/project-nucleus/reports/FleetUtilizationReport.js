@@ -28,7 +28,15 @@ const STATUS_COLORS = {
     'Others':          { fill: '#64748b', label: 'Others' }
 };
 
-const UTIL_COLOR = (pct) => pct >= 90 ? '#10b981' : pct >= 75 ? '#f59e0b' : '#ef4444';
+const UTIL_COLOR = (pct) => pct >= 90 ? '#10b981' : pct >= 80 ? '#f59e0b' : '#ef4444';
+
+const KPI_COLOR = {
+    notOnRoad: (pct) => pct <= 10 ? '#10b981' : pct <= 20 ? '#f59e0b' : '#ef4444',
+    maintenance: (pct) => pct <= 3 ? '#10b981' : pct <= 5 ? '#f59e0b' : '#ef4444',
+    accident: (pct) => pct <= 1 ? '#10b981' : pct <= 3 ? '#f59e0b' : '#ef4444',
+    noDriver: (pct) => pct <= 2 ? '#10b981' : pct <= 5 ? '#f59e0b' : '#ef4444',
+    driverOnLeave: (pct) => pct <= 5 ? '#10b981' : pct <= 10 ? '#f59e0b' : '#ef4444'
+};
 
 // ─── Utility Functions ──────────────────────────────────────────────────────────
 
@@ -128,6 +136,9 @@ const computeElapsedDays = (filterType, selectedYear, selectedMonth, selectedQua
 
 /** Performance color theme based on percentage vs previous month */
 const getColorTheme = (perfVal) => {
+    if (perfVal === null || perfVal === undefined) return {
+        color: '#64748b', bg: 'transparent', border: 'none', badgeBg: null, performanceLabel: null
+    };
     const rawChange = perfVal - 100;
     const absChange = Math.abs(rawChange);
     const arrow = perfVal >= 100 ? '↑' : '↓';
@@ -734,10 +745,10 @@ const FleetUtilizationReport = ({
             return {
                 fleetSize: fleetSize || 'NA', onRoadCount, onRoadPct: getPctStr(onRoadCount), onRoadColor,
                 idleVal, idlePct: idleVal !== 'NA' ? getPctStr(idleVal) : '', idleColor,
-                notOnRoad, notOnRoadPct: getPctStr(notOnRoad),
-                breakdown, breakdownPct: getPctStr(breakdown), noDriver, noDriverPct: getPctStr(noDriver),
-                onLeave, onLeavePct: getPctStr(onLeave), maint, maintPct: getPctStr(maint),
-                accident, accidentPct: getPctStr(accident),
+                notOnRoad, notOnRoadPct: getPctStr(notOnRoad), notOnRoadColor: KPI_COLOR.notOnRoad(fleetSize > 0 ? (notOnRoad / fleetSize) * 100 : 0),
+                breakdown, breakdownPct: getPctStr(breakdown), noDriver, noDriverPct: getPctStr(noDriver), noDriverColor: KPI_COLOR.noDriver(fleetSize > 0 ? (noDriver / fleetSize) * 100 : 0),
+                onLeave, onLeavePct: getPctStr(onLeave), onLeaveColor: KPI_COLOR.driverOnLeave(fleetSize > 0 ? (onLeave / fleetSize) * 100 : 0), maint, maintPct: getPctStr(maint), maintColor: KPI_COLOR.maintenance(fleetSize > 0 ? (maint / fleetSize) * 100 : 0),
+                accident, accidentPct: getPctStr(accident), accidentColor: KPI_COLOR.accident(fleetSize > 0 ? (accident / fleetSize) * 100 : 0),
                 underDetention, underDetentionPct: getPctStr(underDetention),
                 underTrip, underTripPct: getPctStr(underTrip),
                 others, othersPct: getPctStr(others),
@@ -791,10 +802,10 @@ const FleetUtilizationReport = ({
             return {
                 fleetSize: sFS || 'NA', onRoadCount: sOR, onRoadPct: pct(sOR), onRoadColor: UTIL_COLOR(orPct),
                 idleVal: sIdle, idlePct: pct(sIdle), idleColor: sIdle === 0 ? '#10b981' : '#f59e0b',
-                notOnRoad: sNOR, notOnRoadPct: pct(sNOR),
-                breakdown: sBrk, breakdownPct: pct(sBrk), noDriver: sND, noDriverPct: pct(sND),
-                onLeave: sLv, onLeavePct: pct(sLv), maint: sMt, maintPct: pct(sMt),
-                accident: sAcc, accidentPct: pct(sAcc),
+                notOnRoad: sNOR, notOnRoadPct: pct(sNOR), notOnRoadColor: KPI_COLOR.notOnRoad(sFS > 0 ? (sNOR / sFS) * 100 : 0),
+                breakdown: sBrk, breakdownPct: pct(sBrk), noDriver: sND, noDriverPct: pct(sND), noDriverColor: KPI_COLOR.noDriver(sFS > 0 ? (sND / sFS) * 100 : 0),
+                onLeave: sLv, onLeavePct: pct(sLv), onLeaveColor: KPI_COLOR.driverOnLeave(sFS > 0 ? (sLv / sFS) * 100 : 0), maint: sMt, maintPct: pct(sMt), maintColor: KPI_COLOR.maintenance(sFS > 0 ? (sMt / sFS) * 100 : 0),
+                accident: sAcc, accidentPct: pct(sAcc), accidentColor: KPI_COLOR.accident(sFS > 0 ? (sAcc / sFS) * 100 : 0),
                 underDetention: sUD, underDetentionPct: pct(sUD),
                 underTrip: sUT, underTripPct: pct(sUT),
                 others: sOthers, othersPct: pct(sOthers),
@@ -807,7 +818,7 @@ const FleetUtilizationReport = ({
     // ── KPI Metrics (Avg Trips/Day, Projections) ────────────────────────────────
 
     const kpiMetricsObj = useMemo(() => {
-        const { elapsedDays } = computeElapsedDays(filterType, selectedYear, selectedMonth, selectedQuarter, dateRange, dailyData.length);
+        const { elapsedDays, totalDays } = computeElapsedDays(filterType, selectedYear, selectedMonth, selectedQuarter, dateRange, dailyData.length);
         const totalTrips = closedLRsList.length;
         const mundraTrips = closedLRsList.filter(r => (r.branch || '').toLowerCase().includes('mundra')).length;
         const avgTripsPerDay = elapsedDays > 0 ? totalTrips / elapsedDays : 0;
@@ -883,7 +894,7 @@ const FleetUtilizationReport = ({
         });
 
         const list = Object.values(branches);
-        const { elapsedDays } = computeElapsedDays(filterType, selectedYear, selectedMonth, selectedQuarter, dateRange, dailyData.length);
+        const { elapsedDays, totalDays } = computeElapsedDays(filterType, selectedYear, selectedMonth, selectedQuarter, dateRange, dailyData.length);
         const { startDate } = getTransportDates(filterType, selectedDay, selectedYear, selectedMonth, selectedQuarter, dateRange);
         const today = new Date();
         let daysInMonth = 30;
@@ -1063,13 +1074,15 @@ const FleetUtilizationReport = ({
 
         // Parse percentage from extra (e.g., "49%" or "(49%)")
         let pct = null;
-        if (extra && typeof extra === 'string') {
-            const match = extra.match(/(\d+)%/);
-            if (match) {
-                pct = parseFloat(match[1]);
+        if (!badgeBg) {
+            if (extra && typeof extra === 'string') {
+                const match = extra.match(/(\d+)%/);
+                if (match) {
+                    pct = parseFloat(match[1]);
+                }
+            } else if (typeof extra === 'number') {
+                pct = extra;
             }
-        } else if (typeof extra === 'number') {
-            pct = extra;
         }
 
         return (
@@ -1211,18 +1224,47 @@ const FleetUtilizationReport = ({
         <div className="fleet-root">
             <style>{STYLES}</style>
 
-            {/* ── Tab Bar ──────────────────────────────────────────────────────── */}
-            <div className="fleet-tabs">
-                {[
-                    { id: 'dashboard', label: '📊 Dashboard' },
-                    { id: 'spreadsheet', label: '🗂️ Spreadsheet' },
-                    { id: 'trend', label: '📈 Trend' }
-                ].map(tab => (
-                    <button key={tab.id} className="fleet-tab" data-active={String(activeTab === tab.id || (tab.id === 'trend' && activeTab === 'fleet-summary'))}
-                        onClick={() => setActiveTab(tab.id)}>
-                        {tab.label}
-                    </button>
-                ))}
+            {/* ── Header Area (Tabs + Legend) ─────────────────────────────────── */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
+                <div className="fleet-tabs">
+                    {[
+                        { id: 'dashboard', label: '📊 Dashboard' },
+                        { id: 'spreadsheet', label: '🗂️ Spreadsheet' },
+                        { id: 'trend', label: '📈 Trend' }
+                    ].map(tab => (
+                        <button key={tab.id} className="fleet-tab" data-active={String(activeTab === tab.id || (tab.id === 'trend' && activeTab === 'fleet-summary'))}
+                            onClick={() => setActiveTab(tab.id)}>
+                            {tab.label}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="kpi-info-wrap">
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px', background: 'rgba(255,255,255,0.5)', backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)', borderRadius: '50%', border: '1px solid rgba(255,255,255,0.6)', cursor: 'pointer', boxShadow: '0 4px 24px rgba(0,0,0,0.03)', width: '36px', height: '36px' }}>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+                    </div>
+                    <div className="kpi-info-tip" style={{ width: '340px', bottom: 'auto', top: '100%', right: '0', transform: 'translateY(-10px)' }}>
+                        <div style={{ fontSize: '13px', fontWeight: 800, color: '#1e293b', marginBottom: '10px', paddingBottom: '8px', borderBottom: '1px solid #f1f5f9' }}>KPI Legend (Utilization)</div>
+                        <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
+                            <thead>
+                                <tr style={{ color: '#475569', textAlign: 'left', borderBottom: '1px solid #e2e8f0' }}>
+                                    <th style={{ padding: '6px 0', fontWeight: 700 }}>Metric</th>
+                                    <th style={{ color: '#10b981', padding: '6px 0', fontWeight: 700 }}>Green</th>
+                                    <th style={{ color: '#f59e0b', padding: '6px 0', fontWeight: 700 }}>Yellow</th>
+                                    <th style={{ color: '#ef4444', padding: '6px 0', fontWeight: 700 }}>Red</th>
+                                </tr>
+                            </thead>
+                            <tbody style={{ color: '#64748b', fontWeight: 600 }}>
+                                <tr><td style={{ padding: '4px 0' }}>On Road Own</td><td>≥90%</td><td>80-89%</td><td>&lt;80%</td></tr>
+                                <tr><td style={{ padding: '4px 0' }}>Not on Road</td><td>≤10%</td><td>10-20%</td><td>&gt;20%</td></tr>
+                                <tr><td style={{ padding: '4px 0' }}>Maintenance</td><td>≤3%</td><td>3-5%</td><td>&gt;5%</td></tr>
+                                <tr><td style={{ padding: '4px 0' }}>Accident</td><td>0-1%</td><td>1-3%</td><td>&gt;3%</td></tr>
+                                <tr><td style={{ padding: '4px 0' }}>No Driver</td><td>≤2%</td><td>2-5%</td><td>&gt;5%</td></tr>
+                                <tr><td style={{ padding: '4px 0' }}>Driver on Leave</td><td>≤5%</td><td>5-10%</td><td>&gt;10%</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
             {/* ═══════════════════════════════════════════════════════════════════
@@ -1268,13 +1310,16 @@ const FleetUtilizationReport = ({
                     )}
 
                     {/* Row 3: Not-on-Road breakdown cards */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginTop: '16px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '24px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>⚠️</span> Vehicle Not On Road Breakdown
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
                         {[
-                            { label: 'Vehicle Not on Road', subtext: notOnRoadSubtext, value: `${metrics.notOnRoad}`, extra: metrics.notOnRoadPct, color: '#ef4444', accentColor: '#ef4444', large: true, gradient: 'linear-gradient(135deg, rgba(254,226,226,0.8) 0%, rgba(254,242,242,0.6) 100%)', border: '1px solid rgba(239,68,68,0.3)', hl: true },
-                            { label: 'No Driver', value: `${metrics.noDriver}`, extra: metrics.noDriverPct, color: '#f59e0b', accentColor: '#f59e0b' },
-                            { label: 'Driver On Leave', value: `${metrics.onLeave}`, extra: metrics.onLeavePct, color: '#ef4444', accentColor: '#ef4444' },
-                            { label: 'Maintenance', value: `${metrics.maint}`, extra: metrics.maintPct, color: '#0ea5e9', accentColor: '#0ea5e9' },
-                            { label: 'Accidents', value: `${metrics.accident}`, extra: metrics.accidentPct, color: '#ef4444', accentColor: '#ef4444' }
+                            { label: 'Vehicle Not on Road', subtext: notOnRoadSubtext, value: `${metrics.notOnRoad}`, extra: metrics.notOnRoadPct, color: metrics.notOnRoadColor, accentColor: metrics.notOnRoadColor, large: true, gradient: `linear-gradient(135deg, ${metrics.notOnRoadColor}22 0%, transparent 100%)`, border: `1px solid ${metrics.notOnRoadColor}33`, hl: metrics.notOnRoadColor === '#ef4444' },
+                            { label: 'No Driver', value: `${metrics.noDriver}`, extra: metrics.noDriverPct, color: metrics.noDriverColor, accentColor: metrics.noDriverColor, hl: metrics.noDriverColor === '#ef4444' },
+                            { label: 'Driver On Leave', value: `${metrics.onLeave}`, extra: metrics.onLeavePct, color: metrics.onLeaveColor, accentColor: metrics.onLeaveColor, hl: metrics.onLeaveColor === '#ef4444' },
+                            { label: 'Maintenance', value: `${metrics.maint}`, extra: metrics.maintPct, color: metrics.maintColor, accentColor: metrics.maintColor, hl: metrics.maintColor === '#ef4444' },
+                            { label: 'Accidents', value: `${metrics.accident}`, extra: metrics.accidentPct, color: metrics.accidentColor, accentColor: metrics.accidentColor, hl: metrics.accidentColor === '#ef4444' }
                         ].map((m, i) => <KpiCard key={i} {...m} />)}
                     </div>
 

@@ -1576,8 +1576,8 @@ const EditChargeModal = ({
                                             }
                                           }}
                                         >
-                                          <option value="94C_1">TDS ON CONTRACT 94C - 1023- 1%</option>
-                                          <option value="94C_2">TDS ON CONTRACT 94C - 1024 -2%</option>
+                                          <option value="94C_1">TDS ON CONTRACT 94C 1023</option>
+                                          <option value="94C_2">TDS ON CONTRACT 94C 1024</option>
                                         </select>
                                       </div>
                                     )}

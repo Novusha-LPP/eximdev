@@ -7,7 +7,7 @@ const mongoose = require("mongoose");
 const app = express();
 
 // ── Middleware ──────────────────────────────────────────────────────────────
-app.use(cors({ origin: process.env.FRONTEND_URL || "http://localhost:3000" }));
+app.use(cors({ origin: process.env.FRONTEND_URL || "http://0.0.0.0:3000" }));
 app.use(express.json());
 app.use(morgan("dev"));
 
@@ -32,13 +32,13 @@ app.use((err, _req, res, _next) => {
 
 // ── Database & Start ─────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
-const MONGO_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/suraj_scorecard";
+const MONGO_URI = process.env.MONGODB_URI || "mongodb://0.0.0.0:27017/suraj_scorecard";
 
 mongoose
   .connect(MONGO_URI)
   .then(() => {
     console.log("✅ MongoDB connected");
-    app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
+    app.listen(PORT, () => console.log(`🚀 Server running on http://0.0.0.0:${PORT}`));
   })
   .catch((err) => {
     console.error("❌ MongoDB connection failed:", err.message);

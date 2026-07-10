@@ -468,7 +468,7 @@
   "variable": [
     {
       "key": "baseUrl",
-      "value": "http://localhost:9007",
+      "value": "http://0.0.0.0:9007",
       "description": "API origin without trailing slash (e.g. https://transport.example.com)"
     },
     {

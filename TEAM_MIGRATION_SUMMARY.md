@@ -129,7 +129,7 @@ node scripts/migrate_team_ids.js
 
 1. **Backup Database** (IMPORTANT!)
    ```bash
-   mongodump --uri="mongodb://localhost:27017/eximdev" --out=backup_before_team_migration
+   mongodump --uri="mongodb://0.0.0.0:27017/eximdev" --out=backup_before_team_migration
    ```
 
 2. **Run Migration Script**

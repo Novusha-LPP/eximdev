@@ -4,12 +4,12 @@ import bcrypt from "bcryptjs";
 import User from "../models/userModel.mjs";
 
 // Connect to MongoDB
-mongoose.connect("mongodb://localhost:27017/eximdev", {
+mongoose.connect("mongodb://0.0.0.0:27017/eximdev", {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
-.then(() => console.log("MongoDB connected"))
-.catch(err => console.error("MongoDB connection error:", err));
+  .then(() => console.log("MongoDB connected"))
+  .catch(err => console.error("MongoDB connection error:", err));
 
 // Default password for users with missing passwords
 const DEFAULT_PASSWORD = "TempPassword123!";
@@ -17,7 +17,7 @@ const DEFAULT_PASSWORD = "TempPassword123!";
 async function resetUserPasswords() {
   try {
     // Find all users with missing or empty passwords
-    const users = await User.find({ 
+    const users = await User.find({
       $or: [
         { password: { $exists: false } },
         { password: { $eq: "" } },

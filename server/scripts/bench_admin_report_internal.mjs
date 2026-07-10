@@ -5,7 +5,7 @@ import { getAdminAttendanceReport } from '../controllers/attendance/attendance.c
 
 dotenv.config();
 
-const uri = process.env.DEV_MONGODB_URI || process.env.SERVER_MONGODB_URI || 'mongodb://localhost:27017/exim';
+const uri = process.env.DEV_MONGODB_URI || process.env.SERVER_MONGODB_URI || 'mongodb://0.0.0.0:27017/exim';
 
 async function run() {
   await mongoose.connect(uri);

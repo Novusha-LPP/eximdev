@@ -12,7 +12,7 @@ const IST_TIMEZONE = 'Asia/Kolkata';
 async function migrate() {
     try {
         console.log('Connecting to database...');
-        const dbUri = process.env.DEV_MONGODB_URI || 'mongodb://localhost:27017/exim';
+        const dbUri = process.env.DEV_MONGODB_URI || 'mongodb://0.0.0.0:27017/exim';
         await mongoose.connect(dbUri);
         console.log(`Connected to ${dbUri}`);
 

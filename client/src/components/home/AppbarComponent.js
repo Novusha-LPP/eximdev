@@ -97,15 +97,17 @@ function AppbarComponent(props) {
           <MenuIcon sx={{ color: "#000" }} />
         </IconButton>
 
-        <IconButton
-          color="inherit"
-          aria-label="open drawer"
-          edge="start"
-          onClick={() => window.history.back()}
-          sx={{ mr: 1 }}
-        >
-          <ArrowBackIcon sx={{ color: "#000" }} />
-        </IconButton>
+        {!pathname.includes("/it-helpdesk") && (
+          <IconButton
+            color="inherit"
+            aria-label="go back"
+            edge="start"
+            onClick={() => window.history.back()}
+            sx={{ mr: 1 }}
+          >
+            <ArrowBackIcon sx={{ color: "#000" }} />
+          </IconButton>
+        )}
 
         <div>
           <img

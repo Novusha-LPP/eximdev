@@ -27,7 +27,7 @@ import SendIcon from "@mui/icons-material/Send";
 import toast from "react-hot-toast";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 
-export default function TicketDetailDrawer({ open, onClose, ticketId, onUpdate, users = [] }) {
+export default function TicketDetailDrawer({ open, onClose, ticketId, onUpdate, users = [], isAdmin = false }) {
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(false);
   const [tabIndex, setTabIndex] = useState(0);
@@ -75,6 +75,14 @@ export default function TicketDetailDrawer({ open, onClose, ticketId, onUpdate, 
 
   const handleUpdateStatus = async () => {
     if (!statusData.status) return;
+    if (!isAdmin) {
+      toast.error("Only Admins are authorized to update the ticket status");
+      return;
+    }
+    if (ticket?.status === "Closed") {
+      toast.error("Closed tickets cannot be updated");
+      return;
+    }
     setUpdatingStatus(true);
     try {
       await itHelpdeskAPI.tickets.update(ticketId, { status: statusData.status, resolution_notes: statusData.remarks });
@@ -83,7 +91,7 @@ export default function TicketDetailDrawer({ open, onClose, ticketId, onUpdate, 
       fetchTicketDetails();
       if (onUpdate) onUpdate();
     } catch (err) {
-      toast.error("Failed to update status");
+      toast.error(err?.response?.data?.message || "Failed to update status");
     } finally {
       setUpdatingStatus(false);
     }
@@ -198,41 +206,66 @@ export default function TicketDetailDrawer({ open, onClose, ticketId, onUpdate, 
 
                 <Divider sx={{ my: 3 }} />
 
-                <Typography variant="subtitle2" mb={1}>Update Status</Typography>
-                <Grid container spacing={2} alignItems="center">
-                  <Grid item xs={4}>
-                    <TextField
-                      select
-                      size="small"
-                      fullWidth
-                      value={statusData.status}
-                      onChange={(e) => setStatusData({ ...statusData, status: e.target.value })}
-                    >
-                      {["Open", "In Progress", "Closed"].map(s => (
-                        <MenuItem key={s} value={s}>{s}</MenuItem>
-                      ))}
-                    </TextField>
-                  </Grid>
-                  <Grid item xs={5}>
-                    <TextField
-                      size="small"
-                      fullWidth
-                      placeholder="Optional remarks"
-                      value={statusData.remarks}
-                      onChange={(e) => setStatusData({ ...statusData, remarks: e.target.value })}
-                    />
-                  </Grid>
-                  <Grid item xs={3}>
-                    <Button
-                      variant="contained"
-                      fullWidth
-                      disabled={updatingStatus || ticket.status === statusData.status}
-                      onClick={handleUpdateStatus}
-                    >
-                      Update
-                    </Button>
-                  </Grid>
-                </Grid>
+                <Typography variant="subtitle2" mb={1}>Manage Status</Typography>
+                {(() => {
+                  if (ticket.status === "Closed") {
+                    return (
+                      <Box sx={{ p: 1.5, bgcolor: "grey.100", borderRadius: 1, border: "1px solid", borderColor: "grey.300" }}>
+                        <Typography variant="body2" color="text.secondary">
+                          🔒 This ticket is <strong>Closed</strong> and cannot be updated further.
+                        </Typography>
+                      </Box>
+                    );
+                  }
+
+                  if (!isAdmin) {
+                    return (
+                      <Box sx={{ p: 1.5, bgcolor: "warning.lighter", borderRadius: 1, border: "1px solid", borderColor: "warning.light" }}>
+                        <Typography variant="body2" color="warning.dark">
+                          ⚠️ Only <strong>Admins</strong> can update the ticket status.
+                        </Typography>
+                      </Box>
+                    );
+                  }
+
+                  return (
+                    <Grid container spacing={2} alignItems="center">
+                      <Grid item xs={4}>
+                        <TextField
+                          select
+                          size="small"
+                          fullWidth
+                          label="New Status"
+                          value={statusData.status}
+                          onChange={(e) => setStatusData({ ...statusData, status: e.target.value })}
+                        >
+                          {["Open", "Pending", "Closed"].map(s => (
+                            <MenuItem key={s} value={s}>{s}</MenuItem>
+                          ))}
+                        </TextField>
+                      </Grid>
+                      <Grid item xs={5}>
+                        <TextField
+                          size="small"
+                          fullWidth
+                          placeholder="Optional remarks"
+                          value={statusData.remarks}
+                          onChange={(e) => setStatusData({ ...statusData, remarks: e.target.value })}
+                        />
+                      </Grid>
+                      <Grid item xs={3}>
+                        <Button
+                          variant="contained"
+                          fullWidth
+                          disabled={updatingStatus || ticket.status === statusData.status}
+                          onClick={handleUpdateStatus}
+                        >
+                          {updatingStatus ? "Saving..." : "Update"}
+                        </Button>
+                      </Grid>
+                    </Grid>
+                  );
+                })()}
 
 
               </Box>

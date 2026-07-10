@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const uri = "mongodb://localhost:27017/exim";
+const uri = "mongodb://0.0.0.0:27017/exim";
 
 async function run() {
     try {
@@ -32,11 +32,11 @@ async function run() {
         const toRemove = policies.find(p => p.policy_name === 'Privilege Leave' && p.annual_quota === 25);
         if (toRemove) {
             console.log('\nFound policy to remove:', toRemove._id, toRemove.policy_name, toRemove.annual_quota);
-            
+
             // Remove from special_leave_policies
             const newPolicies = user.leave_settings.special_leave_policies.filter(id => id.toString() !== toRemove._id.toString());
             user.leave_settings.special_leave_policies = newPolicies;
-            
+
             // Update user
             await UserModel.updateOne(
                 { _id: user._id },

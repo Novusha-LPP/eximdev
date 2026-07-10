@@ -71,7 +71,7 @@ export default function TicketManagement() {
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState([]);
   const [filters, setFilters] = useState({ status: "", category: "", priority: "", search: "" });
-  const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 25 });
+  const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 10 });
   const [stats, setStats] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);

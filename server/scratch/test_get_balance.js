@@ -3,7 +3,7 @@ import { getBalance } from '../controllers/attendance/leave.controller.js';
 
 async function test() {
     try {
-        await mongoose.connect('mongodb://localhost:27017/exim');
+        await mongoose.connect('mongodb://0.0.0.0:27017/exim');
         const req = {
             user: { _id: '6672a2501aa931b68b091fa9', role: 'ADMIN' },
             query: { employee_id: '6672a2501aa931b68b091fa9' }

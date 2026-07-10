@@ -78,7 +78,7 @@ const getUserEmail = async (userId) => {
 // ── GET all tickets ──────────────────────────────────────────────────────────
 router.get("/", async (req, res) => {
   try {
-    const { status, category, priority, type, raised_by, assigned_to, search, page = 1, limit = 50 } = req.query;
+    const { status, category, priority, type, raised_by, assigned_to, search, page = 1, limit = 10 } = req.query;
     const filter = {};
     if (status) filter.status = status;
     if (category) filter.category = category;
@@ -288,6 +288,22 @@ router.put("/:id", validateId, async (req, res) => {
     if (!existing) return res.status(404).json({ success: false, message: "Ticket not found" });
 
     const userId = req.user?._id || req.user?.id;
+
+    // Check authorization: only Admin, the person who raised the ticket, or the person assigned to the ticket can update it.
+    const isAuthorized =
+      req.user?.role === "Admin" ||
+      existing.raised_by?.toString() === userId?.toString() ||
+      existing.assigned_to?.toString() === userId?.toString();
+
+    if (!isAuthorized) {
+      return res.status(403).json({ success: false, message: "Unauthorized to update this ticket" });
+    }
+
+    // If the ticket is already Closed, prevent further updates
+    if (existing.status === "Closed") {
+      return res.status(400).json({ success: false, message: "Closed tickets cannot be updated" });
+    }
+
     const previousStatus = existing.status;
     const previousAssignee = existing.assigned_to?.toString();
 
@@ -296,6 +312,13 @@ router.put("/:id", validateId, async (req, res) => {
       requester_name, department, contact_information, location,
       sla_due_date, resolution_notes, assigned_to, status,
     } = req.body;
+
+    // Check: only Admin can change the ticket status
+    if (status && status !== existing.status && req.user?.role !== "Admin") {
+      return res.status(403).json({ success: false, message: "Only Admins are authorized to update the ticket status" });
+    }
+
+
 
     const updateData = {
       title: title ?? existing.title,
@@ -387,6 +410,20 @@ router.post("/:id/assign", validateId, async (req, res) => {
     const existing = await Ticket.findById(req.params.id);
     if (!existing) return res.status(404).json({ success: false, message: "Ticket not found" });
 
+    // Check authorization: only Admin or the person currently assigned to the ticket can re-assign it.
+    const isAuthorized =
+      req.user?.role === "Admin" ||
+      existing.assigned_to?.toString() === userId?.toString();
+
+    if (!isAuthorized) {
+      return res.status(403).json({ success: false, message: "Unauthorized to assign this ticket" });
+    }
+
+    // If the ticket is already Closed, prevent further updates
+    if (existing.status === "Closed") {
+      return res.status(400).json({ success: false, message: "Closed tickets cannot be assigned" });
+    }
+
     const ticket = await Ticket.findByIdAndUpdate(
       req.params.id,
       {
@@ -431,6 +468,24 @@ router.post("/:id/history", validateId, async (req, res) => {
     if (!remarks) return res.status(400).json({ success: false, message: "remarks is required" });
 
     const userId = req.user?._id || req.user?.id;
+    const existing = await Ticket.findById(req.params.id);
+    if (!existing) return res.status(404).json({ success: false, message: "Ticket not found" });
+
+    // Check authorization: only Admin, the person who raised the ticket, or the person assigned to the ticket can add history/comments.
+    const isAuthorized =
+      req.user?.role === "Admin" ||
+      existing.raised_by?.toString() === userId?.toString() ||
+      existing.assigned_to?.toString() === userId?.toString();
+
+    if (!isAuthorized) {
+      return res.status(403).json({ success: false, message: "Unauthorized to comment on this ticket" });
+    }
+
+    // If the ticket is already Closed, prevent further updates
+    if (existing.status === "Closed") {
+      return res.status(400).json({ success: false, message: "Closed tickets cannot be commented on" });
+    }
+
     const ticket = await Ticket.findByIdAndUpdate(
       req.params.id,
       {
@@ -446,7 +501,6 @@ router.post("/:id/history", validateId, async (req, res) => {
       { new: true }
     ).populate("history.changed_by", "username email");
 
-    if (!ticket) return res.status(404).json({ success: false, message: "Ticket not found" });
     res.json({ success: true, data: ticket });
   } catch (err) {
     logger.error(`Error adding history to ticket: ${err.message}`);
@@ -460,11 +514,27 @@ router.post("/:id/attachments", validateId, upload.array("files", 5), async (req
     const ticket = await Ticket.findById(req.params.id);
     if (!ticket) return res.status(404).json({ success: false, message: "Ticket not found" });
 
+    const userId = req.user?._id || req.user?.id;
+
+    // Check authorization: only Admin, the person who raised the ticket, or the person assigned to the ticket can upload attachments.
+    const isAuthorized =
+      req.user?.role === "Admin" ||
+      ticket.raised_by?.toString() === userId?.toString() ||
+      ticket.assigned_to?.toString() === userId?.toString();
+
+    if (!isAuthorized) {
+      return res.status(403).json({ success: false, message: "Unauthorized to upload attachments to this ticket" });
+    }
+
+    // If the ticket is already Closed, prevent further updates
+    if (ticket.status === "Closed") {
+      return res.status(400).json({ success: false, message: "Closed tickets cannot have attachments added" });
+    }
+
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ success: false, message: "No files uploaded" });
     }
 
-    const userId = req.user?._id || req.user?.id;
     const baseUrl = `${req.protocol}://${req.get("host")}`;
 
     const newAttachments = req.files.map((file) => ({
@@ -501,6 +571,9 @@ router.post("/:id/attachments", validateId, upload.array("files", 5), async (req
 // ── DELETE ticket ─────────────────────────────────────────────────────────────
 router.delete("/:id", validateId, async (req, res) => {
   try {
+    if (req.user?.role !== "Admin") {
+      return res.status(403).json({ success: false, message: "Only Admins are authorized to delete tickets" });
+    }
     await Ticket.findByIdAndDelete(req.params.id);
     res.json({ success: true, message: "Ticket deleted" });
   } catch (err) {

@@ -18,7 +18,7 @@
  * });
  */
 
-const API_BASE = process.env.REACT_APP_API_STRING || 'http://localhost:5000';
+const API_BASE = process.env.REACT_APP_API_STRING || 'http://0.0.0.0:5000';
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000; // ms
 

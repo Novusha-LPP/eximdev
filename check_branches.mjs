@@ -3,7 +3,7 @@ import BranchModel from "./server/model/branchModel.mjs";
 import dotenv from "dotenv";
 dotenv.config();
 
-const mongoURI = process.env.MONGO_URI || "mongodb://localhost:27017/exim-dev";
+const mongoURI = process.env.MONGO_URI || "mongodb://0.0.0.0:27017/exim-dev";
 
 async function checkBranches() {
   try {

@@ -1,10 +1,11 @@
 
+
 import React, { useState, useEffect, useContext } from 'react';
 import { UserContext } from '../../contexts/UserContext';
 import { useNavigate } from 'react-router-dom';
 import '../../styles/mrm.scss';
 
-const API_URL = (process.env.REACT_APP_API_STRING || 'http://localhost:9006/api');
+const API_URL = (process.env.REACT_APP_API_STRING || 'http://0.0.0.0:9006/api');
 
 const MRMAdminDashboard = () => {
     const { user } = useContext(UserContext);

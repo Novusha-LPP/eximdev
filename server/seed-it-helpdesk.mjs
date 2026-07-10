@@ -3,7 +3,7 @@ import Asset from "./model/it-helpdesk/assetModel.mjs";
 import Ticket from "./model/it-helpdesk/ticketModel.mjs";
 import UserModel from "./model/userModel.mjs";
 
-const MONGODB_URI = process.env.DEV_MONGODB_URI || "mongodb://localhost:27017/eximdev";
+const MONGODB_URI = process.env.DEV_MONGODB_URI || "mongodb://0.0.0.0:27017/eximdev";
 
 const seedData = async () => {
   try {

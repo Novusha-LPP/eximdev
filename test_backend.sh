@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Configuration
-BASE_URL="http://localhost:9006/api"
+BASE_URL="http://0.0.0.0:9006/api"
 COOKIE_JAR="cookies.txt"
 
 # Users

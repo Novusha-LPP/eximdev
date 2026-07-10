@@ -9,7 +9,7 @@ const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.join(__dirname, "..", ".env") });
 
-const MONGODB_URI = process.env.DEV_MONGODB_URI || process.env.SERVER_MONGODB_URI || "mongodb://localhost:27017/eximNew";
+const MONGODB_URI = process.env.DEV_MONGODB_URI || process.env.SERVER_MONGODB_URI || "mongodb://0.0.0.0:27017/eximNew";
 
 async function migrate() {
     try {
@@ -18,8 +18,8 @@ async function migrate() {
         console.log("Connected to MongoDB for migration...");
 
         // Find all Green points where completion_date is missing or null
-        const greenPoints = await OpenPoint.find({ 
-            status: "Green", 
+        const greenPoints = await OpenPoint.find({
+            status: "Green",
             $or: [
                 { completion_date: { $exists: false } },
                 { completion_date: null }

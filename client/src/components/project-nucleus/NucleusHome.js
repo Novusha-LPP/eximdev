@@ -107,7 +107,7 @@ const NucleusHome = () => {
         const fetchReports = async () => {
             setLoading(true);
             try {
-                let apiUrl = process.env.REACT_APP_API_STRING || 'http://localhost:9006';
+                let apiUrl = process.env.REACT_APP_API_STRING || 'http://0.0.0.0:9006';
                 if (apiUrl.endsWith('/')) apiUrl = apiUrl.slice(0, -1);
 
                 const endpoint = apiUrl.endsWith('/api')

@@ -6,12 +6,12 @@ dotenv.config();
 
 async function run() {
     try {
-        await mongoose.connect('mongodb://localhost:27017/exim');
-        const apps = await LeaveApplication.find({ 
+        await mongoose.connect('mongodb://0.0.0.0:27017/exim');
+        const apps = await LeaveApplication.find({
             employee_id: '6672a2501aa931b68b091fa9',
             approval_status: 'pending'
         });
-        
+
         console.log(`Found ${apps.length} pending applications:`);
         apps.forEach(app => {
             console.log(`- From: ${app.from_date}, To: ${app.to_date}, Days: ${app.total_days}, Type: ${app.leave_type}`);

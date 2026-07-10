@@ -1,8 +1,8 @@
 import axios from "axios";
 
-let apiBaseURL = process.env.REACT_APP_API_STRING || "http://localhost:9006";
+let apiBaseURL = process.env.REACT_APP_API_STRING || "http://0.0.0.0:9006";
 
-if (apiBaseURL.includes("localhost") && typeof window !== "undefined" && window.location.hostname !== "localhost") {
+if (apiBaseURL.includes("0.0.0.0") && typeof window !== "undefined" && window.location.hostname !== "0.0.0.0") {
   apiBaseURL = `http://${window.location.hostname}:9006`;
 }
 

@@ -2,12 +2,12 @@ const mongoose = require('mongoose');
 const Item = require('./models/Item'); // Make sure to create this model file
 
 // Connect to MongoDB
-mongoose.connect('mongodb://localhost:27017/inventory_db', {
+mongoose.connect('mongodb://0.0.0.0:27017/inventory_db', {
     useNewUrlParser: true,
     useUnifiedTopology: true
 })
-.then(() => console.log('MongoDB connected successfully'))
-.catch(err => console.error('MongoDB connection error:', err));
+    .then(() => console.log('MongoDB connected successfully'))
+    .catch(err => console.error('MongoDB connection error:', err));
 
 // Sample data
 const sampleItems = [

@@ -68,7 +68,7 @@ const handleDelete = async (e, id) => {
 
 ### Step 1: Home Page खोलो
 ```
-1. Browser में http://localhost:3000 खोलो
+1. Browser में http://0.0.0.0:3000 खोलो
 2. IT Helpdesk Dashboard पर जाओ
 3. सभी 6 ticket status cards देखो (New, Assigned, In Progress, etc.)
 ```

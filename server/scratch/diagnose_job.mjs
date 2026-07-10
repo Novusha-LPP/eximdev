@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import JobModel from "../model/jobModel.mjs";
 import AuthorizationRegistrationModel from "../model/authorizationRegistrationModel.mjs";
 
-const MONGODB_URI = "mongodb://localhost:27017/exim";
+const MONGODB_URI = "mongodb://0.0.0.0:27017/exim";
 
 async function main() {
   await mongoose.connect(MONGODB_URI);
@@ -14,12 +14,12 @@ async function main() {
   const year = "26-27";
   const jobNo = "00240";
 
-  const matchingJob = await JobModel.findOne({ 
+  const matchingJob = await JobModel.findOne({
     branch_code: branch_code.toUpperCase(),
     trade_type: trade_type.toUpperCase(),
-    mode: mode.toUpperCase(), 
-    year, 
-    job_no: jobNo 
+    mode: mode.toUpperCase(),
+    year,
+    job_no: jobNo
   });
 
   if (!matchingJob) {

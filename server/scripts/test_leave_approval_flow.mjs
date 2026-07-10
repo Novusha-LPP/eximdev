@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE_URL = process.env.BASE_URL || 'http://localhost:9006';
+const BASE_URL = process.env.BASE_URL || 'http://0.0.0.0:9006';
 const loginUrl = `${BASE_URL}/api/login`;
 const approveUrl = `${BASE_URL}/api/attendance/approve-request`;
 const applicationsUrl = `${BASE_URL}/api/leave/applications`;

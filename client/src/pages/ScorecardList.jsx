@@ -11,7 +11,7 @@ export default function ScorecardList() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
   const [filters, setFilters] = useState({ branch: "", status: "", supplierName: "" });
-  const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 20 });
+  const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 10 });
 
   const fetchData = useCallback(async (page = 1) => {
     setLoading(true);

@@ -8,7 +8,7 @@ All code changes have been implemented. Follow these steps to activate the team-
 
 ```bash
 # Create backup before migration
-mongodump --uri="mongodb://localhost:27017/exim" --out=backup_team_migration
+mongodump --uri="mongodb://0.0.0.0:27017/exim" --out=backup_team_migration
 ```
 
 ## Step 2: Run Migration Script

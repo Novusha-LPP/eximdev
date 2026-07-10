@@ -20,7 +20,7 @@ import Holiday from '../model/attendance/Holiday.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-const MONGODB_URI = process.env.DEV_MONGODB_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/exim';
+const MONGODB_URI = process.env.DEV_MONGODB_URI || process.env.MONGODB_URI || 'mongodb://0.0.0.0:27017/exim';
 
 // Helper functions
 const randomChoice = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -47,7 +47,7 @@ const isWeekend = (date) => {
 const generatePunchTimes = (date, shift, scenario) => {
   const shiftStart = moment.tz(`${date.format('YYYY-MM-DD')} ${shift.start_time}`, 'YYYY-MM-DD HH:mm', 'Asia/Kolkata');
   const shiftEnd = moment.tz(`${date.format('YYYY-MM-DD')} ${shift.end_time}`, 'YYYY-MM-DD HH:mm', 'Asia/Kolkata');
-  
+
   const scenarios = {
     normal: {
       inVariation: [-5, 10], // -5 to +10 minutes from shift start
@@ -72,10 +72,10 @@ const generatePunchTimes = (date, shift, scenario) => {
   };
 
   const config = scenarios[scenario] || scenarios.normal;
-  
+
   const punchIn = shiftStart.clone().add(randomBetween(config.inVariation[0], config.inVariation[1]), 'minutes');
   const punchOut = shiftEnd.clone().add(randomBetween(config.outVariation[0], config.outVariation[1]), 'minutes');
-  
+
   return { punchIn, punchOut };
 };
 
@@ -86,19 +86,19 @@ async function seedTestData() {
   // Clear existing test data
   console.log('[TEST_SEED] Clearing existing test data...');
   await AttendanceRecord.deleteMany({});
-  
+
   // Use direct MongoDB operations to bypass immutability protection for test seeding
   await mongoose.connection.db.collection('attendancepunches').deleteMany({});
   console.log('[TEST_SEED] Cleared punch records (using direct MongoDB)');
-  
+
   await LeaveApplication.deleteMany({});
   await RegularizationRequest.deleteMany({});
   await Holiday.deleteMany({});
-  
+
   // Get all users with company assignments
-  const users = await User.find({ 
+  const users = await User.find({
     company_id: { $exists: true, $ne: null },
-    isActive: true 
+    isActive: true
   }).populate('company_id shift_id department_id');
 
   if (users.length === 0) {
@@ -111,7 +111,7 @@ async function seedTestData() {
   // Get all companies and create holidays
   const companies = await Company.find({});
   const currentYear = moment().year();
-  
+
   console.log('[TEST_SEED] Creating holidays...');
   const holidays = [
     { name: 'New Year\'s Day', date: `${currentYear}-01-01`, type: 'national' },
@@ -176,7 +176,7 @@ async function seedTestData() {
 
   const dateRange = getDateRange(45); // Last 45 days
   const holidayDates = new Set(holidays.map(h => h.date));
-  
+
   const stats = {
     recordsCreated: 0,
     punchesCreated: 0,
@@ -191,10 +191,10 @@ async function seedTestData() {
 
     const company = user.company_id;
     const shift = user.shift_id;
-    
+
     // Get leave policies for this company
     const leavePolicies = await LeavePolicy.find({ company_id: company._id });
-    
+
     // Create leave balances
     for (const policy of leavePolicies) {
       await LeaveBalance.findOneAndUpdate(
@@ -221,7 +221,7 @@ async function seedTestData() {
       const leaveStart = moment().subtract(randomBetween(5, 30), 'days');
       const leaveDays = randomBetween(1, 3);
       const leaveEnd = leaveStart.clone().add(leaveDays - 1, 'days');
-      
+
       const leaveApp = await LeaveApplication.create({
         company_id: company._id,
         employee_id: user._id,
@@ -347,7 +347,7 @@ async function seedTestData() {
 
       // Generate punch times for present scenarios
       const { punchIn, punchOut } = generatePunchTimes(date, shift, scenario);
-      
+
       // Create punch records
       await AttendancePunch.create({
         employee_id: user._id,
@@ -377,7 +377,7 @@ async function seedTestData() {
       const workHours = punchOut.diff(punchIn, 'minutes') / 60;
       const isLate = punchIn.isAfter(moment.tz(`${dateStr} ${shift.start_time}`, 'YYYY-MM-DD HH:mm', 'Asia/Kolkata'));
       const lateByMinutes = isLate ? punchIn.diff(moment.tz(`${dateStr} ${shift.start_time}`, 'YYYY-MM-DD HH:mm', 'Asia/Kolkata'), 'minutes') : 0;
-      
+
       let status = 'present';
       if (workHours < (shift.half_day_hours || 4)) status = 'half_day';
       else if (isLate && scenario === 'late') status = 'present'; // Keep as present but mark late
@@ -430,7 +430,7 @@ async function seedTestData() {
 
   console.log('[TEST_SEED] Test data generation completed!');
   console.log('[TEST_SEED] Statistics:', stats);
-  
+
   await mongoose.disconnect();
 }
 

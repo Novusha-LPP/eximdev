@@ -6,7 +6,7 @@ import path from 'path';
 // Load env
 dotenv.config({ path: './server/.env' });
 
-const MONGODB_URI = process.env.DEV_MONGODB_URI || "mongodb://localhost:27017/exim";
+const MONGODB_URI = process.env.DEV_MONGODB_URI || "mongodb://0.0.0.0:27017/exim";
 
 const AttendanceRecordSchema = new mongoose.Schema({
     employee_id: mongoose.Schema.Types.ObjectId,

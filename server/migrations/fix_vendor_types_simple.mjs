@@ -3,7 +3,7 @@ import mongoose from "mongoose";
 import Vendor from "../model/it-helpdesk/vendorModelSimple.mjs";
 
 // Connect to MongoDB
-mongoose.connect("mongodb://localhost:27017/eximdev", {
+mongoose.connect("mongodb://0.0.0.0:27017/eximdev", {
   useNewUrlParser: true,
   useUnifiedTopology: true
 });

@@ -21,7 +21,7 @@ const employee_code = getArg('--employee_code', getArg('--emp', ''));
 const dateStr = getArg('--date', ''); // YYYY-MM-DD
 const tz = getArg('--tz', 'Asia/Kolkata');
 const allUsers = hasFlag('--all');
-const MONGO_URI = getArg('--uri', process.env.PROD_MONGODB_URI || process.env.SERVER_MONGODB_URI || process.env.DEV_MONGODB_URI || 'mongodb://localhost:27017/exim');
+const MONGO_URI = getArg('--uri', process.env.PROD_MONGODB_URI || process.env.SERVER_MONGODB_URI || process.env.DEV_MONGODB_URI || 'mongodb://0.0.0.0:27017/exim');
 
 if (!allUsers && !username && !employee_code) {
   console.error('Provide --username or --employee_code (or --emp) or --all');

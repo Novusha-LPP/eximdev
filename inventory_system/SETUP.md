@@ -19,7 +19,7 @@ Before you begin, ensure you have the following installed:
 
 3. **Start MongoDB**:
    - Make sure MongoDB is installed and running on your system.
-   - By default, the application connects to MongoDB at `mongodb://localhost:27017/inventory_db`.
+   - By default, the application connects to MongoDB at `mongodb://0.0.0.0:27017/inventory_db`.
    - If your MongoDB is running on a different host or port, update the connection string in `app.js`.
 
 4. **Insert sample data (optional)**:
@@ -35,7 +35,7 @@ Before you begin, ensure you have the following installed:
    The server will start on port 3000.
 
 6. **Access the application**:
-   Open your web browser and navigate to `http://localhost:3000`.
+   Open your web browser and navigate to `http://0.0.0.0:3000`.
 
 ## Using the Application
 

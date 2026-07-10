@@ -1,18 +1,18 @@
 import axios from "axios";
 
-// Build baseURL: use env variable but replace localhost with current hostname
+// Build baseURL: use env variable but replace 0.0.0.0 with current hostname
 // so mobile devices scanning QR can reach the backend server
-let apiBaseURL = process.env.REACT_APP_API_STRING || "http://localhost:9006/api";
+let apiBaseURL = process.env.REACT_APP_API_STRING || "http://0.0.0.0:9006/api";
 
 if (
   typeof window !== "undefined" &&
-  apiBaseURL.includes("localhost") &&
-  window.location.hostname !== "localhost" &&
+  apiBaseURL.includes("0.0.0.0") &&
+  window.location.hostname !== "0.0.0.0" &&
   window.location.hostname !== "127.0.0.1"
 ) {
-  // Replace localhost with the PC's actual IP, preserving the /api prefix
+  // Replace 0.0.0.0 with the PC's actual IP, preserving the /api prefix
   apiBaseURL = apiBaseURL.replace(
-    /localhost|127\.0\.0\.1/,
+    /0.0.0.0|127\.0\.0\.1/,
     window.location.hostname
   );
 }

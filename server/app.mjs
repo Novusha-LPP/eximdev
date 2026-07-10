@@ -442,15 +442,17 @@ app.use(
       const allowedStaticOrigins = [
         "null",
         "http://eximdev.s3-website.ap-south-1.amazonaws.com",
-        "http://localhost:3000",
-        "http://localhost:3001",
-        "http://localhost:9007",
+        "http://0.0.0.0:3000",
+        "http://0.0.0.0:3001",
+        "http://0.0.0.0:9007",
         "http://192.168.1.105:3000",
         "http://192.168.1.105:3001",
         "http://192.168.1.103:3000",
         "http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com",
         "https://import.alvision.in",
-        "https://test-frontend.alvision.in"
+        "https://test-frontend.alvision.in",
+        "http://192.168.2.95:3000",
+        "http://0.0.0.0:3000",
       ];
 
       // Allow any local network IP (192.168.x.x, 10.x.x.x, 172.16-31.x.x) on any port

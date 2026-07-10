@@ -4,7 +4,7 @@ import JobModel from "../model/jobModel.mjs";
 
 dotenv.config();
 
-const MONGODB_URI = process.env.DEV_MONGODB_URI || process.env.PROD_MONGODB_URI || "mongodb://localhost:27017/eximNew";
+const MONGODB_URI = process.env.DEV_MONGODB_URI || process.env.PROD_MONGODB_URI || "mongodb://0.0.0.0:27017/eximNew";
 
 async function run() {
   console.log("Connecting to database at:", MONGODB_URI);

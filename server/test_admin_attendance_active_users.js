@@ -1,4 +1,4 @@
-const BASE_URL = process.env.API_URL || 'http://localhost:9006/api';
+const BASE_URL = process.env.API_URL || 'http://0.0.0.0:9006/api';
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'uday_zope';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '12345678';
 

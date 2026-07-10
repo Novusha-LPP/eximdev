@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-const MONGODB_URI = "mongodb://localhost:27017/eximNew";
+const MONGODB_URI = "mongodb://0.0.0.0:27017/eximNew";
 
 async function check() {
     await mongoose.connect(MONGODB_URI);

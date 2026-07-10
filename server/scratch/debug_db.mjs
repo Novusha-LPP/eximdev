@@ -1,7 +1,7 @@
 import { MongoClient } from "mongodb";
 
 const debugDb = async () => {
-  const uri = "mongodb://localhost:27017/eximNew";
+  const uri = "mongodb://0.0.0.0:27017/eximNew";
   const client = new MongoClient(uri);
   try {
     await client.connect();

@@ -28,7 +28,7 @@ async function createCRMCollections() {
     console.log("🔧 Starting CRM Phase 1 Collections and Indexes Setup...\n");
 
     // Connect to MongoDB
-    const mongoUri = process.env.MONGODB_URI || "mongodb://localhost:27017/eximdev";
+    const mongoUri = process.env.MONGODB_URI || "mongodb://0.0.0.0:27017/eximdev";
     await mongoose.connect(mongoUri);
     console.log("✅ Connected to MongoDB\n");
 
@@ -40,16 +40,16 @@ async function createCRMCollections() {
       // Ensure collection exists
       await LeadScoreModel.collection.createIndex({ tenantId: 1, leadId: 1 }, { unique: true });
       console.log("✅ Index created: { tenantId: 1, leadId: 1 } (unique)");
-      
+
       await LeadScoreModel.collection.createIndex({ tenantId: 1, totalScore: -1 });
       console.log("✅ Index created: { tenantId: 1, totalScore: -1 }");
-      
+
       await LeadScoreModel.collection.createIndex({ tenantId: 1, grade: 1 });
       console.log("✅ Index created: { tenantId: 1, grade: 1 }");
-      
+
       await LeadScoreModel.collection.createIndex({ tenantId: 1, isQualified: 1 });
       console.log("✅ Index created: { tenantId: 1, isQualified: 1 }");
-      
+
       await LeadScoreModel.collection.createIndex({ tenantId: 1, createdAt: -1 });
       console.log("✅ Index created: { tenantId: 1, createdAt: -1 }\n");
     } catch (err) {
@@ -63,13 +63,13 @@ async function createCRMCollections() {
     try {
       await TerritoryModel.collection.createIndex({ tenantId: 1, name: 1 }, { unique: true });
       console.log("✅ Index created: { tenantId: 1, name: 1 } (unique)");
-      
+
       await TerritoryModel.collection.createIndex({ tenantId: 1, type: 1 });
       console.log("✅ Index created: { tenantId: 1, type: 1 }");
-      
+
       await TerritoryModel.collection.createIndex({ tenantId: 1, assignedTeamId: 1 });
       console.log("✅ Index created: { tenantId: 1, assignedTeamId: 1 }");
-      
+
       await TerritoryModel.collection.createIndex({ tenantId: 1, isActive: 1 });
       console.log("✅ Index created: { tenantId: 1, isActive: 1 }\n");
     } catch (err) {
@@ -83,13 +83,13 @@ async function createCRMCollections() {
     try {
       await SalesTeamModel.collection.createIndex({ tenantId: 1, name: 1 }, { unique: true });
       console.log("✅ Index created: { tenantId: 1, name: 1 } (unique)");
-      
+
       await SalesTeamModel.collection.createIndex({ tenantId: 1, managerId: 1 });
       console.log("✅ Index created: { tenantId: 1, managerId: 1 }");
-      
+
       await SalesTeamModel.collection.createIndex({ tenantId: 1, type: 1 });
       console.log("✅ Index created: { tenantId: 1, type: 1 }");
-      
+
       await SalesTeamModel.collection.createIndex({ tenantId: 1, isActive: 1 });
       console.log("✅ Index created: { tenantId: 1, isActive: 1 }\n");
     } catch (err) {
@@ -103,16 +103,16 @@ async function createCRMCollections() {
     try {
       await QuoteModel.collection.createIndex({ tenantId: 1, quoteNumber: 1 }, { unique: true });
       console.log("✅ Index created: { tenantId: 1, quoteNumber: 1 } (unique)");
-      
+
       await QuoteModel.collection.createIndex({ tenantId: 1, opportunityId: 1 });
       console.log("✅ Index created: { tenantId: 1, opportunityId: 1 }");
-      
+
       await QuoteModel.collection.createIndex({ tenantId: 1, accountId: 1 });
       console.log("✅ Index created: { tenantId: 1, accountId: 1 }");
-      
+
       await QuoteModel.collection.createIndex({ tenantId: 1, status: 1 });
       console.log("✅ Index created: { tenantId: 1, status: 1 }");
-      
+
       await QuoteModel.collection.createIndex({ tenantId: 1, createdAt: -1 });
       console.log("✅ Index created: { tenantId: 1, createdAt: -1 }\n");
     } catch (err) {
@@ -126,13 +126,13 @@ async function createCRMCollections() {
     try {
       await AutomationRuleModel.collection.createIndex({ tenantId: 1, name: 1 });
       console.log("✅ Index created: { tenantId: 1, name: 1 }");
-      
+
       await AutomationRuleModel.collection.createIndex({ tenantId: 1, isActive: 1 });
       console.log("✅ Index created: { tenantId: 1, isActive: 1 }");
-      
+
       await AutomationRuleModel.collection.createIndex({ tenantId: 1, trigger: 1 });
       console.log("✅ Index created: { tenantId: 1, trigger: 1 }");
-      
+
       await AutomationRuleModel.collection.createIndex({ tenantId: 1, isTemplate: 1 });
       console.log("✅ Index created: { tenantId: 1, isTemplate: 1 }\n");
     } catch (err) {
@@ -146,13 +146,13 @@ async function createCRMCollections() {
     try {
       await OpportunityForecastModel.collection.createIndex({ tenantId: 1, opportunityId: 1, forecastMonth: 1 }, { unique: true });
       console.log("✅ Index created: { tenantId: 1, opportunityId: 1, forecastMonth: 1 } (unique)");
-      
+
       await OpportunityForecastModel.collection.createIndex({ tenantId: 1, forecastMonth: 1 });
       console.log("✅ Index created: { tenantId: 1, forecastMonth: 1 }");
-      
+
       await OpportunityForecastModel.collection.createIndex({ tenantId: 1, stage: 1 });
       console.log("✅ Index created: { tenantId: 1, stage: 1 }");
-      
+
       await OpportunityForecastModel.collection.createIndex({ tenantId: 1, ownerId: 1 });
       console.log("✅ Index created: { tenantId: 1, ownerId: 1 }\n");
     } catch (err) {

@@ -207,7 +207,7 @@ The codebase is a monorepo with a React SPA frontend and an Express.js/MongoDB b
 ```bash
 cd client
 npm install
-npm start                 # Dev server on localhost:3000
+npm start                 # Dev server on 0.0.0.0:3000
 npm run dev              # Dev server bound to 0.0.0.0
 npm run build            # Production build -> client/build
 npm run winBuild         # Windows production build (sourcemaps disabled)
@@ -246,7 +246,7 @@ Both `client/.env` and `server/.env` are **gitignored** and must be created manu
 
 ### Frontend (`client/.env`)
 Typical variables:
-- `REACT_APP_API_STRING` — base URL for backend API (e.g., `http://localhost:9006`)
+- `REACT_APP_API_STRING` — base URL for backend API (e.g., `http://0.0.0.0:9006`)
 
 ### Backend (`server/.env`)
 Typical variables:
@@ -385,8 +385,8 @@ If you introduce tests:
 
 ### Cloudflare Tunnel (Local Dev Exposure)
 - Config is in `cloudflare/config.yml`.
-- Maps `test-frontend.alvision.in` -> `localhost:3000`
-- Maps `test-backend.alvision.in` -> `localhost:9006`
+- Maps `test-frontend.alvision.in` -> `0.0.0.0:3000`
+- Maps `test-backend.alvision.in` -> `0.0.0.0:9006`
 
 ### PM2
 - `ecosystem.config.json` sets `NODE_ENV: "server"` and watches files.

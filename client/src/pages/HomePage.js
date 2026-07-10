@@ -22,6 +22,7 @@ import UserProfile from "../components/userProfile/UserProfile.js";
 import BranchManagement from "../components/admin/BranchManagement.js";
 import ApiKeyManagement from "../components/admin/ApiKeyManagement.js";
 import JobMigrationUtility from "../components/admin/JobMigrationUtility.js";
+import ItHelpdeskPage from "./ItHelpdeskPage.jsx";
 
 // Accounts
 import Accounts from "../components/accounts/Accounts.js";
@@ -616,6 +617,9 @@ function HomePageContent() {
                   <CRMModule />
                 }
               /> */}
+
+              {/* IT Helpdesk Module */}
+              <Route path="/it-helpdesk/*" element={<ItHelpdeskPage />} />
 
               {/* Exit Feedback */}
               <Route

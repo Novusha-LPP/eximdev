@@ -201,7 +201,7 @@ export default function AssetManagement() {
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ type: "", status: "" });
-  const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 25 });
+  const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 10 });
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });

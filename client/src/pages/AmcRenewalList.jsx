@@ -66,7 +66,7 @@ export default function AmcRenewalList() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
   const [filters, setFilters] = useState({ status: "", search: "" });
-  const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 50 });
+  const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 10 });
 
   // Modal state
   const [showModal, setShowModal] = useState(false);

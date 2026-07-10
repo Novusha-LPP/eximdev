@@ -1,6 +1,6 @@
 import { MongoClient, ObjectId } from "mongodb";
 
-const uri = "mongodb://localhost:27017/exim";
+const uri = "mongodb://0.0.0.0:27017/exim";
 
 async function main() {
   const client = new MongoClient(uri);

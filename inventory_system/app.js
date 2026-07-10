@@ -13,12 +13,12 @@ app.use(bodyParser.json());
 app.use(express.static('public'));
 
 // MongoDB connection
-mongoose.connect('mongodb://localhost:27017/inventory_db', {
+mongoose.connect('mongodb://0.0.0.0:27017/inventory_db', {
     useNewUrlParser: true,
     useUnifiedTopology: true
 })
-.then(() => console.log('MongoDB connected successfully'))
-.catch(err => console.error('MongoDB connection error:', err));
+    .then(() => console.log('MongoDB connected successfully'))
+    .catch(err => console.error('MongoDB connection error:', err));
 
 // Define Item Schema
 const itemSchema = new mongoose.Schema({

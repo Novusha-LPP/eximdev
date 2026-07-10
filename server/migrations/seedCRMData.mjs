@@ -75,7 +75,7 @@ async function seedCRMData() {
     console.log("🌱 Starting CRM Data Seeding...\n");
 
     // Connect to MongoDB
-    const mongoUri = process.env.MONGODB_URI || process.env.DEV_MONGODB_URI || "mongodb://localhost:27017/eximdev";
+    const mongoUri = process.env.MONGODB_URI || process.env.DEV_MONGODB_URI || "mongodb://0.0.0.0:27017/eximdev";
     await mongoose.connect(mongoUri);
     console.log("✅ Connected to MongoDB\n");
 
@@ -152,7 +152,7 @@ async function seedCRMData() {
       const company = companyNames[i % companyNames.length] + (i >= companyNames.length ? ` ${Math.floor(i / companyNames.length) + 1}` : "");
       const firstName = firstNames[i % firstNames.length];
       const lastName = lastNames[i % lastNames.length];
-      
+
       seedLeads.push({
         ownerId: salesUsers[i % salesUsers.length]._id,
         company,
@@ -208,7 +208,7 @@ async function seedCRMData() {
         title: ["Director", "Manager", "CEO", "Operations Head", "Procurement Manager"][i % 5],
         isPrimary: true
       });
-      
+
       // Secondary contact
       seedContacts.push({
         accountId: account._id,
@@ -233,7 +233,7 @@ async function seedCRMData() {
       const account = createdAccounts[i % createdAccounts.length];
       const contact = createdContacts.find(c => c.accountId.toString() === account._id.toString() && c.isPrimary);
       const stage = opportunityStages[i % opportunityStages.length];
-      
+
       seedOpportunities.push({
         accountId: account._id,
         primaryContactId: contact?._id,

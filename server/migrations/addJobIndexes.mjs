@@ -22,7 +22,7 @@ async function createIndexes() {
     console.log("🔧 Starting MongoDB Index Creation...\n");
 
     // Connect to MongoDB
-    await mongoose.connect(process.env.MONGODB_URI || "mongodb://localhost:27017/eximdev");
+    await mongoose.connect(process.env.MONGODB_URI || "mongodb://0.0.0.0:27017/eximdev");
     console.log("✅ Connected to MongoDB\n");
 
     // Index 1: job_no (most searched field)

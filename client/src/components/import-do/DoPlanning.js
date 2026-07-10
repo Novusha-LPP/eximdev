@@ -342,7 +342,7 @@ function DoPlanning() {
 
   // ✅ Simple WebSocket implementation
   useEffect(() => {
-    const SOCKET_URL = `ws://${process.env.REACT_APP_SOCKET_URL || "localhost:9006"
+    const SOCKET_URL = `ws://${process.env.REACT_APP_SOCKET_URL || "0.0.0.0:9006"
       }`;
     console.log("🔗 Connecting to DO Billing WebSocket:", SOCKET_URL);
 
@@ -997,7 +997,7 @@ function DoPlanning() {
                       gap: '4px'
                     }}
                   >
-                    Req No: {req.payment_request_no} 
+                    Req No: {req.payment_request_no}
                     <IconButton size="small" onClick={(e) => handleCopy(e, req.payment_request_no)} sx={{ p: 0 }} title="Copy No">
                       <ContentCopyIcon sx={{ fontSize: '12px' }} />
                     </IconButton>
@@ -1006,7 +1006,7 @@ function DoPlanning() {
                 ))}
               </div>
             )}
-            
+
             {/* Show payment receipt links if available from charges */}
             {paymentsMade.length > 0 && (
               <div style={{ marginTop: "4px" }}>

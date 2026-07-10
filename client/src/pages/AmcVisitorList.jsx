@@ -403,7 +403,7 @@ export default function AmcVisitorList() {
               ⚙️ Mobile Scan Setup (Local Wi-Fi Testing)
             </Typography>
             <Typography variant="body2" color="textSecondary" mb={2}>
-              If you access this page via <strong>localhost</strong>, scanning the QR code with your mobile phone will fail. Please replace <strong>localhost</strong> in the URL below with your PC's actual local IP address (e.g. <code>http://192.168.1.5:3000</code>) so that the phone can connect:
+              If you access this page via <strong>0.0.0.0</strong>, scanning the QR code with your mobile phone will fail. Please replace <strong>0.0.0.0</strong> in the URL below with your PC's actual local IP address (e.g. <code>http://192.168.1.5:3000</code>) so that the phone can connect:
             </Typography>
             <TextField
               label="QR Code Base URL"

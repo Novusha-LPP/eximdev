@@ -85,7 +85,6 @@ function App() {
           <div className="App">
             <Routes>
               <Route path="/amc-entry" element={<AmcPublicForm />} />
-              <Route path="/it-helpdesk/*" element={user ? <ItHelpdeskPage /> : <LoginPage />} />
               <Route path="*" element={user ? <HomePage /> : <LoginPage />} />
             </Routes>
           </div>

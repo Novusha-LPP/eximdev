@@ -13,7 +13,7 @@
 import axios from 'axios';
 
 const attendanceApiClient = axios.create({
-  baseURL: process.env.REACT_APP_API_STRING || 'http://localhost:9006',
+  baseURL: process.env.REACT_APP_API_STRING || 'http://0.0.0.0:9006',
   timeout: 30000,
   withCredentials: true,          // send the EXIM cookie automatically
 });

@@ -463,6 +463,7 @@ function JobDetails() {
   const [imexcubeDetailsLoading, setImexcubeDetailsLoading] = useState(false);
   const [imexcubeDetailsDialogOpen, setImexcubeDetailsDialogOpen] = useState(false);
   const [imexcubeDetailsData, setImexcubeDetailsData] = useState(null);
+  const [imexcubeSyncing, setImexcubeSyncing] = useState(false);
 
   // JSON Editor state
   const [imexcubeShowEditor, setImexcubeShowEditor] = useState(false);
@@ -525,6 +526,51 @@ function JobDetails() {
       setImexcubeDetailsData({ error: errMsg });
     } finally {
       setImexcubeDetailsLoading(false);
+    }
+  };
+
+  // Synchronize job details from IMEXCUBE to our local DB
+  const handleSyncImexcubeDetails = async () => {
+    const jobNumber = data?.job_number;
+    if (!jobNumber) {
+      setImexcubeSnackbar({ open: true, message: "Job number not found", severity: "error" });
+      setTimeout(() => setImexcubeSnackbar(prev => ({ ...prev, open: false })), 4000);
+      return;
+    }
+    setImexcubeSyncing(true);
+    try {
+      const res = await axios.post(
+        `${process.env.REACT_APP_API_STRING}/scmCube/sync-imexcube-job`,
+        { job_number: jobNumber }
+      );
+      
+      if (res.data?.success) {
+        setImexcubeDetailsDialogOpen(false);
+        setImexcubeSnackbar({
+          open: true,
+          message: res.data?.message || "Job synchronized successfully",
+          severity: "success"
+        });
+        setTimeout(() => setImexcubeSnackbar(prev => ({ ...prev, open: false })), 4000);
+
+        if (res.data.updatedJob && setData) {
+          setData(res.data.updatedJob);
+        }
+      } else {
+        setImexcubeSnackbar({
+          open: true,
+          message: res.data?.message || "No updates found",
+          severity: "info"
+        });
+        setTimeout(() => setImexcubeSnackbar(prev => ({ ...prev, open: false })), 4000);
+      }
+    } catch (err) {
+      console.error(err);
+      const errMsg = err?.response?.data?.error || err?.response?.data?.details || err.message || "Failed to sync job details from IMEXCUBE";
+      setImexcubeSnackbar({ open: true, message: errMsg, severity: "error" });
+      setTimeout(() => setImexcubeSnackbar(prev => ({ ...prev, open: false })), 5000);
+    } finally {
+      setImexcubeSyncing(false);
     }
   };
 
@@ -6571,6 +6617,15 @@ function JobDetails() {
           )}
         </DialogContent>
         <DialogActions>
+          <Button 
+            onClick={handleSyncImexcubeDetails} 
+            variant="contained" 
+            color="success"
+            disabled={imexcubeSyncing || !imexcubeDetailsData || !!imexcubeDetailsData.error || imexcubeDetailsLoading}
+            sx={{ mr: 1 }}
+          >
+            {imexcubeSyncing ? "Syncing..." : "Sync to Local Job"}
+          </Button>
           <Button onClick={() => setImexcubeDetailsDialogOpen(false)} variant="contained" sx={{ backgroundColor: "#1565c0", "&:hover": { backgroundColor: "#0d47a1" } }}>
             Close
           </Button>

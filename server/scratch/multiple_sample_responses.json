@@ -1,0 +1,286 @@
+{
+  "AMD/IMP/SEA/02305/26-27": {
+    "success": true,
+    "message": "Get Job Details successful",
+    "data": {
+      "BE_Details": [
+        {
+          "JobNo": "AMD/IMP/SEA/02305/26-27",
+          "JobDate": "2026-06-27T00:00:00",
+          "BEType": "H",
+          "Mode": "L",
+          "CustomPort": "INSAU6",
+          "BENo": "0",
+          "BEDate": ""
+        }
+      ],
+      "Invoice_Details": [
+        {
+          "InVSrNo": "1",
+          "InvoiceNo": "A/SB/26/3236",
+          "InvoiceDate": "2026-06-29T00:00:00",
+          "InvoiceTerms": "CF",
+          "PaymentTerms": "DP",
+          "NatureTransaction": "S",
+          "InvoiceCurrency": "USD",
+          "InvoiceProductValues": 68765.4,
+          "FreightCurrency": "",
+          "FreightAmount": 0,
+          "InsuranceCurrency": "USD",
+          "InsuranceAmount": 773.61,
+          "MiscCurr": "",
+          "MiscAmount": 0,
+          "DiscountCurrency": "",
+          "DiscountAmount": 0,
+          "AgencyCurrency": "",
+          "AgencyAmount": 0,
+          "LoadingCurrency": "",
+          "LoadingAmount": 0,
+          "HighSeaCurrency": "",
+          "HighSeaAmt": 0,
+          "SupplierName": "ASIA GLOBAL EXIM SDN BHD",
+          "Supp_Address1": "NO.17 JALAN SUNGAI JELUH 32/189 BUK",
+          "Supp_Address2": "IT NAGA INDUSTRIAL PARK, SEKSYEN 32",
+          "Supp_Address3": " , 40460 SHAH ALAM, SELANGOR",
+          "Supp_Country": "MALAYSIA",
+          "Supp_PinCode": ""
+        }
+      ],
+      "Product_Details": [
+        {
+          "InvSrNo": 1,
+          "InvoiceNo": "A/SB/26/3236",
+          "ProductSNo": 1,
+          "ProductDesc": "STAINLESS STEEL TURNING SCRAP GRADE 304",
+          "ProType": "DUTIABLE",
+          "Qty": 49830,
+          "Unit": "KGS",
+          "UnitPrice": 1.38,
+          "Amount": 68765.4,
+          "RITCNo": "72042190"
+        }
+      ]
+    },
+    "statusCode": 200,
+    "errors": null
+  },
+  "AMD/IMP/AIR/00143/26-27": {
+    "success": true,
+    "message": "Get Job Details successful",
+    "data": {
+      "BE_Details": [
+        {
+          "JobNo": "AMD/IMP/AIR/00143/26-27",
+          "JobDate": "2026-06-27T00:00:00",
+          "BEType": "H",
+          "Mode": "A",
+          "CustomPort": "INAMD4",
+          "BENo": "2195485",
+          "BEDate": "29/06/2026"
+        }
+      ],
+      "Invoice_Details": [
+        {
+          "InVSrNo": "1",
+          "InvoiceNo": "DRE/40194919",
+          "InvoiceDate": "2026-06-24T00:00:00",
+          "InvoiceTerms": "CIF",
+          "PaymentTerms": "OTH",
+          "NatureTransaction": "S",
+          "InvoiceCurrency": "EUR",
+          "InvoiceProductValues": 4125,
+          "FreightCurrency": "",
+          "FreightAmount": 0,
+          "InsuranceCurrency": "",
+          "InsuranceAmount": 0,
+          "MiscCurr": "EUR",
+          "MiscAmount": 500,
+          "DiscountCurrency": "",
+          "DiscountAmount": 0,
+          "AgencyCurrency": "",
+          "AgencyAmount": 0,
+          "LoadingCurrency": "",
+          "LoadingAmount": 0,
+          "HighSeaCurrency": "",
+          "HighSeaAmt": 0,
+          "SupplierName": "SPECTRO ANALYTICAL INSTRUMENTS GMBH",
+          "Supp_Address1": "BOSCHSTRASSE 10,KLEVE 47533 DE",
+          "Supp_Address2": "",
+          "Supp_Address3": "",
+          "Supp_Country": "GERMANY",
+          "Supp_PinCode": ""
+        }
+      ],
+      "Product_Details": [
+        {
+          "InvSrNo": 1,
+          "InvoiceNo": "DRE/40194919",
+          "ProductSNo": 1,
+          "ProductDesc": "PARTS FOR SPECTROMETER (EPC MODULE TRIZEPS 7 /W/O OPTION CAMERA/PREASSEMBLED SPARE PART)",
+          "ProType": "DUTIABLE",
+          "Qty": 1,
+          "Unit": "NOS",
+          "UnitPrice": 3131.31,
+          "Amount": 3131.31,
+          "RITCNo": "90229090"
+        },
+        {
+          "InvSrNo": 1,
+          "InvoiceNo": "DRE/40194919",
+          "ProductSNo": 2,
+          "ProductDesc": "PARTS FOR SPECTROMETER (CONNECTOR BOARD/ XSORT XHH03)",
+          "ProType": "DUTIABLE",
+          "Qty": 1,
+          "Unit": "NOS",
+          "UnitPrice": 448.26,
+          "Amount": 448.26,
+          "RITCNo": "90229090"
+        },
+        {
+          "InvSrNo": 1,
+          "InvoiceNo": "DRE/40194919",
+          "ProductSNo": 3,
+          "ProductDesc": "PARTS FOR SPECTROMETER (CABLE SET/ XSORT XHH03)",
+          "ProType": "DUTIABLE",
+          "Qty": 1,
+          "Unit": "NOS",
+          "UnitPrice": 545.43,
+          "Amount": 545.43,
+          "RITCNo": "85444299"
+        }
+      ]
+    },
+    "statusCode": 200,
+    "errors": null
+  },
+  "AMD/IMP/SEA/02331/26-27": {
+    "success": true,
+    "message": "Get Job Details successful",
+    "data": {
+      "BE_Details": [
+        {
+          "JobNo": "AMD/IMP/SEA/02331/26-27",
+          "JobDate": "2026-06-30T00:00:00",
+          "BEType": "H",
+          "Mode": "L",
+          "CustomPort": "INSAU6",
+          "BENo": "0",
+          "BEDate": ""
+        }
+      ],
+      "Invoice_Details": [
+        {
+          "InVSrNo": "1",
+          "InvoiceNo": "SGC26-019",
+          "InvoiceDate": "2026-06-05T00:00:00",
+          "InvoiceTerms": "CIF",
+          "PaymentTerms": "DP",
+          "NatureTransaction": "S",
+          "InvoiceCurrency": "USD",
+          "InvoiceProductValues": 50170,
+          "FreightCurrency": "",
+          "FreightAmount": 0,
+          "InsuranceCurrency": "",
+          "InsuranceAmount": 0,
+          "MiscCurr": "",
+          "MiscAmount": 0,
+          "DiscountCurrency": "",
+          "DiscountAmount": 0,
+          "AgencyCurrency": "",
+          "AgencyAmount": 0,
+          "LoadingCurrency": "",
+          "LoadingAmount": 0,
+          "HighSeaCurrency": "",
+          "HighSeaAmt": 0,
+          "SupplierName": "STERLING GLOBAL COMMODITY FZCO",
+          "Supp_Address1": "OFFICE #6WB 238, SECOND FLOOR, 6 WE",
+          "Supp_Address2": "ST B, DUBAI AIRPORT FREEZONE, UNITE",
+          "Supp_Address3": "D ARAB EMIRATES",
+          "Supp_Country": "UNITED ARAB EMIRATES",
+          "Supp_PinCode": ""
+        }
+      ],
+      "Product_Details": [
+        {
+          "InvSrNo": 1,
+          "InvoiceNo": "SGC26-019",
+          "ProductSNo": 1,
+          "ProductDesc": "STAINLESS STEEL MELTING SCRAP GRADE 304",
+          "ProType": "DUTIABLE",
+          "Qty": 34600,
+          "Unit": "KGS",
+          "UnitPrice": 1.45,
+          "Amount": 50170,
+          "RITCNo": "72042190"
+        }
+      ]
+    },
+    "statusCode": 200,
+    "errors": null
+  },
+  "AMD/IMP/SEA/02332/26-27": {
+    "success": true,
+    "message": "Get Job Details successful",
+    "data": {
+      "BE_Details": [
+        {
+          "JobNo": "AMD/IMP/SEA/02332/26-27",
+          "JobDate": "2026-06-30T00:00:00",
+          "BEType": "H",
+          "Mode": "L",
+          "CustomPort": "INSAU6",
+          "BENo": "0",
+          "BEDate": ""
+        }
+      ],
+      "Invoice_Details": [
+        {
+          "InVSrNo": "1",
+          "InvoiceNo": "SGC26-020",
+          "InvoiceDate": "2026-06-05T00:00:00",
+          "InvoiceTerms": "CIF",
+          "PaymentTerms": "DP",
+          "NatureTransaction": "S",
+          "InvoiceCurrency": "USD",
+          "InvoiceProductValues": 59740,
+          "FreightCurrency": "",
+          "FreightAmount": 0,
+          "InsuranceCurrency": "",
+          "InsuranceAmount": 0,
+          "MiscCurr": "",
+          "MiscAmount": 0,
+          "DiscountCurrency": "",
+          "DiscountAmount": 0,
+          "AgencyCurrency": "",
+          "AgencyAmount": 0,
+          "LoadingCurrency": "",
+          "LoadingAmount": 0,
+          "HighSeaCurrency": "",
+          "HighSeaAmt": 0,
+          "SupplierName": "STERLING GLOBAL COMMODITY FZCO",
+          "Supp_Address1": "OFFICE #6WB 238, SECOND FLOOR, 6 WE",
+          "Supp_Address2": "ST B, DUBAI AIRPORT FREEZONE, UNITE",
+          "Supp_Address3": "D ARAB EMIRATES",
+          "Supp_Country": "UNITED ARAB EMIRATES",
+          "Supp_PinCode": ""
+        }
+      ],
+      "Product_Details": [
+        {
+          "InvSrNo": 1,
+          "InvoiceNo": "SGC26-020",
+          "ProductSNo": 1,
+          "ProductDesc": "STAINLESS STEEL MELTING SCRAP GRADE 304",
+          "ProType": "DUTIABLE",
+          "Qty": 41200,
+          "Unit": "KGS",
+          "UnitPrice": 1.45,
+          "Amount": 59740,
+          "RITCNo": "72042190"
+        }
+      ]
+    },
+    "statusCode": 200,
+    "errors": null
+  }
+}

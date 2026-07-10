@@ -753,7 +753,7 @@ const FleetUtilizationReport = ({
                 underTrip, underTripPct: getPctStr(underTrip),
                 others, othersPct: getPctStr(others),
                 otherStatusTotal, otherStatusTotalPct: getPctStr(otherStatusTotal),
-                customCategoriesList, totalTrips
+                customCategoriesList, totalTrips, sumFS: fleetSize
             };
         };
 
@@ -775,23 +775,16 @@ const FleetUtilizationReport = ({
             const numDays = dailyData.length || 1;
             const sumFS = sFS; // keep for exact percentages if needed, but we'll calculate pct from averages
 
+            // We keep Fleet Size (sFS) as an average so it remains correct, 
+            // but we leave the others as totals as requested by the user.
             sFS = Math.round(sFS / numDays);
-            sOR = Math.round(sOR / numDays);
-            sIdle = Math.round(sIdle / numDays);
-            sNOR = Math.round(sNOR / numDays);
-            sBrk = Math.round(sBrk / numDays);
-            sND = Math.round(sND / numDays);
-            sLv = Math.round(sLv / numDays);
-            sMt = Math.round(sMt / numDays);
-            sAcc = Math.round(sAcc / numDays);
-            sUD = Math.round(sUD / numDays);
-            sUT = Math.round(sUT / numDays);
-            Object.keys(rangeCC).forEach(k => { rangeCC[k] = Math.round(rangeCC[k] / numDays); });
-
+            
             const sOthers = Object.values(rangeCC).reduce((a, b) => a + b, 0);
             const sOtherTotal = sUD + sOthers;
-            const pct = (val) => sFS <= 0 ? '' : `(${((val / sFS) * 100).toFixed(0)}%)`;
-            const orPct = sFS > 0 ? (sOR / sFS) * 100 : 0;
+            
+            // Calculate percentages based on sumFS (total vehicle days) to keep percentages correct
+            const pct = (val) => sumFS <= 0 ? '' : `(${((val / sumFS) * 100).toFixed(0)}%)`;
+            const orPct = sumFS > 0 ? (sOR / sumFS) * 100 : 0;
 
             const ccList = Object.entries(rangeCC).map(([label, count]) => ({
                 label, value: count, extra: pct(count), color: '#64748b',
@@ -802,15 +795,15 @@ const FleetUtilizationReport = ({
             return {
                 fleetSize: sFS || 'NA', onRoadCount: sOR, onRoadPct: pct(sOR), onRoadColor: UTIL_COLOR(orPct),
                 idleVal: sIdle, idlePct: pct(sIdle), idleColor: sIdle === 0 ? '#10b981' : '#f59e0b',
-                notOnRoad: sNOR, notOnRoadPct: pct(sNOR), notOnRoadColor: KPI_COLOR.notOnRoad(sFS > 0 ? (sNOR / sFS) * 100 : 0),
-                breakdown: sBrk, breakdownPct: pct(sBrk), noDriver: sND, noDriverPct: pct(sND), noDriverColor: KPI_COLOR.noDriver(sFS > 0 ? (sND / sFS) * 100 : 0),
-                onLeave: sLv, onLeavePct: pct(sLv), onLeaveColor: KPI_COLOR.driverOnLeave(sFS > 0 ? (sLv / sFS) * 100 : 0), maint: sMt, maintPct: pct(sMt), maintColor: KPI_COLOR.maintenance(sFS > 0 ? (sMt / sFS) * 100 : 0),
-                accident: sAcc, accidentPct: pct(sAcc), accidentColor: KPI_COLOR.accident(sFS > 0 ? (sAcc / sFS) * 100 : 0),
+                notOnRoad: sNOR, notOnRoadPct: pct(sNOR), notOnRoadColor: KPI_COLOR.notOnRoad(sumFS > 0 ? (sNOR / sumFS) * 100 : 0),
+                breakdown: sBrk, breakdownPct: pct(sBrk), noDriver: sND, noDriverPct: pct(sND), noDriverColor: KPI_COLOR.noDriver(sumFS > 0 ? (sND / sumFS) * 100 : 0),
+                onLeave: sLv, onLeavePct: pct(sLv), onLeaveColor: KPI_COLOR.driverOnLeave(sumFS > 0 ? (sLv / sumFS) * 100 : 0), maint: sMt, maintPct: pct(sMt), maintColor: KPI_COLOR.maintenance(sumFS > 0 ? (sMt / sumFS) * 100 : 0),
+                accident: sAcc, accidentPct: pct(sAcc), accidentColor: KPI_COLOR.accident(sumFS > 0 ? (sAcc / sumFS) * 100 : 0),
                 underDetention: sUD, underDetentionPct: pct(sUD),
                 underTrip: sUT, underTripPct: pct(sUT),
                 others: sOthers, othersPct: pct(sOthers),
                 otherStatusTotal: sOtherTotal, otherStatusTotalPct: pct(sOtherTotal),
-                customCategoriesList: ccList, totalTrips
+                customCategoriesList: ccList, totalTrips, sumFS: sumFS
             };
         }
     }, [fleetStatusList, closedLRsList, totalFleetNum, filterType, dailyData]);
@@ -1188,7 +1181,8 @@ const FleetUtilizationReport = ({
     // ── Build Subtext Labels ─────────────────────────────────────────────────────
 
     const todayOnRoadCount = Math.max(0, (metrics.onRoadCount || 0) - (metrics.underTrip || 0));
-    const todayOnRoadPct = metrics.fleetSize > 0 ? `(${((todayOnRoadCount / metrics.fleetSize) * 100).toFixed(0)}%)` : '';
+    const denomFS = metrics.sumFS > 0 ? metrics.sumFS : metrics.fleetSize;
+    const todayOnRoadPct = denomFS > 0 ? `(${((todayOnRoadCount / denomFS) * 100).toFixed(0)}%)` : '';
     const SubBadge = ({ text }) => (
         <span style={{ display: 'inline-flex', alignItems: 'center', background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.06)', padding: '3px 8px', borderRadius: '8px', fontSize: '11px', fontWeight: 700, color: 'inherit', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
             {text}
@@ -1198,7 +1192,7 @@ const FleetUtilizationReport = ({
     const onRoadParts = [];
     if (metrics.underTrip > 0) onRoadParts.push(`Under Trip: ${metrics.underTrip} ${metrics.underTripPct}`);
     if (metrics.underDetention > 0) onRoadParts.push(`Under Detention: ${metrics.underDetention} ${metrics.underDetentionPct}`);
-    if (todayOnRoadCount > 0) onRoadParts.push(`Today On Road: ${todayOnRoadCount} ${todayOnRoadPct}`);
+    // "Today On Road" logic removed as requested by user
     const onRoadSubtext = onRoadParts.length > 0 ? (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
             {onRoadParts.map((txt, i) => <SubBadge key={i} text={txt} />)}

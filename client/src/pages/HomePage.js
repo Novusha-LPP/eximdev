@@ -113,6 +113,7 @@ import CustomHouseDirectory from "../components/master-directory/CustomHouseDire
 import CFSDirectory from "../components/master-directory/CFSDirectory.js";
 import TransporterDirectory from "../components/master-directory/TransporterDirectory.js";
 import EmptyOffLocationDirectory from "../components/master-directory/EmptyOffLocationDirectory.js";
+import IndianPortDirectory from "../components/master-directory/IndianPortDirectory.js";
 
 // Document Collection
 import DocumentCollection from "../components/document-collection/DocumentCollection.js";
@@ -778,6 +779,15 @@ function HomePageContent() {
                   element={
                     <ProtectedRoute requiredModule="MasterDirectory">
                       <CustomHouseDirectory />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/indian-port-directory"
+                  element={
+                    <ProtectedRoute requiredModule="MasterDirectory">
+                      <IndianPortDirectory />
                     </ProtectedRoute>
                   }
                 />

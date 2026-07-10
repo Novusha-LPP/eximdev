@@ -406,9 +406,9 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
       tdsPercent = Math.round(calculated);
     }
 
-    let tdsKey = "TDS ON CONTRACT 94C - 1023- 1%";
+    let tdsKey = "TDS ON CONTRACT 94C 1023";
     if (tdsPercent === 2 || tdsCategory === '94C_2') {
-      tdsKey = "TDS ON CONTRACT 94C - 1024 -2%";
+      tdsKey = "TDS ON CONTRACT 94C 1024";
     }
 
     const formattedData = {

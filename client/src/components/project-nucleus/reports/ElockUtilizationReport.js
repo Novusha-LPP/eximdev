@@ -146,13 +146,32 @@ const ElockUtilizationReport = ({
         const rows = elockData.rows || [];
         const totalLocks = elockMeta.totalAssets || 17;
 
-        // 1. Used and Assigned/Return Pending Locks
-        let usedLocks = 0;
-        let assignedReturnPendingLocks = 0;
-        let maintenanceLocks = 0;
+        // 1. Exact Inventory Status (using API meta to guarantee 100% accuracy)
+        const maintenanceLocks = elockMeta.maintenanceCount || 0;
+        const idleLocks = elockMeta.availableCount || 0;
+        const totalAssignedLocks = elockMeta.assignedCount || 0;
 
+        // We identify the unique active locks from the rows to calculate TAT alerts
+        const activeLocksMap = {};
         rows.forEach(row => {
-            if (row.elock_assign_status === 'ACTIVE') {
+            const status = row.elock_assign_status ? row.elock_assign_status.toUpperCase() : '';
+            if (status === 'ACTIVE' || status === 'ASSIGNED') {
+                const lockId = row.elock_id || row.lock_number;
+                if (lockId) {
+                    activeLocksMap[lockId] = row; // Keep the latest active record
+                }
+            }
+        });
+
+        let assignedReturnPendingLocks = 0;
+        let usedLocks = 0;
+
+        // Calculate TAT based on the unique active locks
+        Object.values(activeLocksMap).forEach(row => {
+            if (row.is_placeholder) {
+                // Placeholders represent locks assigned before the queried period start date.
+                assignedReturnPendingLocks++;
+            } else {
                 const start = parseDate(row.date);
                 const elapsedHours = (new Date() - start) / (1000 * 60 * 60);
                 if (elapsedHours > tatLimitHours) {
@@ -160,21 +179,19 @@ const ElockUtilizationReport = ({
                 } else {
                     usedLocks++;
                 }
-            } else if (row.elock_assign_status === 'MAINTENANCE') {
-                maintenanceLocks++;
             }
         });
 
-        // If maintenanceLocks is 0, fallback to summary
-        if (maintenanceLocks === 0 && elockData.summary?.elock_under_maintenance) {
-            maintenanceLocks = elockData.summary.elock_under_maintenance;
+        // Guarantee 100% match with the exact API inventory count
+        if (totalAssignedLocks > 0) {
+            // Prioritize TAT alerts, the rest of the assigned locks are considered 'Used/Active'
+            assignedReturnPendingLocks = Math.min(assignedReturnPendingLocks, totalAssignedLocks);
+            usedLocks = totalAssignedLocks - assignedReturnPendingLocks;
         }
 
-        // 2. Idle Locks
-        const idleLocks = Math.max(0, totalLocks - usedLocks - assignedReturnPendingLocks - maintenanceLocks);
-
-        // 3. Asset Utilization %
-        const assetUtilizationPercent = totalLocks > 0 ? ((usedLocks / totalLocks) * 100).toFixed(1) : '0.0';
+        // 3. Asset Utilization % (Includes all assigned locks)
+        const totalUtilized = usedLocks + assignedReturnPendingLocks;
+        const assetUtilizationPercent = totalLocks > 0 ? ((totalUtilized / totalLocks) * 100).toFixed(1) : '0.0';
 
         // 4. Average Daily Locks Used
         const { startDate, endDate } = getTransportDates(
@@ -192,7 +209,14 @@ const ElockUtilizationReport = ({
             const diffTime = Math.abs(endD - startD);
             diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1 || 1;
         }
-        const totalLocksUsedDuringPeriod = rows.length;
+        
+        // Remove unused (idle/maintenance) locks from the trip volume calculations
+        const actualTripRows = rows.filter(row => {
+            const status = row.elock_assign_status ? row.elock_assign_status.toUpperCase() : '';
+            return status === 'ACTIVE' || status === 'ASSIGNED' || status === 'RETURNED';
+        });
+        
+        const totalLocksUsedDuringPeriod = actualTripRows.length;
         const averageDailyLocksUsed = (totalLocksUsedDuringPeriod / diffDays).toFixed(1);
 
         // 5. Average Daily Utilization %
@@ -216,7 +240,8 @@ const ElockUtilizationReport = ({
         let totalRetentionDays = 0;
         let returnedCount = 0;
         rows.forEach(row => {
-            if (row.elock_assign_status === 'RETURNED' && row.elock_return_date && row.date) {
+            const status = row.elock_assign_status ? row.elock_assign_status.toUpperCase() : '';
+            if ((status === 'RETURNED' || row.is_returned) && row.elock_return_date && row.date && row.elock_return_date !== 'N/A') {
                 const start = parseDate(row.date);
                 const end = parseDate(row.elock_return_date);
                 const diffDaysVal = (end - start) / (1000 * 60 * 60 * 24);
@@ -235,7 +260,7 @@ const ElockUtilizationReport = ({
         // 10. Fleet-wise Analysis
         let srccLocksUsed = 0;
         let otherFleetLocksUsed = 0;
-        rows.forEach(row => {
+        actualTripRows.forEach(row => {
             const assign = (row.elock_assign || '').trim().toUpperCase();
             const others = (row.elock_assign_others || '').trim().toUpperCase();
             const isSrcc = assign === 'SRCC' || (assign === '' && others === '');
@@ -271,10 +296,16 @@ const ElockUtilizationReport = ({
 
     const displayedElockRows = useMemo(() => {
         const normSelectedDay = normalizeDateStr(selectedDay);
+        // Only show actual utilization data in the table, remove unused (idle) locks
+        const validRows = (elockData.rows || []).filter(row => {
+            const status = row.elock_assign_status ? row.elock_assign_status.toUpperCase() : '';
+            return status === 'ACTIVE' || status === 'ASSIGNED' || status === 'RETURNED';
+        });
+        
         if (filterType === 'day') {
-            return (elockData.rows || []).filter(row => normalizeDateStr(row.date) === normSelectedDay);
+            return validRows.filter(row => normalizeDateStr(row.date) === normSelectedDay);
         }
-        return elockData.rows || [];
+        return validRows;
     }, [elockData.rows, filterType, selectedDay]);
 
     if (loading) {
@@ -757,7 +788,7 @@ const ElockUtilizationReport = ({
                                             })()}
                                         </td>
                                         <td>
-                                            <span className={`status-pill ${row.elock_assign_status === 'ACTIVE' ? 'success' : row.elock_assign_status === 'RETURNED' ? 'info' : row.elock_assign_status === 'MAINTENANCE' ? 'error' : 'warning'}`}>
+                                            <span className={`status-pill ${['ACTIVE', 'ASSIGNED'].includes(row.elock_assign_status?.toUpperCase()) ? 'success' : ['RETURNED', 'AVAILABLE'].includes(row.elock_assign_status?.toUpperCase()) ? 'info' : ['MAINTENANCE'].includes(row.elock_assign_status?.toUpperCase()) ? 'error' : 'warning'}`}>
                                                 {row.elock_assign_status ?? '—'}
                                             </span>
                                         </td>

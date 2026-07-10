@@ -54,7 +54,8 @@ const MODULES = [
   "Project Nucleus", // Keeping this as it was in the original list
   "Pulse",
   "Team Pulse",
-  "Attendance"
+  "Attendance",
+  "Karma Points"
 ];
 
 function ModuleUserList() {

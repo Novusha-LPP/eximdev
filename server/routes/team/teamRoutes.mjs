@@ -95,7 +95,8 @@ router.get("/api/teams/all", authMiddleware, async (req, res) => {
         // Admins should see all teams used on the /assign page.
         // Non-admins will continue to see only teams where they are HOD or listed in allowedAdmins.
         let teamsQuery;
-        if (req.user && req.user.role === 'Admin') {
+        const role = String(req.user?.role || '').trim().toUpperCase();
+        if (req.user && (role === 'ADMIN' || req.user.username === 'chirag_shah')) {
             teamsQuery = { isActive: { $ne: false } };
         } else {
             teamsQuery = {

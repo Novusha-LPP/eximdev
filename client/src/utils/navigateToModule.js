@@ -90,6 +90,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/document-collection");
     case "Attendance":
       return navigate("/attendance/dashboard");
+    case "Karma Points":
+      return navigate("/karma-points");
     default:
       return navigate("/home");
   }

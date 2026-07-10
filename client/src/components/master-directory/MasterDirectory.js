@@ -20,6 +20,7 @@ const MasterDirectory = () => {
     { title: "Organization", path: "/organization-directory", description: "Manage organization details from Customer KYC." },
     { title: "General Org", path: "/general-org-directory", description: "Database of general organizations and vendors." },
     { title: "Empty Off Location", path: "/empty-off-location-directory", description: "Database of empty container off-load locations." },
+    { title: "Indian Ports", path: "/indian-port-directory", description: "Database of Indian ports with address details." },
   ];
 
   return (

@@ -696,10 +696,10 @@ const AuditLogsComponent = () => {
             )}
           </Box>
           <Box display="flex" gap={1}>
-            <Button variant="outlined" startIcon={<RefreshIcon />} onClick={handleRefreshLogs} disabled={loading || isRefreshing}>
+            {/* <Button variant="outlined" startIcon={<RefreshIcon />} onClick={handleRefreshLogs} disabled={loading || isRefreshing}>
               {isRefreshing ? "Refreshing..." : "Refresh"}
-            </Button>
-            <Button
+            </Button> */}
+            {/* <Button
               variant="contained"
               color="error"
               startIcon={<DeleteIcon />}
@@ -707,7 +707,7 @@ const AuditLogsComponent = () => {
               disabled={loading}
             >
               {filterModule ? `Delete "${filterModule}" Logs` : 'Delete All Logs'}
-            </Button>
+            </Button> */}
           </Box>
         </Box>
 
@@ -749,23 +749,23 @@ const AuditLogsComponent = () => {
                 <TextField label="Search" size="small" fullWidth onChange={(e) => handleSearch(e.target.value)}
                   InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon /></InputAdornment> }} />
               </Grid>
-              <Grid item xs={12} md={2}>
+              {/* <Grid item xs={12} md={2}>
                 <TextField label="User" size="small" fullWidth value={filterUser} onChange={(e) => setFilterUser(e.target.value)} />
-              </Grid>
+              </Grid> */}
               <Grid item xs={12} md={2}>
-                <Select size="small" fullWidth value={filterModule}
+                {/* <Select size="small" fullWidth value={filterModule}
                   onChange={(e) => handleModuleFilterChange(e.target.value)} displayEmpty>
                   <MenuItem value="">All Modules</MenuItem>
                   {Object.values(MODULES).map(m => <MenuItem key={m} value={m}>{m}</MenuItem>)}
-                </Select>
+                </Select> */}
               </Grid>
               <Grid item xs={12} md={2}>
-                <Select size="small" fullWidth value={filterAction} onChange={(e) => setFilterAction(e.target.value)} displayEmpty>
+                {/* <Select size="small" fullWidth value={filterAction} onChange={(e) => setFilterAction(e.target.value)} displayEmpty>
                   <MenuItem value="">All Actions</MenuItem>
                   <MenuItem value="CREATE">Create</MenuItem>
                   <MenuItem value="UPDATE">Update</MenuItem>
                   <MenuItem value="DELETE">Delete</MenuItem>
-                </Select>
+                </Select> */}
               </Grid>
               <Grid item xs={12} md={3}>
                 <Box display="flex" gap={1}>

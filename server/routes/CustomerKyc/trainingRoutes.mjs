@@ -28,7 +28,7 @@ router.get("/api/customer-trainings", async (req, res) => {
   try {
     const customers = await CustomerKycModel.find({
       $or: [
-        { trainings: { $exists: true, $not: { $size: 0 } } },
+        { "trainings.0": { $exists: true } },
         { approval: { $in: ["Approved", "Approved by HOD"] } }
       ]
     }).select("name_of_individual iec_no trainings approval").lean();

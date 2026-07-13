@@ -20,6 +20,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TablePagination,
   MenuItem,
   InputAdornment
 } from "@mui/material";
@@ -79,6 +80,8 @@ export default function VendorManagement() {
 
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(0);
+  const [rowsPerPage] = useState(15);
 
   const filteredData = data.filter(item => {
     const term = searchTerm.toLowerCase();
@@ -353,12 +356,14 @@ export default function VendorManagement() {
               onClick={handleBack}
               sx={{ 
                 mr: 1, 
-                bgcolor: "primary.main", 
-                color: "white",
-                "&:hover": { bgcolor: "primary.dark" } 
+                bgcolor: "white", 
+                border: "1px solid", 
+                borderColor: "primary.main", 
+                color: "primary.main",
+                "&:hover": { bgcolor: "primary.light", color: "primary.dark" } 
               }}
             >
-              <ArrowBackIcon sx={{ color: "white" }} />
+              <ArrowBackIcon sx={{ color: "primary.main" }} />
             </IconButton>
           </Tooltip>
           <Typography
@@ -428,6 +433,7 @@ export default function VendorManagement() {
           :
 
 
+          <>
           <TableContainer>
 
 
@@ -495,7 +501,7 @@ export default function VendorManagement() {
 
 
 
-                    filteredData.map((v) => (
+                    filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((v) => (
 
 
                       <TableRow
@@ -618,14 +624,17 @@ export default function VendorManagement() {
 
 
           </TableContainer>
-
-
+          <TablePagination
+            component="div"
+            count={filteredData.length}
+            page={page}
+            onPageChange={(e, newPage) => setPage(newPage)}
+            rowsPerPage={rowsPerPage}
+            rowsPerPageOptions={[15]}
+            labelDisplayedRows={({ from, to, count }) => `${from}–${to} of ${count}`}
+          />
+          </>
       }
-
-
-
-
-
 
       <Dialog
 

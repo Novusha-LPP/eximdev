@@ -258,12 +258,14 @@ export default function InventoryManagement() {
               onClick={handleBack}
               sx={{ 
                 mr: 1, 
-                bgcolor: "primary.main", 
-                color: "white",
-                "&:hover": { bgcolor: "primary.dark" } 
+                bgcolor: "white", 
+                border: "1px solid", 
+                borderColor: "primary.main", 
+                color: "primary.main",
+                "&:hover": { bgcolor: "primary.light", color: "primary.dark" } 
               }}
             >
-              <ArrowBackIcon sx={{ color: "white" }} />
+              <ArrowBackIcon sx={{ color: "primary.main" }} />
             </IconButton>
           </Tooltip>
           <Typography variant="h5" fontWeight={700}>
@@ -407,23 +409,26 @@ export default function InventoryManagement() {
                     </TableCell>
 
                     <TableCell align="right">
-                      <Button
-                        size="small"
-                        startIcon={<EditIcon />}
-                        sx={{ mr: 1 }}
-                        onClick={() => handleOpenEdit(item)}
-                      >
-                        Edit
-                      </Button>
+                      <Tooltip title="Edit">
+                        <IconButton
+                          size="small"
+                          color="primary"
+                          sx={{ mr: 1 }}
+                          onClick={() => handleOpenEdit(item)}
+                        >
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
 
-                      <Button
-                        size="small"
-                        color="error"
-                        startIcon={<DeleteIcon />}
-                        onClick={(e) => handleDelete(e, item._id, item.item_id)}
-                      >
-                        Delete
-                      </Button>
+                      <Tooltip title="Delete">
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={(e) => handleDelete(e, item._id, item.item_id)}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                     </TableCell>
                   </TableRow>
                 ))

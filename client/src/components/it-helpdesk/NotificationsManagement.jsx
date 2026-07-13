@@ -390,13 +390,17 @@ const fetchData = () => {
           color="primary" 
           sx={{ 
             mr: 1, 
-            bgcolor: "primary.main", 
+            bgcolor: "white", 
+            border: "1px solid",
+            borderColor: "primary.main",
+            color: "primary.main",
             "&:hover": { 
-              bgcolor: "primary.dark" 
+              bgcolor: "primary.light",
+              color: "primary.dark"
             } 
           }}
         >
-          <ArrowBackIcon />
+          <ArrowBackIcon sx={{ color: "primary.main" }} />
         </IconButton>
         <NotificationsIcon color="primary" />
         <Typography variant="h5" fontWeight={700}>

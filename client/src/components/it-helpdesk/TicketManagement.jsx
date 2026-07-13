@@ -95,7 +95,7 @@ export default function TicketManagement() {
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState([]);
   const [filters, setFilters] = useState({ status: "", category: "", priority: "", search: "" });
-  const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 10 });
+  const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 15 });
   const [stats, setStats] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -561,7 +561,7 @@ export default function TicketManagement() {
                   </Grid>
                   <Grid item xs={12} md={4}>
                     <TextField
-                      label="Search Title / ID / Requester"
+                      label="Search Title / ID"
                       size="small"
                       fullWidth
                       value={filters.search}
@@ -576,7 +576,7 @@ export default function TicketManagement() {
                     />
                   </Grid>
                 </Grid>
-
+ 
                 {loading ? (
                   <Box display="flex" justifyContent="center" py={4}>
                     <CircularProgress />
@@ -590,7 +590,6 @@ export default function TicketManagement() {
                           <TableCell>Category</TableCell>
                           <TableCell>Priority</TableCell>
                           <TableCell>Status</TableCell>
-                          <TableCell>Requester</TableCell>
                           <TableCell>Assigned To</TableCell>
                           <TableCell align="right">Actions</TableCell>
                         </TableRow>
@@ -598,7 +597,7 @@ export default function TicketManagement() {
                       <TableBody>
                         {data.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={7} align="center">
+                            <TableCell colSpan={6} align="center">
                               <Typography variant="body2" color="text.secondary">
                                 No tickets found
                               </Typography>
@@ -609,15 +608,12 @@ export default function TicketManagement() {
                             <TableRow key={t._id} hover>
                               <TableCell>{t.ticket_id || t._id}</TableCell>
                               <TableCell>{t.category}</TableCell>
-
+ 
                               <TableCell>
                                 <Chip label={t.priority} color={priorityColor(t.priority)} size="small" />
                               </TableCell>
                               <TableCell>
                                 <Chip label={t.status} color={statusColor(t.status)} size="small" />
-                              </TableCell>
-                              <TableCell>
-                                {t.requester_name || t.raised_by?.username || "—"}
                               </TableCell>
                               <TableCell>
                                 {t.assigned_to?.username || t.assigned_to?.first_name || "Vikash"}
@@ -783,17 +779,6 @@ export default function TicketManagement() {
                         </MenuItem>
                       </TextField>
                     )}
-                  </Grid>
-                  <Grid item xs={6}>
-                    <TextField
-                      label="Requester"
-                      size="small"
-                      fullWidth
-                      disabled
-                      value={form.requester_name}
-                      onChange={(e) => setForm((f) => ({ ...f, requester_name: e.target.value }))}
-                      helperText="Auto-detected logged-in user"
-                    />
                   </Grid>
                   <Grid item xs={6}>
                     <TextField

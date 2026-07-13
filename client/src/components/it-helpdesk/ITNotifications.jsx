@@ -110,12 +110,14 @@ export default function ITNotifications() {
             onClick={() => navigate("/it-helpdesk")}
             sx={{ 
               mr: 1, 
-              bgcolor: "primary.main", 
-              color: "white",
-              "&:hover": { bgcolor: "primary.dark" } 
+              bgcolor: "white", 
+              border: "1px solid", 
+              borderColor: "primary.main", 
+              color: "primary.main",
+              "&:hover": { bgcolor: "primary.light", color: "primary.dark" } 
             }}
           >
-            <ArrowBackIcon sx={{ color: "white" }} />
+            <ArrowBackIcon sx={{ color: "primary.main" }} />
           </IconButton>
         </Tooltip>
         <NotificationsIcon color="primary" />

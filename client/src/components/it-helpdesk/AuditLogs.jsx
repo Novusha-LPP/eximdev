@@ -38,10 +38,12 @@ import { toast } from "react-hot-toast";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
-import VisibilityIcon from "@mui/icons-material/Visibility";
 import axios from "axios";
 import Tooltip from "@mui/material/Tooltip";
 import { debounce } from "lodash";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { useNavigate } from "react-router-dom";
+import VisibilityIcon from "@mui/icons-material/Visibility";
 
 // ✅ FIX 1: Create axios instance WITHOUT hardcoded token in headers
 const api = axios.create({
@@ -213,7 +215,7 @@ export const AuditLogProvider = ({ children }) => {
       }
 
       const response = await api.post('/audit-trail/custom', enrichedLogData);
-      
+
       if (response.data.skipped) {
         return null;
       }
@@ -493,9 +495,13 @@ export const useModuleAuditLogs = (moduleName) => {
   return { ...rest, auditLogs: moduleLogs, addAuditLog, fetchModuleLogs, logCreate, logRead, logUpdate, logDelete };
 };
 
-// Main AuditLogs component
 const AuditLogsComponent = () => {
+  const navigate = useNavigate();
   const { auditLogs, setAuditLogs, loading, error, setError, fetchAuditLogs, lastUpdated, isRefreshing, MODULES, ACTIONS, SEVERITY } = useAuditLogs();
+
+  const handleBack = () => {
+    navigate("/it-helpdesk");
+  };
 
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -525,8 +531,8 @@ const AuditLogsComponent = () => {
     const term = searchTerm.toLowerCase();
     return auditLogs.filter(log => {
       const formattedTime = log.timestamp
-        ? new Date(log.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) +
-          ' ' + new Date(log.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+        ? new Date(log.timestamp).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', year: 'numeric', month: 'short', day: 'numeric' }) +
+        ' ' + new Date(log.timestamp).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })
         : '';
       const matchesSearch = !term ||
         (log.user || '').toLowerCase().includes(term) ||
@@ -594,10 +600,10 @@ const AuditLogsComponent = () => {
   const handleExportLogs = useCallback(async () => {
     setExportLoading(true);
     try {
-      const headers = ['Timestamp', 'User', 'Action', 'Module', 'Severity', 'IP Address', 'Details'];
+      const headers = ['Timestamp', 'User', 'Action', 'Module', 'Details'];
       const csvContent = [
         headers.join(','),
-        ...filteredLogs.map(log => [log.timestamp, `"${log.user}"`, `"${log.action}"`, `"${log.module}"`, `"${log.severity}"`, `"${log.ip_address}"`, `"${log.details}"`].join(','))
+        ...filteredLogs.map(log => [log.timestamp, `"${log.user}"`, `"${log.action}"`, `"${log.module}"`, `"${log.details}"`].join(','))
       ].join('\n');
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
@@ -632,12 +638,12 @@ const AuditLogsComponent = () => {
 
   const getModuleColor = useCallback((module) => {
     const moduleColors = {
-      [MODULES.AUTHENTICATION]: "primary", 
+      [MODULES.AUTHENTICATION]: "primary",
       [MODULES.USER]: "success",
-      [MODULES.ROLE_MANAGEMENT]: "secondary", 
+      [MODULES.ROLE_MANAGEMENT]: "secondary",
       [MODULES.TICKET]: "error",
-      [MODULES.ASSET]: "warning", 
-      [MODULES.ADMINISTRATION]: "info", 
+      [MODULES.ASSET]: "warning",
+      [MODULES.ADMINISTRATION]: "info",
       [MODULES.GENERAL]: "default",
       [MODULES.VENDOR]: "success",
       [MODULES.CONTRACT]: "secondary",
@@ -649,8 +655,8 @@ const AuditLogsComponent = () => {
 
   const formatDate = useCallback((timestamp) => {
     const date = new Date(timestamp);
-    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) + ' ' +
-      date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', year: 'numeric', month: 'short', day: 'numeric' }) + ' ' +
+      date.toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
   }, []);
 
   useEffect(() => { return () => { handleSearch.cancel(); }; }, [handleSearch]);
@@ -658,8 +664,23 @@ const AuditLogsComponent = () => {
   return (
     <LocalizationProvider dateAdapter={AdapterDateFns}>
       <Box>
-          <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+        <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
           <Box display="flex" alignItems="center" gap={2}>
+            <Tooltip title="Back">
+              <IconButton
+                onClick={handleBack}
+                sx={{
+                  mr: 1,
+                  bgcolor: "white",
+                  border: "1px solid",
+                  borderColor: "primary.main",
+                  color: "primary.main",
+                  "&:hover": { bgcolor: "primary.light", color: "primary.dark" }
+                }}
+              >
+                <ArrowBackIcon sx={{ color: "primary.main" }} />
+              </IconButton>
+            </Tooltip>
             <HistoryIcon color="primary" />
             <Box display="flex" alignItems="center" gap={1}>
               <Typography variant="h5" fontWeight={700}>Audit Logs</Typography>
@@ -693,9 +714,9 @@ const AuditLogsComponent = () => {
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
           <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)}>
             <Tab label="All Logs" value="all" />
-            <Tab label="Recent (7 days)" value="recent" />
-            <Tab label="Errors" value="errors" />
-            <Tab label="Warnings" value="warnings" />
+            {/* <Tab label="Recent (7 days)" value="recent" /> */}
+            {/* <Tab label="Errors" value="errors" /> */}
+            {/* <Tab label="Warnings" value="warnings" /> */}
           </Tabs>
         </Box>
 
@@ -774,8 +795,6 @@ const AuditLogsComponent = () => {
                       <TableCell>User</TableCell>
                       <TableCell>Action</TableCell>
                       <TableCell>Module</TableCell>
-                      <TableCell>Severity</TableCell>
-                      <TableCell>IP</TableCell>
                       <TableCell>Details</TableCell>
                       <TableCell align="right">Actions</TableCell>
                     </TableRow>
@@ -783,7 +802,7 @@ const AuditLogsComponent = () => {
                   <TableBody>
                     {filteredLogs.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} align="center">
+                        <TableCell colSpan={6} align="center">
                           <Typography variant="body2" color="text.secondary">
                             {auditLogs.length === 0 ? "No audit logs available" : "No logs found matching the criteria"}
                           </Typography>
@@ -796,9 +815,7 @@ const AuditLogsComponent = () => {
                           <TableCell>{log.user}</TableCell>
                           <TableCell>{log.action}</TableCell>
                           <TableCell><Chip label={log.module} color={getModuleColor(log.module)} size="small" /></TableCell>
-                          <TableCell><Chip label={log.severity} color={getSeverityColor(log.severity)} size="small" /></TableCell>
-                          <TableCell><Typography variant="body2" fontFamily="monospace">{log.ip_address}</Typography></TableCell>
-                          <TableCell><Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>{log.details}</Typography></TableCell>
+                          <TableCell><Typography variant="body2" noWrap sx={{ maxWidth: 300 }}>{log.details}</Typography></TableCell>
                           <TableCell align="right">
                             <Tooltip title="View Details">
                               <IconButton size="small" onClick={() => handleViewDetails(log)}>
@@ -851,9 +868,6 @@ const AuditLogsComponent = () => {
           <DialogTitle id="filter-dialog-title">Advanced Filters</DialogTitle>
           <DialogContent>
             <Grid container spacing={2} sx={{ mt: 1 }}>
-              <Grid item xs={12}>
-                <TextField label="IP Address" size="small" fullWidth value={filterIp} onChange={(e) => setFilterIp(e.target.value)} />
-              </Grid>
               <Grid item xs={12} md={6}>
                 <DatePicker label="Start Date" value={dateRange.startDate}
                   onChange={(v) => setDateRange(prev => ({ ...prev, startDate: v }))}
@@ -882,10 +896,8 @@ const AuditLogsComponent = () => {
                   <Grid item xs={12} md={6}><Typography variant="subtitle2" color="text.secondary">User</Typography><Typography variant="body1">{selectedLog.user}</Typography></Grid>
                   <Grid item xs={12} md={6}><Typography variant="subtitle2" color="text.secondary">Action</Typography><Typography variant="body1">{selectedLog.action}</Typography></Grid>
                   <Grid item xs={12}><Typography variant="subtitle2" color="text.secondary">Timestamp</Typography><Typography variant="body1">{formatDate(selectedLog.timestamp)}</Typography></Grid>
-                  <Grid item xs={12} md={6}><Typography variant="subtitle2" color="text.secondary">IP Address</Typography><Typography variant="body1" fontFamily="monospace">{selectedLog.ip_address}</Typography></Grid>
-                  <Grid item xs={12} md={6}><Typography variant="subtitle2" color="text.secondary">User Agent</Typography><Typography variant="body1">{selectedLog.user_agent}</Typography></Grid>
-                  <Grid item xs={12} md={6}><Typography variant="subtitle2" color="text.secondary">Module</Typography><Chip label={selectedLog.module} color={getModuleColor(selectedLog.module)} size="small" /></Grid>
-                  <Grid item xs={12} md={6}><Typography variant="subtitle2" color="text.secondary">Severity</Typography><Chip label={selectedLog.severity} color={getSeverityColor(selectedLog.severity)} size="small" /></Grid>
+                  <Grid item xs={12}><Typography variant="subtitle2" color="text.secondary">User Agent</Typography><Typography variant="body1">{selectedLog.user_agent}</Typography></Grid>
+                  <Grid item xs={12}><Typography variant="subtitle2" color="text.secondary">Module</Typography><Chip label={selectedLog.module} color={getModuleColor(selectedLog.module)} size="small" /></Grid>
                   <Grid item xs={12}>
                     <Typography variant="subtitle2" color="text.secondary">Details</Typography>
                     <Card variant="outlined" sx={{ mt: 1, p: 2 }}><Typography variant="body1">{selectedLog.details}</Typography></Card>

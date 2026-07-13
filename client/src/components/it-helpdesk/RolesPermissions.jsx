@@ -27,12 +27,14 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  InputAdornment
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SecurityIcon from "@mui/icons-material/Security";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import SearchIcon from "@mui/icons-material/Search";
 import { toast } from "react-hot-toast";
 
 // Permission categories for IT Helpdesk
@@ -153,6 +155,15 @@ export default function RolesPermissions() {
     permissions: []
   });
   const [selectedPermissions, setSelectedPermissions] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredRoles = roles.filter(role => {
+    const term = searchTerm.toLowerCase();
+    return (
+      (role.name || "").toLowerCase().includes(term) ||
+      (role.description || "").toLowerCase().includes(term)
+    );
+  });
 
   // Fetch data
   const fetchData = () => {
@@ -350,17 +361,35 @@ export default function RolesPermissions() {
 
   return (
     <Box>
-      <Box display="flex" alignItems="center" gap={2} mb={2}>
-        <SecurityIcon color="primary" />
-        <Typography variant="h5" fontWeight={700}>
-          Roles & Permissions
-        </Typography>
+      <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+        <Box display="flex" alignItems="center" gap={2}>
+          <SecurityIcon color="primary" />
+          <Typography variant="h5" fontWeight={700}>
+            Roles & Permissions
+          </Typography>
+        </Box>
+        <Box sx={{ maxWidth: 320, width: "100%" }}>
+          <TextField
+            label="Search Roles"
+            size="small"
+            fullWidth
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            }}
+          />
+        </Box>
       </Box>
 
       {/* Roles Grid */}
       <Box mb={2}>
         <Grid container spacing={2}>
-          {roles.map(role => (
+          {filteredRoles.map(role => (
             <Grid item xs={12} md={6} lg={4} key={role.id}>
               <Card sx={{ 
                 height: "100%",

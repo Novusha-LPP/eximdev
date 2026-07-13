@@ -434,13 +434,17 @@ export default function UserManagement() {
             color="primary" 
             sx={{ 
               mr: 1, 
-              bgcolor: "primary.main", 
+              bgcolor: "white", 
+              border: "1px solid",
+              borderColor: "primary.main",
+              color: "primary.main",
               "&:hover": { 
-                bgcolor: "primary.dark" 
+                bgcolor: "primary.light",
+                color: "primary.dark"
               } 
             }}
           >
-            <ArrowBackIcon />
+            <ArrowBackIcon sx={{ color: "primary.main" }} />
           </IconButton>
           <Avatar sx={{ bgcolor: 'primary.main' }}>
             <PersonIcon />

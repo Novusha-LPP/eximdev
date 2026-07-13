@@ -27,6 +27,7 @@ import {
   Typography,
   CircularProgress,
   Tooltip,
+  InputAdornment
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
@@ -34,6 +35,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import SearchIcon from "@mui/icons-material/Search";
 
 const ASSET_TYPES = ["Desktop", "Laptop", "Printer", "Network Device", "Software", "Phone", "SIM Card", "Rack", "Cable"];
 const STATUSES = ["Available", "Assigned", "In Repair", "Repair", "Retired", "Lost", "Active", "Inactive", "Damaged", "Spare", "Expired", "Suspended"];
@@ -207,12 +209,26 @@ export default function AssetManagement() {
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({ type: "", status: "" });
-  const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 10 });
+  const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 15 });
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredData = data.filter(item => {
+    const term = searchTerm.toLowerCase();
+    return (
+      (item.asset_tag || "").toLowerCase().includes(term) ||
+      (item.asset_name || "").toLowerCase().includes(term) ||
+      (item.asset_type || "").toLowerCase().includes(term) ||
+      (item.manufacturer || "").toLowerCase().includes(term) ||
+      (item.model || "").toLowerCase().includes(term) ||
+      (item.serial_number || "").toLowerCase().includes(term) ||
+      (item.location || "").toLowerCase().includes(term)
+    );
+  });
 
   // Helper function to safely get assigned user name
   const getAssignedToName = (assignedTo) => {
@@ -504,9 +520,21 @@ export default function AssetManagement() {
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <Box display="flex" alignItems="center" gap={1}>
-          <IconButton onClick={handleBack} color="primary" sx={{ mr: 1 }}>
-            <ArrowBackIcon />
-          </IconButton>
+          <Tooltip title="Back">
+            <IconButton
+              onClick={handleBack}
+              sx={{ 
+                mr: 1, 
+                bgcolor: "white", 
+                border: "1px solid", 
+                borderColor: "primary.main", 
+                color: "primary.main", 
+                "&:hover": { bgcolor: "primary.main", color: "white" } 
+              }}
+            >
+              <ArrowBackIcon sx={{ color: "primary.main" }} />
+            </IconButton>
+          </Tooltip>
           <Inventory2Icon color="primary" />
           <Typography variant="h5" fontWeight={700}>
             Asset Management
@@ -524,7 +552,23 @@ export default function AssetManagement() {
 
       <Card>
         <CardContent>
-          <Grid container spacing={2} mb={2}>
+          <Grid container spacing={2} mb={2} alignItems="center">
+            <Grid item xs={12} md={4}>
+              <TextField
+                label="Search Assets"
+                size="small"
+                fullWidth
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
             <Grid item xs={12} md={3}>
               <TextField
                 select
@@ -598,7 +642,7 @@ export default function AssetManagement() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {data.length === 0 ? (
+                  {filteredData.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={8} align="center"> {/* Updated colSpan to 8 */}
                         <Typography variant="body2" color="text.secondary">
@@ -607,7 +651,7 @@ export default function AssetManagement() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    data.map((a) => (
+                    filteredData.map((a) => (
                       <TableRow key={a._id} hover>
                         <TableCell>{a.asset_tag}</TableCell>
                         <TableCell>{a.asset_type}</TableCell>

@@ -572,48 +572,11 @@ export default function ITHelpdeskHome() {
         </Grid>
 
         <Grid item xs={12} sm={6} md={4} lg={2}>
-          <Card component={Link} to="/it-helpdesk/administration/users" sx={{ height: "100%", textDecoration: "none", transition: "0.2s", "&:hover": { boxShadow: 6 } }}>
-            <CardContent sx={{ textAlign: "center" }}>
-              <PeopleIcon sx={{ fontSize: 36, color: "#1976d2", mb: 1 }} />
-              <Typography variant="subtitle1" fontWeight={600}>Users</Typography>
-              <Typography variant="caption" color="text.secondary">User management</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* Administration Module Cards */}
-        <Grid item xs={12}>
-          <Typography variant="h6" fontWeight={600} gutterBottom mt={3}>
-            Administration
-          </Typography>
-        </Grid>
-
-        {/* <Grid item xs={12} sm={6} md={4} lg={2}>
-          <Card component={Link} to="/it-helpdesk/administration/roles" sx={{ height: "100%", textDecoration: "none", transition: "0.2s", "&:hover": { boxShadow: 6 } }}>
-            <CardContent sx={{ textAlign: "center" }}>
-              <SecurityIcon sx={{ fontSize: 36, color: "#d32f2f", mb: 1 }} />
-              <Typography variant="subtitle1" fontWeight={600}>Roles & Permissions</Typography>
-              <Typography variant="caption" color="text.secondary">Access control management</Typography>
-            </CardContent>
-          </Card>
-        </Grid> */}
-
-        <Grid item xs={12} sm={6} md={4} lg={2}>
           <Card component={Link} to="/it-helpdesk/administration/audit" sx={{ height: "100%", textDecoration: "none", transition: "0.2s", "&:hover": { boxShadow: 6 } }}>
             <CardContent sx={{ textAlign: "center" }}>
               <HistoryIcon sx={{ fontSize: 36, color: "#f57c00", mb: 1 }} />
               <Typography variant="subtitle1" fontWeight={600}>Audit Logs</Typography>
               <Typography variant="caption" color="text.secondary">System activity tracking</Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} sm={6} md={4} lg={2}>
-          <Card component={Link} to="/it-helpdesk/administration/email" sx={{ height: "100%", textDecoration: "none", transition: "0.2s", "&:hover": { boxShadow: 6 } }}>
-            <CardContent sx={{ textAlign: "center" }}>
-              <EmailIcon sx={{ fontSize: 36, color: "#388e3c", mb: 1 }} />
-              <Typography variant="subtitle1" fontWeight={600}>Email Configuration</Typography>
-              <Typography variant="caption" color="text.secondary">SMTP & email settings</Typography>
             </CardContent>
           </Card>
         </Grid>

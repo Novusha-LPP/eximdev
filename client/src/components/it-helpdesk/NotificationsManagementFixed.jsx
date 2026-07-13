@@ -336,20 +336,23 @@ export default function NotificationsManagement() {
   return (
     <Box>
       <Box display="flex" alignItems="center" gap={2} mb={2}>
-        <Button
-          onClick={handleBack}
-          variant="contained"
-          color="primary"
-          startIcon={<ArrowBackIcon />}
-          sx={{
-            mr: 1,
-            "&:hover": {
-              bgcolor: "primary.dark"
-            }
+        <IconButton 
+          onClick={handleBack} 
+          color="primary" 
+          sx={{ 
+            mr: 1, 
+            bgcolor: "white", 
+            border: "1px solid",
+            borderColor: "primary.main",
+            color: "primary.main",
+            "&:hover": { 
+              bgcolor: "primary.light",
+              color: "primary.dark"
+            } 
           }}
         >
-          Back
-        </Button>
+          <ArrowBackIcon sx={{ color: "primary.main" }} />
+        </IconButton>
         <NotificationsIcon color="primary" />
         <Typography variant="h5" fontWeight={700}>
           Notifications Management

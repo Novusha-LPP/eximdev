@@ -9,6 +9,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TablePagination,
   CircularProgress,
   Button,
   Dialog,
@@ -27,6 +28,8 @@ import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SearchIcon from "@mui/icons-material/Search";
+import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
 
 // Compute license status from expiry date
 function computeLicenseStatus(expiryDate) {
@@ -82,6 +85,8 @@ export default function LicenseManagement() {
 
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [searchTerm, setSearchTerm] = useState("");
+  const [page, setPage] = useState(0);
+  const rowsPerPage = 15;
 
   const filteredData = data.filter(item => {
     const term = searchTerm.toLowerCase();
@@ -457,12 +462,14 @@ export default function LicenseManagement() {
               onClick={handleBack}
               sx={{ 
                 mr: 1, 
-                bgcolor: "primary.main", 
-                color: "white",
-                "&:hover": { bgcolor: "primary.dark" } 
+                bgcolor: "white", 
+                border: "1px solid", 
+                borderColor: "primary.main", 
+                color: "primary.main",
+                "&:hover": { bgcolor: "primary.light", color: "primary.dark" } 
               }}
             >
-              <ArrowBackIcon sx={{ color: "white" }} />
+              <ArrowBackIcon sx={{ color: "primary.main" }} />
             </IconButton>
           </Tooltip>
           <Typography
@@ -539,6 +546,7 @@ export default function LicenseManagement() {
           :
 
 
+          <>
           <TableContainer>
 
 
@@ -582,7 +590,7 @@ export default function LicenseManagement() {
 
 
                 {
-                  filteredData.map(row => (
+                  filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map(row => (
 
 
                     <TableRow key={row._id}>
@@ -642,21 +650,26 @@ export default function LicenseManagement() {
                       <TableCell>
 
 
-                        <Button
-                          size="small"
-                          onClick={() => edit(row)}
-                        >
-                          Edit
-                        </Button>
+                        <Tooltip title="Edit">
+                          <IconButton
+                            size="small"
+                            onClick={() => edit(row)}
+                            color="primary"
+                            sx={{ mr: 0.5 }}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
 
-
-                        <Button
-                          size="small"
-                          color="error"
-                          onClick={() => remove(row._id)}
-                        >
-                          Delete
-                        </Button>
+                        <Tooltip title="Delete">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => remove(row._id)}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
 
 
                       </TableCell>
@@ -679,7 +692,16 @@ export default function LicenseManagement() {
 
 
           </TableContainer>
-
+          <TablePagination
+            component="div"
+            count={filteredData.length}
+            page={page}
+            onPageChange={(_, newPage) => setPage(newPage)}
+            rowsPerPage={rowsPerPage}
+            rowsPerPageOptions={[15]}
+            labelDisplayedRows={({ from, to, count }) => `${from}–${to} of ${count}`}
+          />
+          </>
       }
 
 

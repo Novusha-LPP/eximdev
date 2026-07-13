@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box, Typography, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Chip, CircularProgress, TextField,
@@ -16,6 +17,7 @@ import MonitorIcon from "@mui/icons-material/Monitor";
 import ComputerIcon from "@mui/icons-material/Computer";
 import HeadsetIcon from "@mui/icons-material/Headset";
 import MouseIcon from "@mui/icons-material/Mouse";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 
 const api = axios.create({
   baseURL: process.env.REACT_APP_API_STRING || "http://192.168.2.12:9006/api",
@@ -36,6 +38,12 @@ const ASSET_TYPES = [
 ];
 
 export default function ITUserManagement() {
+  const navigate = useNavigate();
+  
+  const handleBack = () => {
+    navigate("/it-helpdesk");
+  };
+  
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userRoleFilter, setUserRoleFilter] = useState("");
@@ -202,6 +210,19 @@ export default function ITUserManagement() {
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Box display="flex" alignItems="center" gap={1}>
+          <IconButton 
+            onClick={handleBack} 
+            color="primary" 
+            sx={{ 
+              mr: 1, 
+              bgcolor: "primary.main", 
+              "&:hover": { 
+                bgcolor: "primary.dark" 
+              } 
+            }}
+          >
+            <ArrowBackIcon />
+          </IconButton>
           <PeopleIcon color="primary" />
           <Typography variant="h5" fontWeight={700}>User & Access Management</Typography>
         </Box>

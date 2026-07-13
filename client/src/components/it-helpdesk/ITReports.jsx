@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box, Typography, Card, CardContent, Grid, TextField, MenuItem, Button, CircularProgress,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Tabs, Tab
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Tabs, Tab, IconButton
 } from "@mui/material";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import DownloadIcon from "@mui/icons-material/Download";
 import DescriptionIcon from "@mui/icons-material/Description";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import * as XLSX from "xlsx";
 
 import TicketAnalytics from "./TicketAnalytics";
@@ -19,6 +21,12 @@ const REPORT_TYPES = [
 ];
 
 export default function ITReports() {
+  const navigate = useNavigate();
+  
+  const handleBack = () => {
+    navigate("/it-helpdesk");
+  };
+  
   const [tabIndex, setTabIndex] = useState(0);
   const [reportType, setReportType] = useState("assets");
   const [data, setData] = useState([]);
@@ -161,7 +169,12 @@ export default function ITReports() {
   return (
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h5" fontWeight={700}>Reports & Analytics</Typography>
+        <Box display="flex" alignItems="center">
+          <IconButton onClick={handleBack} color="primary" sx={{ mr: 1 }}>
+            <ArrowBackIcon />
+          </IconButton>
+          <Typography variant="h5" fontWeight={700}>Reports & Analytics</Typography>
+        </Box>
         {tabIndex === 0 && <Button variant="outlined" startIcon={<DownloadIcon />} onClick={exportToExcel}>Export</Button>}
       </Box>
 

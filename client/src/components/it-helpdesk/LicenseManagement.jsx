@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Typography,
@@ -15,11 +16,28 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  MenuItem
+  MenuItem,
+  IconButton,
+  Chip,
+  Tooltip,
+  InputAdornment
 } from "@mui/material";
 
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import AddIcon from "@mui/icons-material/Add";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import SearchIcon from "@mui/icons-material/Search";
+
+// Compute license status from expiry date
+function computeLicenseStatus(expiryDate) {
+  if (!expiryDate) return { label: "No Expiry", color: "default" };
+  const expiry = new Date(expiryDate);
+  const today = new Date();
+  const diffDays = Math.ceil((expiry - today) / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) return { label: "Expired", color: "error" };
+  if (diffDays <= 30) return { label: "Expiring Soon", color: "warning" };
+  return { label: "Active", color: "success" };
+}
 
 
 const LICENSE_TYPES = [
@@ -39,13 +57,19 @@ const EMPTY_FORM = {
   vendor: "",
   license_type: "",
   expiry_date: "",
-  cost: ""
+  cost: "",
+  assigned_to: "",
+  assigned_asset: ""
 };
 
 
 
 export default function LicenseManagement() {
-
+  const navigate = useNavigate();
+  
+  const handleBack = () => {
+    navigate("/it-helpdesk");
+  };
 
   const [data, setData] = useState([]);
   const [vendors, setVendors] = useState([]);
@@ -57,6 +81,19 @@ export default function LicenseManagement() {
   const [editId, setEditId] = useState(null);
 
   const [form, setForm] = useState({ ...EMPTY_FORM });
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredData = data.filter(item => {
+    const term = searchTerm.toLowerCase();
+    return (
+      (item.license_name || "").toLowerCase().includes(term) ||
+      (item.license_code || "").toLowerCase().includes(term) ||
+      (item.software_name || "").toLowerCase().includes(term) ||
+      (item.vendor_name || "").toLowerCase().includes(term) ||
+      (item.assigned_to || "").toLowerCase().includes(term) ||
+      (item.assigned_asset || "").toLowerCase().includes(term)
+    );
+  });
 
 
 
@@ -115,8 +152,18 @@ export default function LicenseManagement() {
       "",
 
 
-    cost: x.cost || 0
+    cost: x.cost || 0,
 
+    assigned_to:
+      x.assigned_to ||
+      x.assignedTo ||
+      x.assigned_user ||
+      "",
+
+    assigned_asset:
+      x.assigned_asset ||
+      x.assignedAsset ||
+      ""
 
   });
 
@@ -251,7 +298,9 @@ export default function LicenseManagement() {
       cost:
         Number(form.cost || 0),
 
+      assigned_to: form.assigned_to || "",
 
+      assigned_asset: form.assigned_asset || "",
 
       // compatibility
 
@@ -347,8 +396,11 @@ export default function LicenseManagement() {
           "",
 
 
-      cost: item.cost
+      cost: item.cost,
 
+      assigned_to: item.assigned_to || "",
+
+      assigned_asset: item.assigned_asset || ""
 
     });
 
@@ -394,18 +446,34 @@ export default function LicenseManagement() {
       <Box
         display="flex"
         justifyContent="space-between"
+        alignItems="center"
         mb={2}
       >
 
 
-        <Typography
-          variant="h5"
-          fontWeight={700}
-        >
+        <Box display="flex" alignItems="center">
+          <Tooltip title="Back">
+            <IconButton
+              onClick={handleBack}
+              sx={{ 
+                mr: 1, 
+                bgcolor: "primary.main", 
+                color: "white",
+                "&:hover": { bgcolor: "primary.dark" } 
+              }}
+            >
+              <ArrowBackIcon sx={{ color: "white" }} />
+            </IconButton>
+          </Tooltip>
+          <Typography
+            variant="h5"
+            fontWeight={700}
+          >
 
-          Software License
+            Software License
 
-        </Typography>
+          </Typography>
+        </Box>
 
 
 
@@ -427,6 +495,24 @@ export default function LicenseManagement() {
         </Button>
 
 
+      </Box>
+
+      {/* Search Input */}
+      <Box mb={2} sx={{ maxWidth: 400 }}>
+        <TextField
+          label="Search Licenses"
+          size="small"
+          fullWidth
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
+          }}
+        />
       </Box>
 
 
@@ -474,7 +560,11 @@ export default function LicenseManagement() {
 
                   <TableCell>Vendor</TableCell>
 
-                  <TableCell>Expiry</TableCell>
+                  <TableCell>Expiry Date</TableCell>
+
+                  <TableCell>Status</TableCell>
+
+                  <TableCell>Assigned To</TableCell>
 
                   <TableCell>Action</TableCell>
 
@@ -492,7 +582,7 @@ export default function LicenseManagement() {
 
 
                 {
-                  data.map(row => (
+                  filteredData.map(row => (
 
 
                     <TableRow key={row._id}>
@@ -536,7 +626,18 @@ export default function LicenseManagement() {
 
                       </TableCell>
 
+                      <TableCell>
+                        {(() => {
+                          const s = computeLicenseStatus(row.expiry_date);
+                          return <Chip label={s.label} color={s.color} size="small" />;
+                        })()}
+                      </TableCell>
 
+                      <TableCell>
+                        <Tooltip title={row.assigned_asset ? `Asset: ${row.assigned_asset}` : ""}>
+                          <span>{row.assigned_to || row.assigned_asset || "-"}</span>
+                        </Tooltip>
+                      </TableCell>
 
                       <TableCell>
 
@@ -712,12 +813,30 @@ export default function LicenseManagement() {
             fullWidth
             size="small"
             InputLabelProps={{ shrink: true }}
+            sx={{ mb: 2 }}
             value={form.expiry_date}
             onChange={e => setForm({ ...form, expiry_date: e.target.value })}
           />
 
+          <TextField
+            label="Assigned To (User)"
+            fullWidth
+            size="small"
+            sx={{ mb: 2 }}
+            value={form.assigned_to}
+            onChange={e => setForm({ ...form, assigned_to: e.target.value })}
+            placeholder="Employee name or email"
+          />
 
-
+          <TextField
+            label="Assigned Asset"
+            fullWidth
+            size="small"
+            sx={{ mb: 2 }}
+            value={form.assigned_asset}
+            onChange={e => setForm({ ...form, assigned_asset: e.target.value })}
+            placeholder="Asset tag or name"
+          />
 
         </DialogContent>
 

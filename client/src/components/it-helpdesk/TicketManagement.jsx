@@ -323,7 +323,7 @@ export default function TicketManagement() {
 
     // File validation (client-side matching backend constraints)
     if (form.files && form.files.length > 0) {
-      const allowedExtensions = /\.(jpeg|jpg|png|gif|pdf|doc|docx|xls|xlsx|txt|zip)$/i;
+      const allowedExtensions = /\.(jpeg|jpg|png)$/i;
       for (const file of form.files) {
         if (file.size > 10 * 1024 * 1024) { // 10MB limit
           toast.error(`File "${file.name}" exceeds the 10MB limit.`);
@@ -428,7 +428,7 @@ export default function TicketManagement() {
     <Box>
       {/* Tabs for different modules */}
       <Box sx={{ borderBottom: 1, borderColor: "divider", display: "flex", alignItems: "center" }} mb={2}>
-        <Button onClick={() => navigate(-1)} sx={{ mr: 2, ml: 1 }} startIcon={<ArrowBackIcon />}>
+        <Button onClick={() => navigate("/it-helpdesk")} sx={{ mr: 2, ml: 1 }} startIcon={<ArrowBackIcon />}>
           Back
         </Button>
         <Tabs value={activeTab} onChange={(e, newValue) => setActiveTab(newValue)} aria-label="helpdesk-tabs">
@@ -453,7 +453,7 @@ export default function TicketManagement() {
               <Box display="flex" alignItems="center" gap={1}>
                 <ConfirmationNumberIcon color="primary" />
                 <Typography variant="h5" fontWeight={700}>
-                  Helpdesk Tickets
+                  Tickets Management
                 </Typography>
               </Box>
               <Box display="flex" gap={1}>

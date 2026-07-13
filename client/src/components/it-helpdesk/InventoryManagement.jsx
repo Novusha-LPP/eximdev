@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Typography,
@@ -19,6 +20,9 @@ import {
   Tabs,
   Tab,
   Chip,
+  IconButton,
+  InputAdornment,
+  Tooltip,
 } from "@mui/material";
 
 import AddIcon from "@mui/icons-material/Add";
@@ -26,6 +30,8 @@ import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
 import NewReleasesIcon from "@mui/icons-material/NewReleases";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import SearchIcon from "@mui/icons-material/Search";
 
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import { useModuleAuditLogs } from "./AuditLogs";
@@ -53,6 +59,12 @@ const EMPTY_FORM = {
 };
 
 export default function InventoryManagement() {
+  const navigate = useNavigate();
+  
+  const handleBack = () => {
+    navigate("/it-helpdesk");
+  };
+  
   const [activeTab, setActiveTab] = useState("old");
   const [oldData, setOldData] = useState([]);
   const [newData, setNewData] = useState([]);
@@ -63,6 +75,27 @@ export default function InventoryManagement() {
   const [editId, setEditId] = useState(null);
 
   const [form, setForm] = useState(EMPTY_FORM);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredOldData = oldData.filter(item => {
+    const term = searchTerm.toLowerCase();
+    return (
+      (item.item_id || "").toLowerCase().includes(term) ||
+      (item.brand || "").toLowerCase().includes(term) ||
+      (item.model || "").toLowerCase().includes(term) ||
+      (item.category || "").toLowerCase().includes(term)
+    );
+  });
+
+  const filteredNewData = newData.filter(item => {
+    const term = searchTerm.toLowerCase();
+    return (
+      (item.item_id || "").toLowerCase().includes(term) ||
+      (item.brand || "").toLowerCase().includes(term) ||
+      (item.model || "").toLowerCase().includes(term) ||
+      (item.category || "").toLowerCase().includes(term)
+    );
+  });
 
   const {
     logCreate,
@@ -207,8 +240,8 @@ export default function InventoryManagement() {
 
   const currentData =
     activeTab === "old"
-      ? oldData
-      : newData;
+      ? filteredOldData
+      : filteredNewData;
 
   return (
     <Box>
@@ -219,9 +252,24 @@ export default function InventoryManagement() {
         alignItems="center"
         mb={2}
       >
-        <Typography variant="h5" fontWeight={700}>
-          Inventory & Stock
-        </Typography>
+        <Box display="flex" alignItems="center">
+          <Tooltip title="Back">
+            <IconButton
+              onClick={handleBack}
+              sx={{ 
+                mr: 1, 
+                bgcolor: "primary.main", 
+                color: "white",
+                "&:hover": { bgcolor: "primary.dark" } 
+              }}
+            >
+              <ArrowBackIcon sx={{ color: "white" }} />
+            </IconButton>
+          </Tooltip>
+          <Typography variant="h5" fontWeight={700}>
+            Inventory & Stock
+          </Typography>
+        </Box>
 
         <Button
           variant="contained"
@@ -230,6 +278,24 @@ export default function InventoryManagement() {
         >
           Add {activeTab === "old" ? "Old" : "New"} Item
         </Button>
+      </Box>
+
+      {/* Search Input */}
+      <Box mb={2} sx={{ maxWidth: 400 }}>
+        <TextField
+          label="Search Inventory"
+          size="small"
+          fullWidth
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
+          }}
+        />
       </Box>
 
       {/* Tabs */}
@@ -387,7 +453,27 @@ export default function InventoryManagement() {
               fullWidth
               variant="outlined"
               value={form.item_id}
-              onChange={(e) => setForm({ ...form, item_id: e.target.value })}
+              onChange={(e) => {
+                const selectedId = e.target.value;
+                const asset = assetsList.find(a => a.asset_tag === selectedId);
+                if (asset) {
+                  let mappedCategory = asset.asset_type || asset.category || form.category;
+                  if (mappedCategory === "Desktop") mappedCategory = "Computer";
+                  if (mappedCategory === "Software") mappedCategory = "Software License";
+                  if (mappedCategory === "Phone") mappedCategory = "Mobile Device";
+                  if (!CATEGORIES.includes(mappedCategory)) mappedCategory = "Other";
+
+                  setForm({
+                    ...form,
+                    item_id: selectedId,
+                    brand: asset.manufacturer || asset.brand || "",
+                    model: asset.model || "",
+                    category: mappedCategory
+                  });
+                } else {
+                  setForm({ ...form, item_id: selectedId });
+                }
+              }}
               sx={{ mb: 2 }}
             >
               <MenuItem value="">

@@ -6,6 +6,7 @@ import { UserContext } from './UserContext';
 const api = axios.create({
     baseURL: process.env.REACT_APP_API_STRING,
     timeout: 10000,
+    withCredentials: true,
     headers: {
         'Content-Type': 'application/json',
     }
@@ -13,7 +14,7 @@ const api = axios.create({
 
 // Read token fresh on every request
 api.interceptors.request.use((config) => {
-    const token = localStorage.getItem('exim_user');
+    const token = localStorage.getItem('token');
     if (token) {
         config.headers['Authorization'] = `Bearer ${token}`;
     }

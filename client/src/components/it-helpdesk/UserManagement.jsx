@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from "react";
-
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Button,
@@ -26,11 +26,18 @@ import {
   Select,
   FormControl,
   InputLabel,
+  Tooltip,
+  Paper,
+  Avatar,
+  alpha,
 } from "@mui/material";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import SearchIcon from "@mui/icons-material/Search";
 import PersonIcon from "@mui/icons-material/Person";
+import RefreshIcon from "@mui/icons-material/Refresh";
+import AddIcon from "@mui/icons-material/Add";
 import { toast } from "react-hot-toast";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import { useAuditCRUD } from "./AuditLogs";
@@ -58,18 +65,9 @@ const PERMISSION_CATEGORIES = [
   "Reporting",
 ];
 
-
 const MODULES = {
   USER_MANAGEMENT: "User Management",
 };
-
-
-
-
-
-
-
-
 
 const ACTIONS = {
   CREATE: "Create",
@@ -78,9 +76,13 @@ const ACTIONS = {
   VIEW: "View",
 };
 
-
 export default function UserManagement() {
+  const navigate = useNavigate();
   const { user: loggedInUser } = useContext(UserContext);
+
+  const handleBack = () => {
+    navigate("/it-helpdesk");
+  };
 
   // Audit logs
   const { logCreate, logRead, logUpdate, logDelete } = useAuditCRUD("User", "User");
@@ -322,7 +324,7 @@ export default function UserManagement() {
         if (!response || response.error) {
           throw new Error(response?.error || "Failed to update user");
         }
-        
+
         setUsers((prev) => {
           const updatedUsers = prev.map((u) => (u.id === editId ? { ...u, ...payload } : u));
           console.log("Updated users:", updatedUsers);
@@ -341,7 +343,7 @@ export default function UserManagement() {
         }
         const newUser = response.data?.user || response.data || { id: Date.now(), ...payload, last_login: null };
         console.log("New user:", newUser);
-        
+
         // Map _id to id if missing
         if (!newUser.id && newUser._id) {
           newUser.id = newUser._id;
@@ -385,7 +387,7 @@ export default function UserManagement() {
         if (!response || response.error) {
           throw new Error(response?.error || "Failed to delete user");
         }
-        
+
         setUsers((prev) => {
           const updatedUsers = prev.filter((u) => u.id !== id);
           // Save to localStorage as backup
@@ -402,7 +404,7 @@ export default function UserManagement() {
       } catch (error) {
         console.error("Failed to delete user:", error);
         toast.error("Failed to delete user");
-        
+
         // Log error
         console.error(`Failed to delete user: ${user?.name} (${user?.email}). Error: ${error.message}`);
       }
@@ -423,163 +425,263 @@ export default function UserManagement() {
   };
 
   return (
-    <Box p={2}>
+    <Box sx={{ p: 3, bgcolor: 'background.default', minHeight: '100vh' }}>
       {/* Header */}
-      <Box display="flex" alignItems="center" gap={1} mb={2}>
-        <PersonIcon />
-        <Typography variant="h5">User Management</Typography>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+        <Box display="flex" alignItems="center" gap={2}>
+          <IconButton 
+            onClick={handleBack} 
+            color="primary" 
+            sx={{ 
+              mr: 1, 
+              bgcolor: "primary.main", 
+              "&:hover": { 
+                bgcolor: "primary.dark" 
+              } 
+            }}
+          >
+            <ArrowBackIcon />
+          </IconButton>
+          <Avatar sx={{ bgcolor: 'primary.main' }}>
+            <PersonIcon />
+          </Avatar>
+          <Box>
+            <Typography variant="h4" fontWeight="bold">
+              User Management
+            </Typography>
+            <Typography variant="body2" color="textSecondary">
+              Manage system users, roles, and permissions
+            </Typography>
+          </Box>
+        </Box>
+        <Box display="flex" gap={2}>
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={fetchData}
+            sx={{ borderRadius: 2 }}
+          >
+            Refresh
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenModal()}
+            sx={{ borderRadius: 2, boxShadow: 3 }}
+          >
+            Add User
+          </Button>
+        </Box>
       </Box>
 
-      {/* Filters */}
-      <Card sx={{ mb: 2 }}>
-        <CardContent>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={4}>
+      {/* Filters Card */}
+      <Paper elevation={2} sx={{ mb: 3, p: 2, borderRadius: 2 }}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} md={4}>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="Search users..."
+              value={searchTerm}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon color="action" />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ bgcolor: 'background.paper' }}
+            />
+          </Grid>
+
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Role</InputLabel>
+              <Select
+                value={filterRole}
+                label="Role"
+                onChange={(e) => handleRoleFilterChange(e.target.value)}
+              >
+                <MenuItem value="">All Roles</MenuItem>
+                {USER_ROLES.map((r) => (
+                  <MenuItem key={r} value={r}>
+                    {r}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+
+          <Grid item xs={12} md={3}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Group</InputLabel>
+              <Select
+                value={filterGroup}
+                label="Group"
+                onChange={(e) => handleGroupFilterChange(e.target.value)}
+              >
+                <MenuItem value="">All Groups</MenuItem>
+                {GROUPS.map((g) => (
+                  <MenuItem key={g} value={g}>
+                    {g}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </Grid>
+        </Grid>
+      </Paper>
+
+      {/* Table Card */}
+      <Paper elevation={2} sx={{ borderRadius: 2, overflow: 'hidden' }}>
+        <TableContainer>
+          <Table sx={{ minWidth: 650 }} aria-label="user table">
+            <TableHead sx={{ bgcolor: alpha('#000', 0.05) }}>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 'bold' }}>User</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>Role</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>Group</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>Permissions</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }} align="right">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                    <CircularProgress />
+                  </TableCell>
+                </TableRow>
+              ) : filteredUsers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                    <Typography variant="body1" color="textSecondary">
+                      No users found matching your filters.
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredUsers.map((user) => (
+                  <TableRow
+                    key={user.id}
+                    hover
+                    sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+                  >
+                    <TableCell component="th" scope="row">
+                      <Box display="flex" alignItems="center" gap={2}>
+                        <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
+                          {user.name.charAt(0).toUpperCase()}
+                        </Avatar>
+                        <Box>
+                          <Typography variant="body1" fontWeight="medium">
+                            {user.name}
+                          </Typography>
+                          <Typography variant="body2" color="textSecondary" fontSize="0.85rem">
+                            {user.email}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={user.role}
+                        color={getRoleColor(user.role)}
+                        size="small"
+                        sx={{ fontWeight: 500 }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {user.group}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      {String(user.role).trim().toLowerCase() === "admin" ? (
+                        <Chip label="All Permissions" size="small" color="success" variant="outlined" />
+                      ) : user.permissions && user.permissions.length > 0 ? (
+                        <Box display="flex" gap={0.5} flexWrap="wrap">
+                          {user.permissions.map((p) => (
+                            <Chip
+                              key={p}
+                              label={p}
+                              size="small"
+                              variant="outlined"
+                              color="primary"
+                            />
+                          ))}
+                        </Box>
+                      ) : (
+                        <Typography variant="body2" color="textSecondary" fontStyle="italic">
+                          No permissions
+                        </Typography>
+                      )}
+                    </TableCell>
+                    <TableCell align="right">
+                      {user.role !== 'Admin' && (
+                        <Box display="flex" justifyContent="flex-end" gap={1}>
+                          <Tooltip title="Edit User" arrow>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleOpenModal(user)}
+                              sx={{ color: 'primary.main', bgcolor: alpha('#000', 0.04), '&:hover': { bgcolor: alpha('#000', 0.08) } }}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete User" arrow>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleDeleteUser(user.id)}
+                              sx={{ bgcolor: alpha('#000', 0.04), '&:hover': { bgcolor: alpha('#000', 0.08) } }}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Paper>
+
+      {/* Modal */}
+      <Dialog open={showModal} onClose={handleCloseModal} fullWidth maxWidth="md" PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ pb: 1 }}>
+          <Typography variant="h6" fontWeight="bold">
+            {editId ? "Edit User" : "Add New User"}
+          </Typography>
+        </DialogTitle>
+
+        <DialogContent dividers>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
+                name="name"
+                label="Full Name"
+                value={form.name}
+                onChange={handleInputChange}
+                variant="outlined"
                 size="small"
-                label="Search"
-                value={searchTerm}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                }}
               />
             </Grid>
 
-            <Grid item xs={12} md={3}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Role</InputLabel>
-                <Select
-                  value={filterRole}
-                  label="Role"
-                  onChange={(e) => handleRoleFilterChange(e.target.value)}
-                >
-                  <MenuItem value="">All</MenuItem>
-                  {USER_ROLES.map((r) => (
-                    <MenuItem key={r} value={r}>
-                      {r}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid item xs={12} md={3}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Group</InputLabel>
-                <Select
-                  value={filterGroup}
-                  label="Group"
-                  onChange={(e) => handleGroupFilterChange(e.target.value)}
-                >
-                  <MenuItem value="">All</MenuItem>
-                  {GROUPS.map((g) => (
-                    <MenuItem key={g} value={g}>
-                      {g}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid item xs={12} md={2}>
-              <Button fullWidth variant="contained" onClick={() => handleOpenModal()}>
-                Add User
-              </Button>
-            </Grid>
-          </Grid>
-        </CardContent>
-      </Card>
-
-      {/* Table */}
-      <Card>
-        <CardContent>
-          {loading ? (
-            <Box textAlign="center">
-              <CircularProgress />
-            </Box>
-          ) : (
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Name</TableCell>
-                    <TableCell>Email</TableCell>
-                    <TableCell>Role</TableCell>
-                    <TableCell>Group</TableCell>
-                    <TableCell>Permissions</TableCell>
-                    <TableCell>Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-
-                <TableBody>
-                  {filteredUsers.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell>{user.name}</TableCell>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>
-                        <Chip label={user.role} color={getRoleColor(user.role)} />
-                      </TableCell>
-                      <TableCell>{user.group}</TableCell>
-                      <TableCell>
-                        {String(user.role).trim().toLowerCase() === "admin" ? (
-                          <Chip label="All Permissions" size="small" color="success" variant="outlined" />
-                        ) : user.permissions && user.permissions.length > 0 ? (
-                          <Box display="flex" gap={0.5} flexWrap="wrap">
-                            {user.permissions.map((p) => (
-                              <Chip
-                                key={p}
-                                label={p}
-                                size="small"
-                                variant="outlined"
-                                color="primary"
-                              />
-                            ))}
-                          </Box>
-                        ) : (
-                          <Typography variant="body2" color="text.secondary">
-                            No permissions
-                          </Typography>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {user.role !== 'Admin' && (
-                          <>
-                            <IconButton onClick={() => handleOpenModal(user)}>
-                              <EditIcon />
-                            </IconButton>
-                            <IconButton onClick={() => handleDeleteUser(user.id)}>
-                              <DeleteIcon />
-                            </IconButton>
-                          </>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Modal */}
-      <Dialog open={showModal} onClose={handleCloseModal} fullWidth maxWidth="md">
-        <DialogTitle>{editId ? "Edit User" : "Add User"}</DialogTitle>
-
-        <DialogContent>
-          <Grid container spacing={2} mt={1}>
             <Grid item xs={12} md={6}>
-              <TextField fullWidth name="name" label="Name" value={form.name} onChange={handleInputChange} />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <TextField fullWidth name="email" label="Email" value={form.email} onChange={handleInputChange} />
+              <TextField
+                fullWidth
+                name="email"
+                label="Email Address"
+                value={form.email}
+                onChange={handleInputChange}
+                variant="outlined"
+                size="small"
+              />
             </Grid>
 
             <Grid item xs={12} md={6}>
@@ -605,13 +707,15 @@ export default function UserManagement() {
             </Grid>
 
             <Grid item xs={12}>
-              <Typography variant="subtitle1" gutterBottom>Permissions</Typography>
-              
+              <Typography variant="subtitle2" fontWeight="bold" gutterBottom sx={{ mt: 1 }}>
+                Permissions
+              </Typography>
+
               <Box display="flex" gap={1} flexWrap="wrap">
                 {PERMISSION_CATEGORIES.map((p) => {
                   const isAdmin = String(form.role).trim().toLowerCase() === 'admin';
                   const hasPermission = isAdmin || form.permissions.includes(p);
-                  
+
                   return (
                     <Chip
                       key={p}
@@ -620,30 +724,38 @@ export default function UserManagement() {
                       color={hasPermission ? "primary" : "default"}
                       onClick={() => !isAdmin && handlePermissionChange(p)}
                       disabled={isAdmin}
+                      variant={hasPermission ? "filled" : "outlined"}
                       sx={{
                         ...(isAdmin && {
-                          opacity: 0.5,
+                          opacity: 0.6,
                           cursor: "not-allowed",
+                          bgcolor: 'action.disabledBackground'
                         })
                       }}
                     />
                   );
                 })}
               </Box>
-              
+
               {String(form.role).trim().toLowerCase() === 'admin' && (
-                <Typography variant="body2" color="textSecondary" sx={{ mt: 1 }}>
-                  Admin has all permissions (Full Access)
+                <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
+                  Admin accounts automatically have full access to all modules.
                 </Typography>
               )}
             </Grid>
           </Grid>
         </DialogContent>
 
-        <DialogActions>
-          <Button onClick={handleCloseModal}>Cancel</Button>
-          <Button variant="contained" onClick={handleSaveUser}>
-            Save
+        <DialogActions sx={{ p: 2, bgcolor: 'background.default' }}>
+          <Button onClick={handleCloseModal} sx={{ borderRadius: 2 }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveUser}
+            sx={{ borderRadius: 2, boxShadow: 2 }}
+          >
+            {editId ? "Update User" : "Create User"}
           </Button>
         </DialogActions>
       </Dialog>

@@ -99,86 +99,36 @@ const NOTIFICATION_TEMPLATES = [
     subject: "Asset Assigned: {asset_tag}",
     message: "Asset {asset_tag} ({asset_name}) has been assigned to you. Please acknowledge receipt.",
     recipients: ["assignee", "asset_admin"]
-  },
-  {
-    id: 5,
-    name: "System Maintenance",
-    description: "Notification for scheduled system maintenance",
-    type: ["email", "in_app", "push"],
-    trigger: "system_maintenance",
-    enabled: true,
-    subject: "System Maintenance Scheduled",
-    message: "System maintenance is scheduled for {maintenance_date}. The system will be unavailable from {start_time} to {end_time}.",
-    recipients: ["all_users"]
-  },
-  {
-    id: 6,
-    name: "Password Reset",
-    description: "Notification for password reset requests",
-    type: ["email"],
-    trigger: "password_reset",
-    enabled: true,
-    subject: "Password Reset Request",
-    message: "A password reset has been requested for your account. If you did not request this, please contact IT support immediately.",
-    recipients: ["user"]
-  },
-  {
-    id: 7,
-    name: "Weekly Report",
-    description: "Weekly summary report notification",
-    type: ["email"],
-    trigger: "weekly_report",
-    enabled: false,
-    subject: "Weekly IT Helpdesk Report - {week_date}",
-    message: "Your weekly IT helpdesk report is ready. Please find attached the summary for the week of {week_date}.",
-    recipients: ["managers", "admins"]
-  },
-  {
-    id: 8,
-    name: "SLA Breach Warning",
-    description: "Notification when ticket SLA is about to breach",
-    type: ["email", "sms", "in_app"],
-    trigger: "sla_breach_warning",
-    enabled: true,
-    subject: "SLA Warning: Ticket {ticket_number}",
-    message: "Ticket {ticket_number} is approaching its SLA deadline. Current response time: {current_time}, SLA: {sla_time}.",
-    recipients: ["assignee", "manager"]
   }
-];
-
-// Recipient options
-const RECIPIENT_OPTIONS = [
-  { id: "assignee", name: "Assignee", description: "Person assigned to the task" },
-  { id: "creator", name: "Creator", description: "Person who created the item" },
-  { id: "admins", name: "Administrators", description: "All system administrators" },
-  { id: "managers", name: "Managers", description: "Department managers" },
-  { id: "all_users", name: "All Users", description: "All system users" },
-  { id: "user", name: "Specific User", description: "Individual user (context specific)" },
-  { id: "asset_admin", name: "Asset Admin", description: "Asset management administrators" }
 ];
 
 // Trigger events
 const TRIGGER_EVENTS = [
-  { id: "ticket_created", name: "Ticket Created", description: "When a new ticket is created" },
-  { id: "ticket_assigned", name: "Ticket Assigned", description: "When a ticket is assigned to someone" },
-  { id: "ticket_escalated", name: "Ticket Escalated", description: "When ticket priority is escalated" },
-  { id: "ticket_closed", name: "Ticket Closed", description: "When a ticket is closed/resolved" },
-  { id: "asset_assigned", name: "Asset Assigned", description: "When an asset is assigned to an employee" },
-  { id: "asset_returned", name: "Asset Returned", description: "When an asset is returned" },
-  { id: "user_created", name: "User Created", description: "When a new user account is created" },
-  { id: "password_reset", name: "Password Reset", description: "When password reset is requested" },
-  { id: "system_maintenance", name: "System Maintenance", description: "For system maintenance announcements" },
-  { id: "weekly_report", name: "Weekly Report", description: "Weekly automated reports" },
-  { id: "sla_breach_warning", name: "SLA Breach Warning", description: "When ticket SLA is about to breach" }
+  { id: "ticket_created", name: "Ticket Created" },
+  { id: "ticket_assigned", name: "Ticket Assigned" },
+  { id: "ticket_escalated", name: "Ticket Escalated" },
+  { id: "asset_assigned", name: "Asset Assigned" },
+  { id: "system_maintenance", name: "System Maintenance" },
+  { id: "weekly_report", name: "Weekly Report" },
+  { id: "sla_breach_warning", name: "SLA Breach Warning" }
+];
+
+// Recipient options
+const RECIPIENT_OPTIONS = [
+  { id: "assignee", name: "Assigned Person" },
+  { id: "creator", name: "Ticket Creator" },
+  { id: "admins", name: "Admins" },
+  { id: "managers", name: "Managers" },
+  { id: "asset_admin", name: "Asset Admin" }
 ];
 
 export default function NotificationsManagement() {
   const navigate = useNavigate();
-  
+
   const handleBack = () => {
     navigate("/it-helpdesk");
   };
-  
+
   const [notificationTemplates, setNotificationTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -195,64 +145,19 @@ export default function NotificationsManagement() {
     recipients: []
   });
 
-  // Filter notification templates
-  const filteredTemplates = notificationTemplates.filter(template => {
-    const matchesSearch = 
-      template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      template.description.toLowerCase().includes(searchTerm.toLowerCase());
-
-    return matchesSearch;
-  });
-
-  // Fetch data
-const fetchData = () => {
-  setLoading(true);
-
-  try {
-    const data = NOTIFICATION_TEMPLATES.map(item => ({
-      ...item,
-      type: item.type || [],
-      recipients: item.recipients || [],
-      enabled: item.enabled ?? true
-    }));
-
-    setNotificationTemplates(data);
-
-  } catch (error) {
-    console.error("Notification loading error:", error);
-    toast.error("Notification load failed");
-  } finally {
-    setLoading(false);
-  }
-};
-
-  // Handle form input changes
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setForm(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  // Handle notification type selection
-  const handleTypeSelection = (typeId, checked) => {
-    setForm(prev => {
-      const types = checked
-        ? [...prev.type, typeId]
-        : prev.type.filter(id => id !== typeId);
-      return { ...prev, type: types };
-    });
-  };
-
-  // Handle recipient selection
-  const handleRecipientSelection = (recipientId, checked) => {
-    setForm(prev => {
-      const recipients = checked
-        ? [...prev.recipients, recipientId]
-        : prev.recipients.filter(id => id !== recipientId);
-      return { ...prev, recipients };
-    });
+  // Fetch notification templates
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      // Simulate API call
+      setTimeout(() => {
+        setNotificationTemplates(NOTIFICATION_TEMPLATES);
+        setLoading(false);
+      }, 500);
+    } catch (err) {
+      console.error(err);
+      setLoading(false);
+    }
   };
 
   // Toggle template enabled status
@@ -260,12 +165,9 @@ const fetchData = () => {
     setNotificationTemplates(prev => prev.map(template => 
       template.id === id ? { ...template, enabled: !template.enabled } : template
     ));
-    
-    const template = notificationTemplates.find(t => t.id === id);
-    toast.success(`Template "${template.name}" ${!template.enabled ? "enabled" : "disabled"}`);
   };
 
-  // Open modal for adding/editing template
+  // Open modal for creating/editing template
   const handleOpenModal = (template = null) => {
     if (template) {
       setEditId(template.id);
@@ -298,13 +200,56 @@ const fetchData = () => {
   // Close modal
   const handleCloseModal = () => {
     setShowModal(false);
-    setEditId(null);
+    setForm({
+      name: "",
+      description: "",
+      type: [],
+      trigger: "",
+      enabled: true,
+      subject: "",
+      message: "",
+      recipients: []
+    });
+  };
+
+  // Handle form input changes
+  const handleInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setForm(prev => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value
+    }));
+  };
+
+  // Handle type selection
+  const handleTypeChange = (typeId) => {
+    setForm(prev => {
+      const types = prev.type.includes(typeId)
+        ? prev.type.filter(t => t !== typeId)
+        : [...prev.type, typeId];
+      return { ...prev, type: types };
+    });
+  };
+
+  // Handle recipient selection
+  const handleRecipientChange = (recipientId) => {
+    setForm(prev => {
+      const recipients = prev.recipients.includes(recipientId)
+        ? prev.recipients.filter(r => r !== recipientId)
+        : [...prev.recipients, recipientId];
+      return { ...prev, recipients };
+    });
   };
 
   // Save template
-  const handleSaveTemplate = () => {
-    if (!form.name || !form.trigger || !form.subject || !form.message) {
-      toast.error("Name, trigger, subject and message are required");
+  const handleSave = () => {
+    if (!form.name.trim()) {
+      toast.error("Template name is required");
+      return;
+    }
+
+    if (!form.trigger) {
+      toast.error("Trigger event is required");
       return;
     }
 
@@ -320,7 +265,7 @@ const fetchData = () => {
 
     if (editId) {
       // Update existing template
-      setNotificationTemplates(prev => prev.map(template => 
+      setNotificationTemplates(prev => prev.map(template =>
         template.id === editId ? { ...template, ...form } : template
       ));
       toast.success("Notification template updated successfully");
@@ -382,22 +327,29 @@ const fetchData = () => {
     fetchData();
   }, []);
 
+  // Filter templates based on search term
+  const filteredTemplates = notificationTemplates.filter(template =>
+    template.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    template.description.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <Box>
       <Box display="flex" alignItems="center" gap={2} mb={2}>
-        <IconButton 
-          onClick={handleBack} 
-          color="primary" 
-          sx={{ 
-            mr: 1, 
-            bgcolor: "primary.main", 
-            "&:hover": { 
-              bgcolor: "primary.dark" 
-            } 
+        <Button
+          onClick={handleBack}
+          variant="contained"
+          color="primary"
+          startIcon={<ArrowBackIcon />}
+          sx={{
+            mr: 1,
+            "&:hover": {
+              bgcolor: "primary.dark"
+            }
           }}
         >
-          <ArrowBackIcon />
-        </IconButton>
+          Back
+        </Button>
         <NotificationsIcon color="primary" />
         <Typography variant="h5" fontWeight={700}>
           Notifications Management
@@ -425,9 +377,9 @@ const fetchData = () => {
               />
             </Grid>
             <Grid item xs={12} md={4}>
-              <Button 
-                variant="contained" 
-                startIcon={<AddIcon />} 
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
                 onClick={() => handleOpenModal()}
                 fullWidth
               >
@@ -481,8 +433,8 @@ const fetchData = () => {
                           label={template.enabled ? "Enabled" : "Disabled"}
                         />
                         <Tooltip title="Test Notification">
-                          <IconButton 
-                            size="small" 
+                          <IconButton
+                            size="small"
                             color="primary"
                             onClick={() => handleTestNotification(template)}
                           >
@@ -495,9 +447,9 @@ const fetchData = () => {
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="Delete">
-                          <IconButton 
-                            size="small" 
-                            color="error" 
+                          <IconButton
+                            size="small"
+                            color="error"
                             onClick={() => handleDeleteTemplate(template.id)}
                           >
                             <DeleteIcon fontSize="small" />
@@ -505,7 +457,7 @@ const fetchData = () => {
                         </Tooltip>
                       </Box>
                     </Box>
-                    
+
                     <Box mt={2}>
                       <Grid container spacing={2}>
                         <Grid item xs={12} md={6}>
@@ -520,32 +472,39 @@ const fetchData = () => {
                                 label={NOTIFICATION_TYPES.find(t => t.id === typeId)?.name || typeId}
                                 color={getTypeColor(typeId)}
                                 size="small"
-                                variant="outlined"
                               />
                             ))}
                           </Box>
                         </Grid>
                         <Grid item xs={12} md={6}>
                           <Typography variant="body2" gutterBottom>
-                            <strong>Trigger:</strong> {getTriggerName(template.trigger)}
+                            <strong>Trigger Event:</strong>
                           </Typography>
-                          <Typography variant="body2" gutterBottom>
-                            <strong>Recipients:</strong> {getRecipientNames(template.recipients)}
+                          <Typography variant="body2">
+                            {getTriggerName(template.trigger)}
                           </Typography>
                         </Grid>
-                        <Grid item xs={12} md={6}>
+                        <Grid item xs={12}>
                           <Typography variant="body2" gutterBottom>
-                            <strong>Subject:</strong>
+                            <strong>Recipients:</strong>
                           </Typography>
-                          <Typography variant="body2" color="text.secondary">
+                          <Typography variant="body2">
+                            {getRecipientNames(template.recipients)}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={12}>
+                          <Typography variant="body2" gutterBottom>
+                            <strong>Email Subject:</strong>
+                          </Typography>
+                          <Typography variant="body2">
                             {template.subject}
                           </Typography>
                         </Grid>
-                        <Grid item xs={12} md={6}>
+                        <Grid item xs={12}>
                           <Typography variant="body2" gutterBottom>
-                            <strong>Message Preview:</strong>
+                            <strong>Notification Message:</strong>
                           </Typography>
-                          <Typography variant="body2" color="text.secondary" noWrap>
+                          <Typography variant="body2">
                             {template.message}
                           </Typography>
                         </Grid>
@@ -559,38 +518,28 @@ const fetchData = () => {
         </Grid>
       </Box>
 
-      {/* Add/Edit Template Modal */}
-      <Dialog open={showModal} onClose={handleCloseModal} maxWidth="md" fullWidth>
-        <DialogTitle>{editId ? "Edit Notification Template" : "Add New Notification Template"}</DialogTitle>
+      {/* Template Modal */}
+      <Dialog
+        open={showModal}
+        onClose={handleCloseModal}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          {editId ? "Edit Notification Template" : "Create Notification Template"}
+        </DialogTitle>
         <DialogContent>
-          <Grid container spacing={2} sx={{ mt: 1 }}>
-            <Grid item xs={12} md={6}>
+          <Grid container spacing={2}>
+            <Grid item xs={12}>
               <TextField
                 label="Template Name"
                 name="name"
                 value={form.name}
                 onChange={handleInputChange}
                 fullWidth
-                required
-                placeholder="e.g., Ticket Created Notification"
+                size="small"
+                margin="dense"
               />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <Select
-                label="Trigger Event"
-                name="trigger"
-                value={form.trigger}
-                onChange={handleInputChange}
-                fullWidth
-                required
-              >
-                <MenuItem value="">Select Trigger</MenuItem>
-                {TRIGGER_EVENTS.map(trigger => (
-                  <MenuItem key={trigger.id} value={trigger.id}>
-                    {trigger.name}
-                  </MenuItem>
-                ))}
-              </Select>
             </Grid>
             <Grid item xs={12}>
               <TextField
@@ -599,112 +548,67 @@ const fetchData = () => {
                 value={form.description}
                 onChange={handleInputChange}
                 fullWidth
-                multiline
-                rows={2}
-                placeholder="Describe what this notification template does"
+                size="small"
+                margin="dense"
               />
             </Grid>
             <Grid item xs={12}>
-              <Accordion defaultExpanded>
-                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Typography>Notification Types</Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-                    {form.type.length} selected
-                  </Typography>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <FormGroup>
-                    <Grid container spacing={1}>
-                      {NOTIFICATION_TYPES.map(type => (
-                        <Grid item xs={12} sm={6} md={3} key={type.id}>
-                          <Card
-                            sx={{
-                              border: form.type.includes(type.id) 
-                                ? "2px solid #1976d2" 
-                                : "1px solid #e0e0e0",
-                              backgroundColor: form.type.includes(type.id) 
-                                ? "rgba(25, 118, 210, 0.08)" 
-                                : "white",
-                            }}
-                          >
-                            <CardContent sx={{ p: 1.5 }}>
-                              <FormControlLabel
-                                control={
-                                  <Switch
-                                    checked={form.type.includes(type.id)}
-                                    onChange={(e) => handleTypeSelection(type.id, e.target.checked)}
-                                    size="small"
-                                  />
-                                }
-                                label={
-                                  <Box display="flex" alignItems="center" gap={1}>
-                                    <Box color={`${type.color}.main`}>
-                                      {type.icon}
-                                    </Box>
-                                    <Typography variant="body2">{type.name}</Typography>
-                                  </Box>
-                                }
-                                sx={{ width: "100%" }}
-                              />
-                            </CardContent>
-                          </Card>
-                        </Grid>
-                      ))}
-                    </Grid>
-                  </FormGroup>
-                </AccordionDetails>
-              </Accordion>
+              <Typography variant="body2" gutterBottom>
+                <strong>Notification Types:</strong>
+              </Typography>
+              <Box display="flex" gap={1} flexWrap="wrap">
+                {NOTIFICATION_TYPES.map(type => (
+                  <Chip
+                    key={type.id}
+                    icon={type.icon}
+                    label={type.name}
+                    color={form.type.includes(type.id) ? type.color : "default"}
+                    onClick={() => handleTypeChange(type.id)}
+                    clickable
+                    size="small"
+                  />
+                ))}
+              </Box>
             </Grid>
             <Grid item xs={12}>
-              <Accordion defaultExpanded>
-                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                  <Typography>Recipients</Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-                    {form.recipients.length} selected
-                  </Typography>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <FormGroup>
-                    <Grid container spacing={1}>
-                      {RECIPIENT_OPTIONS.map(recipient => (
-                        <Grid item xs={12} sm={6} md={4} key={recipient.id}>
-                          <Card
-                            sx={{
-                              border: form.recipients.includes(recipient.id) 
-                                ? "2px solid #1976d2" 
-                                : "1px solid #e0e0e0",
-                              backgroundColor: form.recipients.includes(recipient.id) 
-                                ? "rgba(25, 118, 210, 0.08)" 
-                                : "white",
-                            }}
-                          >
-                            <CardContent sx={{ p: 1.5 }}>
-                              <FormControlLabel
-                                control={
-                                  <Switch
-                                    checked={form.recipients.includes(recipient.id)}
-                                    onChange={(e) => handleRecipientSelection(recipient.id, e.target.checked)}
-                                    size="small"
-                                  />
-                                }
-                                label={
-                                  <Box>
-                                    <Typography variant="body2">{recipient.name}</Typography>
-                                    <Typography variant="caption" color="text.secondary">
-                                      {recipient.description}
-                                    </Typography>
-                                  </Box>
-                                }
-                                sx={{ width: "100%" }}
-                              />
-                            </CardContent>
-                          </Card>
-                        </Grid>
-                      ))}
-                    </Grid>
-                  </FormGroup>
-                </AccordionDetails>
-              </Accordion>
+              <Typography variant="body2" gutterBottom>
+                <strong>Trigger Event:</strong>
+              </Typography>
+              <Select
+                name="trigger"
+                value={form.trigger}
+                onChange={handleInputChange}
+                fullWidth
+                size="small"
+                margin="dense"
+              >
+                <MenuItem value="">Select Trigger Event</MenuItem>
+                {TRIGGER_EVENTS.map(event => (
+                  <MenuItem key={event.id} value={event.id}>
+                    {event.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </Grid>
+            <Grid item xs={12}>
+              <Typography variant="body2" gutterBottom>
+                <strong>Recipients:</strong>
+              </Typography>
+              <FormGroup>
+                {RECIPIENT_OPTIONS.map(recipient => (
+                  <FormControlLabel
+                    key={recipient.id}
+                    control={
+                      <Checkbox
+                        checked={form.recipients.includes(recipient.id)}
+                        onChange={() => handleRecipientChange(recipient.id)}
+                        size="small"
+                      />
+                    }
+                    label={recipient.name}
+                  />
+                ))}
+              </FormGroup>
             </Grid>
             <Grid item xs={12}>
               <TextField
@@ -713,34 +617,29 @@ const fetchData = () => {
                 value={form.subject}
                 onChange={handleInputChange}
                 fullWidth
-                required
-                placeholder="Enter email subject (use {variables} for dynamic content)"
+                size="small"
+                margin="dense"
               />
             </Grid>
             <Grid item xs={12}>
               <TextField
-                label="Message Content"
+                label="Notification Message"
                 name="message"
                 value={form.message}
                 onChange={handleInputChange}
                 fullWidth
                 multiline
-                rows={4}
-                required
-                placeholder="Enter notification message (use {variables} for dynamic content)"
+                rows={3}
+                size="small"
+                margin="dense"
               />
-            </Grid>
-            <Grid item xs={12}>
-              <Typography variant="body2" color="text.secondary">
-                <strong>Available Variables:</strong> {form.trigger ? `{ticket_number}, {priority}, {assignee}, {creator}, etc.` : 'Select a trigger to see available variables'}
-              </Typography>
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseModal}>Cancel</Button>
-          <Button variant="contained" onClick={handleSaveTemplate}>
-            {editId ? "Update Template" : "Create Template"}
+          <Button onClick={handleSave} variant="contained">
+            {editId ? "Update" : "Create"}
           </Button>
         </DialogActions>
       </Dialog>

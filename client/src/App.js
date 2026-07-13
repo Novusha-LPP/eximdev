@@ -17,23 +17,11 @@ import { itHelpdeskAPI } from "./api/itHelpdeskAPI";
 import { Toaster } from "react-hot-toast";
 
 function App() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(() => {
+    const savedUser = localStorage.getItem("exim_user");
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const res = await itHelpdeskAPI.admin.myBranches();
-        setUser(res.data);
-      } catch (e) {
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-    checkSession();
-  }, []);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -68,14 +56,6 @@ function App() {
       localStorage.removeItem("exim_user");
     }
   }, [user]);
-
-  if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        Loading...
-      </div>
-    );
-  }
 
   return (
     <UserContext.Provider value={{ user, setUser }}>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import { useModuleAuditLogs } from "./AuditLogs";
@@ -15,7 +16,6 @@ import {
   DialogActions,
   Grid,
   IconButton,
-  InputAdornment,
   MenuItem,
   Table,
   TableBody,
@@ -28,12 +28,12 @@ import {
   CircularProgress,
   Tooltip,
 } from "@mui/material";
-import SearchIcon from "@mui/icons-material/Search";
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 
 const ASSET_TYPES = ["Desktop", "Laptop", "Printer", "Network Device", "Software", "Phone", "SIM Card", "Rack", "Cable"];
 const STATUSES = ["Available", "Assigned", "In Repair", "Repair", "Retired", "Lost", "Active", "Inactive", "Damaged", "Spare", "Expired", "Suspended"];
@@ -193,9 +193,15 @@ const EMPTY_FORM = {
 };
 
 export default function AssetManagement() {
+  const navigate = useNavigate();
+  
+  const handleBack = () => {
+    navigate("/it-helpdesk");
+  };
+  
   // Audit logs
   const { logCreate, logRead, logUpdate, logDelete } = useModuleAuditLogs("Asset");
-  
+
   const [data, setData] = useState([]);
   const [users, setUsers] = useState([]);
   const [vendors, setVendors] = useState([]);
@@ -208,13 +214,24 @@ export default function AssetManagement() {
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
 
+  // Helper function to safely get assigned user name
+  const getAssignedToName = (assignedTo) => {
+    if (!assignedTo) return "Unassigned";
+    // If backend returns a populated object with username/first_name
+    if (typeof assignedTo === 'object') {
+      return assignedTo.username || assignedTo.first_name || "Unknown User";
+    }
+    // If backend returns an ID, try to find it in the local users list
+    const user = users.find(u => u._id === assignedTo);
+    return user ? (user.username || user.first_name) : "Unknown User";
+  };
+
   const fetchData = useCallback(
     async (page = 1) => {
       setLoading(true);
       try {
-        // Log asset list access
         logRead("asset-list-view", "Accessed asset list with filters", "info");
-        
+
         const params = { page, limit: pagination.limit };
         if (filters.type) params.type = filters.type;
         if (filters.status) params.status = filters.status;
@@ -225,7 +242,6 @@ export default function AssetManagement() {
       } catch (err) {
         toast.error("Failed to load assets");
         console.error(err);
-        // Log error
         console.error(`Failed to load assets: ${err.message}`);
       } finally {
         setLoading(false);
@@ -236,7 +252,6 @@ export default function AssetManagement() {
 
   const fetchUsers = useCallback(async () => {
     try {
-      // Log users fetch
       logRead("asset-users-fetch", "Fetched users for asset assignment", "info");
       const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-all-users`, {
         withCredentials: true,
@@ -246,14 +261,12 @@ export default function AssetManagement() {
       console.log("Fetched users:", res.data?.length || 0);
     } catch (err) {
       console.error("Failed to fetch users:", err);
-      // Log error
       console.error(`Failed to fetch users: ${err.message}`);
     }
   }, []);
 
   const fetchVendors = useCallback(async () => {
     try {
-      // Log vendors fetch
       logRead("asset-vendors-fetch", "Fetched vendors for asset assignment", "info");
       const res = await itHelpdeskAPI.vendors.getAll();
       setVendors(res.data || []);
@@ -263,7 +276,6 @@ export default function AssetManagement() {
   }, []);
 
   useEffect(() => {
-    // Log asset module access
     logRead("asset-module-access", "Accessed Asset Management module", "info");
     fetchData(1);
   }, [fetchData]);
@@ -275,7 +287,6 @@ export default function AssetManagement() {
 
   const handleOpen = (record = null) => {
     if (record) {
-      // Log asset edit access
       logRead("asset-edit-access", `Opened asset for editing with ID: ${record._id}`, "info");
       setEditId(record._id);
       setErrors({});
@@ -417,7 +428,6 @@ export default function AssetManagement() {
       fetchData(pagination.page);
     } catch (err) {
       toast.error(err.response?.data?.message || "Save failed");
-      // Log error
       console.error(`Failed to ${editId ? "update" : "create"} asset: ${err.message}`);
     } finally {
       setSaving(false);
@@ -433,7 +443,6 @@ export default function AssetManagement() {
       fetchData(pagination.page);
     } catch (err) {
       toast.error(err.response?.data?.message || "Delete failed");
-      // Log error
       console.error(`Failed to delete asset with ID: ${id}: ${err.message}`);
     }
   };
@@ -495,6 +504,9 @@ export default function AssetManagement() {
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <Box display="flex" alignItems="center" gap={1}>
+          <IconButton onClick={handleBack} color="primary" sx={{ mr: 1 }}>
+            <ArrowBackIcon />
+          </IconButton>
           <Inventory2Icon color="primary" />
           <Typography variant="h5" fontWeight={700}>
             Asset Management
@@ -543,18 +555,18 @@ export default function AssetManagement() {
                 {(filters.type === "SIM Card"
                   ? ["Available", "Assigned", "Active", "Inactive"]
                   : filters.type === "Printer"
-                  ? ["Available", "Active", "Repair", "Retired"]
-                  : filters.type === "Network Device"
-                  ? ["Active", "Spare", "Repair", "Retired"]
-                  : filters.type === "Software"
-                  ? ["Active", "Expired", "Suspended"]
-                  : filters.type === "Rack"
-                  ? ["Active", "Inactive", "Occupied", "Available", "Blocked", "Under Maintenance"]
-                  : filters.type === "Desktop" || filters.type === "Laptop" || filters.type === "Phone"
-                  ? ["Available", "Assigned", "Active", "Inactive", "In Repair", "Retired"]
-                  : filters.type === "Cable"
-                  ? ["Available", "Assigned", "In Repair", "Retired"]
-                  : STATUSES
+                    ? ["Available", "Active", "Repair", "Retired"]
+                    : filters.type === "Network Device"
+                      ? ["Active", "Spare", "Repair", "Retired"]
+                      : filters.type === "Software"
+                        ? ["Active", "Expired", "Suspended"]
+                        : filters.type === "Rack"
+                          ? ["Active", "Inactive", "Occupied", "Available", "Blocked", "Under Maintenance"]
+                          : filters.type === "Desktop" || filters.type === "Laptop" || filters.type === "Phone"
+                            ? ["Available", "Assigned", "Active", "Inactive", "In Repair", "Retired"]
+                            : filters.type === "Cable"
+                              ? ["Available", "Assigned", "In Repair", "Retired"]
+                              : STATUSES
                 ).map((s) => (
                   <MenuItem key={s} value={s}>
                     {s}
@@ -571,11 +583,15 @@ export default function AssetManagement() {
           ) : (
             <TableContainer>
               <Table>
-                 <TableHead>
+                <TableHead>
                   <TableRow>
                     <TableCell>Asset Tag</TableCell>
                     <TableCell>Type</TableCell>
                     <TableCell>Manufacturer</TableCell>
+                    {/* --- ADDED: Assigned To Column --- */}
+                    <TableCell>Assigned To</TableCell>
+                    {/* --- ADDED: Department Column --- */}
+                    <TableCell>Department</TableCell>
                     <TableCell>Status</TableCell>
                     <TableCell>Location</TableCell>
                     <TableCell align="right">Actions</TableCell>
@@ -584,7 +600,7 @@ export default function AssetManagement() {
                 <TableBody>
                   {data.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={6} align="center">
+                      <TableCell colSpan={8} align="center"> {/* Updated colSpan to 8 */}
                         <Typography variant="body2" color="text.secondary">
                           No assets found
                         </Typography>
@@ -596,6 +612,17 @@ export default function AssetManagement() {
                         <TableCell>{a.asset_tag}</TableCell>
                         <TableCell>{a.asset_type}</TableCell>
                         <TableCell>{a.manufacturer || "—"}</TableCell>
+
+                        {/* --- ADDED: Assigned To Data --- */}
+                        <TableCell>
+                          {getAssignedToName(a.assigned_to)}
+                        </TableCell>
+
+                        {/* --- ADDED: Department Data --- */}
+                        <TableCell>
+                          {a.department || "—"}
+                        </TableCell>
+
                         <TableCell>
                           <Chip label={a.status} color={statusColor(a.status)} size="small" />
                         </TableCell>
@@ -1758,77 +1785,6 @@ export default function AssetManagement() {
               </>
             ) : (
               <>
-                <Grid item xs={6}>
-                  <TextField
-                    label="Serial Number"
-                    size="small"
-                    fullWidth
-                    {...getRequiredProps("serial_number")}
-                    value={form.serial_number}
-                    onChange={(e) => updateField("serial_number", e.target.value)}
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    select
-                    label="Status"
-                    size="small"
-                    fullWidth
-                    {...getRequiredProps("status")}
-                    value={form.status}
-                    onChange={(e) => updateField("status", e.target.value)}
-                  >
-                    {statusOptions.map((s) => (
-                      <MenuItem key={s} value={s}>
-                        {s}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    label="Manufacturer"
-                    size="small"
-                    fullWidth
-                    {...getRequiredProps("manufacturer")}
-                    value={form.manufacturer}
-                    onChange={(e) => updateField("manufacturer", e.target.value)}
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    label="Model"
-                    size="small"
-                    fullWidth
-                    {...getRequiredProps("model")}
-                    value={form.model}
-                    onChange={(e) => updateField("model", e.target.value)}
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    label="Purchase Date"
-                    type="date"
-                    size="small"
-                    fullWidth
-                    InputLabelProps={{ shrink: true }}
-                    {...getRequiredProps("purchase_date")}
-                    value={form.purchase_date}
-                    onChange={(e) => updateField("purchase_date", e.target.value)}
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    label="Warranty Expiry"
-                    type="date"
-                    size="small"
-                    fullWidth
-                    InputLabelProps={{ shrink: true }}
-                    {...getRequiredProps("warranty_expiry")}
-                    value={form.warranty_expiry}
-                    onChange={(e) => updateField("warranty_expiry", e.target.value)}
-                  />
-                </Grid>
                 <Grid item xs={6}>
                   <TextField
                     label="Assigned To"

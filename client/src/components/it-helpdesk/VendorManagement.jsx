@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 
 import {
   Box,
@@ -19,18 +20,21 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  MenuItem
+  MenuItem,
+  InputAdornment
 } from "@mui/material";
 
 
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 
 import { useModuleAuditLogs } from "./AuditLogs";
+import SearchIcon from "@mui/icons-material/Search";
 // import { AuditLogProvider } from "../../contexts/AuditLogContext.js";
 
 import AddIcon from "@mui/icons-material/Add";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 
 
 
@@ -57,7 +61,11 @@ const EMPTY_FORM = {
 
 
 export default function VendorManagement() {
-
+  const navigate = useNavigate();
+  
+  const handleBack = () => {
+    navigate("/it-helpdesk");
+  };
 
   const [data, setData] = useState([]);
 
@@ -70,6 +78,19 @@ export default function VendorManagement() {
   const [saving, setSaving] = useState(false);
 
   const [form, setForm] = useState({ ...EMPTY_FORM });
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredData = data.filter(item => {
+    const term = searchTerm.toLowerCase();
+    return (
+      (item.name || "").toLowerCase().includes(term) ||
+      (item.gst_number || "").toLowerCase().includes(term) ||
+      (item.pan_number || "").toLowerCase().includes(term) ||
+      (item.contact_person || "").toLowerCase().includes(term) ||
+      (item.mobile_number || "").toLowerCase().includes(term) ||
+      (item.email || "").toLowerCase().includes(term)
+    );
+  });
 
 
   // AUDIT
@@ -326,14 +347,29 @@ export default function VendorManagement() {
       >
 
 
-        <Typography
-          variant="h5"
-          fontWeight={700}
-        >
+        <Box display="flex" alignItems="center">
+          <Tooltip title="Back">
+            <IconButton
+              onClick={handleBack}
+              sx={{ 
+                mr: 1, 
+                bgcolor: "primary.main", 
+                color: "white",
+                "&:hover": { bgcolor: "primary.dark" } 
+              }}
+            >
+              <ArrowBackIcon sx={{ color: "white" }} />
+            </IconButton>
+          </Tooltip>
+          <Typography
+            variant="h5"
+            fontWeight={700}
+          >
 
-          Vendors & Suppliers
+            Vendors & Suppliers
 
-        </Typography>
+          </Typography>
+        </Box>
 
 
 
@@ -349,6 +385,25 @@ export default function VendorManagement() {
 
 
       </Box>
+
+      {/* Search Input */}
+      <Box mb={2} sx={{ maxWidth: 400 }}>
+        <TextField
+          label="Search Vendors"
+          size="small"
+          fullWidth
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Box>
+
 
 
 
@@ -416,7 +471,7 @@ export default function VendorManagement() {
 
 
                 {
-                  data.length === 0 ?
+                  filteredData.length === 0 ?
 
 
                     <TableRow>
@@ -440,7 +495,7 @@ export default function VendorManagement() {
 
 
 
-                    data.map((v) => (
+                    filteredData.map((v) => (
 
 
                       <TableRow

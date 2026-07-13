@@ -73,7 +73,8 @@ function AssignModule({ selectedUser, allowedModules, allowInactive = false }) {
       setLoading(true);
       try {
         const res = await axios(
-          `${process.env.REACT_APP_API_STRING}/get-user/${selectedUser}${allowInactive ? "?includeInactive=true" : ""}`
+          `${process.env.REACT_APP_API_STRING}/get-user/${selectedUser}${allowInactive ? "?includeInactive=true" : ""}`,
+          { withCredentials: true }
         );
         const userModules = res.data.modules || [];
         // Filter out any modules that might be in DB but not in our static list effectively ensures valid keys
@@ -99,14 +100,14 @@ function AssignModule({ selectedUser, allowedModules, allowInactive = false }) {
         await axios.post(`${process.env.REACT_APP_API_STRING}/assign-modules`, {
           modules: moveKeys,
           username: selectedUser,
-        });
+        }, { withCredentials: true });
         message.success(`Assigned ${moveKeys.length} module(s)`);
       } else {
         // Unassign modules
         await axios.post(`${process.env.REACT_APP_API_STRING}/unassign-modules`, {
           modules: moveKeys,
           username: selectedUser,
-        });
+        }, { withCredentials: true });
         message.success(`Removed ${moveKeys.length} module(s)`);
       }
     } catch (error) {

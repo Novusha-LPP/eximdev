@@ -3,7 +3,8 @@ import auditPlugin from "../plugins/auditPlugin.mjs";
 
 const portSchema = new mongoose.Schema({
     port_name: { type: String, required: true, trim: true },
-    port_code: { type: String, required: true, trim: true, uppercase: true }
+    port_code: { type: String, required: true, trim: true, uppercase: true },
+    is_icd: { type: Boolean, default: false }
 });
 
 const branchSchema = new mongoose.Schema({

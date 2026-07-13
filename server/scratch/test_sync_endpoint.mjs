@@ -25,6 +25,14 @@ async function testSync() {
       return;
     }
 
+    // Temporarily clear some fields in the job to test synchronization
+    const JobModel = mongoose.model("Job", new mongoose.Schema({}, { strict: false }));
+    const originalJob = await JobModel.findOne({ job_number: JOB_NUMBER }).lean();
+    console.log(`Original Job status - be_no: "${originalJob.be_no}", be_date: "${originalJob.be_date}", type_of_b_e: "${originalJob.type_of_b_e}"`);
+    
+    console.log("Temporarily clearing be_no, be_date, and type_of_b_e in DB...");
+    await JobModel.updateOne({ job_number: JOB_NUMBER }, { $set: { be_no: "", be_date: "", type_of_b_e: "" } });
+
     console.log(`Generating test JWT token for user: ${user.username} (role: ${user.role})`);
     const token = jwt.sign(
       {
@@ -52,10 +60,13 @@ async function testSync() {
 
     console.log("HTTP Response Status:", response.status);
     console.log("Response Data:", JSON.stringify(response.data, null, 2));
-
-    await mongoose.disconnect();
   } catch (error) {
     console.error("Test execution failed:", error);
+  } finally {
+    try {
+      await mongoose.disconnect();
+      console.log("Disconnected from MongoDB.");
+    } catch (e) {}
   }
 }
 

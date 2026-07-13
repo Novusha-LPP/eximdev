@@ -4,6 +4,7 @@ import authApiKey from "../middleware/authApiKey.mjs";
 import CountryModel from "../model/countryModel.mjs";
 import CustomHouseModel from "../model/customHouseModel.mjs";
 import PortModel from "../model/portModel.mjs";
+import BranchModel from "../model/branchModel.mjs";
 
 const router = express.Router();
 
@@ -133,6 +134,33 @@ router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
       }
     } 
 
+    // Fetch all active branch ICD ports from the database dynamically
+    const activeBranches = await BranchModel.find({ is_active: true }).lean();
+    const dbIcdPorts = [];
+    for (const b of activeBranches) {
+      if (b.ports) {
+        for (const p of b.ports) {
+          if (p.is_icd) {
+            dbIcdPorts.push(p);
+          }
+        }
+      }
+    }
+
+    const targetICDs = dbIcdPorts.length > 0
+      ? dbIcdPorts.map(p => p.port_code.toUpperCase())
+      : ["INSAU6", "INJKA6", "INSBI6", "INBRC6", "INVCN6"];
+
+    const targetNames = dbIcdPorts.length > 0
+      ? dbIcdPorts.map(p => p.port_name.toUpperCase())
+      : [
+          "ICD SANAND",
+          "ICD SACHANA",
+          "ICD KHODIYAR",
+          "ICD VARANAMA",
+          "ICD VIROCHANNAGR"
+        ];
+
     // Map fields according to user request
     const responseData = {
       CHADetails: {
@@ -188,9 +216,19 @@ router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
         "Commercial Tax RegistrationNo": validateChar(job.gst_no, 20, true, "Commercial Tax RegistrationNo"),
         "Class": validateChar("N", 1, true, "Class"),
         "Mode of Transport": (() => {
+          const rawCH = getVal(job.custom_house).toUpperCase();
+          const resolvedCH = getVal(resolvedCustomHouseCode).toUpperCase();
+          const isTargetICD = targetICDs.some(code => rawCH.includes(code) || resolvedCH.includes(code)) ||
+                              targetNames.some(name => rawCH.includes(name) || resolvedCH.includes(name));
+
           let mode = "";
-          if (job.mode === "SEA") mode = "S";
-          else if (job.mode === "AIR") mode = "A";
+          if (isTargetICD) {
+            mode = "L";
+          } else if (job.mode === "SEA") {
+            mode = "S";
+          } else if (job.mode === "AIR") {
+            mode = "A";
+          }
           return validateChar(mode, 1, true, "Mode of Transport");
         })(),
         "ImporterType": validateChar("P", 1, true, "ImporterType"),

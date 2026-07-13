@@ -4,6 +4,7 @@ import JobModel from "../../model/jobModel.mjs";
 import CountryModel from "../../model/countryModel.mjs";
 import CustomHouseModel from "../../model/customHouseModel.mjs";
 import PortModel from "../../model/portModel.mjs";
+import BranchModel from "../../model/branchModel.mjs";
 import dotenv from "dotenv";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import auditMiddleware from "../../middleware/auditTrail.mjs";
@@ -199,6 +200,33 @@ async function buildJobPayload(job_number, isPreview = false, senderID = "SURAJA
     else if (match) resolvedPortOfOriginCode = match[1].trim();
   }
 
+  // Fetch all active branch ICD ports from the database dynamically
+  const activeBranches = await BranchModel.find({ is_active: true }).lean();
+  const dbIcdPorts = [];
+  for (const b of activeBranches) {
+    if (b.ports) {
+      for (const p of b.ports) {
+        if (p.is_icd) {
+          dbIcdPorts.push(p);
+        }
+      }
+    }
+  }
+
+  const targetICDs = dbIcdPorts.length > 0
+    ? dbIcdPorts.map(p => p.port_code.toUpperCase())
+    : ["INSAU6", "INJKA6", "INSBI6", "INBRC6", "INVCN6"];
+
+  const targetNames = dbIcdPorts.length > 0
+    ? dbIcdPorts.map(p => p.port_name.toUpperCase())
+    : [
+        "ICD SANAND",
+        "ICD SACHANA",
+        "ICD KHODIYAR",
+        "ICD VARANAMA",
+        "ICD VIROCHANNAGR"
+      ];
+
   const responseData = {
     CHADetails: {
       "CHA Code": validateChar("NOVU", 5, true, "CHA Code"),
@@ -244,9 +272,19 @@ async function buildJobPayload(job_number, isPreview = false, senderID = "SURAJA
       Pin: validateChar(job.importer_address?.postal_code || "", 6, false, "Pin"),
       Class: validateChar("N", 1, false, "Class"),
       "Mode of Transport": (() => {
+        const rawCH = getVal(job.custom_house).toUpperCase();
+        const resolvedCH = getVal(resolvedCustomHouseCode).toUpperCase();
+        const isTargetICD = targetICDs.some(code => rawCH.includes(code) || resolvedCH.includes(code)) ||
+                            targetNames.some(name => rawCH.includes(name) || resolvedCH.includes(name));
+
         let mode = "";
-        if (job.mode === "SEA") mode = "S";
-        else if (job.mode === "AIR") mode = "A";
+        if (isTargetICD) {
+          mode = "L";
+        } else if (job.mode === "SEA") {
+          mode = "S";
+        } else if (job.mode === "AIR") {
+          mode = "A";
+        }
         return validateChar(mode, 1, true, "Mode of Transport");
       })(),
       ImporterType: validateChar(job.importer_type || "P", 1, false, "ImporterType"),
@@ -663,7 +701,40 @@ router.get("/api/scmCube/job-data-preview", async (req, res) => {
       return "";
     })();
 
+    // Fetch all active branch ICD ports from the database dynamically
+    const activeBranches = await BranchModel.find({ is_active: true }).lean();
+    const dbIcdPorts = [];
+    for (const b of activeBranches) {
+      if (b.ports) {
+        for (const p of b.ports) {
+          if (p.is_icd) {
+            dbIcdPorts.push(p);
+          }
+        }
+      }
+    }
+
+    const targetICDs = dbIcdPorts.length > 0
+      ? dbIcdPorts.map(p => p.port_code.toUpperCase())
+      : ["INSAU6", "INJKA6", "INSBI6", "INBRC6", "INVCN6"];
+
+    const targetNames = dbIcdPorts.length > 0
+      ? dbIcdPorts.map(p => p.port_name.toUpperCase())
+      : [
+          "ICD SANAND",
+          "ICD SACHANA",
+          "ICD KHODIYAR",
+          "ICD VARANAMA",
+          "ICD VIROCHANNAGR"
+        ];
+
     const modeOfTransport = (() => {
+      const rawCH = getVal(job.custom_house).toUpperCase();
+      const resolvedCH = getVal(resolvedCustomHouseCode).toUpperCase();
+      const isTargetICD = targetICDs.some(code => rawCH.includes(code) || resolvedCH.includes(code)) ||
+                          targetNames.some(name => rawCH.includes(name) || resolvedCH.includes(name));
+
+      if (isTargetICD) return "L";
       if (job.mode === "SEA") return "S";
       if (job.mode === "AIR") return "A";
       return "";

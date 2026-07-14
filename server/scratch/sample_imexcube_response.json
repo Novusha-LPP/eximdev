@@ -1,0 +1,65 @@
+{
+  "success": true,
+  "message": "Get Job Details successful",
+  "data": {
+    "BE_Details": [
+      {
+        "JobNo": "AMD/IMP/SEA/02296/26-27",
+        "JobDate": "2026-06-25T00:00:00",
+        "BEType": "H",
+        "Mode": "L",
+        "CustomPort": "INSAU6",
+        "BENo": "2207657",
+        "BEDate": "30/06/2026"
+      }
+    ],
+    "Invoice_Details": [
+      {
+        "InVSrNo": "1",
+        "InvoiceNo": "MRLFZC033062026",
+        "InvoiceDate": "2026-06-20T00:00:00",
+        "InvoiceTerms": "CIF",
+        "PaymentTerms": "DP",
+        "NatureTransaction": "S",
+        "InvoiceCurrency": "USD",
+        "InvoiceProductValues": 73116.9,
+        "FreightCurrency": "",
+        "FreightAmount": 0,
+        "InsuranceCurrency": "",
+        "InsuranceAmount": 0,
+        "MiscCurr": "",
+        "MiscAmount": 0,
+        "DiscountCurrency": "",
+        "DiscountAmount": 0,
+        "AgencyCurrency": "",
+        "AgencyAmount": 0,
+        "LoadingCurrency": "",
+        "LoadingAmount": 0,
+        "HighSeaCurrency": "",
+        "HighSeaAmt": 0,
+        "SupplierName": "TO ORDER",
+        "Supp_Address1": ".",
+        "Supp_Address2": "",
+        "Supp_Address3": "",
+        "Supp_Country": "UNITED ARAB EMIRATES",
+        "Supp_PinCode": ""
+      }
+    ],
+    "Product_Details": [
+      {
+        "InvSrNo": 1,
+        "InvoiceNo": "MRLFZC033062026",
+        "ProductSNo": 1,
+        "ProductDesc": "ALUMINIUM SCRAP TRUMP AS PER ISRI",
+        "ProType": "DUTIABLE",
+        "Qty": 35580,
+        "Unit": "KGS",
+        "UnitPrice": 2.055,
+        "Amount": 73116.9,
+        "RITCNo": "76020010"
+      }
+    ]
+  },
+  "statusCode": 200,
+  "errors": null
+}

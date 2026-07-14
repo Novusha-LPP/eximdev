@@ -24,6 +24,7 @@ import { WorkHoursCalculator } from '../../services/attendance/WorkHoursCalculat
 import { AttendanceStatusResolver } from '../../services/attendance/AttendanceStatusResolver.js';
 import { ALLOWED_USERNAMES } from '../../middleware/requireAllowedAdmin.mjs';
 import { isRestrictedAllowedAdmin, getRestrictedEmployeeIds } from '../../utils/attendance/allowedAdminRestriction.mjs';
+import { canActorActOnLeave } from './HOD.controller.js';
 
 // --- HELPERS ---
 const resolveCompanyId = (req) => {
@@ -392,6 +393,7 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
     let actualHalfDay = 0;
     let actualMissedPunch = 0;
     let actualTotalHours = 0;
+    let actualDaysWithHours = 0;
 
     const compactHistory = [];
     let curr = moment(startDate).tz('Asia/Kolkata').startOf('day');
@@ -435,6 +437,15 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
             if (rec.is_early_in) actualEarlyIn++;
             if (rec.is_early_exit) actualEarlyOut++;
             actualTotalHours += rec.total_work_hours || 0;
+
+            if (rec.first_in && rec.last_out) {
+                const diff = moment(rec.last_out).diff(moment(rec.first_in), 'hours', true);
+                if (diff >= 0 && diff < 24) {
+                    const statusLower = String(hStatus || '').toLowerCase();
+                    const isHalf = statusLower === 'half_day' || statusLower === 'leave';
+                    actualDaysWithHours += isHalf ? 0.5 : 1;
+                }
+            }
         } else {
             const { weekOffPolicy, holidayPolicy } = await getPoliciesForYear(curr.year());
             const dayDate = curr.toDate();
@@ -465,7 +476,7 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
         curr.add(1, 'day');
     }
 
-    const avgHoursValue = (actualPresent + actualHalfDay) > 0 ? (actualTotalHours / (actualPresent + actualHalfDay)) : 0;
+    const avgHoursValue = actualDaysWithHours > 0 ? (actualTotalHours / actualDaysWithHours) : 0;
     const avgHoursH = Math.floor(avgHoursValue);
     const avgHoursM = Math.floor((avgHoursValue - avgHoursH) * 60);
 
@@ -489,7 +500,7 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
         missedPunch: actualMissedPunch,
         avgHours: `${avgHoursH}h ${avgHoursM}m`,
         raw_total_hours: actualTotalHours,
-        raw_total_present_days: actualPresent + actualHalfDay,
+        raw_total_present_days: actualDaysWithHours,
         history: compactHistory,
         weekoff_policy_id: firstPolicyBucket.weekOffPolicy?._id || null,
         weekoff_policy_name: firstPolicyBucket.weekOffPolicy?.policy_name || null,
@@ -1536,6 +1547,39 @@ export const getRegularizations = async (req, res) => {
     }
 };
 
+const STAGE_2_APPROVER_USERNAME = 'shalini_arun';
+const FINAL_APPROVER_USERNAMES = new Set(['manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'uday_zope']);
+const LEAVE_STAGE = {
+    HOD: 'stage_1_hod',
+    SHALINI: 'stage_2_shalini',
+    FINAL: 'stage_3_final'
+};
+const PENDING_STATUSES = ['pending', 'pending_hod', 'pending_shalini', 'pending_final'];
+
+const getActorPendingLeaveQuery = (actor) => {
+    const actorId = actor._id?._id || actor._id;
+    const actorUsername = String(actor.username || '').toLowerCase();
+
+    if (actorUsername === STAGE_2_APPROVER_USERNAME) {
+        return {
+            approval_status: { $in: PENDING_STATUSES },
+            approval_stage: { $in: [LEAVE_STAGE.HOD, LEAVE_STAGE.SHALINI, LEAVE_STAGE.FINAL] }
+        };
+    }
+
+    if (FINAL_APPROVER_USERNAMES.has(actorUsername)) {
+        return {
+            approval_status: { $in: PENDING_STATUSES }
+        };
+    }
+
+    return {
+        approval_status: { $in: PENDING_STATUSES },
+        current_approver_id: actorId,
+        employee_id: { $ne: actorId }
+    };
+};
+
 export const getAdminDashboardData = async (req, res) => {
     try {
         const roleNorm = String(req.user?.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
@@ -1726,6 +1770,75 @@ export const getAdminDashboardData = async (req, res) => {
             module: log.module
         }));
 
+        // 4. Pending Leave Applications for Admin
+        const actorPendingQuery = getActorPendingLeaveQuery(req.user);
+        const dashboardPendingQuery = {
+            ...actorPendingQuery
+        };
+        if (companyId) {
+            dashboardPendingQuery.company_id = companyId;
+        }
+
+        const pendingLeavesRaw = await LeaveApplication.find(dashboardPendingQuery)
+            .populate('employee_id', 'first_name last_name username company_id role hod_id')
+            .populate('company_id', 'company_name')
+            .populate('current_approver_id', 'first_name last_name username role')
+            .populate('leave_policy_id', 'leave_type policy_name')
+            .sort({ createdAt: -1 })
+            .limit(100);
+
+        const filteredPendingLeaves = pendingLeavesRaw.filter(leave => {
+            if (!leave.employee_id) return false;
+            if (String(leave.employee_id.role || '').trim().toLowerCase() === 'driver') return false;
+            if (process.env.NODE_ENV === 'production' && leave.employee_id.username === 'dev_master') return false;
+            return true;
+        });
+
+        const pendingLeaves = await Promise.all(filteredPendingLeaves.map(async leave => {
+            const canAct = await canActorActOnLeave(leave, req.user);
+            return {
+                id: leave._id,
+                employeeName: leave.employee_id.first_name ? `${leave.employee_id.first_name} ${leave.employee_id.last_name || ''}`.trim() : leave.employee_id.username,
+                organizationName: leave.company_id?.company_name || leave.employee_id?.company_id?.company_name || null,
+                leaveType: leave.leave_policy_id?.leave_type || leave.leave_type || 'Unknown',
+                fromDate: leave.from_date,
+                toDate: leave.to_date,
+                totalDays: leave.total_days,
+                is_half_day: leave.is_half_day,
+                half_day_session: leave.half_day_session,
+                reason: leave.reason,
+                approvalStage: leave.approval_stage,
+                appliedOn: leave.createdAt,
+                createdAt: leave.createdAt,
+                canAct
+            };
+        }));
+
+        // 5. Pending Regularization Requests for Admin
+        const regularizationQuery = {
+            status: 'pending',
+            employee_id: { $in: empIdList }
+        };
+        if (companyId) regularizationQuery.company_id = companyId;
+
+        const pendingRegularizationRaw = await RegularizationRequest.find(regularizationQuery)
+            .populate('employee_id', 'first_name last_name username')
+            .sort({ createdAt: -1 })
+            .limit(10);
+
+        const pendingRegularization = pendingRegularizationRaw.map(reg => {
+            return {
+                id: reg._id,
+                employeeName: reg.employee_id.first_name ? `${reg.employee_id.first_name} ${reg.employee_id.last_name || ''}`.trim() : reg.employee_id.username,
+                employeeUsername: reg.employee_id.username,
+                employeeId: reg.employee_id._id,
+                date: reg.attendance_date,
+                type: reg.regularization_type,
+                reason: reg.reason,
+                canAct: true
+            };
+        });
+
         res.json({
             success: true,
             data: {
@@ -1739,6 +1852,8 @@ export const getAdminDashboardData = async (req, res) => {
                 },
                 dailySummary,
                 activity,
+                pendingLeaves,
+                pendingRegularization,
                 timestamp: new Date()
             }
         });
@@ -1748,7 +1863,6 @@ export const getAdminDashboardData = async (req, res) => {
         res.status(500).json({ message: 'Server error' });
     }
 };
-
 
 export const lockMonthAttendance = async (req, res) => {
     try {
@@ -2138,9 +2252,10 @@ export const getAdminAttendanceReport = async (req, res) => {
         const { startDate, endDate, departmentId } = req.query;
         let companyId = resolveCompanyId(req);
         const roleNorm = String(req.user?.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+        const isReportAdmin = roleNorm === 'ADMIN' || req.user?.username === 'chirag_shah';
 
-        // If companyId is null (e.g. 'all' or not provided) and user is not an admin, fallback to their own company
-        if (!companyId && roleNorm !== 'ADMIN') {
+        // If companyId is null (e.g. 'all' or not provided) and user is not authorized as report admin, fallback to their own company
+        if (!companyId && !isReportAdmin) {
             companyId = req.user?.company_id;
         }
 
@@ -2148,8 +2263,8 @@ export const getAdminAttendanceReport = async (req, res) => {
             return res.status(400).json({ message: 'startDate and endDate are required' });
         }
 
-        // Guard: companyId must be resolvable for non-admins (Admins can view 'all' as null)
-        if (!companyId && roleNorm !== 'ADMIN') {
+        // Guard: companyId must be resolvable for non-admins (Admins/authorized can view 'all' as null)
+        if (!companyId && !isReportAdmin) {
             return res.status(400).json({ message: 'Unable to resolve company. Please select a company and try again.' });
         }
 
@@ -2309,12 +2424,12 @@ export const getTeamAttendanceReport = async (req, res) => {
             if (team) {
                 const isPrimary = team.hodId && team.hodId.toString() === hodId.toString();
                 const isSecondary = req.user.role === 'HOD' && team.members.some(m => m.userId && m.userId.toString() === hodId.toString());
-                if (isPrimary || isSecondary || req.user.role === 'ADMIN') {
+                if (isPrimary || isSecondary || req.user.role === 'ADMIN' || req.user.username === 'chirag_shah') {
                     teams = [team];
                 }
             }
         } else {
-            if (req.user.role === 'ADMIN') {
+            if (req.user.role === 'ADMIN' || req.user.username === 'chirag_shah') {
                 teams = await TeamModel.find({ isActive: { $ne: false } });
             } else {
                 teams = await getHodTeams(hodId);
@@ -3474,7 +3589,7 @@ export const getEmployeeFullProfile = async (req, res) => {
             return res.status(400).json({ message: 'Invalid employee ID format' });
         }
 
-        if (!isAdmin && !isHod) {
+        if (!isAdmin && !isHod && req.user?.username !== 'chirag_shah') {
             return res.status(403).json({ message: 'Unauthorized profile access' });
         }
 
@@ -4036,7 +4151,6 @@ export const migrateEmployee = async (req, res) => {
 
         // Map LeaveBalances and Applications to Destination Org's Policies
         const sourceBalances = await LeaveBalance.find({ employee_id: employeeId }).populate('leave_policy_id');
-       // const destOrgPolicies = await LeavePolicy.find({ company_id: destinationOrgId, status: 'active' });
         
         // Create an equivalent policy lookup map by leave_code
         const policyMap = new Map();
@@ -4052,10 +4166,30 @@ export const migrateEmployee = async (req, res) => {
             
             balance.company_id = destinationOrgId;
             if (destPolicyId) {
-                balance.leave_policy_id = destPolicyId;
+                // Check if a destination balance record already exists for this policy
+                const existingDestBalance = await LeaveBalance.findOne({
+                    employee_id: employeeId,
+                    leave_policy_id: destPolicyId,
+                    year: balance.year
+                });
+
+                if (existingDestBalance) {
+                    // Merge records: preserve the old custom opening balance, carried forward, etc.
+                    existingDestBalance.opening_balance = balance.opening_balance;
+                    existingDestBalance.carried_forward = balance.carried_forward || existingDestBalance.carried_forward;
+                    existingDestBalance.encashed = balance.encashed || existingDestBalance.encashed;
+                    existingDestBalance.company_id = destinationOrgId;
+                    await existingDestBalance.save();
+
+                    // Delete the source balance to avoid unique constraint duplicates
+                    await LeaveBalance.deleteOne({ _id: balance._id });
+                } else {
+                    balance.leave_policy_id = destPolicyId;
+                    await balance.save();
+                }
+            } else {
+                await balance.save();
             }
-            // If no exact match (leave_code), record stays pointing to old policy or we can handle it
-            await balance.save();
         }
 
         // Update LeaveApplications to new company & mapped policy

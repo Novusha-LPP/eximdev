@@ -156,11 +156,20 @@ function JobTabs() {
 
   // --- Effects ---
   React.useEffect(() => {
-    if (location.state?.fromJobDetails && location.state?.tabIndex !== undefined) {
-      setValue(location.state.tabIndex);
-      window.history.replaceState({}, document.title);
+    if (location.state?.tabIndex !== undefined) {
+      const targetIndex = location.state.tabIndex;
+      const hasBillingConfirmAccess = user?.role === "Admin" || user?.modules?.includes("Billing Confirmation");
+      if (targetIndex === 3 && !hasBillingConfirmAccess) {
+        setValue(0);
+      } else {
+        setValue(targetIndex);
+      }
+      // clean up state
+      const state = { ...location.state };
+      delete state.tabIndex;
+      window.history.replaceState(state, document.title);
     }
-  }, [location.state]);
+  }, [location.state, user]);
 
   // --- Handlers ---
   const handleChange = (event, newValue) => {
@@ -291,6 +300,9 @@ function JobTabs() {
           <Tab label="Pending" {...a11yProps(0)} />
           <Tab label="Completed" {...a11yProps(1)} />
           <Tab label="Cancelled" {...a11yProps(2)} />
+          {(user.role === "Admin" || user.modules?.includes("Billing Confirmation")) && (
+            <Tab label="Billing Confirmation" {...a11yProps(3)} />
+          )}
         </Tabs>
 
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
@@ -359,6 +371,11 @@ function JobTabs() {
       <CustomTabPanel value={value} index={2}>
         <JobList status="Cancelled" showUnresolvedOnly={showUnresolvedOnly} onUnresolvedCountChange={setUnresolvedCount} />
       </CustomTabPanel>
+      {(user.role === "Admin" || user.modules?.includes("Billing Confirmation")) && (
+        <CustomTabPanel value={value} index={3}>
+          <JobList status="Billing_Confirmation" showUnresolvedOnly={showUnresolvedOnly} onUnresolvedCountChange={setUnresolvedCount} />
+        </CustomTabPanel>
+      )}
 
       {/* --- Utility Tool Modal --- */}
       <Dialog

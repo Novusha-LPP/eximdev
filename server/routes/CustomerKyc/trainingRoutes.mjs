@@ -26,13 +26,18 @@ const generateUniqueTrainingCode = async () => {
 // GET /api/customer-trainings: Get all trainings across all customers
 router.get("/api/customer-trainings", async (req, res) => {
   try {
-    const customers = await CustomerKycModel.find({ trainings: { $exists: true, $not: { $size: 0 } } })
-      .select("name_of_individual iec_no trainings")
-      .lean();
+    const customers = await CustomerKycModel.find({
+      $or: [
+        { "trainings.0": { $exists: true } },
+        { approval: { $in: ["Approved", "Approved by HOD"] } }
+      ]
+    }).select("name_of_individual iec_no trainings approval").lean();
 
     const allTrainings = [];
     customers.forEach(customer => {
-      if (customer.trainings && Array.isArray(customer.trainings)) {
+      const hasTrainings = customer.trainings && Array.isArray(customer.trainings) && customer.trainings.length > 0;
+      
+      if (hasTrainings) {
         customer.trainings.forEach(tr => {
           allTrainings.push({
             ...tr,
@@ -41,11 +46,30 @@ router.get("/api/customer-trainings", async (req, res) => {
             customerIec: customer.iec_no
           });
         });
+      } else if (["Approved", "Approved by HOD"].includes(customer.approval)) {
+        allTrainings.push({
+          _id: `mock-${customer._id}`,
+          customerId: customer._id,
+          customerName: customer.name_of_individual,
+          customerIec: customer.iec_no,
+          training_code: "TBD",
+          training_module: "Import Module",
+          trainee_name: "-",
+          trainer_name: "-",
+          training_date: null,
+          training_mode: "Online",
+          training_status: "Pending",
+          isMocked: true
+        });
       }
     });
 
-    // Sort by training date descending
-    allTrainings.sort((a, b) => new Date(b.training_date) - new Date(a.training_date));
+    // Sort by training date descending, put mocked ones (null date) at the bottom or top? Let's treat null date as old.
+    allTrainings.sort((a, b) => {
+      const dateA = a.training_date ? new Date(a.training_date).getTime() : 0;
+      const dateB = b.training_date ? new Date(b.training_date).getTime() : 0;
+      return dateB - dateA;
+    });
 
     res.json(allTrainings);
   } catch (error) {

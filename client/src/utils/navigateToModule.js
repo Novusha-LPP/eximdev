@@ -10,6 +10,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/update-employee-data");
     case "Import - DSR":
       return navigate("/import-dsr");
+    case "Billing Confirmation":
+      return navigate("/import-dsr", { state: { tabValue: 1, tabIndex: 3 } });
     case "Report":
       return navigate("/report");
     case "Audit Trail":
@@ -88,6 +90,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/document-collection");
     case "Attendance":
       return navigate("/attendance/dashboard");
+    case "Karma Points":
+      return navigate("/karma-points");
     default:
       return navigate("/home");
   }

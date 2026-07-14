@@ -463,6 +463,7 @@ function JobDetails() {
   const [imexcubeDetailsLoading, setImexcubeDetailsLoading] = useState(false);
   const [imexcubeDetailsDialogOpen, setImexcubeDetailsDialogOpen] = useState(false);
   const [imexcubeDetailsData, setImexcubeDetailsData] = useState(null);
+  const [imexcubeSyncing, setImexcubeSyncing] = useState(false);
 
   // JSON Editor state
   const [imexcubeShowEditor, setImexcubeShowEditor] = useState(false);
@@ -525,6 +526,51 @@ function JobDetails() {
       setImexcubeDetailsData({ error: errMsg });
     } finally {
       setImexcubeDetailsLoading(false);
+    }
+  };
+
+  // Synchronize job details from IMEXCUBE to our local DB
+  const handleSyncImexcubeDetails = async () => {
+    const jobNumber = data?.job_number;
+    if (!jobNumber) {
+      setImexcubeSnackbar({ open: true, message: "Job number not found", severity: "error" });
+      setTimeout(() => setImexcubeSnackbar(prev => ({ ...prev, open: false })), 4000);
+      return;
+    }
+    setImexcubeSyncing(true);
+    try {
+      const res = await axios.post(
+        `${process.env.REACT_APP_API_STRING}/scmCube/sync-imexcube-job`,
+        { job_number: jobNumber }
+      );
+      
+      if (res.data?.success) {
+        setImexcubeDetailsDialogOpen(false);
+        setImexcubeSnackbar({
+          open: true,
+          message: res.data?.message || "Job synchronized successfully",
+          severity: "success"
+        });
+        setTimeout(() => setImexcubeSnackbar(prev => ({ ...prev, open: false })), 4000);
+
+        if (res.data.updatedJob && setData) {
+          setData(res.data.updatedJob);
+        }
+      } else {
+        setImexcubeSnackbar({
+          open: true,
+          message: res.data?.message || "No updates found",
+          severity: "info"
+        });
+        setTimeout(() => setImexcubeSnackbar(prev => ({ ...prev, open: false })), 4000);
+      }
+    } catch (err) {
+      console.error(err);
+      const errMsg = err?.response?.data?.error || err?.response?.data?.details || err.message || "Failed to sync job details from IMEXCUBE";
+      setImexcubeSnackbar({ open: true, message: errMsg, severity: "error" });
+      setTimeout(() => setImexcubeSnackbar(prev => ({ ...prev, open: false })), 5000);
+    } finally {
+      setImexcubeSyncing(false);
     }
   };
 
@@ -2228,6 +2274,83 @@ function JobDetails() {
                       </Col>
 
                       <Col xs={12} md={6} lg={3} className="pb-3">
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "10px",
+                            marginBottom: "6px",
+                          }}
+                        >
+                          <Checkbox
+                            size="small"
+                            style={{ padding: "0" }}
+                            checked={!!formik.values.billing_confirmation_date}
+                            disabled={user?.role !== "Admin" && !user?.modules?.includes("Billing Confirmation")}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                const dt = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                                formik.setFieldValue("billing_confirmation_date", dt);
+                              } else {
+                                formik.setFieldValue("billing_confirmation_date", "");
+                              }
+                            }}
+                          />
+                          <span style={{ fontWeight: "600", color: "#495057" }}>
+                            Confirm for Billing:
+                          </span>
+                          <span
+                            style={{
+                              fontWeight: "700",
+                              color: formik.values.billing_confirmation_date
+                                ? "#28a745"
+                                : "#dc3545",
+                            }}
+                          >
+                            {formik.values.billing_confirmation_date
+                              ? new Date(
+                                  formik.values.billing_confirmation_date
+                                ).toLocaleString("en-US", {
+                                  timeZone: "Asia/Kolkata",
+                                  month: "short",
+                                  day: "2-digit",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                  hour12: true,
+                                })
+                              : "Pending"}
+                          </span>
+                        </div>
+                        {(user?.role === "Admin" || user?.modules?.includes("Billing Confirmation")) && (
+                          <div>
+                            <TextField
+                              type="datetime-local"
+                              fullWidth
+                              size="small"
+                              variant="outlined"
+                              id="billing_confirmation_date"
+                              name="billing_confirmation_date"
+                              value={
+                                formik.values.billing_confirmation_date
+                                  ? formatDateForInput(
+                                      formik.values.billing_confirmation_date
+                                    )
+                                  : ""
+                              }
+                              onChange={(e) =>
+                                formik.setFieldValue(
+                                  "billing_confirmation_date",
+                                  e.target.value
+                                )
+                              }
+                              InputLabelProps={{ shrink: true }}
+                              sx={compactInputSx}
+                            />
+                          </div>
+                        )}
+                      </Col>
+
+                      <Col xs={12} md={6} lg={3} className="pb-3">
                         <div style={{ fontSize: "0.95rem", marginBottom: "6px" }}>
                           <span
                             style={{
@@ -2517,6 +2640,20 @@ function JobDetails() {
                       <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Net Weight (KGS)</label>
                       <TextField fullWidth size="small" variant="outlined" id="job_net_weight" name="job_net_weight" value={formik.values.job_net_weight || ""}
                         onChange={formik.handleChange} InputLabelProps={{ shrink: true }} sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={3} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>
+                        {isAirMode(data?.mode) ? "Flight Name" : "Vessel Name"}
+                      </label>
+                      <TextField fullWidth size="small" variant="outlined" id="vessel_flight" name="vessel_flight"
+                        value={formik.values.vessel_flight || ""} onChange={formik.handleChange}
+                        placeholder={isAirMode(data?.mode) ? "Enter Flight No" : "Enter Vessel Name"} sx={compactInputSx} />
+                    </Col>
+                    <Col xs={12} md={3} lg={2} className="mb-3">
+                      <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>Voyage No</label>
+                      <TextField fullWidth size="small" variant="outlined" id="voyage_no" name="voyage_no"
+                        value={formik.values.voyage_no || ""} onChange={formik.handleChange}
+                        placeholder="Enter Voyage No" sx={compactInputSx} />
                     </Col>
                     <Col xs={12} md={3} lg={2} className="mb-3">
                       <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>ETA Date</label>
@@ -6480,6 +6617,15 @@ function JobDetails() {
           )}
         </DialogContent>
         <DialogActions>
+          <Button 
+            onClick={handleSyncImexcubeDetails} 
+            variant="contained" 
+            color="success"
+            disabled={imexcubeSyncing || !imexcubeDetailsData || !!imexcubeDetailsData.error || imexcubeDetailsLoading}
+            sx={{ mr: 1 }}
+          >
+            {imexcubeSyncing ? "Syncing..." : "Sync to Local Job"}
+          </Button>
           <Button onClick={() => setImexcubeDetailsDialogOpen(false)} variant="contained" sx={{ backgroundColor: "#1565c0", "&:hover": { backgroundColor: "#0d47a1" } }}>
             Close
           </Button>

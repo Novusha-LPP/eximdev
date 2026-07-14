@@ -594,6 +594,8 @@ function JobList(props) {
                 return 1;
               case "Cancelled":
                 return 2;
+              case "Billing_Confirmation":
+                return 3;
               default:
                 return 0;
             }

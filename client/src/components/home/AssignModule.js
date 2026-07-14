@@ -8,6 +8,7 @@ const allModules = [
   "Import - Operations",
   "Import - Add",
   "Import - Billing",
+  "Billing Confirmation",
   "Import Utility Tool",
   "Report",
   "Audit Trail",
@@ -44,7 +45,8 @@ const allModules = [
   "Team Pulse",
   "MasterDirectory",
   "Attendance",
-  "Bill Cover"
+  "Bill Cover",
+  "Karma Points"
 ];
 
 // allowedModules: if provided, only these modules can be assigned (for HOD restriction)

@@ -11,24 +11,31 @@ import JobCounterModel from "../../model/jobCounterModel.mjs";
 const router = express.Router();
 
 // Function to build the search query
-const buildSearchQuery = (search) => ({
-  $or: [
-    { job_no: { $regex: search, $options: "i" } },
-    { job_number: { $regex: search, $options: "i" } },
-    { year: { $regex: search, $options: "i" } },
-    { importer: { $regex: search, $options: "i" } },
-    { custom_house: { $regex: search, $options: "i" } },
-    { consignment_type: { $regex: search, $options: "i" } },
-    { type_of_b_e: { $regex: search, $options: "i" } },
-    { awb_bl_no: { $regex: search, $options: "i" } },
-    { be_no: { $regex: search, $options: "i" } },
-    { "charges.purchase_book_no": { $regex: search, $options: "i" } },
-    { "charges.payment_request_no": { $regex: search, $options: "i" } },
-    { detailed_status: { $regex: search, $options: "i" } },
-    { "container_nos.container_number": { $regex: search, $options: "i" } },
-    { "container_nos.size": { $regex: search, $options: "i" } },
-  ],
-});
+const buildSearchQuery = (search) => {
+  const isSearchUnassigned = search.toLowerCase() === "unassigned";
+  return {
+    $or: [
+      { job_no: { $regex: search, $options: "i" } },
+      { job_number: { $regex: search, $options: "i" } },
+      { year: { $regex: search, $options: "i" } },
+      { importer: { $regex: search, $options: "i" } },
+      { custom_house: { $regex: search, $options: "i" } },
+      { consignment_type: { $regex: search, $options: "i" } },
+      { type_of_b_e: { $regex: search, $options: "i" } },
+      { awb_bl_no: { $regex: search, $options: "i" } },
+      { be_no: { $regex: search, $options: "i" } },
+      { "charges.purchase_book_no": { $regex: search, $options: "i" } },
+      { "charges.payment_request_no": { $regex: search, $options: "i" } },
+      { detailed_status: { $regex: search, $options: "i" } },
+      { "container_nos.container_number": { $regex: search, $options: "i" } },
+      { "container_nos.size": { $regex: search, $options: "i" } },
+      isSearchUnassigned 
+        ? { $or: [{ job_owner: { $exists: false } }, { job_owner: "" }, { job_owner: null }, { job_owner: "Unassigned" }] }
+        : { job_owner: { $regex: search, $options: "i" } },
+      { port_of_reporting: { $regex: search, $options: "i" } },
+    ],
+  };
+};
 
 // ==================== SHARED SORTING LOGIC ====================
 
@@ -157,6 +164,8 @@ router.get(
       branchId,
       category,
       transactionType,
+      fromDate,
+      toDate,
     } = req.query;
     const decodedImporter = importer ? decodeURIComponent(importer).trim() : "";
 
@@ -174,31 +183,63 @@ router.get(
     try {
       const skip = (pageNumber - 1) * limitNumber;
 
-      const baseQuery = {
-        $and: [
-          { status: { $regex: /^pending$/i } },
-          {
-            bill_document_sent_to_accounts: {
-              $exists: true,
-              $nin: [null, ""],
+      let baseQuery;
+
+      if (fromDate || toDate) {
+        const dateCondition = {};
+        if (fromDate) {
+          dateCondition.$gte = `${fromDate}T00:00:00`;
+        }
+        if (toDate) {
+          dateCondition.$lte = `${toDate}T23:59:59`;
+        }
+
+        baseQuery = {
+          $and: [
+            {
+              bill_document_sent_to_accounts: dateCondition,
             },
-          },
-          {
-            $or: [
-              { billing_completed_date: { $exists: false } },
-              { billing_completed_date: "" },
-              { billing_completed_date: null },
-              // Include if has billing completed date but ALSO has unresolved queries for Accounts
-              {
-                $and: [
-                  { billing_completed_date: { $exists: true, $ne: "" } },
-                  { dsr_queries: { $elemMatch: { select_module: "Accounts", resolved: { $ne: true } } } }
-                ]
-              }
-            ],
-          },
-        ],
-      };
+            {
+              billing_confirmation_date: {
+                $exists: true,
+                $nin: [null, ""],
+              },
+            },
+          ],
+        };
+      } else {
+        baseQuery = {
+          $and: [
+            { status: { $regex: /^pending$/i } },
+            {
+              bill_document_sent_to_accounts: {
+                $exists: true,
+                $nin: [null, ""],
+              },
+            },
+            {
+              billing_confirmation_date: {
+                $exists: true,
+                $nin: [null, ""],
+              },
+            },
+            {
+              $or: [
+                { billing_completed_date: { $exists: false } },
+                { billing_completed_date: "" },
+                { billing_completed_date: null },
+                // Include if has billing completed date but ALSO has unresolved queries for Accounts
+                {
+                  $and: [
+                    { billing_completed_date: { $exists: true, $ne: "" } },
+                    { dsr_queries: { $elemMatch: { select_module: "Accounts", resolved: { $ne: true } } } }
+                  ]
+                }
+              ],
+            },
+          ],
+        };
+      }
 
       if (unresolvedOnly === "true") {
         baseQuery.$and.push({
@@ -210,7 +251,7 @@ router.get(
         baseQuery.$and.push(buildSearchQuery(search.trim()));
       }
 
-      if (selectedYear) {
+      if (selectedYear && !(fromDate || toDate)) {
         baseQuery.$and.push({ year: selectedYear });
       }
 
@@ -1890,6 +1931,7 @@ router.patch("/api/reject-billing-job/:id", async (req, res) => {
       {
         $set: {
           bill_document_sent_to_accounts: "",
+          billing_confirmation_date: "",
           billing_reject_remark: remark || "",
         },
       },

@@ -58,6 +58,7 @@ function BranchManagement() {
     const [selectedBranchId, setSelectedBranchId] = useState("");
     const [portName, setPortName] = useState("");
     const [portCode, setPortCode] = useState("");
+    const [portIsIcd, setPortIsIcd] = useState(false);
 
     const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
 
@@ -186,13 +187,15 @@ function BranchManagement() {
                 {
                     branch_id: selectedBranchId,
                     port_name: portName,
-                    port_code: portCode
+                    port_code: portCode,
+                    is_icd: portIsIcd
                 },
                 { withCredentials: true }
             );
             showSnackbar("Port added to Branch successfully!", "success");
             setPortName("");
             setPortCode("");
+            setPortIsIcd(false);
             fetchBranches(); // refresh the list to show the newly added port
         } catch (error) {
             showSnackbar(error.response?.data?.error || "Error adding port to branch", "error");
@@ -332,6 +335,19 @@ function BranchManagement() {
                                     disabled={!selectedBranchId}
                                 />
 
+                                <FormControlLabel
+                                    control={
+                                        <Switch
+                                            checked={portIsIcd}
+                                            onChange={(e) => setPortIsIcd(e.target.checked)}
+                                            color="secondary"
+                                            size="small"
+                                        />
+                                    }
+                                    label="Is ICD/Land Port?"
+                                    disabled={!selectedBranchId}
+                                />
+
                                 <Button type="submit" variant="contained" color="secondary" disabled={!selectedBranchId}>
                                     Add Port to Selected Branch
                                 </Button>
@@ -346,7 +362,9 @@ function BranchManagement() {
                                 selectedBranchData.ports && selectedBranchData.ports.length > 0 ? (
                                     <ul style={{ margin: "5px 0", paddingLeft: "20px", fontSize: "0.85rem" }}>
                                         {selectedBranchData.ports.map(p => (
-                                            <li key={p._id}>{p.port_name} ({p.port_code})</li>
+                                            <li key={p._id}>
+                                                {p.port_name} ({p.port_code}) {p.is_icd && <span style={{ color: "purple", fontWeight: "bold", fontSize: "0.75rem" }}>(ICD)</span>}
+                                            </li>
                                         ))}
                                     </ul>
                                 ) : (
@@ -403,7 +421,7 @@ function BranchManagement() {
                                 </TableCell>
                                 <TableCell>
                                     {b.ports && b.ports.length > 0 ? (
-                                        b.ports.map(p => `${p.port_name} (${p.port_code})`).join(", ")
+                                        b.ports.map(p => `${p.port_name} (${p.port_code})${p.is_icd ? ' [ICD]' : ''}`).join(", ")
                                     ) : (
                                         <Typography variant="caption" color="textSecondary">
                                             No ports assigned

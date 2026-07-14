@@ -223,6 +223,9 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
   };
 
   const handleSelectEmployee = (emp) => {
+    const mainContent = document.querySelector('.attendance-main-content');
+    const scrollY = mainContent ? mainContent.scrollTop : window.scrollY;
+    sessionStorage.setItem('epw_scroll_y', String(scrollY));
     const empId = emp._id;
     const username = emp.username||empId;
     const p = teamId ? `/attendance/teams/${teamId}/user/${username}/performance` : `/attendance/admin/employee/${empId}/performance`;
@@ -323,15 +326,13 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
   }, [balanceForm.leave_policy_id, profile?.balances]);
 
   const availablePolicies = useMemo(() => {
-    const assigned = new Set((profile?.balances||[]).map(b=>String(b.leave_policy_id?._id||b.leave_policy_id||b._id)));
+    const empCompanyId = String(profile?.employee?.company_id?._id || profile?.employee?.company_id || '');
     return (leavePolicies||[]).filter(p => {
-      const pId = String(p._id);
-      const isPriv = (p.policy_name||p.leave_type||'').toLowerCase().includes('privilege');
-      if (isPriv&&assigned.has(pId)&&String(balanceForm.leave_policy_id)!==pId) return false;
-      if (!isEditingBalance&&assigned.has(pId)) return false;
+      const policyCompanyId = String(p.company_id?._id || p.company_id || '');
+      if (empCompanyId && policyCompanyId && policyCompanyId !== empCompanyId) return false;
       return true;
     });
-  }, [leavePolicies, profile?.balances, balanceForm.leave_policy_id, isEditingBalance]);
+  }, [leavePolicies, profile?.employee?.company_id]);
 
   const editingBalancePolicyLabel = useMemo(() => {
     if (!isEditingBalance||!balanceForm.leave_policy_id) return '';
@@ -780,6 +781,29 @@ const filteredEmployees = useMemo(() => {
   useEffect(() => { if (!id) fetchAllEmployees(); }, [id]);
 
   useEffect(() => {
+    if (!id && !gridLoading && gridEmployees.length > 0) {
+      const savedScrollY = sessionStorage.getItem('epw_scroll_y');
+      if (savedScrollY) {
+        const targetScrollY = parseInt(savedScrollY, 10);
+        let attempts = 0;
+        const scrollInterval = setInterval(() => {
+          window.scrollTo(0, targetScrollY);
+          const mainContent = document.querySelector('.attendance-main-content');
+          if (mainContent) {
+            mainContent.scrollTop = targetScrollY;
+          }
+          attempts += 1;
+          const currentScroll = mainContent ? mainContent.scrollTop : window.scrollY;
+          if (Math.abs(currentScroll - targetScrollY) < 5 || attempts > 15) {
+            clearInterval(scrollInterval);
+            sessionStorage.removeItem('epw_scroll_y');
+          }
+        }, 50);
+      }
+    }
+  }, [id, gridLoading, gridEmployees]);
+
+  useEffect(() => {
     const fetchTeams = async () => {
       try {
         const res = await masterAPI.getTeams();
@@ -824,7 +848,7 @@ const filteredEmployees = useMemo(() => {
         const params = empCompanyId ? { company_id: empCompanyId } : {};
         const [lr, wor, hor, sr] = await Promise.all([
           masterAPI.getLeavePolicies({ limit:500, ...params }).catch(()=>({ data:[] })),
-          masterAPI.getWeekOffPolicies(params).catch(()=>({ data:[] })),
+          masterAPI.getWeekOffPolicies({ all_companies: true, ...params }).catch(()=>({ data:[] })),
           masterAPI.getHolidayPolicies({ year:new Date().getFullYear(), all_companies:true, ...params }).catch(()=>({ data:[] })),
           masterAPI.getShifts({ limit:500, all_companies:true, ...params }).catch(()=>({ data:[] }))
         ]);
@@ -871,7 +895,9 @@ const filteredEmployees = useMemo(() => {
     if (!id) { toast.error('No employee ID'); return; }
     if (!balanceForm.leave_policy_id) { toast.error('Select a leave policy'); return; }
     try {
-      const ob = Number(balanceForm.opening_balance)||0, u = Number(balanceForm.used)||0, p = Number(balanceForm.pending)||0;
+      const ob = Number(balanceForm.opening_balance)||0, u = Number(balanceForm.used)||0;
+      const existing = (profile?.balances||[]).find(b => String(b.leave_policy_id?._id||b.leave_policy_id||b._id) === String(balanceForm.leave_policy_id));
+      const p = existing ? Number(existing.pending ?? existing.pending_approval ?? 0) : 0;
       if (ob<0||u<0||p<0) { toast.error('Values cannot be negative'); return; }
       await leaveAPI.updateBalance(id, { leave_policy_id:balanceForm.leave_policy_id, opening_balance:ob, used:u, pending:p });
       toast.success('Leave balance updated');
@@ -2573,6 +2599,41 @@ const filteredEmployees = useMemo(() => {
         {/* ── Top Bar ── */}
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px', flexWrap:'wrap', gap:'10px' }}>
           <div style={{ display:'flex', alignItems:'center', gap:'12px' }}>
+            <button
+              onClick={() => {
+                setLocalEmployeeId(null);
+                const fromPath = location.state?.fromPath;
+                if (fromPath) {
+                  navigate(fromPath);
+                } else if (teamId) {
+                  navigate(`/attendance/teams/${teamId}`);
+                } else {
+                  navigate('/attendance/teams');
+                }
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                padding: '8px 16px',
+                background: '#0f172a',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '12px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(15,23,42,0.15)',
+                transition: 'all 0.2s',
+                marginRight: '8px',
+                height: '38px'
+              }}
+              onMouseEnter={e => e.currentTarget.style.transform='translateY(-1px)'}
+              onMouseLeave={e => e.currentTarget.style.transform='translateY(0)'}
+            >
+              ← Back
+            </button>
             <div style={{ width:'44px', height:'44px', borderRadius:'10px', background:profile.employee.photo?`url(${profile.employee.photo}) center/cover`:THEME.primary, display:'flex', alignItems:'center', justifyContent:'center', color:'#fff', fontSize:'18px', fontWeight:'800', flexShrink:0 }}>
               {!profile.employee.photo&&(profile.employee.first_name?.[0]||profile.employee.username?.[0]||'E').toUpperCase()}
             </div>
@@ -2594,17 +2655,6 @@ const filteredEmployees = useMemo(() => {
               <button onClick={handlePreviousUser} style={{ ...S.btn('primary') }}>← Prev</button>
               <button onClick={handleNextUser} style={{ ...S.btn('primary') }}>Next →</button>
             </>}
-            <button onClick={()=>{
-              setLocalEmployeeId(null);
-              const fromPath = location.state?.fromPath;
-              if (fromPath) {
-                navigate(fromPath);
-              } else if (teamId) {
-                navigate(`/attendance/teams/${teamId}`);
-              } else {
-                navigate('/attendance/teams');
-              }
-            }} style={{ ...S.btn('primary') }}>← Back</button>
           </div>
         </div>
 
@@ -2880,33 +2930,68 @@ const filteredEmployees = useMemo(() => {
         {/* ══ LEAVE TAB ══════════════════════════════════════════════════════ */}
         {tab==='leave' && (
           <div style={{ display:'flex', flexDirection:'column', gap:'20px' }}>
-            {/* Balance Form */}
+            {/* Leave Balance Form Dialog Box */}
             {showLeaveBalanceForm && (
-              <div style={{ padding:'16px', background:'#fff', border:`1px solid ${isEditingBalance?THEME.amber:THEME.green}`, borderLeft:`4px solid ${isEditingBalance?THEME.amber:THEME.green}`, borderRadius:'8px' }}>
-                <div style={{ fontSize:'13px', fontWeight:'700', color:isEditingBalance?THEME.amber:THEME.green, marginBottom:'12px' }}>
-                  {isEditingBalance?'Edit Leave Balance':'Add Leave Balance'}
-                  {isEditingBalance&&<span style={{ marginLeft:'8px', fontSize:'11px', color:'#92400e', background:'#fffbeb', border:'1px solid #fde68a', padding:'2px 8px', borderRadius:'6px' }}>Editing: {editingBalancePolicyLabel}</span>}
-                </div>
-                <form onSubmit={handleUpdateBalance} style={{ display:'flex', flexWrap:'wrap', gap:'12px', alignItems:'flex-end' }}>
-                  {[
-                    ['Policy', <select key="p" style={{ ...S.input, width:'180px' }} value={String(balanceForm.leave_policy_id)} onChange={e=>setBalanceForm({ ...balanceForm, leave_policy_id:e.target.value })}>
-                      <option value="">Select policy</option>
-                      {availablePolicies.map(p=><option key={p._id} value={String(p._id)}>{p.policy_name||p.leave_type}</option>)}
-                    </select>],
-                    ['Opening', <input key="ob" type="number" step="1" style={{ ...S.input, width:'90px' }} value={balanceForm.opening_balance} onChange={e=>setBalanceForm(p=>({ ...p, opening_balance:e.target.value }))}/>],
-                    ['Used', <input key="u" type="number" step="1" style={{ ...S.input, width:'80px' }} value={balanceForm.used} onChange={e=>setBalanceForm({ ...balanceForm, used:e.target.value })}/>],
-                    ['Pending', <input key="pd" type="number" step="1" style={{ ...S.input, width:'80px' }} value={balanceForm.pending} onChange={e=>setBalanceForm({ ...balanceForm, pending:e.target.value })}/>],
-                  ].map(([lbl,ctrl],i)=>(
-                    <div key={i}>
-                      <div style={{ fontSize:'11px', fontWeight:'700', color:'#000', marginBottom:'4px' }}>{lbl}</div>
-                      {ctrl}
+              <div style={{ position:'fixed', inset:0, background:'rgba(15,23,42,0.4)', backdropFilter:'blur(2px)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2000 }}>
+                <div style={{ background:'#fff', borderRadius:'14px', width:'100%', maxWidth:'420px', padding:'22px', boxShadow:'0 20px 40px rgba(0,0,0,0.18)', display:'flex', flexDirection:'column', gap:'16px' }}>
+                  
+                  {/* Title */}
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', borderBottom:`1px solid ${THEME.border}`, paddingBottom:'12px' }}>
+                    <div style={{ fontSize:'15px', fontWeight:'800', color:THEME.navy }}>
+                      {isEditingBalance ? 'Edit Leave Balance' : 'Add Leave Balance'}
                     </div>
-                  ))}
-                  <div style={{ display:'flex', gap:'6px' }}>
-                    <button type="submit" style={{ ...S.btn(isEditingBalance?'amber':'green') }}>{isEditingBalance?'Update':'Save'}</button>
-                    <button type="button" onClick={()=>setShowLeaveBalanceForm(false)} style={{ ...S.btn('ghost') }}>Cancel</button>
+                    <button type="button" onClick={()=>setShowLeaveBalanceForm(false)} style={{ background:'none', border:'none', fontSize:'20px', color:THEME.muted, cursor:'pointer', fontWeight:'700', padding:0 }}>×</button>
                   </div>
-                </form>
+                  
+                  {/* Form */}
+                  <form onSubmit={handleUpdateBalance} style={{ display:'flex', flexDirection:'column', gap:'16px' }}>
+                    
+                    {/* Policy Input */}
+                    <div style={{ display:'flex', flexDirection:'column', gap:'5px' }}>
+                      <label style={{ fontSize:'11px', fontWeight:'700', color:'#475569' }}>Policy Name</label>
+                      {isEditingBalance ? (
+                        <input type="text" style={{ ...S.input, background:'#f8fafc', color:'#475569' }} disabled value={editingBalancePolicyLabel} />
+                      ) : (
+                        <select style={{ ...S.input }} value={String(balanceForm.leave_policy_id)} onChange={e=>setBalanceForm({ ...balanceForm, leave_policy_id:e.target.value })}>
+                          <option value="">Select policy</option>
+                          {availablePolicies.map(p=><option key={p._id} value={String(p._id)}>{p.policy_name||p.leave_type}</option>)}
+                        </select>
+                      )}
+                    </div>
+
+                    {/* Numeric Inputs Grid */}
+                    {(() => {
+                      const selectedPolicy = (leavePolicies||[]).find(p=>String(p._id)===String(balanceForm.leave_policy_id)) || (profile?.balances||[]).find(b=>String(b.leave_policy_id?._id||b.leave_policy_id||b._id)===String(balanceForm.leave_policy_id));
+                      const isLwpSel = String(selectedPolicy?.leave_type || selectedPolicy?.leave_policy_id?.leave_type || '').toLowerCase().includes('lwp');
+                      
+                      return (
+                        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:'10px' }}>
+                          <div style={{ display:'flex', flexDirection:'column', gap:'5px' }}>
+                            <label style={{ fontSize:'11px', fontWeight:'700', color:'#475569' }}>Opening</label>
+                            <input type="number" step="1" style={{ ...S.input }} value={balanceForm.opening_balance} onChange={e=>setBalanceForm(p=>({ ...p, opening_balance:e.target.value }))}/>
+                          </div>
+                          
+                          <div style={{ display:'flex', flexDirection:'column', gap:'5px' }}>
+                            <label style={{ fontSize:'11px', fontWeight:'700', color:'#475569' }}>Used</label>
+                            <input type="number" step="1" style={{ ...S.input }} value={balanceForm.used} onChange={e=>setBalanceForm({ ...balanceForm, used:e.target.value })}/>
+                          </div>
+                          
+                          <div style={{ display:'flex', flexDirection:'column', gap:'5px' }}>
+                            <label style={{ fontSize:'11px', fontWeight:'700', color:'#475569' }}>Pending</label>
+                            <input type="text" style={{ ...S.input }} disabled value={isLwpSel ? 'Unlimited' : Math.max(0, (Number(balanceForm.opening_balance) || 0) - (Number(balanceForm.used) || 0))} />
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Footer Actions */}
+                    <div style={{ display:'flex', gap:'8px', marginTop:'8px', justifyContent:'flex-end' }}>
+                      <button type="button" onClick={()=>setShowLeaveBalanceForm(false)} style={{ ...S.btn('ghost'), flex:1 }}>Cancel</button>
+                      <button type="submit" style={{ ...S.btn(isEditingBalance?'amber':'green'), flex:1 }}>{isEditingBalance?'Update':'Save'}</button>
+                    </div>
+
+                  </form>
+                </div>
               </div>
             )}
 
@@ -2936,7 +3021,7 @@ const filteredEmployees = useMemo(() => {
                           <td style={{ padding:'8px 12px' }}>{b.leave_policy_id?.policy_name||b.leave_type||'Policy'}</td>
                           <td style={{ padding:'8px 12px', textAlign:'right' }}>{formatLeaveDays(b.opening_balance||0)}</td>
                           <td style={{ padding:'8px 12px', textAlign:'right' }}>{formatLeaveDays(b.used??b.consumed??0)}</td>
-                          <td style={{ padding:'8px 12px', textAlign:'right' }}>{formatLeaveDays(b.pending??b.pending_approval??0)}</td>
+                          <td style={{ padding:'8px 12px', textAlign:'right' }}>{isLwp ? 'Unlimited' : formatLeaveDays(Math.max(0, (b.opening_balance || 0) - (b.used ?? b.consumed ?? 0)))}</td>
                           <td style={{ padding:'8px 12px', textAlign:'right' }}>
                             <button onClick={()=>{ setBalanceForm({ leave_policy_id:rid, opening_balance:b.opening_balance||0, used:b.used??b.consumed??0, pending:b.pending??b.pending_approval??0 }); setShowLeaveBalanceForm(true); }} disabled={isRowEditing} style={{ ...S.btn('ghost'), fontSize:'11px', opacity:isRowEditing?0.5:1 }}>{isRowEditing?'Editing…':'Edit'}</button>
                           </td>

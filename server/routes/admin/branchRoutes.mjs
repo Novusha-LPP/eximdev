@@ -155,7 +155,7 @@ router.post("/add-branch", authMiddleware, async (req, res) => {
 // Add a port to a branch
 router.post("/add-branch-port", authMiddleware, async (req, res) => {
     try {
-        const { branch_id, port_name, port_code } = req.body;
+        const { branch_id, port_name, port_code, is_icd } = req.body;
 
         if (!branch_id || !port_name || !port_code) {
             return res.status(400).json({ error: "Branch ID, Port Name, and Port Code are required." });
@@ -174,7 +174,7 @@ router.post("/add-branch-port", authMiddleware, async (req, res) => {
             return res.status(400).json({ error: "Port code already exists in this branch." });
         }
 
-        branch.ports.push({ port_name, port_code: uppercaseCode });
+        branch.ports.push({ port_name, port_code: uppercaseCode, is_icd: !!is_icd });
         await branch.save();
 
         res.status(201).json({ message: "Port added to branch successfully", branch });

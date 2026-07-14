@@ -111,7 +111,7 @@ function TrainingManagement() {
         if (!payload.feedback_rating) payload.feedback_rating = null;
         if (!payload.satisfaction_status) payload.satisfaction_status = null;
 
-        if (editingRecord) {
+        if (editingRecord && !editingRecord.isMocked) {
           // Update Mode
           await axios.put(
             `${process.env.REACT_APP_API_STRING}/customer-trainings/${editingRecord._id}`,
@@ -143,12 +143,13 @@ function TrainingManagement() {
 
   const handleOpenEditModal = (record) => {
     setEditingRecord(record);
+    const isMocked = record.isMocked;
     formik.setValues({
       customerId: record.customerId || "",
-      training_date: record.training_date ? record.training_date.slice(0, 10) : "",
-      valid_till: record.valid_till ? record.valid_till.slice(0, 10) : "",
-      trainer_name: record.trainer_name || "",
-      trainee_name: record.trainee_name || "",
+      training_date: (!isMocked && record.training_date) ? record.training_date.slice(0, 10) : "",
+      valid_till: (!isMocked && record.valid_till) ? record.valid_till.slice(0, 10) : "",
+      trainer_name: !isMocked ? (record.trainer_name || "") : "",
+      trainee_name: !isMocked ? (record.trainee_name || "") : "",
       training_module: record.training_module || "Import Module",
       training_status: record.training_status || "Pending",
       training_mode: record.training_mode || "Online",
@@ -162,6 +163,11 @@ function TrainingManagement() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
+    if (String(deleteId).startsWith("mock-")) {
+      showWarning("Cannot delete a pending assigned record without an actual training instance.");
+      setDeleteId(null);
+      return;
+    }
     try {
       await axios.delete(`${process.env.REACT_APP_API_STRING}/customer-trainings/${deleteId}`);
       showSuccess("Training record deleted successfully!");

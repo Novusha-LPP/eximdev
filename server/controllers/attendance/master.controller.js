@@ -422,7 +422,13 @@ export const getLeavePolicies = async (req, res) => {
     } else {
       // Non-RABS users do not see RABS policies
       if (rabsCompanyId) {
-        filter.company_id = { $ne: rabsCompanyId };
+        if (filter.company_id) {
+          if (String(filter.company_id) === String(rabsCompanyId)) {
+            filter.company_id = null;
+          }
+        } else {
+          filter.company_id = { $ne: rabsCompanyId };
+        }
       }
     }
     

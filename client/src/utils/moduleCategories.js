@@ -14,6 +14,7 @@ export const moduleCategories = {
   "Attendance": "HR & Admin",
   "Customer KYC": "Customer KYC",
   "Import - DSR": "DSR Module",
+  "Billing Confirmation": "DSR Module",
   "Audit Trail": "DSR Module",
   "Report": "Analytics & Reports",
   Documentation: "DSR Module",
@@ -40,5 +41,6 @@ export const moduleCategories = {
   "Pulse": "Analytics & Reports",
   "Team Pulse": "Analytics & Reports",
   "MasterDirectory": "Masters",
+  "Karma Points": "Project Management",
 };
 

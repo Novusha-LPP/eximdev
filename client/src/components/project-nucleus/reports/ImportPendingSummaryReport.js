@@ -1,12 +1,52 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import { getEndpoint } from './reports-helper';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell
 } from 'recharts';
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658', '#d0ed57', '#a4de6c'];
+const COLORS = ['#6366f1', '#ec4899', '#8b5cf6', '#14b8a6', '#f59e0b', '#ef4444', '#0ea5e9', '#10b981', '#f43f5e'];
+
+const STYLES = `
+.fleet-card {
+    background: var(--fc-bg, rgba(255, 255, 255, 0.85));
+    backdrop-filter: blur(28px);
+    -webkit-backdrop-filter: blur(28px);
+    border-radius: 28px 8px 28px 28px;
+    border: var(--fc-border, 1px solid rgba(226, 232, 240, 0.8));
+    box-shadow: 0 8px 20px -2px rgba(0, 0, 0, 0.02), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: hidden;
+    position: relative;
+}
+.fleet-card::before {
+    content: '';
+    position: absolute;
+    top: -24px;
+    right: -24px;
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    background: var(--fc-accent, #cbd5e1);
+    filter: blur(35px);
+    opacity: 0.22;
+    transition: all 0.4s ease;
+    pointer-events: none;
+    z-index: 0;
+}
+.fleet-card:hover {
+    transform: translateY(-6px) scale(1.005);
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 1);
+    border-color: rgba(226, 232, 240, 1);
+    z-index: 10;
+}
+.fleet-card:hover::before {
+    transform: scale(1.3);
+    opacity: 0.3;
+}
+`;
 
 const ImportPendingSummaryReport = ({
     filterType,
@@ -15,13 +55,26 @@ const ImportPendingSummaryReport = ({
     selectedQuarter,
     dateRange,
     selectedDay,
+    category,
+    branchId,
+    selectedFinancialYear,
 }) => {
-    const [data, setData] = useState({ byBranchEmployee: [], byBranchPortEmployee: [] });
-    const [loading, setLoading] = useState(true);
+    const navigate = useNavigate();
+    const [rawQueryData, setRawQueryData] = useState([]);
+
+    const [rawCategoryData, setRawCategoryData] = useState([]);
+    const [totalJobsCreated, setTotalJobsCreated] = useState(0);
+    const [readyForBillingSeaCount, setReadyForBillingSeaCount] = useState(0);
+    const [readyForBillingAirCount, setReadyForBillingAirCount] = useState(0);
+    const [billingReadyJobsCount, setBillingReadyJobsCount] = useState(0);
+    const [loading, setLoading] = useState(true); // 'data' | 'visuals'
     
-    // Main UI Tabs
-    const [mainTab, setMainTab] = useState('data'); // 'data' | 'visuals'
-    const [dataTab, setDataTab] = useState('branchEmployee'); // 'branchEmployee' | 'branchPortEmployee'
+    // Custom filter states
+    const [viewMode, setViewMode] = useState('grouped'); // 'grouped' | 'flat'
+    
+    // Collapsible states for Hierarchical Grouped view
+    const [expandedBranches, setExpandedBranches] = useState({});
+    const [expandedPorts, setExpandedPorts] = useState({});
     
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'desc' });
 
@@ -29,18 +82,44 @@ const ImportPendingSummaryReport = ({
         const fetchSummaries = async () => {
             setLoading(true);
             try {
-                const endpoint = getEndpoint('/project-nucleus/pending-job-summaries');
-                const params = {
-                    filterType,
-                    month: selectedMonth,
-                    year: selectedYear,
-                    quarter: selectedQuarter,
-                    startDate: dateRange.start,
-                    endDate: dateRange.end,
-                    day: selectedDay,
-                };
-                const res = await axios.get(endpoint, { params, withCredentials: true });
-                setData(res.data);
+                const endpoint = `${process.env.REACT_APP_API_STRING}/project-nucleus/pending-job-summaries`;
+                
+                const res = await axios.get(endpoint, {
+                    params: {
+                        filterType,
+                        month: selectedMonth,
+                        year: (filterType === 'year' || filterType === 'quarter' || filterType === 'month' || filterType === 'date-range') ? selectedYear : (selectedFinancialYear || '26-27'),
+                        quarter: selectedQuarter,
+                        startDate: dateRange?.startDate,
+                        endDate: dateRange?.endDate,
+                        day: selectedDay,
+                        branchId,
+                        category
+                    },
+                    withCredentials: true
+                });
+                
+                if (res.data) {
+                    const data = res.data;
+                    const seaCount = data.readyForBillingSeaCount || 0;
+                    const airCount = data.readyForBillingAirCount || 0;
+                    
+                    setBillingReadyJobsCount(seaCount + airCount);
+                    setReadyForBillingSeaCount(seaCount);
+                    setReadyForBillingAirCount(airCount);
+                    
+                    setRawQueryData(data.data || []);
+                    setRawCategoryData(data.categoryData || []);
+                    setTotalJobsCreated(data.totalCreated || 0);
+                } else {
+                    // Fallback
+                    setRawQueryData([]);
+                    setRawCategoryData([]);
+                    setTotalJobsCreated(0);
+                    setReadyForBillingSeaCount(0);
+                    setReadyForBillingAirCount(0);
+                    setBillingReadyJobsCount(0);
+                }
             } catch (error) {
                 console.error('Error fetching pending job summaries:', error);
             } finally {
@@ -48,13 +127,9 @@ const ImportPendingSummaryReport = ({
             }
         };
         fetchSummaries();
-    }, [filterType, selectedMonth, selectedYear, selectedQuarter, dateRange, selectedDay]);
+    }, [filterType, selectedMonth, selectedYear, selectedQuarter, dateRange, selectedDay, selectedFinancialYear, branchId, category]);
 
-    // Reset sort when switching tabs
-    useEffect(() => {
-        setSortConfig({ key: null, direction: 'desc' });
-    }, [dataTab]);
-
+    // Handle sort for flat list
     const handleSort = (key) => {
         let direction = 'desc';
         if (sortConfig.key === key && sortConfig.direction === 'desc') {
@@ -68,18 +143,69 @@ const ImportPendingSummaryReport = ({
         return sortConfig.direction === 'asc' ? ' ▲' : ' ▼';
     };
 
-    // ─── Data Aggregation for KPIs and Charts ───────────────────────
+    // Toggle branch expand/collapse
+    const toggleBranch = (branch) => {
+        setExpandedBranches(prev => ({
+            ...prev,
+            [branch]: !prev[branch]
+        }));
+    };
+
+    // Toggle port expand/collapse
+    const togglePort = (portKey) => {
+        setExpandedPorts(prev => ({
+            ...prev,
+            [portKey]: !prev[portKey]
+        }));
+    };
+
+    // Drill down to Import Billing module
+    const handleDrillDown = (searchValue) => {
+        navigate(`/import-billing?search=${encodeURIComponent(searchValue)}`);
+    };
+
+    // ─── Data Aggregation for KPIs ───────────────────────────────
     
-    const totalPending = useMemo(() =>
-        (data.byBranchEmployee || []).reduce((s, r) => s + r.count, 0),
-        [data.byBranchEmployee]
+    // Fixed reference totals based on unfiltered raw data
+    const totalPendingRaw = useMemo(() =>
+        rawQueryData.reduce((s, r) => s + r.count, 0),
+        [rawQueryData]
     );
 
-    const { topBranch, topEmployee, topEmployeeCount } = useMemo(() => {
+    const unassignedJobsCount = useMemo(() =>
+        rawQueryData.reduce((sum, r) => {
+            const isUnassigned = !r.employee || r.employee === 'Unassigned';
+            return isUnassigned ? sum + r.count : sum;
+        }, 0),
+        [rawQueryData]
+    );
+
+    const assignedJobsCount = useMemo(() =>
+        totalJobsCreated > 0 ? (totalJobsCreated - unassignedJobsCount) : (totalPendingRaw - unassignedJobsCount),
+        [totalJobsCreated, totalPendingRaw, unassignedJobsCount]
+    );
+
+    const assignmentPercentage = useMemo(() => {
+        // If there are no jobs created in this period, everything is implicitly perfectly assigned (100%)
+        const denominator = totalJobsCreated > 0 ? totalJobsCreated : totalPendingRaw;
+        if (denominator === 0) return 100;
+        return ((assignedJobsCount / denominator) * 100).toFixed(0);
+    }, [totalJobsCreated, totalPendingRaw, assignedJobsCount]);
+
+    // Simplified dataset (no assignment filtering)
+    const filteredData = rawQueryData;
+
+    // Active KPI Total (updates with assignment filter)
+    const totalPending = useMemo(() =>
+        filteredData.reduce((s, r) => s + r.count, 0),
+        [filteredData]
+    );
+
+    const { topBranch, topEmployee, topEmployeeCount, topCategory, topCategoryCount } = useMemo(() => {
         const bTotals = {};
         const eTotals = {};
         
-        (data.byBranchEmployee || []).forEach(row => {
+        filteredData.forEach(row => {
             bTotals[row.branch] = (bTotals[row.branch] || 0) + row.count;
             if (row.employee && row.employee !== 'Unassigned') {
                 eTotals[row.employee] = (eTotals[row.employee] || 0) + row.count;
@@ -89,28 +215,52 @@ const ImportPendingSummaryReport = ({
         const topB = Object.entries(bTotals).sort((a, b) => b[1] - a[1])[0] || ['N/A', 0];
         const topE = Object.entries(eTotals).sort((a, b) => b[1] - a[1])[0] || ['N/A', 0];
         
+        // Find top category from rawCategoryData
+        let tCategory = 'N/A';
+        let tCategoryCount = 0;
+        if (rawCategoryData && rawCategoryData.length > 0) {
+            tCategory = rawCategoryData[0].category;
+            tCategoryCount = rawCategoryData[0].count;
+        }
+        
         return { 
             topBranch: topB[0], 
             topEmployee: topE[0],
-            topEmployeeCount: topE[1]
+            topEmployeeCount: topE[1],
+            topCategory: tCategory,
+            topCategoryCount: tCategoryCount
         };
-    }, [data.byBranchEmployee]);
+    }, [filteredData, rawCategoryData]);
 
     // Chart 1: Branch Load (Pie)
     const branchPieData = useMemo(() => {
         const bTotals = {};
-        (data.byBranchEmployee || []).forEach(row => {
+        filteredData.forEach(row => {
             bTotals[row.branch] = (bTotals[row.branch] || 0) + row.count;
         });
         return Object.entries(bTotals)
             .map(([name, value]) => ({ name, value }))
             .sort((a, b) => b.value - a.value);
-    }, [data.byBranchEmployee]);
+    }, [filteredData]);
+
+    const billingReadyPieData = useMemo(() => {
+        const data = [];
+        const isAll = !category || category.toLowerCase() === 'all';
+        if (isAll || category.toUpperCase() === 'SEA') {
+            data.push({ name: 'SEA', value: readyForBillingSeaCount || 0 });
+        }
+        if (isAll || category.toUpperCase() === 'AIR') {
+            data.push({ name: 'AIR', value: readyForBillingAirCount || 0 });
+        }
+        return data.filter(item => item.value > 0);
+    }, [readyForBillingSeaCount, readyForBillingAirCount, category]);
+
+    const displayJobCount = totalPending;
 
     // Chart 2: Top Employees (Bar)
     const topEmployeesData = useMemo(() => {
         const eTotals = {};
-        (data.byBranchEmployee || []).forEach(row => {
+        filteredData.forEach(row => {
             if (row.employee !== 'Unassigned') {
                 eTotals[row.employee] = (eTotals[row.employee] || 0) + row.count;
             }
@@ -119,13 +269,13 @@ const ImportPendingSummaryReport = ({
             .map(([name, count]) => ({ name, count }))
             .sort((a, b) => b.count - a.count)
             .slice(0, 10); // Top 10
-    }, [data.byBranchEmployee]);
+    }, [filteredData]);
 
     // Chart 3: Branch vs Port Stacked Bar
     const { branchPortChartData, uniquePorts } = useMemo(() => {
         const map = {};
         const ports = new Set();
-        (data.byBranchPortEmployee || []).forEach(row => {
+        filteredData.forEach(row => {
             if (!map[row.branch]) map[row.branch] = {};
             const p = row.port || 'Unknown';
             ports.add(p);
@@ -140,13 +290,13 @@ const ImportPendingSummaryReport = ({
             return obj;
         });
         return { branchPortChartData: arr, uniquePorts: Array.from(ports) };
-    }, [data.byBranchPortEmployee]);
+    }, [filteredData]);
 
 
-    // ─── Table Sorting ──────────────────────────────────────────────
+    // ─── Table Sorting for Flat List ────────────────────────────
 
-    const branchEmployeeRows = useMemo(() => {
-        const rows = data.byBranchEmployee || [];
+    const tableRows = useMemo(() => {
+        const rows = filteredData || [];
         if (!sortConfig.key) return rows;
         return [...rows].sort((a, b) => {
             const valA = a[sortConfig.key];
@@ -160,24 +310,37 @@ const ImportPendingSummaryReport = ({
             if (strA > strB) return sortConfig.direction === 'asc' ? 1 : -1;
             return 0;
         });
-    }, [data.byBranchEmployee, sortConfig]);
+    }, [filteredData, sortConfig]);
 
-    const branchPortEmployeeRows = useMemo(() => {
-        const rows = data.byBranchPortEmployee || [];
-        if (!sortConfig.key) return rows;
-        return [...rows].sort((a, b) => {
-            const valA = a[sortConfig.key];
-            const valB = b[sortConfig.key];
-            if (typeof valA === 'number' && typeof valB === 'number') {
-                return sortConfig.direction === 'asc' ? valA - valB : valB - valA;
+    // Group data for Collapsible/Hierarchical view
+    const groupedData = useMemo(() => {
+        const branches = {};
+        tableRows.forEach(row => {
+            const b = row.branch || 'Unassigned';
+            const p = row.port || 'Unassigned';
+            const e = row.employee || 'Unassigned';
+            
+            if (!branches[b]) {
+                branches[b] = { name: b, count: 0, ports: {} };
             }
-            const strA = (valA || '').toString().toLowerCase();
-            const strB = (valB || '').toString().toLowerCase();
-            if (strA < strB) return sortConfig.direction === 'asc' ? -1 : 1;
-            if (strA > strB) return sortConfig.direction === 'asc' ? 1 : -1;
-            return 0;
+            branches[b].count += row.count;
+            
+            if (!branches[b].ports[p]) {
+                branches[b].ports[p] = { name: p, count: 0, employees: [] };
+            }
+            branches[b].ports[p].count += row.count;
+            branches[b].ports[p].employees.push({ name: e, count: row.count });
         });
-    }, [data.byBranchPortEmployee, sortConfig]);
+        return branches;
+    }, [tableRows]);
+
+    // Auto expand branches/ports disabled - defaults to closed
+    useEffect(() => {
+        if (Object.keys(groupedData).length > 0) {
+            setExpandedBranches({});
+            setExpandedPorts({});
+        }
+    }, [groupedData]);
 
 
     if (loading) {
@@ -189,304 +352,145 @@ const ImportPendingSummaryReport = ({
         );
     }
 
-    const dataTabs = [
-        { key: 'branchEmployee', label: '🏢 Branch & Employee', color: '#1565c0' },
-        { key: 'branchPortEmployee', label: '🏢 Branch, ⚓ Port & 👤 Employee', color: '#00695c' },
-    ];
+    // Determine color for Assignment Rate
+    const assignmentColor = assignmentPercentage == 100 ? '#10b981' : assignmentPercentage > 50 ? '#f59e0b' : '#ef4444';
 
     return (
         <div style={{ padding: '0 8px' }}>
-            {/* KPI Cards Row */}
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
-                gap: '20px',
-                marginBottom: '24px'
-            }}>
-                <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)', borderLeft: '4px solid #3b82f6' }}>
-                    <h3 style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Pending Jobs</h3>
-                    <div style={{ fontSize: '32px', fontWeight: 700, color: '#0f172a' }}>{totalPending}</div>
-                </div>
-                <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)', borderLeft: '4px solid #10b981' }}>
-                    <h3 style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Highest Branch Load</h3>
-                    <div style={{ fontSize: '24px', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', height: '38px' }}>{topBranch}</div>
-                </div>
-                <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03)', borderLeft: '4px solid #8b5cf6' }}>
-                    <h3 style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Top Pending Employee</h3>
-                    <div style={{ fontSize: '20px', fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {topEmployee} <span style={{ fontSize: '14px', color: '#64748b', fontWeight: 500 }}>({topEmployeeCount})</span>
+            <style>{STYLES}</style>
+            {/* KPI Cards Row Removed in favor of Donut Chart */}
+
+            {/* ─── UNIFIED VIEW (CHART & DATA) ─────────────────────────── */}
+            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                
+                {/* Single Job Count Card requested by User */}
+                <div className="fleet-card" style={{ flex: '1 1 320px', maxWidth: '380px', height: '240px', padding: '24px', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', '--fc-accent': '#3b82f6' }}>
+                    <h3 style={{ marginTop: 0, color: '#1e293b', fontSize: '18px', fontWeight: 600, paddingBottom: '16px', marginBottom: '16px' }}>
+                        Job Count
+                    </h3>
+                    <div style={{ fontSize: '64px', fontWeight: 800, color: '#3b82f6', lineHeight: 1 }}>
+                        {displayJobCount}
                     </div>
                 </div>
-            </div>
 
-            {/* Main Tabs (Data vs Visuals) */}
-            <div style={{ display: 'flex', borderBottom: '2px solid #e2e8f0', marginBottom: '24px' }}>
-                <button
-                    onClick={() => setMainTab('data')}
-                    style={{
-                        padding: '12px 24px',
-                        background: 'none',
-                        border: 'none',
-                        borderBottom: mainTab === 'data' ? '3px solid #3b82f6' : '3px solid transparent',
-                        color: mainTab === 'data' ? '#3b82f6' : '#64748b',
-                        fontWeight: mainTab === 'data' ? 700 : 500,
-                        fontSize: '15px',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        marginBottom: '-2px'
-                    }}
-                >
-                    📑 Data Tables
-                </button>
-                <button
-                    onClick={() => setMainTab('visuals')}
-                    style={{
-                        padding: '12px 24px',
-                        background: 'none',
-                        border: 'none',
-                        borderBottom: mainTab === 'visuals' ? '3px solid #8b5cf6' : '3px solid transparent',
-                        color: mainTab === 'visuals' ? '#8b5cf6' : '#64748b',
-                        fontWeight: mainTab === 'visuals' ? 700 : 500,
-                        fontSize: '15px',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        marginBottom: '-2px'
-                    }}
-                >
-                    📊 Data Visuals
-                </button>
-            </div>
-
-            {/* ─── VISUALS VIEW ─────────────────────────────────────────── */}
-            {mainTab === 'visuals' && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', maxWidth: '1100px', margin: '0 auto' }}>
-                    
-                    <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-                        {/* Branch Load Donut */}
-                        <div style={{ flex: '1 1 400px', background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                            <h3 style={{ marginTop: 0, color: '#1e293b', fontSize: '16px' }}>Pending Jobs by Branch</h3>
-                            <div style={{ height: '280px', width: '100%' }}>
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie
-                                            data={branchPieData}
-                                            cx="50%"
-                                            cy="50%"
-                                            innerRadius={60}
-                                            outerRadius={100}
-                                            paddingAngle={2}
-                                            dataKey="value"
-                                        >
-                                            {branchPieData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                            ))}
-                                        </Pie>
-                                        <RechartsTooltip formatter={(value) => [`${value} jobs`, 'Pending']} />
-                                        <Legend />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
-
-                        {/* Top Employees Bar */}
-                        <div style={{ flex: '2 1 600px', background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                            <h3 style={{ marginTop: 0, color: '#1e293b', fontSize: '16px' }}>Top 10 Employees by Workload (Excl. Unassigned)</h3>
-                            <div style={{ height: '280px', width: '100%' }}>
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <BarChart data={topEmployeesData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                                        <XAxis dataKey="name" tick={{ fontSize: 12 }} interval={0} angle={-15} textAnchor="end" height={60} />
-                                        <YAxis />
-                                        <RechartsTooltip cursor={{ fill: '#f1f5f9' }} />
-                                        <Bar dataKey="count" fill="#8b5cf6" radius={[4, 4, 0, 0]} name="Pending Jobs" />
-                                    </BarChart>
-                                </ResponsiveContainer>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Branch vs Port Stacked Bar */}
-                    <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                        <h3 style={{ marginTop: 0, color: '#1e293b', fontSize: '16px' }}>Branch vs Port Job Distribution</h3>
-                        <div style={{ height: '340px', width: '100%' }}>
+                <div className="fleet-card" style={{ flex: '1 1 320px', maxWidth: '380px', height: '240px', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', '--fc-accent': 'transparent' }}>
+                    <h3 style={{ marginTop: 0, color: '#1e293b', fontSize: '16px', fontWeight: 600, paddingBottom: '12px', borderBottom: '1px solid rgba(226, 232, 240, 0.6)', marginBottom: '8px', width: '100%', textAlign: 'left' }}>
+                        Branch Breakdown
+                    </h3>
+                    <div style={{ flex: 1, width: '100%', minHeight: 0 }}>
+                        {branchPieData.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
-                                <BarChart data={branchPortChartData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                                    <XAxis dataKey="branch" />
-                                    <YAxis />
-                                    <RechartsTooltip cursor={{ fill: '#f1f5f9' }} />
-                                    <Legend />
-                                    {uniquePorts.map((port, idx) => (
-                                        <Bar key={port} dataKey={port} stackId="a" fill={COLORS[idx % COLORS.length]} />
-                                    ))}
-                                </BarChart>
+                                <PieChart margin={{ top: 20, right: 40, bottom: 20, left: 40 }}>
+                                    <Pie
+                                        data={branchPieData}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={35}
+                                        outerRadius={55}
+                                        paddingAngle={2}
+                                        dataKey="value"
+                                        stroke="none"
+                                        labelLine={(props) => {
+                                            if (props.value === 0) return null;
+                                            const { cx, cy, midAngle, outerRadius, index } = props;
+                                            const RADIAN = Math.PI / 180;
+                                            // Stagger radius for overlapping prevention
+                                            const stagger = 1.2 + (index % 4) * 0.35;
+                                            const radius = outerRadius * stagger;
+                                            
+                                            const elbowX = cx + radius * Math.cos(-midAngle * RADIAN);
+                                            const elbowY = cy + radius * Math.sin(-midAngle * RADIAN);
+                                            
+                                            const horizontalLength = 15;
+                                            const textX = elbowX + (elbowX > cx ? horizontalLength : -horizontalLength);
+                                            
+                                            const startX = cx + outerRadius * Math.cos(-midAngle * RADIAN);
+                                            const startY = cy + outerRadius * Math.sin(-midAngle * RADIAN);
+                                            
+                                            return <polyline points={`${startX},${startY} ${elbowX},${elbowY} ${textX},${elbowY}`} stroke="#cbd5e1" strokeWidth={1} fill="none" />;
+                                        }}
+                                        label={(props) => {
+                                            if (props.value === 0) return null;
+                                            const { cx, cy, midAngle, outerRadius, name, value, index } = props;
+                                            const RADIAN = Math.PI / 180;
+                                            const stagger = 1.2 + (index % 4) * 0.35;
+                                            const radius = outerRadius * stagger;
+                                            
+                                            const elbowX = cx + radius * Math.cos(-midAngle * RADIAN);
+                                            const elbowY = cy + radius * Math.sin(-midAngle * RADIAN);
+                                            
+                                            const horizontalLength = 15;
+                                            const textX = elbowX + (elbowX > cx ? horizontalLength : -horizontalLength);
+                                            
+                                            return (
+                                                <text x={textX + (elbowX > cx ? 4 : -4)} y={elbowY} fill="#475569" textAnchor={elbowX > cx ? 'start' : 'end'} dominantBaseline="central" fontSize="10px" fontWeight="600">
+                                                    {name} ({value})
+                                                </text>
+                                            );
+                                        }}
+                                    >
+                                        {branchPieData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <RechartsTooltip 
+                                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', fontSize: '12px', fontWeight: 600 }}
+                                    />
+                                </PieChart>
                             </ResponsiveContainer>
-                        </div>
+                        ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8' }}>
+                                No branch breakdown available
+                            </div>
+                        )}
                     </div>
-
                 </div>
-            )}
 
-            {/* ─── DATA VIEW ────────────────────────────────────────────── */}
-            {mainTab === 'data' && (
-                <div>
-                    {/* Sub-Tab Selector */}
-                    <div style={{
-                        display: 'flex',
-                        gap: '4px',
-                        marginBottom: '20px',
-                        background: '#f1f5f9',
-                        borderRadius: '10px',
-                        padding: '4px',
-                    }}>
-                        {dataTabs.map(tab => (
-                            <button
-                                key={tab.key}
-                                onClick={() => setDataTab(tab.key)}
-                                style={{
-                                    flex: 1,
-                                    padding: '10px 16px',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    cursor: 'pointer',
-                                    fontWeight: dataTab === tab.key ? 700 : 500,
-                                    fontSize: '14px',
-                                    background: dataTab === tab.key ? '#fff' : 'transparent',
-                                    color: dataTab === tab.key ? tab.color : '#64748b',
-                                    boxShadow: dataTab === tab.key ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-                                    transition: 'all 0.2s ease',
-                                }}
-                            >
-                                {tab.label}
-                            </button>
-                        ))}
-                    </div>
+            </div>
 
-                    {/* ─── Sub-Tab 1: Branch + Employee ──────────────────────────── */}
-                    {dataTab === 'branchEmployee' && (
-                        <div className="nucleus-table-wrapper" style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                            <table className="nucleus-table" style={{ margin: 0 }}>
-                                <thead style={{ background: '#f8fafc' }}>
-                                    <tr>
-                                        <th style={{ width: '50px' }}>S.No</th>
-                                        <th onClick={() => handleSort('branch')} style={{ cursor: 'pointer' }}>
-                                            Branch{getSortIcon('branch')}
-                                        </th>
-                                        <th onClick={() => handleSort('employee')} style={{ cursor: 'pointer' }}>
-                                            Employee{getSortIcon('employee')}
-                                        </th>
-                                        <th onClick={() => handleSort('count')} style={{ cursor: 'pointer', textAlign: 'right' }}>
-                                            Pending Jobs{getSortIcon('count')}
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {branchEmployeeRows.length > 0 ? (
-                                        branchEmployeeRows.map((row, idx) => (
-                                            <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                                <td style={{ fontWeight: 500, color: '#64748b' }}>{idx + 1}</td>
-                                                <td>
-                                                    <span className="handler-tag" style={{ background: '#e0f2fe', color: '#0369a1', fontWeight: 600 }}>
-                                                        {row.branch || '—'}
-                                                    </span>
-                                                </td>
-                                                <td style={{ fontWeight: 500, color: '#334155' }}>{row.employee || '—'}</td>
-                                                <td style={{ textAlign: 'right' }}>
-                                                    <span style={{
-                                                        display: 'inline-block',
-                                                        minWidth: '48px',
-                                                        padding: '4px 12px',
-                                                        borderRadius: '20px',
-                                                        fontSize: '13px',
-                                                        fontWeight: 700,
-                                                        textAlign: 'center',
-                                                        background: 'rgba(21, 101, 192, 0.08)',
-                                                        color: '#1565c0',
-                                                    }}>
-                                                        {row.count}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    ) : (
-                                        <tr>
-                                            <td colSpan="4" style={{ textAlign: 'center', color: '#6b7280', padding: '40px' }}>
-                                                No pending jobs found for the selected period.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
+            {/* ─── BRANCH WISE SUMMARY CARDS ─────────────────────────── */}
+            <div style={{ marginTop: '24px' }}>
+                <h3 style={{ marginTop: 0, color: '#1e293b', fontSize: '18px', fontWeight: 600, paddingBottom: '16px', borderBottom: '1px solid rgba(226, 232, 240, 0.6)', marginBottom: '16px' }}>
+                    Pending Jobs by Branch
+                </h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+                    {Object.values(groupedData).map((branchData, index) => (
+                        <div key={branchData.name} className="fleet-card" style={{
+                            padding: '24px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '16px',
+                            '--fc-accent': COLORS[index % COLORS.length]
+                        }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', zIndex: 1 }}>
+                                <div style={{ fontSize: '15px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
+                                    {branchData.name}
+                                </div>
+                                <div style={{ fontSize: '32px', fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>
+                                    {branchData.count}
+                                </div>
+                            </div>
+                            
+                            {Object.values(branchData.ports).length > 0 && (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '16px', borderTop: '1px solid rgba(226,232,240,0.6)', zIndex: 1 }}>
+                                    {Object.values(branchData.ports).map((portData, i) => (
+                                        <div key={portData.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(241,245,249,0.5)', padding: '10px 14px', borderRadius: '8px' }}>
+                                            <span style={{ fontSize: '13px', color: '#475569', fontWeight: 600 }}>{portData.name}</span>
+                                            <span style={{ fontSize: '14px', color: '#0f172a', fontWeight: 800 }}>{portData.count}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
-                    )}
-
-                    {/* ─── Sub-Tab 2: Branch + Port + Employee ──────────────────── */}
-                    {dataTab === 'branchPortEmployee' && (
-                        <div className="nucleus-table-wrapper" style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                            <table className="nucleus-table" style={{ margin: 0 }}>
-                                <thead style={{ background: '#f8fafc' }}>
-                                    <tr>
-                                        <th style={{ width: '50px' }}>S.No</th>
-                                        <th onClick={() => handleSort('branch')} style={{ cursor: 'pointer' }}>
-                                            Branch{getSortIcon('branch')}
-                                        </th>
-                                        <th onClick={() => handleSort('port')} style={{ cursor: 'pointer' }}>
-                                            Port{getSortIcon('port')}
-                                        </th>
-                                        <th onClick={() => handleSort('employee')} style={{ cursor: 'pointer' }}>
-                                            Employee{getSortIcon('employee')}
-                                        </th>
-                                        <th onClick={() => handleSort('count')} style={{ cursor: 'pointer', textAlign: 'right' }}>
-                                            Pending Jobs{getSortIcon('count')}
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {branchPortEmployeeRows.length > 0 ? (
-                                        branchPortEmployeeRows.map((row, idx) => (
-                                            <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                                                <td style={{ fontWeight: 500, color: '#64748b' }}>{idx + 1}</td>
-                                                <td>
-                                                    <span className="handler-tag" style={{ background: '#e0f2fe', color: '#0369a1', fontWeight: 600 }}>
-                                                        {row.branch || '—'}
-                                                    </span>
-                                                </td>
-                                                <td>
-                                                    <span className="handler-tag" style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #dcfce7' }}>
-                                                        {row.port || '—'}
-                                                    </span>
-                                                </td>
-                                                <td style={{ fontWeight: 500, color: '#334155' }}>{row.employee || '—'}</td>
-                                                <td style={{ textAlign: 'right' }}>
-                                                    <span style={{
-                                                        display: 'inline-block',
-                                                        minWidth: '48px',
-                                                        padding: '4px 12px',
-                                                        borderRadius: '20px',
-                                                        fontSize: '13px',
-                                                        fontWeight: 700,
-                                                        textAlign: 'center',
-                                                        background: 'rgba(0, 105, 92, 0.08)',
-                                                        color: '#00695c',
-                                                    }}>
-                                                        {row.count}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        ))
-                                    ) : (
-                                        <tr>
-                                            <td colSpan="5" style={{ textAlign: 'center', color: '#6b7280', padding: '40px' }}>
-                                                No pending jobs found for the selected period.
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
+                    ))}
+                    {Object.keys(groupedData).length === 0 && (
+                        <div className="fleet-card" style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', gridColumn: '1 / -1' }}>
+                            No data available
                         </div>
                     )}
                 </div>
-            )}
+            </div>
+
         </div>
     );
 };

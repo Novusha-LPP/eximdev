@@ -441,6 +441,18 @@ const attendanceAPI = {
     } catch (error) {
       throw error.response?.data || { message: 'Failed to fetch pending correction count' };
     }
+  },
+
+  /**
+   * Get count of pending leave requests assigned to the actor
+   */
+  getPendingLeavesCount: async () => {
+    try {
+      const response = await apiClient.get('/attendance/pending-leaves/count');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to fetch pending leaves count' };
+    }
   }
 };
 

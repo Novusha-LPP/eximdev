@@ -521,7 +521,18 @@ function PaymentRequested({ workMode = "Payment" }) {
               rel="noopener noreferrer"
               style={{ display: "inline-block", padding: "10px", textAlign: "center", textDecoration: "none", color: 'blue', whiteSpace: "nowrap" }}
             >
-              {cell.row.original.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
+              {cell.row.original.job_number || job_no}{" "}
+              <IconButton
+                size="small"
+                onClick={(event) => {
+                  event.preventDefault();
+                  handleCopy(event, cell.row.original.job_number || job_no);
+                }}
+                style={{ color: "inherit" }}
+              >
+                <ContentCopyIcon fontSize="inherit" />
+              </IconButton>
+              <br /> {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
             </Link>
           );
         },

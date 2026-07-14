@@ -4,7 +4,11 @@ import JobModel from "../../model/jobModel.mjs";
 import CountryModel from "../../model/countryModel.mjs";
 import CustomHouseModel from "../../model/customHouseModel.mjs";
 import PortModel from "../../model/portModel.mjs";
+import BranchModel from "../../model/branchModel.mjs";
 import dotenv from "dotenv";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
+import auditMiddleware from "../../middleware/auditTrail.mjs";
+import { recalculateLicenseUtilizationForJob } from "../../services/licenseUtilizationService.mjs";
 
 dotenv.config();
 
@@ -196,6 +200,33 @@ async function buildJobPayload(job_number, isPreview = false, senderID = "SURAJA
     else if (match) resolvedPortOfOriginCode = match[1].trim();
   }
 
+  // Fetch all active branch ICD ports from the database dynamically
+  const activeBranches = await BranchModel.find({ is_active: true }).lean();
+  const dbIcdPorts = [];
+  for (const b of activeBranches) {
+    if (b.ports) {
+      for (const p of b.ports) {
+        if (p.is_icd) {
+          dbIcdPorts.push(p);
+        }
+      }
+    }
+  }
+
+  const targetICDs = dbIcdPorts.length > 0
+    ? dbIcdPorts.map(p => p.port_code.toUpperCase())
+    : ["INSAU6", "INJKA6", "INSBI6", "INBRC6", "INVCN6"];
+
+  const targetNames = dbIcdPorts.length > 0
+    ? dbIcdPorts.map(p => p.port_name.toUpperCase())
+    : [
+        "ICD SANAND",
+        "ICD SACHANA",
+        "ICD KHODIYAR",
+        "ICD VARANAMA",
+        "ICD VIROCHANNAGR"
+      ];
+
   const responseData = {
     CHADetails: {
       "CHA Code": validateChar("NOVU", 5, true, "CHA Code"),
@@ -241,9 +272,19 @@ async function buildJobPayload(job_number, isPreview = false, senderID = "SURAJA
       Pin: validateChar(job.importer_address?.postal_code || "", 6, false, "Pin"),
       Class: validateChar("N", 1, false, "Class"),
       "Mode of Transport": (() => {
+        const rawCH = getVal(job.custom_house).toUpperCase();
+        const resolvedCH = getVal(resolvedCustomHouseCode).toUpperCase();
+        const isTargetICD = targetICDs.some(code => rawCH.includes(code) || resolvedCH.includes(code)) ||
+                            targetNames.some(name => rawCH.includes(name) || resolvedCH.includes(name));
+
         let mode = "";
-        if (job.mode === "SEA") mode = "S";
-        else if (job.mode === "AIR") mode = "A";
+        if (isTargetICD) {
+          mode = "L";
+        } else if (job.mode === "SEA") {
+          mode = "S";
+        } else if (job.mode === "AIR") {
+          mode = "A";
+        }
         return validateChar(mode, 1, true, "Mode of Transport");
       })(),
       ImporterType: validateChar(job.importer_type || "P", 1, false, "ImporterType"),
@@ -660,7 +701,40 @@ router.get("/api/scmCube/job-data-preview", async (req, res) => {
       return "";
     })();
 
+    // Fetch all active branch ICD ports from the database dynamically
+    const activeBranches = await BranchModel.find({ is_active: true }).lean();
+    const dbIcdPorts = [];
+    for (const b of activeBranches) {
+      if (b.ports) {
+        for (const p of b.ports) {
+          if (p.is_icd) {
+            dbIcdPorts.push(p);
+          }
+        }
+      }
+    }
+
+    const targetICDs = dbIcdPorts.length > 0
+      ? dbIcdPorts.map(p => p.port_code.toUpperCase())
+      : ["INSAU6", "INJKA6", "INSBI6", "INBRC6", "INVCN6"];
+
+    const targetNames = dbIcdPorts.length > 0
+      ? dbIcdPorts.map(p => p.port_name.toUpperCase())
+      : [
+          "ICD SANAND",
+          "ICD SACHANA",
+          "ICD KHODIYAR",
+          "ICD VARANAMA",
+          "ICD VIROCHANNAGR"
+        ];
+
     const modeOfTransport = (() => {
+      const rawCH = getVal(job.custom_house).toUpperCase();
+      const resolvedCH = getVal(resolvedCustomHouseCode).toUpperCase();
+      const isTargetICD = targetICDs.some(code => rawCH.includes(code) || resolvedCH.includes(code)) ||
+                          targetNames.some(name => rawCH.includes(name) || resolvedCH.includes(name));
+
+      if (isTargetICD) return "L";
       if (job.mode === "SEA") return "S";
       if (job.mode === "AIR") return "A";
       return "";
@@ -896,6 +970,379 @@ router.get("/api/scmCube/get-imexcube-job-details", async (req, res) => {
     }
     return res.status(error?.response?.status || 500).json({
       error: "Failed to fetch job details from IMEXCUBE",
+      details: error?.response?.data || error.message
+    });
+  }
+});
+
+/**
+ * POST /api/scmCube/sync-imexcube-job
+ * Fetches the job details from IMEXCUBE and synchronizes them to our local JobModel defensively.
+ */
+router.post("/api/scmCube/sync-imexcube-job", authMiddleware, auditMiddleware('Job'), async (req, res) => {
+  const { job_number } = req.body || {};
+  try {
+    if (!job_number) {
+      return res.status(400).json({ error: "job_number is required" });
+    }
+
+    const job = await JobModel.findOne({ job_number });
+    if (!job) {
+      return res.status(404).json({ error: `Job not found for the provided job_number: ${job_number}` });
+    }
+
+    const companyBrCode = getCompanyBrCode(job.branch_code);
+    console.log(`[IMEXCUBE Sync] Resolved CompanyBrCode for branch ${job.branch_code || "N/A"}: ${companyBrCode}`);
+
+    // Step 1: Authenticate with IMEXCUBE
+    console.log("[IMEXCUBE Sync] Authenticating with IMEXCUBE TEST API...");
+    const loginUrl = `${IMEXCUBE_BASE_URL}/api/Authentication/login?username=${encodeURIComponent(
+      IMPEX_USERNAME
+    )}&password=${encodeURIComponent(
+      IMPEX_PASSWORD
+    )}&CompanyBrCode=${encodeURIComponent(
+      companyBrCode
+    )}&Fyear=${encodeURIComponent(FYEAR)}`;
+
+    const loginRes = await axios.post(loginUrl, null, {
+      headers: { accept: "*/*" },
+      timeout: 30000,
+    });
+
+    const loginData = loginRes.data;
+    if (!loginData?.success || !loginData?.data?.accessToken) {
+      console.error("[IMEXCUBE Sync] Login failed:", loginData);
+      return res.status(502).json({
+        error: "IMEXCUBE authentication failed",
+        details: loginData,
+      });
+    }
+
+    const accessToken = loginData.data.accessToken;
+    console.log("[IMEXCUBE Sync] Authentication successful, fetching details...");
+
+    // Step 2: Fetch job details from IMEXCUBE
+    let detailsRes;
+    const getJobUrl = `${IMEXCUBE_BASE_URL}/api/v1/GetJobDetails/get-impdetails`;
+    try {
+      detailsRes = await axios({
+        method: "GET",
+        url: getJobUrl,
+        data: {
+          Method: "GetJobInfo",
+          User_Job_No: job_number
+        },
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+          accept: "*/*"
+        },
+        timeout: 30000
+      });
+    } catch (err) {
+      if (err.response?.status === 404) {
+        const fallbackUrl = `${IMEXCUBE_BASE_URL}/api/v1/GetJobDetails/getimpdetails`;
+        try {
+          detailsRes = await axios.get(fallbackUrl, {
+            params: {
+              Method: "GET",
+              "User Job No.": job_number
+            },
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json"
+            },
+            timeout: 30000
+          });
+        } catch (fallbackErr) {
+          throw err;
+        }
+      } else {
+        throw err;
+      }
+    }
+
+    const responseData = detailsRes.data;
+    if (!responseData?.success || !responseData?.data) {
+      return res.status(502).json({
+        error: "Failed to fetch valid job details from IMEXCUBE",
+        details: responseData,
+      });
+    }
+
+    const imexData = responseData.data;
+    const updates = {};
+    const changesSummary = [];
+
+    // Helper: parse date to YYYY-MM-DD
+    const parseAndFormatDate = (dateStr) => {
+      if (!dateStr || String(dateStr).trim() === "" || dateStr === "0") return null;
+      const s = String(dateStr).trim();
+      
+      // Format: DD/MM/YYYY
+      if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) {
+        const [d, m, y] = s.split("/");
+        return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+      }
+      
+      // Format: YYYY-MM-DD...
+      const parsed = new Date(s);
+      if (!isNaN(parsed.getTime())) {
+        const y = parsed.getFullYear();
+        const m = String(parsed.getMonth() + 1).padStart(2, '0');
+        const d = String(parsed.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+      }
+      return null;
+    };
+
+    // Helper: check if a value is present and not a placeholder
+    const isValuePresent = (val) => {
+      if (val === undefined || val === null) return false;
+      const s = String(val).trim();
+      return s !== "" && s !== "0" && s.toLowerCase() !== "n/a" && s.toLowerCase() !== "nil";
+    };
+
+    // --- 1. BE_Details Mapping ---
+    if (Array.isArray(imexData.BE_Details) && imexData.BE_Details.length > 0) {
+      const be = imexData.BE_Details[0];
+
+      // BE Number
+      if (isValuePresent(be.BENo)) {
+        if (job.be_no !== be.BENo) {
+          updates.be_no = be.BENo;
+          changesSummary.push(`be_no: ${job.be_no || 'none'} -> ${be.BENo}`);
+        }
+      }
+
+      // BE Date
+      const parsedBEDate = parseAndFormatDate(be.BEDate);
+      if (parsedBEDate) {
+        if (job.be_date !== parsedBEDate) {
+          updates.be_date = parsedBEDate;
+          changesSummary.push(`be_date: ${job.be_date || 'none'} -> ${parsedBEDate}`);
+        }
+      }
+
+      // BE Type
+      if (isValuePresent(be.BEType)) {
+        let mappedType = "";
+        if (be.BEType === "H") mappedType = "Home";
+        else if (be.BEType === "W") mappedType = "In-Bond";
+        else if (be.BEType === "X") mappedType = "Ex-Bond";
+
+        if (mappedType && job.type_of_b_e !== mappedType) {
+          updates.type_of_b_e = mappedType;
+          changesSummary.push(`type_of_b_e: ${job.type_of_b_e || 'none'} -> ${mappedType}`);
+        }
+      }
+
+      // Custom Port
+      if (isValuePresent(be.CustomPort)) {
+        const portCode = String(be.CustomPort).toUpperCase();
+        const chDoc = await CustomHouseModel.findOne({ code: portCode }).lean();
+        const resolvedName = chDoc ? chDoc.name : portCode;
+        if (job.custom_house !== resolvedName) {
+          updates.custom_house = resolvedName;
+          changesSummary.push(`custom_house: ${job.custom_house || 'none'} -> ${resolvedName}`);
+        }
+      }
+
+      // Mode
+      if (isValuePresent(be.Mode)) {
+        let mappedMode = "";
+        if (be.Mode === "A") mappedMode = "AIR";
+        else if (be.Mode === "S" || be.Mode === "L") mappedMode = "SEA";
+
+        if (mappedMode && job.mode !== mappedMode) {
+          updates.mode = mappedMode;
+          changesSummary.push(`mode: ${job.mode || 'none'} -> ${mappedMode}`);
+        }
+      }
+
+      // Job Date
+      const parsedJobDate = parseAndFormatDate(be.JobDate);
+      if (parsedJobDate) {
+        if (job.job_date !== parsedJobDate) {
+          updates.job_date = parsedJobDate;
+          changesSummary.push(`job_date: ${job.job_date || 'none'} -> ${parsedJobDate}`);
+        }
+      }
+    }
+
+    // --- 2. Invoice_Details Mapping ---
+    if (Array.isArray(imexData.Invoice_Details) && imexData.Invoice_Details.length > 0) {
+      let existingInvoices = [...(job.invoice_details || [])];
+      let invoiceChanged = false;
+
+      // Sync top-level summary if not populated yet
+      const firstInv = imexData.Invoice_Details[0];
+      if (firstInv) {
+        if (isValuePresent(firstInv.InvoiceNo) && !job.invoice_number) {
+          updates.invoice_number = firstInv.InvoiceNo;
+          changesSummary.push(`invoice_number: none -> ${firstInv.InvoiceNo}`);
+        }
+        const parsedInvDate = parseAndFormatDate(firstInv.InvoiceDate);
+        if (parsedInvDate && !job.invoice_date) {
+          updates.invoice_date = parsedInvDate;
+          changesSummary.push(`invoice_date: none -> ${parsedInvDate}`);
+        }
+        if (isValuePresent(firstInv.SupplierName) && !job.supplier_exporter) {
+          updates.supplier_exporter = firstInv.SupplierName;
+          changesSummary.push(`supplier_exporter: none -> ${firstInv.SupplierName}`);
+        }
+      }
+
+      imexData.Invoice_Details.forEach((inv) => {
+        if (!isValuePresent(inv.InvoiceNo)) return;
+
+        let idx = existingInvoices.findIndex(item => item.invoice_number === inv.InvoiceNo);
+        let currentInv = idx !== -1 ? (existingInvoices[idx].toObject ? existingInvoices[idx].toObject() : existingInvoices[idx]) : null;
+
+        const mappedInvDate = parseAndFormatDate(inv.InvoiceDate) || "";
+        const mappedTerms = isValuePresent(inv.InvoiceTerms) ? String(inv.InvoiceTerms) : "";
+        const mappedCurrency = isValuePresent(inv.InvoiceCurrency) ? String(inv.InvoiceCurrency) : "";
+        const mappedVal = isValuePresent(inv.InvoiceProductValues) ? String(inv.InvoiceProductValues) : "";
+        const mappedFreight = isValuePresent(inv.FreightAmount) ? String(inv.FreightAmount) : "";
+        const mappedFreightCurr = isValuePresent(inv.FreightCurrency) ? String(inv.FreightCurrency) : "";
+        const mappedInsurance = isValuePresent(inv.InsuranceAmount) ? String(inv.InsuranceAmount) : "";
+        const mappedInsuranceCurr = isValuePresent(inv.InsuranceCurrency) ? String(inv.InsuranceCurrency) : "";
+
+        if (currentInv) {
+          let subChanges = false;
+          if (mappedInvDate && currentInv.invoice_date !== mappedInvDate) { currentInv.invoice_date = mappedInvDate; subChanges = true; }
+          if (mappedTerms && currentInv.toi !== mappedTerms) { currentInv.toi = mappedTerms; subChanges = true; }
+          if (mappedCurrency && currentInv.inv_currency !== mappedCurrency) { currentInv.inv_currency = mappedCurrency; subChanges = true; }
+          if (mappedVal && currentInv.product_value !== mappedVal) { currentInv.product_value = mappedVal; subChanges = true; }
+          if (mappedFreight && currentInv.freight !== mappedFreight) { currentInv.freight = mappedFreight; subChanges = true; }
+          if (mappedFreightCurr && currentInv.freight_currency !== mappedFreightCurr) { currentInv.freight_currency = mappedFreightCurr; subChanges = true; }
+          if (mappedInsurance && currentInv.insurance !== mappedInsurance) { currentInv.insurance = mappedInsurance; subChanges = true; }
+          if (mappedInsuranceCurr && currentInv.insurance_currency !== mappedInsuranceCurr) { currentInv.insurance_currency = mappedInsuranceCurr; subChanges = true; }
+
+          if (subChanges) {
+            existingInvoices[idx] = currentInv;
+            invoiceChanged = true;
+            changesSummary.push(`Updated invoice ${inv.InvoiceNo} details`);
+          }
+        } else {
+          const newInv = {
+            invoice_number: inv.InvoiceNo,
+            invoice_date: mappedInvDate,
+            toi: mappedTerms,
+            inv_currency: mappedCurrency,
+            product_value: mappedVal,
+            freight: mappedFreight,
+            freight_currency: mappedFreightCurr,
+            insurance: mappedInsurance,
+            insurance_currency: mappedInsuranceCurr,
+          };
+          existingInvoices.push(newInv);
+          invoiceChanged = true;
+          changesSummary.push(`Added invoice ${inv.InvoiceNo}`);
+        }
+      });
+
+      if (invoiceChanged) {
+        updates.invoice_details = existingInvoices;
+      }
+    }
+
+    // --- 3. Product_Details Mapping ---
+    if (Array.isArray(imexData.Product_Details) && imexData.Product_Details.length > 0) {
+      let existingProducts = [...(job.description_details || [])];
+      let productsChanged = false;
+
+      imexData.Product_Details.forEach((prod) => {
+        if (!isValuePresent(prod.ProductDesc) && !isValuePresent(prod.RITCNo)) return;
+
+        let idx = -1;
+        if (prod.ProductSNo && prod.ProductSNo <= existingProducts.length) {
+          idx = prod.ProductSNo - 1;
+        } else {
+          idx = existingProducts.findIndex(item => item.cth_no === prod.RITCNo && item.description === prod.ProductDesc);
+        }
+
+        let currentProd = idx !== -1 ? (existingProducts[idx].toObject ? existingProducts[idx].toObject() : existingProducts[idx]) : null;
+
+        const mappedDesc = isValuePresent(prod.ProductDesc) ? String(prod.ProductDesc) : "";
+        const mappedCth = isValuePresent(prod.RITCNo) ? String(prod.RITCNo) : "";
+        const mappedQty = isValuePresent(prod.Qty) ? String(prod.Qty) : "";
+        const mappedUnit = isValuePresent(prod.Unit) ? String(prod.Unit) : "";
+        const mappedPrice = isValuePresent(prod.UnitPrice) ? String(prod.UnitPrice) : "";
+        const mappedAmt = isValuePresent(prod.Amount) ? String(prod.Amount) : "";
+        const mappedInvSrNo = isValuePresent(prod.InvSrNo) ? String(prod.InvSrNo) : "1";
+
+        if (currentProd) {
+          let subChanges = false;
+          if (mappedDesc && currentProd.description !== mappedDesc) { currentProd.description = mappedDesc; subChanges = true; }
+          if (mappedCth && currentProd.cth_no !== mappedCth) { currentProd.cth_no = mappedCth; subChanges = true; }
+          if (mappedQty && currentProd.quantity !== mappedQty) { currentProd.quantity = mappedQty; subChanges = true; }
+          if (mappedUnit && currentProd.unit !== mappedUnit) { currentProd.unit = mappedUnit; subChanges = true; }
+          if (mappedPrice && currentProd.unit_price !== mappedPrice) { currentProd.unit_price = mappedPrice; subChanges = true; }
+          if (mappedAmt && currentProd.amount !== mappedAmt) { currentProd.amount = mappedAmt; subChanges = true; }
+          if (mappedInvSrNo && currentProd.sr_no_invoice !== mappedInvSrNo) { currentProd.sr_no_invoice = mappedInvSrNo; subChanges = true; }
+
+          if (subChanges) {
+            existingProducts[idx] = currentProd;
+            productsChanged = true;
+            changesSummary.push(`Updated product SNo ${prod.ProductSNo || idx + 1}`);
+          }
+        } else {
+          const newProd = {
+            description: mappedDesc,
+            cth_no: mappedCth,
+            quantity: mappedQty,
+            unit: mappedUnit,
+            unit_price: mappedPrice,
+            amount: mappedAmt,
+            sr_no_invoice: mappedInvSrNo
+          };
+          existingProducts.push(newProd);
+          productsChanged = true;
+          changesSummary.push(`Added product ${mappedCth}`);
+        }
+      });
+
+      if (productsChanged) {
+        updates.description_details = existingProducts;
+      }
+    }
+
+    if (Object.keys(updates).length === 0) {
+      console.log(`[IMEXCUBE Sync] Job ${job_number} is already up to date.`);
+      return res.status(200).json({
+        success: true,
+        message: "No new or modified fields found to update.",
+        changes: []
+      });
+    }
+
+    // Apply updates to the database
+    console.log(`[IMEXCUBE Sync] Applying updates to job ${job_number}:`, updates);
+    const updatedJob = await JobModel.findOneAndUpdate(
+      { job_number },
+      { $set: updates },
+      { new: true }
+    );
+
+    // Recalculate license utilization if required
+    if (updates.description_details || updates.be_no) {
+      await recalculateLicenseUtilizationForJob(updatedJob).catch(err => {
+        console.error("[IMEXCUBE Sync] Recalculating license utilization failed:", err);
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Job details successfully synchronized from IMEXCUBE.",
+      changes: changesSummary,
+      updatedJob
+    });
+
+  } catch (error) {
+    console.error("[IMEXCUBE Sync Error]:", error?.response?.data || error.message);
+    return res.status(error?.response?.status || 500).json({
+      error: "Failed to synchronize job details from IMEXCUBE",
       details: error?.response?.data || error.message
     });
   }

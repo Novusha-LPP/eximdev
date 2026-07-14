@@ -599,7 +599,17 @@ function PaymentCompleted({ workMode = "Payment" }) {
               }}
             >
               <div style={{ fontWeight: "700", marginBottom: "4px" }}>
-                {cell.row.original.job_number || job_no}
+                {cell.row.original.job_number || job_no}{" "}
+                <IconButton
+                  size="small"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    handleCopy(event, cell.row.original.job_number || job_no);
+                  }}
+                  style={{ color: "inherit", padding: "2px" }}
+                >
+                  <ContentCopyIcon fontSize="inherit" />
+                </IconButton>
               </div>
               <div style={{ fontSize: "0.75rem", opacity: 0.9 }}>
                 {type_of_b_e} | {consignment_type}

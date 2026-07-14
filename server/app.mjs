@@ -131,6 +131,7 @@ import getNfimsSimsJobs from "./routes/e-sanchit/getNfimsSimsJobs.mjs";
 
 // import - billing
 import getImportBilling from "./routes/import-billing/getImportBilling.js";
+import virtualBalanceRoutes from "./routes/import-billing/virtualBalanceRoutes.mjs";
 
 // Home
 import assignModules from "./routes/home/assignModules.mjs";
@@ -249,6 +250,7 @@ import currencyRateRoutes from "./routes/currencyRate.js";
 
 // Open Points Module
 import openPointsRoutes from "./routes/open-points/openPointsRoutes.mjs";
+import teamKarmaLeaderboard from "./routes/open-points/teamKarmaLeaderboard.mjs";
 
 import analyticsRoutes from "./routes/analytics/analyticsRoutes.mjs";
 import uploadFileRoutes from "./routes/upload/uploadFile.mjs";
@@ -355,6 +357,7 @@ import shippingLineRoutes from "./routes/master-directory/shippingLineRoutes.mjs
 import supplierRoutes from "./routes/master-directory/supplierRoutes.mjs";
 import currencyRoutes from "./routes/master-directory/currencyRoutes.mjs";
 import portRoutes from "./routes/master-directory/portRoutes.mjs";
+import indianPortRoutes from "./routes/master-directory/indianPortRoutes.mjs";
 import customHouseRoutes from "./routes/master-directory/customHouseRoutes.mjs";
 import cfsRoutes from "./routes/master-directory/cfsRoutes.mjs";
 import transporterRoutes from "./routes/master-directory/transporterRoutes.mjs";
@@ -625,6 +628,7 @@ app.use(getOperationPlanningList);
 
 // import billing
 app.use(getImportBilling);
+app.use(virtualBalanceRoutes);
 
 // import cth search
 app.use(getCthSearch);
@@ -677,6 +681,7 @@ app.use(analyticsRoutes);
 
 // Open Points
 app.use(openPointsRoutes);
+app.use("/api/open-points", teamKarmaLeaderboard);
 
 // Upload
 app.use(uploadFileRoutes);
@@ -716,6 +721,7 @@ app.use("/api", shippingLineRoutes);
 app.use("/api", supplierRoutes);
 app.use("/api", currencyRoutes);
 app.use("/api", portRoutes);
+app.use("/api", indianPortRoutes);
 app.use("/api", customHouseRoutes);
 app.use("/api", cfsRoutes);
 app.use("/api", transporterRoutes);

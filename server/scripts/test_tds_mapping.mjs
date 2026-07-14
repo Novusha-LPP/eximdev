@@ -15,8 +15,8 @@ async function test() {
   console.log("Testing TDS Ledger Name mappings...");
 
   const testEntries = [
-    { entryNo: "PB01/AMD/IMP/SEA/00636/25-26", expectedLedger: "TDS ON CONTRACT 94C - 1024 -2%" },
-    { entryNo: "PB02/AMD/IMP/SEA/00434/26-27", expectedLedger: "TDS ON CONTRACT 94C - 1023- 1%" }
+    { entryNo: "PB01/AMD/IMP/SEA/00636/25-26", expectedLedger: "TDS ON CONTRACT 94C 1024" },
+    { entryNo: "PB02/AMD/IMP/SEA/00434/26-27", expectedLedger: "TDS ON CONTRACT 94C 1023" }
   ];
 
   try {

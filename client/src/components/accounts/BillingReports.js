@@ -20,6 +20,7 @@ import {
   TableHead,
   TableRow,
   TablePagination,
+  TableFooter,
   TextField,
   InputAdornment,
   IconButton,
@@ -249,6 +250,8 @@ const PendingBillingUtility = () => {
     { value: "pb", label: "Purchase Book Report" },
     { value: "pr", label: "Payment Request Report" },
     { value: "pr_no_pb", label: "PR Pending Purchase Book" },
+    { value: "tds", label: "TDS Payable Register" },
+    { value: "gpj", label: "General Pending Jobs" },
     { value: "all", label: "Unified PB & PR Report" },
   ];
 
@@ -462,7 +465,9 @@ const PendingBillingUtility = () => {
         pr: `Payment_Request_Report_${dateLabel}.xlsx`,
         pb: `Purchase_Book_Report_${dateLabel}.xlsx`,
         pr_no_pb: `PR_Pending_PB_Report_${dateLabel}.xlsx`,
-        all: `Unified_Billing_Charges_Report_${dateLabel}.xlsx`
+        tds: `TDS_Payable_Register_${dateLabel}.xlsx`,
+        all: `Unified_Billing_Charges_Report_${dateLabel}.xlsx`,
+        gpj: `General_Pending_Jobs_${dateLabel}.xlsx`
       };
       const filename = filenames[filters.reportType] || `Report_${dateLabel}.xlsx`;
       
@@ -756,17 +761,42 @@ const PendingBillingUtility = () => {
                 {filteredPreviewRows.length === 0 ? (
                   <TableRow><TableCell colSpan={headers.length} align="center" sx={{ py: 6 }}>No records matching search.</TableCell></TableRow>
                 ) : (
-                  filteredPreviewRows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((row, idx) => (
-                    <TableRow key={idx} hover>
-                      {headers.map((header) => (
-                        <TableCell key={header} sx={{ whiteSpace: "nowrap", fontSize: "0.78rem", color: "#1e293b", py: 0.5 }}>
-                          {row[header] !== undefined && row[header] !== null ? String(row[header]) : ""}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))
+                  <>
+                    {filteredPreviewRows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((row, idx) => (
+                      <TableRow key={idx} hover>
+                        {headers.map((header) => (
+                          <TableCell key={header} sx={{ whiteSpace: "nowrap", fontSize: "0.78rem", color: "#1e293b", py: 0.5 }}>
+                            {row[header] !== undefined && row[header] !== null ? String(row[header]) : ""}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </>
                 )}
               </TableBody>
+              {filteredPreviewRows.length > 0 && (
+                <TableFooter sx={{ position: "sticky", bottom: 0, zIndex: 2, backgroundColor: "#e2e8f0" }}>
+                  <TableRow>
+                    {headers.map((header, index) => {
+                      if (index === 0) {
+                        return <TableCell key={`total-${index}`} sx={{ fontWeight: "bold", fontSize: "0.85rem", py: 1, color: "#0f172a" }}>Total</TableCell>;
+                      }
+                      const amountHeaders = [
+                        "Net Payable", "Net Amount", "Net Amount (INR)"
+                      ];
+                      const isAmountColumn = amountHeaders.includes(header);
+                      if (isAmountColumn) {
+                        const total = filteredPreviewRows.reduce((acc, row) => {
+                          const val = parseFloat(row[header]);
+                          return acc + (isNaN(val) ? 0 : val);
+                        }, 0);
+                        return <TableCell key={`total-${index}`} sx={{ fontWeight: "bold", fontSize: "0.85rem", color: "#0f172a", py: 1 }}>{total.toFixed(2)}</TableCell>;
+                      }
+                      return <TableCell key={`total-${index}`} />;
+                    })}
+                  </TableRow>
+                </TableFooter>
+              )}
             </Table>
           </TableContainer>
 

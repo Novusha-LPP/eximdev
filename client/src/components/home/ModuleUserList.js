@@ -28,6 +28,7 @@ const MODULES = [
   "Import - Operations",
   "Import - Add",
   "Import - Billing",
+  "Billing Confirmation",
   "Import Utility Tool",
   "Report",
   "Audit Trail",
@@ -53,7 +54,8 @@ const MODULES = [
   "Project Nucleus", // Keeping this as it was in the original list
   "Pulse",
   "Team Pulse",
-  "Attendance"
+  "Attendance",
+  "Karma Points"
 ];
 
 function ModuleUserList() {

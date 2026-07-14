@@ -44,6 +44,7 @@ import { debounce } from "lodash";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useNavigate } from "react-router-dom";
 import VisibilityIcon from "@mui/icons-material/Visibility";
+import * as XLSX from 'xlsx'; // Add this import for Excel export
 
 // ✅ FIX 1: Create axios instance WITHOUT hardcoded token in headers
 const api = axios.create({
@@ -597,25 +598,35 @@ const AuditLogsComponent = () => {
     }
   }, [filterModule, fetchAuditLogs]);
 
+  // Modified export function to use XLSX for Excel export
   const handleExportLogs = useCallback(async () => {
     setExportLoading(true);
     try {
+      // Prepare data for Excel export
       const headers = ['Timestamp', 'User', 'Action', 'Module', 'Details'];
-      const csvContent = [
-        headers.join(','),
-        ...filteredLogs.map(log => [log.timestamp, `"${log.user}"`, `"${log.action}"`, `"${log.module}"`, `"${log.details}"`].join(','))
-      ].join('\n');
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', `audit-logs-${new Date().toISOString().split('T')[0]}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const data = filteredLogs.map(log => ({
+        'Timestamp': log.timestamp,
+        'User': log.user,
+        'Action': log.action,
+        'Module': log.module,
+        'Details': log.details
+      }));
+
+      // Create a new workbook
+      const workbook = XLSX.utils.book_new();
+
+      // Create a worksheet
+      const worksheet = XLSX.utils.json_to_sheet(data, { header: headers });
+
+      // Add the worksheet to the workbook
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Audit Logs");
+
+      // Generate Excel file and trigger download
+      XLSX.writeFile(workbook, `audit-logs-${new Date().toISOString().split('T')[0]}.xlsx`);
+
       toast.success("Audit logs exported successfully");
     } catch (err) {
+      console.error("Export error:", err);
       toast.error("Failed to export audit logs");
     } finally {
       setExportLoading(false);

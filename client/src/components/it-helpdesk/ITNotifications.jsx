@@ -3,7 +3,7 @@ import {
   Box, Typography, Card, CardContent, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Chip, CircularProgress, Alert,
   Select, MenuItem, FormControl, InputLabel, Grid, IconButton, Tooltip,
-  TextField, InputAdornment
+  TextField, InputAdornment, Button
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
@@ -14,6 +14,8 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ErrorIcon from "@mui/icons-material/Error";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SearchIcon from "@mui/icons-material/Search";
+import DownloadIcon from "@mui/icons-material/Download";
+import * as XLSX from "xlsx";
 
 // Dynamically compute status based on days until expiry
 function computeStatus(dateStr) {
@@ -96,11 +98,29 @@ export default function ITNotifications() {
   // Filter alerts by search term and status
   const filteredAlerts = alerts.filter(a => {
     const matchesStatus = !filterStatus || a.status === filterStatus;
-    const matchesSearch = !searchTerm || 
+    const matchesSearch = !searchTerm ||
       a.item.toLowerCase().includes(searchTerm.toLowerCase()) ||
       a.type.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesStatus && matchesSearch;
   });
+
+  // Function to export data to Excel
+  const exportToExcel = () => {
+    // Create a worksheet from the filtered alerts
+    const worksheet = XLSX.utils.json_to_sheet(filteredAlerts.map(alert => ({
+      "Alert Type": alert.type,
+      "Item": alert.item,
+      "Expiry Date": new Date(alert.date).toLocaleDateString(),
+      "Status": alert.status
+    })));
+
+    // Create a workbook and add the worksheet
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Alerts");
+
+    // Generate Excel file and download
+    XLSX.writeFile(workbook, "IT_Notifications.xlsx");
+  };
 
   return (
     <Box>
@@ -108,13 +128,13 @@ export default function ITNotifications() {
         <Tooltip title="Back">
           <IconButton
             onClick={() => navigate("/it-helpdesk")}
-            sx={{ 
-              mr: 1, 
-              bgcolor: "white", 
-              border: "1px solid", 
-              borderColor: "primary.main", 
+            sx={{
+              mr: 1,
+              bgcolor: "white",
+              border: "1px solid",
+              borderColor: "primary.main",
               color: "primary.main",
-              "&:hover": { bgcolor: "primary.light", color: "primary.dark" } 
+              "&:hover": { bgcolor: "primary.light", color: "primary.dark" }
             }}
           >
             <ArrowBackIcon sx={{ color: "primary.main" }} />
@@ -122,6 +142,23 @@ export default function ITNotifications() {
         </Tooltip>
         <NotificationsIcon color="primary" />
         <Typography variant="h5" fontWeight={700}>Notifications & Alerts</Typography>
+        {filteredAlerts.length > 0 && (
+          <Tooltip title="Export to Excel">
+            <IconButton
+              onClick={exportToExcel}
+              sx={{
+                ml: "auto",
+                bgcolor: "white",
+                border: "1px solid",
+                borderColor: "primary.main",
+                color: "primary.main",
+                "&:hover": { bgcolor: "primary.light", color: "primary.dark" }
+              }}
+            >
+              <DownloadIcon />
+            </IconButton>
+          </Tooltip>
+        )}
       </Box>
 
       {/* Filters and Search Bar */}

@@ -13,6 +13,8 @@ const licenseSchema = new mongoose.Schema({
   purchase_date: { type: Date, index: true },
   expiry_date: { type: Date, index: true },
   cost: { type: Number },
+  assigned_to: { type: String, trim: true, default: "" },
+  assigned_asset: { type: String, trim: true, default: "" },
   assigned_to_users: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   status: { type: String, enum: ["Active", "Expiring Soon", "Expired"], default: "Active", index: true }
 }, { timestamps: true });

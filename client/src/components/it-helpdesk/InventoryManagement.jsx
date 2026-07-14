@@ -32,6 +32,8 @@ import Inventory2Icon from "@mui/icons-material/Inventory2";
 import NewReleasesIcon from "@mui/icons-material/NewReleases";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SearchIcon from "@mui/icons-material/Search";
+import DownloadIcon from "@mui/icons-material/Download"; // Added DownloadIcon
+import * as XLSX from "xlsx"; // Import XLSX for Excel export
 
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import { useModuleAuditLogs } from "./AuditLogs";
@@ -60,11 +62,11 @@ const EMPTY_FORM = {
 
 export default function InventoryManagement() {
   const navigate = useNavigate();
-  
+
   const handleBack = () => {
     navigate("/it-helpdesk");
   };
-  
+
   const [activeTab, setActiveTab] = useState("old");
   const [oldData, setOldData] = useState([]);
   const [newData, setNewData] = useState([]);
@@ -238,6 +240,51 @@ export default function InventoryManagement() {
     }
   };
 
+  // --- Excel Export Functionality ---
+  const handleExportToExcel = () => {
+    try {
+      // 1. Map data to a cleaner format for Excel
+      const excelData = currentData.map((item, index) => ({
+        "S.No": index + 1,
+        "Item ID": item.item_id || "",
+        "Brand": item.brand || "",
+        "Model": item.model || "",
+        "Category": item.category || "",
+        "Inventory Type": item.inventory_type || "",
+        "Warranty Start Date": item.warranty_start_date
+          ? new Date(item.warranty_start_date).toISOString().split('T')[0]
+          : "",
+        "Warranty End Date": item.warranty_end_date
+          ? new Date(item.warranty_end_date).toISOString().split('T')[0]
+          : "",
+      }));
+
+      // 2. Create a new workbook
+      const wb = XLSX.utils.book_new();
+
+      // 3. Convert JSON data to a worksheet
+      const ws = XLSX.utils.json_to_sheet(excelData);
+
+      // 4. Set column widths (optional but makes it look better)
+      const wscols = Object.keys(excelData[0] || {}).map(() => ({ wch: 20 }));
+      ws['!cols'] = wscols;
+
+      // 5. Append worksheet to workbook
+      XLSX.utils.book_append_sheet(wb, ws, "Inventory");
+
+      // 6. Generate filename with current date
+      const date = new Date().toISOString().slice(0, 10);
+      const fileName = `Inventory_${activeTab === "old" ? "Old" : "New"}_Export_${date}.xlsx`;
+
+      // 7. Write file and trigger download
+      XLSX.writeFile(wb, fileName);
+    } catch (error) {
+      console.error("Export failed:", error);
+      alert("Failed to export Excel");
+    }
+  };
+  // ----------------------------------
+
   const currentData =
     activeTab === "old"
       ? filteredOldData
@@ -256,13 +303,13 @@ export default function InventoryManagement() {
           <Tooltip title="Back">
             <IconButton
               onClick={handleBack}
-              sx={{ 
-                mr: 1, 
-                bgcolor: "white", 
-                border: "1px solid", 
-                borderColor: "primary.main", 
+              sx={{
+                mr: 1,
+                bgcolor: "white",
+                border: "1px solid",
+                borderColor: "primary.main",
                 color: "primary.main",
-                "&:hover": { bgcolor: "primary.light", color: "primary.dark" } 
+                "&:hover": { bgcolor: "primary.light", color: "primary.dark" }
               }}
             >
               <ArrowBackIcon sx={{ color: "primary.main" }} />
@@ -273,13 +320,22 @@ export default function InventoryManagement() {
           </Typography>
         </Box>
 
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleOpenAdd}
-        >
-          Add {activeTab === "old" ? "Old" : "New"} Item
-        </Button>
+        <Box display="flex" gap={1}>
+          <Button
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            onClick={handleExportToExcel}
+          >
+            Export Excel
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleOpenAdd}
+          >
+            Add {activeTab === "old" ? "Old" : "New"} Item
+          </Button>
+        </Box>
       </Box>
 
       {/* Search Input */}

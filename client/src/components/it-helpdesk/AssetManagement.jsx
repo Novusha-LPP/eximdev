@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import { itHelpdeskAPI } from "../../api/itHelpdeskAPI";
 import { useModuleAuditLogs } from "./AuditLogs";
 import axios from "axios";
+import * as XLSX from "xlsx"; // Import XLSX for Excel export
 import {
   Box,
   Button,
@@ -36,6 +37,7 @@ import RefreshIcon from "@mui/icons-material/Refresh";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SearchIcon from "@mui/icons-material/Search";
+import DownloadIcon from "@mui/icons-material/Download"; // Added DownloadIcon
 
 const ASSET_TYPES = ["Desktop", "Laptop", "Printer", "Network Device", "Software", "Phone", "SIM Card", "Rack", "Cable"];
 const STATUSES = ["Available", "Assigned", "In Repair", "Repair", "Retired", "Lost", "Active", "Inactive", "Damaged", "Spare", "Expired", "Suspended"];
@@ -45,6 +47,9 @@ const PRINTER_TYPES = ["Laser", "Inkjet", "Thermal", "Dot Matrix"];
 const CONNECTION_TYPES = ["USB", "Wi-Fi", "LAN"];
 const DEVICE_CATEGORIES = ["Router", "Switch", "Firewall", "AP"];
 const USERS_FETCH_LIMIT = 200;
+
+// Added department options
+const DEPARTMENTS = ["Import", "Export", "DGFT", "Alluvium-IT", "Nousha-IT", "Paramount", "Account", "E-sanchit", "Admin/Hr"];
 
 const FIELD_LABELS = {
   asset_tag: "Asset Tag",
@@ -196,11 +201,11 @@ const EMPTY_FORM = {
 
 export default function AssetManagement() {
   const navigate = useNavigate();
-  
+
   const handleBack = () => {
     navigate("/it-helpdesk");
   };
-  
+
   // Audit logs
   const { logCreate, logRead, logUpdate, logDelete } = useModuleAuditLogs("Asset");
 
@@ -208,7 +213,7 @@ export default function AssetManagement() {
   const [users, setUsers] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filters, setFilters] = useState({ type: "", status: "" });
+  const [filters, setFilters] = useState({ type: "", status: "", department: "" });
   const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 15 });
   const [showModal, setShowModal] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -216,19 +221,6 @@ export default function AssetManagement() {
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-
-  const filteredData = data.filter(item => {
-    const term = searchTerm.toLowerCase();
-    return (
-      (item.asset_tag || "").toLowerCase().includes(term) ||
-      (item.asset_name || "").toLowerCase().includes(term) ||
-      (item.asset_type || "").toLowerCase().includes(term) ||
-      (item.manufacturer || "").toLowerCase().includes(term) ||
-      (item.model || "").toLowerCase().includes(term) ||
-      (item.serial_number || "").toLowerCase().includes(term) ||
-      (item.location || "").toLowerCase().includes(term)
-    );
-  });
 
   // Helper function to safely get assigned user name
   const getAssignedToName = (assignedTo) => {
@@ -242,6 +234,21 @@ export default function AssetManagement() {
     return user ? (user.username || user.first_name) : "Unknown User";
   };
 
+  // Computed property for filtered data (moved inside component)
+  const filteredData = data.filter(item => {
+    const term = searchTerm.toLowerCase();
+    return (
+      (item.asset_tag || "").toLowerCase().includes(term) ||
+      (item.asset_name || "").toLowerCase().includes(term) ||
+      (item.asset_type || "").toLowerCase().includes(term) ||
+      (item.manufacturer || "").toLowerCase().includes(term) ||
+      (item.model || "").toLowerCase().includes(term) ||
+      (item.serial_number || "").toLowerCase().includes(term) ||
+      (item.location || "").toLowerCase().includes(term) ||
+      (item.department || "").toLowerCase().includes(term)
+    );
+  });
+
   const fetchData = useCallback(
     async (page = 1) => {
       setLoading(true);
@@ -251,6 +258,7 @@ export default function AssetManagement() {
         const params = { page, limit: pagination.limit };
         if (filters.type) params.type = filters.type;
         if (filters.status) params.status = filters.status;
+        if (filters.department) params.department = filters.department;
 
         const res = await itHelpdeskAPI.assets.getAll(params);
         setData(res.data || []);
@@ -463,6 +471,89 @@ export default function AssetManagement() {
     }
   };
 
+  // --- Excel Export Functionality ---
+  const handleExportAllToExcel = useCallback(() => {
+    try {
+      // 1. Map data to a cleaner format for Excel
+      const excelData = filteredData.map((item, index) => ({
+        "S.No": index + 1,
+        "Asset Tag": item.asset_tag || "",
+        "Asset Type": item.asset_type || "",
+        "Asset Name": item.asset_name || "",
+        "Manufacturer": item.manufacturer || "",
+        "Model": item.model || "",
+        "Serial Number": item.serial_number || "",
+        "Processor": item.processor || "",
+        "RAM": item.ram || "",
+        "Storage": item.storage || "",
+        "Operating System": item.operating_system || "",
+        "Assigned To": getAssignedToName(item.assigned_to),
+        "Department": item.department || "",
+        "Location": item.location || "",
+        "Status": item.status || "",
+        "Purchase Date": item.purchase_date ? item.purchase_date.slice(0, 10) : "",
+        "Warranty Expiry": item.warranty_expiry ? item.warranty_expiry.slice(0, 10) : "",
+        "Purchase Cost": item.purchase_cost || "",
+        "Vendor": item.vendor?.name || "",
+        "Description": item.description || "",
+        "Device Category": item.device_category || "",
+        "IP Address": item.ip_address || "",
+        "MAC Address": item.mac_address || "",
+        "Software Category": item.software_category || "",
+        "Version": item.version || "",
+        "License Type": item.license_type || "",
+        "License Key / Subscription ID": item.license_key_subscription_id || "",
+        "Number of Licenses": item.number_of_licenses || "",
+        "Expiry/Renewal Date": item.expiry_renewal_date ? item.expiry_renewal_date.slice(0, 10) : "",
+        "IMEI Number": item.imei_number || "",
+        "Rack Name/Number": item.rack_name || "",
+        "Rack Type": item.rack_type || "",
+        "Rack Size (U Height)": item.rack_size_u_height || "",
+        "Installation Date": item.installation_date ? item.installation_date.slice(0, 10) : "",
+        "Cable Name": item.cable_name || "",
+        "Cable Type": item.cable_type || "",
+        "Length": item.length || "",
+        "Printer Type": item.printer_type || "",
+        "Connection Type": item.connection_type || "",
+        "SIM Number": item.sim_number_iccid || "",
+        "Mobile Number": item.mobile_number || "",
+        "IMSI Number": item.imsi_number || "",
+        "Service Provider": item.service_provider || "",
+        "Plan Type": item.plan_type || "",
+        "Monthly Plan/Package": item.monthly_plan_package || "",
+        "Remarks": item.remarks || "",
+      }));
+
+      // 2. Create a new workbook
+      const wb = XLSX.utils.book_new();
+
+      // 3. Convert JSON data to a worksheet
+      const ws = XLSX.utils.json_to_sheet(excelData);
+
+      // 4. Set column widths (optional but makes it look better)
+      const wscols = Object.keys(excelData[0] || {}).map(() => ({ wch: 20 }));
+      ws['!cols'] = wscols;
+
+      // 5. Append worksheet to workbook
+      XLSX.utils.book_append_sheet(wb, ws, "Assets");
+
+      // 6. Generate filename with current date
+      const date = new Date().toISOString().slice(0, 10);
+      const fileName = `Assets_Export_${date}.xlsx`;
+
+      // 7. Write file and trigger download
+      XLSX.writeFile(wb, fileName);
+
+      toast.success("Excel exported successfully");
+      logCreate("excel-export", "Exported assets to Excel", "info");
+    } catch (error) {
+      console.error("Export failed:", error);
+      toast.error("Failed to export Excel");
+      logCreate(error.message, "Excel export failed");
+    }
+  }, [filteredData, users, logCreate]);
+  // ----------------------------------
+
   const statusColor = (s) => {
     switch (String(s || "").toLowerCase()) {
       case "available":
@@ -523,13 +614,13 @@ export default function AssetManagement() {
           <Tooltip title="Back">
             <IconButton
               onClick={handleBack}
-              sx={{ 
-                mr: 1, 
-                bgcolor: "white", 
-                border: "1px solid", 
-                borderColor: "primary.main", 
-                color: "primary.main", 
-                "&:hover": { bgcolor: "primary.main", color: "white" } 
+              sx={{
+                mr: 1,
+                bgcolor: "white",
+                border: "1px solid",
+                borderColor: "primary.main",
+                color: "primary.main",
+                "&:hover": { bgcolor: "primary.main", color: "white" }
               }}
             >
               <ArrowBackIcon sx={{ color: "primary.main" }} />
@@ -544,6 +635,10 @@ export default function AssetManagement() {
           <Button variant="outlined" startIcon={<RefreshIcon />} onClick={() => fetchData(pagination.page)}>
             Refresh
           </Button>
+          {/* Added Export Button */}
+          <Button variant="outlined" startIcon={<DownloadIcon />} onClick={handleExportAllToExcel}>
+            Export Excel
+          </Button>
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpen()}>
             Add Asset
           </Button>
@@ -553,7 +648,7 @@ export default function AssetManagement() {
       <Card>
         <CardContent>
           <Grid container spacing={2} mb={2} alignItems="center">
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} md={3}>
               <TextField
                 label="Search Assets"
                 size="small"
@@ -569,7 +664,7 @@ export default function AssetManagement() {
                 }}
               />
             </Grid>
-            <Grid item xs={12} md={3}>
+            <Grid item xs={12} md={2}>
               <TextField
                 select
                 label="Asset Type"
@@ -586,7 +681,7 @@ export default function AssetManagement() {
                 ))}
               </TextField>
             </Grid>
-            <Grid item xs={12} md={3}>
+            <Grid item xs={12} md={2}>
               <TextField
                 select
                 label="Status"
@@ -618,6 +713,32 @@ export default function AssetManagement() {
                 ))}
               </TextField>
             </Grid>
+            <Grid item xs={12} md={2}>
+              <TextField
+                select
+                label="Department"
+                size="small"
+                fullWidth
+                value={filters.department || ""}
+                onChange={(e) => setFilters((f) => ({ ...f, department: e.target.value }))}
+              >
+                <MenuItem value="">All Departments</MenuItem>
+                {DEPARTMENTS.map((dept) => (
+                  <MenuItem key={dept} value={dept}>
+                    {dept}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} md={3}>
+              {/* <Button
+                variant="contained"
+                fullWidth
+                onClick={() => fetchData(1)}
+              >
+                Apply Filters
+              </Button> */}
+            </Grid>
           </Grid>
 
           {loading ? (
@@ -632,9 +753,7 @@ export default function AssetManagement() {
                     <TableCell>Asset Tag</TableCell>
                     <TableCell>Type</TableCell>
                     <TableCell>Manufacturer</TableCell>
-                    {/* --- ADDED: Assigned To Column --- */}
                     <TableCell>Assigned To</TableCell>
-                    {/* --- ADDED: Department Column --- */}
                     <TableCell>Department</TableCell>
                     <TableCell>Status</TableCell>
                     <TableCell>Location</TableCell>
@@ -644,7 +763,7 @@ export default function AssetManagement() {
                 <TableBody>
                   {filteredData.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} align="center"> {/* Updated colSpan to 8 */}
+                      <TableCell colSpan={8} align="center">
                         <Typography variant="body2" color="text.secondary">
                           No assets found
                         </Typography>
@@ -656,17 +775,12 @@ export default function AssetManagement() {
                         <TableCell>{a.asset_tag}</TableCell>
                         <TableCell>{a.asset_type}</TableCell>
                         <TableCell>{a.manufacturer || "—"}</TableCell>
-
-                        {/* --- ADDED: Assigned To Data --- */}
                         <TableCell>
                           {getAssignedToName(a.assigned_to)}
                         </TableCell>
-
-                        {/* --- ADDED: Department Data --- */}
                         <TableCell>
                           {a.department || "—"}
                         </TableCell>
-
                         <TableCell>
                           <Chip label={a.status} color={statusColor(a.status)} size="small" />
                         </TableCell>
@@ -892,13 +1006,21 @@ export default function AssetManagement() {
                 </Grid>
                 <Grid item xs={6}>
                   <TextField
+                    select
                     label="Department"
                     size="small"
                     fullWidth
                     {...getRequiredProps("department")}
                     value={form.department}
                     onChange={(e) => updateField("department", e.target.value)}
-                  />
+                  >
+                    <MenuItem value="">Select Department</MenuItem>
+                    {DEPARTMENTS.map((dept) => (
+                      <MenuItem key={dept} value={dept}>
+                        {dept}
+                      </MenuItem>
+                    ))}
+                  </TextField>
                 </Grid>
                 <Grid item xs={6}>
                   <TextField
@@ -1058,13 +1180,21 @@ export default function AssetManagement() {
                 </Grid>
                 <Grid item xs={6}>
                   <TextField
+                    select
                     label="Department"
                     size="small"
                     fullWidth
                     {...getRequiredProps("department")}
                     value={form.department}
                     onChange={(e) => updateField("department", e.target.value)}
-                  />
+                  >
+                    <MenuItem value="">Select Department</MenuItem>
+                    {DEPARTMENTS.map((dept) => (
+                      <MenuItem key={dept} value={dept}>
+                        {dept}
+                      </MenuItem>
+                    ))}
+                  </TextField>
                 </Grid>
                 <Grid item xs={6}>
                   <TextField
@@ -1314,13 +1444,21 @@ export default function AssetManagement() {
                 </Grid>
                 <Grid item xs={6}>
                   <TextField
+                    select
                     label="Department"
                     size="small"
                     fullWidth
                     {...getRequiredProps("department")}
                     value={form.department}
                     onChange={(e) => updateField("department", e.target.value)}
-                  />
+                  >
+                    <MenuItem value="">Select Department</MenuItem>
+                    {DEPARTMENTS.map((dept) => (
+                      <MenuItem key={dept} value={dept}>
+                        {dept}
+                      </MenuItem>
+                    ))}
+                  </TextField>
                 </Grid>
                 <Grid item xs={6}>
                   <TextField
@@ -1436,13 +1574,21 @@ export default function AssetManagement() {
                 </Grid>
                 <Grid item xs={6}>
                   <TextField
+                    select
                     label="Department"
                     size="small"
                     fullWidth
                     {...getRequiredProps("department")}
                     value={form.department}
                     onChange={(e) => updateField("department", e.target.value)}
-                  />
+                  >
+                    <MenuItem value="">Select Department</MenuItem>
+                    {DEPARTMENTS.map((dept) => (
+                      <MenuItem key={dept} value={dept}>
+                        {dept}
+                      </MenuItem>
+                    ))}
+                  </TextField>
                 </Grid>
                 <Grid item xs={6}>
                   <TextField
@@ -1741,13 +1887,21 @@ export default function AssetManagement() {
                 </Grid>
                 <Grid item xs={6}>
                   <TextField
+                    select
                     label="Department"
                     size="small"
                     fullWidth
                     {...getRequiredProps("department")}
                     value={form.department}
                     onChange={(e) => updateField("department", e.target.value)}
-                  />
+                  >
+                    <MenuItem value="">Select Department</MenuItem>
+                    {DEPARTMENTS.map((dept) => (
+                      <MenuItem key={dept} value={dept}>
+                        {dept}
+                      </MenuItem>
+                    ))}
+                  </TextField>
                 </Grid>
                 <Grid item xs={6}>
                   <TextField

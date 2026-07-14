@@ -30,6 +30,8 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SearchIcon from "@mui/icons-material/Search";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
+import DownloadIcon from "@mui/icons-material/Download";
+import * as XLSX from "xlsx";
 
 // Compute license status from expiry date
 function computeLicenseStatus(expiryDate) {
@@ -42,7 +44,6 @@ function computeLicenseStatus(expiryDate) {
   return { label: "Active", color: "success" };
 }
 
-
 const LICENSE_TYPES = [
   "Per User",
   "Per Device",
@@ -51,7 +52,6 @@ const LICENSE_TYPES = [
   "OEM",
   "Trial"
 ];
-
 
 const EMPTY_FORM = {
   license_name: "",
@@ -65,24 +65,53 @@ const EMPTY_FORM = {
   assigned_asset: ""
 };
 
+const flattenPerson = (val) => {
+  if (val === null || val === undefined || val === "") return "";
+  if (typeof val === "string" || typeof val === "number") return String(val);
+  if (typeof val === "object") {
+    return (
+      val.email ||
+      val.name ||
+      val.username ||
+      val.full_name ||
+      val.fullName ||
+      val.employee_name ||
+      val.label ||
+      ""
+    );
+  }
+  return "";
+};
 
+const flattenAsset = (val) => {
+  if (val === null || val === undefined || val === "") return "";
+  if (typeof val === "string" || typeof val === "number") return String(val);
+  if (typeof val === "object") {
+    return (
+      val.name ||
+      val.tag ||
+      val.asset_tag ||
+      val.assetTag ||
+      val.code ||
+      val.label ||
+      ""
+    );
+  }
+  return "";
+};
 
 export default function LicenseManagement() {
   const navigate = useNavigate();
-  
+
   const handleBack = () => {
     navigate("/it-helpdesk");
   };
 
   const [data, setData] = useState([]);
   const [vendors, setVendors] = useState([]);
-
   const [loading, setLoading] = useState(true);
-
   const [open, setOpen] = useState(false);
-
   const [editId, setEditId] = useState(null);
-
   const [form, setForm] = useState({ ...EMPTY_FORM });
   const [searchTerm, setSearchTerm] = useState("");
   const [page, setPage] = useState(0);
@@ -100,411 +129,290 @@ export default function LicenseManagement() {
     );
   });
 
+  const normalize = (x) => {
+    const rawAssignedTo =
+      x.assigned_to ??
+      x.assignedTo ??
+      x.assigned_user ??
+      x.assignedToUser ??
+      x.assignedToEmail ??
+      x.assignee ??
+      x.assigned_user_email ??
+      x.user ??
+      x.owner ??
+      x.employee ??
+      x.assigned?.user ??
+      x.assigned?.name ??
+      x.assigned?.email ??
+      null;
 
+    const rawAssignedAsset =
+      x.assigned_asset ??
+      x.assignedAsset ??
+      x.assigned_device ??
+      x.asset ??
+      x.device ??
+      x.assigned?.asset ??
+      null;
 
+    // Handle different data structures for assigned_to
+    let assigned_to = "";
+    if (rawAssignedTo) {
+      if (typeof rawAssignedTo === 'string') {
+        assigned_to = rawAssignedTo;
+      } else if (typeof rawAssignedTo === 'object') {
+        assigned_to =
+          rawAssignedTo.email ||
+          rawAssignedTo.name ||
+          rawAssignedTo.username ||
+          rawAssignedTo.full_name ||
+          rawAssignedTo.fullName ||
+          rawAssignedTo.employee_name ||
+          rawAssignedTo.label ||
+          "";
+      }
+    }
 
-  // API DATA FIX
+    // Handle different data structures for assigned_asset
+    let assigned_asset = "";
+    if (rawAssignedAsset) {
+      if (typeof rawAssignedAsset === 'string') {
+        assigned_asset = rawAssignedAsset;
+      } else if (typeof rawAssignedAsset === 'object') {
+        assigned_asset =
+          rawAssignedAsset.name ||
+          rawAssignedAsset.tag ||
+          rawAssignedAsset.asset_tag ||
+          rawAssignedAsset.assetTag ||
+          rawAssignedAsset.code ||
+          rawAssignedAsset.label ||
+          "";
+      }
+    }
 
-  const normalize = (x) => ({
+    if (!assigned_to && !assigned_asset) {
+      console.warn(
+        "[LicenseManagement] No assigned_to/assigned_asset found for record:",
+        x
+      );
+    }
 
-    _id: x._id,
-
-
-    license_name:
-      x.license_name ||
-      x.licenseName ||
-      x.name ||
-      x.license_title ||
-      "",
-
-
-    license_code:
-      x.license_code ||
-      x.licenseCode ||
-      x.code ||
-      x.license_id ||
-      "",
-
-
-    license_type:
-      x.license_type ||
-      x.licenseType ||
-      x.type ||
-      "",
-
-
-    software_name:
-      x.software_name ||
-      x.softwareName ||
-      x.product_name ||
-      "",
-
-
-    vendor:
-      x.vendor || "",
-
-
-    vendor_name:
-      x.vendor?.name ||
-      x.vendor_name ||
-      x.publisher ||
-      "-",
-
-
-    expiry_date:
-      x.expiry_date ||
-      x.expiryDate ||
-      "",
-
-
-    cost: x.cost || 0,
-
-    assigned_to:
-      x.assigned_to ||
-      x.assignedTo ||
-      x.assigned_user ||
-      "",
-
-    assigned_asset:
-      x.assigned_asset ||
-      x.assignedAsset ||
-      ""
-
-  });
-
-
-
-
-
+    return {
+      _id: x._id,
+      license_name:
+        x.license_name || x.licenseName || x.name || x.license_title || "",
+      license_code:
+        x.license_code || x.licenseCode || x.code || x.license_id || "",
+      license_type: x.license_type || x.licenseType || x.type || "",
+      software_name:
+        x.software_name || x.softwareName || x.product_name || "",
+      vendor: x.vendor?._id || x.vendor || "",
+      vendor_name: x.vendor?.name || x.vendor_name || x.publisher || "-",
+      expiry_date:
+        x.expiry_date || x.expiryDate || x.expires_at || x.expiry || "",
+      cost: x.cost || 0,
+      assigned_to,
+      assigned_asset
+    };
+  };
 
   const fetchData = useCallback(async () => {
-
-
     setLoading(true);
-
-
     try {
-
-
-      const res =
-        await itHelpdeskAPI.licenses.getAll();
-
-
-
-      console.log(
-        "LICENSE DATA",
-        res.data
-      );
-
-
-
-      setData(
-        (res.data || []).map(normalize)
-      );
-
-
-
+      const res = await itHelpdeskAPI.licenses.getAll();
+      console.log("LICENSE DATA (raw)", res.data);
+      setData((res.data || []).map(normalize));
     } catch (e) {
-
       console.log(e);
-
-    }
-
-
-    finally {
-
+    } finally {
       setLoading(false);
-
     }
-
   }, []);
-
-
-
-
 
   const fetchVendors = useCallback(async () => {
-
-
     try {
-
-
-      const res =
-        await itHelpdeskAPI.vendors.getAll();
-
-
+      const res = await itHelpdeskAPI.vendors.getAll();
       setVendors(res.data || []);
-
-
     } catch (e) {
-
       console.log(e);
-
     }
-
   }, []);
 
-
-
-
-
-
   useEffect(() => {
-
     fetchData();
     fetchVendors();
-
   }, [fetchData, fetchVendors]);
 
+  const isValidEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
 
-
-
-
-
-
+  // ---- MANDATORY FIELD VALIDATION (updated) ----
   const handleSave = async () => {
-
-
     if (
       !form.license_name ||
       !form.license_code ||
       !form.software_name ||
       !form.vendor ||
-      !form.license_type
+      !form.license_type ||
+      !form.expiry_date ||
+      !form.assigned_to
     ) {
-
-      alert("Please fill mandatory fields");
-
+      alert("Please fill all mandatory fields (License Name, Code, Software, Vendor, Type, Expiry Date, Assigned To)");
       return;
-
     }
 
-
-
+    if (form.assigned_to && !isValidEmail(form.assigned_to)) {
+      alert("Please enter a valid email address in the Assigned To field");
+      return;
+    }
 
     const payload = {
-
-
       license_name: form.license_name,
-
       license_code: form.license_code,
-
       software_name: form.software_name,
-
       vendor: form.vendor,
-
       license_type: form.license_type,
-
-
-      expiry_date:
-        form.expiry_date || null,
-
-
-      cost:
-        Number(form.cost || 0),
-
+      expiry_date: form.expiry_date || null,
+      cost: Number(form.cost || 0),
       assigned_to: form.assigned_to || "",
-
       assigned_asset: form.assigned_asset || "",
-
-      // compatibility
-
       total_seats: 0,
-
       used_seats: 0
-
     };
 
-
-
-
     try {
-
-
       if (editId) {
-
-
-        await itHelpdeskAPI.licenses.update(
-          editId,
-          payload
-        );
-
-
+        await itHelpdeskAPI.licenses.update(editId, payload);
       } else {
-
-
-        await itHelpdeskAPI.licenses.create(
-          payload
-        );
-
-
+        await itHelpdeskAPI.licenses.create(payload);
       }
 
-
-
       await fetchData();
-
-
       setOpen(false);
-
       setEditId(null);
-
       setForm({ ...EMPTY_FORM });
-
-
-
     } catch (err) {
-
-      console.log(
-        err.response?.data || err
-      );
-
+      console.log(err.response?.data || err);
       alert("Save failed");
-
     }
-
-
   };
-
-
-
-
-
-
-
-
 
   const edit = (item) => {
-
-
     setEditId(item._id);
 
-
     setForm({
-
       license_name: item.license_name,
-
       license_code: item.license_code,
-
       software_name: item.software_name,
-
       vendor: item.vendor?._id || item.vendor,
-
       license_type: item.license_type,
-
-
-      expiry_date:
-        item.expiry_date
-          ?
-          item.expiry_date.substring(0, 10)
-          :
-          "",
-
-
+      expiry_date: item.expiry_date ? item.expiry_date.substring(0, 10) : "",
       cost: item.cost,
-
       assigned_to: item.assigned_to || "",
-
       assigned_asset: item.assigned_asset || ""
-
     });
 
-
     setOpen(true);
-
   };
-
-
-
-
-
-
-
 
   const remove = async (id) => {
-
-
-    if (!window.confirm("Delete license?"))
-      return;
-
-
+    if (!window.confirm("Delete license?")) return;
     await itHelpdeskAPI.licenses.remove(id);
-
     fetchData();
-
-
   };
 
+  const handleExportToExcel = () => {
+    try {
+      const excelData = filteredData.map((item, index) => {
+        const status = computeLicenseStatus(item.expiry_date);
+        return {
+          "S.No": index + 1,
+          "License Name": item.license_name || "",
+          "License Code": item.license_code || "",
+          "Software Name": item.software_name || "",
+          "License Type": item.license_type || "",
+          "Vendor": item.vendor_name || "",
+          "Expiry Date": item.expiry_date
+            ? new Date(item.expiry_date).toISOString().split('T')[0]
+            : "No Expiry",
+          "Status": status.label,
+          "Assigned To": item.assigned_to || item.assigned_asset || "-",
+          "Assigned Asset": item.assigned_asset || "-",
+          "Cost": item.cost || 0
+        };
+      });
 
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(excelData);
 
+      const wscols = Object.keys(excelData[0] || {}).map(() => ({ wch: 20 }));
+      ws['!cols'] = wscols;
 
+      XLSX.utils.book_append_sheet(wb, ws, "Licenses");
 
+      const date = new Date().toISOString().slice(0, 10);
+      const fileName = `Licenses_Export_${date}.xlsx`;
 
-
+      XLSX.writeFile(wb, fileName);
+    } catch (error) {
+      console.error("Export failed:", error);
+      alert("Failed to export Excel");
+    }
+  };
 
   return (
-
     <Box>
-
-
-
       <Box
         display="flex"
         justifyContent="space-between"
         alignItems="center"
         mb={2}
       >
-
-
         <Box display="flex" alignItems="center">
           <Tooltip title="Back">
             <IconButton
               onClick={handleBack}
-              sx={{ 
-                mr: 1, 
-                bgcolor: "white", 
-                border: "1px solid", 
-                borderColor: "primary.main", 
+              sx={{
+                mr: 1,
+                bgcolor: "white",
+                border: "1px solid",
+                borderColor: "primary.main",
                 color: "primary.main",
-                "&:hover": { bgcolor: "primary.light", color: "primary.dark" } 
+                "&:hover": { bgcolor: "primary.light", color: "primary.dark" }
               }}
             >
               <ArrowBackIcon sx={{ color: "primary.main" }} />
             </IconButton>
           </Tooltip>
-          <Typography
-            variant="h5"
-            fontWeight={700}
-          >
-
+          <Typography variant="h5" fontWeight={700}>
             Software License
-
           </Typography>
         </Box>
 
-
-
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => {
-
-            setEditId(null);
-            setForm({ ...EMPTY_FORM });
-            setOpen(true);
-
-          }}
-
-        >
-
-          Add License
-
-        </Button>
-
-
+        <Box display="flex" gap={1}>
+          <Button
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            onClick={handleExportToExcel}
+          >
+            Export Excel
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => {
+              setEditId(null);
+              setForm({ ...EMPTY_FORM });
+              setOpen(true);
+            }}
+          >
+            Add License
+          </Button>
+        </Box>
       </Box>
 
-      {/* Search Input */}
       <Box mb={2} sx={{ maxWidth: 400 }}>
         <TextField
           label="Search Licenses"
@@ -522,134 +430,55 @@ export default function LicenseManagement() {
         />
       </Box>
 
-
-
-
-
-
-
-      {
-        loading ?
-
-
-          <Box
-            display="flex"
-            justifyContent="center"
-          >
-
-            <CircularProgress />
-
-          </Box>
-
-
-
-          :
-
-
-          <>
+      {loading ? (
+        <Box display="flex" justifyContent="center">
+          <CircularProgress />
+        </Box>
+      ) : (
+        <>
           <TableContainer>
-
-
             <Table>
-
-
-
               <TableHead>
-
                 <TableRow>
-
                   <TableCell>License Name</TableCell>
-
                   <TableCell>License Code</TableCell>
-
                   <TableCell>Software</TableCell>
-
                   <TableCell>License Type</TableCell>
-
                   <TableCell>Vendor</TableCell>
-
                   <TableCell>Expiry Date</TableCell>
-
                   <TableCell>Status</TableCell>
-
                   <TableCell>Assigned To</TableCell>
-
                   <TableCell>Action</TableCell>
-
-
                 </TableRow>
-
               </TableHead>
 
-
-
-
-
               <TableBody>
-
-
-
-                {
-                  filteredData.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map(row => (
-
-
+                {filteredData
+                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                  .map(row => (
                     <TableRow key={row._id}>
-
-
+                      <TableCell>{row.license_name || "-"}</TableCell>
+                      <TableCell>{row.license_code || "-"}</TableCell>
+                      <TableCell>{row.software_name || "-"}</TableCell>
+                      <TableCell>{row.license_type || "-"}</TableCell>
+                      <TableCell>{row.vendor_name}</TableCell>
                       <TableCell>
-                        {row.license_name || "-"}
+                        {row.expiry_date
+                          ? new Date(row.expiry_date).toLocaleDateString()
+                          : "-"}
                       </TableCell>
-
-
-                      <TableCell>
-                        {row.license_code || "-"}
-                      </TableCell>
-
-
-                      <TableCell>
-                        {row.software_name || "-"}
-                      </TableCell>
-
-
-                      <TableCell>
-                        {row.license_type || "-"}
-                      </TableCell>
-
-
-                      <TableCell>
-                        {row.vendor_name}
-                      </TableCell>
-
-
-                      <TableCell>
-
-                        {
-                          row.expiry_date
-                            ?
-                            new Date(row.expiry_date)
-                              .toLocaleDateString()
-                            :
-                            "-"
-                        }
-
-                      </TableCell>
-
                       <TableCell>
                         {(() => {
                           const s = computeLicenseStatus(row.expiry_date);
                           return <Chip label={s.label} color={s.color} size="small" />;
                         })()}
                       </TableCell>
-
                       <TableCell>
                         <Tooltip title={row.assigned_asset ? `Asset: ${row.assigned_asset}` : ""}>
                           <span>{row.assigned_to || row.assigned_asset || "-"}</span>
                         </Tooltip>
                       </TableCell>
-
                       <TableCell>
-
-
                         <Tooltip title="Edit">
                           <IconButton
                             size="small"
@@ -670,27 +499,11 @@ export default function LicenseManagement() {
                             <DeleteIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
-
-
                       </TableCell>
-
-
-
                     </TableRow>
-
-
-                  ))
-
-                }
-
-
+                  ))}
               </TableBody>
-
-
-
             </Table>
-
-
           </TableContainer>
           <TablePagination
             component="div"
@@ -701,35 +514,13 @@ export default function LicenseManagement() {
             rowsPerPageOptions={[15]}
             labelDisplayedRows={({ from, to, count }) => `${from}–${to} of ${count}`}
           />
-          </>
-      }
+        </>
+      )}
 
-
-
-
-
-
-
-
-
-      <Dialog
-        open={open}
-        onClose={() => setOpen(false)}
-        fullWidth
-        maxWidth="sm"
-      >
-
-
-        <DialogTitle>
-          License
-        </DialogTitle>
-
-
+      <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>License</DialogTitle>
 
         <DialogContent>
-
-
-
           <TextField
             label="License Name *"
             fullWidth
@@ -738,8 +529,6 @@ export default function LicenseManagement() {
             value={form.license_name}
             onChange={e => setForm({ ...form, license_name: e.target.value })}
           />
-
-
 
           <TextField
             label="License Code *"
@@ -750,8 +539,6 @@ export default function LicenseManagement() {
             onChange={e => setForm({ ...form, license_code: e.target.value })}
           />
 
-
-
           <TextField
             label="Software Name *"
             fullWidth
@@ -760,10 +547,6 @@ export default function LicenseManagement() {
             value={form.software_name}
             onChange={e => setForm({ ...form, software_name: e.target.value })}
           />
-
-
-
-
 
           <TextField
             select
@@ -774,33 +557,13 @@ export default function LicenseManagement() {
             value={form.vendor}
             onChange={e => setForm({ ...form, vendor: e.target.value })}
           >
-
-
-            <MenuItem value="">
-              Select
-            </MenuItem>
-
-
-            {
-              vendors.map(v => (
-
-                <MenuItem
-                  key={v._id}
-                  value={v._id}
-                >
-                  {v.name}
-                </MenuItem>
-
-              ))
-            }
-
-
+            <MenuItem value="">Select</MenuItem>
+            {vendors.map(v => (
+              <MenuItem key={v._id} value={v._id}>
+                {v.name}
+              </MenuItem>
+            ))}
           </TextField>
-
-
-
-
-
 
           <TextField
             select
@@ -811,27 +574,16 @@ export default function LicenseManagement() {
             value={form.license_type}
             onChange={e => setForm({ ...form, license_type: e.target.value })}
           >
-
-
-            {
-              LICENSE_TYPES.map(t => (
-
-                <MenuItem key={t} value={t}>
-                  {t}
-                </MenuItem>
-
-              ))
-            }
-
-
+            {LICENSE_TYPES.map(t => (
+              <MenuItem key={t} value={t}>
+                {t}
+              </MenuItem>
+            ))}
           </TextField>
-
-
-
 
           <TextField
             type="date"
-            label="Expiry Date"
+            label="Expiry Date *"
             fullWidth
             size="small"
             InputLabelProps={{ shrink: true }}
@@ -841,13 +593,13 @@ export default function LicenseManagement() {
           />
 
           <TextField
-            label="Assigned To (User)"
+            label="Assigned To (User) *"
             fullWidth
             size="small"
             sx={{ mb: 2 }}
             value={form.assigned_to}
             onChange={e => setForm({ ...form, assigned_to: e.target.value })}
-            placeholder="Employee name or email"
+            placeholder="Employee email (e.g. name@company.com)"
           />
 
           <TextField
@@ -859,40 +611,15 @@ export default function LicenseManagement() {
             onChange={e => setForm({ ...form, assigned_asset: e.target.value })}
             placeholder="Asset tag or name"
           />
-
         </DialogContent>
 
-
-
         <DialogActions>
-
-
-          <Button onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-
-
-          <Button
-            variant="contained"
-            onClick={handleSave}
-          >
+          <Button onClick={() => setOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleSave}>
             Save
           </Button>
-
-
         </DialogActions>
-
-
       </Dialog>
-
-
-
-
-
     </Box>
-
-
   );
-
-
 }

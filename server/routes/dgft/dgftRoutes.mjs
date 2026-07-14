@@ -736,7 +736,7 @@ router.get("/api/get-authorization-by-no", async (req, res) => {
         { job_no: cleanedNo }
       ],
     })
-      .select("registration_no licence_no auth_date licence_date scheme_code iec_no import_details_array export_details_array party_name job_no")
+      .select("registration_no licence_no auth_date licence_date scheme_code iec_no import_details_array export_details_array party_name job_no import_validity export_validity notification_number bg_number bg_amount bg_date bg_expiry_date bond_number bond_amount bond_date bond_expiry_date documents_received_date documents_send_to_icd documents_send_to_accounts accounts_billing_invoice_no accounts_billing_invoice_date")
       .lean();
 
     if (!record) {

@@ -823,13 +823,13 @@ const AuditLogsComponent = () => {
                               </IconButton>
                             </Tooltip>
                             <Tooltip title="Delete Log">
-                              <IconButton
+                              {/* <IconButton
                                 size="small"
                                 onClick={() => handleDeleteSingleLog(log.id)}
                                 sx={{ color: 'error.main', ml: 0.5 }}
                               >
                                 <DeleteIcon fontSize="small" />
-                              </IconButton>
+                              </IconButton> */}
                             </Tooltip>
                           </TableCell>
                         </TableRow>

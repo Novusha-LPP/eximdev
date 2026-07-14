@@ -21,6 +21,7 @@ import {
   CircularProgress
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext.js";
 import { UserContext } from "../../contexts/UserContext";
@@ -138,6 +139,27 @@ function GeneralJobs() {
     setSearchQuery(event.target.value);
   };
 
+  const handleCopy = useCallback((event, text) => {
+    event.stopPropagation();
+    if (!text) return;
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+      navigator.clipboard.writeText(text)
+        .then(() => console.log("Copied:", text))
+        .catch((err) => console.error("Copy failed:", err));
+    } else {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand("copy");
+      } catch (err) {
+        console.error("Fallback failed:", err);
+      }
+      document.body.removeChild(textArea);
+    }
+  }, []);
+
   const handleOpenDialog = () => {
     fetchKycList();
     fetchNextJobNoPreview();
@@ -229,7 +251,17 @@ function GeneralJobs() {
                 transition: "all 0.2s ease"
               }}
             >
-              {job_number}
+              {job_number}{" "}
+              <IconButton
+                size="small"
+                onClick={(event) => {
+                  event.preventDefault();
+                  handleCopy(event, job_number);
+                }}
+                style={{ color: "inherit", padding: "2px" }}
+              >
+                <ContentCopyIcon fontSize="inherit" />
+              </IconButton>
             </Link>
           );
         }

@@ -30,13 +30,11 @@ const CustomTable = ({ columns, data, rowsPerPage = 10, enableSearch = true }) =
         setCurrentPage(1); // Reset to first page on search
     };
 
-    if (!data || data.length === 0) {
-        return (
-            <div className="clean-table-container" style={{ padding: '3rem', textAlign: 'center', color: 'var(--slate-500)' }}>
-                <p>No records found.</p>
-            </div>
-        );
-    }
+    React.useEffect(() => {
+        if (currentPage > Math.max(1, totalPages)) {
+            setCurrentPage(Math.max(1, totalPages));
+        }
+    }, [totalPages, currentPage]);
 
     return (
         <div style={{ paddingBottom: '1rem' }}>
@@ -89,8 +87,8 @@ const CustomTable = ({ columns, data, rowsPerPage = 10, enableSearch = true }) =
                             ))
                         ) : (
                             <tr>
-                                <td colSpan={columns.length} style={{ textAlign: 'center', padding: '2rem', color: 'var(--slate-400)' }}>
-                                    No matches found for "{searchTerm}"
+                                <td colSpan={columns.length} style={{ textAlign: 'center', padding: '3rem', color: 'var(--slate-400)' }}>
+                                    {searchTerm ? `No matches found for "${searchTerm}"` : "No records found."}
                                 </td>
                             </tr>
                         )}

@@ -109,15 +109,44 @@ const KarmaPointsModule = () => {
             }
         },
         {
-            title: 'Tasks Completed',
+            title: 'Total Tasks',
+            key: 'total_tasks',
+            align: 'center',
+            render: (text, record) => (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 600, color: '#334155' }}>{record.totalTasks}</span>
+                </div>
+            )
+        },
+        {
+            title: 'Completed',
             key: 'completed',
             align: 'center',
             render: (text, record) => (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 600, color: '#334155' }}>
+                    <span style={{ fontWeight: 600, color: '#16a34a' }}>
                         {filterType === 'all' ? record.totalCompleted : record.monthlyCompleted}
                     </span>
-                    <span style={{ fontSize: '11px', color: '#94a3b8' }}>tasks</span>
+                </div>
+            )
+        },
+        {
+            title: 'In Progress',
+            key: 'in_progress',
+            align: 'center',
+            render: (text, record) => (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 600, color: '#f59e0b' }}>{record.totalInProgress}</span>
+                </div>
+            )
+        },
+        {
+            title: 'Not Started',
+            key: 'not_started',
+            align: 'center',
+            render: (text, record) => (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 600, color: '#ef4444' }}>{record.totalNotStarted}</span>
                 </div>
             )
         },
@@ -148,6 +177,22 @@ const KarmaPointsModule = () => {
             }
         }
     ];
+
+    // Add comparison columns if viewing 'This Month'
+    if (filterType === 'month') {
+        const karmaIndex = columns.findIndex(c => c.key === 'karma');
+        columns.splice(karmaIndex, 0, {
+            title: 'Last Month Karma',
+            key: 'lastMonthKarma',
+            align: 'right',
+            render: (text, record) => (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
+                    <span style={{ fontWeight: 600, fontSize: '15px', color: '#64748b' }}>{record.lastMonthKarma}</span>
+                    <TrophyOutlined style={{ color: '#94a3b8' }} />
+                </div>
+            )
+        });
+    }
 
     const filteredTeams = useMemo(() => {
         if (!searchQuery.trim()) return teamData;
@@ -181,7 +226,13 @@ const KarmaPointsModule = () => {
                         <TrophyOutlined style={{ color: '#eab308' }} />
                         Team Karma Leaderboard
                     </Title>
-                    <Text type="secondary">View and track karma points for your team members based on their Open Points resolution.</Text>
+                    <Text type="secondary">View and track karma points for your team members based on their Open Points resolution. <strong>Green tasks add points, Red tasks deduct points.</strong></Text>
+                    <div style={{ marginTop: '8px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        <Tag color="red" style={{ margin: 0 }}>🚨 Critical (P1): ±20</Tag>
+                        <Tag color="orange" style={{ margin: 0 }}>🔥 High (P2): ±15</Tag>
+                        <Tag color="blue" style={{ margin: 0 }}>⚡ Medium (P3): ±10</Tag>
+                        <Tag color="default" style={{ margin: 0 }}>🌱 Low (P4): ±5</Tag>
+                    </div>
                 </div>
                 
                 <Space>

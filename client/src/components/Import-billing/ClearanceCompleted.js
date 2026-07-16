@@ -335,7 +335,18 @@ function ClearanceCompleted({ workMode = "Payment" }) {
                 textAlign: "center",
               }}
             >
-              {cell.row.original.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+              {cell.row.original.job_number || job_no}{" "}
+              <IconButton
+                size="small"
+                onClick={(event) => {
+                  event.preventDefault();
+                  handleCopy(event, cell.row.original.job_number || job_no);
+                }}
+                style={{ color: "inherit" }}
+              >
+                <ContentCopyIcon fontSize="inherit" />
+              </IconButton>
+              <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
               {custom_house}
             </div>
           );

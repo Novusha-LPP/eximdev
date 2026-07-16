@@ -560,7 +560,18 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
                   whiteSpace: "nowrap",
                 }}
               >
-                {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+                {job_number || job_no}{" "}
+                <IconButton
+                  size="small"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    handleCopy(event, job_number || job_no);
+                  }}
+                  style={{ color: "inherit" }}
+                >
+                  <ContentCopyIcon fontSize="inherit" />
+                </IconButton>
+                <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
                 {custom_house}
               </Link>
             ) : (
@@ -575,7 +586,18 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
                   whiteSpace: "nowrap",
                 }}
               >
-                {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+                {job_number || job_no}{" "}
+                <IconButton
+                  size="small"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    handleCopy(event, job_number || job_no);
+                  }}
+                  style={{ color: "inherit" }}
+                >
+                  <ContentCopyIcon fontSize="inherit" />
+                </IconButton>
+                <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
                 {custom_house}
               </div>
             );

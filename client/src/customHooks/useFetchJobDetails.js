@@ -576,8 +576,8 @@ function useFetchJobDetails(
         agency: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
         discount: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
         loading: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
-        freight: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
-        insurance: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+        freight: { currency: "", exchange_rate: 1, rate: 20, amount: 0, remark: "" },
+        insurance: { currency: "INR", exchange_rate: 1, rate: 1.125, amount: 0, remark: "" },
         addl_charge: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
         revenue_deposit: { rate: 0, on: "Assessable" },
         landing_charge: { rate: 0 }
@@ -648,6 +648,32 @@ function useFetchJobDetails(
         'username': user.username || 'unknown',
         'user-role': user.role || 'unknown'
       };
+
+      // --- HSS Validation ---
+      if (values.hss === "Yes") {
+        const cifInr = parseFloat(values.cif_amount || values.cifValue) || 0;
+        const otherCharges = values.other_charges_details || {};
+        const addlCharge = otherCharges.addl_charge || {};
+        const addlRate = parseFloat(addlCharge.rate) || 0;
+        const addlAmount = parseFloat(addlCharge.amount) || 0;
+        const addlExrate = parseFloat(addlCharge.exchange_rate) || 1;
+        const addlAmountInr = addlAmount * addlExrate;
+
+        const minAllowedAmountInr = cifInr * 0.02;
+
+        if (addlRate > 0 && addlRate < 2) {
+          toast.error("High Sea Sale (HSS) is marked. Additional Charge (High Sea) Rate % cannot be less than 2%.");
+          return;
+        }
+        if (addlAmountInr > 0 && cifInr > 0 && addlAmountInr < minAllowedAmountInr) {
+          toast.error(`High Sea Sale (HSS) is marked. Additional Charge (High Sea) Amount (${addlAmountInr.toFixed(2)} INR) cannot be less than 2% of CIF (${minAllowedAmountInr.toFixed(2)} INR).`);
+          return;
+        }
+        if (addlRate === 0 && addlAmount === 0) {
+          toast.error("High Sea Sale (HSS) is marked. Additional Charge (High Sea) is required and must be minimum 2% of CIF.");
+          return;
+        }
+      }
 
       try {
         // Update the payload with the modified cthDocuments and other values
@@ -1232,23 +1258,44 @@ function useFetchJobDetails(
         obl_telex_bl: safeValue(data.obl_telex_bl),
 
         dsr_queries: safeValue(data.dsr_queries, []),
-        other_charges_details: {
-          is_single_for_all: true,
-          miscellaneous: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
-          agency: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
-          discount: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
-          loading: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
-          freight: { currency: safeValue(data.inv_currency), exchange_rate: 1, rate: 0, amount: 0, remark: "" },
-          insurance: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
-          addl_charge: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
-          revenue_deposit: { rate: 0, on: "Assessable" },
-          landing_charge: { rate: 0 },
-          ...safeValue(data.other_charges_details, {}),
-          landing_charge: {
-            rate: 0,
-            ...safeValue(data.other_charges_details?.landing_charge, {})
+        other_charges_details: (() => {
+          const dbDetails = safeValue(data.other_charges_details, {});
+          
+          let fRate = 20;
+          if (dbDetails.freight?.rate !== undefined && dbDetails.freight?.rate !== null && dbDetails.freight?.rate !== "") {
+            const parsedRate = parseFloat(dbDetails.freight.rate);
+            if (!isNaN(parsedRate)) {
+              const amt = parseFloat(dbDetails.freight.amount) || 0;
+              if (parsedRate !== 0 || amt > 0) {
+                fRate = parsedRate;
+              }
+            }
           }
-        },
+
+          let iRate = 1.125;
+          if (dbDetails.insurance?.rate !== undefined && dbDetails.insurance?.rate !== null && dbDetails.insurance?.rate !== "") {
+            const parsedRate = parseFloat(dbDetails.insurance.rate);
+            if (!isNaN(parsedRate)) {
+              const amt = parseFloat(dbDetails.insurance.amount) || 0;
+              if (parsedRate !== 0 || amt > 0) {
+                iRate = parsedRate;
+              }
+            }
+          }
+
+          return {
+            is_single_for_all: dbDetails.is_single_for_all !== undefined ? dbDetails.is_single_for_all : true,
+            miscellaneous: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "", ...(dbDetails.miscellaneous || {}) },
+            agency: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "", ...(dbDetails.agency || {}) },
+            discount: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "", ...(dbDetails.discount || {}) },
+            loading: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "", ...(dbDetails.loading || {}) },
+            freight: { currency: safeValue(data.inv_currency), exchange_rate: 1, amount: 0, remark: "", ...(dbDetails.freight || {}), rate: fRate },
+            insurance: { currency: "INR", exchange_rate: 1, amount: 0, remark: "", ...(dbDetails.insurance || {}), rate: iRate },
+            addl_charge: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "", ...(dbDetails.addl_charge || {}) },
+            revenue_deposit: { rate: 0, on: "Assessable", ...(dbDetails.revenue_deposit || {}) },
+            landing_charge: { rate: 0, ...(dbDetails.landing_charge || {}) }
+          };
+        })(),
         misc_charges: safeValue(data.misc_charges, []),
       });
     }

@@ -93,6 +93,30 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
           throw new Error("Job is locked as a bill has been generated. Please contact an Admin to make changes._403");
         }
 
+        // ✅ HSS Validation
+        const hssVal = req.body.hss !== undefined ? req.body.hss : matchingJob.hss;
+        if (hssVal === "Yes") {
+          const cifInr = parseFloat(req.body.cif_amount !== undefined ? req.body.cif_amount : (req.body.cifValue !== undefined ? req.body.cifValue : (matchingJob.cif_amount || matchingJob.cifValue))) || 0;
+          const otherCharges = req.body.other_charges_details || matchingJob.other_charges_details || {};
+          const addlCharge = otherCharges.addl_charge || {};
+          const addlRate = parseFloat(addlCharge.rate) || 0;
+          const addlAmount = parseFloat(addlCharge.amount) || 0;
+          const addlExrate = parseFloat(addlCharge.exchange_rate) || 1;
+          const addlAmountInr = addlAmount * addlExrate;
+
+          const minAllowedAmountInr = cifInr * 0.02;
+
+          if (addlRate > 0 && addlRate < 2) {
+            throw new Error("High Sea Sale (HSS) is Yes. Additional Charge (High Sea) Rate % cannot be less than 2%._400");
+          }
+          if (addlAmountInr > 0 && cifInr > 0 && addlAmountInr < minAllowedAmountInr) {
+            throw new Error(`High Sea Sale (HSS) is Yes. Additional Charge (High Sea) Amount (${addlAmountInr.toFixed(2)} INR) cannot be less than 2% of CIF (${minAllowedAmountInr.toFixed(2)} INR)._400`);
+          }
+          if (addlRate === 0 && addlAmount === 0) {
+            throw new Error("High Sea Sale (HSS) is Yes. Additional Charge (High Sea) is required and must be minimum 2% of CIF._400");
+          }
+        }
+
         // ✅ Validate license utilization limits & check for duplicates before saving
         const usdRate = await getUsdImportRate();
         await validateLicenseUtilization(
@@ -218,6 +242,10 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
 
         Object.assign(matchingJob, sanitizedUpdate);
 
+        if (sanitizedUpdate.other_charges_details) {
+          matchingJob.markModified('other_charges_details');
+        }
+
         if (checked) {
           matchingJob.container_nos = container_nos.map((container) => {
             const detentionDate =
@@ -299,28 +327,33 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
       });
 
       res.status(200).json(updatedJob);
-    } catch (error) {
-      console.error(error);
-      if (error.message && error.message.includes("_404")) {
-        return res.status(404).json({ error: "Job not found" });
+      } catch (error) {
+        console.error(error);
+        if (error.message && error.message.includes("_404")) {
+          return res.status(404).json({ error: "Job not found" });
+        }
+        if (error.message && error.message.includes("_403")) {
+          return res.status(403).json({ error: error.message.replace("_403", "") });
+        }
+        if (error.message && error.message.includes("_400")) {
+          return res.status(400).json({ error: error.message.replace("_400", "") });
+        }
+        // Return 400 for validation failures
+        if (error.message && (
+          error.message.includes("does not exist") ||
+          error.message.includes("expired") ||
+          error.message.includes("mismatch") ||
+          error.message.includes("exceeded") ||
+          error.message.includes("exceeds") ||
+          error.message.includes("already utilized") ||
+          error.message.includes("already utilized this license item") ||
+          error.message.includes("High Sea Sale") ||
+          error.message.includes("HSS")
+        )) {
+          return res.status(400).json({ error: error.message });
+        }
+        res.status(500).json({ error: error.message || "Server error" });
       }
-      if (error.message && error.message.includes("_403")) {
-        return res.status(403).json({ error: error.message.replace("_403", "") });
-      }
-      // Return 400 for validation failures
-      if (error.message && (
-        error.message.includes("does not exist") ||
-        error.message.includes("expired") ||
-        error.message.includes("mismatch") ||
-        error.message.includes("exceeded") ||
-        error.message.includes("exceeds") ||
-        error.message.includes("already utilized") ||
-        error.message.includes("already utilized this license item")
-      )) {
-        return res.status(400).json({ error: error.message });
-      }
-      res.status(500).json({ error: error.message || "Server error" });
-    }
   });
 
 
@@ -449,6 +482,10 @@ router.put("/api/admin/update-job-static/:branch_code/:trade_type/:mode/:year/:j
         }
 
         Object.assign(matchingJob, updateData);
+
+        if (updateData.other_charges_details) {
+          matchingJob.markModified('other_charges_details');
+        }
 
         // ✅ Enhanced Status Reset Logic
         const currentBillNo = (matchingJob.bill_no || "").trim();

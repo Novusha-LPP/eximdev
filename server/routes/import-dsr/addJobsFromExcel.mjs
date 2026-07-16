@@ -87,6 +87,29 @@ router.post(
         return res.status(400).json({ message: "Missing required fields." });
       }
 
+      // ✅ HSS Validation
+      if (req.body.hss === "Yes") {
+        const cifInr = parseFloat(req.body.cif_amount || req.body.cifValue) || 0;
+        const otherCharges = req.body.other_charges_details || {};
+        const addlCharge = otherCharges.addl_charge || {};
+        const addlRate = parseFloat(addlCharge.rate) || 0;
+        const addlAmount = parseFloat(addlCharge.amount) || 0;
+        const addlExrate = parseFloat(addlCharge.exchange_rate) || 1;
+        const addlAmountInr = addlAmount * addlExrate;
+
+        const minAllowedAmountInr = cifInr * 0.02;
+
+        if (addlRate > 0 && addlRate < 2) {
+          return res.status(400).json({ message: "High Sea Sale (HSS) is marked. Additional Charge (High Sea) Rate % cannot be less than 2%." });
+        }
+        if (addlAmountInr > 0 && cifInr > 0 && addlAmountInr < minAllowedAmountInr) {
+          return res.status(400).json({ message: `High Sea Sale (HSS) is marked. Additional Charge (High Sea) Amount (${addlAmountInr.toFixed(2)} INR) cannot be less than 2% of CIF (${minAllowedAmountInr.toFixed(2)} INR).` });
+        }
+        if (addlRate === 0 && addlAmount === 0) {
+          return res.status(400).json({ message: "High Sea Sale (HSS) is marked. Additional Charge (High Sea) is required and must be minimum 2% of CIF." });
+        }
+      }
+
       // ✅ Validate license utilization limits & check for duplicates before saving
       const fallbackUsd = await getUsdImportRate();
       try {

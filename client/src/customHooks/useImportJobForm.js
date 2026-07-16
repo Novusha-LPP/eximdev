@@ -316,8 +316,8 @@ const useImportJobForm = () => {
     agency: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
     discount: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
     loading: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
-    freight: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
-    insurance: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+    freight: { currency: "", exchange_rate: 1, rate: 20, amount: 0, remark: "" },
+    insurance: { currency: "INR", exchange_rate: 1, rate: 1.125, amount: 0, remark: "" },
     addl_charge: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
     revenue_deposit: { rate: 0, on: "Assessable" },
     landing_charge: { rate: 0 }
@@ -434,7 +434,31 @@ const useImportJobForm = () => {
       fetchChargesRates();
     }
   }, [JSON.stringify(other_charges_details), exrate, inv_currency, invoice_date, invoice_details?.[0]?.invoice_date]);
-  //
+
+  // Recalculate HSS additional charge amount when CIF changes
+  useEffect(() => {
+    if (HSS === "Yes") {
+      const cifInr = parseFloat(cif_amount || term_value) || 0;
+      const rateNum = parseFloat(other_charges_details?.addl_charge?.rate) || 2;
+      const exrateVal = parseFloat(other_charges_details?.addl_charge?.exchange_rate) || 1;
+      const expectedAmount = ((cifInr * rateNum) / 100) / exrateVal;
+      
+      setOtherChargesDetails(prev => {
+        const currentAmount = parseFloat(prev.addl_charge?.amount) || 0;
+        if (Math.abs(currentAmount - expectedAmount) > 0.01) {
+          return {
+            ...prev,
+            addl_charge: {
+              ...prev.addl_charge,
+              amount: expectedAmount > 0 ? expectedAmount.toFixed(2) : ""
+            }
+          };
+        }
+        return prev;
+      });
+    }
+  }, [cif_amount, term_value, HSS]);
+
   const [description_details, setDescriptionDetails] = useState([
     {
       description: "",
@@ -1320,7 +1344,6 @@ const useImportJobForm = () => {
         insurance: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
         addl_charge: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
         revenue_deposit: { rate: 0, on: "Assessable" },
-        landing_charge: { rate: 0 },
         ...job.other_charges_details,
         landing_charge: {
           rate: 0,
@@ -1358,6 +1381,45 @@ const useImportJobForm = () => {
             severity: "error"
           });
           return;
+        }
+
+        // --- HSS (HIGH SEA SALE) VALIDATION ---
+        if (HSS === "Yes") {
+          const cifInr = parseFloat(cif_amount || term_value) || 0;
+          const addlCharge = other_charges_details?.addl_charge || {};
+          const addlRate = parseFloat(addlCharge.rate) || 0;
+          const addlAmount = parseFloat(addlCharge.amount) || 0;
+          const addlExrate = parseFloat(addlCharge.exchange_rate) || 1;
+          const addlAmountInr = addlAmount * addlExrate;
+
+          const minAllowedAmountInr = cifInr * 0.02;
+
+          if (addlRate > 0 && addlRate < 2) {
+            setSnackbar({
+              open: true,
+              message: "High Sea Sale (HSS) is marked. Additional Charge (High Sea) Rate % cannot be less than 2%.",
+              severity: "error"
+            });
+            return;
+          }
+
+          if (addlAmountInr > 0 && cifInr > 0 && addlAmountInr < minAllowedAmountInr) {
+            setSnackbar({
+              open: true,
+              message: `High Sea Sale (HSS) is marked. Additional Charge (High Sea) Amount (${addlAmountInr.toFixed(2)} INR) cannot be less than 2% of CIF (${minAllowedAmountInr.toFixed(2)} INR).`,
+              severity: "error"
+            });
+            return;
+          }
+
+          if (addlRate === 0 && addlAmount === 0) {
+            setSnackbar({
+              open: true,
+              message: "High Sea Sale (HSS) is marked. Additional Charge (High Sea) is required and must be minimum 2% of CIF.",
+              severity: "error"
+            });
+            return;
+          }
         }
 
         // --- PO VALIDATION ---

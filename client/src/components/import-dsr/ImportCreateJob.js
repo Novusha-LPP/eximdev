@@ -582,9 +582,25 @@ const ImportCreateJob = () => {
   const [availableHssBanks, setAvailableHssBanks] = useState([]);
   const [masterShippingLines, setMasterShippingLines] = useState([]);
   const [masterAirlines, setMasterAirlines] = useState([]);
+  const [masterCountries, setMasterCountries] = useState([]);
 
   const selectedBranchData = branches.find((b) => b._id === branch_id);
   const dynamicPortOptions = selectedBranchData?.ports?.map((p) => p.port_name) || [];
+  const dynamicCountryOptions = masterCountries.length > 0
+    ? masterCountries.map((c) => c.name.toUpperCase())
+    : countryOptions;
+
+  React.useEffect(() => {
+    const fetchCountries = async () => {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-countries`);
+        setMasterCountries(res.data);
+      } catch (error) {
+        console.error("Error fetching countries:", error);
+      }
+    };
+    fetchCountries();
+  }, []);
 
   React.useEffect(() => {
     const fetchCurrencies = async () => {
@@ -1228,7 +1244,7 @@ const ImportCreateJob = () => {
                     <FormField label="Country" md={3}>
                       <Autocomplete
                         freeSolo
-                        options={countryOptions}
+                        options={dynamicCountryOptions}
                         value={importer_country || ""}
                         onInputChange={(event, newValue) => setImporterCountry(newValue)}
                         renderInput={(params) => (
@@ -1584,7 +1600,7 @@ const ImportCreateJob = () => {
                         <FormField label="Country" md={6}>
                           <Autocomplete
                             freeSolo
-                            options={countryOptions}
+                            options={dynamicCountryOptions}
                             value={hss_country || ""}
                             onInputChange={(event, newValue) => setHssCountry(newValue)}
                             renderInput={(params) => (
@@ -1843,7 +1859,7 @@ const ImportCreateJob = () => {
                     <FormField label="Origin Country">
                       <Autocomplete
                         freeSolo
-                        options={countryOptions}
+                        options={dynamicCountryOptions}
                         value={origin_country}
                         onInputChange={(event, newValue) => setOriginCountry(newValue)}
                         renderInput={(params) => (

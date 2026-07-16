@@ -12,16 +12,26 @@ router.get("/team-karma", authMiddleware, async (req, res) => {
         const user = req.user;
 
         // Check if user is Admin or HOD
-        const isAdmin = user.role === "Admin" || user.role === "admin" || user.role === "SuperAdmin" || user.username === "masood_raza";
-        const isHodRole = user.role === "Head_of_Department" || user.role === "Head_Of_Department" || user.role === "HOD";
+        // Use the same normalized role detection used by login.mjs, me.mjs, kpiRoutes.mjs
+        const normalizedRole = String(user.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
+        const isAdmin = normalizedRole === "ADMIN" || normalizedRole === "SUPERADMIN";
+        const isHodRole = normalizedRole === "HOD" || normalizedRole === "HEADOFDEPARTMENT";
         
-        console.log(`[Team Karma Debug] User: ${user.username}, Role: ${user.role}, isAdmin: ${isAdmin}, isHodRole: ${isHodRole}`);
+        console.log(`[Team Karma Debug] User: ${user.username}, Role: ${user.role}, normalizedRole: ${normalizedRole}, isAdmin: ${isAdmin}, isHodRole: ${isHodRole}`);
 
         let allowedTeams = [];
         if (isAdmin) {
             allowedTeams = await TeamModel.find({}).lean();
         } else if (isHodRole) {
-            allowedTeams = await TeamModel.find({ hodId: user._id }).lean();
+            // Match teams where user is the HOD or is a member with HOD role
+            // (consistent with login.mjs and me.mjs HOD detection)
+            allowedTeams = await TeamModel.find({
+                $or: [
+                    { hodId: user._id },
+                    { "members.userId": user._id }
+                ],
+                isActive: { $ne: false }
+            }).lean();
         }
 
         console.log(`[Team Karma Debug] allowedTeams count: ${allowedTeams.length}`);
@@ -52,13 +62,12 @@ router.get("/team-karma", authMiddleware, async (req, res) => {
             }
         });
 
-        // Fetch all points where status is Green (Completed) and responsible_person is set
+        // Fetch all points where responsible_person is set
         const matchStage = {
-            status: "Green",
             responsible_person: { $ne: null }
         };
 
-        const completedPoints = await OpenPointModel.find(matchStage)
+        const allPoints = await OpenPointModel.find(matchStage)
             .populate('responsible_person', 'username first_name last_name employee_photo department role')
             .lean();
 
@@ -75,6 +84,13 @@ router.get("/team-karma", authMiddleware, async (req, res) => {
 
         const currentMonthNum = month !== undefined ? parseInt(month) : new Date().getMonth();
         const currentYearNum = year ? parseInt(year) : new Date().getFullYear();
+
+        let lastMonthNum = currentMonthNum - 1;
+        let lastYearNum = currentYearNum;
+        if (lastMonthNum < 0) {
+            lastMonthNum = 11;
+            lastYearNum -= 1;
+        }
 
         const userKarmaMap = {};
 
@@ -100,14 +116,19 @@ router.get("/team-karma", authMiddleware, async (req, res) => {
                 hodName: userToTeamMap[uIdStr].hodName,
                 totalKarma: 0,
                 monthlyKarma: 0,
+                lastMonthKarma: 0,
+                totalTasks: 0,
                 totalCompleted: 0,
+                totalInProgress: 0,
+                totalNotStarted: 0,
                 monthlyCompleted: 0,
+                lastMonthCompleted: 0,
                 breakdown: { critical: 0, high: 0, medium: 0, low: 0 }
             };
         });
 
-        // Calculate points
-        completedPoints.forEach(pt => {
+        // Calculate points and status counts
+        allPoints.forEach(pt => {
             const responsiblePerson = pt.responsible_person;
             if (!responsiblePerson) return;
 
@@ -116,24 +137,39 @@ router.get("/team-karma", authMiddleware, async (req, res) => {
             // Only process if user is in our map (meaning they are in an allowed team)
             if (!userKarmaMap[rIdStr]) return;
 
-            const points = getKarmaPoints(pt.priority);
+            // Increment overall tasks
+            userKarmaMap[rIdStr].totalTasks += 1;
 
-            userKarmaMap[rIdStr].totalKarma += points;
-            userKarmaMap[rIdStr].totalCompleted += 1;
+            if (pt.status === "Green") {
+                userKarmaMap[rIdStr].totalCompleted += 1;
+                
+                // Karma points only for completed tasks
+                const points = getKarmaPoints(pt.priority);
+                userKarmaMap[rIdStr].totalKarma += points;
 
-            const prio = pt.priority ? pt.priority.toLowerCase() : 'low';
-            if (prio === 'emergency' || prio === 'p1' || prio === 'critical') {
-                userKarmaMap[rIdStr].breakdown.critical += 1;
-            } else if (prio === 'high' || prio === 'p2') {
-                userKarmaMap[rIdStr].breakdown.high += 1;
-            } else if (prio === 'medium' || prio === 'p3') {
-                userKarmaMap[rIdStr].breakdown.medium += 1;
+                const prio = pt.priority ? pt.priority.toLowerCase() : 'low';
+                if (prio === 'emergency' || prio === 'p1' || prio === 'critical') {
+                    userKarmaMap[rIdStr].breakdown.critical += 1;
+                } else if (prio === 'high' || prio === 'p2') {
+                    userKarmaMap[rIdStr].breakdown.high += 1;
+                } else if (prio === 'medium' || prio === 'p3') {
+                    userKarmaMap[rIdStr].breakdown.medium += 1;
+                } else {
+                    userKarmaMap[rIdStr].breakdown.low += 1;
+                }
+            } else if (pt.status === "Yellow" || pt.status === "Orange") {
+                userKarmaMap[rIdStr].totalInProgress += 1;
             } else {
-                userKarmaMap[rIdStr].breakdown.low += 1;
+                userKarmaMap[rIdStr].totalNotStarted += 1;
+                
+                // Negative points for Not Started (Red) tasks
+                const points = getKarmaPoints(pt.priority);
+                userKarmaMap[rIdStr].totalKarma -= points;
             }
 
             const compDate = pt.completion_date ? new Date(pt.completion_date) : null;
             let matchesFilter = false;
+            let matchesLastMonthFilter = false;
 
             if (filterType === 'all') {
                 matchesFilter = true;
@@ -158,12 +194,29 @@ router.get("/team-karma", authMiddleware, async (req, res) => {
                     const compMonth = compDate.getMonth();
                     const compYear = compDate.getFullYear();
                     matchesFilter = (compMonth === currentMonthNum && compYear === currentYearNum);
+                    matchesLastMonthFilter = (compMonth === lastMonthNum && compYear === lastYearNum);
                 }
             }
 
-            if (matchesFilter) {
+            if (matchesFilter && pt.status === "Green") {
+                const points = getKarmaPoints(pt.priority);
                 userKarmaMap[rIdStr].monthlyKarma += points;
                 userKarmaMap[rIdStr].monthlyCompleted += 1;
+            }
+            if (matchesLastMonthFilter && pt.status === "Green") {
+                const points = getKarmaPoints(pt.priority);
+                userKarmaMap[rIdStr].lastMonthKarma += points;
+                userKarmaMap[rIdStr].lastMonthCompleted += 1;
+            }
+            
+            if (pt.status !== "Green" && pt.status !== "Yellow" && pt.status !== "Orange") {
+                // If it's Red (Not Started), apply the penalty to the monthly score as well
+                // since it's an active, ongoing issue
+                if (filterType === 'month' || filterType === 'all') {
+                    const points = getKarmaPoints(pt.priority);
+                    userKarmaMap[rIdStr].monthlyKarma -= points;
+                    userKarmaMap[rIdStr].lastMonthKarma -= points;
+                }
             }
         });
 

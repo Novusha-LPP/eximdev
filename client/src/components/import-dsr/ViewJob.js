@@ -857,12 +857,8 @@ function JobDetails() {
       }
     }
   }, [
-    formik.values.cif_amount,
-    formik.values.cifValue,
     formik.values.hss,
-    serializedInvoiceDetails,
-    formik.values.other_charges_details?.addl_charge?.rate,
-    formik.values.other_charges_details?.addl_charge?.exchange_rate
+    serializedInvoiceDetails
   ]);
 
   const [emptyContainerOffLoadDate, setEmptyContainerOffLoadDate] =
@@ -1976,33 +1972,110 @@ function JobDetails() {
       formik.setFieldValue(`other_charges_details.addl_charge.rate`, calculatedRate > 0 ? calculatedRate.toFixed(4) : "");
     }
 
-    if ((chargeId === "freight" || chargeId === "insurance") && invoiceRows.length === 1) {
-      const updatedRows = [...invoiceRows];
-      const row = updatedRows[0];
-      const fieldName = chargeId;
-      row[fieldName] = amountValue;
+    if (chargeId === "freight" || chargeId === "insurance") {
+      const amtNum = parseFloat(amountValue) || 0;
+      const chargeDetails = formik.values.other_charges_details?.[chargeId] || {};
+      const exrateVal = parseFloat(chargeDetails.exchange_rate) || 1;
+      const unitVal = getUnitForCurrency(chargeDetails.currency);
+      const amtInr = (amtNum * exrateVal) / unitVal;
 
-      // Recalculate total_inv_value for the single row
-      const pv = parseFloat(row.product_value) || 0;
-      const prod = pv;
-      const frt = parseFloat(row.freight) || 0;
-      const ins = parseFloat(row.insurance) || 0;
-      const other = parseFloat(row.other_charges) || 0;
+      let totalBaseValInr = 0;
+      if (invoiceRows && invoiceRows.length > 0) {
+        totalBaseValInr = invoiceRows.reduce((sum, r) => {
+          const pv = parseFloat(r.product_value) || 0;
+          const pvEx = parseFloat(r.exchange_rate) || parseFloat(formik.values.exrate) || 1;
+          const oth = parseFloat(r.other_charges) || 0;
+          const othEx = parseFloat(r.other_charges_exchange_rate) || 1;
+          
+          const pvInr = (pv * pvEx) / getUnitForCurrency(r.inv_currency);
+          const othInr = (oth * othEx) / getUnitForCurrency(r.other_charges_currency);
+          
+          return sum + (pvInr + othInr);
+        }, 0);
+      }
+      
+      const calculatedRate = totalBaseValInr > 0 ? (amtInr / totalBaseValInr) * 100 : 0;
+      formik.setFieldValue(`other_charges_details.${chargeId}.rate`, calculatedRate > 0 ? calculatedRate.toFixed(4) : "");
 
-      const invEx = parseFloat(row.exchange_rate || formik.values.exrate || 1) || 1;
-      const frEx = parseFloat(row.freight_exchange_rate || formik.values.exrate || 1) || 1;
-      const insEx = parseFloat(row.insurance_exchange_rate || 1) || 1;
-      const othEx = parseFloat(row.other_charges_exchange_rate || 1) || 1;
+      if (invoiceRows && invoiceRows.length > 0) {
+        const fRate = chargeId === "freight" ? calculatedRate : (parseFloat(formik.values.other_charges_details?.freight?.rate) || 0);
+        const iRate = chargeId === "insurance" ? calculatedRate : (parseFloat(formik.values.other_charges_details?.insurance?.rate) || 0);
 
-      const prodInInv = prod;
-      const frtInInv = ((frt * frEx) / getUnitForCurrency(row.freight_currency)) / (invEx / getUnitForCurrency(row.inv_currency));
-      const insInInv = ((ins * insEx) / getUnitForCurrency(row.insurance_currency)) / (invEx / getUnitForCurrency(row.inv_currency));
-      const othInInv = ((other * othEx) / getUnitForCurrency(row.other_charges_currency)) / (invEx / getUnitForCurrency(row.inv_currency));
+        const updatedRows = invoiceRows.map((row) => {
+          const pv = parseFloat(row.product_value) || 0;
+          const otherVal = parseFloat(row.other_charges) || 0;
+          const invEx = parseFloat(row.exchange_rate || formik.values.exrate || 1) || 1;
+          const othEx = parseFloat(row.other_charges_exchange_rate || 1) || 1;
+          const otherInInv = ((otherVal * othEx) / getUnitForCurrency(row.other_charges_currency)) / (invEx / getUnitForCurrency(row.inv_currency));
+          const baseVal = pv + otherInInv;
 
-      const total = (prodInInv + frtInInv + insInInv + othInInv).toFixed(2);
-      row.total_inv_value = total;
+          let newFreight = row.freight;
+          let newInsurance = row.insurance;
 
-      formik.setFieldValue("invoice_details", updatedRows);
+          if (row.toi === "FOB") {
+            newFreight = baseVal > 0 ? (baseVal * (fRate / 100)).toFixed(2) : "";
+            
+            if (baseVal > 0) {
+              const baseInsurance = baseVal * (iRate / 100);
+              const invCurr = row.inv_currency || "";
+              const insCurr = row.insurance_currency || "INR";
+              const exRate = parseFloat(row.exchange_rate || formik.values.exrate || 1) || 1;
+              if (insCurr === "INR" && invCurr !== "INR") {
+                newInsurance = ((baseInsurance * exRate) / getUnitForCurrency(invCurr)).toFixed(2);
+              } else {
+                newInsurance = baseInsurance.toFixed(2);
+              }
+            } else {
+              newInsurance = "";
+            }
+
+          } else if (row.toi === "CF") {
+            newFreight = "";
+            if (baseVal > 0) {
+              const baseInsurance = baseVal * (iRate / 100);
+              const invCurr = row.inv_currency || "";
+              const insCurr = row.insurance_currency || "INR";
+              const exRate = parseFloat(row.exchange_rate || formik.values.exrate || 1) || 1;
+              if (insCurr === "INR" && invCurr !== "INR") {
+                newInsurance = ((baseInsurance * exRate) / getUnitForCurrency(invCurr)).toFixed(2);
+              } else {
+                newInsurance = baseInsurance.toFixed(2);
+              }
+            } else {
+              newInsurance = "";
+            }
+
+          } else if (row.toi === "CI") {
+            newFreight = baseVal > 0 ? (baseVal * (fRate / 100)).toFixed(2) : "";
+            newInsurance = "";
+          }
+
+          // Recalculate row total invoice value
+          const prod = pv;
+          const frt = parseFloat(newFreight) || 0;
+          const ins = parseFloat(newInsurance) || 0;
+          const other = parseFloat(row.other_charges) || 0;
+
+          const frEx = parseFloat(row.freight_exchange_rate || formik.values.exrate || 1) || 1;
+          const insEx = parseFloat(row.insurance_exchange_rate || 1) || 1;
+
+          const prodInInv = prod;
+          const frtInInv = ((frt * frEx) / getUnitForCurrency(row.freight_currency)) / (invEx / getUnitForCurrency(row.inv_currency));
+          const insInInv = ((ins * insEx) / getUnitForCurrency(row.insurance_currency)) / (invEx / getUnitForCurrency(row.inv_currency));
+          const othInInv = ((other * othEx) / getUnitForCurrency(row.other_charges_currency)) / (invEx / getUnitForCurrency(row.inv_currency));
+
+          const total = (prodInInv + frtInInv + insInInv + othInInv).toFixed(2);
+
+          return {
+            ...row,
+            freight: newFreight,
+            insurance: newInsurance,
+            total_inv_value: total,
+          };
+        });
+
+        formik.setFieldValue("invoice_details", updatedRows);
+      }
     }
   };
 

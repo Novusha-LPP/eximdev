@@ -492,7 +492,7 @@ const useImportJobForm = () => {
         return prev;
       });
     }
-  }, [cif_amount, term_value, HSS, JSON.stringify(invoice_details), other_charges_details?.addl_charge?.rate, other_charges_details?.addl_charge?.exchange_rate]);
+  }, [HSS, JSON.stringify(invoice_details)]);
 
   // Recalculate global CIF value when HSS status or HSS amount changes
   useEffect(() => {

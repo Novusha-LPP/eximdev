@@ -438,10 +438,30 @@ const useImportJobForm = () => {
   // Recalculate HSS additional charge amount when CIF changes
   useEffect(() => {
     if (HSS === "Yes") {
-      const cifInr = parseFloat(cif_amount || term_value) || 0;
+      let baseCifInr = 0;
+      if (invoice_details && invoice_details.length > 0) {
+        baseCifInr = invoice_details.reduce((sum, row) => {
+          const pv = parseFloat(row.product_value) || 0;
+          const pvEx = parseFloat(row.exchange_rate) || parseFloat(exrate) || 1;
+          const fr = parseFloat(row.freight) || 0;
+          const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(exrate) || 1;
+          const ins = parseFloat(row.insurance) || 0;
+          const insEx = parseFloat(row.insurance_exchange_rate) || 1;
+          const oth = parseFloat(row.other_charges) || 0;
+          const othEx = parseFloat(row.other_charges_exchange_rate) || 1;
+          return sum + ((pv * pvEx) + (fr * frEx) + (ins * insEx) + (oth * othEx));
+        }, 0);
+      } else {
+        const totalCif = parseFloat(cif_amount || term_value) || 0;
+        const currentAmount = parseFloat(other_charges_details?.addl_charge?.amount) || 0;
+        const exrateVal = parseFloat(other_charges_details?.addl_charge?.exchange_rate) || 1;
+        baseCifInr = totalCif - (currentAmount * exrateVal);
+      }
+      if (baseCifInr < 0) baseCifInr = 0;
+
       const rateNum = parseFloat(other_charges_details?.addl_charge?.rate) || 2;
       const exrateVal = parseFloat(other_charges_details?.addl_charge?.exchange_rate) || 1;
-      const expectedAmount = ((cifInr * rateNum) / 100) / exrateVal;
+      const expectedAmount = ((baseCifInr * rateNum) / 100) / exrateVal;
       
       setOtherChargesDetails(prev => {
         const currentAmount = parseFloat(prev.addl_charge?.amount) || 0;
@@ -457,7 +477,48 @@ const useImportJobForm = () => {
         return prev;
       });
     }
-  }, [cif_amount, term_value, HSS]);
+  }, [cif_amount, term_value, HSS, JSON.stringify(invoice_details), other_charges_details?.addl_charge?.rate, other_charges_details?.addl_charge?.exchange_rate]);
+
+  // Recalculate global CIF value when HSS status or HSS amount changes
+  useEffect(() => {
+    if (invoice_details && invoice_details.length > 0) {
+      let totalCifInr = 0;
+      invoice_details.forEach((row) => {
+        const pv = parseFloat(row.product_value) || 0;
+        const pvEx = parseFloat(row.exchange_rate) || parseFloat(exrate) || 1;
+        const fr = parseFloat(row.freight) || 0;
+        const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(exrate) || 1;
+        const ins = parseFloat(row.insurance) || 0;
+        const insEx = parseFloat(row.insurance_exchange_rate) || 1;
+        const oth = parseFloat(row.other_charges) || 0;
+        const othEx = parseFloat(row.other_charges_exchange_rate) || 1;
+        
+        const rowCif = (pv * pvEx) + (fr * frEx) + (ins * insEx) + (oth * othEx);
+        totalCifInr += rowCif;
+      });
+
+      if (HSS === "Yes") {
+        const hssAmt = parseFloat(other_charges_details?.addl_charge?.amount) || 0;
+        const hssEx = parseFloat(other_charges_details?.addl_charge?.exchange_rate) || 1;
+        totalCifInr += hssAmt * hssEx;
+      }
+
+      const calculatedCifStr = totalCifInr.toFixed(2);
+      if (cif_amount !== calculatedCifStr) {
+        setCifAmount(calculatedCifStr);
+      }
+      if (term_value !== calculatedCifStr) {
+        setTermValue(calculatedCifStr);
+      }
+    }
+  }, [
+    JSON.stringify(invoice_details),
+    exrate,
+    inv_currency,
+    HSS,
+    other_charges_details?.addl_charge?.amount,
+    other_charges_details?.addl_charge?.exchange_rate
+  ]);
 
   const [description_details, setDescriptionDetails] = useState([
     {
@@ -672,6 +733,12 @@ const useImportJobForm = () => {
 
         if (updated) {
           setInvoiceDetails(newRows);
+        }
+
+        if (HSS === "Yes") {
+          const hssAmt = parseFloat(other_charges_details?.addl_charge?.amount) || 0;
+          const hssEx = parseFloat(other_charges_details?.addl_charge?.exchange_rate) || 1;
+          totalCifInr += hssAmt * hssEx;
         }
 
         setTermValue(String(totalCifInr.toFixed(2)));
@@ -1385,14 +1452,32 @@ const useImportJobForm = () => {
 
         // --- HSS (HIGH SEA SALE) VALIDATION ---
         if (HSS === "Yes") {
-          const cifInr = parseFloat(cif_amount || term_value) || 0;
           const addlCharge = other_charges_details?.addl_charge || {};
           const addlRate = parseFloat(addlCharge.rate) || 0;
           const addlAmount = parseFloat(addlCharge.amount) || 0;
           const addlExrate = parseFloat(addlCharge.exchange_rate) || 1;
           const addlAmountInr = addlAmount * addlExrate;
 
-          const minAllowedAmountInr = cifInr * 0.02;
+          // Base CIF excluding HSS
+          let baseCifInr = 0;
+          if (invoice_details && invoice_details.length > 0) {
+            baseCifInr = invoice_details.reduce((sum, row) => {
+              const pv = parseFloat(row.product_value) || 0;
+              const pvEx = parseFloat(row.exchange_rate) || parseFloat(exrate) || 1;
+              const fr = parseFloat(row.freight) || 0;
+              const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(exrate) || 1;
+              const ins = parseFloat(row.insurance) || 0;
+              const insEx = parseFloat(row.insurance_exchange_rate) || 1;
+              const oth = parseFloat(row.other_charges) || 0;
+              const othEx = parseFloat(row.other_charges_exchange_rate) || 1;
+              return sum + ((pv * pvEx) + (fr * frEx) + (ins * insEx) + (oth * othEx));
+            }, 0);
+          } else {
+            baseCifInr = (parseFloat(cif_amount || term_value) || 0) - addlAmountInr;
+          }
+          if (baseCifInr < 0) baseCifInr = 0;
+
+          const minAllowedAmountInr = baseCifInr * 0.02;
 
           if (addlRate > 0 && addlRate < 2) {
             setSnackbar({
@@ -1403,7 +1488,7 @@ const useImportJobForm = () => {
             return;
           }
 
-          if (addlAmountInr > 0 && cifInr > 0 && addlAmountInr < minAllowedAmountInr) {
+          if (addlAmountInr > 0 && baseCifInr > 0 && addlAmountInr < minAllowedAmountInr) {
             setSnackbar({
               open: true,
               message: `High Sea Sale (HSS) is marked. Additional Charge (High Sea) Amount (${addlAmountInr.toFixed(2)} INR) cannot be less than 2% of CIF (${minAllowedAmountInr.toFixed(2)} INR).`,

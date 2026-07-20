@@ -651,7 +651,6 @@ function useFetchJobDetails(
 
       // --- HSS Validation ---
       if (values.hss === "Yes") {
-        const cifInr = parseFloat(values.cif_amount || values.cifValue) || 0;
         const otherCharges = values.other_charges_details || {};
         const addlCharge = otherCharges.addl_charge || {};
         const addlRate = parseFloat(addlCharge.rate) || 0;
@@ -659,13 +658,32 @@ function useFetchJobDetails(
         const addlExrate = parseFloat(addlCharge.exchange_rate) || 1;
         const addlAmountInr = addlAmount * addlExrate;
 
-        const minAllowedAmountInr = cifInr * 0.02;
+        // Base CIF excluding HSS
+        let baseCifInr = 0;
+        if (values.invoice_details && values.invoice_details.length > 0) {
+          baseCifInr = values.invoice_details.reduce((sum, row) => {
+            const pv = parseFloat(row.product_value) || 0;
+            const pvEx = parseFloat(row.exchange_rate) || parseFloat(values.exrate) || 1;
+            const fr = parseFloat(row.freight) || 0;
+            const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(values.exrate) || 1;
+            const ins = parseFloat(row.insurance) || 0;
+            const insEx = parseFloat(row.insurance_exchange_rate) || 1;
+            const oth = parseFloat(row.other_charges) || 0;
+            const othEx = parseFloat(row.other_charges_exchange_rate) || 1;
+            return sum + ((pv * pvEx) + (fr * frEx) + (ins * insEx) + (oth * othEx));
+          }, 0);
+        } else {
+          baseCifInr = (parseFloat(values.cif_amount || values.cifValue) || 0) - addlAmountInr;
+        }
+        if (baseCifInr < 0) baseCifInr = 0;
+
+        const minAllowedAmountInr = baseCifInr * 0.02;
 
         if (addlRate > 0 && addlRate < 2) {
           toast.error("High Sea Sale (HSS) is marked. Additional Charge (High Sea) Rate % cannot be less than 2%.");
           return;
         }
-        if (addlAmountInr > 0 && cifInr > 0 && addlAmountInr < minAllowedAmountInr) {
+        if (addlAmountInr > 0 && baseCifInr > 0 && addlAmountInr < minAllowedAmountInr) {
           toast.error(`High Sea Sale (HSS) is marked. Additional Charge (High Sea) Amount (${addlAmountInr.toFixed(2)} INR) cannot be less than 2% of CIF (${minAllowedAmountInr.toFixed(2)} INR).`);
           return;
         }
@@ -1519,6 +1537,13 @@ function useFetchJobDetails(
           formik.setFieldValue("invoice_details", newRows);
         }
 
+        // Add HSS value if active
+        if (formik.values.hss === "Yes") {
+          const hssAmt = parseFloat(formik.values.other_charges_details?.addl_charge?.amount) || 0;
+          const hssEx = parseFloat(formik.values.other_charges_details?.addl_charge?.exchange_rate) || 1;
+          totalCifInr += hssAmt * hssEx;
+        }
+
         const calculatedCifStr = totalCifInr.toFixed(2);
         if (formik.values.cif_amount !== calculatedCifStr) {
           formik.setFieldValue("cif_amount", calculatedCifStr);
@@ -1529,7 +1554,14 @@ function useFetchJobDetails(
       };
       syncCifValue();
     }
-  }, [serializedInvoiceDetails, formik.values.exrate, formik.values.inv_currency]);
+  }, [
+    serializedInvoiceDetails,
+    formik.values.exrate,
+    formik.values.inv_currency,
+    formik.values.hss,
+    formik.values.other_charges_details?.addl_charge?.amount,
+    formik.values.other_charges_details?.addl_charge?.exchange_rate
+  ]);
 
   // Handle automatic fetching of exchange rates for other_charges_details
   const serializedOtherChargesDetails = JSON.stringify(formik.values.other_charges_details || {});

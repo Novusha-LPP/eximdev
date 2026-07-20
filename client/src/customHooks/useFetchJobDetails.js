@@ -37,6 +37,13 @@ const getFormattedDateForRates = (dateInput) => {
   return `${day}-${month}-${year}`;
 };
 
+const getUnitForCurrency = (currencyCode) => {
+  if (!currencyCode) return 1;
+  const code = String(currencyCode).toUpperCase().trim();
+  if (code === "JPY" || code === "KRW") return 100;
+  return 1;
+};
+
 const exrateCache = {};
 
 const fetchExrateForCurrency = async (currency, date) => {
@@ -656,7 +663,7 @@ function useFetchJobDetails(
         const addlRate = parseFloat(addlCharge.rate) || 0;
         const addlAmount = parseFloat(addlCharge.amount) || 0;
         const addlExrate = parseFloat(addlCharge.exchange_rate) || 1;
-        const addlAmountInr = addlAmount * addlExrate;
+        const addlAmountInr = (addlAmount * addlExrate) / getUnitForCurrency(addlCharge.currency);
 
         // Base CIF excluding HSS
         let baseCifInr = 0;
@@ -670,7 +677,13 @@ function useFetchJobDetails(
             const insEx = parseFloat(row.insurance_exchange_rate) || 1;
             const oth = parseFloat(row.other_charges) || 0;
             const othEx = parseFloat(row.other_charges_exchange_rate) || 1;
-            return sum + ((pv * pvEx) + (fr * frEx) + (ins * insEx) + (oth * othEx));
+            
+            const pvInr = (pv * pvEx) / getUnitForCurrency(row.inv_currency);
+            const frInr = (fr * frEx) / getUnitForCurrency(row.freight_currency);
+            const insInr = (ins * insEx) / getUnitForCurrency(row.insurance_currency);
+            const othInr = (oth * othEx) / getUnitForCurrency(row.other_charges_currency);
+            
+            return sum + (pvInr + frInr + insInr + othInr);
           }, 0);
         } else {
           baseCifInr = (parseFloat(values.cif_amount || values.cifValue) || 0) - addlAmountInr;
@@ -1521,7 +1534,10 @@ function useFetchJobDetails(
           const ins = parseFloat(row.insurance) || 0;
           const oth = parseFloat(row.other_charges) || 0;
 
-          const rowCif = (pv * resInv.rate) + (fr * resFr.rate) + (ins * resIns.rate) + (oth * resOth.rate);
+          const rowCif = ((pv * resInv.rate) / getUnitForCurrency(row.inv_currency)) + 
+                         ((fr * resFr.rate) / getUnitForCurrency(row.freight_currency)) + 
+                         ((ins * resIns.rate) / getUnitForCurrency(row.insurance_currency)) + 
+                         ((oth * resOth.rate) / getUnitForCurrency(row.other_charges_currency));
           totalCifInr += rowCif;
 
           return {
@@ -1541,7 +1557,7 @@ function useFetchJobDetails(
         if (formik.values.hss === "Yes") {
           const hssAmt = parseFloat(formik.values.other_charges_details?.addl_charge?.amount) || 0;
           const hssEx = parseFloat(formik.values.other_charges_details?.addl_charge?.exchange_rate) || 1;
-          totalCifInr += hssAmt * hssEx;
+          totalCifInr += (hssAmt * hssEx) / getUnitForCurrency(formik.values.other_charges_details?.addl_charge?.currency);
         }
 
         const calculatedCifStr = totalCifInr.toFixed(2);

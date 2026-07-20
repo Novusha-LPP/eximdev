@@ -6,6 +6,13 @@ import authMiddleware from "../../middleware/authMiddleware.mjs";
 import { generateJobNumber } from "../../services/jobNumberService.mjs";
 import { sanitizeJobPayload } from "../../utils/modeLogic.mjs";
 import { recalculateLicenseUtilizationForJob, validateLicenseUtilization, getUsdImportRate } from "../../services/licenseUtilizationService.mjs";
+const getUnitForCurrency = (currencyCode) => {
+  if (!currencyCode) return 1;
+  const code = String(currencyCode).toUpperCase().trim();
+  if (code === "JPY" || code === "KRW") return 100;
+  return 1;
+};
+
 // Initialize the router
 const router = express.Router();
 
@@ -95,14 +102,39 @@ router.post(
         const addlRate = parseFloat(addlCharge.rate) || 0;
         const addlAmount = parseFloat(addlCharge.amount) || 0;
         const addlExrate = parseFloat(addlCharge.exchange_rate) || 1;
-        const addlAmountInr = addlAmount * addlExrate;
+        const addlAmountInr = (addlAmount * addlExrate) / getUnitForCurrency(addlCharge.currency);
 
-        const minAllowedAmountInr = cifInr * 0.02;
+        const invoiceDetails = req.body.invoice_details || [];
+        let baseCifInr = 0;
+        if (invoiceDetails && invoiceDetails.length > 0) {
+          baseCifInr = invoiceDetails.reduce((sum, row) => {
+            const pv = parseFloat(row.product_value) || 0;
+            const pvEx = parseFloat(row.exchange_rate) || parseFloat(req.body.exrate) || 1;
+            const fr = parseFloat(row.freight) || 0;
+            const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(req.body.exrate) || 1;
+            const ins = parseFloat(row.insurance) || 0;
+            const insEx = parseFloat(row.insurance_exchange_rate) || 1;
+            const oth = parseFloat(row.other_charges) || 0;
+            const othEx = parseFloat(row.other_charges_exchange_rate) || 1;
+            
+            const pvInr = (pv * pvEx) / getUnitForCurrency(row.inv_currency);
+            const frInr = (fr * frEx) / getUnitForCurrency(row.freight_currency);
+            const insInr = (ins * insEx) / getUnitForCurrency(row.insurance_currency);
+            const othInr = (oth * othEx) / getUnitForCurrency(row.other_charges_currency);
+            
+            return sum + (pvInr + frInr + insInr + othInr);
+          }, 0);
+        } else {
+          baseCifInr = cifInr - addlAmountInr;
+        }
+        if (baseCifInr < 0) baseCifInr = 0;
+
+        const minAllowedAmountInr = baseCifInr * 0.02;
 
         if (addlRate > 0 && addlRate < 2) {
           return res.status(400).json({ message: "High Sea Sale (HSS) is marked. Additional Charge (High Sea) Rate % cannot be less than 2%." });
         }
-        if (addlAmountInr > 0 && cifInr > 0 && addlAmountInr < minAllowedAmountInr) {
+        if (addlAmountInr > 0 && baseCifInr > 0 && addlAmountInr < minAllowedAmountInr) {
           return res.status(400).json({ message: `High Sea Sale (HSS) is marked. Additional Charge (High Sea) Amount (${addlAmountInr.toFixed(2)} INR) cannot be less than 2% of CIF (${minAllowedAmountInr.toFixed(2)} INR).` });
         }
         if (addlRate === 0 && addlAmount === 0) {

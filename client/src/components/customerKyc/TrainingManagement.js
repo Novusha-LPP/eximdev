@@ -29,6 +29,7 @@ function TrainingManagement() {
 
   const [trainings, setTrainings] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [trainees, setTrainees] = useState([]);
   const [loading, setLoading] = useState(false);
   
   // Dialog/Modal States
@@ -39,17 +40,20 @@ function TrainingManagement() {
   // Filters
   const [statusFilter, setStatusFilter] = useState("all");
   const [moduleFilter, setModuleFilter] = useState("all");
+  const [traineeFilter, setTraineeFilter] = useState("all");
 
   // Fetch trainings & active customers
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [trainingsRes, customersRes] = await Promise.all([
+      const [trainingsRes, customersRes, traineesRes] = await Promise.all([
         axios.get(`${process.env.REACT_APP_API_STRING}/customer-trainings`),
-        axios.get(`${process.env.REACT_APP_API_STRING}/customer-trainings/customers`)
+        axios.get(`${process.env.REACT_APP_API_STRING}/customer-trainings/customers`),
+        axios.get(`${process.env.REACT_APP_API_STRING}/customer-trainings/trainees`)
       ]);
       setTrainings(trainingsRes.data);
       setCustomers(customersRes.data);
+      setTrainees(traineesRes.data);
     } catch (error) {
       console.error("Error loading training management data:", error);
       showError("Failed to load training management records.");
@@ -201,7 +205,13 @@ function TrainingManagement() {
   const filteredTrainings = trainings.filter((tr) => {
     const matchesStatus = statusFilter === "all" || tr.training_status === statusFilter;
     const matchesModule = moduleFilter === "all" || tr.training_module === moduleFilter;
-    return matchesStatus && matchesModule;
+    const matchesTrainee = traineeFilter === "all" || 
+      (tr.trainee_name && (
+        tr.trainee_name.toUpperCase() === traineeFilter.toUpperCase() ||
+        traineeFilter.toUpperCase().includes(tr.trainee_name.toUpperCase()) ||
+        tr.trainee_name.toUpperCase().includes(traineeFilter.toUpperCase())
+      ));
+    return matchesStatus && matchesModule && matchesTrainee;
   });
 
   // Table Column definitions
@@ -442,6 +452,30 @@ function TrainingManagement() {
             </select>
           </div>
 
+          <div className="form-group" style={{ margin: 0, minWidth: "180px" }}>
+            <label className="form-label" style={{ fontSize: "0.75rem", marginBottom: "4px", color: "var(--slate-500)" }}>Filter by Trainee Name</label>
+            <select
+              value={traineeFilter}
+              onChange={(e) => setTraineeFilter(e.target.value)}
+              className="form-control"
+              style={{ padding: "6px 12px", fontSize: "0.85rem", background: "white" }}
+            >
+              <option value="all">All Trainees</option>
+              {(() => {
+                const uniqueNames = new Set();
+                trainees.forEach(t => {
+                  const name = (t.first_name + (t.last_name ? ' ' + t.last_name : '')).trim().toUpperCase() || t.username;
+                  if (name) {
+                    uniqueNames.add(name.toUpperCase());
+                  }
+                });
+                return Array.from(uniqueNames).map(name => (
+                  <option key={name} value={name}>{name}</option>
+                ));
+              })()}
+            </select>
+          </div>
+
         </div>
       </div>
 
@@ -477,7 +511,22 @@ function TrainingManagement() {
                   <select
                     name="customerId"
                     value={formik.values.customerId}
-                    onChange={formik.handleChange}
+                    onChange={(e) => {
+                      formik.handleChange(e);
+                      const selectedCustomer = customers.find(c => c._id === e.target.value);
+                      if (selectedCustomer) {
+                        const cName = selectedCustomer.name_of_individual.toLowerCase();
+                        const matchedTrainee = trainees.find(t => 
+                          t.assigned_importer_name && t.assigned_importer_name.some(n => n.toLowerCase() === cName)
+                        );
+                        if (matchedTrainee) {
+                          const fullName = (matchedTrainee.first_name + (matchedTrainee.last_name ? ' ' + matchedTrainee.last_name : '')).trim().toUpperCase() || matchedTrainee.username;
+                          formik.setFieldValue("trainee_name", fullName);
+                        } else {
+                          formik.setFieldValue("trainee_name", "");
+                        }
+                      }
+                    }}
                     className={`form-control ${formik.touched.customerId && formik.errors.customerId ? "error" : ""}`}
                     disabled={!!editingRecord}
                   >
@@ -539,14 +588,35 @@ function TrainingManagement() {
                 {/* Trainee Name */}
                 <div className="form-group">
                   <label className="form-label required">Trainee Name</label>
-                  <input
-                    type="text"
+                  <select
                     name="trainee_name"
                     value={formik.values.trainee_name}
                     onChange={formik.handleChange}
-                    placeholder="e.g. Alice Smith"
                     className={`form-control ${formik.touched.trainee_name && formik.errors.trainee_name ? "error" : ""}`}
-                  />
+                  >
+                    <option value="" disabled>Select Trainee Name...</option>
+                    {(() => {
+                      const selectedCustomer = customers.find(c => c._id === formik.values.customerId);
+                      const customerName = selectedCustomer ? selectedCustomer.name_of_individual.toLowerCase() : "";
+                      const availableTrainees = trainees.filter(t => 
+                        t.assigned_importer_name && 
+                        t.assigned_importer_name.some(n => n.toLowerCase() === customerName)
+                      );
+                      
+                      const options = availableTrainees.map(t => {
+                        const name = (t.first_name + (t.last_name ? ' ' + t.last_name : '')).trim().toUpperCase() || t.username;
+                        return <option key={t._id} value={name}>{name}</option>;
+                      });
+                      
+                      if (formik.values.trainee_name && !availableTrainees.find(t => {
+                        const name = (t.first_name + (t.last_name ? ' ' + t.last_name : '')).trim().toUpperCase() || t.username;
+                        return name === formik.values.trainee_name;
+                      })) {
+                        options.push(<option key="existing" value={formik.values.trainee_name}>{formik.values.trainee_name}</option>);
+                      }
+                      return options;
+                    })()}
+                  </select>
                   {formik.touched.trainee_name && formik.errors.trainee_name && <div className="err-msg">{formik.errors.trainee_name}</div>}
                 </div>
 

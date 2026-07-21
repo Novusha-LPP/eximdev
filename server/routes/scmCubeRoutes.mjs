@@ -278,7 +278,7 @@ router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
           "Gross Weight": validateNum(job.gross_weight, 9, 3, true, "Gross Weight"),
           "Unit Quantity Code": validateChar(job.unit, 3, true, "Unit Quantity Code"),
           "Package Code": validateChar(job.unit, 3, true, "Package Code"),
-          "Marks And Numbers 1": validateChar(job.description || "AS PER BL", 4000, true, "Marks And Numbers 1"),
+          "Marks And Numbers 1": validateChar("AS PER BL", 4000, true, "Marks And Numbers 1"),
           "Marks And Numbers 2": validateChar("", 40, false, "Marks And Numbers 2"),
           "Marks And Numbers 3": validateChar("", 40, false, "Marks And Numbers 3")
         }

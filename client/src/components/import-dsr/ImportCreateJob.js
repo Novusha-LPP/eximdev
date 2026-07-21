@@ -349,6 +349,8 @@ const ImportCreateJob = () => {
     setInsurance,
     term_value,
     setTermValue,
+    cif_amount,
+    setCifAmount,
     isEditMode,
     jobNumber,
     populateJobData,
@@ -377,6 +379,27 @@ const ImportCreateJob = () => {
     removeInvoicePoDetail,
     updateInvoicePoDetail,
   } = useImportJobForm();
+
+  const handleHssChange = (val) => {
+    setHSS(val);
+    if (val === "Yes") {
+      setOtherChargesDetails(prev => {
+        const currentRate = parseFloat(prev.addl_charge?.rate) || 0;
+        const rateToSet = currentRate < 2 ? 2 : currentRate;
+        const cifInr = parseFloat(cif_amount || term_value) || 0;
+        const exrateVal = parseFloat(prev.addl_charge?.exchange_rate) || 1;
+        const minAmount = (cifInr * (rateToSet / 100)) / exrateVal;
+        return {
+          ...prev,
+          addl_charge: {
+            ...prev.addl_charge,
+            rate: rateToSet,
+            amount: minAmount > 0 ? minAmount.toFixed(2) : prev.addl_charge?.amount || ""
+          }
+        };
+      });
+    }
+  };
 
   const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
   const [duplicateJob, setDuplicateJob] = useState(null);
@@ -582,9 +605,25 @@ const ImportCreateJob = () => {
   const [availableHssBanks, setAvailableHssBanks] = useState([]);
   const [masterShippingLines, setMasterShippingLines] = useState([]);
   const [masterAirlines, setMasterAirlines] = useState([]);
+  const [masterCountries, setMasterCountries] = useState([]);
 
   const selectedBranchData = branches.find((b) => b._id === branch_id);
   const dynamicPortOptions = selectedBranchData?.ports?.map((p) => p.port_name) || [];
+  const dynamicCountryOptions = masterCountries.length > 0
+    ? masterCountries.map((c) => c.name.toUpperCase())
+    : countryOptions;
+
+  React.useEffect(() => {
+    const fetchCountries = async () => {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-countries`);
+        setMasterCountries(res.data);
+      } catch (error) {
+        console.error("Error fetching countries:", error);
+      }
+    };
+    fetchCountries();
+  }, []);
 
   React.useEffect(() => {
     const fetchCurrencies = async () => {
@@ -1228,7 +1267,7 @@ const ImportCreateJob = () => {
                     <FormField label="Country" md={3}>
                       <Autocomplete
                         freeSolo
-                        options={countryOptions}
+                        options={dynamicCountryOptions}
                         value={importer_country || ""}
                         onInputChange={(event, newValue) => setImporterCountry(newValue)}
                         renderInput={(params) => (
@@ -1404,7 +1443,7 @@ const ImportCreateJob = () => {
                         value={HSS}
                         id="hss"
                         name="hss"
-                        onChange={(e) => setHSS(e.target.value)}
+                        onChange={(e) => handleHssChange(e.target.value)}
                         fullWidth
                         sx={compactInput}
                       >
@@ -1584,7 +1623,7 @@ const ImportCreateJob = () => {
                         <FormField label="Country" md={6}>
                           <Autocomplete
                             freeSolo
-                            options={countryOptions}
+                            options={dynamicCountryOptions}
                             value={hss_country || ""}
                             onInputChange={(event, newValue) => setHssCountry(newValue)}
                             renderInput={(params) => (
@@ -1843,7 +1882,7 @@ const ImportCreateJob = () => {
                     <FormField label="Origin Country">
                       <Autocomplete
                         freeSolo
-                        options={countryOptions}
+                        options={dynamicCountryOptions}
                         value={origin_country}
                         onInputChange={(event, newValue) => setOriginCountry(newValue)}
                         renderInput={(params) => (
@@ -2600,10 +2639,51 @@ const ImportCreateJob = () => {
                                     fullWidth
                                     type="number"
                                     value={other_charges_details?.[row.id]?.rate || ""}
-                                    onChange={(e) => setOtherChargesDetails({
-                                      ...other_charges_details,
-                                      [row.id]: { ...other_charges_details[row.id], rate: e.target.value }
-                                    })}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      if (row.id === "addl_charge" && HSS === "Yes") {
+                                        const rateNum = parseFloat(val) || 0;
+                                        const cifInr = parseFloat(cif_amount || term_value) || 0;
+                                        const exrateVal = parseFloat(other_charges_details?.addl_charge?.exchange_rate) || 1;
+                                        const calculatedAmount = (cifInr * (rateNum / 100)) / exrateVal;
+                                        setOtherChargesDetails({
+                                          ...other_charges_details,
+                                          addl_charge: {
+                                            ...other_charges_details.addl_charge,
+                                            rate: val,
+                                            amount: calculatedAmount > 0 ? calculatedAmount.toFixed(2) : ""
+                                          }
+                                        });
+                                      } else {
+                                        setOtherChargesDetails({
+                                          ...other_charges_details,
+                                          [row.id]: { ...other_charges_details[row.id], rate: val }
+                                        });
+                                      }
+                                    }}
+                                    onBlur={(e) => {
+                                      if (row.id === "addl_charge" && HSS === "Yes") {
+                                        const rateNum = parseFloat(e.target.value) || 0;
+                                        if (rateNum < 2) {
+                                          const cifInr = parseFloat(cif_amount || term_value) || 0;
+                                          const exrateVal = parseFloat(other_charges_details?.addl_charge?.exchange_rate) || 1;
+                                          const minAmount = (cifInr * 0.02) / exrateVal;
+                                          setOtherChargesDetails({
+                                            ...other_charges_details,
+                                            addl_charge: {
+                                              ...other_charges_details.addl_charge,
+                                              rate: 2,
+                                              amount: minAmount > 0 ? minAmount.toFixed(2) : ""
+                                            }
+                                          });
+                                          setSnackbar({
+                                            open: true,
+                                            message: "Additional Charge (High Sea) Rate % cannot be less than 2%. Reset to 2%.",
+                                            severity: "warning"
+                                          });
+                                        }
+                                      }
+                                    }}
                                     sx={compactInput}
                                   />
                                 </td>
@@ -2613,10 +2693,54 @@ const ImportCreateJob = () => {
                                     fullWidth
                                     type="number"
                                     value={other_charges_details?.[row.id]?.amount || ""}
-                                    onChange={(e) => setOtherChargesDetails({
-                                      ...other_charges_details,
-                                      [row.id]: { ...other_charges_details[row.id], amount: e.target.value }
-                                    })}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      if (row.id === "addl_charge" && HSS === "Yes") {
+                                        const amtNum = parseFloat(val) || 0;
+                                        const cifInr = parseFloat(cif_amount || term_value) || 0;
+                                        const exrateVal = parseFloat(other_charges_details?.addl_charge?.exchange_rate) || 1;
+                                        const amtInr = amtNum * exrateVal;
+                                        const calculatedRate = cifInr > 0 ? (amtInr / cifInr) * 100 : 0;
+                                        setOtherChargesDetails({
+                                          ...other_charges_details,
+                                          addl_charge: {
+                                            ...other_charges_details.addl_charge,
+                                            amount: val,
+                                            rate: calculatedRate > 0 ? calculatedRate.toFixed(4) : ""
+                                          }
+                                        });
+                                      } else {
+                                        setOtherChargesDetails({
+                                          ...other_charges_details,
+                                          [row.id]: { ...other_charges_details[row.id], amount: e.target.value }
+                                        });
+                                      }
+                                    }}
+                                    onBlur={(e) => {
+                                      if (row.id === "addl_charge" && HSS === "Yes") {
+                                        const amtNum = parseFloat(e.target.value) || 0;
+                                        const cifInr = parseFloat(cif_amount || term_value) || 0;
+                                        const exrateVal = parseFloat(other_charges_details?.addl_charge?.exchange_rate) || 1;
+                                        const amtInr = amtNum * exrateVal;
+                                        const minAmountInr = cifInr * 0.02;
+                                        if (cifInr > 0 && amtInr < minAmountInr) {
+                                          const minAmount = minAmountInr / exrateVal;
+                                          setOtherChargesDetails({
+                                            ...other_charges_details,
+                                            addl_charge: {
+                                              ...other_charges_details.addl_charge,
+                                              rate: 2,
+                                              amount: minAmount.toFixed(2)
+                                            }
+                                          });
+                                          setSnackbar({
+                                            open: true,
+                                            message: `Additional Charge (High Sea) Amount cannot be less than 2% of CIF (${minAmountInr.toFixed(2)} INR). Reset to 2%.`,
+                                            severity: "warning"
+                                          });
+                                        }
+                                      }
+                                    }}
                                     sx={compactInput}
                                   />
                                 </td>

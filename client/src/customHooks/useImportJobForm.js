@@ -41,6 +41,13 @@ const getFormattedDateForRates = (dateInput) => {
   return `${day}-${month}-${year}`;
 };
 
+const getUnitForCurrency = (currencyCode) => {
+  if (!currencyCode) return 1;
+  const code = String(currencyCode).toUpperCase().trim();
+  if (code === "JPY" || code === "KRW") return 100;
+  return 1;
+};
+
 const exrateCache = {};
 
 const fetchExrateForCurrency = async (currency, date) => {
@@ -316,8 +323,8 @@ const useImportJobForm = () => {
     agency: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
     discount: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
     loading: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
-    freight: { currency: "", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
-    insurance: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
+    freight: { currency: "", exchange_rate: 1, rate: 20, amount: 0, remark: "" },
+    insurance: { currency: "INR", exchange_rate: 1, rate: 1.125, amount: 0, remark: "" },
     addl_charge: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
     revenue_deposit: { rate: 0, on: "Assessable" },
     landing_charge: { rate: 0 }
@@ -434,7 +441,104 @@ const useImportJobForm = () => {
       fetchChargesRates();
     }
   }, [JSON.stringify(other_charges_details), exrate, inv_currency, invoice_date, invoice_details?.[0]?.invoice_date]);
-  //
+
+  // Recalculate HSS additional charge amount when CIF changes
+  useEffect(() => {
+    if (HSS === "Yes") {
+      let baseCifInr = 0;
+      if (invoice_details && invoice_details.length > 0) {
+        baseCifInr = invoice_details.reduce((sum, row) => {
+          const pv = parseFloat(row.product_value) || 0;
+          const pvEx = parseFloat(row.exchange_rate) || parseFloat(exrate) || 1;
+          const fr = parseFloat(row.freight) || 0;
+          const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(exrate) || 1;
+          const ins = parseFloat(row.insurance) || 0;
+          const insEx = parseFloat(row.insurance_exchange_rate) || 1;
+          const oth = parseFloat(row.other_charges) || 0;
+          const othEx = parseFloat(row.other_charges_exchange_rate) || 1;
+          
+          const pvInr = (pv * pvEx) / getUnitForCurrency(row.inv_currency);
+          const frInr = (fr * frEx) / getUnitForCurrency(row.freight_currency);
+          const insInr = (ins * insEx) / getUnitForCurrency(row.insurance_currency);
+          const othInr = (oth * othEx) / getUnitForCurrency(row.other_charges_currency);
+          
+          return sum + (pvInr + frInr + insInr + othInr);
+        }, 0);
+      } else {
+        const totalCif = parseFloat(cif_amount || term_value) || 0;
+        const currentAmount = parseFloat(other_charges_details?.addl_charge?.amount) || 0;
+        const exrateVal = parseFloat(other_charges_details?.addl_charge?.exchange_rate) || 1;
+        const hssUnit = getUnitForCurrency(other_charges_details?.addl_charge?.currency);
+        baseCifInr = totalCif - ((currentAmount * exrateVal) / hssUnit);
+      }
+      if (baseCifInr < 0) baseCifInr = 0;
+
+      const rateNum = parseFloat(other_charges_details?.addl_charge?.rate) || 2;
+      const exrateVal = parseFloat(other_charges_details?.addl_charge?.exchange_rate) || 1;
+      const hssUnit = getUnitForCurrency(other_charges_details?.addl_charge?.currency);
+      const expectedAmount = ((baseCifInr * rateNum) / 100) / (exrateVal / hssUnit);
+      
+      setOtherChargesDetails(prev => {
+        const currentAmount = parseFloat(prev.addl_charge?.amount) || 0;
+        if (Math.abs(currentAmount - expectedAmount) > 0.01) {
+          return {
+            ...prev,
+            addl_charge: {
+              ...prev.addl_charge,
+              amount: expectedAmount > 0 ? expectedAmount.toFixed(2) : ""
+            }
+          };
+        }
+        return prev;
+      });
+    }
+  }, [HSS, JSON.stringify(invoice_details)]);
+
+  // Recalculate global CIF value when HSS status or HSS amount changes
+  useEffect(() => {
+    if (invoice_details && invoice_details.length > 0) {
+      let totalCifInr = 0;
+      invoice_details.forEach((row) => {
+        const pv = parseFloat(row.product_value) || 0;
+        const pvEx = parseFloat(row.exchange_rate) || parseFloat(exrate) || 1;
+        const fr = parseFloat(row.freight) || 0;
+        const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(exrate) || 1;
+        const ins = parseFloat(row.insurance) || 0;
+        const insEx = parseFloat(row.insurance_exchange_rate) || 1;
+        const oth = parseFloat(row.other_charges) || 0;
+        const othEx = parseFloat(row.other_charges_exchange_rate) || 1;
+        
+        const rowCif = ((pv * pvEx) / getUnitForCurrency(row.inv_currency)) + 
+                       ((fr * frEx) / getUnitForCurrency(row.freight_currency)) + 
+                       ((ins * insEx) / getUnitForCurrency(row.insurance_currency)) + 
+                       ((oth * othEx) / getUnitForCurrency(row.other_charges_currency));
+        totalCifInr += rowCif;
+      });
+
+      if (HSS === "Yes") {
+        const hssAmt = parseFloat(other_charges_details?.addl_charge?.amount) || 0;
+        const hssEx = parseFloat(other_charges_details?.addl_charge?.exchange_rate) || 1;
+        const hssUnit = getUnitForCurrency(other_charges_details?.addl_charge?.currency);
+        totalCifInr += (hssAmt * hssEx) / hssUnit;
+      }
+
+      const calculatedCifStr = totalCifInr.toFixed(2);
+      if (cif_amount !== calculatedCifStr) {
+        setCifAmount(calculatedCifStr);
+      }
+      if (term_value !== calculatedCifStr) {
+        setTermValue(calculatedCifStr);
+      }
+    }
+  }, [
+    JSON.stringify(invoice_details),
+    exrate,
+    inv_currency,
+    HSS,
+    other_charges_details?.addl_charge?.amount,
+    other_charges_details?.addl_charge?.exchange_rate
+  ]);
+
   const [description_details, setDescriptionDetails] = useState([
     {
       description: "",
@@ -634,20 +738,30 @@ const useImportJobForm = () => {
           const ins = parseFloat(row.insurance) || 0;
           const oth = parseFloat(row.other_charges) || 0;
 
-          const rowCif = (pv * resInv.rate) + (fr * resFr.rate) + (ins * resIns.rate) + (oth * resOth.rate);
-          totalCifInr += rowCif;
-
-          return {
-            ...row,
-            exchange_rate: String(resInv.rate),
-            freight_exchange_rate: String(resFr.rate),
-            insurance_exchange_rate: String(resIns.rate),
-            other_charges_exchange_rate: String(resOth.rate),
-          };
-        }));
-
-        if (updated) {
-          setInvoiceDetails(newRows);
+           const rowCif = ((pv * resInv.rate) / getUnitForCurrency(row.inv_currency)) + 
+                          ((fr * resFr.rate) / getUnitForCurrency(row.freight_currency)) + 
+                          ((ins * resIns.rate) / getUnitForCurrency(row.insurance_currency)) + 
+                          ((oth * resOth.rate) / getUnitForCurrency(row.other_charges_currency));
+           totalCifInr += rowCif;
+ 
+           return {
+             ...row,
+             exchange_rate: String(resInv.rate),
+             freight_exchange_rate: String(resFr.rate),
+             insurance_exchange_rate: String(resIns.rate),
+             other_charges_exchange_rate: String(resOth.rate),
+           };
+         }));
+ 
+         if (updated) {
+           setInvoiceDetails(newRows);
+         }
+ 
+         if (HSS === "Yes") {
+           const hssAmt = parseFloat(other_charges_details?.addl_charge?.amount) || 0;
+           const hssEx = parseFloat(other_charges_details?.addl_charge?.exchange_rate) || 1;
+           const hssUnit = getUnitForCurrency(other_charges_details?.addl_charge?.currency);
+           totalCifInr += (hssAmt * hssEx) / hssUnit;
         }
 
         setTermValue(String(totalCifInr.toFixed(2)));
@@ -1320,7 +1434,6 @@ const useImportJobForm = () => {
         insurance: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
         addl_charge: { currency: "INR", exchange_rate: 1, rate: 0, amount: 0, remark: "" },
         revenue_deposit: { rate: 0, on: "Assessable" },
-        landing_charge: { rate: 0 },
         ...job.other_charges_details,
         landing_charge: {
           rate: 0,
@@ -1358,6 +1471,69 @@ const useImportJobForm = () => {
             severity: "error"
           });
           return;
+        }
+
+        // --- HSS (HIGH SEA SALE) VALIDATION ---
+        if (HSS === "Yes") {
+          const addlCharge = other_charges_details?.addl_charge || {};
+          const addlRate = parseFloat(addlCharge.rate) || 0;
+          const addlAmount = parseFloat(addlCharge.amount) || 0;
+          const addlExrate = parseFloat(addlCharge.exchange_rate) || 1;
+          const addlAmountInr = (addlAmount * addlExrate) / getUnitForCurrency(addlCharge.currency);
+
+          // Base CIF excluding HSS
+          let baseCifInr = 0;
+          if (invoice_details && invoice_details.length > 0) {
+            baseCifInr = invoice_details.reduce((sum, row) => {
+              const pv = parseFloat(row.product_value) || 0;
+              const pvEx = parseFloat(row.exchange_rate) || parseFloat(exrate) || 1;
+              const fr = parseFloat(row.freight) || 0;
+              const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(exrate) || 1;
+              const ins = parseFloat(row.insurance) || 0;
+              const insEx = parseFloat(row.insurance_exchange_rate) || 1;
+              const oth = parseFloat(row.other_charges) || 0;
+              const othEx = parseFloat(row.other_charges_exchange_rate) || 1;
+              
+              const pvInr = (pv * pvEx) / getUnitForCurrency(row.inv_currency);
+              const frInr = (fr * frEx) / getUnitForCurrency(row.freight_currency);
+              const insInr = (ins * insEx) / getUnitForCurrency(row.insurance_currency);
+              const othInr = (oth * othEx) / getUnitForCurrency(row.other_charges_currency);
+              
+              return sum + (pvInr + frInr + insInr + othInr);
+            }, 0);
+          } else {
+            baseCifInr = (parseFloat(cif_amount || term_value) || 0) - addlAmountInr;
+          }
+          if (baseCifInr < 0) baseCifInr = 0;
+
+          const minAllowedAmountInr = baseCifInr * 0.02;
+
+          if (addlRate > 0 && addlRate < 2) {
+            setSnackbar({
+              open: true,
+              message: "High Sea Sale (HSS) is marked. Additional Charge (High Sea) Rate % cannot be less than 2%.",
+              severity: "error"
+            });
+            return;
+          }
+
+          if (addlAmountInr > 0 && baseCifInr > 0 && addlAmountInr < minAllowedAmountInr) {
+            setSnackbar({
+              open: true,
+              message: `High Sea Sale (HSS) is marked. Additional Charge (High Sea) Amount (${addlAmountInr.toFixed(2)} INR) cannot be less than 2% of CIF (${minAllowedAmountInr.toFixed(2)} INR).`,
+              severity: "error"
+            });
+            return;
+          }
+
+          if (addlRate === 0 && addlAmount === 0) {
+            setSnackbar({
+              open: true,
+              message: "High Sea Sale (HSS) is marked. Additional Charge (High Sea) is required and must be minimum 2% of CIF.",
+              severity: "error"
+            });
+            return;
+          }
         }
 
         // --- PO VALIDATION ---

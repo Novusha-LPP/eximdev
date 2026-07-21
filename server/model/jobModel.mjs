@@ -130,6 +130,8 @@ const descriptionDetailsSchema = new mongoose.Schema(
     utilized_unit: { type: String, trim: true },    // Unit for utilized quantity
     utilized_amount: { type: Number },               // CIF value utilized (in amount_currency)
     amount_currency: { type: String, trim: true, default: "USD" }, // Currency of utilized_amount (USD or INR)
+    rodtep: { type: String, trim: true }, // RODTEP scrip number utilized
+
 
     // ── New Product General Details & PMV / IGST Fields ──
     exim_code: { type: String, trim: true },

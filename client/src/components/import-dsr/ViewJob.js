@@ -765,6 +765,26 @@ function JobDetails() {
     }
   }, [data?.ie_code_no]);
 
+  // Fetch RODTEPs by IEC
+  const [rodtepsList, setRodtepsList] = useState([]);
+  useEffect(() => {
+    const fetchRodteps = async () => {
+      const iec = data?.ie_code_no;
+      if (!iec) return;
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-rodteps-by-iec?iec_no=${iec}`
+        );
+        setRodtepsList(res.data || []);
+      } catch (error) {
+        console.error("Error fetching RODTEPs by IEC:", error);
+      }
+    };
+    if (data?.ie_code_no) {
+      fetchRodteps();
+    }
+  }, [data?.ie_code_no]);
+
   const isAdmin = user?.role === "Admin";
   const billNos = (data?.bill_no || "").split(",");
   const hasBillGenerated = billNos.some(no => no && no.trim().length > 0);
@@ -1307,6 +1327,7 @@ function JobDetails() {
           license_no: "",
           license_date: "",
           license_sr: "",
+          rodtep: "",
           utilized_qty: "",
           utilized_unit: "",
           utilized_amount: "",
@@ -1447,6 +1468,7 @@ function JobDetails() {
         license_no: "",
         license_date: "",
         license_sr: "",
+        rodtep: "",
         utilized_qty: "",
         utilized_unit: "",
         utilized_amount: "",
@@ -4362,6 +4384,7 @@ function JobDetails() {
                             { label: "License No", width: "180px", align: "left" },
                             { label: "License Date", width: "120px", align: "left" },
                             { label: "License SR", width: "90px", align: "left" },
+                            { label: "RODTEP", width: "180px", align: "left" },
                             { label: "Action", width: "50px", align: "center" }
                           ].map((col) => (
                             <th
@@ -4805,6 +4828,32 @@ function JobDetails() {
                                   );
                                 }
                               })()}
+                            </td>
+                            {/* RODTEP */}
+                            <td style={{ padding: "8px 6px", width: "180px", verticalAlign: "middle" }}>
+                              <Autocomplete
+                                size="small"
+                                fullWidth
+                                freeSolo
+                                options={rodtepsList.map((r) => r.rodtep)}
+                                value={row.rodtep || ""}
+                                onChange={(e, newValue) => {
+                                  updateDescriptionRow(rowIndex, "rodtep", newValue || "");
+                                }}
+                                onInputChange={(e, newInputValue, reason) => {
+                                  if (reason === "input") {
+                                    updateDescriptionRow(rowIndex, "rodtep", newInputValue);
+                                  }
+                                }}
+                                disabled={isDescriptionTableReadOnly}
+                                renderInput={(params) => (
+                                  <TextField
+                                    {...params}
+                                    size="small"
+                                    sx={compactInputSx}
+                                  />
+                                )}
+                              />
                             </td>
                             {/* Action */}
                             <td style={{ padding: "8px 6px", textAlign: "center", width: "50px", verticalAlign: "middle" }}>

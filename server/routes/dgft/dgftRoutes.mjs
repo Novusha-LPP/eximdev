@@ -3,6 +3,7 @@ import multer from "multer";
 import XLSX from "xlsx";
 import DgftRegisterModel from "../../model/dgftRegisterModel.mjs";
 import AuthorizationRegistrationModel from "../../model/authorizationRegistrationModel.mjs";
+import RodtepModel from "../../model/rodtepModel.mjs";
 import JobModel from "../../model/jobModel.mjs";
 import LicenseUtilizationModel from "../../model/licenseUtilizationModel.mjs";
 import { recalculateLicenseUtilization } from "../../services/licenseUtilizationService.mjs";
@@ -276,12 +277,12 @@ router.post(
         // Fallback for matter_closed_inv_date if still missing: "DATE" (exact match)
         if (!mapped.matter_closed_inv_date) {
           if (row["DATE"] !== undefined) {
-             mapped.matter_closed_inv_date = String(row["DATE"]);
+            mapped.matter_closed_inv_date = String(row["DATE"]);
           } else {
-             const fallbackDate = keysList.find(k => /^DATE$/i.test(k.trim()) && k.trim() !== "Date");
-             if (fallbackDate && row[fallbackDate] !== undefined) {
-               mapped.matter_closed_inv_date = String(row[fallbackDate]);
-             }
+            const fallbackDate = keysList.find(k => /^DATE$/i.test(k.trim()) && k.trim() !== "Date");
+            if (fallbackDate && row[fallbackDate] !== undefined) {
+              mapped.matter_closed_inv_date = String(row[fallbackDate]);
+            }
           }
         }
 
@@ -811,6 +812,132 @@ router.get("/api/license-utilization/records", async (req, res) => {
       authorization_no: { $in: uniqueSearchNos }
     }).sort({ created_at: -1 });
     res.status(200).json(records);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// ===================== RODTEP Details CRUD =====================
+
+// Helper to query all jobs utilizing a specific RODTEP certificate
+async function getRodtepUtilization(rodtepNo) {
+  const jobs = await JobModel.find({
+    "description_details.rodtep": rodtepNo
+  }).select("job_no ie_code_no exrate description_details").lean();
+
+  const utilizationList = [];
+  let totalUtilized = 0;
+
+  for (const job of jobs) {
+    const jobEx = parseFloat(job.exrate) || 84;
+    for (const row of job.description_details) {
+      if (row.rodtep === rodtepNo) {
+        const amt = parseFloat(row.amount) || 0;
+        const amtInr = row.amount_currency === "INR" ? amt : amt * jobEx;
+
+        utilizationList.push({
+          job_no: job.job_no,
+          ie_code_no: job.ie_code_no,
+          description: row.description || "—",
+          amount: amt,
+          currency: row.amount_currency || "USD",
+          amount_inr: Math.round(amtInr * 100) / 100
+        });
+        totalUtilized += amtInr;
+      }
+    }
+  }
+  return { utilizationList, totalUtilized };
+}
+
+// GET all RODTEP scrips (enriched with utilized & balance values)
+router.get("/api/get-rodteps", async (req, res) => {
+  try {
+    const data = await RodtepModel.find().sort({ createdAt: -1 }).lean();
+    const enriched = [];
+    for (const item of data) {
+      const { totalUtilized } = await getRodtepUtilization(item.rodtep);
+      enriched.push({
+        ...item,
+        utilized_amount: Math.round(totalUtilized * 100) / 100,
+        balance_amount: Math.max(0, Math.round((item.value_inr - totalUtilized) * 100) / 100)
+      });
+    }
+    res.status(200).json(enriched);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// POST add new RODTEP scrip (auto-calculates sr_no sequentially)
+router.post("/api/add-rodtep", async (req, res) => {
+  try {
+    const maxEntry = await RodtepModel.findOne().sort({ sr_no: -1 });
+    const nextSr = maxEntry && maxEntry.sr_no ? maxEntry.sr_no + 1 : 1;
+    req.body.sr_no = nextSr;
+
+    const record = await RodtepModel.create(req.body);
+    res.status(201).json({ message: "RODTEP record added successfully", data: record });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// PUT update RODTEP scrip details
+router.put("/api/update-rodtep/:id", async (req, res) => {
+  try {
+    const updated = await RodtepModel.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ message: "Record not found" });
+    res.status(200).json({ message: "RODTEP record updated successfully", data: updated });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// DELETE RODTEP scrip
+router.delete("/api/delete-rodtep/:id", async (req, res) => {
+  try {
+    const deleted = await RodtepModel.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ message: "Record not found" });
+    res.status(200).json({ message: "RODTEP record deleted successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// GET utilizing jobs for a specific RODTEP scrip
+router.get("/api/get-rodtep-utilization", async (req, res) => {
+  try {
+    const { rodtep } = req.query;
+    if (!rodtep) {
+      return res.status(400).json({ message: "rodtep query param is required" });
+    }
+    const { utilizationList } = await getRodtepUtilization(rodtep);
+    res.status(200).json(utilizationList);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// GET RODTEPs matching job IEC code
+router.get("/api/get-rodteps-by-iec", async (req, res) => {
+  try {
+    const { iec_no } = req.query;
+    if (!iec_no) {
+      return res.status(400).json({ message: "iec_no query param is required" });
+    }
+    const data = await RodtepModel.find({ iec_code: iec_no }).sort({ createdAt: -1 }).lean();
+    res.status(200).json(data);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal Server Error" });

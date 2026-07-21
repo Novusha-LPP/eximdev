@@ -5,6 +5,7 @@ import auditMiddleware from "../../middleware/auditTrail.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import { sanitizeJobPayload } from "../../utils/modeLogic.mjs";
 import { recalculateLicenseUtilizationForJob, validateLicenseUtilization, getUsdImportRate } from "../../services/licenseUtilizationService.mjs";
+import { validateRodtepUtilization } from "../../services/rodtepService.mjs";
 
 const router = express.Router();
 
@@ -102,6 +103,12 @@ router.put("/api/update-job/:branch_code/:trade_type/:mode/:year/:jobNo",
           usdRate,
           req.body.be_no || matchingJob.be_no || "",
           matchingJob.job_no || matchingJob.job_number || "",
+          session
+        );
+        await validateRodtepUtilization(
+          req.body.description_details,
+          matchingJob._id,
+          req.body.exrate || matchingJob.exrate || 84,
           session
         );
 
@@ -420,6 +427,12 @@ router.put("/api/admin/update-job-static/:branch_code/:trade_type/:mode/:year/:j
           usdRate,
           req.body.be_no || matchingJob.be_no || "",
           matchingJob.job_no || matchingJob.job_number || "",
+          session
+        );
+        await validateRodtepUtilization(
+          req.body.description_details,
+          matchingJob._id,
+          req.body.exrate || matchingJob.exrate || 84,
           session
         );
 

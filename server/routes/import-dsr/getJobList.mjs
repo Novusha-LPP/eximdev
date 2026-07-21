@@ -9,6 +9,7 @@ import { getBranchMatch } from "../../utils/branchFilter.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import { applyUserBranchFilter } from "../../middleware/branchMiddleware.mjs";
 import { recalculateLicenseUtilizationForJob, validateLicenseUtilization, getUsdImportRate } from "../../services/licenseUtilizationService.mjs";
+import { validateRodtepUtilization } from "../../services/rodtepService.mjs";
 
 const router = express.Router();
 
@@ -1002,6 +1003,11 @@ router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
           usdRate,
           updateData.be_no || existing.be_no || "",
           existing.job_no || existing.job_number || ""
+        );
+        await validateRodtepUtilization(
+          updateData.description_details,
+          id,
+          updateData.exrate || existing.exrate || 84
         );
       } catch (validationErr) {
         return res.status(400).json({ success: false, message: validationErr.message });

@@ -6,6 +6,7 @@ import authMiddleware from "../../middleware/authMiddleware.mjs";
 import { generateJobNumber } from "../../services/jobNumberService.mjs";
 import { sanitizeJobPayload } from "../../utils/modeLogic.mjs";
 import { recalculateLicenseUtilizationForJob, validateLicenseUtilization, getUsdImportRate } from "../../services/licenseUtilizationService.mjs";
+import { validateRodtepUtilization } from "../../services/rodtepService.mjs";
 // Initialize the router
 const router = express.Router();
 
@@ -97,6 +98,11 @@ router.post(
           fallbackUsd,
           req.body.be_no || "",
           ""
+        );
+        await validateRodtepUtilization(
+          req.body.description_details,
+          null,
+          req.body.exrate || 84
         );
       } catch (validationErr) {
         return res.status(400).json({ message: validationErr.message });

@@ -825,11 +825,14 @@ const FleetUtilizationReport = ({
         if (elapsedDays > 0) {
             const branchCounts = {};
             closedLRsList.forEach(r => { const br = r.branch || 'Unknown'; branchCounts[br] = (branchCounts[br] || 0) + 1; });
+            let rawProjAll = 0, rawProjMundra = 0;
             Object.entries(branchCounts).forEach(([br, count]) => {
-                const proj = Math.round((count / elapsedDays) * daysInMonth);
-                projAll += proj;
-                if (br.toLowerCase().includes('mundra')) projMundra += proj;
+                const proj = (count / elapsedDays) * daysInMonth;
+                rawProjAll += proj;
+                if (br.toLowerCase().includes('mundra')) rawProjMundra += proj;
             });
+            projAll = Math.round(rawProjAll);
+            projMundra = Math.round(rawProjMundra);
         }
 
         const avgPerf = comparisonData.prevAvgTrips > 0 ? (avgTripsPerDay / comparisonData.prevAvgTrips) * 100 : 100;

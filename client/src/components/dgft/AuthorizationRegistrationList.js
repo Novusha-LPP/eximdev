@@ -79,8 +79,8 @@ const INITIAL_FORM = {
 };
 
 const DATE_FIELDS = new Set([
-  "date", "licence_date", "date_send_to_icd_ports",
-  "registration_date", "bg_date", "bg_expiry_date", "bond_date",
+  "date", "licence_date", "auth_date", "authorization_date", "date_send_to_icd_ports",
+  "registration_date", "bg_date", "bg_expiry_date", "bond_date", "bond_expiry_date",
   "lic_recd_from_party", "completed", "billing_done_or_not",
   "import_validity", "export_validity", "accounts_billing_invoice_date",
 ]);
@@ -150,19 +150,20 @@ const FIELDS = [
   { key: "scheme_code",                  label: "Scheme Code", select: true, options: SCHEME_CODE_OPTIONS },
 ];
 
-// Table columns — per image 1 (no Sr No, actions first)
+// Table columns — removed DATE and JOB NUMBER per user request, added BOND NO, BOND AMOUNT, BOND EXPIRY after AUTHORIZATION DATE
 const TABLE_COLUMNS = [
-  { key: "job_no",       label: "JOB NUMBER",          width: 120 },
-  { key: "date",         label: "DATE",                width: 100 },
-  { key: "party_name",   label: "FIRM NAME",           width: 300 },
-  { key: "iec_no",       label: "IEC NAME",            width: 150 },
-  { key: "licence_no",   label: "AUTHORIZATION NUMBER",width: 180 },
-  { key: "licence_date", label: "AUTHORIZATION DATE",  width: 110 },
-  { key: "scheme_code",  label: "SCHEME CODE",         width: 120 },
-  { key: "job_type",     label: "JOB CATEGORIES",      width: 170 },
-  { key: "port_code",    label: "PORT CODE",           width: 100 },
-  { key: "job_status",   label: "JOB STATUS",          width: 140 },
-  { key: "_actions",     label: "ACTIONS",             width: 100 },
+  { key: "party_name",       label: "FIRM NAME",           width: 250 },
+  { key: "iec_no",           label: "IEC NAME",            width: 130 },
+  { key: "licence_no",       label: "AUTHORIZATION NUMBER",width: 180 },
+  { key: "licence_date",     label: "AUTHORIZATION DATE",  width: 130 },
+  { key: "bond_number",      label: "BOND NO",             width: 130 },
+  { key: "bond_amount",      label: "BOND AMOUNT",         width: 120 },
+  { key: "bond_expiry_date", label: "BOND EXPIRY",         width: 120 },
+  { key: "scheme_code",      label: "SCHEME CODE",         width: 120 },
+  { key: "job_type",         label: "JOB CATEGORIES",      width: 160 },
+  { key: "port_code",        label: "PORT CODE",           width: 100 },
+  { key: "job_status",       label: "JOB STATUS",          width: 130 },
+  { key: "_actions",         label: "ACTIONS",             width: 100 },
 ];
 
 
@@ -471,15 +472,20 @@ function AuthorizationRegistrationList({ onCountChange }) {
           !(row.job_no     || "").toLowerCase().includes(q) &&
           !(row.party_name || "").toLowerCase().includes(q) &&
           !(row.licence_no || "").toLowerCase().includes(q) &&
-          !(row.iec_no     || "").toLowerCase().includes(q)
+          !(row.iec_no     || "").toLowerCase().includes(q) &&
+          !(row.bond_number|| "").toLowerCase().includes(q)
         ) return false;
       }
       return true;
     });
     if (sort.key) {
       result = [...result].sort((a, b) => {
-        const va = String(a[sort.key] || "").toLowerCase();
-        const vb = String(b[sort.key] || "").toLowerCase();
+        let va = sort.key === "licence_date"
+          ? String(a.licence_date || a.auth_date || a.authorization_date || "").toLowerCase()
+          : String(a[sort.key] || "").toLowerCase();
+        let vb = sort.key === "licence_date"
+          ? String(b.licence_date || b.auth_date || b.authorization_date || "").toLowerCase()
+          : String(b[sort.key] || "").toLowerCase();
         return sort.dir === "asc"
           ? va.localeCompare(vb, undefined, { numeric: true })
           : vb.localeCompare(va, undefined, { numeric: true });
@@ -501,7 +507,7 @@ function AuthorizationRegistrationList({ onCountChange }) {
           <div className="ar-search-wrap">
             <input
               type="text"
-              placeholder="Search Job No, Party, Auth No, IEC…"
+              placeholder="Search Party, Auth No, IEC, Bond No…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -625,10 +631,11 @@ function AuthorizationRegistrationList({ onCountChange }) {
                           </td>
                         );
                       }
-                      const val = row[col.key] || "";
-                      if (col.key === "job_no") {
-                        const sVal = String(val);
-                        const displayVal = sVal.includes("/") ? sVal : `LIC/${sVal}`;
+                      const rawVal = col.key === "licence_date"
+                        ? (row.licence_date || row.auth_date || row.authorization_date || "")
+                        : (row[col.key] || "");
+                      if (col.key === "licence_no") {
+                        const displayVal = rawVal || "—";
                         return (
                           <td key={col.key} onClick={(e) => { e.stopPropagation(); navigate(`/dgft/authorization-details/${row._id}`); }}>
                             <span className="ar-job-link">{displayVal}</span>
@@ -639,7 +646,7 @@ function AuthorizationRegistrationList({ onCountChange }) {
                         return (
                           <td key={col.key} onClick={(e) => e.stopPropagation()}>
                             <select
-                              value={val}
+                              value={rawVal}
                               onChange={(e) => handleStatusChange(row._id, e.target.value)}
                               style={{ padding: "4px 8px", borderRadius: "3px", border: "1px solid #d0d7e2", width: "100%", fontSize: "11px", outline: "none", background: "#fff" }}
                             >
@@ -652,12 +659,12 @@ function AuthorizationRegistrationList({ onCountChange }) {
                         );
                       }
                       if (col.key === "party_name") {
-                        return <td key={col.key} style={{ whiteSpace: "normal", wordBreak: "break-word", maxWidth: 180 }}>{val}</td>;
+                        return <td key={col.key} style={{ whiteSpace: "normal", wordBreak: "break-word", maxWidth: 180 }}>{rawVal}</td>;
                       }
                       if (DATE_FIELDS.has(col.key)) {
-                        return <td key={col.key}>{formatDateToDdMmYyyy(val)}</td>;
+                        return <td key={col.key}>{formatDateToDdMmYyyy(rawVal)}</td>;
                       }
-                      return <td key={col.key}>{val}</td>;
+                      return <td key={col.key}>{rawVal}</td>;
                     })}
                   </tr>
                 ))

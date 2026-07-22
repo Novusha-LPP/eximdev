@@ -9,12 +9,120 @@ const router = express.Router();
 router.get("/test", (req, res) => res.json({ status: "Tally API is connected and working!" }));
 
 /**
+ * Resolves a Tally job number or short bill reference (e.g., GIA/00001/26-27, GEA/0001/26-27, 
+ * GG/IA/0001/26-27, GH/EA/0001/26-27, GC/IA/0001/26-27, GB/IA/0001/26-27, FF/0001/26-27, 0001, 00001) 
+ * into an array of MongoDB $or query objects.
+ */
+const resolveJobNumberQuery = (jobNoInput) => {
+    if (!jobNoInput) return [{ _id: null }];
+    const cleanJobNo = String(jobNoInput).trim();
+    if (!cleanJobNo) return [{ _id: null }];
+
+    const conditions = [];
+
+    const exactFields = [
+        "job_no",
+        "job_number",
+        "jobNo",
+        "tally_club_ref_no",
+        "agency_bill_no",
+        "reimbursement_bill_no",
+        "tally_bill_no",
+        "enquiry_no",
+        "success_no",
+        "custom_job_no"
+    ];
+    exactFields.forEach((field) => {
+        conditions.push({ [field]: cleanJobNo });
+    });
+
+    let seqNum = null;
+    let yearSuffix = null;
+    let prefixPart = "";
+
+    const slashParts = cleanJobNo.split("/").map(s => s.trim()).filter(Boolean);
+    
+    if (slashParts.length >= 2) {
+        const last = slashParts[slashParts.length - 1];
+        if (/^\d{2}-\d{2}$|^\d{4}-\d{4}$/.test(last)) {
+            yearSuffix = last;
+        }
+
+        for (const p of slashParts) {
+            if (/^\d+$/.test(p)) {
+                seqNum = parseInt(p, 10);
+                break;
+            }
+        }
+        
+        prefixPart = slashParts[0].toUpperCase();
+        if (slashParts.length > 3 && (slashParts[1] === "IA" || slashParts[1] === "EA" || slashParts[1] === "IR" || slashParts[1] === "ER")) {
+            prefixPart = `${slashParts[0]}/${slashParts[1]}`.toUpperCase();
+        }
+    } else if (/^\d+$/.test(cleanJobNo)) {
+        seqNum = parseInt(cleanJobNo, 10);
+    } else {
+        const numMatch = cleanJobNo.match(/0*(\d+)/);
+        if (numMatch) {
+            seqNum = parseInt(numMatch[1], 10);
+        }
+    }
+
+    if (seqNum !== null && !isNaN(seqNum)) {
+        const padded4 = seqNum.toString().padStart(4, '0');
+        const padded5 = seqNum.toString().padStart(5, '0');
+
+        conditions.push({ sequence_number: seqNum });
+        conditions.push({ sequence_no: seqNum });
+        conditions.push({ job_no: seqNum.toString() });
+        conditions.push({ job_no: padded4 });
+        conditions.push({ job_no: padded5 });
+
+        let yearRegexPart = "";
+        if (yearSuffix) {
+            const shortYear = yearSuffix.slice(-5);
+            yearRegexPart = `.*${shortYear}`;
+        }
+
+        const flexRegex = new RegExp(`(?:^|/|-)0*${seqNum}(?:/|-|$)${yearRegexPart}`, "i");
+        conditions.push({ job_no: { $regex: flexRegex } });
+        conditions.push({ job_number: { $regex: flexRegex } });
+        conditions.push({ tally_club_ref_no: { $regex: flexRegex } });
+
+        if (prefixPart) {
+            let branchRegexStr = "";
+            if (prefixPart.startsWith("GH")) {
+                branchRegexStr = "^(HAZ|GH)";
+            } else if (prefixPart.startsWith("GG")) {
+                branchRegexStr = "^(GND|GAN|GG)";
+            } else if (prefixPart.startsWith("GC")) {
+                branchRegexStr = "^(COK|COC|GC)";
+            } else if (prefixPart.startsWith("GB")) {
+                branchRegexStr = "^(BAR|GB)";
+            } else if (prefixPart.startsWith("GE") || prefixPart.startsWith("GI") || prefixPart === "GIA" || prefixPart === "GEA") {
+                branchRegexStr = "^(AMD|AHM|G)";
+            } else if (prefixPart.startsWith("FF")) {
+                branchRegexStr = "^(FF|FF-)";
+            }
+
+            if (branchRegexStr) {
+                const branchSpecificRegex = new RegExp(`${branchRegexStr}.*0*${seqNum}`, "i");
+                conditions.push({ job_no: { $regex: branchSpecificRegex } });
+                conditions.push({ job_number: { $regex: branchSpecificRegex } });
+            }
+        }
+    }
+
+    return conditions;
+};
+
+/**
  * Internal helper to retrieve and format job data for Tally
  */
 const getJobDetailsInternal = async (job_number) => {
   if (!job_number) return null;
 
-  const job = await JobModel.findOne({ job_number }).lean();
+  const job = await JobModel.findOne({ $or: resolveJobNumberQuery(job_number) }).lean();
   if (!job) return null;
 
   // Extract PO number(s) from top level or invoice details

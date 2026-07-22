@@ -15,68 +15,101 @@ const router = express.Router();
 // - Everyone else → only their own leads
 // ─────────────────────────────────────────────────────────────────────────────
 async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
+  if (req?.query?.all === 'true' || req?.query?.forSelect === 'true') {
+    return {};
+  }
+
   const role = user?.crmRole || user?.role || req?.headers?.['user-role'];
+  const userRole = user?.role || req?.headers?.['user-role'];
   const userId = user?._id || user?.id || user?.userId || req?.headers?.['user-id'];
 
-  // If specifically requesting a team's data
-  if (requestedTeamId) {
+  const isHOD = userRole === 'HOD' || userRole === 'Head_of_Department' || (typeof userRole === 'string' && (userRole.toLowerCase() === 'hod' || userRole.toLowerCase() === 'head_of_department'));
+  const isCrmAdmin = role === 'Admin' || (typeof role === 'string' && role.toLowerCase() === 'admin');
+  const isSystemAdmin = userRole === 'Admin' || (typeof userRole === 'string' && userRole.toLowerCase() === 'admin');
+  const isAdmin = (isCrmAdmin || isSystemAdmin) && !isHOD;
+
+  if (isAdmin) return {};
+  if (!userId) return {};
+
+  const objectIdUserId = new mongoose.Types.ObjectId(userId.toString());
+
+  if (requestedTeamId && requestedTeamId !== 'all' && mongoose.Types.ObjectId.isValid(requestedTeamId)) {
     const team = await SalesTeam.findById(requestedTeamId).lean();
     if (team) {
-      // If admin, or user is manager, or user is member -> show team's data
       const isManager = team.managerId?.toString() === userId?.toString();
       const isMember = team.memberIds?.some(m => m?.toString() === userId?.toString());
-      if (role === 'Admin' || (role && role.toLowerCase() === 'admin') || isManager || isMember) {
+      if (isAdmin || isManager || isMember) {
         const objectIdMemberIds = (team.memberIds || []).map(id => new mongoose.Types.ObjectId(id.toString()));
         if (team.managerId) {
           objectIdMemberIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
         }
-        const filter = { ownerId: { $in: objectIdMemberIds } };
-        if (team.businessVertical) {
-          filter.businessVertical = team.businessVertical;
+        const verticals = [team.businessVertical, team.name?.trim()].filter(Boolean);
+        const orConditions = [
+          { ownerId: { $in: objectIdMemberIds } },
+          { createdBy: { $in: objectIdMemberIds } }
+        ];
+        if (verticals.some(v => v.toLowerCase() === 'paramount')) {
+          orConditions.push(
+            { businessVertical: new RegExp('^paramount$', 'i') },
+            { businessVertical: null },
+            { businessVertical: { $exists: false } },
+            { businessVertical: '' }
+          );
+        } else if (verticals.length > 0) {
+          orConditions.push({ businessVertical: { $in: verticals.map(v => new RegExp(`^${v.trim()}$`, 'i')) } });
         }
-        return filter;
+        return { $or: orConditions };
       }
     }
   }
 
-  // Default fallback (no specific team requested)
-  if (role === 'Admin' || (role && role.toLowerCase() === 'admin')) return {};
-  if (!userId) return {};
-
-  // Find ALL teams this user belongs to (member or manager)
   const myTeams = await SalesTeam.find({
     $or: [
       { managerId: userId },
       { memberIds: userId }
     ]
   }).lean();
-  let visibleUserIds = [userId.toString()];
+
+  let visibleUserIds = [objectIdUserId];
   let visibleVerticals = [];
 
   if (myTeams && myTeams.length > 0) {
     myTeams.forEach(team => {
       if (team.memberIds) {
-        visibleUserIds = [...visibleUserIds, ...team.memberIds.map(id => id.toString())];
+        team.memberIds.forEach(m => visibleUserIds.push(new mongoose.Types.ObjectId(m.toString())));
       }
       if (team.managerId) {
-        visibleUserIds.push(team.managerId.toString());
+        visibleUserIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
       }
       if (team.businessVertical) {
-        visibleVerticals.push(team.businessVertical);
+        visibleVerticals.push(team.businessVertical.trim());
+      }
+      if (team.name) {
+        visibleVerticals.push(team.name.trim());
       }
     });
   }
 
-  // Deduplicate user IDs & Verticals
-  visibleUserIds = [...new Set(visibleUserIds)];
-  visibleVerticals = [...new Set(visibleVerticals)];
+  const uniqueUserIds = [...new Map(visibleUserIds.map(id => [id.toString(), id])).values()];
+  const uniqueVerticals = [...new Set(visibleVerticals.filter(Boolean))];
 
-  const objectIdUserIds = visibleUserIds.map(id => new mongoose.Types.ObjectId(id));
-  const finalFilter = { ownerId: { $in: objectIdUserIds } };
-  if (visibleVerticals.length > 0) {
-    finalFilter.businessVertical = { $in: visibleVerticals };
+  const orConditions = [
+    { ownerId: { $in: uniqueUserIds } },
+    { createdBy: { $in: uniqueUserIds } }
+  ];
+
+  if (uniqueVerticals.length === 0 || uniqueVerticals.some(v => v.toLowerCase() === 'paramount')) {
+    orConditions.push(
+      { businessVertical: new RegExp('^paramount$', 'i') },
+      { businessVertical: null },
+      { businessVertical: { $exists: false } },
+      { businessVertical: '' }
+    );
+  } else {
+    orConditions.push({ businessVertical: { $in: uniqueVerticals.map(v => new RegExp(`^${v}$`, 'i')) } });
   }
-  return finalFilter;
+
+  return { $or: orConditions };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

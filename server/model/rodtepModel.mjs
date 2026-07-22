@@ -9,6 +9,7 @@ const rodtepSchema = new mongoose.Schema(
     expiry_date: { type: String },
     value_inr: { type: Number, default: 0 },
     iec_code: { type: String, trim: true },
+    port_code: { type: String, trim: true },
   },
   { timestamps: true }
 );

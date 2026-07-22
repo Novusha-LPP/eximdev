@@ -6,6 +6,10 @@ import SalesTeam from '../../model/crm/SalesTeam.mjs';
 const router = express.Router();
 
 async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
+  if (req?.query?.all === 'true' || req?.query?.forSelect === 'true') {
+    return {};
+  }
+
   const role = user?.crmRole || user?.role || req?.headers?.['user-role'];
   const userId = user?._id || user?.id || user?.userId || req?.headers?.['user-id'];
 
@@ -19,11 +23,12 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
         if (team.managerId) {
           objectIdMemberIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
         }
-        const filter = { ownerId: { $in: objectIdMemberIds } };
-        if (team.businessVertical) {
-          filter.businessVertical = team.businessVertical;
-        }
-        return filter;
+        return {
+          $or: [
+            { ownerId: { $in: objectIdMemberIds } },
+            { createdBy: { $in: objectIdMemberIds } }
+          ]
+        };
       }
     }
   }
@@ -38,7 +43,6 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
     ]
   }).lean();
   let visibleUserIds = [userId.toString()];
-  let visibleVerticals = [];
 
   if (myTeams && myTeams.length > 0) {
     myTeams.forEach(team => {
@@ -48,21 +52,20 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
       if (team.managerId) {
         visibleUserIds.push(team.managerId.toString());
       }
-      if (team.businessVertical) {
-        visibleVerticals.push(team.businessVertical);
-      }
     });
   }
 
   visibleUserIds = [...new Set(visibleUserIds)];
-  visibleVerticals = [...new Set(visibleVerticals)];
-
   const objectIdUserIds = visibleUserIds.map(id => new mongoose.Types.ObjectId(id));
-  const finalFilter = { ownerId: { $in: objectIdUserIds } };
-  if (visibleVerticals.length > 0) {
-    finalFilter.businessVertical = { $in: visibleVerticals };
-  }
-  return finalFilter;
+
+  return {
+    $or: [
+      { ownerId: { $in: objectIdUserIds } },
+      { createdBy: { $in: objectIdUserIds } },
+      { ownerId: null },
+      { ownerId: { $exists: false } }
+    ]
+  };
 }
 
 // GET /api/crm/contacts

@@ -707,7 +707,7 @@ function ViewAuthorizationDetails() {
             </div>
             <div className="ap-firm-cell">
               <div className="ap-firm-label">Auth Date</div>
-              <div className="ap-firm-value date">{toDisplayDate(row.licence_date) || "—"}</div>
+              <div className="ap-firm-value date">{toDisplayDate(row.licence_date || row.auth_date || row.authorization_date) || "—"}</div>
             </div>
           </div>
         </div>

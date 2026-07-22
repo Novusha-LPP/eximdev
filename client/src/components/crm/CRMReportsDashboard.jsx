@@ -332,8 +332,8 @@ export default function CRMReportsDashboard() {
     }));
   };
 
-  
-  
+
+
   const isManager = teams.some(t => {
     const mgrId = t.managerId?._id || t.managerId;
     const currentUserId = user._id || user.id;
@@ -1265,8 +1265,8 @@ export default function CRMReportsDashboard() {
                     </div>
                   ) : (() => {
                     const filtered = repsData.filter(rep => {
-                      const matchesSearch = (rep.name || '').toLowerCase().includes(repsSearchQuery.toLowerCase()) || 
-                                            (rep.username || '').toLowerCase().includes(repsSearchQuery.toLowerCase());
+                      const matchesSearch = (rep.name || '').toLowerCase().includes(repsSearchQuery.toLowerCase()) ||
+                        (rep.username || '').toLowerCase().includes(repsSearchQuery.toLowerCase());
                       const matchesTeam = repsSelectedTeam === 'all' || (rep.teams || []).includes(repsSelectedTeam);
                       return matchesSearch && matchesTeam;
                     });
@@ -1296,15 +1296,15 @@ export default function CRMReportsDashboard() {
                           </thead>
                           <tbody>
                             {filtered.map(rep => (
-                              <tr 
-                                key={rep.userId} 
+                              <tr
+                                key={rep.userId}
                                 onClick={() => {
                                   setSelectedOwner(rep.userId);
                                   setActiveTab('month');
                                 }}
-                                style={{ 
-                                  borderBottom: '1px solid #f1f5f9', 
-                                  fontSize: '0.85rem', 
+                                style={{
+                                  borderBottom: '1px solid #f1f5f9',
+                                  fontSize: '0.85rem',
                                   cursor: 'pointer',
                                   transition: 'background 0.2s'
                                 }}

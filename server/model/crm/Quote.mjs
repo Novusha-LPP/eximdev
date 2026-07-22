@@ -8,6 +8,7 @@ const quoteSchema = new mongoose.Schema({
   accountId: { type: mongoose.Schema.Types.ObjectId, ref: 'Account', required: true },
   contactId: { type: mongoose.Schema.Types.ObjectId, ref: 'Contact' },
   createdById: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  businessVertical: { type: String, default: 'Paramount' },
   
   // Custom Invoice/Estimate Fields
   placeOfSupply: { type: String, default: 'Gujarat (24)' },

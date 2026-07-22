@@ -755,20 +755,40 @@ router.get("/api/get-authorization-by-no", async (req, res) => {
 router.get("/api/get-authorizations-by-iec", async (req, res) => {
   try {
     const { iec_no } = req.query;
-    if (!iec_no) {
-      return res.status(400).json({ message: "iec_no query param is required" });
+    let query = {};
+    if (iec_no) {
+      if (typeof iec_no === "string" && iec_no.includes(",")) {
+        const list = iec_no.split(",").map((s) => s.trim()).filter(Boolean);
+        query = { iec_no: { $in: list } };
+      } else if (Array.isArray(iec_no)) {
+        query = { iec_no: { $in: iec_no } };
+      } else {
+        query = { iec_no };
+      }
     }
-    const records = await AuthorizationRegistrationModel.find({ iec_no })
-      .select("registration_no licence_no auth_date licence_date scheme_code party_name import_details_array")
+    const records = await AuthorizationRegistrationModel.find(query)
+      .select("registration_no licence_no auth_date licence_date scheme_code party_name import_details_array bond_number bond_amount bond_expiry_date job_no port_code job_status job_type category iec_no")
       .sort({ createdAt: -1 })
       .lean();
 
     // Map to a simple list format
     const list = records.map((r) => ({
+      _id: r._id,
       authorization_no: r.registration_no || r.licence_no || "",
+      licence_no: r.licence_no || r.registration_no || "",
       authorization_date: r.auth_date || r.licence_date || "",
+      licence_date: r.licence_date || r.auth_date || "",
+      auth_date: r.auth_date || r.licence_date || "",
       scheme_code: r.scheme_code || "",
       party_name: r.party_name || "",
+      iec_no: r.iec_no || "",
+      bond_number: r.bond_number || "",
+      bond_amount: r.bond_amount || "",
+      bond_expiry_date: r.bond_expiry_date || "",
+      job_no: r.job_no || "",
+      port_code: r.port_code || "",
+      job_status: r.job_status || "",
+      job_category: r.job_type || r.category || "",
       import_details_array: r.import_details_array || [],
     }));
 

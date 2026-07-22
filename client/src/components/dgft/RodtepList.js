@@ -41,10 +41,15 @@ const INITIAL_FORM = {
   expiry_date: "",
   value_inr: "",
   iec_code: "",
+  port_code: "",
 };
 
 const DATE_FIELDS = new Set(["issue_date", "expiry_date"]);
 const ROWS_PER_PAGE_OPTIONS = [25, 50, 100];
+
+const PORT_CODE_OPTIONS = [
+  "INAMD4", "INSBI6", "INSAU6", "INAKV6", "INVRM6", "INMUN1", "INKDL6", "INHZA1"
+];
 
 const TABLE_COLUMNS = [
   { key: "sr_no",          label: "SR NO",           width: 80 },
@@ -55,6 +60,7 @@ const TABLE_COLUMNS = [
   { key: "utilized_amount",label: "UTILIZED INR",    width: 150 },
   { key: "balance_amount", label: "BALANCE INR",     width: 150 },
   { key: "iec_code",       label: "IEC CODE",        width: 150 },
+  { key: "port_code",      label: "PORT CODE",       width: 150 },
   { key: "_actions",       label: "ACTIONS",         width: 130 },
 ];
 
@@ -64,6 +70,7 @@ const FIELDS = [
   { key: "expiry_date", label: "Expiry Date", type: "date" },
   { key: "value_inr",   label: "Value in INR", type: "number", required: true },
   { key: "iec_code",    label: "IEC Code", required: true },
+  { key: "port_code",   label: "Port Code", select: true, options: PORT_CODE_OPTIONS },
 ];
 
 const formatDateToDdMmYyyy = (val) => {
@@ -255,7 +262,8 @@ export default function RodtepList({ onCountChange }) {
         const q = search.toLowerCase();
         return (
           String(row.rodtep || "").toLowerCase().includes(q) ||
-          String(row.iec_code || "").toLowerCase().includes(q)
+          String(row.iec_code || "").toLowerCase().includes(q) ||
+          String(row.port_code || "").toLowerCase().includes(q)
         );
       }
       return true;
@@ -296,7 +304,7 @@ export default function RodtepList({ onCountChange }) {
           <div className="ar-search-wrap">
             <input
               type="text"
-              placeholder="Search RODTEP No, IEC Code..."
+              placeholder="Search RODTEP No, IEC Code, Port Code..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -498,12 +506,27 @@ export default function RodtepList({ onCountChange }) {
                 <label>
                   {field.label} {field.required && <span style={{ color: "red" }}>*</span>}
                 </label>
-                <input
-                  type={field.type === "date" ? "date" : field.type === "number" ? "number" : "text"}
-                  value={formData[field.key]}
-                  onChange={(e) => handleChange(field.key, e.target.value)}
-                  className={errors[field.key] ? "input-error" : ""}
-                />
+                {field.select && field.options ? (
+                  <select
+                    value={formData[field.key] || ""}
+                    onChange={(e) => handleChange(field.key, e.target.value)}
+                    className={errors[field.key] ? "input-error" : ""}
+                  >
+                    <option value="">-- Select --</option>
+                    {field.options.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type={field.type === "date" ? "date" : field.type === "number" ? "number" : "text"}
+                    value={formData[field.key] || ""}
+                    onChange={(e) => handleChange(field.key, e.target.value)}
+                    className={errors[field.key] ? "input-error" : ""}
+                  />
+                )}
                 {errors[field.key] && <span className="field-error">{errors[field.key]}</span>}
               </div>
             ))}

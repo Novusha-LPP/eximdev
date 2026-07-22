@@ -400,14 +400,28 @@ const ElockUtilizationReport = ({
         let { startDate, endDate } = getTransportDates(filterType, selectedDay, selectedYear, selectedMonth, selectedQuarter, dateRange);
         const result = [];
         const totalLocks = elockMeta.totalAssets || 17;
-        const maintenanceCount = elockMeta.maintenanceCount || 0; // Assume constant as no historical history is provided
+        const maintenanceCount = elockMeta.maintenanceCount || 0;
+
+        // Use ALL rows from the API (including AVAILABLE) to read backend-computed per-date values
+        const allRows = elockData.rows || [];
+
+        // Build a map of date -> backend's pre-computed values
+        // The backend attaches locks_used_this_date and available_locks_this_date to each row
+        const dateDataMap = {};
+        allRows.forEach(row => {
+            const normDate = normalizeDateStr(row.date);
+            if (normDate && row.locks_used_this_date !== undefined && !dateDataMap[normDate]) {
+                dateDataMap[normDate] = {
+                    locksUsed: row.locks_used_this_date || 0,
+                    availableLocks: row.available_locks_this_date ?? (totalLocks - (row.locks_used_this_date || 0) - maintenanceCount),
+                    maintenanceLocks: row.maintenance_locks_this_date ?? maintenanceCount
+                };
+            }
+        });
 
         // For 'all' or unfiltered mode, derive date range from actual row data
         if (!startDate || !endDate) {
-            const dates = displayedRows
-                .map(r => normalizeDateStr(r.date))
-                .filter(d => d)
-                .sort();
+            const dates = Object.keys(dateDataMap).sort();
             if (dates.length > 0) {
                 if (!startDate) startDate = dates[0];
                 if (!endDate) endDate = dates[dates.length - 1];
@@ -422,40 +436,21 @@ const ElockUtilizationReport = ({
                 const yyyy = current.getFullYear();
                 const mm = String(current.getMonth() + 1).padStart(2, '0');
                 const dd = String(current.getDate()).padStart(2, '0');
-                const dateStr = `${yyyy}-${mm}-${dd}`;
-                const normDate = normalizeDateStr(dateStr);
+                const normDate = `${yyyy}-${mm}-${dd}`;
                 
-                let activeLocks = new Set();
-                
-                displayedRows.forEach(row => {
-                    const status = row.elock_assign_status ? row.elock_assign_status.toUpperCase() : '';
-                    if (status === 'ACTIVE' || status === 'ASSIGNED' || status === 'RETURNED' || row.is_returned) {
-                        const tripStart = new Date(normalizeDateStr(row.date));
-                        let tripEnd = new Date(); // default to today if still active
-                        if ((status === 'RETURNED' || row.is_returned) && row.elock_return_date && row.elock_return_date !== 'N/A') {
-                            tripEnd = new Date(normalizeDateStr(row.elock_return_date));
-                        }
-                        
-                        // Check if the current date falls between tripStart and tripEnd (inclusive)
-                        if (current >= tripStart && current <= tripEnd) {
-                            const lockId = row.elock_id || row.lock_number;
-                            if (lockId) {
-                                activeLocks.add(lockId);
-                            }
-                        }
-                    }
-                });
-                
-                const activeCount = activeLocks.size;
-                const avail = Math.max(0, totalLocks - activeCount - maintenanceCount);
-                const util = totalLocks > 0 ? parseFloat(((activeCount / totalLocks) * 100).toFixed(1)) : 0;
+                // Use backend's pre-computed values if available, otherwise default to 0
+                const dayData = dateDataMap[normDate];
+                const locksUsed = dayData ? dayData.locksUsed : 0;
+                const avail = dayData ? dayData.availableLocks : Math.max(0, totalLocks - maintenanceCount);
+                const maint = dayData ? dayData.maintenanceLocks : maintenanceCount;
+                const util = totalLocks > 0 ? parseFloat(((locksUsed / totalLocks) * 100).toFixed(1)) : 0;
                 
                 result.push({
                     date: normDate,
-                    locksUsed: activeCount,
+                    locksUsed,
                     availableLocks: avail,
-                    maintenanceLocks: maintenanceCount,
-                    totalLocks: totalLocks,
+                    maintenanceLocks: maint,
+                    totalLocks,
                     utilPercent: util
                 });
                 
@@ -463,61 +458,86 @@ const ElockUtilizationReport = ({
             }
         }
         return result;
-    }, [displayedRows, filterType, selectedDay, selectedYear, selectedMonth, selectedQuarter, dateRange, elockMeta]);
+    }, [elockData.rows, filterType, selectedDay, selectedYear, selectedMonth, selectedQuarter, dateRange, elockMeta]);
 
     // ── Calculated KPIs ─────────────────────────────────────────────────────────
 
     const calculatedKPIs = useMemo(() => {
+        const allRows = elockData.rows || [];
+        const summary = elockData.summary || {};
         const rows = displayedRows || [];
         const totalLocks = elockMeta.totalAssets || 17;
-
-        // Inventory Status from API meta
         const maintenanceLocks = elockMeta.maintenanceCount || 0;
-        const idleLocks = elockMeta.availableCount || 0;
 
-        // Always use the table's actual data to ensure the KPI cards match the table exactly.
-        const activeLocksMap = {};
-        rows.forEach(row => {
-            const status = row.elock_assign_status ? row.elock_assign_status.toUpperCase() : '';
-            if (status === 'ACTIVE' || status === 'ASSIGNED' || status === 'RETURNED' || row.is_returned) {
-                const lockId = row.elock_id || row.lock_number;
-                if (lockId) activeLocksMap[lockId] = row;
-            }
-        });
-
-        const totalAssignedLocks = Object.keys(activeLocksMap).length;
-
-        let assignedReturnPendingLocks = 0;
+        // Used/Active = trips dispatched on the selected date (matches Daily Breakdown table)
         let usedLocks = 0;
-        const tatAlertDetails = [];
-
-        Object.values(activeLocksMap).forEach(row => {
-            if (row.is_placeholder) {
-                assignedReturnPendingLocks++;
-                tatAlertDetails.push({ ...row, elapsedHours: null, severity: 'placeholder' });
-            } else {
-                const start = parseDate(row.date);
-                const elapsedHours = (new Date() - start) / (1000 * 60 * 60);
-                if (elapsedHours > tatLimitHours) {
-                    assignedReturnPendingLocks++;
-                    tatAlertDetails.push({ ...row, elapsedHours: Math.round(elapsedHours), severity: elapsedHours >= tatLimitHours * 2 ? 'critical' : 'warning' });
-                } else {
-                    usedLocks++;
-                }
-            }
-        });
-
-        // Guarantee match with API count
-        if (totalAssignedLocks > 0) {
-            assignedReturnPendingLocks = Math.min(assignedReturnPendingLocks, totalAssignedLocks);
-            usedLocks = totalAssignedLocks - assignedReturnPendingLocks;
+        if (elockDailyTrendData.length === 1) {
+            usedLocks = elockDailyTrendData[0].locksUsed;
+        } else if (elockDailyTrendData.length > 1) {
+            usedLocks = elockMeta.assignedCount || 0;
         }
 
-        const assetUtilizationPercent = totalLocks > 0
-            ? (usedLocks / totalLocks * 100).toFixed(1)
-            : '0.0';
+        const { startDate: filterStart, endDate: filterEnd } = getTransportDates(
+            filterType, selectedDay, selectedYear, selectedMonth, selectedQuarter, dateRange
+        );
+        
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const refDate = filterEnd ? new Date(filterEnd) : (filterStart ? new Date(filterStart) : today);
+        refDate.setHours(23, 59, 59, 999);
+        const calcRefTime = Math.min(refDate.getTime(), new Date().getTime());
 
-        // Average Daily Locks Used
+        let returnedDuringPeriod = 0;
+        let totalOutInField = 0;
+        let tatAlertsCount = 0;
+        const tatAlertDetails = [];
+
+        const periodStart = filterStart ? new Date(filterStart) : new Date(0);
+        periodStart.setHours(0, 0, 0, 0);
+        const periodEnd = refDate;
+
+        allRows.forEach(row => {
+            const status = row.elock_assign_status ? row.elock_assign_status.toUpperCase() : '';
+            const isValidTrip = status === 'ACTIVE' || status === 'ASSIGNED' || status === 'RETURNED';
+
+            let returnDate = null;
+            if (row.elock_return_date && row.elock_return_date !== 'N/A') {
+                returnDate = new Date(normalizeDateStr(row.elock_return_date));
+                returnDate.setHours(0, 0, 0, 0);
+            }
+
+            if (isValidTrip && row.date && row.date !== 'N/A') {
+                const assignDate = new Date(normalizeDateStr(row.date));
+                assignDate.setHours(0, 0, 0, 0);
+
+                // As-Of-Date Pending check: Dispatched on/before refDate AND (Not returned yet OR returned strictly AFTER refDate)
+                if (assignDate.getTime() <= refDate.getTime() && (returnDate === null || returnDate.getTime() > refDate.getTime())) {
+                    totalOutInField++;
+                    
+                    const start = parseDate(row.date);
+                    const elapsedHours = Math.round((calcRefTime - start) / (1000 * 60 * 60));
+                    
+                    if (elapsedHours > tatLimitHours) {
+                        tatAlertsCount++;
+                        const severity = elapsedHours >= tatLimitHours * 2 ? 'critical' : 'warning';
+                        tatAlertDetails.push({ ...row, elapsedHours, severity });
+                    }
+                }
+            }
+
+            if (returnDate !== null && returnDate.getTime() >= periodStart.getTime() && returnDate.getTime() <= periodEnd.getTime()) {
+                returnedDuringPeriod++;
+            }
+        });
+
+        // Return Pending as of the selected date (no future data)
+        const assignedReturnPendingLocks = totalOutInField;
+        const assetUtilizationPercent = totalLocks > 0 ? (usedLocks / totalLocks * 100).toFixed(1) : '0.0';
+
+        // Idle = total - pending - maintenance
+        let idleLocks = Math.max(0, totalLocks - assignedReturnPendingLocks - maintenanceLocks);
+
+        // Average Daily Locks Used — from daily trend data (which uses backend values)
         const { startDate, endDate } = getTransportDates(
             filterType, selectedDay, selectedYear, selectedMonth, selectedQuarter, dateRange
         );
@@ -528,14 +548,24 @@ const ElockUtilizationReport = ({
             diffDays = Math.ceil(Math.abs(endD - startD) / (1000 * 60 * 60 * 24)) + 1 || 1;
         }
 
-        const actualTripRows = rows.filter(row => {
+        // For trip-based calculations, use only ACTIVE/ASSIGNED/RETURNED rows (not AVAILABLE)
+        const actualTripRows = allRows.filter(row => {
             const status = row.elock_assign_status ? row.elock_assign_status.toUpperCase() : '';
             return status === 'ACTIVE' || status === 'ASSIGNED' || status === 'RETURNED';
         });
 
         const totalLocksUsedDuringPeriod = actualTripRows.length;
         
-        // Calculate true daily average using the exact daily trend table data
+        // Count unique e-locks used during this period
+        const uniqueLocksSet = new Set();
+        actualTripRows.forEach(row => {
+            if (row.lock_number) {
+                uniqueLocksSet.add(String(row.lock_number).trim());
+            }
+        });
+        const uniqueLocksUsedDuringPeriod = uniqueLocksSet.size;
+        
+        // Calculate true daily average using the daily trend table data (backend-computed)
         const sumDailyLocksUsed = elockDailyTrendData.reduce((sum, d) => sum + d.locksUsed, 0);
         const averageDailyLocksUsed = elockDailyTrendData.length > 0 ? Math.round(sumDailyLocksUsed / elockDailyTrendData.length) : 0;
 
@@ -562,7 +592,7 @@ const ElockUtilizationReport = ({
         // Projected Lock Requirement
         let totalRetentionDays = 0;
         let returnedCount = 0;
-        rows.forEach(row => {
+        allRows.forEach(row => {
             const status = row.elock_assign_status ? row.elock_assign_status.toUpperCase() : '';
             if ((status === 'RETURNED' || row.is_returned) && row.elock_return_date && row.date && row.elock_return_date !== 'N/A') {
                 const start = parseDate(row.date);
@@ -603,38 +633,26 @@ const ElockUtilizationReport = ({
             assetUtilizationPercent, averageDailyLocksUsed, averageDailyUtilizationPercent,
             highestSingleDayUtilizationPercent, projectedVolume, projectedLockRequirement,
             srccProjectedVolume, othersProjectedVolume, srccProjectedLockRequirement, othersProjectedLockRequirement,
-            elockTatAlerts: assignedReturnPendingLocks, tatAlertDetails,
+            elockTatAlerts: tatAlertsCount, tatAlertDetails,
             srccLocksUsed, srccUtilizationPercent, otherFleetLocksUsed, otherFleetUtilizationPercent,
-            averageLockRetentionDays, totalLocksUsedDuringPeriod, maxLocksUsedSingleDay
+            averageLockRetentionDays, totalLocksUsedDuringPeriod, uniqueLocksUsedDuringPeriod, maxLocksUsedSingleDay,
+            returnedDuringPeriod
         };
-    }, [displayedRows, elockMeta, elockDailyTrendData, filterType, selectedDay, selectedYear, selectedMonth, selectedQuarter, dateRange, tatLimitHours]);
-
-    // ── Displayed Rows (searchable, sortable, filtered) ─────────────────────────
-
-
+    }, [elockData.rows, elockData.summary, displayedRows, elockMeta, elockDailyTrendData, filterType, selectedDay, selectedYear, selectedMonth, selectedQuarter, dateRange, tatLimitHours]);
 
     // ── Inventory Donut Chart Data ──────────────────────────────────────────────
 
     const inventoryDonutData = useMemo(() => {
         const data = [];
-        if (isSingleDay) {
-            if (calculatedKPIs.usedLocks > 0) data.push({ name: 'Used / Active', value: calculatedKPIs.usedLocks, fill: DONUT_COLORS.used });
-            if (calculatedKPIs.assignedReturnPendingLocks > 0) data.push({ name: 'Return Pending', value: calculatedKPIs.assignedReturnPendingLocks, fill: DONUT_COLORS.returnPending });
-            if (calculatedKPIs.idleLocks > 0) data.push({ name: 'Idle / Available', value: calculatedKPIs.idleLocks, fill: DONUT_COLORS.idle });
-            if (calculatedKPIs.maintenanceLocks > 0) data.push({ name: 'Maintenance', value: calculatedKPIs.maintenanceLocks, fill: DONUT_COLORS.maintenance });
-        } else {
-            const avgUsed = parseFloat(calculatedKPIs.averageDailyLocksUsed) || 0;
-            const avgMaint = calculatedKPIs.maintenanceLocks || 0;
-            const avgIdle = Math.max(0, calculatedKPIs.totalLocks - avgUsed - avgMaint);
-            
-            if (avgUsed > 0) data.push({ name: 'Avg Used', value: avgUsed, fill: DONUT_COLORS.used });
-            if (avgIdle > 0) data.push({ name: 'Avg Idle', value: parseFloat(avgIdle.toFixed(1)), fill: DONUT_COLORS.idle });
-            if (avgMaint > 0) data.push({ name: 'Maintenance', value: avgMaint, fill: DONUT_COLORS.maintenance });
-        }
+        // In both cases, the physical state is either Assigned, Pending Return, Idle, or Maintenance.
+        if (calculatedKPIs.usedLocks > 0) data.push({ name: 'Assigned', value: calculatedKPIs.usedLocks, fill: DONUT_COLORS.used });
+        if (calculatedKPIs.assignedReturnPendingLocks > 0) data.push({ name: 'Return Pending', value: calculatedKPIs.assignedReturnPendingLocks, fill: DONUT_COLORS.returnPending });
+        if (calculatedKPIs.idleLocks > 0) data.push({ name: 'Idle / Available', value: calculatedKPIs.idleLocks, fill: DONUT_COLORS.idle });
+        if (calculatedKPIs.maintenanceLocks > 0) data.push({ name: 'Maintenance', value: calculatedKPIs.maintenanceLocks, fill: DONUT_COLORS.maintenance });
         
         if (data.length === 0) data.push({ name: 'No Data', value: 1, fill: '#e2e8f0' });
         return data;
-    }, [calculatedKPIs, isSingleDay]);
+    }, [calculatedKPIs]);
 
     // ── Fleet Breakdown Data ────────────────────────────────────────────────────
 
@@ -901,15 +919,50 @@ const ElockUtilizationReport = ({
                 <KpiCard label="Total Locks" value={calculatedKPIs.totalLocks} color="#667eea" />
                 {isSingleDay ? (
                     <>
-                        <KpiCard label="Used / Active" subtitle="In trips right now" value={`${calculatedKPIs.usedLocks}`} pct={`${calculatedKPIs.assetUtilizationPercent}%`} color={getUtilColor(calculatedKPIs.assetUtilizationPercent)} />
-                        <KpiCard label="Idle / Available" value={`${calculatedKPIs.idleLocks}`} pct={calculatedKPIs.totalLocks ? ((calculatedKPIs.idleLocks / calculatedKPIs.totalLocks) * 100).toFixed(1) : '0'} subtitle="Ready to assign" color="#10b981" />
-                        <KpiCard label="Asset Utilization" value={`${calculatedKPIs.assetUtilizationPercent}%`} color={getUtilColor(calculatedKPIs.assetUtilizationPercent)} />
+                        <KpiCard 
+                            label="Assigned (This Period)" 
+                            subtitle="Trips dispatched" 
+                            value={`${calculatedKPIs.usedLocks || 0}`} 
+                            pct={`${calculatedKPIs.assetUtilizationPercent}%`} 
+                            color={DONUT_COLORS.used} 
+                        />
+                        <KpiCard 
+                            label="Returned (This Period)" 
+                            subtitle="Trips completed" 
+                            value={`${calculatedKPIs.returnedDuringPeriod || 0}`} 
+                            pct={calculatedKPIs.totalLocks ? ((calculatedKPIs.returnedDuringPeriod / calculatedKPIs.totalLocks) * 100).toFixed(1) : '0'} 
+                            color="#10b981" 
+                        />
+                        <KpiCard 
+                            label="Idle / Available" 
+                            value={`${calculatedKPIs.idleLocks}`} 
+                            pct={calculatedKPIs.totalLocks ? ((calculatedKPIs.idleLocks / calculatedKPIs.totalLocks) * 100).toFixed(1) : '0'} 
+                            subtitle="Ready to assign" 
+                            color={DONUT_COLORS.idle} 
+                        />
+                        <KpiCard 
+                            label="Asset Utilization" 
+                            value={`${calculatedKPIs.assetUtilizationPercent}%`} 
+                            color={getUtilColor(calculatedKPIs.assetUtilizationPercent)} 
+                        />
                     </>
                 ) : (
                     <>
+                        <KpiCard 
+                            label="Total Elock Used" 
+                            subtitle="Total assignments in period" 
+                            value={`${calculatedKPIs.totalLocksUsedDuringPeriod || 0}`} 
+                            color="#8b5cf6" 
+                        />
+                        <KpiCard 
+                            label="Unique E-Locks Used" 
+                            subtitle={`Out of ${calculatedKPIs.totalLocks} total fleet`} 
+                            value={`${calculatedKPIs.uniqueLocksUsedDuringPeriod || 0}`} 
+                            pct={calculatedKPIs.totalLocks ? ((calculatedKPIs.uniqueLocksUsedDuringPeriod / calculatedKPIs.totalLocks) * 100).toFixed(1) : '0'}
+                            color={DONUT_COLORS.used} 
+                        />
                         <KpiCard label="Avg Daily Locks Used" subtitle="Active per day" value={`${calculatedKPIs.averageDailyLocksUsed}`} pct={`${calculatedKPIs.averageDailyUtilizationPercent}%`} color={getUtilColor(calculatedKPIs.averageDailyUtilizationPercent)} />
                         <KpiCard label="Avg Idle Locks" value={`${Math.round(Math.max(0, calculatedKPIs.totalLocks - calculatedKPIs.averageDailyLocksUsed - calculatedKPIs.maintenanceLocks))}`} pct={calculatedKPIs.totalLocks ? ((Math.max(0, calculatedKPIs.totalLocks - calculatedKPIs.averageDailyLocksUsed - calculatedKPIs.maintenanceLocks) / calculatedKPIs.totalLocks) * 100).toFixed(1) : '0'} subtitle="Available per day" color="#10b981" />
-                        <KpiCard label="Avg Utilization" value={`${calculatedKPIs.averageDailyUtilizationPercent}%`} color={getUtilColor(calculatedKPIs.averageDailyUtilizationPercent)} />
                     </>
                 )}
             </div>

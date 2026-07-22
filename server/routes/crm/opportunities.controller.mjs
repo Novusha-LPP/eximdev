@@ -86,30 +86,53 @@ const validateStageTransition = (currentStage, newStage) => {
 
 // Ownership filter — team owner sees all member opportunities, others see own
 async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
+  if (req?.query?.all === 'true' || req?.query?.forSelect === 'true') {
+    return {};
+  }
+
   const role = user?.crmRole || user?.role || req?.headers?.['user-role'];
+  const userRole = user?.role || req?.headers?.['user-role'];
   const userId = user?._id || user?.id || user?.userId || req?.headers?.['user-id'];
 
-  if (requestedTeamId) {
+  const isHOD = userRole === 'HOD' || userRole === 'Head_of_Department' || (typeof userRole === 'string' && (userRole.toLowerCase() === 'hod' || userRole.toLowerCase() === 'head_of_department'));
+  const isCrmAdmin = role === 'Admin' || (typeof role === 'string' && role.toLowerCase() === 'admin');
+  const isSystemAdmin = userRole === 'Admin' || (typeof userRole === 'string' && userRole.toLowerCase() === 'admin');
+  const isAdmin = (isCrmAdmin || isSystemAdmin) && !isHOD;
+
+  if (isAdmin) return {};
+  if (!userId) return {};
+
+  const objectIdUserId = new mongoose.Types.ObjectId(userId.toString());
+
+  if (requestedTeamId && requestedTeamId !== 'all' && mongoose.Types.ObjectId.isValid(requestedTeamId)) {
     const team = await SalesTeam.findById(requestedTeamId).lean();
     if (team) {
       const isManager = team.managerId?.toString() === userId?.toString();
       const isMember = team.memberIds?.some(m => m?.toString() === userId?.toString());
-      if (role === 'Admin' || (role && role.toLowerCase() === 'admin') || isManager || isMember) {
+      if (isAdmin || isManager || isMember) {
         const objectIdMemberIds = (team.memberIds || []).map(id => new mongoose.Types.ObjectId(id.toString()));
         if (team.managerId) {
           objectIdMemberIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
         }
-        const filter = { ownerId: { $in: objectIdMemberIds } };
-        if (team.businessVertical) {
-          filter.businessVertical = team.businessVertical;
+        const verticals = [team.businessVertical, team.name?.trim()].filter(Boolean);
+        const orConditions = [
+          { ownerId: { $in: objectIdMemberIds } },
+          { createdBy: { $in: objectIdMemberIds } }
+        ];
+        if (verticals.some(v => v.toLowerCase() === 'paramount')) {
+          orConditions.push(
+            { businessVertical: new RegExp('^paramount$', 'i') },
+            { businessVertical: null },
+            { businessVertical: { $exists: false } },
+            { businessVertical: '' }
+          );
+        } else if (verticals.length > 0) {
+          orConditions.push({ businessVertical: { $in: verticals.map(v => new RegExp(`^${v.trim()}$`, 'i')) } });
         }
-        return filter;
+        return { $or: orConditions };
       }
     }
   }
-
-  if (role === 'Admin' || (role && role.toLowerCase() === 'admin')) return {};
-  if (!userId) return {};
 
   const myTeams = await SalesTeam.find({
     $or: [
@@ -117,32 +140,47 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
       { memberIds: userId }
     ]
   }).lean();
-  let visibleUserIds = [userId.toString()];
+
+  let visibleUserIds = [objectIdUserId];
   let visibleVerticals = [];
 
   if (myTeams && myTeams.length > 0) {
     myTeams.forEach(team => {
       if (team.memberIds) {
-        visibleUserIds = [...visibleUserIds, ...team.memberIds.map(id => id.toString())];
+        team.memberIds.forEach(m => visibleUserIds.push(new mongoose.Types.ObjectId(m.toString())));
       }
       if (team.managerId) {
-        visibleUserIds.push(team.managerId.toString());
+        visibleUserIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
       }
       if (team.businessVertical) {
-        visibleVerticals.push(team.businessVertical);
+        visibleVerticals.push(team.businessVertical.trim());
+      }
+      if (team.name) {
+        visibleVerticals.push(team.name.trim());
       }
     });
   }
 
-  visibleUserIds = [...new Set(visibleUserIds)];
-  visibleVerticals = [...new Set(visibleVerticals)];
+  const uniqueUserIds = [...new Map(visibleUserIds.map(id => [id.toString(), id])).values()];
+  const uniqueVerticals = [...new Set(visibleVerticals.filter(Boolean))];
 
-  const objectIdUserIds = visibleUserIds.map(id => new mongoose.Types.ObjectId(id));
-  const finalFilter = { ownerId: { $in: objectIdUserIds } };
-  if (visibleVerticals.length > 0) {
-    finalFilter.businessVertical = { $in: visibleVerticals };
+  const orConditions = [
+    { ownerId: { $in: uniqueUserIds } },
+    { createdBy: { $in: uniqueUserIds } }
+  ];
+
+  if (uniqueVerticals.length === 0 || uniqueVerticals.some(v => v.toLowerCase() === 'paramount')) {
+    orConditions.push(
+      { businessVertical: new RegExp('^paramount$', 'i') },
+      { businessVertical: null },
+      { businessVertical: { $exists: false } },
+      { businessVertical: '' }
+    );
+  } else {
+    orConditions.push({ businessVertical: { $in: uniqueVerticals.map(v => new RegExp(`^${v}$`, 'i')) } });
   }
-  return finalFilter;
+
+  return { $or: orConditions };
 }
 
 // GET /api/crm/opportunities
@@ -240,7 +278,7 @@ router.get('/', async (req, res) => {
     }).populate('assignedTo', 'username first_name last_name').lean();
 
     processedOpps.forEach(opp => {
-      opp.pricingRequests = pricingRequests.filter(pr => 
+      opp.pricingRequests = pricingRequests.filter(pr =>
         (pr.relatedTo.model === 'Opportunity' && pr.relatedTo.id.toString() === opp._id.toString()) ||
         (pr.relatedTo.model === 'Lead' && opp.convertedFromLead && pr.relatedTo.id.toString() === opp.convertedFromLead.toString())
       );
@@ -324,7 +362,7 @@ router.get('/board', async (req, res) => {
     }).populate('assignedTo', 'username first_name last_name').lean();
 
     processedOpps.forEach(opp => {
-      opp.pricingRequests = pricingRequests.filter(pr => 
+      opp.pricingRequests = pricingRequests.filter(pr =>
         (pr.relatedTo.model === 'Opportunity' && pr.relatedTo.id.toString() === opp._id.toString()) ||
         (pr.relatedTo.model === 'Lead' && opp.convertedFromLead && pr.relatedTo.id.toString() === opp.convertedFromLead.toString())
       );
@@ -384,7 +422,7 @@ router.get('/:id', async (req, res) => {
       .populate('ownerId', 'username first_name last_name')
       .populate('createdBy', 'username first_name last_name');
     if (!opp) return res.status(404).json({ message: 'Opportunity not found' });
-    
+
     const pricingRequests = await PricingRequest.find({
       'relatedTo.model': 'Opportunity',
       'relatedTo.id': opp._id

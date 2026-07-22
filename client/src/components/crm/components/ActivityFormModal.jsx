@@ -53,19 +53,19 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
     if (!model) return;
     try {
       let endpoint = '';
-      if (model === 'Lead') endpoint = '/crm/leads';
-      else if (model === 'Opportunity') endpoint = '/crm/opportunities';
-      else if (model === 'Account') endpoint = '/crm/accounts';
-      else if (model === 'Contact') endpoint = '/crm/contacts';
+      if (model === 'Lead') endpoint = '/crm/leads?all=true';
+      else if (model === 'Opportunity') endpoint = '/crm/opportunities?all=true';
+      else if (model === 'Account') endpoint = '/crm/accounts?all=true';
+      else if (model === 'Contact') endpoint = '/crm/contacts?all=true';
 
       const res = await axios.get(`${process.env.REACT_APP_API_STRING}${endpoint}`, getHeaders());
       const mapped = (res.data || []).map(item => {
         let name = '';
-        if (model === 'Lead') name = `${item.firstName} ${item.lastName || ''} (${item.company})`;
-        else if (model === 'Opportunity') name = `${item.name} (${typeof item.accountId === 'object' ? (item.accountId?.name || 'No Account') : 'No Account'})`;
-        else if (model === 'Account') name = item.name;
-        else if (model === 'Contact') name = `${item.firstName} ${item.lastName || ''}`;
-        return { id: item._id, name };
+        if (model === 'Lead') name = `${item.firstName || ''} ${item.lastName || ''} ${item.company ? `(${item.company})` : ''}`.trim();
+        else if (model === 'Opportunity') name = `${item.name || 'Unnamed Deal'} (${typeof item.accountId === 'object' ? (item.accountId?.name || 'No Account') : 'No Account'})`;
+        else if (model === 'Account') name = item.name || 'Unnamed Account';
+        else if (model === 'Contact') name = `${item.firstName || ''} ${item.lastName || ''}`.trim();
+        return { id: item._id, name: name || 'Unnamed Record' };
       });
       setEntities(mapped);
     } catch (err) {

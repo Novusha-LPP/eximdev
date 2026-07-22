@@ -9,8 +9,7 @@ const pinCodeRegex = /^\d{6}$/;
 
 export const validationSchema = yup.object({
   employee_code: yup
-    .string("Enter Employee ID")
-    .required("Employee ID is required"),
+    .string("Enter Employee ID"),
   designation: yup
     .string("Enter designation")
     .required("Designation is required"),

@@ -389,7 +389,7 @@ function CompleteKYC() {
                 <Field label="Designation">
                   <TextField size="small" variant="filled" fullWidth name="designation" value={formik.values.designation} onChange={formik.handleChange} error={formik.touched.designation && Boolean(formik.errors.designation)} helperText={formik.touched.designation && formik.errors.designation} className="hr-quick-input" placeholder="Enter designation" disabled={!isEditMode} />
                 </Field>
-                <Field label="Employee ID *">
+                <Field label="Employee ID">
                   <TextField size="small" variant="filled" fullWidth name="employee_code" value={formik.values.employee_code} onChange={formik.handleChange} error={formik.touched.employee_code && Boolean(formik.errors.employee_code)} helperText={formik.touched.employee_code && formik.errors.employee_code} className="hr-quick-input" placeholder="Enter Employee ID" disabled={!isEditMode || currentUser?.role !== "Admin"} />
                 </Field>
                 <div style={{ display: 'contents' }}>

@@ -1,12 +1,75 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import Contact from '../../model/crm/Contact.mjs';
+import SalesTeam from '../../model/crm/SalesTeam.mjs';
 
 const router = express.Router();
+
+async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
+  const role = user?.crmRole || user?.role || req?.headers?.['user-role'];
+  const userId = user?._id || user?.id || user?.userId || req?.headers?.['user-id'];
+
+  if (requestedTeamId) {
+    const team = await SalesTeam.findById(requestedTeamId).lean();
+    if (team) {
+      const isManager = team.managerId?.toString() === userId?.toString();
+      const isMember = team.memberIds?.some(m => m?.toString() === userId?.toString());
+      if (role === 'Admin' || (role && role.toLowerCase() === 'admin') || isManager || isMember) {
+        const objectIdMemberIds = (team.memberIds || []).map(id => new mongoose.Types.ObjectId(id.toString()));
+        if (team.managerId) {
+          objectIdMemberIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
+        }
+        const filter = { ownerId: { $in: objectIdMemberIds } };
+        if (team.businessVertical) {
+          filter.businessVertical = team.businessVertical;
+        }
+        return filter;
+      }
+    }
+  }
+
+  if (role === 'Admin' || (role && role.toLowerCase() === 'admin')) return {};
+  if (!userId) return {};
+
+  const myTeams = await SalesTeam.find({
+    $or: [
+      { managerId: userId },
+      { memberIds: userId }
+    ]
+  }).lean();
+  let visibleUserIds = [userId.toString()];
+  let visibleVerticals = [];
+
+  if (myTeams && myTeams.length > 0) {
+    myTeams.forEach(team => {
+      if (team.memberIds) {
+        visibleUserIds = [...visibleUserIds, ...team.memberIds.map(id => id.toString())];
+      }
+      if (team.managerId) {
+        visibleUserIds.push(team.managerId.toString());
+      }
+      if (team.businessVertical) {
+        visibleVerticals.push(team.businessVertical);
+      }
+    });
+  }
+
+  visibleUserIds = [...new Set(visibleUserIds)];
+  visibleVerticals = [...new Set(visibleVerticals)];
+
+  const objectIdUserIds = visibleUserIds.map(id => new mongoose.Types.ObjectId(id));
+  const finalFilter = { ownerId: { $in: objectIdUserIds } };
+  if (visibleVerticals.length > 0) {
+    finalFilter.businessVertical = { $in: visibleVerticals };
+  }
+  return finalFilter;
+}
 
 // GET /api/crm/contacts
 router.get('/', async (req, res) => {
   try {
-    const query = {};
+    const ownerFilter = await buildOwnerFilter(req.user, req.query.teamId, req);
+    const query = { ...ownerFilter };
     if (req.query.accountId) {
       query.accountId = req.query.accountId;
     }

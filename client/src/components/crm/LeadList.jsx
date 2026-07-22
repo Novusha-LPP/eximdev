@@ -7,16 +7,29 @@ import LeadDetailModal from './components/LeadDetailModal';
 import FilterBar from './components/FilterBar';
 
 const ALLOWED_SERVICES = [
-  'custom clearance', 
-  'freight forwarding', 
-  'dgft', 
-  'e-lock', 
-  'client', 
-  'transportation', 
-  'paramount', 
-  'rabs', 
+  'custom clearance',
+  'freight forwarding',
+  'dgft',
+  'e-lock',
+  'client',
+  'transportation',
+  'paramount',
+  'rabs',
   'auto rack'
 ];
+
+const getHeaders = () => {
+  const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
+  return {
+    headers: {
+      'Content-Type': 'application/json',
+      'user-id': user._id || user.id || '',
+      'username': user.username || '',
+      'user-role': user.role || '',
+    },
+    withCredentials: true
+  };
+};
 
 export default function LeadList() {
   const [leads, setLeads] = useState([]);
@@ -26,7 +39,7 @@ export default function LeadList() {
   const [selectedLead, setSelectedLead] = useState(null);
   const [error, setError] = useState(null);
   const [converting, setConverting] = useState(null);
-  
+
   // Teams & Source for filtering
   const [userTeams, setUserTeams] = useState([]);
   const [selectedTeamId, setSelectedTeamId] = useState('');
@@ -34,12 +47,13 @@ export default function LeadList() {
   const [selectedService, setSelectedService] = useState('');
   const [selectedLeadForDuplicate, setSelectedLeadForDuplicate] = useState(null);
   const [selectedLeadForEdit, setSelectedLeadForEdit] = useState(null);
+  const [searchReferral, setSearchReferral] = useState('');
 
   const [filters, setFilters] = useState(() => {
     try {
       const stored = localStorage.getItem('crm_filters_leads');
       if (stored) return JSON.parse(stored);
-    } catch (e) {}
+    } catch (e) { }
     return {
       type: 'this_month',
       month: new Date().toISOString().substring(0, 7),
@@ -63,7 +77,7 @@ export default function LeadList() {
     });
   };
 
-  const fetchLeads = async (teamId = selectedTeamId, source = selectedSource, service = selectedService, activeFilters = filters) => {
+  const fetchLeads = async (teamId = selectedTeamId, source = selectedSource, service = selectedService, referral = searchReferral, activeFilters = filters) => {
     if (!activeFilters) return;
     setLoading(true);
     setError(null);
@@ -72,17 +86,18 @@ export default function LeadList() {
       if (teamId) queryParams.append('teamId', teamId);
       if (source) queryParams.append('source', source);
       if (service) queryParams.append('service', service);
-      
+      if (referral) queryParams.append('referralSourceName', referral);
+
       if (activeFilters.startDate && activeFilters.endDate) {
         queryParams.append('startDate', activeFilters.startDate);
         queryParams.append('endDate', activeFilters.endDate);
       } else if (activeFilters.month) {
         queryParams.append('period', activeFilters.month);
       }
-      
+
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/crm/leads?${queryParams.toString()}`,
-        { withCredentials: true }
+        getHeaders()
       );
       setLeads(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
@@ -98,10 +113,10 @@ export default function LeadList() {
     try {
       const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
       const userId = user._id || user.id || '';
-      
+
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/crm/teams`,
-        { 
+        {
           headers: {
             'Content-Type': 'application/json',
             'user-id': userId,
@@ -109,10 +124,10 @@ export default function LeadList() {
             'user-role': user.role || '',
             'Authorization': user.token ? `Bearer ${user.token}` : undefined
           },
-          withCredentials: true 
+          withCredentials: true
         }
       );
-      
+
       const myTeams = (res.data.teams || []).filter(team => {
         const isManager = team.managerId === userId || team.managerId?._id === userId;
         const isMember = team.memberIds?.some(m => m === userId || m?._id === userId);
@@ -130,9 +145,9 @@ export default function LeadList() {
 
   useEffect(() => {
     if (filters) {
-      fetchLeads(selectedTeamId, selectedSource, selectedService, filters);
+      fetchLeads(selectedTeamId, selectedSource, selectedService, searchReferral, filters);
     }
-  }, [filters, selectedTeamId, selectedSource, selectedService]);
+  }, [filters, selectedTeamId, selectedSource, selectedService, searchReferral]);
 
   const handleConvert = async (leadId, leadName) => {
     if (!window.confirm(`Convert "${leadName}" into an Account & Opportunity?\n\nThis will create a new account, contact, and sales opportunity.`)) {
@@ -141,14 +156,14 @@ export default function LeadList() {
 
     setConverting(leadId);
     setError(null);
-    
+
     try {
       const res = await axios.post(
         `${process.env.REACT_APP_API_STRING}/crm/leads/${leadId}/convert`,
         {},
-        { withCredentials: true }
+        getHeaders()
       );
-      
+
       if (res.data.success) {
         const { data } = res.data;
         message.success({
@@ -170,18 +185,18 @@ export default function LeadList() {
 
   return (
     <div style={{ background: '#fff', padding: '2rem', borderRadius: '12px', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0' }}>
-      <LeadFormModal 
-        isOpen={isModalOpen} 
+      <LeadFormModal
+        isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen(false);
           setSelectedLeadForDuplicate(null);
           setSelectedLeadForEdit(null);
-        }} 
-        onRefresh={fetchLeads} 
+        }}
+        onRefresh={fetchLeads}
         leadToDuplicate={selectedLeadForDuplicate}
         leadToEdit={selectedLeadForEdit}
       />
-      
+
       <LeadDetailModal
         isOpen={isDetailModalOpen}
         onClose={() => {
@@ -195,7 +210,7 @@ export default function LeadList() {
         }}
         onRefresh={fetchLeads}
       />
-      
+
       {/* Error notification */}
       {error && (
         <div style={{
@@ -210,7 +225,7 @@ export default function LeadList() {
           border: '1px solid #fca5a5'
         }}>
           <span>⚠️ {error}</span>
-          <button 
+          <button
             onClick={() => setError(null)}
             style={{ background: 'transparent', border: 'none', color: '#991b1b', cursor: 'pointer', fontSize: '18px' }}
           >×</button>
@@ -219,7 +234,7 @@ export default function LeadList() {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '16px' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontWeight: 700 }}>Lead Management</h2>
-        
+
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           {/* Team Filter Dropdown */}
           {userTeams.length > 0 && (
@@ -242,11 +257,19 @@ export default function LeadList() {
             style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontWeight: 500, outline: 'none', cursor: 'pointer' }}
           >
             <option value="">All Lead Sources</option>
-            <option value="Web / Own Generated Lead">Web / Own Generated Lead</option>
-            <option value="IndiaMart Lead">IndiaMart Lead</option>
-            <option value="Direct Sales Visit">Direct Sales Visit</option>
-            <option value="Referral">Referral</option>
-            <option value="Email Campaign">Email Campaign</option>
+            <optgroup label="── Standard ──">
+              <option value="Web / Own Generated Lead">Web / Own Generated Lead</option>
+              <option value="IndiaMart Lead">IndiaMart Lead</option>
+              <option value="Direct Sales Visit">Direct Sales Visit</option>
+              <option value="Referral">Referral</option>
+              <option value="Email Campaign">Email Campaign</option>
+            </optgroup>
+            <optgroup label="── Transportation ──">
+              <option value="CHA (Custom House Agent)">CHA (Custom House Agent)</option>
+              <option value="Freight Forwarder">Freight Forwarder</option>
+              <option value="Importer">Importer</option>
+              <option value="Exporter">Exporter</option>
+            </optgroup>
           </select>
 
           {/* Service Filter Dropdown */}
@@ -260,8 +283,17 @@ export default function LeadList() {
               <option key={s} value={s}>{s.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}</option>
             ))}
           </select>
-          
-          <button 
+
+          {/* Referral Search Input */}
+          <input
+            type="text"
+            placeholder="Search Referral By..."
+            value={searchReferral}
+            onChange={(e) => setSearchReferral(e.target.value)}
+            style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontWeight: 500, outline: 'none', width: '160px' }}
+          />
+
+          <button
             onClick={() => setIsModalOpen(true)}
             style={{ background: '#4f46e5', color: 'white', padding: '10px 20px', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer', transition: 'background 0.2s' }}
           >
@@ -300,40 +332,45 @@ export default function LeadList() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                       <span>{lead.company || 'N/A'}</span>
                       {lead.source && (
-                        <span style={{ 
-                          fontSize: '0.65rem', 
-                          background: lead.source === 'IndiaMart Lead' ? '#ffedd5' 
-                                      : lead.source === 'Referral' ? '#dcfce7' 
-                                      : lead.source === 'Direct Sales Visit' ? '#f3e8ff'
-                                      : lead.source === 'Email Campaign' ? '#fce7f3'
-                                      : lead.source === 'Web / Own Generated Lead' ? '#e0f2fe'
-                                      : '#f1f5f9', 
-                          color: lead.source === 'IndiaMart Lead' ? '#c2410c' 
-                                 : lead.source === 'Referral' ? '#15803d' 
-                                 : lead.source === 'Direct Sales Visit' ? '#6b21a8'
-                                 : lead.source === 'Email Campaign' ? '#be185d'
-                                 : lead.source === 'Web / Own Generated Lead' ? '#0369a1'
-                                 : '#475569',
-                          padding: '2px 8px', 
-                          borderRadius: '12px', 
+                        <span style={{
+                          fontSize: '0.65rem',
+                          background: lead.source === 'IndiaMart Lead' ? '#ffedd5'
+                            : lead.source === 'Referral' ? '#dcfce7'
+                              : lead.source === 'Direct Sales Visit' ? '#f3e8ff'
+                                : lead.source === 'Email Campaign' ? '#fce7f3'
+                                  : lead.source === 'Web / Own Generated Lead' ? '#e0f2fe'
+                                    : '#f1f5f9',
+                          color: lead.source === 'IndiaMart Lead' ? '#c2410c'
+                            : lead.source === 'Referral' ? '#15803d'
+                              : lead.source === 'Direct Sales Visit' ? '#6b21a8'
+                                : lead.source === 'Email Campaign' ? '#be185d'
+                                  : lead.source === 'Web / Own Generated Lead' ? '#0369a1'
+                                    : '#475569',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
                           fontWeight: 700,
                           border: '1px solid',
-                          borderColor: lead.source === 'IndiaMart Lead' ? '#fed7aa' 
-                                       : lead.source === 'Referral' ? '#bbf7d0' 
-                                       : lead.source === 'Direct Sales Visit' ? '#e9d5ff'
-                                       : lead.source === 'Email Campaign' ? '#fbcfe8'
-                                       : lead.source === 'Web / Own Generated Lead' ? '#bae6fd'
-                                       : '#e2e8f0',
+                          borderColor: lead.source === 'IndiaMart Lead' ? '#fed7aa'
+                            : lead.source === 'Referral' ? '#bbf7d0'
+                              : lead.source === 'Direct Sales Visit' ? '#e9d5ff'
+                                : lead.source === 'Email Campaign' ? '#fbcfe8'
+                                  : lead.source === 'Web / Own Generated Lead' ? '#bae6fd'
+                                    : '#e2e8f0',
                         }}>
                           {lead.source}
                         </span>
                       )}
                     </div>
+                    {lead.source === 'Referral' && lead.referralSourceName && (
+                      <div style={{ fontSize: '0.75rem', color: '#165b33', marginTop: '4px', fontWeight: 600 }}>
+                        Referral By: <span>{lead.referralSourceName}</span>
+                      </div>
+                    )}
                     {lead.interestedServices && lead.interestedServices.length > 0 && (
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
                         {lead.interestedServices.map((service, i) => (
-                          <span key={i} style={{ 
-                            fontSize: '0.65rem', background: '#eef2ff', color: '#4f46e5', 
+                          <span key={i} style={{
+                            fontSize: '0.65rem', background: '#eef2ff', color: '#4f46e5',
                             padding: '1px 6px', borderRadius: '4px', border: '1px solid #c7d2fe',
                             whiteSpace: 'nowrap', textTransform: 'capitalize', fontWeight: 600
                           }}>
@@ -345,60 +382,60 @@ export default function LeadList() {
                   </td>
                   <td style={{ padding: '16px 12px', color: '#475569' }}>{lead.firstName} {lead.lastName}</td>
                   <td style={{ padding: '16px 12px' }}>
-                    <span style={{ 
-                      background: lead.status === 'converted' ? '#dcfce7' : '#fef3c7', 
-                      color: lead.status === 'converted' ? '#166534' : '#92400e', 
-                      padding: '6px 12px', 
-                      borderRadius: '20px', 
-                      fontSize: '0.75rem', 
+                    <span style={{
+                      background: lead.status === 'converted' ? '#dcfce7' : '#fef3c7',
+                      color: lead.status === 'converted' ? '#166534' : '#92400e',
+                      padding: '6px 12px',
+                      borderRadius: '20px',
+                      fontSize: '0.75rem',
                       fontWeight: 700,
                       textTransform: 'capitalize'
                     }}>
                       {lead.status}
                     </span>
                   </td>
-                   <td style={{ padding: '16px 12px', textAlign: 'right' }}>
-                     <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                       <button
-                         onClick={() => {
-                           setSelectedLead(lead);
-                           setIsDetailModalOpen(true);
-                         }}
-                         style={{ background: '#f8fafc', color: '#475569', padding: '6px 14px', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
-                       >
-                         View
-                       </button>
-                       <button
-                         onClick={() => {
-                           setSelectedLeadForDuplicate(lead);
-                           setIsModalOpen(true);
-                         }}
-                         style={{ background: '#eef2ff', color: '#4f46e5', padding: '6px 14px', border: '1px solid #c7d2fe', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
-                       >
-                         Duplicate
-                       </button>
-                       {lead.status !== 'converted' && (
-                         <button 
-                           onClick={() => handleConvert(lead._id, `${lead.firstName} ${lead.lastName}`)}
-                           disabled={converting === lead._id}
-                           style={{ 
-                             background: converting === lead._id ? '#d1d5db' : '#10b981', 
-                             color: 'white', 
-                             padding: '6px 14px', 
-                             border: 'none', 
-                             borderRadius: '6px', 
-                             cursor: converting === lead._id ? 'not-allowed' : 'pointer', 
-                             fontSize: '0.8rem', 
-                             fontWeight: 600,
-                             opacity: converting === lead._id ? 0.6 : 1,
-                             minWidth: '90px'
-                           }}
-                         >
-                           {converting === lead._id ? '⏳ Converting...' : 'Convert'}
-                         </button>
-                       )}
-                     </div>
-                   </td>
+                  <td style={{ padding: '16px 12px', textAlign: 'right' }}>
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                      <button
+                        onClick={() => {
+                          setSelectedLead(lead);
+                          setIsDetailModalOpen(true);
+                        }}
+                        style={{ background: '#f8fafc', color: '#475569', padding: '6px 14px', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
+                      >
+                        View
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedLeadForDuplicate(lead);
+                          setIsModalOpen(true);
+                        }}
+                        style={{ background: '#eef2ff', color: '#4f46e5', padding: '6px 14px', border: '1px solid #c7d2fe', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
+                      >
+                        Duplicate
+                      </button>
+                      {lead.status !== 'converted' && (
+                        <button
+                          onClick={() => handleConvert(lead._id, `${lead.firstName} ${lead.lastName}`)}
+                          disabled={converting === lead._id}
+                          style={{
+                            background: converting === lead._id ? '#d1d5db' : '#10b981',
+                            color: 'white',
+                            padding: '6px 14px',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: converting === lead._id ? 'not-allowed' : 'pointer',
+                            fontSize: '0.8rem',
+                            fontWeight: 600,
+                            opacity: converting === lead._id ? 0.6 : 1,
+                            minWidth: '90px'
+                          }}
+                        >
+                          {converting === lead._id ? '⏳ Converting...' : 'Convert'}
+                        </button>
+                      )}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

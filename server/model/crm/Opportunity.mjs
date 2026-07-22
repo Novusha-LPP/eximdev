@@ -1,14 +1,14 @@
 import mongoose from 'mongoose';
 
 const allowedServices = [
-  'custom clearance', 
-  'freight forwarding', 
-  'dgft', 
-  'e-lock', 
-  'client', 
-  'transportation', 
-  'paramount', 
-  'rabs', 
+  'custom clearance',
+  'freight forwarding',
+  'dgft',
+  'e-lock',
+  'client',
+  'transportation',
+  'paramount',
+  'rabs',
   'auto rack'
 ];
 
@@ -16,10 +16,11 @@ const opportunitySchema = new mongoose.Schema({
   accountId: { type: mongoose.Schema.Types.ObjectId, ref: 'Account', required: true },
   primaryContactId: { type: mongoose.Schema.Types.ObjectId, ref: 'Contact' },
   ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   name: { type: String, required: true },
   value: { type: Number, default: 0 },
-  stage: { 
-    type: String, 
+  stage: {
+    type: String,
     enum: ['lead', 'qualified', 'opportunity', 'sales_visit', 'proposal', 'negotiation', 'won', 'lost'],
     default: 'opportunity'
   },
@@ -28,12 +29,33 @@ const opportunitySchema = new mongoose.Schema({
     enum: ['pipeline', 'best_case', 'commit', 'closed'],
     default: 'pipeline'
   },
-  services: [{ 
-    type: String 
+  services: [{
+    type: String
   }],
   expectedCloseDate: { type: Date },
   probability: { type: Number, min: 0, max: 100, default: 0 },
   crateSize: { type: String },
+  shipper: { type: String },
+  stuffing: { type: String },
+  shippingLine: { type: String },
+  shipmentType: { type: String },
+  pol: { type: String },
+  pod: { type: String },
+  containerType: { type: String },
+  containerWeight: { type: String },
+  containerVolume: { type: String },
+  paymentTerm: { type: String },
+  detentionFreeDays: { type: String },
+  transitTime: { type: String },
+  currentFreightIndications: { type: String },
+  referralSourceName: { type: String },
+  businessVertical: {
+    type: String,
+    enum: ['Paramount', 'Transportation', 'Customs Clearance', 'Export', 'Import'],
+    default: 'Paramount'
+  },
+  monthlyVolume: { type: String },
+  monthlyRevenue: { type: String },
   source: { type: String },
   carry_forward: { type: Boolean, default: false },
   origin_month: { type: String },

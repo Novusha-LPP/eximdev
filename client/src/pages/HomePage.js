@@ -197,6 +197,7 @@ import ViewDgftRegisterDetails from "../components/dgft/ViewDgftRegisterDetails.
 
 // CRM Module
 import CRMModule from "../components/crm/CRMModule.jsx";
+import PricingRequestsList from "../components/crm/components/PricingRequestsList.jsx";
 
 import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
@@ -463,6 +464,16 @@ function HomePageContent() {
                   element={
                     <ProtectedRoute requiredModule={["Accounts", "Bill Cover"]}>
                       <Accounts />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Pricing Requests */}
+                <Route
+                  path="/pricing-requests"
+                  element={
+                    <ProtectedRoute requiredModule="Accounts">
+                      <PricingRequestsList hideRaiseButton={true} />
                     </ProtectedRoute>
                   }
                 />

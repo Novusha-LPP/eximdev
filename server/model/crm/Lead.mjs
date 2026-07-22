@@ -21,7 +21,7 @@ const leadSchema = new mongoose.Schema({
   phone: { type: String },
   status: { 
     type: String, 
-    enum: ['new', 'contacted', 'qualified', 'unqualified', 'converted'], 
+    enum: ['new', 'contacted', 'qualified', 'unqualified', 'converted', 'lost', 'rejected', 'duplicate', 'cancelled'], 
     default: 'new' 
   },
   interestedServices: [{ 
@@ -35,6 +35,27 @@ const leadSchema = new mongoose.Schema({
   score: { type: Number, default: 0 },
   grade: { type: String, enum: ['A', 'B', 'C', 'D'], default: 'D' },
   crateSize: { type: String },
+  shipper: { type: String },
+  stuffing: { type: String },
+  shippingLine: { type: String },
+  shipmentType: { type: String },
+  pol: { type: String },
+  pod: { type: String },
+  containerType: { type: String },
+  containerWeight: { type: String },
+  containerVolume: { type: String },
+  paymentTerm: { type: String },
+  detentionFreeDays: { type: String },
+  transitTime: { type: String },
+  currentFreightIndications: { type: String },
+  referralSourceName: { type: String },
+  businessVertical: {
+    type: String,
+    enum: ['Paramount', 'Transportation', 'Customs Clearance', 'Export', 'Import'],
+    default: 'Paramount'
+  },
+  monthlyVolume: { type: String },
+  monthlyRevenue: { type: String },
   period: { type: String, default: () => new Date().toISOString().substring(0, 7) },
   convertedAt: { type: Date },
   convertedTo: {

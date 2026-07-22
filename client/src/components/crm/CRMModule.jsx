@@ -7,6 +7,10 @@ import TasksList from './components/TasksList';
 import CRMDashboard from './CRMDashboard';
 import SalesTeamManagement from './components/SalesTeamManagement';
 import CRMReportsDashboard from './CRMReportsDashboard';
+import ActivityCalendar from './components/ActivityCalendar';
+import SalesIncentiveDashboard from './components/SalesIncentiveDashboard';
+import PricingRequestsList from './components/PricingRequestsList';
+import QuotesList from './components/QuotesList';
 
 const TABS = [
   { key: 'dashboard', label: 'Dashboard', description: 'View key metrics & pipeline health' },
@@ -16,6 +20,10 @@ const TABS = [
   { key: 'contacts', label: 'Contacts', description: 'People at organizations' },
   { key: 'teams', label: 'Teams', description: 'Sales team structure' },
   { key: 'tasks', label: 'Tasks', description: 'Action items & follow-ups' },
+  { key: 'calendar', label: 'Calendar', description: 'Schedule and manage activities' },
+  { key: 'pricing', label: 'Pricing Requests', description: 'Request and track quotations & approvals' },
+  { key: 'quotes', label: 'Quotations', description: 'Create and send quotations directly from CRM' },
+  { key: 'incentives', label: 'Incentives', description: 'Monitor incentive calculations and payouts' },
   { key: 'reports', label: 'Reports', description: 'Week-wise & Month-wise stage reports' }
 ];
 
@@ -50,6 +58,10 @@ export default function CRMModule() {
       case 'contacts': return <ContactsList />;
       case 'teams': return <SalesTeamManagement />;
       case 'tasks': return <TasksList />;
+      case 'calendar': return <ActivityCalendar />;
+      case 'pricing': return <PricingRequestsList />;
+      case 'quotes': return <QuotesList />;
+      case 'incentives': return <SalesIncentiveDashboard />;
       case 'reports': return <CRMReportsDashboard />;
       default: return <CRMDashboard />;
     }
@@ -60,20 +72,20 @@ export default function CRMModule() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', width: '100%', background: '#f8fafc' }}>
       {/* Header */}
-      <header style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'space-between', 
-        padding: '0 2rem', 
-        height: '72px', 
-        background: 'rgba(255, 255, 255, 0.8)', 
-        borderBottom: '1px solid #e2e8f0', 
+      <header style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '0 2rem',
+        height: '72px',
+        background: 'rgba(255, 255, 255, 0.8)',
+        borderBottom: '1px solid #e2e8f0',
         boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
         backdropFilter: 'blur(8px)'
       }}>
         <div>
           <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, color: '#0f172a', fontFamily: 'Inter, sans-serif' }}>
-             CRM Management
+            CRM Management
           </h1>
           <span style={{ fontSize: '0.85rem', color: '#64748b' }}>
             {currentTab?.description || 'Sales, Accounts & Tasks'}
@@ -122,27 +134,27 @@ export default function CRMModule() {
       )} */}
 
       {/* Tab Navigation */}
-      <nav style={{ 
-        display: 'flex', 
-        gap: '8px', 
-        background: '#f1f5f9', 
+      <nav style={{
+        display: 'flex',
+        gap: '8px',
+        background: '#f1f5f9',
         padding: '12px 2rem',
         overflowX: 'auto',
         borderBottom: '1px solid #e2e8f0',
         flexWrap: 'wrap'
       }}>
         {TABS.map(tab => (
-          <button 
+          <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
             title={tab.description}
-            style={{ 
-              padding: '10px 14px', 
-              border: 'none', 
-              background: activeTab === tab.key ? '#ffffff' : 'transparent', 
-              color: activeTab === tab.key ? '#4f46e5' : '#475569', 
-              borderRadius: '6px', 
-              fontWeight: 600, 
+            style={{
+              padding: '10px 14px',
+              border: 'none',
+              background: activeTab === tab.key ? '#ffffff' : 'transparent',
+              color: activeTab === tab.key ? '#4f46e5' : '#475569',
+              borderRadius: '6px',
+              fontWeight: 600,
               cursor: 'pointer',
               boxShadow: activeTab === tab.key ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
               transition: 'all 0.2s',

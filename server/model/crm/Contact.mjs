@@ -10,6 +10,11 @@ const contactSchema = new mongoose.Schema({
   title: { type: String },
   isPrimary: { type: Boolean, default: false },
   tags: [{ type: String }],
+  businessVertical: {
+    type: String,
+    enum: ['Paramount', 'Transportation', 'Customs Clearance', 'Export', 'Import'],
+    default: 'Paramount'
+  },
   convertedFromLead: { type: mongoose.Schema.Types.ObjectId, ref: 'Lead' },
   period: { type: String, default: () => new Date().toISOString().substring(0, 7) }
 }, { timestamps: true });

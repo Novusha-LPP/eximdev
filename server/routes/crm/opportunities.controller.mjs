@@ -1,7 +1,45 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import Opportunity from '../../model/crm/Opportunity.mjs';
 import SalesTeam from '../../model/crm/SalesTeam.mjs';
 import UserModel from '../../model/userModel.mjs';
+import SalesIncentive from '../../model/crm/SalesIncentive.mjs';
+import PricingRequest from '../../model/crm/PricingRequest.mjs';
+import Task from '../../model/crm/Task.mjs';
+
+// Helper to create a sales incentive when a deal is won
+async function createIncentiveOnWin(opportunity, tenantId) {
+  try {
+    if (!opportunity.ownerId) return;
+
+    // Check if an incentive already exists for this opportunity to prevent double creation
+    const existing = await SalesIncentive.findOne({ opportunityId: opportunity._id });
+    if (existing) return;
+
+    const dealValue = opportunity.value || 0;
+    const percentage = 2; // Default 2%
+    const incentiveAmount = Math.round(dealValue * (percentage / 100));
+
+    // Get current YYYY-MM period
+    const payoutPeriod = new Date().toISOString().substring(0, 7);
+
+    const incentive = new SalesIncentive({
+      tenantId: tenantId || opportunity.tenantId,
+      userId: opportunity.ownerId,
+      opportunityId: opportunity._id,
+      dealValue,
+      incentiveAmount,
+      calculatedPercentage: percentage,
+      status: 'pending',
+      payoutPeriod
+    });
+
+    await incentive.save();
+    console.log(`Generated incentive of INR ${incentiveAmount} for opportunity ${opportunity._id}`);
+  } catch (err) {
+    console.error(`Error generating incentive for opportunity ${opportunity._id}:`, err);
+  }
+}
 
 const router = express.Router();
 
@@ -38,55 +76,86 @@ const validateStageTransition = (currentStage, newStage) => {
   if (!VALID_STAGES.includes(newStage)) {
     return { valid: false, message: `Invalid stage: ${newStage}` };
   }
-  
+
   if (!VALID_TRANSITIONS[currentStage].includes(newStage)) {
     return { valid: false, message: `Cannot transition from ${currentStage} to ${newStage}` };
   }
-  
+
   return { valid: true };
 };
 
 // Ownership filter — team owner sees all member opportunities, others see own
-async function buildOwnerFilter(user, requestedTeamId = null) {
-  const role = user?.crmRole || user?.role;
-  const userId = user?._id || user?.id || user?.userId;
-  
+async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
+  const role = user?.crmRole || user?.role || req?.headers?.['user-role'];
+  const userId = user?._id || user?.id || user?.userId || req?.headers?.['user-id'];
+
   if (requestedTeamId) {
     const team = await SalesTeam.findById(requestedTeamId).lean();
     if (team) {
       const isManager = team.managerId?.toString() === userId?.toString();
       const isMember = team.memberIds?.some(m => m?.toString() === userId?.toString());
-      if (role === 'Admin' || isManager || isMember) {
-        return { ownerId: { $in: team.memberIds || [] } };
+      if (role === 'Admin' || (role && role.toLowerCase() === 'admin') || isManager || isMember) {
+        const objectIdMemberIds = (team.memberIds || []).map(id => new mongoose.Types.ObjectId(id.toString()));
+        if (team.managerId) {
+          objectIdMemberIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
+        }
+        const filter = { ownerId: { $in: objectIdMemberIds } };
+        if (team.businessVertical) {
+          filter.businessVertical = team.businessVertical;
+        }
+        return filter;
       }
     }
   }
 
-  if (role === 'Admin') return {};
+  if (role === 'Admin' || (role && role.toLowerCase() === 'admin')) return {};
   if (!userId) return {};
 
-  const ownedTeams = await SalesTeam.find({ managerId: userId }).lean();
-  let visibleUserIds = [userId];
+  const myTeams = await SalesTeam.find({
+    $or: [
+      { managerId: userId },
+      { memberIds: userId }
+    ]
+  }).lean();
+  let visibleUserIds = [userId.toString()];
+  let visibleVerticals = [];
 
-  if (ownedTeams && ownedTeams.length > 0) {
-    ownedTeams.forEach(team => {
+  if (myTeams && myTeams.length > 0) {
+    myTeams.forEach(team => {
       if (team.memberIds) {
-        visibleUserIds = [...visibleUserIds, ...team.memberIds];
+        visibleUserIds = [...visibleUserIds, ...team.memberIds.map(id => id.toString())];
+      }
+      if (team.managerId) {
+        visibleUserIds.push(team.managerId.toString());
+      }
+      if (team.businessVertical) {
+        visibleVerticals.push(team.businessVertical);
       }
     });
   }
 
-  visibleUserIds = [...new Set(visibleUserIds.map(id => id?.toString()))];
-  return { ownerId: { $in: visibleUserIds } };
+  visibleUserIds = [...new Set(visibleUserIds)];
+  visibleVerticals = [...new Set(visibleVerticals)];
+
+  const objectIdUserIds = visibleUserIds.map(id => new mongoose.Types.ObjectId(id));
+  const finalFilter = { ownerId: { $in: objectIdUserIds } };
+  if (visibleVerticals.length > 0) {
+    finalFilter.businessVertical = { $in: visibleVerticals };
+  }
+  return finalFilter;
 }
 
 // GET /api/crm/opportunities
 router.get('/', async (req, res) => {
   try {
-    const { stage, forecastCategory, teamId, startDate, endDate, period, dateField, accountId, source } = req.query;
-    const query = { ...(await buildOwnerFilter(req.user, teamId)) };
+    const { stage, forecastCategory, teamId, startDate, endDate, period, dateField, accountId, source, createdBy, businessVertical } = req.query;
+    const query = { ...(await buildOwnerFilter(req.user, teamId, req)) };
+    if (businessVertical && businessVertical !== 'all') {
+      query.businessVertical = businessVertical;
+    }
     if (accountId) query.accountId = accountId;
     if (source) query.source = source;
+    if (createdBy) query.createdBy = createdBy;
 
     const filterField = dateField === 'last_updated' || dateField === 'updatedAt' ? 'updatedAt' : 'createdAt';
 
@@ -139,6 +208,7 @@ router.get('/', async (req, res) => {
     const opportunities = await Opportunity.find(query)
       .populate('accountId', 'name')
       .populate('ownerId', 'username first_name last_name')
+      .populate('createdBy', 'username first_name last_name')
       .sort({ createdAt: -1 })
       .lean();
 
@@ -153,6 +223,30 @@ router.get('/', async (req, res) => {
       return opp;
     });
 
+    const oppIds = processedOpps.map(opp => opp._id);
+    const leadIds = processedOpps.filter(opp => opp.convertedFromLead).map(opp => opp.convertedFromLead);
+
+    const pricingRequests = await PricingRequest.find({
+      $or: [
+        { 'relatedTo.model': 'Opportunity', 'relatedTo.id': { $in: oppIds } },
+        { 'relatedTo.model': 'Lead', 'relatedTo.id': { $in: leadIds } }
+      ]
+    }).lean();
+
+    const tasks = await Task.find({
+      'relatedTo.model': 'Opportunity',
+      'relatedTo.id': { $in: oppIds },
+      status: { $in: ['open', 'in_progress'] }
+    }).populate('assignedTo', 'username first_name last_name').lean();
+
+    processedOpps.forEach(opp => {
+      opp.pricingRequests = pricingRequests.filter(pr => 
+        (pr.relatedTo.model === 'Opportunity' && pr.relatedTo.id.toString() === opp._id.toString()) ||
+        (pr.relatedTo.model === 'Lead' && opp.convertedFromLead && pr.relatedTo.id.toString() === opp.convertedFromLead.toString())
+      );
+      opp.tasks = tasks.filter(t => t.relatedTo?.id?.toString() === opp._id.toString());
+    });
+
     res.json(processedOpps);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -163,7 +257,7 @@ router.get('/', async (req, res) => {
 router.get('/board', async (req, res) => {
   try {
     const { startDate, endDate, period, dateField, source } = req.query;
-    const ownerFilter = await buildOwnerFilter(req.user);
+    const ownerFilter = await buildOwnerFilter(req.user, null, req);
     const query = { ...ownerFilter };
     if (source) query.source = source;
 
@@ -198,9 +292,10 @@ router.get('/board', async (req, res) => {
 
     const opportunities = await Opportunity.find(query)
       .populate('accountId', 'name')
-      .populate('ownerId', 'username')
+      .populate('ownerId', 'username first_name last_name')
+      .populate('createdBy', 'username first_name last_name')
       .lean();
-    
+
     const processedOpps = opportunities.map(opp => {
       if (opp.period && opp.period !== targetPeriod && !['won', 'lost'].includes(opp.stage)) {
         return {
@@ -211,7 +306,31 @@ router.get('/board', async (req, res) => {
       }
       return opp;
     });
-    
+
+    const oppIds = processedOpps.map(opp => opp._id);
+    const leadIds = processedOpps.filter(opp => opp.convertedFromLead).map(opp => opp.convertedFromLead);
+
+    const pricingRequests = await PricingRequest.find({
+      $or: [
+        { 'relatedTo.model': 'Opportunity', 'relatedTo.id': { $in: oppIds } },
+        { 'relatedTo.model': 'Lead', 'relatedTo.id': { $in: leadIds } }
+      ]
+    }).lean();
+
+    const tasks = await Task.find({
+      'relatedTo.model': 'Opportunity',
+      'relatedTo.id': { $in: oppIds },
+      status: { $in: ['open', 'in_progress'] }
+    }).populate('assignedTo', 'username first_name last_name').lean();
+
+    processedOpps.forEach(opp => {
+      opp.pricingRequests = pricingRequests.filter(pr => 
+        (pr.relatedTo.model === 'Opportunity' && pr.relatedTo.id.toString() === opp._id.toString()) ||
+        (pr.relatedTo.model === 'Lead' && opp.convertedFromLead && pr.relatedTo.id.toString() === opp.convertedFromLead.toString())
+      );
+      opp.tasks = tasks.filter(t => t.relatedTo?.id?.toString() === opp._id.toString());
+    });
+
     const board = {
       'lead': [],
       'qualified': [],
@@ -262,9 +381,26 @@ router.get('/:id', async (req, res) => {
     const opp = await Opportunity.findOne({ _id: req.params.id })
       .populate('accountId', 'name')
       .populate('primaryContactId')
-      .populate('ownerId', 'username');
+      .populate('ownerId', 'username first_name last_name')
+      .populate('createdBy', 'username first_name last_name');
     if (!opp) return res.status(404).json({ message: 'Opportunity not found' });
-    res.json(opp);
+    
+    const pricingRequests = await PricingRequest.find({
+      'relatedTo.model': 'Opportunity',
+      'relatedTo.id': opp._id
+    }).lean();
+
+    const tasks = await Task.find({
+      'relatedTo.model': 'Opportunity',
+      'relatedTo.id': opp._id,
+      status: { $in: ['open', 'in_progress'] }
+    }).populate('assignedTo', 'username first_name last_name').lean();
+
+    const oppObj = opp.toObject();
+    oppObj.pricingRequests = pricingRequests;
+    oppObj.tasks = tasks;
+
+    res.json(oppObj);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -273,7 +409,7 @@ router.get('/:id', async (req, res) => {
 // POST /api/crm/opportunities
 router.post('/', async (req, res) => {
   try {
-    const newOpp = new Opportunity({ ...req.body });
+    const newOpp = new Opportunity({ ...req.body, createdBy: req.user?._id });
     await newOpp.save();
     res.status(201).json(newOpp);
   } catch (error) {
@@ -286,7 +422,7 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { stage, probability, ...otherData } = req.body;
-    
+
     const opportunity = await Opportunity.findOne({ _id: req.params.id });
     if (!opportunity) return res.status(404).json({ success: false, message: 'Opportunity not found' });
 
@@ -295,6 +431,14 @@ router.put('/:id', async (req, res) => {
       const validation = validateStageTransition(opportunity.stage, stage);
       if (!validation.valid) {
         return res.status(400).json({ success: false, message: validation.message });
+      }
+
+      const isProposalOrAfter = ['proposal', 'negotiation', 'won'].includes(stage);
+      if (isProposalOrAfter) {
+        const dealValue = otherData.value !== undefined ? Number(otherData.value) : opportunity.value;
+        if (!dealValue || dealValue <= 0) {
+          return res.status(400).json({ success: false, message: 'Deal value must be greater than 0 before transitioning to the Proposal or subsequent stages.' });
+        }
       }
 
       if (stage === 'lost') {
@@ -310,19 +454,19 @@ router.put('/:id', async (req, res) => {
       if (lastHistory && !lastHistory.exitedAt) {
         lastHistory.exitedAt = new Date();
       }
-      
+
       opportunity.stageHistory.push({
         stage: stage,
         enteredAt: new Date()
       });
 
       opportunity.stage = stage;
-      
+
       // Auto-set probability based on stage if not provided
       if (!probability) {
         opportunity.probability = STAGE_PROBABILITY[stage];
       }
-      
+
       // Update forecast category for terminal stages
       if (stage === 'won' || stage === 'lost') {
         opportunity.forecastCategory = 'closed';
@@ -336,7 +480,7 @@ router.put('/:id', async (req, res) => {
     }
 
     // Update other allowed fields
-    const { newRemark, closeReason, closeNotes, plannedVisits, ...otherDataToAssign } = otherData;
+    const { newRemark, closeReason, closeNotes, plannedVisits, createdBy: _stripCreatedBy, ...otherDataToAssign } = otherData;
     Object.assign(opportunity, otherDataToAssign);
     if (closeReason) opportunity.closeReason = closeReason;
     if (closeNotes !== undefined) opportunity.closeNotes = closeNotes;
@@ -348,7 +492,7 @@ router.put('/:id', async (req, res) => {
         const user = await UserModel.findById(req.user?._id).lean();
         userName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username : 'System';
       }
-      
+
       opportunity.remarks.push({
         text: newRemark.trim(),
         userId: req.user?._id,
@@ -356,8 +500,11 @@ router.put('/:id', async (req, res) => {
         createdAt: new Date()
       });
     }
-    
+
     const updatedOpp = await opportunity.save();
+    if (updatedOpp.stage === 'won') {
+      await createIncentiveOnWin(updatedOpp, req.tenantId);
+    }
     res.json({ success: true, data: updatedOpp });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -370,6 +517,13 @@ router.patch('/:id/stage', async (req, res) => {
     const { stage, probability, closeReason, closeNotes } = req.body;
     const opp = await Opportunity.findOne({ _id: req.params.id });
     if (!opp) return res.status(404).json({ message: 'Opportunity not found' });
+
+    const isProposalOrAfter = ['proposal', 'negotiation', 'won'].includes(stage);
+    if (isProposalOrAfter) {
+      if (!opp.value || opp.value <= 0) {
+        return res.status(400).json({ message: 'Deal value must be greater than 0 before transitioning to the Proposal or subsequent stages.' });
+      }
+    }
 
     if (stage === 'lost') {
       if (!closeReason) {
@@ -385,14 +539,17 @@ router.patch('/:id/stage', async (req, res) => {
       lastHistory.exitedAt = new Date();
     }
     opp.stageHistory.push({ stage, enteredAt: new Date() });
-    
+
     opp.stage = stage;
     if (probability !== undefined) opp.probability = probability;
-    
+
     // Update forecast category automatically for terminal stages
     if (stage === 'won' || stage === 'lost') opp.forecastCategory = 'closed';
 
     await opp.save();
+    if (opp.stage === 'won') {
+      await createIncentiveOnWin(opp, req.tenantId);
+    }
     res.json(opp);
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -413,6 +570,12 @@ router.patch('/:id/close', async (req, res) => {
     const opp = await Opportunity.findOne({ _id: req.params.id });
     if (!opp) return res.status(404).json({ message: 'Opportunity not found' });
 
+    if (status === 'won') {
+      if (!opp.value || opp.value <= 0) {
+        return res.status(400).json({ message: 'Deal value must be greater than 0 before transitioning to the Won stage.' });
+      }
+    }
+
     // Update history
     const lastHistory = opp.stageHistory[opp.stageHistory.length - 1];
     if (lastHistory) {
@@ -427,6 +590,9 @@ router.patch('/:id/close', async (req, res) => {
     opp.forecastCategory = 'closed';
 
     await opp.save();
+    if (opp.stage === 'won') {
+      await createIncentiveOnWin(opp, req.tenantId);
+    }
     res.json(opp);
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
@@ -587,6 +753,7 @@ router.post('/:id/duplicate', async (req, res) => {
       accountId: original.accountId,
       primaryContactId: original.primaryContactId,
       ownerId: original.ownerId,
+      createdBy: req.user?._id,
       name: name || `${original.name} - Copy`,
       value: value !== undefined ? value : original.value,
       stage: stage || original.stage,

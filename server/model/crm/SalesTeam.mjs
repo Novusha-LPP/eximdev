@@ -47,6 +47,11 @@ const salesTeamSchema = new mongoose.Schema({
   // Permissions
   permissions: [String], // e.g., 'can_manage_leads', 'can_approve_quotes'
   
+  businessVertical: {
+    type: String,
+    enum: ['Paramount', 'Transportation', 'Customs Clearance', 'Export', 'Import'],
+    default: 'Paramount'
+  },
   isActive: { type: Boolean, default: true },
   
   createdAt: { type: Date, default: Date.now },

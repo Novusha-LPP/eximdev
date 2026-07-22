@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { 
-  X, Edit2, Globe, MapPin, Users, 
-  Briefcase, Phone, Mail, TrendingUp, Calendar, Info,
-  DollarSign, Activity, Building, Copy, Check
+import {
+  X, Edit2, Globe, MapPin, Users,
+  Briefcase, Phone, Mail, TrendingUp, Calendar,
+  DollarSign, Activity, Building, Copy, Check, FileText
 } from 'lucide-react';
 import ActivityTimeline from './ActivityTimeline';
+import QuoteFormModal from './QuoteFormModal';
+import PricingRequestFormModal from './PricingRequestFormModal';
 
 const SkeletonRow = () => (
   <div style={{
@@ -30,6 +32,8 @@ const SkeletonRow = () => (
 );
 
 export default function AccountDetailModal({ isOpen, onClose, account, onEdit, onRefresh }) {
+  const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
+  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
   const [opportunities, setOpportunities] = useState([]);
   const [contacts, setContacts] = useState([]);
   const [loadingDetails, setLoadingDetails] = useState(false);
@@ -50,7 +54,7 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
     setCopiedText(text);
     setTimeout(() => setCopiedText(null), 1500);
   };
-  
+
   // Hover states for micro-interactions
   const [hoveredCard, setHoveredCard] = useState(null);
   const [hoveredTab, setHoveredTab] = useState(null);
@@ -75,6 +79,7 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
       fetchDetails();
       setActiveTab('contacts'); // Reset to first tab when opening
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, account]);
 
   const fetchDetails = async () => {
@@ -256,30 +261,30 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
           {!isMobile && <div style={{ height: '1px', background: '#e2e8f0', margin: '4px 0' }} />}
 
           {/* Quick info list */}
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr', 
-            gap: '16px' 
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr 1fr' : '1fr',
+            gap: '16px'
           }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Website</span>
               {account.website ? (
-                <a 
-                  href={account.website.startsWith('http') ? account.website : `https://${account.website}`} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  style={{ 
-                    color: '#2563eb', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '6px', 
+                <a
+                  href={account.website.startsWith('http') ? account.website : `https://${account.website}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: '#2563eb',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
                     textDecoration: 'none',
                     fontSize: '0.85rem',
                     fontWeight: 600,
                     width: 'fit-content'
                   }}
                 >
-                  <Globe size={14} style={{ color: '#3b82f6' }} /> 
+                  <Globe size={14} style={{ color: '#3b82f6' }} />
                   <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', maxWidth: '150px' }}>
                     {account.website.replace(/^https?:\/\/(www\.)?/, '')}
                   </span>
@@ -310,7 +315,7 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
 
           {!isMobile && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: 'auto' }}>
-              <div 
+              <div
                 onClick={() => setActiveTab('contacts')}
                 onMouseEnter={() => setHoveredCard('contacts')}
                 onMouseLeave={() => setHoveredCard(null)}
@@ -336,7 +341,7 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
                 <span style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>{contacts.length}</span>
               </div>
 
-              <div 
+              <div
                 onClick={() => setActiveTab('opportunities')}
                 onMouseEnter={() => setHoveredCard('opportunities')}
                 onMouseLeave={() => setHoveredCard(null)}
@@ -393,6 +398,46 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
 
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginLeft: 'auto' }}>
               <button
+                onClick={() => setIsQuoteModalOpen(true)}
+                style={{
+                  padding: '8px 16px',
+                  background: 'linear-gradient(135deg, #4f46e5, #4338ca)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  boxShadow: '0 2px 8px rgba(79, 70, 229, 0.15)',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <FileText size={14} /> Create Quote
+              </button>
+              <button
+                onClick={() => setIsPricingModalOpen(true)}
+                style={{
+                  padding: '8px 16px',
+                  background: 'linear-gradient(135deg, #059669, #047857)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  boxShadow: '0 2px 8px rgba(5, 150, 105, 0.15)',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <DollarSign size={14} /> Request Pricing
+              </button>
+              <button
                 onClick={() => {
                   onEdit(account);
                   onClose();
@@ -418,8 +463,8 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
               >
                 <Edit2 size={14} /> Edit Account
               </button>
-              <button 
-                onClick={onClose} 
+              <button
+                onClick={onClose}
                 onMouseEnter={() => setIsCloseHovered(true)}
                 onMouseLeave={() => setIsCloseHovered(false)}
                 style={{
@@ -443,10 +488,10 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
           </div>
 
           {/* Tabs bar */}
-          <div style={{ 
-            display: 'flex', 
-            gap: isMobile ? '12px' : '24px', 
-            borderBottom: '1px solid #e2e8f0', 
+          <div style={{
+            display: 'flex',
+            gap: isMobile ? '12px' : '24px',
+            borderBottom: '1px solid #e2e8f0',
             padding: isMobile ? '0 20px' : '0 32px',
             overflowX: 'auto',
             flexShrink: 0
@@ -503,11 +548,11 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
           </div>
 
           {/* Scrollable Tab contents */}
-          <div 
+          <div
             className="custom-scroll"
-            style={{ 
-              flex: 1, 
-              padding: isMobile ? '20px' : '24px 32px 32px 32px', 
+            style={{
+              flex: 1,
+              padding: isMobile ? '20px' : '24px 32px 32px 32px',
               overflowY: 'auto'
             }}
           >
@@ -524,18 +569,18 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
                     {contacts.length > 0 ? (
                       contacts.map(contact => {
                         const contactFullName = `${contact.firstName || ''} ${contact.lastName || ''}`.trim() || 'Unnamed Contact';
-                        const contactInitials = `${contact.firstName?.[0]||''}${contact.lastName?.[0]||''}`.toUpperCase() || 'C';
+                        const contactInitials = `${contact.firstName?.[0] || ''}${contact.lastName?.[0] || ''}`.toUpperCase() || 'C';
                         const colors = getContactGradient(contactFullName);
                         const isHovered = hoveredContactId === contact._id;
                         return (
-                          <div 
+                          <div
                             key={contact._id}
                             onMouseEnter={() => setHoveredContactId(contact._id)}
                             onMouseLeave={() => setHoveredContactId(null)}
-                            style={{ 
-                              background: '#ffffff', 
-                              padding: '14px 18px', 
-                              borderRadius: '16px', 
+                            style={{
+                              background: '#ffffff',
+                              padding: '14px 18px',
+                              borderRadius: '16px',
                               border: isHovered ? '1px solid #cbd5e1' : '1px solid #e2e8f0',
                               transform: isHovered ? 'translateY(-1px)' : 'none',
                               boxShadow: isHovered ? '0 4px 12px rgba(15, 23, 42, 0.04)' : '0 2px 4px rgba(15, 23, 42, 0.01)',
@@ -546,14 +591,14 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
                             }}
                           >
                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                              <div style={{ 
-                                width: '38px', 
-                                height: '38px', 
-                                borderRadius: '10px', 
-                                background: colors.bg, 
-                                color: colors.text, 
-                                display: 'flex', 
-                                alignItems: 'center', 
+                              <div style={{
+                                width: '38px',
+                                height: '38px',
+                                borderRadius: '10px',
+                                background: colors.bg,
+                                color: colors.text,
+                                display: 'flex',
+                                alignItems: 'center',
                                 justifyContent: 'center',
                                 fontWeight: 800,
                                 fontSize: '0.9rem'
@@ -563,23 +608,23 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
                               <div>
                                 <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.9rem' }}>{contactFullName}</div>
                                 <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                  <Briefcase size={11} style={{ color: '#94a3b8' }} /> 
+                                  <Briefcase size={11} style={{ color: '#94a3b8' }} />
                                   <span>{contact.title || 'Contact Person'}</span>
                                 </div>
                               </div>
-                            </div>                             <div style={{ 
-                              display: 'flex', 
-                              flexDirection: 'column', 
-                              gap: '6px', 
+                            </div>                             <div style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '6px',
                               alignItems: 'flex-end'
                             }}>
                               {contact.email && (
-                                <div style={{ 
-                                  display: 'flex', 
-                                  alignItems: 'center', 
-                                  gap: '8px', 
-                                  background: '#eff6ff', 
-                                  padding: '4px 10px', 
+                                <div style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  background: '#eff6ff',
+                                  padding: '4px 10px',
                                   borderRadius: '8px',
                                   fontSize: '0.8rem',
                                   border: '1px solid #dbeafe',
@@ -589,15 +634,15 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
                                   <span style={{ color: '#2563eb', fontWeight: 600 }}>
                                     {contact.email}
                                   </span>
-                                  <button 
+                                  <button
                                     onClick={() => handleCopy(contact.email)}
-                                    style={{ 
-                                      background: 'none', 
-                                      border: 'none', 
-                                      cursor: 'pointer', 
-                                      display: 'flex', 
-                                      alignItems: 'center', 
-                                      color: copiedText === contact.email ? '#10b981' : '#94a3b8', 
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      color: copiedText === contact.email ? '#10b981' : '#94a3b8',
                                       padding: '2px',
                                       marginLeft: '4px',
                                       transition: 'color 0.2s ease'
@@ -609,12 +654,12 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
                                 </div>
                               )}
                               {contact.phone && (
-                                <div style={{ 
-                                  display: 'flex', 
-                                  alignItems: 'center', 
-                                  gap: '8px', 
-                                  background: '#ecfdf5', 
-                                  padding: '4px 10px', 
+                                <div style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  background: '#ecfdf5',
+                                  padding: '4px 10px',
                                   borderRadius: '8px',
                                   fontSize: '0.8rem',
                                   border: '1px solid #d1fae5',
@@ -624,15 +669,15 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
                                   <span style={{ color: '#10b981', fontWeight: 600 }}>
                                     {contact.phone}
                                   </span>
-                                  <button 
+                                  <button
                                     onClick={() => handleCopy(contact.phone)}
-                                    style={{ 
-                                      background: 'none', 
-                                      border: 'none', 
-                                      cursor: 'pointer', 
-                                      display: 'flex', 
-                                      alignItems: 'center', 
-                                      color: copiedText === contact.phone ? '#10b981' : '#94a3b8', 
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      color: copiedText === contact.phone ? '#10b981' : '#94a3b8',
                                       padding: '2px',
                                       marginLeft: '4px',
                                       transition: 'color 0.2s ease'
@@ -651,11 +696,11 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
                         );
                       })
                     ) : (
-                      <div style={{ 
-                        textAlign: 'center', 
-                        padding: '40px 20px', 
-                        background: '#f8fafc', 
-                        borderRadius: '16px', 
+                      <div style={{
+                        textAlign: 'center',
+                        padding: '40px 20px',
+                        background: '#f8fafc',
+                        borderRadius: '16px',
                         border: '1px dashed #cbd5e1',
                         display: 'flex',
                         flexDirection: 'column',
@@ -682,18 +727,18 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
                         const stageStyles = getStageColor(opp.stage);
                         const isHovered = hoveredOppId === opp._id;
                         return (
-                          <div 
+                          <div
                             key={opp._id}
                             onMouseEnter={() => setHoveredOppId(opp._id)}
                             onMouseLeave={() => setHoveredOppId(null)}
-                            style={{ 
-                              background: '#ffffff', 
-                              padding: '14px 18px', 
-                              borderRadius: '16px', 
+                            style={{
+                              background: '#ffffff',
+                              padding: '14px 18px',
+                              borderRadius: '16px',
                               border: isHovered ? '1px solid #cbd5e1' : '1px solid #e2e8f0',
                               borderLeft: `5px solid ${stageStyles.border}`,
-                              display: 'flex', 
-                              justifyContent: 'space-between', 
+                              display: 'flex',
+                              justifyContent: 'space-between',
                               alignItems: 'center',
                               transform: isHovered ? 'translateY(-1px)' : 'none',
                               boxShadow: isHovered ? '0 4px 12px rgba(15, 23, 42, 0.04)' : '0 2px 4px rgba(15, 23, 42, 0.01)',
@@ -703,11 +748,11 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
                             <div>
                               <div style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.9rem' }}>{opp.name}</div>
                               <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '6px' }}>
-                                <span style={{ 
-                                  fontSize: '0.65rem', 
-                                  background: stageStyles.bg, 
-                                  color: stageStyles.text, 
-                                  padding: '1px 6px', 
+                                <span style={{
+                                  fontSize: '0.65rem',
+                                  background: stageStyles.bg,
+                                  color: stageStyles.text,
+                                  padding: '1px 6px',
                                   borderRadius: '6px',
                                   fontWeight: 700,
                                   textTransform: 'uppercase',
@@ -716,7 +761,7 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
                                   {opp.stage || 'Unknown'}
                                 </span>
                                 <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                  <TrendingUp size={11} style={{ color: '#94a3b8' }} /> 
+                                  <TrendingUp size={11} style={{ color: '#94a3b8' }} />
                                   <span>{opp.probability || 0}% probability</span>
                                 </span>
                               </div>
@@ -728,7 +773,7 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
                               </div>
                               {opp.closeDate && (
                                 <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '3px', justifyContent: 'flex-end' }}>
-                                  <Calendar size={11} /> 
+                                  <Calendar size={11} />
                                   <span>Est: {new Date(opp.closeDate).toLocaleDateString('en-IN')}</span>
                                 </div>
                               )}
@@ -737,11 +782,11 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
                         );
                       })
                     ) : (
-                      <div style={{ 
-                        textAlign: 'center', 
-                        padding: '40px 20px', 
-                        background: '#f8fafc', 
-                        borderRadius: '16px', 
+                      <div style={{
+                        textAlign: 'center',
+                        padding: '40px 20px',
+                        background: '#f8fafc',
+                        borderRadius: '16px',
                         border: '1px dashed #cbd5e1',
                         display: 'flex',
                         flexDirection: 'column',
@@ -771,6 +816,23 @@ export default function AccountDetailModal({ isOpen, onClose, account, onEdit, o
           </div>
         </div>
       </div>
+      <QuoteFormModal
+        isOpen={isQuoteModalOpen}
+        onClose={() => setIsQuoteModalOpen(false)}
+        initialTitle={`${account.name} - Rate Proposal`}
+        initialAccountId={account._id}
+        initialContactId={contacts?.[0]?._id || ''}
+        initialOpportunityId={opportunities?.[0]?._id || ''}
+        onRefresh={onRefresh}
+      />
+      <PricingRequestFormModal
+        isOpen={isPricingModalOpen}
+        onClose={() => setIsPricingModalOpen(false)}
+        initialRelatedType="Account"
+        initialRelatedId={account._id}
+        initialSubject={`Pricing rate request for Account: ${account.name}`}
+        onRefresh={onRefresh}
+      />
     </div>
   );
 }

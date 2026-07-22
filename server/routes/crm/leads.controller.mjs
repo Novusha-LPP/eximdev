@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import Lead from '../../model/crm/Lead.mjs';
 import Account from '../../model/crm/Account.mjs';
 import Contact from '../../model/crm/Contact.mjs';
@@ -13,10 +14,10 @@ const router = express.Router();
 // - Team owner (managerId on a SalesTeam) → all team members' leads
 // - Everyone else → only their own leads
 // ─────────────────────────────────────────────────────────────────────────────
-async function buildOwnerFilter(user, requestedTeamId = null) {
-  const role = user?.crmRole || user?.role;
-  const userId = user?._id || user?.id || user?.userId;
-  
+async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
+  const role = user?.crmRole || user?.role || req?.headers?.['user-role'];
+  const userId = user?._id || user?.id || user?.userId || req?.headers?.['user-id'];
+
   // If specifically requesting a team's data
   if (requestedTeamId) {
     const team = await SalesTeam.findById(requestedTeamId).lean();
@@ -24,32 +25,58 @@ async function buildOwnerFilter(user, requestedTeamId = null) {
       // If admin, or user is manager, or user is member -> show team's data
       const isManager = team.managerId?.toString() === userId?.toString();
       const isMember = team.memberIds?.some(m => m?.toString() === userId?.toString());
-      if (role === 'Admin' || isManager || isMember) {
-        return { ownerId: { $in: team.memberIds || [] } };
+      if (role === 'Admin' || (role && role.toLowerCase() === 'admin') || isManager || isMember) {
+        const objectIdMemberIds = (team.memberIds || []).map(id => new mongoose.Types.ObjectId(id.toString()));
+        if (team.managerId) {
+          objectIdMemberIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
+        }
+        const filter = { ownerId: { $in: objectIdMemberIds } };
+        if (team.businessVertical) {
+          filter.businessVertical = team.businessVertical;
+        }
+        return filter;
       }
     }
   }
 
   // Default fallback (no specific team requested)
-  if (role === 'Admin') return {};
+  if (role === 'Admin' || (role && role.toLowerCase() === 'admin')) return {};
   if (!userId) return {};
 
-  // Find ALL teams this user manages
-  const ownedTeams = await SalesTeam.find({ managerId: userId }).lean();
-  let visibleUserIds = [userId];
+  // Find ALL teams this user belongs to (member or manager)
+  const myTeams = await SalesTeam.find({
+    $or: [
+      { managerId: userId },
+      { memberIds: userId }
+    ]
+  }).lean();
+  let visibleUserIds = [userId.toString()];
+  let visibleVerticals = [];
 
-  if (ownedTeams && ownedTeams.length > 0) {
-    ownedTeams.forEach(team => {
+  if (myTeams && myTeams.length > 0) {
+    myTeams.forEach(team => {
       if (team.memberIds) {
-        visibleUserIds = [...visibleUserIds, ...team.memberIds];
+        visibleUserIds = [...visibleUserIds, ...team.memberIds.map(id => id.toString())];
+      }
+      if (team.managerId) {
+        visibleUserIds.push(team.managerId.toString());
+      }
+      if (team.businessVertical) {
+        visibleVerticals.push(team.businessVertical);
       }
     });
   }
 
-  // Deduplicate user IDs
-  visibleUserIds = [...new Set(visibleUserIds.map(id => id?.toString()))];
+  // Deduplicate user IDs & Verticals
+  visibleUserIds = [...new Set(visibleUserIds)];
+  visibleVerticals = [...new Set(visibleVerticals)];
 
-  return { ownerId: { $in: visibleUserIds } };
+  const objectIdUserIds = visibleUserIds.map(id => new mongoose.Types.ObjectId(id));
+  const finalFilter = { ownerId: { $in: objectIdUserIds } };
+  if (visibleVerticals.length > 0) {
+    finalFilter.businessVertical = { $in: visibleVerticals };
+  }
+  return finalFilter;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -59,12 +86,18 @@ async function buildOwnerFilter(user, requestedTeamId = null) {
 // GET /api/crm/leads
 router.get('/', async (req, res) => {
   try {
-    const { status, source, teamId, startDate, endDate, period, service } = req.query;
-    const ownerFilter = await buildOwnerFilter(req.user, teamId);
+    const { status, source, referralSourceName, teamId, startDate, endDate, period, service, businessVertical } = req.query;
+    const ownerFilter = await buildOwnerFilter(req.user, teamId, req);
     const query = { ...ownerFilter };
+    if (businessVertical && businessVertical !== 'all') {
+      query.businessVertical = businessVertical;
+    }
     if (status) query.status = status;
     if (source) query.source = source;
     if (service) query.interestedServices = service;
+    if (referralSourceName) {
+      query.referralSourceName = { $regex: referralSourceName, $options: 'i' };
+    }
 
     if (startDate && endDate) {
       query.createdAt = {
@@ -170,7 +203,8 @@ router.post('/:id/convert', async (req, res) => {
     // 1. Create Account
     const account = new Account({
       name: lead.company,
-      ownerId: lead.ownerId
+      ownerId: lead.ownerId,
+      businessVertical: lead.businessVertical
     });
     await account.save();
 
@@ -183,7 +217,8 @@ router.post('/:id/convert', async (req, res) => {
       email: lead.email,
       phone: lead.phone,
       isPrimary: true,
-      convertedFromLead: lead._id
+      convertedFromLead: lead._id,
+      businessVertical: lead.businessVertical
     });
     await contact.save();
 
@@ -195,11 +230,29 @@ router.post('/:id/convert', async (req, res) => {
       stage: 'lead',
       services: lead.interestedServices || [],
       ownerId: lead.ownerId,
+      createdBy: req.user?._id,
       convertedFromLead: lead._id,
       probability: 10,
       stageHistory: [{ stage: 'lead', enteredAt: new Date() }],
       source: lead.source,
-      crateSize: lead.crateSize
+      crateSize: lead.crateSize,
+      shipper: lead.shipper,
+      stuffing: lead.stuffing,
+      shippingLine: lead.shippingLine,
+      shipmentType: lead.shipmentType,
+      pol: lead.pol,
+      pod: lead.pod,
+      containerType: lead.containerType,
+      containerWeight: lead.containerWeight,
+      containerVolume: lead.containerVolume,
+      paymentTerm: lead.paymentTerm,
+      detentionFreeDays: lead.detentionFreeDays,
+      transitTime: lead.transitTime,
+      currentFreightIndications: lead.currentFreightIndications,
+      referralSourceName: lead.referralSourceName,
+      monthlyVolume: lead.monthlyVolume,
+      monthlyRevenue: lead.monthlyRevenue,
+      businessVertical: lead.businessVertical
     });
     await opportunity.save();
 

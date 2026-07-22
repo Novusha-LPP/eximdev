@@ -1,27 +1,31 @@
 import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
-import { X, Edit2, Trash2 } from 'lucide-react';
+import { X, Edit2, Trash2, FileText, DollarSign } from 'lucide-react';
 import { message, Modal } from 'antd';
 import { UserContext } from '../../../contexts/UserContext';
 import ActivityTimeline from './ActivityTimeline';
+import QuoteFormModal from './QuoteFormModal';
+import PricingRequestFormModal from './PricingRequestFormModal';
 
 const STAGES = ['lead', 'qualified', 'opportunity', 'sales_visit', 'proposal', 'negotiation', 'won', 'lost'];
 
 const ALLOWED_SERVICES = [
-  'custom clearance', 
-  'freight forwarding', 
-  'dgft', 
-  'e-lock', 
-  'client', 
-  'transportation', 
-  'paramount', 
-  'rabs', 
+  'custom clearance',
+  'freight forwarding',
+  'dgft',
+  'e-lock',
+  'client',
+  'transportation',
+  'paramount',
+  'rabs',
   'auto rack'
 ];
 
 export default function OpportunityDetailModal({ isOpen, onClose, opportunity, onRefresh }) {
   const [isEditMode, setIsEditMode] = useState(false);
   const [formData, setFormData] = useState({});
+  const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
+  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [newRemark, setNewRemark] = useState('');
   const [editingRemarkId, setEditingRemarkId] = useState(null);
@@ -35,8 +39,14 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
   const { user } = useContext(UserContext);
   const fullUserName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username : 'Unknown User';
 
+  const handleClose = () => {
+    setIsEditMode(false);
+    onClose();
+  };
+
   useEffect(() => {
     if (isOpen && opportunity?._id) {
+      setIsEditMode(false);
       setFormData(opportunity);
       setNewRemark('');
       const standardSources = ['Web / Own Generated Lead', 'IndiaMart Lead', 'Direct Sales Visit', 'Referral', 'Email Campaign'];
@@ -51,14 +61,14 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
   const toggleService = (service) => {
     const currentServices = formData.services || [];
     if (currentServices.includes(service)) {
-      setFormData({ 
-        ...formData, 
-        services: currentServices.filter(s => s !== service) 
+      setFormData({
+        ...formData,
+        services: currentServices.filter(s => s !== service)
       });
     } else {
-      setFormData({ 
-        ...formData, 
-        services: [...currentServices, service] 
+      setFormData({
+        ...formData,
+        services: [...currentServices, service]
       });
     }
   };
@@ -74,6 +84,19 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
       });
     }
     setCustomService('');
+  };
+
+  const getHeaders = () => {
+    const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
+    return {
+      headers: {
+        'Content-Type': 'application/json',
+        'user-id': user._id || user.id || '',
+        'username': user.username || '',
+        'user-role': user.role || '',
+      },
+      withCredentials: true
+    };
   };
 
   const handleSave = async () => {
@@ -95,8 +118,19 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
         closeReason: formData.closeReason,
         closeNotes: formData.closeNotes,
         crateSize: formData.crateSize,
-        source: formData.source
+        source: formData.source,
+        referralSourceName: formData.referralSourceName
       };
+
+      const isProposalOrAfter = ['proposal', 'negotiation', 'won'].includes(newStage);
+      if (isProposalOrAfter) {
+        const dealValue = formData.value !== undefined ? Number(formData.value) : opportunity.value;
+        if (!dealValue || dealValue <= 0) {
+          message.error('Deal value must be greater than 0 before transitioning to the Proposal, Negotiation, or Won stages. Please add a value first.');
+          setIsSaving(false);
+          return;
+        }
+      }
 
       if (stageChanged && newStage === 'lost' && !formData.closeReason) {
         message.error('Please select a Reason for Loss');
@@ -108,12 +142,12 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
       if (stageChanged) {
         await axios.patch(
           `${process.env.REACT_APP_API_STRING}/crm/opportunities/${opportunity._id}/stage`,
-          { 
+          {
             stage: newStage,
             closeReason: formData.closeReason,
             closeNotes: formData.closeNotes
           },
-          { withCredentials: true }
+          getHeaders()
         );
       }
 
@@ -121,7 +155,7 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
       await axios.put(
         `${process.env.REACT_APP_API_STRING}/crm/opportunities/${opportunity._id}`,
         payload,
-        { withCredentials: true }
+        getHeaders()
       );
 
       message.success('Opportunity updated successfully');
@@ -143,7 +177,7 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
       okType: 'danger',
       async onOk() {
         try {
-          await axios.delete(`${process.env.REACT_APP_API_STRING}/crm/opportunities/${opportunity._id}`, { withCredentials: true });
+          await axios.delete(`${process.env.REACT_APP_API_STRING}/crm/opportunities/${opportunity._id}`, getHeaders());
           message.success('Opportunity deleted successfully');
           onRefresh();
           onClose();
@@ -319,6 +353,18 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
             {!isEditMode && (
               <>
                 <button
+                  onClick={() => setIsQuoteModalOpen(true)}
+                  style={{ padding: '8px 12px', background: '#4f46e5', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <FileText size={16} /> Create Quote
+                </button>
+                <button
+                  onClick={() => setIsPricingModalOpen(true)}
+                  style={{ padding: '8px 12px', background: '#059669', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  <DollarSign size={16} /> Request Pricing
+                </button>
+                <button
                   onClick={() => setIsEditMode(true)}
                   style={{ padding: '8px 12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
                 >
@@ -332,7 +378,7 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                 </button>
               </>
             )}
-            <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+            <button onClick={handleClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748b' }}>
               <X size={20} />
             </button>
           </div>
@@ -356,6 +402,31 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
               </div>
             </div>
           </div>
+
+          {/* Created By — non-editable */}
+          {(() => {
+            const creator = formData.createdBy || formData.ownerId;
+            if (!creator) return null;
+            return (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '8px',
+                padding: '10px 16px', background: '#f8fafc', borderRadius: '8px',
+                marginBottom: '20px', border: '1px solid #e2e8f0'
+              }}>
+                <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>🔒 Created By:</span>
+                <span style={{ fontSize: '0.85rem', color: '#1e293b', fontWeight: 700 }}>
+                  {typeof creator === 'object'
+                    ? `${creator.first_name || ''} ${creator.last_name || ''}`.trim() || creator.username
+                    : creator}
+                </span>
+                {formData.createdAt && (
+                  <span style={{ fontSize: '0.75rem', color: '#94a3b8', marginLeft: 'auto' }}>
+                    on {new Date(formData.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </span>
+                )}
+              </div>
+            );
+          })()}
 
           {isEditMode ? (
             // Edit Form
@@ -439,7 +510,12 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: !['transportation', 'customs clearance', 'export', 'import'].includes((formData.businessVertical || '').toLowerCase()) ? '1fr 1fr' : '1fr',
+                gap: '16px',
+                marginBottom: '16px'
+              }}>
                 <div>
                   <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Expected Close Date</label>
                   <input
@@ -449,29 +525,31 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                     style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
                   />
                 </div>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Crate Size</label>
-                  <input
-                    type="text"
-                    value={formData.crateSize || ''}
-                    onChange={(e) => setFormData({ ...formData, crateSize: e.target.value })}
-                    placeholder="Ex. 40ft x 20 units"
-                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
-                  />
-                </div>
+                {!['transportation', 'customs clearance', 'export', 'import'].includes((formData.businessVertical || '').toLowerCase()) && (
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Crate Size</label>
+                    <input
+                      type="text"
+                      value={formData.crateSize || ''}
+                      onChange={(e) => setFormData({ ...formData, crateSize: e.target.value })}
+                      placeholder="Ex. 40ft x 20 units"
+                      style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Lead Source */}
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Lead Source</label>
-                <select 
+                <select
                   value={formData.source && !['Web / Own Generated Lead', 'IndiaMart Lead', 'Direct Sales Visit', 'Referral', 'Email Campaign'].includes(formData.source) ? 'Other' : (formData.source || '')}
                   onChange={e => {
                     const val = e.target.value;
                     if (val === 'Other') {
-                      setFormData({...formData, source: customSource || 'Other'});
+                      setFormData({ ...formData, source: customSource || 'Other' });
                     } else {
-                      setFormData({...formData, source: val});
+                      setFormData({ ...formData, source: val });
                     }
                   }}
                   style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', color: '#334155', background: '#ffffff', outline: 'none' }}
@@ -486,13 +564,13 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                 </select>
                 {((formData.source && !['Web / Own Generated Lead', 'IndiaMart Lead', 'Direct Sales Visit', 'Referral', 'Email Campaign'].includes(formData.source)) || formData.source === 'Other') && (
                   <div style={{ marginTop: '8px' }}>
-                    <input 
+                    <input
                       required
                       type="text"
                       value={customSource || (formData.source === 'Other' ? '' : formData.source)}
                       onChange={e => {
                         setCustomSource(e.target.value);
-                        setFormData({...formData, source: e.target.value});
+                        setFormData({ ...formData, source: e.target.value });
                       }}
                       placeholder="Enter custom source (e.g. LinkedIn, Exhibition)"
                       style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '0.95rem', outline: 'none' }}
@@ -500,6 +578,20 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                   </div>
                 )}
               </div>
+
+              {formData.source === 'Referral' && (
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Referral By (Person/Company Name) *</label>
+                  <input
+                    required
+                    type="text"
+                    value={formData.referralSourceName || ''}
+                    onChange={(e) => setFormData({ ...formData, referralSourceName: e.target.value })}
+                    placeholder="Who referred this deal?"
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem', outline: 'none' }}
+                  />
+                </div>
+              )}
 
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '12px' }}>Interested Services</label>
@@ -547,7 +639,7 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                   ))}
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <input 
+                  <input
                     type="text"
                     value={customService}
                     onChange={(e) => setCustomService(e.target.value)}
@@ -555,7 +647,7 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                     style={{ flex: 1, padding: '6px 12px', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.85rem' }}
                     onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCustomService())}
                   />
-                  <button 
+                  <button
                     onClick={handleAddCustomService}
                     style={{ padding: '6px 12px', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: '6px', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer' }}
                   >
@@ -600,9 +692,9 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                               style={{ cursor: (visit.isCompleted || visit.isCancelled) ? 'default' : 'pointer', width: '16px', height: '16px' }}
                             />
                             <div>
-                              <div style={{ 
-                                fontSize: '0.85rem', 
-                                fontWeight: 600, 
+                              <div style={{
+                                fontSize: '0.85rem',
+                                fontWeight: 600,
                                 color: visit.isCompleted ? '#15803d' : visit.isCancelled ? '#64748b' : '#9a3412',
                                 textDecoration: visit.isCancelled ? 'line-through' : 'none'
                               }}>
@@ -761,7 +853,7 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                   </div>
                 </div>
 
-                {formData.crateSize && (
+                {formData.crateSize && !['transportation', 'customs clearance', 'export', 'import'].includes((formData.businessVertical || '').toLowerCase()) && (
                   <div style={{ marginBottom: '16px' }}>
                     <span style={{ fontSize: '0.8rem', color: '#64748b' }}>📦 Crate Size</span>
                     <p style={{ margin: '4px 0 0 0', color: '#334155', fontWeight: 600 }}>{formData.crateSize}</p>
@@ -774,7 +866,14 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                     <p style={{ margin: '4px 0 0 0', color: '#334155', fontWeight: 600 }}>{formData.source}</p>
                   </div>
                 )}
-                
+
+                {formData.source === 'Referral' && formData.referralSourceName && (
+                  <div style={{ marginBottom: '16px' }}>
+                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Referral By (Person/Company Name)</span>
+                    <p style={{ margin: '4px 0 0 0', color: '#334155', fontWeight: 600 }}>{formData.referralSourceName}</p>
+                  </div>
+                )}
+
                 {/* Services Display */}
                 {(formData.services || []).length > 0 && (
                   <div>
@@ -814,9 +913,9 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between'
                       }}>
                         <div>
-                          <div style={{ 
-                            fontSize: '0.9rem', 
-                            fontWeight: 600, 
+                          <div style={{
+                            fontSize: '0.9rem',
+                            fontWeight: 600,
                             color: visit.isCompleted ? '#15803d' : visit.isCancelled ? '#64748b' : '#9a3412',
                             textDecoration: visit.isCancelled ? 'line-through' : 'none'
                           }}>
@@ -862,7 +961,7 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                               {new Date(remark.createdAt).toLocaleDateString('en-IN')} {new Date(remark.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                             </span>
                             <div style={{ display: 'flex', gap: '4px' }}>
-                              <button 
+                              <button
                                 onClick={() => {
                                   setEditingRemarkId(remark._id);
                                   setEditingRemarkText(remark.text);
@@ -871,7 +970,7 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                               >
                                 <Edit2 size={14} />
                               </button>
-                              <button 
+                              <button
                                 onClick={() => handleDeleteRemark(remark._id)}
                                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '2px' }}
                               >
@@ -880,7 +979,7 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                             </div>
                           </div>
                         </div>
-                        
+
                         {editingRemarkId === remark._id ? (
                           <div style={{ marginTop: '8px' }}>
                             <textarea
@@ -912,6 +1011,27 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
           )}
         </div>
       </div>
+      <QuoteFormModal
+        isOpen={isQuoteModalOpen}
+        onClose={() => setIsQuoteModalOpen(false)}
+        initialTitle={`${opportunity.name} - Quote`}
+        initialAccountId={typeof opportunity.accountId === 'object' ? opportunity.accountId?._id : opportunity.accountId}
+        initialCompany={typeof opportunity.accountId === 'object' ? opportunity.accountId?.name : ''}
+        initialContactId={typeof opportunity.primaryContactId === 'object' ? opportunity.primaryContactId?._id : opportunity.primaryContactId}
+        initialContactName={typeof opportunity.primaryContactId === 'object' ? `${opportunity.primaryContactId?.firstName || ''} ${opportunity.primaryContactId?.lastName || ''}`.trim() : ''}
+        initialOpportunityId={opportunity._id}
+        initialOpportunityName={opportunity.name}
+        onRefresh={onRefresh}
+      />
+      <PricingRequestFormModal
+        isOpen={isPricingModalOpen}
+        onClose={() => setIsPricingModalOpen(false)}
+        initialRelatedType="Opportunity"
+        initialRelatedId={opportunity._id}
+        initialSubject={`Pricing rate request for Opportunity: ${opportunity.name}`}
+        initialTargetPrice={formData.value || opportunity.value}
+        onRefresh={onRefresh}
+      />
     </div>
   );
 }

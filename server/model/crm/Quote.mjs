@@ -9,6 +9,11 @@ const quoteSchema = new mongoose.Schema({
   contactId: { type: mongoose.Schema.Types.ObjectId, ref: 'Contact' },
   createdById: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   
+  // Custom Invoice/Estimate Fields
+  placeOfSupply: { type: String, default: 'Gujarat (24)' },
+  billToAddress: { type: String },
+  shipToAddress: { type: String },
+
   // Quote Details
   title: { type: String, required: true },
   description: { type: String },
@@ -18,6 +23,7 @@ const quoteSchema = new mongoose.Schema({
     _id: { type: mongoose.Schema.Types.ObjectId, auto: true },
     productId: String, // Could reference product catalog
     productName: String,
+    hsnSac: { type: String, default: '392310' },
     quantity: { type: Number, required: true, min: 1 },
     unitPrice: { type: Number, required: true, min: 0 },
     discount: { type: Number, default: 0, min: 0, max: 100 }, // percentage
@@ -55,22 +61,24 @@ const quoteSchema = new mongoose.Schema({
     sentBy: mongoose.Schema.Types.ObjectId,
     viewedAt: Date,
     viewedCount: { type: Number, default: 0 },
-    
-    // Email tracking
-    emailOpens: { type: Number, default: 0 },
-    emailClicks: { type: Number, default: 0 },
     lastViewedAt: Date,
-    
-    // Signature
-    signedAt: Date,
-    signedBy: String, // Name of person who signed
-    signatureUrl: String,
     
     // Rejection
     rejectedAt: Date,
     rejectedReason: String
   },
   
+  // Email activity audit log
+  emailHistory: [{
+    sentAt: { type: Date, default: Date.now },
+    sentBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    sentByUsername: { type: String },
+    recipientEmail: { type: String },
+    subject: { type: String },
+    mailClient: { type: String, enum: ['gmail', 'outlook', 'default', 'ses'], default: 'default' },
+    deliveryStatus: { type: String, enum: ['drafted', 'sent', 'failed'], default: 'drafted' },
+  }],
+
   // Version control
   version: { type: Number, default: 1 },
   previousVersions: [{
@@ -79,11 +87,6 @@ const quoteSchema = new mongoose.Schema({
     createdAt: Date
   }],
   
-  // Template used
-  templateId: { type: mongoose.Schema.Types.ObjectId, ref: 'QuoteTemplate' },
-  
-  createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
 }, { timestamps: true });
 
 // Indexes

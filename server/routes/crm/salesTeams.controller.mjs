@@ -7,7 +7,7 @@ const router = express.Router();
 // CREATE team — creator becomes manager automatically
 router.post('/', async (req, res) => {
   try {
-    const { name, description, parentTeamId, type, assignedTerritories, memberIds = [] } = req.body;
+    const { name, description, parentTeamId, type, assignedTerritories, memberIds = [], businessVertical, quotas } = req.body;
 
     // The logged-in user is the team owner/manager
     const creatorId = req.user?._id || req.user?.id || req.headers['user-id'];
@@ -25,16 +25,20 @@ router.post('/', async (req, res) => {
       parentTeamId,
       type: type || 'regional',
       assignedTerritories,
-      memberIds: allMemberIds
+      memberIds: allMemberIds,
+      businessVertical: businessVertical || 'Paramount',
+      quotas: quotas || { monthlyRevenue: 0, dealCount: 0 }
     });
 
     await newTeam.save();
 
-    // Stamp teamId on each member's user record
+    // Stamp teamId on each member's user record (Disabled to support multi-team assignments without overwriting HR teamId)
+    /*
     await UserModel.updateMany(
       { _id: { $in: allMemberIds } },
       { teamId: newTeam._id }
     );
+    */
 
     await newTeam.populate('managerId', 'username email first_name last_name');
     await newTeam.populate('memberIds', 'username email first_name last_name');
@@ -66,6 +70,37 @@ router.get('/', async (req, res) => {
       teams,
       pagination: { page: Number(page), limit: Number(limit), total }
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// GET user's teams (or all teams for admin)
+router.get('/my-teams', async (req, res) => {
+  try {
+    const role = req.user?.crmRole || req.user?.role || req.headers['user-role'];
+    const userRole = req.user?.role || req.headers['user-role'];
+    const userId = req.user?._id || req.user?.id || req.headers['user-id'];
+
+    const isHOD = userRole === 'HOD' || userRole === 'Head_of_Department' || (typeof userRole === 'string' && (userRole.toLowerCase() === 'hod' || userRole.toLowerCase() === 'head_of_department'));
+    const isCrmAdmin = role === 'Admin' || (typeof role === 'string' && role.toLowerCase() === 'admin');
+    const isAdmin = isCrmAdmin && !isHOD;
+
+    let query = { isActive: true };
+    if (!isAdmin && userId) {
+      query.$or = [
+        { managerId: userId },
+        { memberIds: userId }
+      ];
+    }
+
+    const teams = await SalesTeam.find(query)
+      .populate('managerId', 'username first_name last_name email')
+      .populate('memberIds', 'username first_name last_name')
+      .sort({ name: 1 })
+      .lean();
+
+    res.json(teams);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

@@ -77,6 +77,14 @@ function Home() {
       return acc;
     }
 
+    if (module === "Accounts") {
+      const category = "Accounts";
+      if (!acc[category]) acc[category] = [];
+      if (!acc[category].includes("Accounts")) acc[category].push("Accounts");
+      if (!acc[category].includes("Pricing Requests")) acc[category].push("Pricing Requests");
+      return acc;
+    }
+
     const category = moduleCategories[module] || "Uncategorized";
     if (!acc[category]) acc[category] = [];
     acc[category].push(module);

@@ -1,18 +1,86 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import Activity from '../../model/crm/Activity.mjs';
+import SalesTeam from '../../model/crm/SalesTeam.mjs';
 
 const router = express.Router();
+
+async function buildActivityFilter(user, requestedTeamId = null, req = null) {
+  const role = user?.crmRole || user?.role || req?.headers?.['user-role'];
+  const userId = user?._id || user?.id || user?.userId || req?.headers?.['user-id'];
+
+  if (requestedTeamId) {
+    const team = await SalesTeam.findById(requestedTeamId).lean();
+    if (team) {
+      const isManager = team.managerId?.toString() === userId?.toString();
+      const isMember = team.memberIds?.some(m => m?.toString() === userId?.toString());
+      if (role === 'Admin' || isManager || isMember) {
+        const objectIdMemberIds = (team.memberIds || []).map(id => new mongoose.Types.ObjectId(id.toString()));
+        if (team.managerId) {
+          objectIdMemberIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
+        }
+        return { userId: { $in: objectIdMemberIds } };
+      }
+    }
+  }
+
+  if (role === 'Admin') return {};
+  if (!userId) return {};
+
+  const myTeams = await SalesTeam.find({
+    $or: [
+      { managerId: userId },
+      { memberIds: userId }
+    ]
+  }).lean();
+  let visibleUserIds = [userId.toString()];
+
+  if (myTeams && myTeams.length > 0) {
+    myTeams.forEach(team => {
+      if (team.memberIds) {
+        visibleUserIds = [...visibleUserIds, ...team.memberIds.map(id => id.toString())];
+      }
+      if (team.managerId) {
+        visibleUserIds.push(team.managerId.toString());
+      }
+    });
+  }
+
+  visibleUserIds = [...new Set(visibleUserIds)];
+  const objectIdUserIds = visibleUserIds.map(id => new mongoose.Types.ObjectId(id));
+  return { userId: { $in: objectIdUserIds } };
+}
 
 // GET /api/crm/activities
 router.get('/', async (req, res) => {
   try {
-    const { type, userId, relatedModel, relatedId } = req.query;
-    const query = {};
+    const { type, userId, relatedModel, relatedId, startDate, endDate, teamId } = req.query;
+    const activityFilter = await buildActivityFilter(req.user, teamId, req);
+    const query = { ...activityFilter };
     if (type) query.type = type.toLowerCase();
-    if (userId) query.userId = userId;
+    
+    if (userId) {
+      if (!query.userId) {
+        query.userId = userId;
+      } else {
+        const allowed = query.userId.$in.map(id => id.toString());
+        if (allowed.includes(userId.toString())) {
+          query.userId = userId;
+        } else {
+          return res.json([]);
+        }
+      }
+    }
+
     if (relatedModel && relatedId) {
       query['relatedTo.model'] = relatedModel;
       query['relatedTo.id'] = relatedId;
+    }
+    if (startDate && endDate) {
+      query.activityDate = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
     }
 
     const activities = await Activity.find(query)

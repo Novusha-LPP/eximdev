@@ -42,5 +42,6 @@ export const moduleCategories = {
   "Team Pulse": "Analytics & Reports",
   "MasterDirectory": "Masters",
   "Karma Points": "Project Management",
+  "Pricing Requests": "Accounts",
 };
 

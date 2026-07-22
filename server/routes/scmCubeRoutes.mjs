@@ -29,7 +29,7 @@ router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
     }
 
     // Lookup country code
-    const countryDoc = await CountryModel.findOne({ name: job.origin_country || "" }).lean();
+    const countryDoc = await CountryModel.findOne({ name: (job.origin_country || "").trim().toUpperCase() }).lean();
     const countryCode = countryDoc ? countryDoc.code : "";
 
     // --- Validation Helpers ---

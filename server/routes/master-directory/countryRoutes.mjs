@@ -63,7 +63,11 @@ router.post("/seed-countries", async (req, res) => {
     try {
         const dataPath = path.join(__dirname, "../../utils/data/countries.json");
         const data = await fs.readFile(dataPath, "utf-8");
-        const countries = JSON.parse(data);
+        const parsed = JSON.parse(data);
+        const countries = parsed.map(c => ({
+            name: (c.name || "").toUpperCase(),
+            code: (c.code || "").toUpperCase()
+        }));
         
         await CountryModel.insertMany(countries, { ordered: false });
         res.status(201).json({ message: "Countries seeded successfully" });

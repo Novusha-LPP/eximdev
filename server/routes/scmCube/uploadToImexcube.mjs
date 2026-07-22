@@ -123,7 +123,7 @@ async function buildJobPayload(job_number, isPreview = false, senderID = "SURAJA
   if (!job) throw new Error("Job not found for the provided job_number");
 
   const countryDoc = await CountryModel.findOne({
-    name: job.origin_country || "",
+    name: (job.origin_country || "").trim().toUpperCase(),
   }).lean();
   const countryCode = countryDoc ? countryDoc.code : "";
 
@@ -627,7 +627,7 @@ router.get("/api/scmCube/job-data-preview", async (req, res) => {
       return res.status(404).json({ error: "Job not found" });
     }
 
-    const countryDoc = await CountryModel.findOne({ name: job.origin_country || "" }).lean();
+    const countryDoc = await CountryModel.findOne({ name: (job.origin_country || "").trim().toUpperCase() }).lean();
     const countryCode = countryDoc ? countryDoc.code : "";
 
     const getVal = (val) => (val === undefined || val === null ? "" : String(val).trim());

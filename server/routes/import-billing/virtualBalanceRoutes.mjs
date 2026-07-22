@@ -255,11 +255,28 @@ router.delete("/api/virtual-balance/:id", async (req, res) => {
   }
 });
 
-// GET /api/virtual-balance/job-details/:jobNo - Auto-populate partyName details for a jobNo
+// GET /api/virtual-balance/job-details/:jobNo - Auto-populate partyName and branch/mode details for a jobNo
 router.get("/api/virtual-balance/job-details/:jobNo", async (req, res) => {
   try {
-    const partyName = await getImporterName(req.params.jobNo);
-    res.status(200).json({ success: true, partyName });
+    const jobNo = req.params.jobNo ? req.params.jobNo.trim() : "";
+    if (!jobNo) {
+      return res.status(200).json({ success: true, partyName: "", branchCode: "", customHouse: "", mode: "" });
+    }
+    const job = await JobModel.findOne({
+      job_no: { $regex: new RegExp(`^${escapeRegex(jobNo)}$`, "i") }
+    }).select("importer importer_name name branch_code custom_house mode").lean();
+
+    if (!job) {
+      return res.status(200).json({ success: true, partyName: "", branchCode: "", customHouse: "", mode: "" });
+    }
+
+    res.status(200).json({
+      success: true,
+      partyName: job.importer || job.importer_name || job.name || "",
+      branchCode: job.branch_code || "",
+      customHouse: job.custom_house || "",
+      mode: job.mode || "",
+    });
   } catch (error) {
     console.error("Error fetching job details:", error);
     res.status(500).json({ success: false, message: "Internal server error" });
@@ -293,20 +310,37 @@ function escapeRegex(string) {
   return string.replace(/[/\-\\^$*+?.()|[\]{}]/g, "\\$&");
 }
 
-// GET /api/virtual-balance/jobs - Return all import jobs as {jobNo, partyName} for autocomplete
+// GET /api/virtual-balance/jobs - Return all import jobs as {jobNo, partyName, branchCode, customHouse, mode} for autocomplete
 router.get("/api/virtual-balance/jobs", async (req, res) => {
   try {
     const { search = "" } = req.query;
-    const query = search
-      ? { job_no: { $regex: new RegExp(escapeRegex(search.trim()), "i") } }
-      : {};
+    const trimmed = search.trim();
+    let query = {};
+    if (trimmed) {
+      const regex = new RegExp(escapeRegex(trimmed), "i");
+      query = {
+        $or: [
+          { job_no: regex },
+          { branch_code: regex },
+          { custom_house: regex },
+          { mode: regex },
+          { importer: regex },
+          { importer_name: regex },
+          { name: regex },
+        ],
+      };
+    }
     const jobs = await JobModel.find(query)
-      .select("job_no importer importer_name name")
+      .select("job_no importer importer_name name branch_code custom_house mode trade_type year")
+      .sort({ createdAt: -1 })
       .limit(200)
       .lean();
     const data = jobs.map((j) => ({
       jobNo: j.job_no || "",
       partyName: j.importer || j.importer_name || j.name || "",
+      branchCode: j.branch_code || "",
+      customHouse: j.custom_house || "",
+      mode: j.mode || "",
     }));
     res.status(200).json({ success: true, data });
   } catch (error) {

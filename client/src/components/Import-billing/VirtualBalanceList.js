@@ -336,17 +336,25 @@ export default function VirtualBalanceList({ isJobs = false }) {
     }
   };
 
-  // Helper: fetch party name for a single job number
-  const fetchPartyNameForJob = async (jobNo) => {
+  // Helper: fetch job details (partyName, branchCode, customHouse, mode) for a single job number
+  const fetchJobDetails = async (jobNo) => {
     try {
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/virtual-balance/job-details/${encodeURIComponent(jobNo)}`
       );
-      if (res.data.success && res.data.partyName) return res.data.partyName;
+      if (res.data.success) {
+        return {
+          jobNo,
+          partyName: res.data.partyName || "",
+          branchCode: res.data.branchCode || "",
+          customHouse: res.data.customHouse || "",
+          mode: res.data.mode || "",
+        };
+      }
     } catch (err) {
-      console.error("Party name lookup error:", err);
+      console.error("Job details lookup error:", err);
     }
-    return "";
+    return { jobNo, partyName: "", branchCode: "", customHouse: "", mode: "" };
   };
 
   // Helper: rebuild partyName display string from selectedJobs array
@@ -373,16 +381,14 @@ export default function VirtualBalanceList({ isJobs = false }) {
         fileUrl: entry.fileUrl || "",
       });
 
-      // Parse jobNo string and fetch partyNames from server for each job
+      // Parse jobNo string and fetch job details from server for each job
       const jobString = entry.jobNo || "";
       const jobNos = jobString.split(",").map((j) => j.trim()).filter(Boolean);
       const initialSelected = await Promise.all(
         jobNos.map(async (jobNo) => {
           const inList = jobsList.find((j) => j.jobNo === jobNo);
-          const partyName = (inList && inList.partyName)
-            ? inList.partyName
-            : await fetchPartyNameForJob(jobNo);
-          return { jobNo, partyName };
+          if (inList && (inList.partyName || inList.branchCode)) return inList;
+          return await fetchJobDetails(jobNo);
         })
       );
       setSelectedJobs(initialSelected);
@@ -835,14 +841,68 @@ export default function VirtualBalanceList({ isJobs = false }) {
                   if (typeof option === "string") return option;
                   return option.jobNo || "";
                 }}
-                renderOption={(props, option) => (
-                  <li {...props} key={typeof option === "string" ? option : option.jobNo}>
-                    <span style={{ fontWeight: 700 }}>{typeof option === "string" ? option : option.jobNo}</span>
-                    {typeof option !== "string" && option.partyName && (
-                      <span style={{ marginLeft: 8, color: "#64748b", fontSize: "11px" }}>— {option.partyName}</span>
-                    )}
-                  </li>
-                )}
+                renderTags={(value, getTagProps) =>
+                  value.map((option, index) => {
+                    const isString = typeof option === "string";
+                    const jobNo = isString ? option : option.jobNo;
+                    const branch = !isString ? option.branchCode : "";
+                    const modeCustom = !isString ? (option.mode || option.customHouse) : "";
+                    const details = [branch, modeCustom].filter(Boolean).join(" | ");
+                    const label = details ? `${jobNo} (${details})` : jobNo;
+                    const { key, ...tagProps } = getTagProps({ index });
+                    return (
+                      <Chip
+                        key={key || index}
+                        size="small"
+                        label={label}
+                        sx={{ fontWeight: 600, bgcolor: "#e2e8f0", color: "#1e293b", mr: 0.5 }}
+                        {...tagProps}
+                      />
+                    );
+                  })
+                }
+                renderOption={(props, option) => {
+                  const isString = typeof option === "string";
+                  const jobNo = isString ? option : option.jobNo;
+                  const branch = !isString ? option.branchCode : "";
+                  const mode = !isString ? option.mode : "";
+                  const customHouse = !isString ? option.customHouse : "";
+                  const partyName = !isString ? option.partyName : "";
+
+                  const details = [branch, mode, customHouse].filter(Boolean).join(" • ");
+                  const { key, ...optionProps } = props;
+
+                  return (
+                    <li key={key || jobNo} {...optionProps}>
+                      <Box sx={{ display: "flex", flexDirection: "column", width: "100%", py: 0.5 }}>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: "#0f172a" }}>
+                            {jobNo}
+                          </Typography>
+                          {details && (
+                            <Chip
+                              label={details}
+                              size="small"
+                              sx={{
+                                height: 20,
+                                fontSize: "10px",
+                                fontWeight: 700,
+                                bgcolor: "#e0e7ff",
+                                color: "#3730a3",
+                                borderRadius: "4px",
+                              }}
+                            />
+                          )}
+                        </Box>
+                        {partyName && (
+                          <Typography variant="caption" sx={{ color: "#64748b", mt: 0.2 }}>
+                            — {partyName}
+                          </Typography>
+                        )}
+                      </Box>
+                    </li>
+                  );
+                }}
                 isOptionEqualToValue={(option, value) => {
                   const optJobNo = typeof option === "string" ? option : option.jobNo;
                   const valJobNo = typeof value === "string" ? value : value.jobNo;
@@ -861,19 +921,26 @@ export default function VirtualBalanceList({ isJobs = false }) {
 
                       if (!jobNo) return null;
 
-                      // If already has partyName, keep it
-                      const existingPartyName = typeof item !== "string" ? item.partyName : "";
-                      if (existingPartyName) return { jobNo, partyName: existingPartyName };
+                      if (typeof item !== "string" && (item.partyName || item.branchCode)) {
+                        return {
+                          jobNo,
+                          partyName: item.partyName || "",
+                          branchCode: item.branchCode || "",
+                          customHouse: item.customHouse || "",
+                          mode: item.mode || "",
+                        };
+                      }
 
                       // Try jobsList cache first
                       const inList = jobsList.find((j) => j.jobNo === jobNo);
-                      if (inList && inList.partyName) return { jobNo, partyName: inList.partyName };
+                      if (inList && (inList.partyName || inList.branchCode)) return inList;
 
                       // Fallback: fetch from server
-                      const partyName = await fetchPartyNameForJob(jobNo);
-                      const resolved = { jobNo, partyName };
-                      if (partyName) setJobsList((prev) => [...prev, resolved]);
-                      return resolved;
+                      const details = await fetchJobDetails(jobNo);
+                      if (details && (details.partyName || details.branchCode)) {
+                        setJobsList((prev) => [...prev, details]);
+                      }
+                      return details;
                     })
                   );
                   const filtered = updatedValue.filter(Boolean);
@@ -887,7 +954,7 @@ export default function VirtualBalanceList({ isJobs = false }) {
                   <TextField
                     {...params}
                     label="Job Number(s)"
-                    placeholder="Type to search..."
+                    placeholder="Type to search job no, branch, mode, party..."
                     InputProps={{
                       ...params.InputProps,
                       endAdornment: (
@@ -899,7 +966,7 @@ export default function VirtualBalanceList({ isJobs = false }) {
                     }}
                   />
                 )}
-                ListboxProps={{ style: { maxHeight: "220px" } }}
+                ListboxProps={{ style: { maxHeight: "250px" } }}
               />
             </Grid>
             <Grid item xs={12}>

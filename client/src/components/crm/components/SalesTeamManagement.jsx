@@ -13,6 +13,7 @@ export default function SalesTeamManagement() {
     name: '',
     description: '',
     type: 'regional',
+    businessVertical: 'Paramount',
     memberIds: [],
     quotas: { monthlyRevenue: 0, dealCount: 0 }
   });
@@ -121,7 +122,7 @@ export default function SalesTeamManagement() {
     setIsFormOpen(false);
     setEditingTeam(null);
     setUserSearch('');
-    setFormData({ name: '', description: '', type: 'regional', memberIds: [], quotas: { monthlyRevenue: 0, dealCount: 0 } });
+    setFormData({ name: '', description: '', type: 'regional', businessVertical: 'Paramount', memberIds: [], quotas: { monthlyRevenue: 0, dealCount: 0 } });
   };
 
   const handleEdit = (team) => {
@@ -131,6 +132,7 @@ export default function SalesTeamManagement() {
       name: team.name,
       description: team.description || '',
       type: team.type || 'regional',
+      businessVertical: team.businessVertical || 'Paramount',
       memberIds: currentMemberIds,
       quotas: team.quotas || { monthlyRevenue: 0, dealCount: 0 }
     });
@@ -214,19 +216,35 @@ export default function SalesTeamManagement() {
               </div>
 
               {/* Team Type */}
-              <div>
-                <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.875rem' }}>Team Type</label>
-                <select
-                  value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
-                >
-                  <option value="regional">Regional</option>
-                  <option value="product">Product-based</option>
-                  <option value="industry">Industry-based</option>
-                  <option value="enterprise">Enterprise</option>
-                  <option value="channel">Channel</option>
-                </select>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.875rem' }}>Team Type</label>
+                  <select
+                    value={formData.type}
+                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
+                  >
+                    <option value="regional">Regional</option>
+                    <option value="product">Product-based</option>
+                    <option value="industry">Industry-based</option>
+                    <option value="enterprise">Enterprise</option>
+                    <option value="channel">Channel</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.875rem' }}>Business Vertical *</label>
+                  <select
+                    value={formData.businessVertical}
+                    onChange={(e) => setFormData({ ...formData, businessVertical: e.target.value })}
+                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
+                  >
+                    <option value="Paramount">Paramount</option>
+                    <option value="Transportation">Transportation</option>
+                    <option value="Customs Clearance">Customs Clearance</option>
+                    <option value="Export">Export</option>
+                    <option value="Import">Import</option>
+                  </select>
+                </div>
               </div>
 
               {/* ── MEMBER SELECTION DROPDOWN ── */}
@@ -386,6 +404,7 @@ export default function SalesTeamManagement() {
               <th style={{ padding: '16px 12px' }}>Team Name</th>
               <th style={{ padding: '16px 12px' }}>Owner</th>
               <th style={{ padding: '16px 12px' }}>Type</th>
+              <th style={{ padding: '16px 12px' }}>Vertical</th>
               <th style={{ padding: '16px 12px' }}>Members</th>
               <th style={{ padding: '16px 12px' }}>Monthly Quota</th>
               <th style={{ padding: '16px 12px', textAlign: 'right' }}>Actions</th>
@@ -410,6 +429,11 @@ export default function SalesTeamManagement() {
                   <td style={{ padding: '16px 12px', color: '#475569' }}>
                     <span style={{ background: '#f1f5f9', padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 600 }}>
                       {team.type}
+                    </span>
+                  </td>
+                  <td style={{ padding: '16px 12px', color: '#475569' }}>
+                    <span style={{ background: '#ede9fe', color: '#6d28d9', padding: '4px 8px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 600 }}>
+                      {team.businessVertical || 'Paramount'}
                     </span>
                   </td>
                   <td style={{ padding: '16px 12px', color: '#475569' }}>

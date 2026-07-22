@@ -384,7 +384,7 @@ export const getBalance = async (req, res) => {
     try {
         const actor = req.user;
         const currentYear = new Date().getFullYear();
-        
+
         // --- 1. Identify Target Employee ---
         let targetId = actor._id;
         let targetEmployee = actor;
@@ -439,7 +439,7 @@ export const getBalance = async (req, res) => {
             }
         }
 
-const rabsCompany = await Company.findOne({ company_name: /RABS Industries India Private Limited/i });
+        const rabsCompany = await Company.findOne({ company_name: /RABS Industries India Private Limited/i });
         const rabsCompanyId = rabsCompany?._id;
         const targetEmployeeCompanyId = targetEmployee.company_id?._id || targetEmployee.company_id;
         const isRabsUser = rabsCompanyId && String(targetEmployeeCompanyId) === String(rabsCompanyId);
@@ -517,8 +517,8 @@ const rabsCompany = await Company.findOne({ company_name: /RABS Industries India
             policies = filterEligiblePolicies(allPolicies, targetEmployee);
 
             // Keep LWP or policies explicitly assigned
-            policies = policies.filter((policy) => 
-                assignedPolicyIds.includes(String(policy._id)) || 
+            policies = policies.filter((policy) =>
+                assignedPolicyIds.includes(String(policy._id)) ||
                 String(policy.leave_type || '').toLowerCase() === 'lwp'
             );
 
@@ -600,7 +600,7 @@ const rabsCompany = await Company.findOne({ company_name: /RABS Industries India
 
             // Extract balance values
             const openingBalance = userBalance?.opening_balance ?? getDefaultOpeningBalance(policy);
-            
+
             let used = Number(userBalance?.used ?? 0);
             let pending = Number(userBalance?.pending_approval ?? 0);
 
@@ -619,7 +619,7 @@ const rabsCompany = await Company.findOne({ company_name: /RABS Industries India
                 : (isUnpaidPolicy
                     ? Math.max(0, (openingBalance > 1000000 ? 2000 : openingBalance) - used - pending)
                     : Math.max(0, Number(openingBalance || 0) - used - pending));
-            
+
             formattedData.push({
                 _id: policy._id,
                 leave_type: policy.leave_type,
@@ -638,8 +638,8 @@ const rabsCompany = await Company.findOne({ company_name: /RABS Industries India
                 pending: pending,
                 available: availableFromBalance,
                 balance: availableFromBalance,
-                closing_balance: availableFromBalance, 
-                
+                closing_balance: availableFromBalance,
+
                 // Display helpers
                 display: {
                     used: used,
@@ -741,28 +741,28 @@ export const getApplications = async (req, res) => {
                                             : approvalStatus.replace(/_/g, ' ');
 
             return {
-            _id: app._id,
-            leave_type: app.leave_policy_id ? app.leave_policy_id.leave_type : app.leave_type || 'Unknown',
-            from_date: app.from_date,
-            to_date: app.to_date,
-            total_days: app.total_days,
-            is_half_day: app.is_half_day || false,
-            half_day_session: app.half_day_session || '',
-            attachment_urls: app.attachment_urls || [],
-            reason: app.reason || '',
-            status: getRequesterStatus(app.approval_status),
-            final_status: approvalStatus,
-            approval_stage: approvalStage,
-            approval_stage_label: approvalStageLabel,
-            approval_status_label: approvalStageLabel,
-            applied_on: app.applied_on || app.createdAt,
-            appliedOn: app.applied_on || app.createdAt,
-            createdAt: app.createdAt,
-            rejection_reason: app.rejection_reason || null,
-            reviewer_remark: app.rejection_reason || app.final_review_comment || app.hod_review_comment || app.comments || '',
-            reviewed_by: reviewerName,
-            reviewed_by_role: reviewerRole,
-            reviewed_at: app.final_reviewed_at || app.rejected_at || app.hod_reviewed_at || app.updatedAt
+                _id: app._id,
+                leave_type: app.leave_policy_id ? app.leave_policy_id.leave_type : app.leave_type || 'Unknown',
+                from_date: app.from_date,
+                to_date: app.to_date,
+                total_days: app.total_days,
+                is_half_day: app.is_half_day || false,
+                half_day_session: app.half_day_session || '',
+                attachment_urls: app.attachment_urls || [],
+                reason: app.reason || '',
+                status: getRequesterStatus(app.approval_status),
+                final_status: approvalStatus,
+                approval_stage: approvalStage,
+                approval_stage_label: approvalStageLabel,
+                approval_status_label: approvalStageLabel,
+                applied_on: app.applied_on || app.createdAt,
+                appliedOn: app.applied_on || app.createdAt,
+                createdAt: app.createdAt,
+                rejection_reason: app.rejection_reason || null,
+                reviewer_remark: app.rejection_reason || app.final_review_comment || app.hod_review_comment || app.comments || '',
+                reviewed_by: reviewerName,
+                reviewed_by_role: reviewerRole,
+                reviewed_at: app.final_reviewed_at || app.rejected_at || app.hod_reviewed_at || app.updatedAt
             };
         });
         res.json({ data: formattedApps });
@@ -877,13 +877,13 @@ export const previewLeave = async (req, res) => {
                 balanceRecord: balance
             });
         }
-        
-//const isLwpPolicy = String(policy?.leave_type || '').toLowerCase() === 'lwp';
+
+        //const isLwpPolicy = String(policy?.leave_type || '').toLowerCase() === 'lwp';
         // Get available balance (already accounts for pending applications)
         const primaryBalance = isLwpPolicy
             ? Math.max(0, (balance?.opening_balance || 2000) - Number(balance?.used || 0) - Number(balance?.pending_approval || 0))
             : resolveAvailableFromBalance(balance);
-        
+
         // Calculate projected balance after this leave application
         const projectedBalance = Math.max(0, primaryBalance - Number(result.totalDays || 0));
 
@@ -921,7 +921,7 @@ export const applyLeave = async (req, res) => {
 
             const employeeFound = await UserModel.findById(employee_id);
             if (!employeeFound) return res.status(404).json({ message: 'Employee not found' });
-            
+
             targetId = employeeFound._id;
             user = employeeFound;
         }
@@ -945,7 +945,7 @@ export const applyLeave = async (req, res) => {
                 await UserModel.updateOne({ _id: user._id }, { $set: { company_id: matchedCompany._id } });
             }
         }
-        
+
         // 1. Validate Input
         if (!leave_policy_id || !from_date || !to_date || !reason) {
             return res.status(400).json({ message: 'All fields are required' });
@@ -1055,7 +1055,7 @@ export const applyLeave = async (req, res) => {
 
         const total_days = calc.totalDays;
 
-       
+
         if (total_days <= 0) {
             return res.status(400).json({ message: 'Invalid date range or no working days selected' });
         }
@@ -1213,7 +1213,7 @@ export const applyLeave = async (req, res) => {
         const isHodUser = isHodRole(user.role) || !!isActuallyHodOfSomeTeam;
 
         // --- CUSTOM ROUTING FOR HOD & ADMINS & RABS ---
-       // const rabsCompany = await Company.findOne({ company_name: /RABS Industries India Private Limited/i });
+        // const rabsCompany = await Company.findOne({ company_name: /RABS Industries India Private Limited/i });
         const isRabs = rabsCompany && String(companyId) === String(rabsCompany._id);
 
         if (isRabs) {
@@ -1282,9 +1282,9 @@ export const applyLeave = async (req, res) => {
                     approver_id: shaliniUser._id,
                     approver_username: STAGE_2_APPROVER_USERNAME,
                     approver_role: 'ADMIN',
-                    action: assignedStage === 'stage_1_hod' 
-                                ? 'pending' 
-                                : (assignedStage === 'stage_2_shalini' ? 'pending' : 'approved'),
+                    action: assignedStage === 'stage_1_hod'
+                        ? 'pending'
+                        : (assignedStage === 'stage_2_shalini' ? 'pending' : 'approved'),
                     action_date: (assignedStage === 'stage_3_final' && !isBypassedHod) ? new Date() : (isBypassedHod ? new Date() : undefined),
                     comments: isBypassedHod ? 'Stage skipped for HOD requester' : (assignedStage === 'stage_3_final' ? 'Stage skipped for senior admin requester' : undefined)
                 },
@@ -1310,7 +1310,7 @@ export const applyLeave = async (req, res) => {
             // console.log('[DEBUG] Re-verifying balance...');
             let currentBalance = await LeaveBalance.findById(balanceRecord._id);
             // console.log('[DEBUG] Current balance found:', currentBalance ? 'YES' : 'NO');
-            
+
             if (!currentBalance) {
                 throw new Error('Balance record was unexpectedly deleted during transaction');
             }
@@ -1368,7 +1368,7 @@ export const applyLeave = async (req, res) => {
                 sandwich_days_count: calc.sandwichDays,
                 breakdown: calc.breakdown
             });
-            
+
             if (isHalfDay && req.body.half_day_session) {
                 application.half_day_session = req.body.half_day_session;
             }
@@ -1473,9 +1473,9 @@ export const cancelLeave = async (req, res) => {
         // ── PARTIAL CANCELLATION (Split Approach) ──────────────────────────────
         if (cancel_type === 'partial' && cancel_from && cancel_to) {
             const origStart = moment(application.from_date_str || application.from_date).startOf('day');
-            const origEnd   = moment(application.to_date_str || application.to_date).startOf('day');
+            const origEnd = moment(application.to_date_str || application.to_date).startOf('day');
             const cancelStart = moment(cancel_from).startOf('day');
-            const cancelEnd   = moment(cancel_to).startOf('day');
+            const cancelEnd = moment(cancel_to).startOf('day');
 
             if (cancelStart.isBefore(origStart) || cancelEnd.isAfter(origEnd)) {
                 return res.status(400).json({ message: 'Cancel range must be within the leave date range' });
@@ -1485,9 +1485,9 @@ export const cancelLeave = async (req, res) => {
             }
 
             // Calculate cancelled days proportionally from original total_days
-            const totalRangeDays   = origEnd.diff(origStart, 'days') + 1;
-            const cancelRangeDays  = cancelEnd.diff(cancelStart, 'days') + 1;
-            const cancelledDays    = Math.max(
+            const totalRangeDays = origEnd.diff(origStart, 'days') + 1;
+            const cancelRangeDays = cancelEnd.diff(cancelStart, 'days') + 1;
+            const cancelledDays = Math.max(
                 0.5,
                 Math.round((cancelRangeDays / totalRangeDays) * application.total_days * 2) / 2
             );
@@ -1495,14 +1495,14 @@ export const cancelLeave = async (req, res) => {
             // Create the CANCELLED sub-record for the cancelled portion
             const cancelledRecord = new LeaveApplication({
                 employee_id: application.employee_id,
-                company_id:  application.company_id,
+                company_id: application.company_id,
                 department_id: application.department_id,
                 leave_policy_id: application.leave_policy_id,
                 leave_type: application.leave_type,
                 from_date: cancelStart.toDate(),
                 from_date_str: cancelStart.format('YYYY-MM-DD'),
-                to_date:   cancelEnd.toDate(),
-                to_date_str:   cancelEnd.format('YYYY-MM-DD'),
+                to_date: cancelEnd.toDate(),
+                to_date_str: cancelEnd.format('YYYY-MM-DD'),
                 total_days: cancelledDays,
                 reason: application.reason,
                 is_half_day: false,
@@ -1521,25 +1521,25 @@ export const cancelLeave = async (req, res) => {
 
             // Update the original record based on WHERE the cancelled sub-range falls
             const cancellingEntireRange = cancelStart.isSame(origStart) && cancelEnd.isSame(origEnd);
-            const cancellingFromStart   = cancelStart.isSame(origStart);
-            const cancellingFromEnd     = cancelEnd.isSame(origEnd);
+            const cancellingFromStart = cancelStart.isSame(origStart);
+            const cancellingFromEnd = cancelEnd.isSame(origEnd);
 
             if (cancellingEntireRange) {
                 // Effectively a full cancel through the partial path
                 application.approval_status = 'cancelled';
-                application.cancelled_by   = user._id;
-                application.cancelled_at   = new Date();
+                application.cancelled_by = user._id;
+                application.cancelled_at = new Date();
                 application.cancellation_reason = cancellation_reason || 'Full cancellation via partial';
             } else if (cancellingFromStart) {
                 // Advance the from_date past the cancelled portion
-                application.from_date  = cancelEnd.clone().add(1, 'day').toDate();
+                application.from_date = cancelEnd.clone().add(1, 'day').toDate();
                 application.total_days = Math.max(
                     0.5,
                     Math.round((application.total_days - cancelledDays) * 2) / 2
                 );
             } else if (cancellingFromEnd) {
                 // Retreat the to_date before the cancelled portion
-                application.to_date    = cancelStart.clone().subtract(1, 'day').toDate();
+                application.to_date = cancelStart.clone().subtract(1, 'day').toDate();
                 application.total_days = Math.max(
                     0.5,
                     Math.round((application.total_days - cancelledDays) * 2) / 2
@@ -1556,19 +1556,19 @@ export const cancelLeave = async (req, res) => {
 
                 const remainderRecord = new LeaveApplication({
                     employee_id: application.employee_id,
-                    company_id:  application.company_id,
+                    company_id: application.company_id,
                     department_id: application.department_id,
                     leave_policy_id: application.leave_policy_id,
                     leave_type: application.leave_type,
                     from_date: trailingStartDate,
                     from_date_str: moment(trailingStartDate).format('YYYY-MM-DD'),
-                    to_date:   origEnd.toDate(),
-                    to_date_str:   origEnd.format('YYYY-MM-DD'),
+                    to_date: origEnd.toDate(),
+                    to_date_str: origEnd.format('YYYY-MM-DD'),
                     total_days: trailingDays,
                     reason: application.reason,
                     is_half_day: false,
                     approval_status: application.approval_status,
-                    approval_stage:  application.approval_stage,
+                    approval_stage: application.approval_stage,
                     current_approver_id: application.current_approver_id,
                     approval_chain: application.approval_chain,
                     is_split_remainder: true,
@@ -1583,7 +1583,7 @@ export const cancelLeave = async (req, res) => {
                     0.5,
                     Math.round((leadingRangeDays / totalRangeDays) * application.total_days * 2) / 2
                 );
-                application.to_date    = cancelStart.clone().subtract(1, 'day').toDate();
+                application.to_date = cancelStart.clone().subtract(1, 'day').toDate();
                 application.total_days = leadingDays;
             }
             await application.save();
@@ -1606,9 +1606,9 @@ export const cancelLeave = async (req, res) => {
         // ── FULL CANCELLATION ──────────────────────────────────────────────────
         const daysToRestore = application.total_days;
 
-        application.approval_status     = 'cancelled';
-        application.cancelled_by        = user._id;
-        application.cancelled_at        = new Date();
+        application.approval_status = 'cancelled';
+        application.cancelled_by = user._id;
+        application.cancelled_at = new Date();
         if (cancellation_reason) application.cancellation_reason = cancellation_reason;
         await application.save();
 
@@ -1829,7 +1829,7 @@ export const updateBalance = async (req, res) => {
 export const getBalancesBulk = async (req, res) => {
     try {
         const { employee_ids } = req.query;
-        
+
         if (!employee_ids) {
             return res.status(400).json({ message: 'employee_ids parameter is required' });
         }
@@ -1853,7 +1853,7 @@ export const getBalancesBulk = async (req, res) => {
         }).lean();
 
         // Return balances in a format that can be easily consumed
-        res.json({ 
+        res.json({
             success: true,
             data: balances.map(balance => ({
                 employee_id: balance.employee_id.toString(),

@@ -1,5 +1,6 @@
 import express from 'express';
 import '../../model/crm/Notification.mjs';
+import '../../model/crm/PricingRequest.mjs';
 import leadsRouter from './leads.controller.mjs';
 import accountsRouter from './accounts.controller.mjs';
 import contactsRouter from './contacts.controller.mjs';
@@ -13,6 +14,8 @@ import salesTeamsRouter from './salesTeams.controller.mjs';
 import quotesRouter from './quotes.controller.mjs';
 import automationRulesRouter from './automationRules.controller.mjs';
 import forecastingRouter from './forecasting.controller.mjs';
+import incentivesRouter from './incentives.controller.mjs';
+import pricingRequestsRouter from './pricingRequests.controller.mjs';
 
 const router = express.Router();
 
@@ -26,6 +29,8 @@ router.use('/opportunities', opportunitiesRouter);
 router.use('/activities', activitiesRouter);
 router.use('/tasks', tasksRouter);
 router.use('/reports', reportsRouter);
+router.use('/incentives', incentivesRouter);
+router.use('/pricing-requests', pricingRequestsRouter);
 
 // Phase 1: Advanced Features
 router.use('/lead-scoring', leadScoringRouter);

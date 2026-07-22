@@ -18,14 +18,14 @@ const PIPELINE_STAGES = [
 ];
 
 const ALLOWED_SERVICES = [
-  'custom clearance', 
-  'freight forwarding', 
-  'dgft', 
-  'e-lock', 
-  'client', 
-  'transportation', 
-  'paramount', 
-  'rabs', 
+  'custom clearance',
+  'freight forwarding',
+  'dgft',
+  'e-lock',
+  'client',
+  'transportation',
+  'paramount',
+  'rabs',
   'auto rack'
 ];
 
@@ -78,7 +78,7 @@ export default function CRMKanbanBoard() {
     try {
       const stored = localStorage.getItem('crm_filters_pipeline');
       if (stored) return JSON.parse(stored);
-    } catch (e) {}
+    } catch (e) { }
     return {
       type: 'this_month',
       month: new Date().toISOString().substring(0, 7),
@@ -86,6 +86,39 @@ export default function CRMKanbanBoard() {
       endDate: ''
     };
   });
+
+  const bottomScrollRef = React.useRef(null);
+  const [isMouseDown, setIsMouseDown] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeftState, setScrollLeftState] = useState(0);
+
+  const handleMouseDown = (e) => {
+    // Only grab scroll if clicking the background, not cards, forms, buttons or inputs
+    if (e.target.closest('[draggable=true]') || e.target.closest('button') || e.target.closest('select') || e.target.closest('input') || e.target.closest('textarea')) {
+      return;
+    }
+    setIsMouseDown(true);
+    if (bottomScrollRef.current) {
+      setStartX(e.pageX - bottomScrollRef.current.offsetLeft);
+      setScrollLeftState(bottomScrollRef.current.scrollLeft);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setIsMouseDown(false);
+  };
+
+  const handleMouseUp = () => {
+    setIsMouseDown(false);
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isMouseDown || !bottomScrollRef.current) return;
+    e.preventDefault();
+    const x = e.pageX - bottomScrollRef.current.offsetLeft;
+    const walk = (x - startX) * 1.5; // multiplier adjusts scroll sensitivity
+    bottomScrollRef.current.scrollLeft = scrollLeftState - walk;
+  };
 
   const handleFilterChange = (newFilters) => {
     setFilters(prev => {
@@ -210,6 +243,15 @@ export default function CRMKanbanBoard() {
   const handleDropStage = (e, toStage) => {
     e.preventDefault();
     if (draggedOpportunity && draggedOpportunity.fromStage !== toStage) {
+      const isProposalOrAfter = ['proposal', 'negotiation', 'won'].includes(toStage);
+      if (isProposalOrAfter) {
+        const oppValue = draggedOpportunity.opportunity?.value;
+        if (!oppValue || oppValue <= 0) {
+          message.warning('Deal value must be greater than 0 before transitioning to the Proposal or subsequent stages. Please add a value first.');
+          setDraggedOpportunity(null);
+          return;
+        }
+      }
       if (toStage === 'lost') {
         setLostOpportunityId(draggedOpportunity.opportunity._id);
         setLostFromStage(draggedOpportunity.fromStage);
@@ -240,7 +282,7 @@ export default function CRMKanbanBoard() {
       message.success('Opportunity marked as Lost');
       fetchBoard();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update opportunity');
+      message.error(err.response?.data?.message || 'Failed to update opportunity');
       console.error(err);
     } finally {
       setUpdating(false);
@@ -251,7 +293,7 @@ export default function CRMKanbanBoard() {
 
   const handleUpdateOpportunityStage = async (opportunityId, newStage) => {
     if (!draggedOpportunity) return;
-    
+
     const fromStage = draggedOpportunity.fromStage;
     if (fromStage === newStage) {
       setDraggedOpportunity(null);
@@ -262,7 +304,7 @@ export default function CRMKanbanBoard() {
     const oldBoard = JSON.parse(JSON.stringify(board));
     const updatedBoard = { ...board };
     const opportunity = updatedBoard[fromStage].find(o => o._id === opportunityId);
-    
+
     if (opportunity) {
       updatedBoard[fromStage] = updatedBoard[fromStage].filter(o => o._id !== opportunityId);
       if (!updatedBoard[newStage]) updatedBoard[newStage] = [];
@@ -283,7 +325,7 @@ export default function CRMKanbanBoard() {
         const dealName = opportunity?.name || 'Great Deal';
         setCelebrationDealName(dealName);
         setShowCelebration(true);
-        
+
         // Intense confetti burst
         const duration = 6 * 1000;
         const end = Date.now() + duration;
@@ -326,7 +368,7 @@ export default function CRMKanbanBoard() {
       }
     } catch (error) {
       setBoard(oldBoard);
-      setError(error.response?.data?.message || `Failed to move opportunity to ${newStage}`);
+      message.error(error.response?.data?.message || `Failed to move opportunity to ${newStage}`);
       console.error('Error moving opportunity:', error);
     } finally {
       setUpdating(false);
@@ -354,7 +396,7 @@ export default function CRMKanbanBoard() {
       setDuplicatingOpp(null);
       fetchBoard();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to duplicate deal');
+      message.error(err.response?.data?.message || 'Failed to duplicate deal');
       console.error(err);
     } finally {
       setUpdating(false);
@@ -604,8 +646,8 @@ export default function CRMKanbanBoard() {
                   </tr>
                 ) : (
                   dealsList.map(deal => (
-                    <tr 
-                      key={deal._id} 
+                    <tr
+                      key={deal._id}
                       onClick={() => {
                         setSelectedOpportunity(deal);
                         setIsDetailOpen(true);
@@ -615,11 +657,53 @@ export default function CRMKanbanBoard() {
                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                     >
                       <td style={{ padding: '16px', fontWeight: 600, color: '#1e293b' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          {deal.name}
-                          {deal.carry_forward && (
-                            <span style={{ fontSize: '0.65rem', background: '#fef3c7', color: '#b45309', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
-                              🔄 Carried
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {deal.name}
+                            {deal.carry_forward && (
+                              <span style={{ fontSize: '0.65rem', background: '#fef3c7', color: '#b45309', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                                🔄 Carried
+                              </span>
+                            )}
+                          </div>
+                          {(() => {
+                            const activePR = deal.pricingRequests && deal.pricingRequests.length > 0
+                              ? deal.pricingRequests[deal.pricingRequests.length - 1]
+                              : null;
+                            if (!activePR) return null;
+                            if (activePR.status !== 'approved') {
+                              return (
+                                <span style={{
+                                  fontSize: '0.65rem',
+                                  background: '#fee2e2',
+                                  color: '#dc2626',
+                                  padding: '2px 6px',
+                                  borderRadius: '4px',
+                                  fontWeight: 700,
+                                  border: '1px solid #fca5a5',
+                                  alignSelf: 'flex-start'
+                                }}>
+                                  🏷️ PR Pending
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
+                          {deal.tasks && deal.tasks.length > 0 && (
+                            <span style={{
+                              fontSize: '0.65rem',
+                              background: '#e0f2fe',
+                              color: '#0369a1',
+                              padding: '2px 6px',
+                              borderRadius: '4px',
+                              fontWeight: 700,
+                              border: '1px solid #bae6fd',
+                              alignSelf: 'flex-start',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}>
+                              📋 {deal.tasks.length} Pending Task{deal.tasks.length > 1 ? 's' : ''}
                             </span>
                           )}
                         </div>
@@ -638,30 +722,30 @@ export default function CRMKanbanBoard() {
                       </td>
                       <td style={{ padding: '16px' }}>
                         {deal.source ? (
-                          <span style={{ 
-                            fontSize: '0.7rem', 
-                            background: deal.source === 'IndiaMart Lead' ? '#ffedd5' 
-                                        : deal.source === 'Referral' ? '#dcfce7' 
-                                        : deal.source === 'Direct Sales Visit' ? '#f3e8ff'
-                                        : deal.source === 'Email Campaign' ? '#fce7f3'
-                                        : deal.source === 'Web / Own Generated Lead' ? '#e0f2fe'
-                                        : '#f1f5f9', 
-                            color: deal.source === 'IndiaMart Lead' ? '#c2410c' 
-                                   : deal.source === 'Referral' ? '#15803d' 
-                                   : deal.source === 'Direct Sales Visit' ? '#6b21a8'
-                                   : deal.source === 'Email Campaign' ? '#be185d'
-                                   : deal.source === 'Web / Own Generated Lead' ? '#0369a1'
-                                   : '#475569',
-                            padding: '2px 8px', 
-                            borderRadius: '12px', 
+                          <span style={{
+                            fontSize: '0.7rem',
+                            background: deal.source === 'IndiaMart Lead' ? '#ffedd5'
+                              : deal.source === 'Referral' ? '#dcfce7'
+                                : deal.source === 'Direct Sales Visit' ? '#f3e8ff'
+                                  : deal.source === 'Email Campaign' ? '#fce7f3'
+                                    : deal.source === 'Web / Own Generated Lead' ? '#e0f2fe'
+                                      : '#f1f5f9',
+                            color: deal.source === 'IndiaMart Lead' ? '#c2410c'
+                              : deal.source === 'Referral' ? '#15803d'
+                                : deal.source === 'Direct Sales Visit' ? '#6b21a8'
+                                  : deal.source === 'Email Campaign' ? '#be185d'
+                                    : deal.source === 'Web / Own Generated Lead' ? '#0369a1'
+                                      : '#475569',
+                            padding: '2px 8px',
+                            borderRadius: '12px',
                             fontWeight: 700,
                             border: '1px solid',
-                            borderColor: deal.source === 'IndiaMart Lead' ? '#fed7aa' 
-                                         : deal.source === 'Referral' ? '#bbf7d0' 
-                                         : deal.source === 'Direct Sales Visit' ? '#e9d5ff'
-                                         : deal.source === 'Email Campaign' ? '#fbcfe8'
-                                         : deal.source === 'Web / Own Generated Lead' ? '#bae6fd'
-                                         : '#e2e8f0',
+                            borderColor: deal.source === 'IndiaMart Lead' ? '#fed7aa'
+                              : deal.source === 'Referral' ? '#bbf7d0'
+                                : deal.source === 'Direct Sales Visit' ? '#e9d5ff'
+                                  : deal.source === 'Email Campaign' ? '#fbcfe8'
+                                    : deal.source === 'Web / Own Generated Lead' ? '#bae6fd'
+                                      : '#e2e8f0',
                           }}>
                             {deal.source}
                           </span>
@@ -685,261 +769,374 @@ export default function CRMKanbanBoard() {
         </div>
       ) : (
         /* Standard Kanban Board */
-        <div style={{ 
-          display: 'flex', gap: '20px', overflowX: 'auto', paddingBottom: '24px', 
-          minHeight: 'calc(100vh - 200px)', background: '#f8fafc', padding: '24px'
-        }}>
-        {PIPELINE_STAGES.map(stage => {
-          const opps = board[stage.id] || [];
-          return (
-            <div key={stage.id} style={{
-              width: '320px', flexShrink: 0, background: '#ebf1f7', borderRadius: '12px',
-              padding: '16px', display: 'flex', flexDirection: 'column',
-              border: '2px dashed transparent', transition: 'border-color 0.2s'
-            }}
-            onDragOver={handleDragOver}
-            onDrop={(e) => handleDropStage(e, stage.id)}
-            onDragEnter={(e) => e.currentTarget.style.borderColor = '#4f46e5'}
-            onDragLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', fontWeight: 700, color: '#334155' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: stage.color }}></div>
-                  <span>{stage.name}</span>
+        <div 
+          ref={bottomScrollRef}
+          onMouseDown={handleMouseDown}
+          onMouseLeave={handleMouseLeave}
+          onMouseUp={handleMouseUp}
+          onMouseMove={handleMouseMove}
+          className="no-scrollbar"
+          style={{
+            display: 'flex', gap: '20px', overflowX: 'auto', padding: '24px',
+            background: '#f8fafc',
+            cursor: isMouseDown ? 'grabbing' : 'grab',
+            userSelect: isMouseDown ? 'none' : 'auto'
+          }}
+        >
+          {PIPELINE_STAGES.map(stage => {
+            const opps = board[stage.id] || [];
+            return (
+              <div key={stage.id} style={{
+                width: '320px', flexShrink: 0, background: '#ebf1f7', borderRadius: '12px',
+                padding: '16px', display: 'flex', flexDirection: 'column',
+                border: '2px dashed transparent', transition: 'border-color 0.2s'
+              }}
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDropStage(e, stage.id)}
+                onDragEnter={(e) => e.currentTarget.style.borderColor = '#4f46e5'}
+                onDragLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', fontWeight: 700, color: '#334155' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: stage.color }}></div>
+                    <span>{stage.name}</span>
+                  </div>
+                  <span style={{
+                    background: '#ffffff', color: '#64748b', padding: '2px 10px',
+                    borderRadius: '6px', fontSize: '0.75rem', border: '1px solid #e2e8f0'
+                  }}>{opps.length}</span>
                 </div>
-                <span style={{ 
-                   background: '#ffffff', color: '#64748b', padding: '2px 10px', 
-                   borderRadius: '6px', fontSize: '0.75rem', border: '1px solid #e2e8f0'
-                }}>{opps.length}</span>
-              </div>
 
-              {/* CR-007 Stage Value Totals Header Summary */}
-              <div style={{ 
-                background: '#ffffff', padding: '8px 12px', borderRadius: '8px', 
-                marginBottom: '16px', border: '1px solid #e2e8f0', display: 'flex',
-                justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem',
-                fontWeight: 600, color: '#475569'
-              }}>
-                <span style={{ color: '#10b981', fontWeight: 800 }}>
-                  ₹{aggregates[stage.id] ? (aggregates[stage.id].totalValue / 100000).toFixed(2) + 'L' : '0.00L'}
-                </span>
-                <span style={{ color: '#64748b' }}>
-                  {aggregates[stage.id] ? aggregates[stage.id].count : 0} {aggregates[stage.id]?.count === 1 ? 'deal' : 'deals'}
-                </span>
-              </div>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', minHeight: '300px' }}>
-                {opps.map(opp => {
-                  const isVirtualSalesVisit = stage.id === 'sales_visit' && opp.stage !== 'sales_visit';
-                  return (
-                    <div
-                      key={opp._id + '-' + stage.id}
-                      draggable={!isVirtualSalesVisit}
-                      onDragStart={(e) => !isVirtualSalesVisit && handleDragStart(e, opp, stage.id)}
-                      onClick={() => {
-                        setSelectedOpportunity(opp);
-                        setIsDetailOpen(true);
-                      }}
-                      style={{
-                        background: isVirtualSalesVisit ? '#fff7ed' : '#ffffff',
-                        padding: '16px', borderRadius: '10px',
-                        border: isVirtualSalesVisit ? '1px solid #fdba74' : '1px solid #e2e8f0',
-                        cursor: isVirtualSalesVisit ? 'default' : 'grab',
-                        transition: 'all 0.2s',
-                        position: 'relative', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                        opacity: draggedOpportunity?.opportunity._id === opp._id ? 0.5 : 1
-                      }}
-                      onMouseEnter={e => {
-                        if (draggedOpportunity?.opportunity._id !== opp._id && !isVirtualSalesVisit) {
-                          e.currentTarget.style.transform = 'translateY(-2px)';
-                          e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.07)';
-                        }
-                      }}
-                      onMouseLeave={e => {
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
-                      }}
-                    >
-                      <div style={{ position: 'absolute', top: 0, left: 0, width: '3px', height: '100%', background: stage.color }}></div>
-                      {isVirtualSalesVisit && (
-                        <div style={{ marginBottom: '8px', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                          <span style={{
-                            fontSize: '0.65rem', background: '#fed7aa', color: '#c2410c',
-                            padding: '2px 8px', borderRadius: '12px', fontWeight: 700,
-                            border: '1px solid #fdba74'
-                          }}>
-                            📅 Planned Visit
-                          </span>
-                          {opp.stage && (
+                {/* CR-007 Stage Value Totals Header Summary */}
+                <div style={{
+                  background: '#ffffff', padding: '8px 12px', borderRadius: '8px',
+                  marginBottom: '16px', border: '1px solid #e2e8f0', display: 'flex',
+                  justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem',
+                  fontWeight: 600, color: '#475569'
+                }}>
+                  <span style={{ color: '#10b981', fontWeight: 800 }}>
+                    ₹{aggregates[stage.id] ? (aggregates[stage.id].totalValue / 100000).toFixed(2) + 'L' : '0.00L'}
+                  </span>
+                  <span style={{ color: '#64748b' }}>
+                    {aggregates[stage.id] ? aggregates[stage.id].count : 0} {aggregates[stage.id]?.count === 1 ? 'deal' : 'deals'}
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', minHeight: '300px' }}>
+                  {opps.map(opp => {
+                    const isVirtualSalesVisit = stage.id === 'sales_visit' && opp.stage !== 'sales_visit';
+                    return (
+                      <div
+                        key={opp._id + '-' + stage.id}
+                        draggable={!isVirtualSalesVisit}
+                        onDragStart={(e) => !isVirtualSalesVisit && handleDragStart(e, opp, stage.id)}
+                        onClick={() => {
+                          setSelectedOpportunity(opp);
+                          setIsDetailOpen(true);
+                        }}
+                        style={{
+                          background: isVirtualSalesVisit ? '#fff7ed' : '#ffffff',
+                          padding: '16px', borderRadius: '10px',
+                          border: isVirtualSalesVisit ? '1px solid #fdba74' : '1px solid #e2e8f0',
+                          cursor: isVirtualSalesVisit ? 'default' : 'grab',
+                          transition: 'all 0.2s',
+                          position: 'relative', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                          opacity: draggedOpportunity?.opportunity._id === opp._id ? 0.5 : 1
+                        }}
+                        onMouseEnter={e => {
+                          if (draggedOpportunity?.opportunity._id !== opp._id && !isVirtualSalesVisit) {
+                            e.currentTarget.style.transform = 'translateY(-2px)';
+                            e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.07)';
+                          }
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
+                        }}
+                      >
+                        <div style={{ position: 'absolute', top: 0, left: 0, width: '3px', height: '100%', background: stage.color }}></div>
+                        {isVirtualSalesVisit && (
+                          <div style={{ marginBottom: '8px', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                             <span style={{
-                              fontSize: '0.65rem', background: '#e2e8f0', color: '#475569',
+                              fontSize: '0.65rem', background: '#fed7aa', color: '#c2410c',
                               padding: '2px 8px', borderRadius: '12px', fontWeight: 700,
-                              border: '1px solid #cbd5e1', textTransform: 'capitalize'
+                              border: '1px solid #fdba74'
                             }}>
-                              From: {opp.stage.replace('_', ' ')}
+                              📅 Planned Visit
                             </span>
-                          )}
-                        </div>
-                      )}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', margin: '0 0 6px 0' }}>
-                        <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#1e293b', fontWeight: 600, paddingRight: '20px' }}>{opp.name}</h4>
-                        <button
-                          title="Duplicate Deal for another Service"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setDuplicatingOpp(opp);
-                            setDuplicateName(`${opp.name}`);
-                            setDuplicateService(opp.services && opp.services.length > 0 ? opp.services[0] : '');
-                            setDuplicateValue(opp.value || 0);
-                            setDuplicateCloseDate(opp.expectedCloseDate ? opp.expectedCloseDate.substring(0, 10) : '');
-                            setIsDuplicateModalOpen(true);
-                          }}
-                          style={{
-                            background: '#f1f5f9',
-                            border: '1px solid #cbd5e1',
-                            borderRadius: '4px',
-                            color: '#475569',
-                            cursor: 'pointer',
-                            fontSize: '0.9rem',
-                            fontWeight: 700,
-                            padding: '2px 6px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            transition: 'all 0.2s',
-                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                            position: 'absolute',
-                            top: '12px',
-                            right: '12px',
-                            zIndex: 10
-                          }}
-                          onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.color = '#1e293b'; }}
-                          onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#475569'; }}
-                        >
-                          +
-                        </button>
-                      </div>
-                      <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '8px' }}>
-                        {typeof opp.accountId === 'object' ? (opp.accountId?.name || 'No Account') : (opp.accountId || 'No Account')}
-                      </div>
-
-                      {isVirtualSalesVisit && opp.plannedVisits && (
-                        <div style={{ marginBottom: '12px' }}>
-                          {(opp.plannedVisits || []).filter(v => !v.isCompleted && !v.isCancelled).map((visit, idx) => (
-                            <div key={idx} style={{
-                              fontSize: '0.7rem', color: '#9a3412', fontWeight: 600,
-                              background: '#ffedd5', padding: '4px 8px', borderRadius: '6px',
-                              border: '1px solid #fed7aa', width: 'fit-content', marginBottom: '4px'
-                            }}>
-                              Visit: {visit.visitDate ? new Date(visit.visitDate).toLocaleDateString('en-IN') : 'No date'}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                    {opp.services && opp.services.length > 0 && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '12px' }}>
-                        {opp.services.slice(0, 3).map((service, i) => (
-                          <span key={i} style={{ 
-                            fontSize: '0.65rem', background: '#f1f5f9', color: '#475569', 
-                            padding: '2px 6px', borderRadius: '4px', border: '1px solid #e2e8f0',
-                            whiteSpace: 'nowrap', textTransform: 'capitalize'
-                          }}>
-                            {service}
-                          </span>
-                        ))}
-                        {opp.services.length > 3 && (
-                          <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>+{opp.services.length - 3}</span>
+                            {opp.stage && (
+                              <span style={{
+                                fontSize: '0.65rem', background: '#e2e8f0', color: '#475569',
+                                padding: '2px 8px', borderRadius: '12px', fontWeight: 700,
+                                border: '1px solid #cbd5e1', textTransform: 'capitalize'
+                              }}>
+                                From: {opp.stage.replace('_', ' ')}
+                              </span>
+                            )}
+                          </div>
                         )}
-                      </div>
-                    )}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', margin: '0 0 6px 0' }}>
+                          <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#1e293b', fontWeight: 600, paddingRight: '20px' }}>{opp.name}</h4>
+                          <button
+                            title="Duplicate Deal for another Service"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDuplicatingOpp(opp);
+                              setDuplicateName(`${opp.name}`);
+                              setDuplicateService(opp.services && opp.services.length > 0 ? opp.services[0] : '');
+                              setDuplicateValue(opp.value || 0);
+                              setDuplicateCloseDate(opp.expectedCloseDate ? opp.expectedCloseDate.substring(0, 10) : '');
+                              setIsDuplicateModalOpen(true);
+                            }}
+                            style={{
+                              background: '#f1f5f9',
+                              border: '1px solid #cbd5e1',
+                              borderRadius: '4px',
+                              color: '#475569',
+                              cursor: 'pointer',
+                              fontSize: '0.9rem',
+                              fontWeight: 700,
+                              padding: '2px 6px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.2s',
+                              boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+                              position: 'absolute',
+                              top: '12px',
+                              right: '12px',
+                              zIndex: 10
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.color = '#1e293b'; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#475569'; }}
+                          >
+                            +
+                          </button>
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '8px' }}>
+                          {typeof opp.accountId === 'object' ? (opp.accountId?.name || 'No Account') : (opp.accountId || 'No Account')}
+                        </div>
 
-                    {opp.crateSize && (
-                      <div style={{ 
-                        fontSize: '0.7rem', color: '#64748b', marginBottom: '12px', 
-                        display: 'flex', alignItems: 'center', gap: '4px',
-                        background: '#f8fafc', padding: '4px 8px', borderRadius: '6px',
-                        border: '1px solid #e2e8f0', width: 'fit-content'
-                      }}>
-                        <span>📦</span>
-                        <strong style={{ color: '#475569' }}>Crate Size:</strong>
-                        <span>{opp.crateSize}</span>
-                      </div>
-                    )}
+                        {isVirtualSalesVisit && opp.plannedVisits && (
+                          <div style={{ marginBottom: '12px' }}>
+                            {(opp.plannedVisits || []).filter(v => !v.isCompleted && !v.isCancelled).map((visit, idx) => (
+                              <div key={idx} style={{
+                                fontSize: '0.7rem', color: '#9a3412', fontWeight: 600,
+                                background: '#ffedd5', padding: '4px 8px', borderRadius: '6px',
+                                border: '1px solid #fed7aa', width: 'fit-content', marginBottom: '4px'
+                              }}>
+                                Visit: {visit.visitDate ? new Date(visit.visitDate).toLocaleDateString('en-IN') : 'No date'}
+                              </div>
+                            ))}
+                          </div>
+                        )}
 
-                    {/* CR-008 Source badge on deal card */}
-                    {opp.source && (
-                      <div style={{ marginBottom: '8px' }}>
-                        <span style={{ 
-                          fontSize: '0.65rem', 
-                          background: opp.source === 'IndiaMart Lead' ? '#ffedd5' 
-                                      : opp.source === 'Referral' ? '#dcfce7' 
-                                      : opp.source === 'Direct Sales Visit' ? '#f3e8ff'
-                                      : opp.source === 'Email Campaign' ? '#fce7f3'
-                                      : opp.source === 'Web / Own Generated Lead' ? '#e0f2fe'
-                                      : '#f1f5f9', 
-                          color: opp.source === 'IndiaMart Lead' ? '#c2410c' 
-                                 : opp.source === 'Referral' ? '#15803d' 
-                                 : opp.source === 'Direct Sales Visit' ? '#6b21a8'
-                                 : opp.source === 'Email Campaign' ? '#be185d'
-                                 : opp.source === 'Web / Own Generated Lead' ? '#0369a1'
-                                 : '#475569',
-                          padding: '2px 8px', 
-                          borderRadius: '12px', 
-                          fontWeight: 700,
-                          border: '1px solid',
-                          borderColor: opp.source === 'IndiaMart Lead' ? '#fed7aa' 
-                                       : opp.source === 'Referral' ? '#bbf7d0' 
-                                       : opp.source === 'Direct Sales Visit' ? '#e9d5ff'
-                                       : opp.source === 'Email Campaign' ? '#fbcfe8'
-                                       : opp.source === 'Web / Own Generated Lead' ? '#bae6fd'
-                                       : '#e2e8f0',
-                        }}>
-                          {opp.source}
-                        </span>
-                      </div>
-                    )}
+                        {opp.services && opp.services.length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '12px' }}>
+                            {opp.services.slice(0, 3).map((service, i) => (
+                              <span key={i} style={{
+                                fontSize: '0.65rem', background: '#f1f5f9', color: '#475569',
+                                padding: '2px 6px', borderRadius: '4px', border: '1px solid #e2e8f0',
+                                whiteSpace: 'nowrap', textTransform: 'capitalize'
+                              }}>
+                                {service}
+                              </span>
+                            ))}
+                            {opp.services.length > 3 && (
+                              <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>+{opp.services.length - 3}</span>
+                            )}
+                          </div>
+                        )}
 
-                    {!isVirtualSalesVisit && (
-                      <div style={{ marginBottom: '8px' }}>
-                        {opp.plannedVisits && (opp.plannedVisits || []).filter(v => !v.isCompleted && !v.isCancelled).length > 0 && (
+                        {opp.crateSize && (
                           <div style={{
-                            fontSize: '0.7rem', color: '#9a3412', fontWeight: 600,
-                            background: '#ffedd5', padding: '4px 8px', borderRadius: '6px',
-                            border: '1px solid #fed7aa', width: 'fit-content', marginBottom: '4px'
+                            fontSize: '0.7rem', color: '#64748b', marginBottom: '12px',
+                            display: 'flex', alignItems: 'center', gap: '4px',
+                            background: '#f8fafc', padding: '4px 8px', borderRadius: '6px',
+                            border: '1px solid #e2e8f0', width: 'fit-content'
                           }}>
-                            📅 Visit: {new Date(opp.plannedVisits.find(v => !v.isCompleted && !v.isCancelled).visitDate).toLocaleDateString('en-IN')}
+                            <span>📦</span>
+                            <strong style={{ color: '#475569' }}>Crate Size:</strong>
+                            <span>{opp.crateSize}</span>
                           </div>
                         )}
-                      </div>
-                    )}
 
-                    <div style={{ 
-                      marginTop: 'auto', display: 'flex', justifyContent: 'space-between', 
-                      alignItems: 'baseline', borderTop: '1px solid #f1f5f9', paddingTop: '12px'
-                    }}>
-                       <span style={{ fontWeight: 800, color: '#10b981', fontFamily: 'monospace' }}>
-                         ₹{opp.value ? (opp.value / 100000).toFixed(1) + 'L' : '0'}
-                       </span>
-                       <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 700 }}>{opp.probability}%</span>
-                          <div style={{ width: '40px', height: '4px', background: '#f1f5f9', borderRadius: '2px', overflow: 'hidden' }}>
-                            <div style={{ width: `${opp.probability}%`, height: '100%', background: stage.color }}></div>
+                        {/* CR-008 Source badge on deal card */}
+                        {opp.source && (
+                          <div style={{ marginBottom: '8px' }}>
+                            <span style={{
+                              fontSize: '0.65rem',
+                              background: opp.source === 'IndiaMart Lead' ? '#ffedd5'
+                                : opp.source === 'Referral' ? '#dcfce7'
+                                  : opp.source === 'Direct Sales Visit' ? '#f3e8ff'
+                                    : opp.source === 'Email Campaign' ? '#fce7f3'
+                                      : opp.source === 'Web / Own Generated Lead' ? '#e0f2fe'
+                                        : '#f1f5f9',
+                              color: opp.source === 'IndiaMart Lead' ? '#c2410c'
+                                : opp.source === 'Referral' ? '#15803d'
+                                  : opp.source === 'Direct Sales Visit' ? '#6b21a8'
+                                    : opp.source === 'Email Campaign' ? '#be185d'
+                                      : opp.source === 'Web / Own Generated Lead' ? '#0369a1'
+                                        : '#475569',
+                              padding: '2px 8px',
+                              borderRadius: '12px',
+                              fontWeight: 700,
+                              border: '1px solid',
+                              borderColor: opp.source === 'IndiaMart Lead' ? '#fed7aa'
+                                : opp.source === 'Referral' ? '#bbf7d0'
+                                  : opp.source === 'Direct Sales Visit' ? '#e9d5ff'
+                                    : opp.source === 'Email Campaign' ? '#fbcfe8'
+                                      : opp.source === 'Web / Own Generated Lead' ? '#bae6fd'
+                                        : '#e2e8f0',
+                            }}>
+                              {opp.source}
+                            </span>
                           </div>
-                       </div>
+                        )}
+
+                        {/* Pricing Request Status / Price on Kanban Card */}
+                        {(() => {
+                          const activePR = opp.pricingRequests && opp.pricingRequests.length > 0
+                            ? opp.pricingRequests[opp.pricingRequests.length - 1]
+                            : null;
+                          if (!activePR) return null;
+                          if (activePR.status === 'pending' || activePR.status === 'in_progress') {
+                            return (
+                              <div style={{ marginBottom: '8px' }}>
+                                <span style={{
+                                  fontSize: '0.65rem',
+                                  background: '#fee2e2',
+                                  color: '#dc2626',
+                                  padding: '2px 8px',
+                                  borderRadius: '12px',
+                                  fontWeight: 700,
+                                  border: '1px solid #fca5a5',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px'
+                                }}>
+                                  🏷️ PR Raised
+                                </span>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+
+                        {!isVirtualSalesVisit && (
+                          <div style={{ marginBottom: '8px' }}>
+                            {opp.plannedVisits && (opp.plannedVisits || []).filter(v => !v.isCompleted && !v.isCancelled).length > 0 && (
+                              <div style={{
+                                fontSize: '0.7rem', color: '#9a3412', fontWeight: 600,
+                                background: '#ffedd5', padding: '4px 8px', borderRadius: '6px',
+                                border: '1px solid #fed7aa', width: 'fit-content', marginBottom: '4px'
+                              }}>
+                                📅 Visit: {new Date(opp.plannedVisits.find(v => !v.isCompleted && !v.isCancelled).visitDate).toLocaleDateString('en-IN')}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Tasks Display */}
+                        {opp.tasks && opp.tasks.length > 0 && (
+                          <div style={{
+                            marginBottom: '8px',
+                            background: '#f8fafc',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '8px',
+                            padding: '8px 10px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '4px'
+                          }}>
+                            <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.02em', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span>📋 Pending Tasks</span>
+                              <span style={{ background: '#e2e8f0', color: '#475569', padding: '1px 5px', borderRadius: '4px', fontSize: '0.6rem' }}>{opp.tasks.length}</span>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                              {opp.tasks.slice(0, 2).map((task) => (
+                                <div key={task._id} style={{ display: 'flex', flexDirection: 'column', fontSize: '0.75rem', color: '#334155' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
+                                    <span style={{
+                                      width: '6px',
+                                      height: '6px',
+                                      borderRadius: '50%',
+                                      background: task.priority === 'urgent' || task.priority === 'high' ? '#ef4444' : '#6366f1',
+                                      flexShrink: 0
+                                    }}></span>
+                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '240px' }} title={task.title}>
+                                      {task.title}
+                                    </span>
+                                  </div>
+                                  {task.dueDate && (
+                                    <span style={{ fontSize: '0.65rem', color: '#94a3b8', marginLeft: '10px' }}>
+                                      Due: {new Date(task.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                      {task.assignedTo && ` • ${task.assignedTo.first_name || task.assignedTo.username}`}
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                              {opp.tasks.length > 2 && (
+                                <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontStyle: 'italic', marginLeft: '10px' }}>
+                                  +{opp.tasks.length - 2} more tasks
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Created By badge */}
+                        {(() => {
+                          const creator = opp.createdBy || opp.ownerId;
+                          if (!creator || typeof creator !== 'object') return null;
+                          return (
+                            <div style={{
+                              display: 'flex', alignItems: 'center', gap: '6px',
+                              marginBottom: '8px', fontSize: '0.7rem', color: '#64748b'
+                            }}>
+                              <div style={{
+                                width: '18px', height: '18px', borderRadius: '50%',
+                                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                                color: '#fff', fontSize: '0.5rem', fontWeight: 700,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                flexShrink: 0
+                              }}>
+                                {(creator.first_name?.[0] || creator.username?.[0] || '?').toUpperCase()}
+                              </div>
+                              <span style={{ fontWeight: 600 }}>
+                                {`${creator.first_name || ''} ${creator.last_name || ''}`.trim() || creator.username}
+                              </span>
+                            </div>
+                          );
+                        })()}
+
+                        <div style={{
+                          marginTop: 'auto', display: 'flex', justifyContent: 'space-between',
+                          alignItems: 'baseline', borderTop: '1px solid #f1f5f9', paddingTop: '12px'
+                        }}>
+                          <span style={{ fontWeight: 800, color: '#10b981', fontFamily: 'monospace' }}>
+                            ₹{opp.value ? (opp.value / 100000).toFixed(1) + 'L' : '0'}
+                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 700 }}>{opp.probability}%</span>
+                            <div style={{ width: '40px', height: '4px', background: '#f1f5f9', borderRadius: '2px', overflow: 'hidden' }}>
+                              <div style={{ width: `${opp.probability}%`, height: '100%', background: stage.color }}></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {opps.length === 0 && (
+                    <div style={{ padding: '32px 16px', textAlign: 'center', color: '#94a3b8', fontSize: '0.8rem', border: '1px dashed #cbd5e1', borderRadius: '10px' }}>
+                      No deals
                     </div>
-                  </div>
-                );})}
-                {opps.length === 0 && (
-                  <div style={{ padding: '32px 16px', textAlign: 'center', color: '#94a3b8', fontSize: '0.8rem', border: '1px dashed #cbd5e1', borderRadius: '10px' }}>
-                    No deals
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
-          )
-        })}
-      </div>
+            )
+          })}
+        </div>
       )}
       {/* Lost Reason Modal */}
       {isLostModalOpen && (

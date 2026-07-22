@@ -12,6 +12,11 @@ const accountSchema = new mongoose.Schema({
   annualRevenue: { type: Number },
   parentAccountId: { type: mongoose.Schema.Types.ObjectId, ref: 'Account', default: null },
   healthScore: { type: Number, default: 0 },
+  businessVertical: {
+    type: String,
+    enum: ['Paramount', 'Transportation', 'Customs Clearance', 'Export', 'Import'],
+    default: 'Paramount'
+  },
   address: { type: String },
   period: { type: String, default: () => new Date().toISOString().substring(0, 7) }
 }, { timestamps: true });

@@ -123,6 +123,37 @@ export default function TasksList() {
     return statusMatch && priorityMatch && assignedMatch;
   });
 
+  const isOverdue = (task) => {
+    if (!task.dueDate || task.status === 'completed') return false;
+    return new Date(task.dueDate) < new Date(new Date().toDateString());
+  };
+
+  const priorityWeights = { urgent: 4, high: 3, medium: 2, low: 1 };
+
+  const sortedTasks = filteredTasks.sort((a, b) => {
+    // 1. Completed tasks always go to the bottom
+    const aComp = a.status === 'completed';
+    const bComp = b.status === 'completed';
+    if (aComp !== bComp) {
+      return aComp ? 1 : -1;
+    }
+
+    // 2. Sort by priority weight descending
+    const weightA = priorityWeights[a.priority || 'medium'] || 2;
+    const weightB = priorityWeights[b.priority || 'medium'] || 2;
+    if (weightA !== weightB) {
+      return weightB - weightA;
+    }
+
+    // 3. Sort by due date ascending (earlier dates first)
+    if (a.dueDate && b.dueDate) {
+      return new Date(a.dueDate) - new Date(b.dueDate);
+    }
+    if (a.dueDate) return -1;
+    if (b.dueDate) return 1;
+    return 0;
+  });
+
   if (loading) return <div style={{ padding: '20px', color: '#64748b' }}>Loading tasks...</div>;
 
   return (
@@ -141,7 +172,7 @@ export default function TasksList() {
         <div>
           <h2 style={{ margin: 0, color: '#0f172a', fontWeight: 800, fontSize: '1.75rem', letterSpacing: '-0.025em' }}>Task Management</h2>
           <p style={{ margin: '4px 0 0', fontSize: '0.9rem', color: '#64748b', fontWeight: 500 }}>
-            {filteredTasks.length === 0 ? 'No active tasks found' : `Currently tracking ${filteredTasks.length} tasks`}
+            {sortedTasks.length === 0 ? 'No active tasks found' : `Currently tracking ${sortedTasks.length} tasks`}
           </p>
         </div>
         <button
@@ -193,16 +224,17 @@ export default function TasksList() {
       </div>
 
       <div style={{ display: 'grid', gap: '16px' }}>
-        {filteredTasks.length === 0 ? (
+        {sortedTasks.length === 0 ? (
           <div style={{ padding: '4rem 2rem', textAlign: 'center', color: '#94a3b8', background: '#fff', borderRadius: '16px', border: '1px dashed #e2e8f0' }}>
             <div style={{ marginBottom: '16px', opacity: 0.5 }}>📂</div>
             <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#64748b' }}>No tasks found</div>
             <p style={{ margin: '8px 0 0', fontSize: '0.9rem' }}>Try adjusting your filters or create a new task above.</p>
           </div>
         ) : (
-          filteredTasks.map(task => {
+          sortedTasks.map(task => {
             const hasStatusPermission = canUpdateStatus(task);
             const hasEditPermission = canEditOrDelete(task);
+            const overdue = isOverdue(task);
             
             return (
               <div
@@ -211,36 +243,53 @@ export default function TasksList() {
                   background: '#fff',
                   padding: '20px',
                   borderRadius: '16px',
-                  border: '1px solid #e2e8f0',
+                  border: overdue ? '1.5px solid #fca5a5' : '1px solid #e2e8f0',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   gap: '20px',
                   transition: 'all 0.2s',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                  boxShadow: overdue ? '0 4px 12px rgba(239,68,68,0.06)' : '0 1px 3px rgba(0,0,0,0.04)',
                   opacity: (hasStatusPermission || hasEditPermission) ? 1 : 0.8
                 }}
                 onMouseEnter={e => {
                   e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.05)';
-                  e.currentTarget.style.borderColor = '#cbd5e1';
+                  e.currentTarget.style.boxShadow = overdue 
+                    ? '0 10px 20px rgba(239,68,68,0.12)'
+                    : '0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.05)';
+                  e.currentTarget.style.borderColor = overdue ? '#f87171' : '#cbd5e1';
                 }}
                 onMouseLeave={e => {
                   e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)';
-                  e.currentTarget.style.borderColor = '#e2e8f0';
+                  e.currentTarget.style.boxShadow = overdue ? '0 4px 12px rgba(239,68,68,0.06)' : '0 1px 3px rgba(0,0,0,0.04)';
+                  e.currentTarget.style.borderColor = overdue ? '#fca5a5' : '#e2e8f0';
                 }}
               >
                 <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flex: 1 }}>
                   <div style={{ 
                     width: '4px', height: '40px', borderRadius: '2px', 
-                    background: PRIORITY_COLORS[task.priority || 'medium']?.text || '#475569',
+                    background: overdue ? '#ef4444' : (PRIORITY_COLORS[task.priority || 'medium']?.text || '#475569'),
                     opacity: 0.8
                   }}></div>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '6px' }}>
                       <h4 style={{ margin: 0, color: '#1e293b', fontWeight: 700, fontSize: '1.05rem' }}>{task.title}</h4>
                       <div style={{ display: 'flex', gap: '6px' }}>
+                        {overdue && (
+                          <span style={{
+                            background: '#fef2f2',
+                            color: '#dc2626',
+                            padding: '2px 8px',
+                            borderRadius: '6px',
+                            fontSize: '0.7rem',
+                            fontWeight: 800,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.025em',
+                            border: '1px solid #fecaca'
+                          }}>
+                            ⚠️ Overdue
+                          </span>
+                        )}
                         <span style={{
                           background: STATUS_COLORS[task.status]?.bg || '#f1f5f9',
                           color: STATUS_COLORS[task.status]?.text || '#475569',
@@ -272,7 +321,7 @@ export default function TasksList() {
                     )}
                     <div style={{ display: 'flex', gap: '24px', fontSize: '0.8rem', color: '#94a3b8', fontWeight: 600, flexWrap: 'wrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ color: '#cbd5e1' }}>📅</span> Due: <span style={{ color: '#64748b' }}>{formatDate(task.dueDate)}</span>
+                        <span style={{ color: '#cbd5e1' }}>📅</span> Due: <span style={{ color: overdue ? '#dc2626' : '#64748b', fontWeight: overdue ? 700 : 500 }}>{formatDate(task.dueDate)}</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <span style={{ color: '#cbd5e1' }}>👤</span> Assigned to: 

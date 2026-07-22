@@ -4,10 +4,25 @@ import { BarChart2, Download, Table, TrendingUp, AlertTriangle, ChevronDown, Che
 import FilterBar from './components/FilterBar';
 
 export default function CRMReportsDashboard() {
+  const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
+  const role = user.role || '';
+  const crmRole = user.crmRole || '';
+  const isHOD = role === 'HOD' || role === 'Head_of_Department' || (typeof role === 'string' && (role.toLowerCase() === 'hod' || role.toLowerCase() === 'head_of_department'));
+  const isCrmAdmin = crmRole === 'Admin' || (typeof crmRole === 'string' && crmRole.toLowerCase() === 'admin');
+  const isSystemAdmin = role === 'Admin' || (typeof role === 'string' && role.toLowerCase() === 'admin');
+  const isAdmin = (isSystemAdmin || isCrmAdmin) && !isHOD;
+  const isRestricted = !isAdmin || isHOD;
   const [reportData, setReportData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState(null);
-  const [activeTab, setActiveTab] = useState('month'); // 'month' | 'week' | 'stage_analysis'
+  const [activeTab, setActiveTab] = useState('month'); // 'month' | 'week' | 'stage_analysis' | 'reps_overview'
+  const [teams, setTeams] = useState([]);
+  const [selectedTeam, setSelectedTeam] = useState('all');
+  const [selectedVertical, setSelectedVertical] = useState('all');
+  const [users, setUsers] = useState([]);
+  const [selectedOwner, setSelectedOwner] = useState('all');
+
+  const uniqueVerticals = [...new Set(teams.map(t => t.businessVertical).filter(Boolean))];
 
   // Stage Analysis Tab States
   const [analysisStage, setAnalysisStage] = useState('all');
@@ -20,7 +35,28 @@ export default function CRMReportsDashboard() {
   const [activityData, setActivityData] = useState(null);
   const [activityLoading, setActivityLoading] = useState(false);
 
-  const fetchActivityReport = async (activeFilters = filters) => {
+  // Representatives Overview States
+  const [repsData, setRepsData] = useState([]);
+  const [repsLoading, setRepsLoading] = useState(false);
+  const [repsSearchQuery, setRepsSearchQuery] = useState('');
+  const [repsSelectedTeam, setRepsSelectedTeam] = useState('all');
+
+  const fetchRepsOverview = async () => {
+    setRepsLoading(true);
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/crm/reports/reps-overview`,
+        { withCredentials: true }
+      );
+      setRepsData(res.data?.representatives || []);
+    } catch (err) {
+      console.error('Error fetching reps overview:', err);
+    } finally {
+      setRepsLoading(false);
+    }
+  };
+
+  const fetchActivityReport = async (activeFilters = filters, ownerId = selectedOwner) => {
     if (!activeFilters) return;
     setActivityLoading(true);
     try {
@@ -31,6 +67,10 @@ export default function CRMReportsDashboard() {
       } else if (activeFilters.month) {
         params.period = activeFilters.month;
       }
+
+      if (selectedTeam && selectedTeam !== 'all') params.teamId = selectedTeam;
+      if (selectedVertical && selectedVertical !== 'all') params.businessVertical = selectedVertical;
+      if (ownerId && ownerId !== 'all') params.userId = ownerId;
 
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/crm/reports/activity-report`,
@@ -59,7 +99,7 @@ export default function CRMReportsDashboard() {
     });
   };
 
-  const fetchReport = async (activeFilters = filters) => {
+  const fetchReport = async (activeFilters = filters, ownerId = selectedOwner) => {
     if (!activeFilters) return;
     setLoading(true);
     try {
@@ -70,6 +110,10 @@ export default function CRMReportsDashboard() {
       } else if (activeFilters.month) {
         params.period = activeFilters.month;
       }
+
+      if (selectedTeam && selectedTeam !== 'all') params.teamId = selectedTeam;
+      if (selectedVertical && selectedVertical !== 'all') params.businessVertical = selectedVertical;
+      if (ownerId && ownerId !== 'all') params.ownerId = ownerId;
 
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/crm/reports/performance`,
@@ -83,7 +127,7 @@ export default function CRMReportsDashboard() {
     }
   };
 
-  const fetchAnalysisReport = async (activeFilters = filters) => {
+  const fetchAnalysisReport = async (activeFilters = filters, ownerId = selectedOwner) => {
     if (!activeFilters) return;
     setAnalysisLoading(true);
     try {
@@ -94,6 +138,10 @@ export default function CRMReportsDashboard() {
       } else if (activeFilters.month) {
         params.period = activeFilters.month;
       }
+
+      if (selectedTeam && selectedTeam !== 'all') params.teamId = selectedTeam;
+      if (selectedVertical && selectedVertical !== 'all') params.businessVertical = selectedVertical;
+      if (ownerId && ownerId !== 'all') params.ownerId = ownerId;
 
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/crm/reports/stage-analysis`,
@@ -108,28 +156,95 @@ export default function CRMReportsDashboard() {
   };
 
   useEffect(() => {
+    const fetchMyTeams = async () => {
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/crm/teams/my-teams`,
+          { withCredentials: true }
+        );
+        const fetchedTeams = res.data || [];
+        setTeams(fetchedTeams);
+        if (isRestricted && fetchedTeams.length > 0) {
+          const verticals = [...new Set(fetchedTeams.map(t => t.businessVertical).filter(Boolean))];
+          setSelectedTeam(fetchedTeams[0]._id);
+          setRepsSelectedTeam(fetchedTeams[0].name);
+          if (verticals.length > 0) {
+            setSelectedVertical(verticals[0]);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load user teams:', err);
+      }
+    };
+    const fetchUsers = async () => {
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-all-users`,
+          { withCredentials: true }
+        );
+        setUsers(res.data || []);
+      } catch (err) {
+        console.error('Failed to load users:', err);
+      }
+    };
+    fetchMyTeams();
+    fetchUsers();
+  }, []);
+
+  useEffect(() => {
+    if (isRestricted && teams.length > 0 && selectedTeam === 'all') {
+      return;
+    }
+    const verticals = [...new Set(teams.map(t => t.businessVertical).filter(Boolean))];
+    if (isRestricted && verticals.length > 0 && selectedVertical === 'all') {
+      return;
+    }
     if (filters) {
-      fetchReport(filters);
+      fetchReport(filters, selectedOwner);
     }
-  }, [filters]);
+  }, [filters, selectedTeam, selectedVertical, selectedOwner, teams]);
 
   useEffect(() => {
+    if (isRestricted && teams.length > 0 && selectedTeam === 'all') {
+      return;
+    }
+    const verticals = [...new Set(teams.map(t => t.businessVertical).filter(Boolean))];
+    if (isRestricted && verticals.length > 0 && selectedVertical === 'all') {
+      return;
+    }
     if (filters && activeTab === 'stage_analysis') {
-      fetchAnalysisReport(filters);
+      fetchAnalysisReport(filters, selectedOwner);
     }
-  }, [filters, activeTab, analysisStage]);
+  }, [filters, activeTab, analysisStage, selectedTeam, selectedVertical, selectedOwner, teams]);
 
   useEffect(() => {
-    if (filters && activeTab === 'activity') {
-      fetchActivityReport(filters);
+    if (isRestricted && teams.length > 0 && selectedTeam === 'all') {
+      return;
     }
-  }, [filters, activeTab, activityFilterType]);
+    const verticals = [...new Set(teams.map(t => t.businessVertical).filter(Boolean))];
+    if (isRestricted && verticals.length > 0 && selectedVertical === 'all') {
+      return;
+    }
+    if (filters && activeTab === 'activity') {
+      fetchActivityReport(filters, selectedOwner);
+    }
+  }, [filters, activeTab, activityFilterType, selectedTeam, selectedVertical, selectedOwner, teams]);
+
+  useEffect(() => {
+    if (activeTab === 'reps_overview') {
+      if (isAdmin) {
+        fetchRepsOverview();
+      } else {
+        setActiveTab('month');
+      }
+    }
+  }, [activeTab, isAdmin]);
 
   const handleExportCSV = () => {
     if (!reportData) return;
-    
+
     let csvContent = "data:text/csv;charset=utf-8,";
-    
+
     if (activeTab === 'month') {
       csvContent += "Stage Name,Deals Count,Total Value (INR),Weighted Value (INR)\n";
       reportData.performanceData.forEach(row => {
@@ -153,10 +268,10 @@ export default function CRMReportsDashboard() {
 
   const handleExportAnalysis = () => {
     if (!analysisData || !analysisData.deals) return;
-    
+
     let csvContent = "data:text/csv;charset=utf-8,";
     csvContent += "Deal Name,Company,Contact Person,Lead Source,Crate Size,Deal Value (INR),Probability (%),Weighted Value (INR),Stage Entry Date,Days in Stage,Assigned To,Status,Lost Reason\n";
-    
+
     analysisData.deals.forEach(deal => {
       const contact = deal.primaryContactId ? `${deal.primaryContactId.firstName} ${deal.primaryContactId.lastName || ''}`.trim() : 'N/A';
       const assigned = deal.ownerId ? `${deal.ownerId.first_name || ''} ${deal.ownerId.last_name || ''}`.trim() || deal.ownerId.username : 'Unassigned';
@@ -164,12 +279,12 @@ export default function CRMReportsDashboard() {
       const status = deal.carry_forward ? 'Carried Forward' : 'Active';
       const lostReason = deal.stage === 'lost' ? (deal.closeReason || 'N/A') : 'N/A';
       const companyName = typeof deal.accountId === 'object' ? (deal.accountId?.name || 'N/A') : (deal.accountId || 'N/A');
-      
+
       const dName = `"${(deal.name || '').replace(/"/g, '""')}"`;
       const cName = `"${companyName.replace(/"/g, '""')}"`;
       const source = `"${(deal.source || 'N/A').replace(/"/g, '""')}"`;
       const crate = `"${(deal.crateSize || 'N/A').replace(/"/g, '""')}"`;
-      
+
       csvContent += `${dName},${cName},"${contact}",${source},${crate},${deal.value || 0},${deal.probability || 0},${deal.weightedValue || 0},${entryDate},${deal.daysInStage || 0},"${assigned}",${status},"${lostReason}"\n`;
     });
 
@@ -184,10 +299,10 @@ export default function CRMReportsDashboard() {
 
   const handleExportActivityCSV = () => {
     if (!activityData || !activityData.activities) return;
-    
+
     let csvContent = "data:text/csv;charset=utf-8,";
     csvContent += "Date,Activity Type,Subject,Description,Related Record Type,Related Record Name,Outcome,Recorded By\n";
-    
+
     activityData.activities.forEach(act => {
       const date = new Date(act.activityDate).toLocaleDateString('en-IN');
       const type = (act.type || 'N/A').toUpperCase();
@@ -197,7 +312,7 @@ export default function CRMReportsDashboard() {
       const relName = `"${(act.relatedName || 'N/A').replace(/"/g, '""')}"`;
       const outcome = (act.outcome || 'N/A').toUpperCase();
       const recordedBy = act.userId ? `"${(`${act.userId.first_name || ''} ${act.userId.last_name || ''}`.trim() || act.userId.username).replace(/"/g, '""')}"` : 'Unknown';
-      
+
       csvContent += `${date},${type},${subject},${description},${relType},${relName},${outcome},${recordedBy}\n`;
     });
 
@@ -216,6 +331,44 @@ export default function CRMReportsDashboard() {
       [stageId]: !prev[stageId]
     }));
   };
+
+  
+  
+  const isManager = teams.some(t => {
+    const mgrId = t.managerId?._id || t.managerId;
+    const currentUserId = user._id || user.id;
+    return mgrId?.toString() === currentUserId?.toString();
+  });
+
+  const getVisibleUsers = () => {
+    if (isAdmin) {
+      return users;
+    }
+    if (isManager) {
+      const membersMap = new Map();
+      teams.forEach(team => {
+        const mgrId = team.managerId?._id || team.managerId;
+        const currentUserId = user._id || user.id;
+        if (mgrId?.toString() === currentUserId?.toString()) {
+          if (team.memberIds && Array.isArray(team.memberIds)) {
+            team.memberIds.forEach(member => {
+              if (member) {
+                const id = member._id?.toString() || member.toString();
+                membersMap.set(id, member);
+              }
+            });
+          }
+          if (team.managerId && typeof team.managerId === 'object') {
+            membersMap.set(team.managerId._id?.toString(), team.managerId);
+          }
+        }
+      });
+      return Array.from(membersMap.values());
+    }
+    return [];
+  };
+
+  const visibleUsers = getVisibleUsers();
 
   const summary = reportData?.summary || { totalValue: 0, totalDeals: 0, weightedPipelineValue: 0 };
   const performanceData = reportData?.performanceData || [];
@@ -236,8 +389,126 @@ export default function CRMReportsDashboard() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {/* Team and Vertical Filters */}
+      <div style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: '24px',
+        padding: '16px 20px',
+        background: '#ffffff',
+        borderRadius: '16px',
+        border: '1px solid #e2e8f0',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+        alignItems: 'center',
+        justifyContent: 'flex-start'
+      }}>
+        {(!isRestricted || teams.length > 1) && teams && teams.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>Select Sales Team:</span>
+            <select
+              value={selectedTeam}
+              onChange={(e) => setSelectedTeam(e.target.value)}
+              style={{
+                padding: '8px 14px',
+                border: '1px solid #e2e8f0',
+                borderRadius: '10px',
+                fontSize: '0.85rem',
+                color: '#334155',
+                background: '#ffffff',
+                fontWeight: 600,
+                cursor: 'pointer',
+                outline: 'none'
+              }}
+            >
+              {!isRestricted && <option value="all">All Teams</option>}
+              {teams.map(t => (
+                <option key={t._id} value={t._id}>{t.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {(!isRestricted || uniqueVerticals.length > 1) && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>Select Vertical:</span>
+            <select
+              value={selectedVertical}
+              onChange={(e) => setSelectedVertical(e.target.value)}
+              style={{
+                padding: '8px 14px',
+                border: '1px solid #e2e8f0',
+                borderRadius: '10px',
+                fontSize: '0.85rem',
+                color: '#334155',
+                background: '#ffffff',
+                fontWeight: 600,
+                cursor: 'pointer',
+                outline: 'none'
+              }}
+            >
+              {!isRestricted && <option value="all">All Verticals</option>}
+              {isRestricted ? (
+                uniqueVerticals.map(v => (
+                  <option key={v} value={v}>{v}</option>
+                ))
+              ) : (
+                ['Paramount', 'Transportation', 'Customs Clearance', 'Export', 'Import'].map(v => (
+                  <option key={v} value={v}>{v}</option>
+                ))
+              )}
+            </select>
+          </div>
+        )}
+
+      </div>
+
       {/* Filters */}
       <FilterBar moduleName="reports" onChange={handleFilterChange} />
+
+      {/* Representative report active banner */}
+      {selectedOwner !== 'all' && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          background: '#eff6ff',
+          border: '1px solid #bfdbfe',
+          padding: '12px 20px',
+          borderRadius: '12px',
+          fontSize: '0.85rem',
+          color: '#1e40af',
+          fontWeight: 600,
+          boxShadow: '0 2px 4px rgba(0,0,0,0.02)'
+        }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            ℹ️ Viewing performance reports for representative: <strong style={{ color: '#1d4ed8' }}>{
+              (() => {
+                const repObj = users.find(u => (u._id?.toString() === selectedOwner.toString()) || (u.id?.toString() === selectedOwner.toString()));
+                return repObj ? [repObj.first_name, repObj.last_name].filter(Boolean).join(' ') || repObj.username : 'Selected Representative';
+              })()
+            }</strong>
+          </span>
+          <button
+            onClick={() => setSelectedOwner('all')}
+            style={{
+              padding: '6px 14px',
+              background: '#3b82f6',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              boxShadow: '0 2px 4px rgba(59, 130, 246, 0.2)',
+              transition: 'background 0.2s'
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = '#2563eb'}
+            onMouseLeave={e => e.currentTarget.style.background = '#3b82f6'}
+          >
+            Clear Person Filter
+          </button>
+        </div>
+      )}
 
       {loading || !reportData ? (
         <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', minHeight: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
@@ -359,6 +630,19 @@ export default function CRMReportsDashboard() {
                 >
                   <Table size={16} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'text-bottom' }} /> Activity Report
                 </button>
+                {isAdmin && (
+                  <button
+                    onClick={() => setActiveTab('reps_overview')}
+                    style={{
+                      padding: '8px 16px', borderRadius: '8px', border: 'none', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+                      background: activeTab === 'reps_overview' ? '#ffffff' : 'transparent',
+                      color: activeTab === 'reps_overview' ? '#1e293b' : '#64748b',
+                      boxShadow: activeTab === 'reps_overview' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                    }}
+                  >
+                    <BarChart2 size={16} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'text-bottom' }} /> Representatives Overview
+                  </button>
+                )}
               </div>
 
               {activeTab === 'stage_analysis' ? (
@@ -589,14 +873,14 @@ export default function CRMReportsDashboard() {
                               const isExpanded = !!expandedStages[stRow.stage];
                               const stageColor = PIPELINE_STAGES.find(s => s.id === stRow.stage)?.color || '#64748b';
                               const matchingDeals = analysisData.deals?.filter(d => d.stage === stRow.stage) || [];
-                              
+
                               return (
                                 <React.Fragment key={stRow.stage}>
-                                  <tr 
+                                  <tr
                                     onClick={() => toggleStageExpand(stRow.stage)}
                                     style={{ borderBottom: '1px solid #f1f5f9', cursor: 'pointer', transition: 'background 0.2s', background: isExpanded ? '#f8fafc' : 'transparent' }}
-                                    onMouseEnter={e => { if(!isExpanded) e.currentTarget.style.background = '#fafafa'; }}
-                                    onMouseLeave={e => { if(!isExpanded) e.currentTarget.style.background = 'transparent'; }}
+                                    onMouseEnter={e => { if (!isExpanded) e.currentTarget.style.background = '#fafafa'; }}
+                                    onMouseLeave={e => { if (!isExpanded) e.currentTarget.style.background = 'transparent'; }}
                                   >
                                     <td style={{ padding: '14px 16px', textAlign: 'center', color: '#94a3b8' }}>
                                       {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
@@ -651,7 +935,7 @@ export default function CRMReportsDashboard() {
                                                   {matchingDeals.map(d => {
                                                     const assignedName = d.ownerId ? `${d.ownerId.first_name || ''} ${d.ownerId.last_name || ''}`.trim() || d.ownerId.username : 'Unassigned';
                                                     const comp = typeof d.accountId === 'object' ? (d.accountId?.name || 'N/A') : (d.accountId || 'N/A');
-                                                    
+
                                                     return (
                                                       <tr key={d._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                                                         <td style={{ padding: '10px 8px', fontWeight: 600, color: '#1e293b' }}>
@@ -790,16 +1074,16 @@ export default function CRMReportsDashboard() {
                                       <span>{srcRow.count} deals | {srcRow.percentage}%</span>
                                     </div>
                                     <div style={{ width: '100%', height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                                      <div style={{ 
-                                        width: `${progressWidth}%`, 
-                                        height: '100%', 
-                                        background: srcRow.source === 'IndiaMart Lead' ? '#f97316' 
-                                                    : srcRow.source === 'Referral' ? '#22c55e' 
-                                                    : srcRow.source === 'Direct Sales Visit' ? '#a855f7'
-                                                    : srcRow.source === 'Email Campaign' ? '#ec4899'
-                                                    : srcRow.source === 'Web / Own Generated Lead' ? '#3b82f6'
-                                                    : '#64748b', 
-                                        borderRadius: '4px' 
+                                      <div style={{
+                                        width: `${progressWidth}%`,
+                                        height: '100%',
+                                        background: srcRow.source === 'IndiaMart Lead' ? '#f97316'
+                                          : srcRow.source === 'Referral' ? '#22c55e'
+                                            : srcRow.source === 'Direct Sales Visit' ? '#a855f7'
+                                              : srcRow.source === 'Email Campaign' ? '#ec4899'
+                                                : srcRow.source === 'Web / Own Generated Lead' ? '#3b82f6'
+                                                  : '#64748b',
+                                        borderRadius: '4px'
                                       }}></div>
                                     </div>
                                     <div style={{ textAlign: 'right', fontSize: '0.7rem', color: '#94a3b8', marginTop: '2px', fontWeight: 600 }}>
@@ -865,7 +1149,7 @@ export default function CRMReportsDashboard() {
                             const date = new Date(act.activityDate).toLocaleDateString('en-IN');
                             const typeLabel = (act.type || 'note');
                             const outcomeLabel = (act.outcome || 'neutral');
-                            
+
                             // Icon mapping
                             let typeIcon = <FileText size={14} />;
                             let typeColor = '#64748b';
@@ -923,6 +1207,153 @@ export default function CRMReportsDashboard() {
                       </table>
                     </div>
                   )}
+                </div>
+              )}
+
+              {activeTab === 'reps_overview' && isAdmin && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {/* Filters inside tab */}
+                  <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap', background: '#f8fafc', padding: '16px 20px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: '240px' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#475569' }}>Search Representative:</span>
+                      <input
+                        type="text"
+                        placeholder="Search by name or username..."
+                        value={repsSearchQuery}
+                        onChange={(e) => setRepsSearchQuery(e.target.value)}
+                        style={{
+                          flex: 1,
+                          padding: '8px 12px',
+                          border: '1px solid #cbd5e1',
+                          borderRadius: '8px',
+                          fontSize: '0.85rem',
+                          outline: 'none',
+                          boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)'
+                        }}
+                      />
+                    </div>
+
+                    {(!isRestricted || teams.length > 1) && teams && teams.length > 0 && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: '200px' }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#475569' }}>Team:</span>
+                        <select
+                          value={repsSelectedTeam}
+                          onChange={(e) => setRepsSelectedTeam(e.target.value)}
+                          style={{
+                            padding: '8px 12px',
+                            border: '1px solid #cbd5e1',
+                            borderRadius: '8px',
+                            fontSize: '0.85rem',
+                            background: '#fff',
+                            outline: 'none',
+                            fontWeight: 600,
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {!isRestricted && <option value="all">All Teams</option>}
+                          {teams.map(t => (
+                            <option key={t._id} value={t.name}>{t.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+
+                  {repsLoading ? (
+                    <div style={{ padding: '60px', textAlign: 'center', color: '#64748b' }}>
+                      ⏳ Loading Representatives Performance Grid...
+                    </div>
+                  ) : (() => {
+                    const filtered = repsData.filter(rep => {
+                      const matchesSearch = (rep.name || '').toLowerCase().includes(repsSearchQuery.toLowerCase()) || 
+                                            (rep.username || '').toLowerCase().includes(repsSearchQuery.toLowerCase());
+                      const matchesTeam = repsSelectedTeam === 'all' || (rep.teams || []).includes(repsSelectedTeam);
+                      return matchesSearch && matchesTeam;
+                    });
+
+                    if (filtered.length === 0) {
+                      return (
+                        <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '16px' }}>
+                          No representatives match the selected filters.
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '20px', overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '950px' }}>
+                          <thead>
+                            <tr style={{ borderBottom: '2px solid #f1f5f9', color: '#64748b', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                              <th style={{ padding: '12px 10px' }}>Representative Name</th>
+                              <th style={{ padding: '12px 10px' }}>Teams</th>
+                              <th style={{ padding: '12px 10px' }}>Role</th>
+                              <th style={{ padding: '12px 10px', textAlign: 'center' }}>Total Leads</th>
+                              <th style={{ padding: '12px 10px', textAlign: 'center' }}>Active Deals</th>
+                              <th style={{ padding: '12px 10px', textAlign: 'right' }}>Active Pipeline</th>
+                              <th style={{ padding: '12px 10px', textAlign: 'right' }}>Closed Won (MTD)</th>
+                              <th style={{ padding: '12px 10px', textAlign: 'center' }}>Pending Tasks</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filtered.map(rep => (
+                              <tr 
+                                key={rep.userId} 
+                                onClick={() => {
+                                  setSelectedOwner(rep.userId);
+                                  setActiveTab('month');
+                                }}
+                                style={{ 
+                                  borderBottom: '1px solid #f1f5f9', 
+                                  fontSize: '0.85rem', 
+                                  cursor: 'pointer',
+                                  transition: 'background 0.2s'
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                title="Click to view detailed person report"
+                              >
+                                <td style={{ padding: '14px 10px', fontWeight: 700, color: '#1e293b' }}>
+                                  {rep.name}
+                                  <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 500 }}>@{rep.username}</div>
+                                </td>
+                                <td style={{ padding: '14px 10px' }}>
+                                  {rep.teams && rep.teams.length > 0 ? (
+                                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                                      {rep.teams.map(t => (
+                                        <span key={t} style={{ padding: '2px 8px', borderRadius: '4px', background: '#e0f2fe', color: '#0369a1', fontSize: '0.7rem', fontWeight: 600 }}>
+                                          {t}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>None</span>
+                                  )}
+                                </td>
+                                <td style={{ padding: '14px 10px', color: '#475569', fontWeight: 500 }}>{rep.role}</td>
+                                <td style={{ padding: '14px 10px', textAlign: 'center', color: '#4f46e5', fontWeight: 700 }}>{rep.totalLeads}</td>
+                                <td style={{ padding: '14px 10px', textAlign: 'center', color: '#0891b2', fontWeight: 700 }}>{rep.totalDeals}</td>
+                                <td style={{ padding: '14px 10px', textAlign: 'right', color: '#10b981', fontWeight: 700, fontFamily: 'monospace' }}>
+                                  ₹{(rep.pipelineValue || 0).toLocaleString('en-IN')}
+                                </td>
+                                <td style={{ padding: '14px 10px', textAlign: 'right', color: '#059669', fontWeight: 700, fontFamily: 'monospace' }}>
+                                  ₹{(rep.wonValue || 0).toLocaleString('en-IN')}
+                                </td>
+                                <td style={{ padding: '14px 10px', textAlign: 'center' }}>
+                                  {rep.pendingTasks > 0 ? (
+                                    <span style={{ padding: '2px 8px', borderRadius: '12px', background: '#fef2f2', color: '#b91c1c', fontWeight: 700, fontSize: '0.75rem' }}>
+                                      {rep.pendingTasks}
+                                    </span>
+                                  ) : (
+                                    <span style={{ color: '#94a3b8' }}>0</span>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>

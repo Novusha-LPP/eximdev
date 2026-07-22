@@ -29,6 +29,20 @@ export default function TaskFormModal({ isOpen, onClose, onRefresh, task }) {
   const [entitySearch, setEntitySearch] = useState('');
   const [isEntityDropdownOpen, setIsEntityDropdownOpen] = useState(false);
 
+  const getHeaders = () => {
+    const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
+    return {
+      headers: {
+        'Content-Type': 'application/json',
+        'user-id': user._id || user.id || '',
+        'username': user.username || '',
+        'user-role': user.role || '',
+        'Authorization': user.token ? `Bearer ${user.token}` : undefined
+      },
+      withCredentials: true
+    };
+  };
+
   useEffect(() => {
     fetchUsers();
   }, []);
@@ -42,7 +56,7 @@ export default function TaskFormModal({ isOpen, onClose, onRefresh, task }) {
       else if (model === 'Account') endpoint = '/crm/accounts';
       else if (model === 'Contact') endpoint = '/crm/contacts';
 
-      const res = await axios.get(`${process.env.REACT_APP_API_STRING}${endpoint}`, { withCredentials: true });
+      const res = await axios.get(`${process.env.REACT_APP_API_STRING}${endpoint}`, getHeaders());
       const mapped = (res.data || []).map(item => {
         let name = '';
         if (model === 'Lead') name = `${item.firstName} ${item.lastName || ''} (${item.company})`;
@@ -57,10 +71,24 @@ export default function TaskFormModal({ isOpen, onClose, onRefresh, task }) {
     }
   };
 
+  const currentUser = React.useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem('exim_user') || '{}');
+    } catch (e) {
+      return {};
+    }
+  }, []);
+
+  const currentUserId = (currentUser._id || currentUser.id)?.toString() || '';
+
   const fetchUsers = async () => {
     try {
-      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-all-users`, { withCredentials: true });
-      setUsers(res.data || []);
+      const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-all-users`, getHeaders());
+      let fetched = res.data || [];
+      if (currentUserId && !fetched.some(u => (u._id || u.id)?.toString() === currentUserId)) {
+        fetched = [currentUser, ...fetched];
+      }
+      setUsers(fetched);
     } catch (err) {
       console.error('Error fetching users:', err);
     }
@@ -87,7 +115,7 @@ export default function TaskFormModal({ isOpen, onClose, onRefresh, task }) {
         status: 'open',
         priority: 'medium',
         dueDate: '',
-        assignedTo: '',
+        assignedTo: currentUserId,
         reminder: false,
         relatedTo: { model: '', id: '', name: '' }
       });
@@ -95,7 +123,7 @@ export default function TaskFormModal({ isOpen, onClose, onRefresh, task }) {
       setEntitySearch('');
       setEntities([]);
     }
-  }, [task, isOpen]);
+  }, [task, isOpen, currentUserId]);
 
   // Sync search text when users load or assignedTo changes
   useEffect(() => {
@@ -115,6 +143,12 @@ export default function TaskFormModal({ isOpen, onClose, onRefresh, task }) {
       fullName.includes(search) ||
       u.email?.toLowerCase().includes(search)
     );
+  }).sort((a, b) => {
+    const aId = (a._id || a.id)?.toString();
+    const bId = (b._id || b.id)?.toString();
+    if (aId === currentUserId) return -1;
+    if (bId === currentUserId) return 1;
+    return 0;
   });
 
   const getDisplayName = (user) => {
@@ -137,11 +171,18 @@ export default function TaskFormModal({ isOpen, onClose, onRefresh, task }) {
         reminder: formData.reminder ? (formData.dueDate || new Date()) : null
       };
 
+      if (!dataToSubmit.relatedTo || !dataToSubmit.relatedTo.model || !dataToSubmit.relatedTo.id) {
+        dataToSubmit.relatedTo = null;
+      }
+      if (!dataToSubmit.dueDate) {
+        dataToSubmit.dueDate = null;
+      }
+
       if (task?._id) {
-        await axios.put(`${process.env.REACT_APP_API_STRING}/crm/tasks/${task._id}`, dataToSubmit, { withCredentials: true });
+        await axios.put(`${process.env.REACT_APP_API_STRING}/crm/tasks/${task._id}`, dataToSubmit, getHeaders());
         message.success('Task updated successfully');
       } else {
-        await axios.post(`${process.env.REACT_APP_API_STRING}/crm/tasks`, dataToSubmit, { withCredentials: true });
+        await axios.post(`${process.env.REACT_APP_API_STRING}/crm/tasks`, dataToSubmit, getHeaders());
         message.success('Task created successfully');
       }
       onRefresh();
@@ -291,6 +332,7 @@ export default function TaskFormModal({ isOpen, onClose, onRefresh, task }) {
                   ) : filteredUsers.map(user => {
                     const userId = (user._id || user.id)?.toString();
                     const isSelected = formData.assignedTo === userId;
+                    const isMe = userId === currentUserId;
                     return (
                       <div
                         key={userId}
@@ -310,13 +352,27 @@ export default function TaskFormModal({ isOpen, onClose, onRefresh, task }) {
                       >
                         <div style={{ 
                           width: '32px', height: '32px', borderRadius: '50%', 
-                          background: isSelected ? '#4f46e5' : '#e2e8f0',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', color: isSelected ? '#fff' : '#64748b'
+                          background: isSelected ? '#4f46e5' : isMe ? '#6366f1' : '#e2e8f0',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', color: (isSelected || isMe) ? '#fff' : '#64748b'
                         }}>
                           <User size={16} />
                         </div>
                         <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#1e293b' }}>{getDisplayName(user)}</div>
+                          <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span>{getDisplayName(user)}</span>
+                            {isMe && (
+                              <span style={{
+                                fontSize: '0.65rem',
+                                background: '#e0e7ff',
+                                color: '#4338ca',
+                                padding: '1px 6px',
+                                borderRadius: '4px',
+                                fontWeight: 700
+                              }}>
+                                You
+                              </span>
+                            )}
+                          </div>
                           <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{user.role || 'Sales Representative'}</div>
                         </div>
                         {isSelected && <Check size={16} style={{ color: '#4f46e5' }} />}

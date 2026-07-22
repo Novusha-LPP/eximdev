@@ -5,7 +5,7 @@ import WorkingDayEngine from './WorkingDayEngine.js';
 import PolicyResolver from './PolicyResolver.js';
 import LeaveApplication from '../../model/attendance/LeaveApplication.js';
 import { IST_TIMEZONE, nowIST, getISTDayRange, toISTDateStr } from '../../utils/attendance/DateUtils.js';
-const MISSED_PUNCH_LIMIT_HOURS = 12;
+import { getMissedPunchLimitHours } from '../../utils/attendance/shiftUtils.js';
 
 
 
@@ -126,6 +126,9 @@ class AttendanceEngine {
                 const shiftStart = moment.tz(`${date} ${shift.start_time}`, 'YYYY-MM-DD HH:mm', tz);
                 let shiftEnd = moment.tz(`${date} ${shift.end_time}`, 'YYYY-MM-DD HH:mm', tz);
 
+                // Dynamic missed-punch limit: shift duration + 4h buffer
+                const missedPunchLimit = getMissedPunchLimitHours(shift);
+
                 // For cross-day shifts, the end time is on the next day.
                 // We rely on actual time crossing midnight (end <= start) as the primary indicator.
                 if (shiftEnd.isSameOrBefore(shiftStart)) {
@@ -236,7 +239,7 @@ class AttendanceEngine {
                 } else if (effectiveHours <= adjustedHalfDay) {
                     // Only finalize as half_day if shift is over and it's not today, or if it's been > 18h
                     // For TODAY: Only mark as half_day if they are punched out AND the shift is over.
-                    if ((!isToday && (isShiftOver || hoursSinceIn > MISSED_PUNCH_LIMIT_HOURS)) || (isToday && isCurrentlyPunchedOut && isShiftOver)) {
+                    if ((!isToday && (isShiftOver || hoursSinceIn > missedPunchLimit)) || (isToday && isCurrentlyPunchedOut && isShiftOver)) {
                         status = 'half_day';
                         isHalfDayFlag = true;
                         isLate = false;
@@ -244,7 +247,7 @@ class AttendanceEngine {
                         status = 'present';
                     }
                 } else {
-                    if ((!isToday && (isShiftOver || hoursSinceIn > MISSED_PUNCH_LIMIT_HOURS)) || isGapTooLarge || (isToday && isCurrentlyPunchedOut && isShiftOver)) {
+                    if ((!isToday && (isShiftOver || hoursSinceIn > missedPunchLimit)) || isGapTooLarge || (isToday && isCurrentlyPunchedOut && isShiftOver)) {
                          status = 'half_day';
                          isHalfDayFlag = true;
                          isLate = false;
@@ -253,8 +256,8 @@ class AttendanceEngine {
                     }
                 }
 
-                // ✅ Fix: Don't mark as incomplete until 18 hours after punch-in
-                if (!isToday && lastInPunch && status === 'present' && hoursSinceIn > MISSED_PUNCH_LIMIT_HOURS) {
+                // ✅ Fix: Don't mark as incomplete until shift duration + 4h buffer after punch-in
+                if (!isToday && lastInPunch && status === 'present' && hoursSinceIn > missedPunchLimit) {
                     status = 'incomplete';
                     isHalfDayFlag = false;
                 }

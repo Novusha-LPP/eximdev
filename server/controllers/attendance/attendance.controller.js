@@ -24,6 +24,7 @@ import { WorkHoursCalculator } from '../../services/attendance/WorkHoursCalculat
 import { AttendanceStatusResolver } from '../../services/attendance/AttendanceStatusResolver.js';
 import { ALLOWED_USERNAMES } from '../../middleware/requireAllowedAdmin.mjs';
 import { isRestrictedAllowedAdmin, getRestrictedEmployeeIds } from '../../utils/attendance/allowedAdminRestriction.mjs';
+import { getMissedPunchLimitHours } from '../../utils/attendance/shiftUtils.js';
 import { canActorActOnLeave } from './HOD.controller.js';
 
 // --- HELPERS ---
@@ -214,7 +215,7 @@ const dateKeyUTC = (dateVal) => moment(dateVal).tz('Asia/Kolkata').format('YYYY-
 const dateKeyLocal = (dateVal) => moment(dateVal).tz('Asia/Kolkata').format('YYYY-MM-DD');
 
 const IDENTITY_LEAVE_TYPES = new Set(['lwp', 'privilege']);
-const MISSED_PUNCH_LIMIT_HOURS = 18;
+// Missed-punch limit is now dynamic: shift duration + 4h buffer (see shiftUtils.js)
 
 const getBalanceSortValue = (balance) => {
     const timestamps = [balance?.updatedAt, balance?.last_updated, balance?.createdAt]
@@ -726,16 +727,26 @@ export const punch = async (req, res) => {
             session_status: 'active'
         }).sort({ punch_in_time: -1 });
 
+        // Resolve shift-aware missed-punch limits (shift duration + 4h buffer)
+        const userShift = user.shift_id ? await Shift.findById(user.shift_id) : null;
+        const userMissedPunchLimit = getMissedPunchLimitHours(userShift);
+
+        let sessionMissedPunchLimit = userMissedPunchLimit;
+        if (activeSession?.shift_id && activeSession.shift_id.toString() !== user.shift_id?.toString()) {
+            const sessionShift = await Shift.findById(activeSession.shift_id);
+            sessionMissedPunchLimit = getMissedPunchLimitHours(sessionShift);
+        }
+
         let warning = null;
         let autoClosedPreviousSession = false;
 
         if (type === 'IN' && activeSession) {
             const elapsedHours = now.diff(moment(activeSession.punch_in_time), 'hours', true);
 
-            if (elapsedHours >= MISSED_PUNCH_LIMIT_HOURS) {
+            if (elapsedHours >= sessionMissedPunchLimit) {
                 await markSessionAsMissedPunch({
                     session: activeSession,
-                    reason: 'timeout_18h',
+                    reason: `session_timeout_${Math.round(sessionMissedPunchLimit)}h`,
                     source: 'system',
                     at: now.toDate()
                 });
@@ -743,24 +754,40 @@ export const punch = async (req, res) => {
                 activeSession = null;
             } else {
                 return res.status(400).json({
-                    message: 'Active session exists. Punch OUT first.',
-                    active_since: activeSession.punch_in_time
+                    message: 'You are already punched in. Please punch out first before punching in again.',
+                    devDetails: {
+                        error_code: 'ACTIVE_SESSION_EXISTS',
+                        active_since: activeSession.punch_in_time,
+                        active_session_id: activeSession._id
+                    }
                 });
             }
         }
 
         if (type === 'OUT' && !activeSession) {
-            return res.status(400).json({ message: 'No active IN session found.' });
+            return res.status(400).json({
+                message: 'You are currently not checked in. Please punch in first before attempting to punch out.',
+                devDetails: {
+                    error_code: 'NO_ACTIVE_SESSION',
+                    type: 'OUT',
+                    activeSession: null
+                }
+            });
         }
 
         if (type === 'OUT' && activeSession) {
             const elapsedHours = now.diff(moment(activeSession.punch_in_time), 'hours', true);
-            if (elapsedHours > MISSED_PUNCH_LIMIT_HOURS) {
+            if (elapsedHours > sessionMissedPunchLimit) {
                 warning = {
                     type: 'missed_punch_timeout',
-                    message: `Punch OUT recorded after ${elapsedHours.toFixed(1)} hours. This session is treated as missed punch.`,
-                    threshold_hours: MISSED_PUNCH_LIMIT_HOURS,
-                    elapsed_hours: parseFloat(elapsedHours.toFixed(2))
+                    message: `Punch OUT has been recorded, but it was after your shift ended plus the 4-hour allowed window. This session will be processed as a missed punch. Please submit a regularization request if needed.`,
+                    devDetails: {
+                        error_code: 'SESSION_TIMEOUT_EXCEEDED',
+                        threshold_hours: sessionMissedPunchLimit,
+                        elapsed_hours: parseFloat(elapsedHours.toFixed(2)),
+                        allowed_buffer_hours: 4,
+                        punch_in_time: activeSession.punch_in_time
+                    }
                 };
             }
         }
@@ -788,7 +815,7 @@ export const punch = async (req, res) => {
                 punch_in_entry_id: punch._id,
                 session_date: todayDate,
                 session_status: 'active',
-                expected_out_time: moment(now).add(MISSED_PUNCH_LIMIT_HOURS, 'hours').toDate()
+                expected_out_time: moment(now).add(userMissedPunchLimit, 'hours').toDate()
             });
             await newSession.save();
         } else if (type === 'OUT' && activeSession) {
@@ -809,7 +836,7 @@ export const punch = async (req, res) => {
         if (type === 'OUT' && warning && activeSession) {
             await markAttendanceAsMissedPunch({
                 session: activeSession,
-                reason: 'timeout_18h',
+                reason: `session_timeout_${Math.round(sessionMissedPunchLimit)}h`,
                 source: 'late_punch_out',
                 markedAt: now.toDate()
             });
@@ -823,7 +850,7 @@ export const punch = async (req, res) => {
         });
 
         const response = {
-            message: `Punch ${type} recorded successfully`,
+            message: `Punch ${type} recorded successfully.`,
             time: now.toDate()
         };
 
@@ -833,7 +860,12 @@ export const punch = async (req, res) => {
         if (autoClosedPreviousSession) {
             response.info = {
                 type: 'previous_session_auto_closed',
-                message: `Open session without punch OUT was auto-marked as missed punch after ${MISSED_PUNCH_LIMIT_HOURS} hours before starting a new session.`
+                message: `Your previous session was automatically closed as a missed punch because you did not punch out within the allowed time. A new session has been started.`,
+                devDetails: {
+                    error_code: 'PREVIOUS_SESSION_AUTO_CLOSED',
+                    closed_after_hours: sessionMissedPunchLimit,
+                    last_punch_in: activeSession?.punch_in_time
+                }
             };
         }
 

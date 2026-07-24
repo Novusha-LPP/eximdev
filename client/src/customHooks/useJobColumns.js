@@ -27,7 +27,12 @@ function useJobColumns(
   onRowUpdate,
   setRows,
   invalidateCache,
-  selectedYear
+  selectedYear,
+  clientQueriesStatus = {},
+  handleRedClick = () => {},
+  handleYellowClick = () => {},
+  handleResolveOpenQuery = () => {},
+  handleOpenQueryChat = () => {}
 ) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -272,6 +277,111 @@ function useJobColumns(
                   {formatDate(row.document_received_date)}
                 </div>
               )}
+
+              {/* Query Action Buttons & Status inside Job No Cell */}
+              {(() => {
+                const queryStat = clientQueriesStatus[job_no] || {
+                  hasQueries: false,
+                  hasUnseen: false,
+                  hasOpenQueries: false,
+                };
+                return (
+                  <div style={{ marginTop: "6px", display: "flex", flexDirection: "column", gap: "4px", alignItems: "center" }}>
+                    <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                      {/* Red Dot - Raise Query to Client */}
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleRedClick(row); }}
+                        style={{
+                          width: "14px",
+                          height: "14px",
+                          padding: 0,
+                          backgroundColor: "#ef4444",
+                          borderRadius: "50%",
+                          border: "none",
+                          cursor: "pointer",
+                          transition: "all 0.15s ease",
+                        }}
+                        title="Raise query to client"
+                      />
+
+                      {/* Yellow Dot - View & Reply Chat */}
+                      {queryStat.hasQueries && (
+                        <div style={{ position: "relative", display: "inline-flex" }}>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleYellowClick(row); }}
+                            style={{
+                              width: "14px",
+                              height: "14px",
+                              padding: 0,
+                              backgroundColor: "#f59e0b",
+                              borderRadius: "50%",
+                              border: "none",
+                              cursor: "pointer",
+                              transition: "all 0.15s ease",
+                            }}
+                            title="View replies & reply back"
+                          />
+                          {queryStat.hasUnseen && (
+                            <span
+                              style={{
+                                position: "absolute",
+                                top: "-3px",
+                                right: "-3px",
+                                width: "7px",
+                                height: "7px",
+                                borderRadius: "50%",
+                                backgroundColor: "#ef4444",
+                                border: "1px solid #fff",
+                                pointerEvents: "none",
+                              }}
+                            />
+                          )}
+                        </div>
+                      )}
+
+                      {/* Green Dot - Resolve Query */}
+                      {queryStat.hasOpenQueries && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); handleResolveOpenQuery(row); }}
+                          style={{
+                            width: "14px",
+                            height: "14px",
+                            padding: 0,
+                            backgroundColor: "#10b981",
+                            borderRadius: "50%",
+                            border: "none",
+                            cursor: "pointer",
+                            transition: "all 0.15s ease",
+                          }}
+                          title="Resolve open query"
+                        />
+                      )}
+                    </div>
+
+                    {/* Status Pill */}
+                    {queryStat.hasQueries && (
+                      <span
+                        style={{
+                          padding: "2px 6px",
+                          borderRadius: "4px",
+                          fontSize: "9px",
+                          fontWeight: "700",
+                          cursor: "pointer",
+                          backgroundColor: queryStat.hasUnseen ? "#fee2e2" : queryStat.hasOpenQueries ? "#fef3c7" : "#dcfce7",
+                          border: `1px solid ${queryStat.hasUnseen ? "#ef4444" : queryStat.hasOpenQueries ? "#f59e0b" : "#22c55e"}`,
+                          color: queryStat.hasUnseen ? "#b91c1c" : queryStat.hasOpenQueries ? "#b45309" : "#15803d",
+                        }}
+                        onClick={(e) => { e.stopPropagation(); handleOpenQueryChat(row); }}
+                      >
+                        {queryStat.hasUnseen ? "● New Message" : queryStat.hasOpenQueries ? "Open Query" : "Resolved"}
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           );
         },

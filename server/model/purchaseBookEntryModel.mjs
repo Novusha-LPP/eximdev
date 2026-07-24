@@ -52,6 +52,7 @@ const purchaseBookEntrySchema = new mongoose.Schema({
   chargeHeadCategory: { type: String },
   tdsCategory: { type: String, default: '94C' },
   status: { type: String, default: '' },
+  virtualBalanceTerminal: { type: String, default: '' },
   createdAt: { type: Date, default: Date.now }
 }, { timestamps: true });
 

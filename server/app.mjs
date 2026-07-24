@@ -257,6 +257,7 @@ import uploadFileRoutes from "./routes/upload/uploadFile.mjs";
 
 // Project Nucleus
 import nucleusReports from "./routes/project-nucleus/nucleusReports.mjs";
+import clientQueryRoutes from "./routes/clientQueryRoutes.mjs";
 
 // KPI Module
 import kpiRoutes from "./routes/kpi/kpiRoutes.mjs";
@@ -751,6 +752,9 @@ app.use('/uploads/leaves', express.static(
   path.join(path.dirname(fileURLToPath(import.meta.url)), 'uploads', 'leaves')
 ));
 // ─────────────────────────────────────────────────────────────────────────────
+// Client Queries API
+app.use("/api/client-queries", clientQueryRoutes);
+
 // scmCube API
 app.use(scmCubeRoutes);
 app.use(uploadToImexcube);

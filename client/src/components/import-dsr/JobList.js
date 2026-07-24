@@ -29,12 +29,15 @@ import {
 import SearchIcon from "@mui/icons-material/Search";
 import axios from "axios";
 import { MaterialReactTable, useMaterialReactTable } from "material-react-table";
-import { Dialog, DialogContent, DialogTitle, Button } from "@mui/material";
+import { Dialog, DialogContent, DialogTitle, Button, Tooltip, DialogActions, Chip, CircularProgress } from "@mui/material";
 import MyDocRequests from "../document-collection/MyDocRequests";
 import DownloadIcon from "@mui/icons-material/Download";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import SelectImporterModal from "./SelectImporterModal";
-import { Tooltip } from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
+import AttachFileIcon from "@mui/icons-material/AttachFile";
+import SendIcon from "@mui/icons-material/Send";
+import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { BranchContext } from "../../contexts/BranchContext.js";
@@ -80,6 +83,52 @@ function JobList(props) {
   const [importers, setImporters] = useState("");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [snackbar, setSnackbar] = useState({ open: false, message: "" });
+
+  // Query Management States
+  const [clientQueriesStatus, setClientQueriesStatus] = useState({});
+  const [queryChatOpen, setQueryChatOpen] = useState(false);
+  const [queryChatJob, setQueryChatJob] = useState(null);
+  const [queryChatData, setQueryChatData] = useState([]);
+  const [queryChatLoading, setQueryChatLoading] = useState(false);
+  const [queryChatReply, setQueryChatReply] = useState("");
+  const [queryChatSending, setQueryChatSending] = useState(false);
+  const [activeQueryIndex, setActiveQueryIndex] = useState(0);
+  const [chatAttachments, setChatAttachments] = useState([]);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+
+  // For raising a query:
+  const [raiseQueryOpen, setRaiseQueryOpen] = useState(false);
+  const [raiseQueryJob, setRaiseQueryJob] = useState(null);
+  const [raiseQueryMessage, setRaiseQueryMessage] = useState("");
+  const [raiseQuerySending, setRaiseQuerySending] = useState(false);
+  const [raiseQueryAttachments, setRaiseQueryAttachments] = useState([]);
+
+  // Snackbar state for queries
+  const [querySnackbar, setQuerySnackbar] = useState({ open: false, message: "", severity: "info" });
+
+  const fileInputRef = React.useRef(null);
+  const raiseFileInputRef = React.useRef(null);
+  const chatEndRef = React.useRef(null);
+
+  // Fetch query status for loaded jobs
+  const fetchQueryStatusForJobs = useCallback(async (jobNos = []) => {
+    if (!Array.isArray(jobNos) || jobNos.length === 0) return;
+    try {
+      const apiString = process.env.REACT_APP_API_STRING || "";
+      const res = await axios.post(`${apiString}/client-queries/jobs-status`, {
+        jobNos,
+        isClient: false,
+      });
+      if (res.data?.success) {
+        setClientQueriesStatus((prev) => ({
+          ...prev,
+          ...res.data.data,
+        }));
+      }
+    } catch (err) {
+      console.error("Failed to fetch client queries status:", err);
+    }
+  }, []);
 
   const [open, setOpen] = useState(false);
   const [myRequestsOpen, setMyRequestsOpen] = useState(false); // Added state for MyDocRequests dialog
@@ -185,12 +234,564 @@ function JobList(props) {
     selectedCategory
   );
 
-  // When unresolved toggle changes, re-fetch page 1
+  // Fetch query status when rows change
   useEffect(() => {
-    if (selectedYearState && user) {
-      fetchJobs(1, showUnresolvedOnly, true);
+    if (rows && rows.length > 0) {
+      const jobNos = rows.map((r) => r.job_no).filter(Boolean);
+      fetchQueryStatusForJobs(jobNos);
     }
-  }, [showUnresolvedOnly, selectedYearState, user]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [rows, fetchQueryStatusForJobs]);
+
+  // Sort jobs list with query priority at TOP
+  const sortedRows = useMemo(() => {
+    if (!rows || rows.length === 0) return [];
+    return [...rows].sort((a, b) => {
+      const statA = clientQueriesStatus[a.job_no] || {};
+      const statB = clientQueriesStatus[b.job_no] || {};
+
+      const scoreA = statA.hasUnseen ? 3 : statA.hasOpenQueries ? 2 : statA.hasQueries ? 1 : 0;
+      const scoreB = statB.hasUnseen ? 3 : statB.hasOpenQueries ? 2 : statB.hasQueries ? 1 : 0;
+
+      return scoreB - scoreA;
+    });
+  }, [rows, clientQueriesStatus]);
+
+  const handleRedClick = useCallback((job) => {
+    setRaiseQueryJob(job);
+    setRaiseQueryMessage("");
+    setRaiseQueryAttachments([]);
+    setRaiseQueryOpen(true);
+  }, []);
+
+  const handleOpenQueryChat = useCallback(async (job) => {
+    setQueryChatJob(job);
+    setQueryChatOpen(true);
+    setQueryChatLoading(true);
+    setActiveQueryIndex(0);
+    setChatAttachments([]);
+
+    try {
+      const apiString = process.env.REACT_APP_API_STRING || "";
+      const resp = await axios.get(`${apiString}/client-queries`, {
+        params: { job_no: job.job_no },
+      });
+      const queries = resp.data?.queries || [];
+      setQueryChatData(queries);
+
+      setClientQueriesStatus((prev) => ({
+        ...prev,
+        [job.job_no]: { ...prev[job.job_no], hasUnseen: false },
+      }));
+    } catch (error) {
+      console.error("Failed to load client queries:", error);
+      setQuerySnackbar({ open: true, message: "Failed to load queries", severity: "error" });
+    } finally {
+      setQueryChatLoading(false);
+    }
+  }, []);
+
+  const handleYellowClick = useCallback((job) => {
+    const queryStat = clientQueriesStatus[job.job_no] || { hasQueries: false };
+    if (!queryStat.hasQueries) {
+      setQuerySnackbar({ open: true, message: "No query history found. Click Red to raise a query.", severity: "info" });
+      return;
+    }
+    handleOpenQueryChat(job);
+  }, [clientQueriesStatus, handleOpenQueryChat]);
+
+  const handleResolveOpenQuery = useCallback(async (job) => {
+    try {
+      const apiString = process.env.REACT_APP_API_STRING || "";
+      const resp = await axios.get(`${apiString}/client-queries`, {
+        params: { job_no: job.job_no, status: "open" },
+      });
+      const openQueries = resp.data?.queries || [];
+      if (openQueries.length === 0) {
+        setQuerySnackbar({ open: true, message: "No open queries found for this job.", severity: "warning" });
+        return;
+      }
+
+      const targetQuery = openQueries[0];
+      await axios.put(`${apiString}/client-queries/${targetQuery._id}/resolve`, {
+        resolvedBy: user?.name || "Operations Team",
+        resolutionNote: "Resolved by internal team",
+      });
+
+      setQuerySnackbar({ open: true, message: "Query resolved successfully.", severity: "success" });
+
+      if (job?.job_no) {
+        fetchQueryStatusForJobs([job.job_no]);
+      }
+    } catch (error) {
+      console.error("Failed to resolve query:", error);
+      setQuerySnackbar({ open: true, message: "Failed to resolve query.", severity: "error" });
+    }
+  }, [user, fetchQueryStatusForJobs]);
+
+  const handleFileUpload = useCallback(async (e, isRaiseQuery = false) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingAttachment(true);
+    try {
+      const apiString = process.env.REACT_APP_API_STRING || "";
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await axios.post(`${apiString}/client-queries/upload-attachment`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      if (res.data?.fileUrl) {
+        const fileObj = {
+          fileName: res.data.fileName || file.name,
+          fileUrl: res.data.fileUrl,
+          fileType: res.data.fileType || file.type,
+        };
+
+        if (isRaiseQuery) {
+          setRaiseQueryAttachments((prev) => [...prev, fileObj]);
+        } else {
+          setChatAttachments((prev) => [...prev, fileObj]);
+        }
+        setQuerySnackbar({ open: true, message: `Attachment uploaded: ${file.name}`, severity: "success" });
+      }
+    } catch (err) {
+      console.error("Attachment upload failed:", err);
+      setQuerySnackbar({ open: true, message: "Attachment upload failed.", severity: "error" });
+    } finally {
+      setUploadingAttachment(false);
+      e.target.value = "";
+    }
+  }, []);
+
+  const handleSendReply = useCallback(async (queryId) => {
+    if (!queryChatReply.trim() && chatAttachments.length === 0) return;
+    setQueryChatSending(true);
+    try {
+      const apiString = process.env.REACT_APP_API_STRING || "";
+      await axios.put(`${apiString}/client-queries/${queryId}/reply`, {
+        message: queryChatReply.trim(),
+        repliedBy: user?.name || "Operations Team",
+        senderType: "admin",
+        attachments: chatAttachments,
+      });
+
+      const resp = await axios.get(`${apiString}/client-queries`, {
+        params: { job_no: queryChatJob.job_no },
+      });
+      setQueryChatData(resp.data?.queries || []);
+      setQueryChatReply("");
+      setChatAttachments([]);
+
+      if (queryChatJob?.job_no) {
+        fetchQueryStatusForJobs([queryChatJob.job_no]);
+      }
+    } catch (error) {
+      console.error("Failed to send reply:", error);
+      setQuerySnackbar({ open: true, message: "Failed to send reply", severity: "error" });
+    } finally {
+      setQueryChatSending(false);
+    }
+  }, [queryChatReply, chatAttachments, queryChatJob, user, fetchQueryStatusForJobs]);
+
+  const handleRaiseQuerySubmit = useCallback(async () => {
+    if (!raiseQueryMessage.trim() && raiseQueryAttachments.length === 0) {
+      setQuerySnackbar({ open: true, message: "Message or attachment is required", severity: "warning" });
+      return;
+    }
+    setRaiseQuerySending(true);
+    try {
+      const apiString = process.env.REACT_APP_API_STRING || "";
+      const payload = {
+        module_type: "import",
+        job_no: raiseQueryJob.job_no,
+        job_id: raiseQueryJob._id,
+        subject: "Operations Query",
+        message: raiseQueryMessage.trim() || "Query raised with attachment",
+        client_name: user?.name || "Operations Team",
+        senderType: "admin",
+        attachments: raiseQueryAttachments,
+      };
+
+      await axios.post(`${apiString}/client-queries`, payload);
+
+      setQuerySnackbar({ open: true, message: "Query raised successfully", severity: "success" });
+      setRaiseQueryOpen(false);
+      setRaiseQueryMessage("");
+      setRaiseQueryAttachments([]);
+
+      if (raiseQueryJob?.job_no) {
+        fetchQueryStatusForJobs([raiseQueryJob.job_no]);
+      }
+    } catch (error) {
+      console.error("Failed to raise query:", error);
+      setQuerySnackbar({ open: true, message: "Failed to raise query", severity: "error" });
+    } finally {
+      setRaiseQuerySending(false);
+    }
+  }, [raiseQueryMessage, raiseQueryAttachments, raiseQueryJob, user, fetchQueryStatusForJobs]);
+
+  const renderQueryModals = useCallback(() => {
+    const activeQuery = queryChatData[activeQueryIndex];
+
+    const chatMessages = [];
+    if (activeQuery) {
+      chatMessages.push({
+        id: "original",
+        senderName: activeQuery.client_name || "Client",
+        message: activeQuery.message,
+        subject: activeQuery.subject,
+        createdAt: activeQuery.createdAt,
+        align: "left",
+        attachments: activeQuery.attachments || [],
+        senderType: "client",
+      });
+
+      if (activeQuery.replies) {
+        activeQuery.replies.forEach((r, ri) => {
+          chatMessages.push({
+            id: r._id || `reply-${ri}`,
+            senderName: r.repliedBy,
+            message: r.message,
+            createdAt: r.repliedAt,
+            align: r.senderType === "admin" || r.senderType === "operation" ? "right" : "left",
+            attachments: r.attachments || [],
+            senderType: r.senderType || "admin",
+          });
+        });
+      }
+    }
+
+    const formatChatTime = (dateStr) => {
+      if (!dateStr) return "";
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return "";
+      return d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });
+    };
+
+    return (
+      <>
+        {/* Client Query Chat Dialog */}
+        <Dialog
+          open={queryChatOpen}
+          onClose={() => {
+            setQueryChatOpen(false);
+            setQueryChatJob(null);
+            setQueryChatData([]);
+            setQueryChatReply("");
+            setChatAttachments([]);
+          }}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{ sx: { borderRadius: "12px", overflow: "hidden" } }}
+        >
+          <DialogTitle
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              py: 1.5,
+              px: 3,
+              background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+              color: "#fff",
+            }}
+          >
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
+                Queries &amp; Replies
+              </Typography>
+              {queryChatJob?.job_no && (
+                <Typography variant="caption" sx={{ opacity: 0.9, display: "block", mt: 0.2 }}>
+                  Job: {queryChatJob.job_no}
+                </Typography>
+              )}
+            </Box>
+            <IconButton
+              onClick={() => {
+                setQueryChatOpen(false);
+                setQueryChatJob(null);
+                setQueryChatData([]);
+                setQueryChatReply("");
+                setChatAttachments([]);
+              }}
+              size="small"
+              sx={{ color: "#fff" }}
+            >
+              <CloseIcon sx={{ fontSize: 20 }} />
+            </IconButton>
+          </DialogTitle>
+
+          {queryChatData.length > 1 && (
+            <div style={{ display: "flex", gap: "8px", padding: "8px 12px", borderBottom: "1px solid #e5e7eb", backgroundColor: "#f9fafb", overflowX: "auto", whiteSpace: "nowrap" }}>
+              {queryChatData.map((q, idx) => (
+                <button
+                  key={q._id || idx}
+                  onClick={() => setActiveQueryIndex(idx)}
+                  style={{
+                    padding: "4px 12px",
+                    borderRadius: "16px",
+                    border: "1px solid",
+                    borderColor: activeQueryIndex === idx ? "#2563eb" : "#d1d5db",
+                    backgroundColor: activeQueryIndex === idx ? "#eff6ff" : "#fff",
+                    color: activeQueryIndex === idx ? "#2563eb" : "#374151",
+                    fontWeight: "600",
+                    fontSize: "11px",
+                    cursor: "pointer",
+                    outline: "none",
+                  }}
+                >
+                  Query #{idx + 1} ({q.status?.toUpperCase()})
+                </button>
+              ))}
+            </div>
+          )}
+
+          <DialogContent sx={{ p: 2, bgcolor: "#efeae2", minHeight: "320px", maxHeight: "420px", display: "flex", flexDirection: "column" }}>
+            {queryChatLoading ? (
+              <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", py: 6 }}>
+                <CircularProgress size={28} />
+              </Box>
+            ) : !activeQuery ? (
+              <Typography sx={{ textTransform: "none", textAlign: "center", color: "#6b7280", py: 4 }}>
+                No queries found.
+              </Typography>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px", flex: 1, overflowY: "auto", paddingRight: "4px" }}>
+                {chatMessages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: msg.align === "right" ? "flex-end" : "flex-start",
+                      marginBottom: "6px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        backgroundColor: msg.align === "right" ? "#d9fdd3" : "#ffffff",
+                        padding: "8px 12px",
+                        borderRadius: "12px",
+                        maxWidth: "82%",
+                        boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
+                      }}
+                    >
+                      <div style={{ fontSize: "11px", fontWeight: "700", color: "#475569", marginBottom: "2px" }}>
+                        {msg.senderName}
+                      </div>
+                      <div style={{ fontSize: "13px", color: "#1f2937", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                        {msg.message}
+                      </div>
+
+                      {msg.attachments && msg.attachments.length > 0 && (
+                        <div style={{ marginTop: "6px", display: "flex", flexDirection: "column", gap: "4px" }}>
+                          {msg.attachments.map((att, attIdx) => (
+                            <a
+                              key={attIdx}
+                              href={att.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                display: "inline-flex",
+                                alignItems: "center",
+                                gap: "6px",
+                                padding: "4px 8px",
+                                backgroundColor: "#e0f2fe",
+                                border: "1px solid #7dd3fc",
+                                borderRadius: "6px",
+                                color: "#0369a1",
+                                fontSize: "11px",
+                                fontWeight: "600",
+                                textDecoration: "none",
+                              }}
+                            >
+                              <InsertDriveFileIcon style={{ fontSize: "14px" }} />
+                              {att.fileName || "View Attachment"}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+
+                      <div style={{ fontSize: "10px", color: "#94a3b8", textAlign: "right", marginTop: "4px" }}>
+                        {formatChatTime(msg.createdAt)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <div ref={chatEndRef} />
+              </div>
+            )}
+
+            {activeQuery && activeQuery.status === "open" ? (
+              <div style={{ marginTop: "12px", paddingTop: "8px", borderTop: "1px solid #cbd5e1" }}>
+                {chatAttachments.length > 0 && (
+                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "6px" }}>
+                    {chatAttachments.map((att, idx) => (
+                      <Chip
+                        key={idx}
+                        size="small"
+                        label={att.fileName}
+                        onDelete={() => setChatAttachments((prev) => prev.filter((_, i) => i !== idx))}
+                        color="primary"
+                        variant="outlined"
+                      />
+                    ))}
+                  </div>
+                )}
+
+                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    style={{ display: "none" }}
+                    onChange={(e) => handleFileUpload(e, false)}
+                  />
+                  <IconButton
+                    size="small"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingAttachment}
+                    title="Attach file"
+                    sx={{ color: "#475569" }}
+                  >
+                    {uploadingAttachment ? <CircularProgress size={18} /> : <AttachFileIcon style={{ fontSize: 20 }} />}
+                  </IconButton>
+
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Type your reply to client..."
+                    value={queryChatReply}
+                    onChange={(e) => setQueryChatReply(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !queryChatSending) {
+                        handleSendReply(activeQuery._id);
+                      }
+                    }}
+                    sx={{ bgcolor: "#fff", borderRadius: "20px", "& .MuiOutlinedInput-root": { borderRadius: "20px" } }}
+                  />
+
+                  <IconButton
+                    onClick={() => handleSendReply(activeQuery._id)}
+                    disabled={queryChatSending || (!queryChatReply.trim() && chatAttachments.length === 0)}
+                    sx={{ bgcolor: "#2563eb", color: "#fff", "&:hover": { bgcolor: "#1d4ed8" }, p: 1 }}
+                  >
+                    {queryChatSending ? <CircularProgress size={18} color="inherit" /> : <SendIcon style={{ fontSize: 18 }} />}
+                  </IconButton>
+                </div>
+              </div>
+            ) : (
+              <div style={{ marginTop: "12px", padding: "8px", backgroundColor: "#dcfce7", color: "#15803d", borderRadius: "8px", textAlign: "center", fontWeight: "700", fontSize: "12px" }}>
+                This query has been marked as RESOLVED.
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Raise Query Dialog */}
+        <Dialog
+          open={raiseQueryOpen}
+          onClose={() => setRaiseQueryOpen(false)}
+          maxWidth="xs"
+          fullWidth
+          PaperProps={{ sx: { borderRadius: "12px" } }}
+        >
+          <DialogTitle sx={{ fontWeight: 800, borderBottom: "1px solid #e2e8f0", py: 2 }}>
+            Raise Query for Job {raiseQueryJob?.job_no}
+          </DialogTitle>
+          <DialogContent sx={{ pt: 2 }}>
+            <TextField
+              fullWidth
+              multiline
+              rows={4}
+              label="Message"
+              placeholder="Write detailed message to client..."
+              value={raiseQueryMessage}
+              onChange={(e) => setRaiseQueryMessage(e.target.value)}
+              sx={{ mt: 1 }}
+            />
+
+            {raiseQueryAttachments.length > 0 && (
+              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "8px" }}>
+                {raiseQueryAttachments.map((att, idx) => (
+                  <Chip
+                    key={idx}
+                    size="small"
+                    label={att.fileName}
+                    onDelete={() => setRaiseQueryAttachments((prev) => prev.filter((_, i) => i !== idx))}
+                    color="primary"
+                    variant="outlined"
+                  />
+                ))}
+              </div>
+            )}
+
+            <div style={{ marginTop: "12px", display: "flex", alignItems: "center", gap: "8px" }}>
+              <input
+                type="file"
+                ref={raiseFileInputRef}
+                style={{ display: "none" }}
+                onChange={(e) => handleFileUpload(e, true)}
+              />
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<AttachFileIcon />}
+                onClick={() => raiseFileInputRef.current?.click()}
+                disabled={uploadingAttachment}
+                sx={{ textTransform: "none", fontSize: "12px" }}
+              >
+                {uploadingAttachment ? "Uploading..." : "Attach Document"}
+              </Button>
+            </div>
+          </DialogContent>
+          <DialogActions sx={{ p: 2, borderTop: "1px solid #e2e8f0" }}>
+            <Button onClick={() => setRaiseQueryOpen(false)} sx={{ textTransform: "none", fontSize: "12px" }}>
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleRaiseQuerySubmit}
+              disabled={raiseQuerySending || (!raiseQueryMessage.trim() && raiseQueryAttachments.length === 0)}
+              sx={{ textTransform: "none", fontSize: "12px", bgcolor: "#2563eb" }}
+            >
+              {raiseQuerySending ? "Submitting..." : "Submit Query"}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Global Query Snackbar */}
+        <Snackbar
+          open={querySnackbar.open}
+          autoHideDuration={4000}
+          onClose={() => setQuerySnackbar((prev) => ({ ...prev, open: false }))}
+        >
+          <Alert severity={querySnackbar.severity} sx={{ width: "100%", borderRadius: 2 }}>
+            {querySnackbar.message}
+          </Alert>
+        </Snackbar>
+      </>
+    );
+  }, [
+    queryChatOpen,
+    queryChatData,
+    queryChatJob,
+    queryChatLoading,
+    queryChatReply,
+    queryChatSending,
+    activeQueryIndex,
+    chatAttachments,
+    uploadingAttachment,
+    raiseQueryOpen,
+    raiseQueryJob,
+    raiseQueryMessage,
+    raiseQuerySending,
+    raiseQueryAttachments,
+    querySnackbar,
+    handleFileUpload,
+    handleSendReply,
+    handleRaiseQuerySubmit,
+  ]);
 
   // Sync local input -> searchQuery
   useEffect(() => {
@@ -611,12 +1212,17 @@ function JobList(props) {
       }),
     setRows, // <-- pass here
     invalidateCache,
-    selectedYearState
+    selectedYearState,
+    clientQueriesStatus,
+    handleRedClick,
+    handleYellowClick,
+    handleResolveOpenQuery,
+    handleOpenQueryChat
   );
 
   const table = useMaterialReactTable({
     columns,
-    data: tableData,
+    data: sortedRows,
     enableColumnResizing: true,
     enableColumnOrdering: true,
     enablePagination: false,
@@ -640,6 +1246,9 @@ function JobList(props) {
   return (
     <div className="table-container">
       <MaterialReactTable table={table} />
+
+      {/* Render Query Modals */}
+      {renderQueryModals && renderQueryModals()}
 
       <Pagination
         count={totalPages}

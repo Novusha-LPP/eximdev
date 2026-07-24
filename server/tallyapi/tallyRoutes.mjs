@@ -369,7 +369,8 @@ const mapPurchaseEntryData = (data) => {
     chargeHeadCategory: data["Charge Head Category"] || data.chargeHeadCategory || '',
     tdsCategory: data["TDS Category"] || data.tdsCategory || '94C',
     status: data["Status"] || data.status || '',
-    attachments: data.attachments || []
+    attachments: data.attachments || [],
+    virtualBalanceTerminal: data["Virtual Balance Terminal"] || data["Virtual Balance"] || data.virtualBalanceTerminal || data.virtualBalance || ''
   };
 };
 

@@ -1483,12 +1483,46 @@ const EditChargeModal = ({
                                   </div>
                                 </div>
                                 <div className="charges-ep-row">
-                                  <span className="charges-ep-label">Total Amount</span>
-                                  <div className="charges-ep-inline">
-                                    <input type="number" readOnly className="ep-read" style={{ background: '#f4f8fc' }} value={row.cost?.amountINR || 0} />
-                                    <span style={{ fontSize: '11px', color: '#555', paddingLeft: '4px' }}>INR</span>
-                                  </div>
-                                </div>
+                                   <span className="charges-ep-label">Total Amount</span>
+                                   <div className="charges-ep-inline">
+                                     <input type="number" readOnly className="ep-read" style={{ background: '#f4f8fc' }} value={row.cost?.amountINR || 0} />
+                                     <span style={{ fontSize: '11px', color: '#555', paddingLeft: '4px' }}>INR</span>
+                                   </div>
+                                 </div>
+                                 {/* VIRTUAL BALANCE TERMINAL SELECTOR */}
+                                 {(() => {
+                                   const pType = (row.cost?.partyType || '').toUpperCase();
+                                   const isTypeTerminal = pType === 'TERMINAL' || pType === 'CFS';
+                                   const isPartyTerminal = (cfsList || []).some(
+                                     t => (t.name || t.organization || '').trim().toUpperCase() === (row.cost?.partyName || '').trim().toUpperCase()
+                                   );
+                                   if (isTypeTerminal || isPartyTerminal) {
+                                     return (
+                                       <div className="charges-ep-row">
+                                         <span className="charges-ep-label" style={{ fontWeight: 'bold', color: '#0284c7' }}>Virtual Balance Terminal</span>
+                                         <select
+                                           className="charges-ep-select"
+                                           disabled={effectiveReadOnly}
+                                           style={{ borderColor: '#38bdf8', backgroundColor: '#f0f9ff', fontWeight: '500' }}
+                                           value={row.cost?.virtualBalanceTerminal || ''}
+                                           onChange={e => handleFieldChange(i, 'virtualBalanceTerminal', e.target.value, 'cost')}
+                                           onBlur={() => triggerAutoSave(i, true)}
+                                         >
+                                           <option value="">Same as Payable To ({row.cost?.partyName || 'Terminal'})</option>
+                                           {(cfsList || []).map((term, tIdx) => {
+                                             const tName = term.name || term.organization;
+                                             return (
+                                               <option key={tIdx} value={tName}>
+                                                 {tName}
+                                               </option>
+                                             );
+                                           })}
+                                         </select>
+                                       </div>
+                                     );
+                                   }
+                                   return null;
+                                 })()}
                                 {(() => {
                                   const partyName = row.cost?.partyName;
                                   const partyType = row.cost?.partyType?.toUpperCase();

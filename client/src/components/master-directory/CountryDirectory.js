@@ -182,7 +182,7 @@ const CountryDirectory = () => {
             fullWidth
             label="Country Name"
             value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value.toUpperCase() })}
             sx={{ mb: 2, mt: 1 }}
           />
           <TextField

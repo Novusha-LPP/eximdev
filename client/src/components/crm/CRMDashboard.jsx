@@ -35,10 +35,11 @@ export default function CRMDashboard() {
   const [teams, setTeams] = useState([]);
   const [selectedTeam, setSelectedTeam] = useState('all');
   const [selectedVertical, setSelectedVertical] = useState('all');
+  const [selectedPeriod, setSelectedPeriod] = useState('this_month');
 
   const uniqueVerticals = [...new Set(teams.map(t => t.businessVertical).filter(Boolean))];
 
-  const fetchDashboard = async (teamId = selectedTeam, vertical = selectedVertical) => {
+  const fetchDashboard = async (teamId = selectedTeam, vertical = selectedVertical, periodVal = selectedPeriod) => {
     setLoading(true);
     setError(null);
     try {
@@ -46,6 +47,15 @@ export default function CRMDashboard() {
       const params = {};
       if (teamId && teamId !== 'all') params.teamId = teamId;
       if (vertical && vertical !== 'all') params.businessVertical = vertical;
+
+      const currentPeriod = new Date().toISOString().substring(0, 7);
+      if (periodVal === 'this_month') {
+        params.period = currentPeriod;
+      } else if (periodVal === 'all') {
+        params.period = 'all';
+      } else {
+        params.period = periodVal;
+      }
 
       const res = await axios.get(url, { ...getHeaders(), params });
 
@@ -86,7 +96,7 @@ export default function CRMDashboard() {
       }
     };
     fetchMyTeams();
-  }, []);
+  }, [isRestricted]);
 
   useEffect(() => {
     if (isRestricted && teams.length > 0 && selectedTeam === 'all') {
@@ -96,8 +106,8 @@ export default function CRMDashboard() {
     if (isRestricted && verticals.length > 0 && selectedVertical === 'all') {
       return;
     }
-    fetchDashboard(selectedTeam, selectedVertical);
-  }, [selectedTeam, selectedVertical, teams]);
+    fetchDashboard(selectedTeam, selectedVertical, selectedPeriod);
+  }, [selectedTeam, selectedVertical, selectedPeriod, teams, isRestricted]);
 
   if (loading) return (
     <div style={{ padding: '40px', textAlign: 'center', color: '#64748b', background: '#f8fafc', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -108,9 +118,10 @@ export default function CRMDashboard() {
     </div>
   );
 
-  // Conversion % = Converted / (Converted + Open) — excludes dead leads (lost/rejected/duplicate/cancelled)
-  const activeDenominator = data.leadStats.converted + data.leadStats.open;
-  const conversionRate = activeDenominator > 0 ? Math.round((data.leadStats.converted / activeDenominator) * 100) : 0;
+  // Conversion % = Converted (Actual Won Deals) / Total Leads
+  const conversionRate = data.leadStats.conversionRate !== undefined
+    ? data.leadStats.conversionRate
+    : (data.leadStats.total > 0 ? Number(((data.leadStats.converted / data.leadStats.total) * 100).toFixed(1)) : 0);
 
   return (
     <div style={{ padding: '32px', background: '#f8fafc', minHeight: '100vh', color: '#334155', fontFamily: 'Inter, sans-serif' }}>
@@ -210,6 +221,35 @@ export default function CRMDashboard() {
               </select>
             </div>
           )}
+
+          {/* Time Period Filter */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>Period:</span>
+            <select
+              value={selectedPeriod}
+              onChange={(e) => setSelectedPeriod(e.target.value)}
+              style={{
+                padding: '8px 14px',
+                border: '1px solid #e2e8f0',
+                borderRadius: '10px',
+                fontSize: '0.85rem',
+                color: '#334155',
+                background: '#ffffff',
+                fontWeight: 600,
+                cursor: 'pointer',
+                outline: 'none'
+              }}
+            >
+              <option value="this_month">This Month</option>
+              <option value="all">All Time</option>
+              <option value="2026-06">June 2026</option>
+              <option value="2026-05">May 2026</option>
+              <option value="2026-04">April 2026</option>
+              <option value="2026-03">March 2026</option>
+              <option value="2026-02">February 2026</option>
+              <option value="2026-01">January 2026</option>
+            </select>
+          </div>
         </div>
       </header>
 
@@ -217,7 +257,7 @@ export default function CRMDashboard() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '32px' }}>
         {[
           { label: 'PIPELINE VALUE', value: `₹${(data.weightedForecast / 100000).toFixed(1)}L`, color: '#4f46e5', sub: 'Weighted Forecast' },
-          { label: 'DEALS WON', value: data.mtdDealsWon, color: '#10b981', sub: 'Total Closed Won' },
+          { label: 'DEALS WON', value: data.mtdDealsWon, color: '#10b981', sub: selectedPeriod === 'this_month' ? 'Closed Won (This Month)' : (selectedPeriod === 'all' ? 'Closed Won (All Time)' : `Closed Won (${selectedPeriod})`) },
           { label: 'CONVERSION RATE', value: `${conversionRate}%`, color: '#f59e0b', sub: 'Lead to Opportunity' },
           { label: 'PENDING TASKS', value: data.pendingTasks, color: '#8b5cf6', sub: 'Action Required' }
         ].map((kpi, i) => (

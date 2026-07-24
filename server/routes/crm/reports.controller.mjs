@@ -11,6 +11,43 @@ import mongoose from 'mongoose';
 
 const router = express.Router();
 
+function extractAllowedUserIds(ownerFilter) {
+  if (!ownerFilter || Object.keys(ownerFilter).length === 0) {
+    return null; // Admin: unrestricted
+  }
+  let ids = [];
+  if (ownerFilter.ownerId && ownerFilter.ownerId.$in) {
+    ids = ownerFilter.ownerId.$in.map(id => id.toString());
+  } else if (ownerFilter.$or && Array.isArray(ownerFilter.$or)) {
+    ownerFilter.$or.forEach(cond => {
+      if (cond.ownerId && cond.ownerId.$in) {
+        cond.ownerId.$in.forEach(id => ids.push(id.toString()));
+      }
+      if (cond.createdBy && cond.createdBy.$in) {
+        cond.createdBy.$in.forEach(id => ids.push(id.toString()));
+      }
+    });
+  }
+  return ids.length > 0 ? [...new Set(ids)] : null;
+}
+
+function buildBusinessVerticalFilter(verticalStr) {
+  if (!verticalStr || verticalStr === 'all') return null;
+  const normalized = verticalStr.trim();
+  if (normalized.toLowerCase() === 'paramount') {
+    return {
+      $or: [
+        { businessVertical: new RegExp('^paramount$', 'i') },
+        { businessVertical: null },
+        { businessVertical: { $exists: false } },
+        { businessVertical: '' }
+      ]
+    };
+  } else {
+    return { businessVertical: new RegExp(`^${normalized}$`, 'i') };
+  }
+}
+
 async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
   const role = user?.crmRole || user?.role || req?.headers?.['user-role'];
   const userRole = user?.role || req?.headers?.['user-role'];
@@ -18,9 +55,15 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
 
   const isHOD = userRole === 'HOD' || userRole === 'Head_of_Department' || (typeof userRole === 'string' && (userRole.toLowerCase() === 'hod' || userRole.toLowerCase() === 'head_of_department'));
   const isCrmAdmin = role === 'Admin' || (typeof role === 'string' && role.toLowerCase() === 'admin');
-  const isAdmin = isCrmAdmin && !isHOD;
+  const isSystemAdmin = userRole === 'Admin' || (typeof userRole === 'string' && userRole.toLowerCase() === 'admin');
+  const isAdmin = (isCrmAdmin || isSystemAdmin) && !isHOD;
 
-  if (requestedTeamId && mongoose.Types.ObjectId.isValid(requestedTeamId)) {
+  if (isAdmin) return {};
+  if (!userId) return {};
+
+  const objectIdUserId = new mongoose.Types.ObjectId(userId.toString());
+
+  if (requestedTeamId && requestedTeamId !== 'all' && mongoose.Types.ObjectId.isValid(requestedTeamId)) {
     const team = await SalesTeam.findById(requestedTeamId).lean();
     if (team) {
       const isManager = team.managerId?.toString() === userId?.toString();
@@ -30,17 +73,25 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
         if (team.managerId) {
           objectIdMemberIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
         }
-        const filter = { ownerId: { $in: objectIdMemberIds } };
-        if (team.businessVertical) {
-          filter.businessVertical = team.businessVertical;
+        const verticals = [team.businessVertical, team.name?.trim()].filter(Boolean);
+        const orConditions = [
+          { ownerId: { $in: objectIdMemberIds } },
+          { createdBy: { $in: objectIdMemberIds } }
+        ];
+        if (verticals.some(v => v.toLowerCase() === 'paramount')) {
+          orConditions.push(
+            { businessVertical: new RegExp('^paramount$', 'i') },
+            { businessVertical: null },
+            { businessVertical: { $exists: false } },
+            { businessVertical: '' }
+          );
+        } else if (verticals.length > 0) {
+          orConditions.push({ businessVertical: { $in: verticals.map(v => new RegExp(`^${v.trim()}$`, 'i')) } });
         }
-        return filter;
+        return { $or: orConditions };
       }
     }
   }
-
-  if (isAdmin) return {};
-  if (!userId) return {};
 
   const myTeams = await SalesTeam.find({
     $or: [
@@ -48,32 +99,47 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
       { memberIds: userId }
     ]
   }).lean();
-  let visibleUserIds = [userId.toString()];
+
+  let visibleUserIds = [objectIdUserId];
   let visibleVerticals = [];
 
   if (myTeams && myTeams.length > 0) {
     myTeams.forEach(team => {
       if (team.memberIds) {
-        visibleUserIds = [...visibleUserIds, ...team.memberIds.map(id => id.toString())];
+        team.memberIds.forEach(m => visibleUserIds.push(new mongoose.Types.ObjectId(m.toString())));
       }
       if (team.managerId) {
-        visibleUserIds.push(team.managerId.toString());
+        visibleUserIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
       }
       if (team.businessVertical) {
-        visibleVerticals.push(team.businessVertical);
+        visibleVerticals.push(team.businessVertical.trim());
+      }
+      if (team.name) {
+        visibleVerticals.push(team.name.trim());
       }
     });
   }
 
-  visibleUserIds = [...new Set(visibleUserIds)];
-  visibleVerticals = [...new Set(visibleVerticals)];
+  const uniqueUserIds = [...new Map(visibleUserIds.map(id => [id.toString(), id])).values()];
+  const uniqueVerticals = [...new Set(visibleVerticals.filter(Boolean))];
 
-  const objectIdUserIds = visibleUserIds.map(id => new mongoose.Types.ObjectId(id));
-  const finalFilter = { ownerId: { $in: objectIdUserIds } };
-  if (visibleVerticals.length > 0) {
-    finalFilter.businessVertical = { $in: visibleVerticals };
+  const orConditions = [
+    { ownerId: { $in: uniqueUserIds } },
+    { createdBy: { $in: uniqueUserIds } }
+  ];
+
+  if (uniqueVerticals.length === 0 || uniqueVerticals.some(v => v.toLowerCase() === 'paramount')) {
+    orConditions.push(
+      { businessVertical: new RegExp('^paramount$', 'i') },
+      { businessVertical: null },
+      { businessVertical: { $exists: false } },
+      { businessVertical: '' }
+    );
+  } else {
+    orConditions.push({ businessVertical: { $in: uniqueVerticals.map(v => new RegExp(`^${v}$`, 'i')) } });
   }
-  return finalFilter;
+
+  return { $or: orConditions };
 }
 
 async function buildActivityFilter(user, requestedTeamId = null, req = null) {
@@ -130,28 +196,84 @@ async function buildActivityFilter(user, requestedTeamId = null, req = null) {
 // GET /api/crm/reports/dashboard
 router.get('/dashboard', async (req, res) => {
   try {
-    const { teamId, businessVertical, ownerId } = req.query;
+    const { teamId, businessVertical, ownerId, period, startDate, endDate } = req.query;
     const ownerFilter = await buildOwnerFilter(req.user, teamId, req);
     const matchFilter = { ...ownerFilter };
-    if (businessVertical && businessVertical !== 'all') {
-      matchFilter.businessVertical = businessVertical;
+
+    const currentPeriod = new Date().toISOString().substring(0, 7);
+    let targetPeriod = null;
+    if (startDate && endDate) {
+      const start = new Date(`${startDate}T00:00:00.000Z`);
+      const end = new Date(`${endDate}T23:59:59.999Z`);
+      matchFilter.createdAt = { $gte: start, $lte: end };
+    } else if (period === 'this_month' || period === 'current' || !period) {
+      targetPeriod = currentPeriod;
+    } else if (period && period !== 'all') {
+      targetPeriod = period;
+    }
+
+    if (targetPeriod) {
+      matchFilter.period = targetPeriod;
+    }
+
+    const verticalFilter = buildBusinessVerticalFilter(businessVertical);
+    if (verticalFilter) {
+      if (matchFilter.$or) {
+        matchFilter.$and = [
+          { $or: matchFilter.$or },
+          verticalFilter
+        ];
+        delete matchFilter.$or;
+      } else {
+        Object.assign(matchFilter, verticalFilter);
+      }
     }
 
     if (ownerId && ownerId !== 'all') {
-      if (ownerFilter.ownerId) {
-        const allowedIds = ownerFilter.ownerId.$in.map(id => id.toString());
-        if (allowedIds.includes(ownerId.toString())) {
-          matchFilter.ownerId = new mongoose.Types.ObjectId(ownerId);
-        } else {
-          return res.json({
-            byStage: [],
-            weightedForecast: 0,
-            leadStats: { total: 0, converted: 0, lost: 0, open: 0 },
-            pendingTasks: 0
-          });
-        }
+      const targetUserId = new mongoose.Types.ObjectId(ownerId);
+      const userTeam = await SalesTeam.findOne({
+        $or: [
+          { managerId: targetUserId },
+          { memberIds: targetUserId }
+        ]
+      }).lean();
+
+      const memberIds = [targetUserId];
+      if (userTeam) {
+        if (userTeam.memberIds) userTeam.memberIds.forEach(m => memberIds.push(new mongoose.Types.ObjectId(m.toString())));
+        if (userTeam.managerId) memberIds.push(new mongoose.Types.ObjectId(userTeam.managerId.toString()));
+      }
+      const uniqueMemberIds = [...new Map(memberIds.map(id => [id.toString(), id])).values()];
+      const verticals = userTeam ? [userTeam.businessVertical, userTeam.name?.trim()].filter(Boolean) : [];
+
+      const ownerCond = {
+        $or: [
+          { ownerId: { $in: uniqueMemberIds } },
+          { createdBy: { $in: uniqueMemberIds } }
+        ]
+      };
+
+      if (verticals.length === 0 || verticals.some(v => v.toLowerCase() === 'paramount')) {
+        ownerCond.$or.push(
+          { businessVertical: new RegExp('^paramount$', 'i') },
+          { businessVertical: null },
+          { businessVertical: { $exists: false } },
+          { businessVertical: '' }
+        );
       } else {
-        matchFilter.ownerId = new mongoose.Types.ObjectId(ownerId);
+        ownerCond.$or.push({ businessVertical: { $in: verticals.map(v => new RegExp(`^${v.trim()}$`, 'i')) } });
+      }
+
+      if (matchFilter.$and) {
+        matchFilter.$and.push(ownerCond);
+      } else if (matchFilter.$or) {
+        matchFilter.$and = [
+          { $or: matchFilter.$or },
+          ownerCond
+        ];
+        delete matchFilter.$or;
+      } else {
+        matchFilter.$or = ownerCond.$or;
       }
     }
 
@@ -169,8 +291,8 @@ router.get('/dashboard', async (req, res) => {
       { $group: { _id: null, totalExpectedRevenue: { $sum: '$weightedRevenue' } } }
     ]);
 
-    // 3. Lead Conversion Stats (revised — counts only closed-won as Converted, in-pipeline as Open, and closed-lost/dead as Lost)
-    const DEAD_STATUSES = ['lost', 'rejected', 'duplicate', 'cancelled'];
+    // 3. Lead Conversion Stats (counts only closed-won as Converted, in-pipeline as Open, and closed-lost/dead/duplicate as Lost)
+    const DEAD_STATUSES = ['lost', 'rejected', 'duplicate', 'cancelled', 'junk'];
 
     // Find all opportunities converted from leads and their stages
     const convertedOpps = await Opportunity.find({
@@ -190,19 +312,23 @@ router.get('/dashboard', async (req, res) => {
     let convertedCount = 0;
     let lostCount = 0;
     let openCount = 0;
+    let duplicateCount = 0;
 
     allLeads.forEach(lead => {
-      if (lead.status === 'converted') {
+      const status = (lead.status || '').toLowerCase().trim();
+      if (status === 'converted') {
         const stage = oppMap[lead._id.toString()];
         if (stage === 'won') {
           convertedCount++;
         } else if (stage === 'lost') {
           lostCount++;
         } else {
-          // If the opportunity is still active in the pipeline, it's considered in progress/open
           openCount++;
         }
-      } else if (DEAD_STATUSES.includes(lead.status)) {
+      } else if (status === 'duplicate') {
+        duplicateCount++;
+        lostCount++;
+      } else if (DEAD_STATUSES.includes(status)) {
         lostCount++;
       } else {
         openCount++;
@@ -210,9 +336,7 @@ router.get('/dashboard', async (req, res) => {
     });
 
     const totalLeads = allLeads.length;
-    const convertedLeads = convertedCount;
-    const lostLeads = lostCount;
-    const openLeads = openCount;
+    const conversionRate = totalLeads > 0 ? Number(((convertedCount / totalLeads) * 100).toFixed(2)) : 0;
 
     // 4. Tasks Status (Tasks has assignedTo instead of ownerId)
     const taskFilter = {};
@@ -226,7 +350,14 @@ router.get('/dashboard', async (req, res) => {
     res.json({
       byStage,
       weightedForecast: forecast[0]?.totalExpectedRevenue || 0,
-      leadStats: { total: totalLeads, converted: convertedLeads, lost: lostLeads, open: openLeads },
+      leadStats: {
+        total: totalLeads,
+        converted: convertedCount,
+        lost: lostCount,
+        open: openCount,
+        duplicate: duplicateCount,
+        conversionRate: conversionRate
+      },
       pendingTasks: tasksCount
     });
   } catch (error) {

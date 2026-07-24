@@ -6,6 +6,7 @@ const countrySchema = new mongoose.Schema({
     required: true,
     unique: true,
     trim: true,
+    uppercase: true,
   },
   code: {
     type: String,

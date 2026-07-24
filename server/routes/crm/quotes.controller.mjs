@@ -1,8 +1,109 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import nodemailer from 'nodemailer';
 import { SESClient, SendRawEmailCommand } from '@aws-sdk/client-ses';
 import Quote from '../../model/crm/Quote.mjs';
 import Opportunity from '../../model/crm/Opportunity.mjs';
+import SalesTeam from '../../model/crm/SalesTeam.mjs';
+
+// Ownership filter — team owner sees all member quotes, others see own team / business vertical
+async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
+  if (req?.query?.all === 'true' || req?.query?.forSelect === 'true') {
+    return {};
+  }
+
+  const role = user?.crmRole || user?.role || req?.headers?.['user-role'];
+  const userRole = user?.role || req?.headers?.['user-role'];
+  const userId = user?._id || user?.id || user?.userId || req?.headers?.['user-id'];
+
+  const isHOD = userRole === 'HOD' || userRole === 'Head_of_Department' || (typeof userRole === 'string' && (userRole.toLowerCase() === 'hod' || userRole.toLowerCase() === 'head_of_department'));
+  const isCrmAdmin = role === 'Admin' || (typeof role === 'string' && role.toLowerCase() === 'admin');
+  const isSystemAdmin = userRole === 'Admin' || (typeof userRole === 'string' && userRole.toLowerCase() === 'admin');
+  const isAdmin = (isCrmAdmin || isSystemAdmin) && !isHOD;
+
+  if (isAdmin) return {};
+  if (!userId) return {};
+
+  const objectIdUserId = new mongoose.Types.ObjectId(userId.toString());
+
+  if (requestedTeamId && requestedTeamId !== 'all' && mongoose.Types.ObjectId.isValid(requestedTeamId)) {
+    const team = await SalesTeam.findById(requestedTeamId).lean();
+    if (team) {
+      const isManager = team.managerId?.toString() === userId?.toString();
+      const isMember = team.memberIds?.some(m => m?.toString() === userId?.toString());
+      if (isAdmin || isManager || isMember) {
+        const objectIdMemberIds = (team.memberIds || []).map(id => new mongoose.Types.ObjectId(id.toString()));
+        if (team.managerId) {
+          objectIdMemberIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
+        }
+        const verticals = [team.businessVertical, team.name?.trim()].filter(Boolean);
+        const orConditions = [
+          { createdById: { $in: objectIdMemberIds } },
+          { ownerId: { $in: objectIdMemberIds } }
+        ];
+        if (verticals.some(v => v.toLowerCase() === 'paramount')) {
+          orConditions.push(
+            { businessVertical: new RegExp('^paramount$', 'i') },
+            { businessVertical: null },
+            { businessVertical: { $exists: false } },
+            { businessVertical: '' }
+          );
+        } else if (verticals.length > 0) {
+          orConditions.push({ businessVertical: { $in: verticals.map(v => new RegExp(`^${v.trim()}$`, 'i')) } });
+        }
+        return { $or: orConditions };
+      }
+    }
+  }
+
+  const myTeams = await SalesTeam.find({
+    $or: [
+      { managerId: userId },
+      { memberIds: userId }
+    ]
+  }).lean();
+
+  let visibleUserIds = [objectIdUserId];
+  let visibleVerticals = [];
+
+  if (myTeams && myTeams.length > 0) {
+    myTeams.forEach(team => {
+      if (team.memberIds) {
+        team.memberIds.forEach(m => visibleUserIds.push(new mongoose.Types.ObjectId(m.toString())));
+      }
+      if (team.managerId) {
+        visibleUserIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
+      }
+      if (team.businessVertical) {
+        visibleVerticals.push(team.businessVertical.trim());
+      }
+      if (team.name) {
+        visibleVerticals.push(team.name.trim());
+      }
+    });
+  }
+
+  const uniqueUserIds = [...new Map(visibleUserIds.map(id => [id.toString(), id])).values()];
+  const uniqueVerticals = [...new Set(visibleVerticals.filter(Boolean))];
+
+  const orConditions = [
+    { createdById: { $in: uniqueUserIds } },
+    { ownerId: { $in: uniqueUserIds } }
+  ];
+
+  if (uniqueVerticals.length === 0 || uniqueVerticals.some(v => v.toLowerCase() === 'paramount')) {
+    orConditions.push(
+      { businessVertical: new RegExp('^paramount$', 'i') },
+      { businessVertical: null },
+      { businessVertical: { $exists: false } },
+      { businessVertical: '' }
+    );
+  } else {
+    orConditions.push({ businessVertical: { $in: uniqueVerticals.map(v => new RegExp(`^${v}$`, 'i')) } });
+  }
+
+  return { $or: orConditions };
+}
 
 // Initialize AWS SES client (same pattern as profileCompletion.mjs)
 const sesClient = new SESClient({
@@ -271,6 +372,13 @@ router.post('/', async (req, res) => {
 
     const quoteNumber = await generateQuoteNumber();
 
+    // Fetch creator primary team vertical
+    const creatorTeam = await SalesTeam.findOne({
+      $or: [{ managerId: creatorId }, { memberIds: creatorId }]
+    }).lean();
+    const defaultVertical = creatorTeam?.businessVertical || 'Paramount';
+    const finalVertical = req.body.businessVertical || defaultVertical;
+
     const newQuote = new Quote({
       quoteNumber,
       opportunityId: cleanOpportunityId,
@@ -287,7 +395,8 @@ router.post('/', async (req, res) => {
       placeOfSupply,
       billToAddress,
       shipToAddress,
-      createdById: creatorId
+      createdById: creatorId,
+      businessVertical: finalVertical
     });
 
     await newQuote.save();
@@ -302,8 +411,10 @@ router.post('/', async (req, res) => {
 // GET all quotes
 router.get('/', async (req, res) => {
   try {
-    const { status, accountId, opportunityId, page = 1, limit = 20 } = req.query;
-    let query = {};
+    const { status, accountId, opportunityId, teamId, page = 1, limit = 20 } = req.query;
+    const ownerFilter = await buildOwnerFilter(req.user, teamId, req);
+
+    let query = { ...ownerFilter };
 
     if (status) query.status = status;
     if (accountId) query.accountId = accountId;
@@ -331,7 +442,10 @@ router.get('/', async (req, res) => {
 // GET single quote
 router.get('/:id', async (req, res) => {
   try {
-    const quote = await Quote.findOne({ _id: req.params.id })
+    const ownerFilter = await buildOwnerFilter(req.user, null, req);
+    const query = { _id: req.params.id, ...ownerFilter };
+
+    const quote = await Quote.findOne(query)
       .populate('accountId')
       .populate('contactId')
       .populate('createdById')
@@ -347,7 +461,8 @@ router.get('/:id', async (req, res) => {
 // UPDATE quote
 router.put('/:id', async (req, res) => {
   try {
-    const quote = await Quote.findOne({ _id: req.params.id });
+    const ownerFilter = await buildOwnerFilter(req.user, null, req);
+    const quote = await Quote.findOne({ _id: req.params.id, ...ownerFilter });
     if (!quote) return res.status(404).json({ message: 'Quote not found' });
 
     const { lineItems, terms, createNewVersion } = req.body;
@@ -412,7 +527,8 @@ router.put('/:id', async (req, res) => {
 // Delete quote
 router.delete('/:id', async (req, res) => {
   try {
-    const deleted = await Quote.findOneAndDelete({ _id: req.params.id });
+    const ownerFilter = await buildOwnerFilter(req.user, null, req);
+    const deleted = await Quote.findOneAndDelete({ _id: req.params.id, ...ownerFilter });
     if (!deleted) return res.status(404).json({ message: 'Quote not found' });
     res.json({ success: true, message: 'Quote deleted' });
   } catch (error) {

@@ -72,11 +72,25 @@ const resolveJobNumberQuery = (jobNoInput) => {
         const padded4 = seqNum.toString().padStart(4, '0');
         const padded5 = seqNum.toString().padStart(5, '0');
 
-        conditions.push({ sequence_number: seqNum });
-        conditions.push({ sequence_no: seqNum });
-        conditions.push({ job_no: seqNum.toString() });
-        conditions.push({ job_no: padded4 });
-        conditions.push({ job_no: padded5 });
+        const baseSeqConditions = [
+            { sequence_number: seqNum },
+            { sequence_no: seqNum },
+            { job_no: seqNum.toString() },
+            { job_no: padded4 },
+            { job_no: padded5 }
+        ];
+
+        if (yearSuffix) {
+            const shortYear = yearSuffix.slice(-5);
+            const yearRegex = new RegExp(`${shortYear}$`, "i");
+            baseSeqConditions.forEach(sc => {
+                conditions.push({ ...sc, year: yearRegex });
+            });
+        } else {
+            baseSeqConditions.forEach(sc => {
+                conditions.push(sc);
+            });
+        }
 
         let yearRegexPart = "";
         if (yearSuffix) {
@@ -99,7 +113,7 @@ const resolveJobNumberQuery = (jobNoInput) => {
                 branchRegexStr = "^(COK|COC|GC)";
             } else if (prefixPart.startsWith("GB")) {
                 branchRegexStr = "^(BAR|GB)";
-            } else if (prefixPart.startsWith("GE") || prefixPart.startsWith("GI") || prefixPart === "GIA" || prefixPart === "GEA") {
+            } else if (prefixPart.startsWith("GE") || prefixPart.startsWith("GI") || prefixPart === "GIA" || prefixPart === "GEA" || prefixPart === "AMD" || prefixPart === "AHM") {
                 branchRegexStr = "^(AMD|AHM|G)";
             } else if (prefixPart.startsWith("FF")) {
                 branchRegexStr = "^(FF|FF-)";
@@ -166,27 +180,22 @@ const scoreJob = (job, queryInput) => {
     if (jobSeq === querySeq) {
       score += 100;
     } else {
-      score -= 200; // Highly penalizing mismatch
+      score -= 500; // Highly penalizing mismatch
     }
   }
 
-  // B. Year check
-  let hasYearInQuery = false;
-  let yearMatch = false;
-  for (const token of queryTokens) {
-    if (/^\d{2}-\d{2}$|^\d{4}-\d{4}$/.test(token) || (token.length === 2 && /^\d{2}$/.test(token) && queryUpper.includes("-" + token))) {
-      hasYearInQuery = true;
-    }
+  // B. Financial Year check
+  let yearInQuery = null;
+  const yearMatchArr = queryUpper.match(/(?:\b|\/|-)(\d{2}-\d{2}|\d{4}-\d{4})(?:\b|\/|-|$)/);
+  if (yearMatchArr) {
+    yearInQuery = yearMatchArr[1];
   }
-  if (yearStr && queryUpper.includes(yearStr)) {
-    hasYearInQuery = true;
-    yearMatch = true;
-  }
-  if (hasYearInQuery) {
-    if (yearMatch) {
-      score += 150;
+
+  if (yearInQuery) {
+    if (yearStr && (yearStr === yearInQuery || yearStr.endsWith(yearInQuery))) {
+      score += 250;
     } else {
-      score -= 300; // Highly penalizing mismatch
+      score -= 500; // Heavy penalty for wrong financial year
     }
   }
 
@@ -203,9 +212,9 @@ const scoreJob = (job, queryInput) => {
   }
   if (hasModeInQuery) {
     if (modeMatch) {
-      score += 100;
+      score += 150;
     } else {
-      score -= 200;
+      score -= 300;
     }
   }
 
@@ -218,7 +227,7 @@ const scoreJob = (job, queryInput) => {
       branchMatch = true;
     } else {
       // Check for shorthand branch codes mapped in resolveJobNumberQuery
-      if (branchStr === "AMD" && (queryUpper.includes("GIA") || queryUpper.includes("GEA") || queryUpper.includes("GIS") || queryUpper.includes("GES") || queryUpper.startsWith("GI") || queryUpper.startsWith("GE"))) {
+      if ((branchStr === "AMD" || branchStr === "AHM") && (queryUpper.includes("AMD") || queryUpper.includes("AHM") || queryUpper.includes("GIA") || queryUpper.includes("GEA") || queryUpper.includes("GIS") || queryUpper.includes("GES"))) {
         hasBranchInQuery = true;
         branchMatch = true;
       }
@@ -280,14 +289,12 @@ const getJobDetailsInternal = async (job_number) => {
   const matchingJobs = await JobModel.find({ $or: conditions }).limit(20).lean();
   if (!matchingJobs || matchingJobs.length === 0) return null;
 
-  let job = matchingJobs[0];
-  if (matchingJobs.length > 1) {
-    const scoredJobs = matchingJobs.map(j => ({
-      job: j,
-      score: scoreJob(j, job_number)
-    })).sort((a, b) => b.score - a.score);
-    job = scoredJobs[0].job;
-  }
+  const scoredJobs = matchingJobs.map(j => ({
+    job: j,
+    score: scoreJob(j, job_number)
+  })).sort((a, b) => b.score - a.score);
+
+  const job = scoredJobs[0].job;
 
   // Extract PO number(s) from top level or invoice details
   const poNumbers = [];

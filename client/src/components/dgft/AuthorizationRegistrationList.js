@@ -150,8 +150,10 @@ const FIELDS = [
   { key: "scheme_code",                  label: "Scheme Code", select: true, options: SCHEME_CODE_OPTIONS },
 ];
 
-// Table columns — removed DATE and JOB NUMBER per user request, added BOND NO, BOND AMOUNT, BOND EXPIRY after AUTHORIZATION DATE
+// Table columns — added SR NO and JOB NO back before FIRM NAME
 const TABLE_COLUMNS = [
+  { key: "sr_no",            label: "SR NO",               width: 70 },
+  { key: "job_no",           label: "JOB NO",              width: 120 },
   { key: "party_name",       label: "FIRM NAME",           width: 250 },
   { key: "iec_no",           label: "IEC NAME",            width: 130 },
   { key: "licence_no",       label: "AUTHORIZATION NUMBER",width: 180 },
@@ -613,7 +615,7 @@ function AuthorizationRegistrationList({ onCountChange }) {
                   </td>
                 </tr>
               ) : (
-                paginatedRows.map((row) => (
+                paginatedRows.map((row, idx) => (
                   <tr key={row._id} className="ar-data-row">
                     {TABLE_COLUMNS.map((col) => {
                       if (col.key === "_actions") {
@@ -628,6 +630,18 @@ function AuthorizationRegistrationList({ onCountChange }) {
                               <button className="ar-btn ar-btn-edit ar-btn-sm" onClick={(e) => { e.stopPropagation(); handleOpenEdit(row); }}>Edit</button>
                               <button className="ar-btn ar-btn-danger ar-btn-sm" onClick={(e) => { e.stopPropagation(); handleDelete(row._id); }}>Del</button>
                             </div>
+                          </td>
+                        );
+                      }
+                      if (col.key === "sr_no") {
+                        const srNo = page * rowsPerPage + idx + 1;
+                        return <td key={col.key} style={{ fontWeight: "600", color: "#475569", textAlign: "center" }}>{srNo}</td>;
+                      }
+                      if (col.key === "job_no") {
+                        const displayVal = row.job_no || row.job_licence_no || row.file_no || "—";
+                        return (
+                          <td key={col.key} onClick={(e) => { e.stopPropagation(); navigate(`/dgft/authorization-details/${row._id}`); }}>
+                            <span className="ar-job-link">{displayVal}</span>
                           </td>
                         );
                       }

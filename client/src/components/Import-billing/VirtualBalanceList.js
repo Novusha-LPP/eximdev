@@ -386,7 +386,7 @@ export default function VirtualBalanceList({ isJobs = false }) {
       const jobNos = jobString.split(",").map((j) => j.trim()).filter(Boolean);
       const initialSelected = await Promise.all(
         jobNos.map(async (jobNo) => {
-          const inList = jobsList.find((j) => j.jobNo === jobNo);
+          const inList = jobsList.find((j) => j.jobNo === jobNo || (j.jobSeq && j.jobSeq === jobNo));
           if (inList && (inList.partyName || inList.branchCode)) return inList;
           return await fetchJobDetails(jobNo);
         })
@@ -906,7 +906,7 @@ export default function VirtualBalanceList({ isJobs = false }) {
                 isOptionEqualToValue={(option, value) => {
                   const optJobNo = typeof option === "string" ? option : option.jobNo;
                   const valJobNo = typeof value === "string" ? value : value.jobNo;
-                  return optJobNo === valJobNo;
+                  return optJobNo === valJobNo || (option.jobSeq && option.jobSeq === valJobNo);
                 }}
                 value={selectedJobs}
                 onInputChange={(event, inputVal, reason) => {

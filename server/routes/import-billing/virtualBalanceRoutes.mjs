@@ -6,13 +6,78 @@ import CfsModel from "../../model/cfsModel.mjs";
 
 const router = express.Router();
 
+// Helper function to escape regex characters
+function escapeRegex(string) {
+  return string.replace(/[/\-\\^$*+?.()|[\]{}]/g, "\\$&");
+}
+
+// Helper to extract individual job tokens from single or comma-separated job strings
+function extractJobTokens(str) {
+  if (!str) return [];
+  return str.split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+// Helper to test if two job strings (e.g., "00236" and "GIM/IMP/SEA/00236/26-27") match the same job
+function jobTokensMatch(jobStr1, jobStr2) {
+  if (!jobStr1 || !jobStr2) return false;
+  const s1 = jobStr1.trim().toUpperCase();
+  const s2 = jobStr2.trim().toUpperCase();
+  if (s1 === s2) return true;
+
+  // Direct substring matching
+  if (s1.includes(s2) || s2.includes(s1)) return true;
+
+  // Structured job format comparison (BRANCH/TRADE/MODE/SEQ/YEAR)
+  const parts1 = s1.split("/");
+  const parts2 = s2.split("/");
+
+  if (parts1.length >= 4 && parts2.length >= 4) {
+    const branch1 = parts1[0];
+    const seq1 = parts1[3].replace(/^0+/, "");
+    const branch2 = parts2[0];
+    const seq2 = parts2[3].replace(/^0+/, "");
+    return branch1 === branch2 && seq1 === seq2;
+  }
+
+  // Fallback: compare numeric sequence numbers
+  const getSeq = (s) => {
+    const match = s.match(/(?:^|\/|-)(\d{3,5})(?:\/|-|$)/);
+    if (match) return match[1].replace(/^0+/, "");
+    const numOnly = s.match(/\d+/);
+    return numOnly ? numOnly[0].replace(/^0+/, "") : null;
+  };
+
+  const seq1 = getSeq(s1);
+  const seq2 = getSeq(s2);
+  return Boolean(seq1 && seq2 && seq1 === seq2);
+}
+
+// Helper to check if a Purchase Book entry matches a Virtual Balance job specification
+function isPbForVirtualBalanceEntry(entryJobNo, pbJobNo) {
+  if (!entryJobNo || !pbJobNo) return false;
+  const entryJobs = extractJobTokens(entryJobNo);
+  return entryJobs.some((ej) => jobTokensMatch(ej, pbJobNo));
+}
+
 // Helper to look up importer name
 async function getImporterName(jobNo) {
   if (!jobNo) return "";
   const trimmed = jobNo.trim();
-  const job = await JobModel.findOne({
-    job_no: { $regex: new RegExp(`^${trimmed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i") }
-  }).select("importer importer_name name").lean();
+  const seqMatch = trimmed.match(/(?:^|\/|-)(\d{3,5})(?:\/|-|$)/) || trimmed.match(/\d+/);
+  const conditions = [
+    { job_no: { $regex: new RegExp(`^${escapeRegex(trimmed)}$`, "i") } },
+    { job_number: { $regex: new RegExp(`^${escapeRegex(trimmed)}$`, "i") } },
+  ];
+  if (seqMatch) {
+    const seqNum = parseInt(seqMatch[1] || seqMatch[0], 10);
+    const flexRegex = new RegExp(`(?:^|/|-)0*${seqNum}(?:/|-|$)`, "i");
+    conditions.push({ job_no: { $regex: flexRegex } });
+    conditions.push({ job_number: { $regex: flexRegex } });
+  }
+
+  const job = await JobModel.findOne({ $or: conditions })
+    .select("importer importer_name name")
+    .lean();
   if (!job) return "";
   return job.importer || job.importer_name || job.name || "";
 }
@@ -28,24 +93,38 @@ router.get("/api/virtual-balance", async (req, res) => {
     // 1. Fetch all virtual balances in chronological order
     const allBalances = await VirtualBalanceModel.find().sort({ createdAt: 1 }).lean();
 
-    // 2. Fetch all purchase books for the jobs involved in these balances
-    const jobNos = [...new Set(allBalances.map((b) => b.jobNo).filter(Boolean))];
-    const purchaseBooks = await PurchaseBookEntryModel.find({
-      jobNo: { $in: jobNos },
-    }).lean();
-
-    // 3. Map purchase books by jobNo and supplierName (or virtualBalanceTerminal override)
-    const pbSumMap = {};
-    purchaseBooks.forEach((pb) => {
-      if (!pb.jobNo) return;
-      const targetTerminal = (pb.virtualBalanceTerminal || pb.supplierName || "").trim().toUpperCase();
-      if (!targetTerminal) return;
-      const key = `${pb.jobNo.trim().toUpperCase()}_${targetTerminal}`;
-      const netAmt = (pb.total || 0) - (pb.tds || 0);
-      pbSumMap[key] = (pbSumMap[key] || 0) + netAmt;
+    // 2. Build flexible purchase book query for all jobs across all virtual balances
+    const jobTokens = [];
+    allBalances.forEach((b) => {
+      if (b.jobNo) {
+        b.jobNo.split(",").forEach((t) => {
+          const trimmed = t.trim();
+          if (trimmed) jobTokens.push(trimmed);
+        });
+      }
     });
 
-    // 4. Fetch all CFS directory opening balances
+    let pbQuery = {};
+    if (jobTokens.length > 0) {
+      const orConditions = [];
+      jobTokens.forEach((jt) => {
+        const escaped = escapeRegex(jt);
+        orConditions.push({ jobNo: { $regex: new RegExp(escaped, "i") } });
+        orConditions.push({ entryNo: { $regex: new RegExp(escaped, "i") } });
+        const seqMatch = jt.match(/(?:^|\/|-)(\d{3,5})(?:\/|-|$)/) || jt.match(/\d+/);
+        if (seqMatch) {
+          const seqNum = parseInt(seqMatch[1] || seqMatch[0], 10);
+          const flexRegex = new RegExp(`(?:^|/|-)0*${seqNum}(?:/|-|$)`, "i");
+          orConditions.push({ jobNo: { $regex: flexRegex } });
+          orConditions.push({ entryNo: { $regex: flexRegex } });
+        }
+      });
+      pbQuery = { $or: orConditions };
+    }
+
+    const purchaseBooks = await PurchaseBookEntryModel.find(pbQuery).lean();
+
+    // 3. Fetch all CFS directory opening balances
     const cfsList = await CfsModel.find().lean();
     const cfsOpeningMap = {};
     cfsList.forEach((c) => {
@@ -54,7 +133,7 @@ router.get("/api/virtual-balance", async (req, res) => {
       }
     });
 
-    // 5. Calculate running balances chronologically
+    // 4. Calculate running balances chronologically
     const cfsRunningMap = {};
     const calculatedEntries = allBalances.map((entry) => {
       const cfsKey = entry.cfsName.trim().toUpperCase();
@@ -66,8 +145,13 @@ router.get("/api/virtual-balance", async (req, res) => {
       // Get purchase books filed for this job and CFS
       let spentAmount = 0;
       if (entry.jobNo) {
-        const pbKey = `${entry.jobNo.trim().toUpperCase()}_${cfsKey}`;
-        spentAmount = pbSumMap[pbKey] || 0;
+        const matchingPbs = purchaseBooks.filter((pb) => {
+          const targetTerminal = (pb.virtualBalanceTerminal || pb.supplierName || "").trim().toUpperCase();
+          if (targetTerminal !== cfsKey) return false;
+          return isPbForVirtualBalanceEntry(entry.jobNo, pb.jobNo || pb.entryNo);
+        });
+
+        spentAmount = matchingPbs.reduce((sum, pb) => sum + ((pb.total || 0) - (pb.tds || 0)), 0);
       }
 
       const remainingBalance = availableBalance - spentAmount;
@@ -262,18 +346,32 @@ router.get("/api/virtual-balance/job-details/:jobNo", async (req, res) => {
   try {
     const jobNo = req.params.jobNo ? req.params.jobNo.trim() : "";
     if (!jobNo) {
-      return res.status(200).json({ success: true, partyName: "", branchCode: "", customHouse: "", mode: "" });
+      return res.status(200).json({ success: true, partyName: "", branchCode: "", customHouse: "", mode: "", jobNo: "" });
     }
-    const job = await JobModel.findOne({
-      job_no: { $regex: new RegExp(`^${escapeRegex(jobNo)}$`, "i") }
-    }).select("importer importer_name name branch_code custom_house mode").lean();
+
+    const seqMatch = jobNo.match(/(?:^|\/|-)(\d{3,5})(?:\/|-|$)/) || jobNo.match(/\d+/);
+    const conditions = [
+      { job_no: { $regex: new RegExp(`^${escapeRegex(jobNo)}$`, "i") } },
+      { job_number: { $regex: new RegExp(`^${escapeRegex(jobNo)}$`, "i") } },
+    ];
+    if (seqMatch) {
+      const seqNum = parseInt(seqMatch[1] || seqMatch[0], 10);
+      const flexRegex = new RegExp(`(?:^|/|-)0*${seqNum}(?:/|-|$)`, "i");
+      conditions.push({ job_no: { $regex: flexRegex } });
+      conditions.push({ job_number: { $regex: flexRegex } });
+    }
+
+    const job = await JobModel.findOne({ $or: conditions })
+      .select("job_no job_number importer importer_name name branch_code custom_house mode")
+      .lean();
 
     if (!job) {
-      return res.status(200).json({ success: true, partyName: "", branchCode: "", customHouse: "", mode: "" });
+      return res.status(200).json({ success: true, partyName: "", branchCode: "", customHouse: "", mode: "", jobNo: jobNo });
     }
 
     res.status(200).json({
       success: true,
+      jobNo: job.job_number || job.job_no || jobNo,
       partyName: job.importer || job.importer_name || job.name || "",
       branchCode: job.branch_code || "",
       customHouse: job.custom_house || "",
@@ -294,15 +392,36 @@ router.get("/api/virtual-balance/job-purchase-books", async (req, res) => {
       return res.status(400).json({ success: false, message: "Job No and CFS Name are required." });
     }
 
-    // Query purchase book entries matching jobNo and supplierName/virtualBalanceTerminal (case-insensitive CFS name)
+    const jobTokens = extractJobTokens(jobNo);
+    const orConditions = [];
+
+    jobTokens.forEach((jt) => {
+      const escaped = escapeRegex(jt);
+      orConditions.push({ jobNo: { $regex: new RegExp(escaped, "i") } });
+      orConditions.push({ entryNo: { $regex: new RegExp(escaped, "i") } });
+      const seqMatch = jt.match(/(?:^|\/|-)(\d{3,5})(?:\/|-|$)/) || jt.match(/\d+/);
+      if (seqMatch) {
+        const seqNum = parseInt(seqMatch[1] || seqMatch[0], 10);
+        const flexRegex = new RegExp(`(?:^|/|-)0*${seqNum}(?:/|-|$)`, "i");
+        orConditions.push({ jobNo: { $regex: flexRegex } });
+        orConditions.push({ entryNo: { $regex: flexRegex } });
+      }
+    });
+
+    const cfsRegex = new RegExp(`^${escapeRegex(cfsName.trim())}$`, "i");
+
     const purchaseBooks = await PurchaseBookEntryModel.find({
-      jobNo: jobNo.trim().toUpperCase(),
-      $or: [
-        { virtualBalanceTerminal: { $regex: new RegExp(`^${escapeRegex(cfsName.trim())}$`, "i") } },
+      $and: [
+        { $or: orConditions.length > 0 ? orConditions : [{ jobNo: jobNo.trim() }] },
         {
-          $and: [
-            { $or: [{ virtualBalanceTerminal: { $exists: false } }, { virtualBalanceTerminal: "" }, { virtualBalanceTerminal: null }] },
-            { supplierName: { $regex: new RegExp(`^${escapeRegex(cfsName.trim())}$`, "i") } }
+          $or: [
+            { virtualBalanceTerminal: { $regex: cfsRegex } },
+            {
+              $and: [
+                { $or: [{ virtualBalanceTerminal: { $exists: false } }, { virtualBalanceTerminal: "" }, { virtualBalanceTerminal: null }] },
+                { supplierName: { $regex: cfsRegex } }
+              ]
+            }
           ]
         }
       ]
@@ -315,11 +434,6 @@ router.get("/api/virtual-balance/job-purchase-books", async (req, res) => {
   }
 });
 
-// Helper function to escape regex characters
-function escapeRegex(string) {
-  return string.replace(/[/\-\\^$*+?.()|[\]{}]/g, "\\$&");
-}
-
 // GET /api/virtual-balance/jobs - Return all import jobs as {jobNo, partyName, branchCode, customHouse, mode} for autocomplete
 router.get("/api/virtual-balance/jobs", async (req, res) => {
   try {
@@ -331,6 +445,7 @@ router.get("/api/virtual-balance/jobs", async (req, res) => {
       query = {
         $or: [
           { job_no: regex },
+          { job_number: regex },
           { branch_code: regex },
           { custom_house: regex },
           { mode: regex },
@@ -341,12 +456,14 @@ router.get("/api/virtual-balance/jobs", async (req, res) => {
       };
     }
     const jobs = await JobModel.find(query)
-      .select("job_no importer importer_name name branch_code custom_house mode trade_type year")
+      .select("job_no job_number importer importer_name name branch_code custom_house mode trade_type year")
       .sort({ createdAt: -1 })
       .limit(200)
       .lean();
+
     const data = jobs.map((j) => ({
-      jobNo: j.job_no || "",
+      jobNo: j.job_number || j.job_no || "",
+      jobSeq: j.job_no || "",
       partyName: j.importer || j.importer_name || j.name || "",
       branchCode: j.branch_code || "",
       customHouse: j.custom_house || "",
@@ -360,3 +477,4 @@ router.get("/api/virtual-balance/jobs", async (req, res) => {
 });
 
 export default router;
+

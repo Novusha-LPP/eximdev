@@ -833,6 +833,7 @@ if (!disableCluster && cluster.isPrimary) {
 
   // Connect to DB and Start Server (Skipped in Test Mode)
   if (process.env.NODE_ENV !== 'test') {
+    console.log(`🔌 [eximdev] Connecting to MongoDB URI (env: ${process.env.NODE_ENV || 'development'}):`, MONGODB_URI);
     mongoose
       .connect(MONGODB_URI, {
         appName: "exim", // Identifies this app in Atlas logs

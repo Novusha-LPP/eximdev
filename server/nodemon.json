@@ -1,6 +1,6 @@
 {
   "env": {
-    "NODE_ENV": "sevrer"
+    "NODE_ENV": "production"
   },
   "watch": [
     "app.mjs",

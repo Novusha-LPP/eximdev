@@ -43,6 +43,166 @@ import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { BranchContext } from "../../contexts/BranchContext.js";
 import useDynamicICDs from "../../customHooks/useDynamicICDs";
 
+// Subcomponent for Raise Query Dialog to isolate text input state and eliminate typing lag
+const RaiseQueryDialogContent = React.memo(({
+  job,
+  onSubmit,
+  onClose,
+  sending,
+  uploadingAttachment,
+  attachments,
+  onFileUpload,
+  onDeleteAttachment,
+  fileInputRef
+}) => {
+  const [msg, setMsg] = useState("");
+
+  return (
+    <>
+      <DialogTitle sx={{ fontWeight: 800, borderBottom: "1px solid #e2e8f0", py: 2 }}>
+        Raise Query for Job {job?.job_no}
+      </DialogTitle>
+      <DialogContent sx={{ pt: 2 }}>
+        <TextField
+          fullWidth
+          multiline
+          rows={4}
+          label="Message"
+          placeholder="Write detailed message to client..."
+          value={msg}
+          onChange={(e) => setMsg(e.target.value)}
+          sx={{ mt: 1 }}
+        />
+
+        {attachments && attachments.length > 0 && (
+          <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "8px" }}>
+            {attachments.map((att, idx) => (
+              <Chip
+                key={idx}
+                size="small"
+                label={att.fileName}
+                onDelete={() => onDeleteAttachment(idx)}
+                color="primary"
+                variant="outlined"
+              />
+            ))}
+          </div>
+        )}
+
+        <div style={{ marginTop: "12px", display: "flex", alignItems: "center", gap: "8px" }}>
+          <input
+            type="file"
+            ref={fileInputRef}
+            style={{ display: "none" }}
+            onChange={onFileUpload}
+          />
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<AttachFileIcon />}
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadingAttachment}
+            sx={{ textTransform: "none", fontSize: "12px" }}
+          >
+            {uploadingAttachment ? "Uploading..." : "Attach Document"}
+          </Button>
+        </div>
+      </DialogContent>
+      <DialogActions sx={{ p: 2, borderTop: "1px solid #e2e8f0" }}>
+        <Button onClick={onClose} sx={{ textTransform: "none", fontSize: "12px" }}>
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          onClick={() => onSubmit(msg)}
+          disabled={sending || (!msg.trim() && attachments.length === 0)}
+          sx={{ textTransform: "none", fontSize: "12px", bgcolor: "#2563eb" }}
+        >
+          {sending ? "Submitting..." : "Submit Query"}
+        </Button>
+      </DialogActions>
+    </>
+  );
+});
+
+// Subcomponent for Chat Reply Input to isolate text input state and eliminate typing lag
+const ChatReplyInputSection = React.memo(({
+  onSendReply,
+  sending,
+  uploadingAttachment,
+  attachments,
+  onFileUpload,
+  onDeleteAttachment,
+  fileInputRef,
+  activeQueryId
+}) => {
+  const [replyText, setReplyText] = useState("");
+
+  const handleSend = () => {
+    if (!replyText.trim() && attachments.length === 0) return;
+    onSendReply(activeQueryId, replyText, () => setReplyText(""));
+  };
+
+  return (
+    <div style={{ marginTop: "12px", paddingTop: "8px", borderTop: "1px solid #cbd5e1" }}>
+      {attachments.length > 0 && (
+        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "6px" }}>
+          {attachments.map((att, idx) => (
+            <Chip
+              key={idx}
+              size="small"
+              label={att.fileName}
+              onDelete={() => onDeleteAttachment(idx)}
+              color="primary"
+              variant="outlined"
+            />
+          ))}
+        </div>
+      )}
+
+      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <input
+          type="file"
+          ref={fileInputRef}
+          style={{ display: "none" }}
+          onChange={onFileUpload}
+        />
+        <IconButton
+          size="small"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploadingAttachment}
+          title="Attach file"
+          sx={{ color: "#475569" }}
+        >
+          {uploadingAttachment ? <CircularProgress size={18} /> : <AttachFileIcon style={{ fontSize: 20 }} />}
+        </IconButton>
+
+        <TextField
+          fullWidth
+          size="small"
+          placeholder="Type your reply to client..."
+          value={replyText}
+          onChange={(e) => setReplyText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !sending) {
+              handleSend();
+            }
+          }}
+          sx={{ bgcolor: "#fff", borderRadius: "20px", "& .MuiOutlinedInput-root": { borderRadius: "20px" } }}
+        />
+
+        <IconButton
+          onClick={handleSend}
+          disabled={sending || (!replyText.trim() && attachments.length === 0)}
+          sx={{ bgcolor: "#2563eb", color: "#fff", "&:hover": { bgcolor: "#1d4ed8" }, p: 1 }}
+        >
+          {sending ? <CircularProgress size={18} color="inherit" /> : <SendIcon style={{ fontSize: 18 }} />}
+        </IconButton>
+      </div>
+    </div>
+  );
+});
+
 const extractJobNo = (input) => {
   if (!input) return "";
   const s =
@@ -364,14 +524,14 @@ function JobList(props) {
       e.target.value = "";
     }
   }, []);
-
-  const handleSendReply = useCallback(async (queryId) => {
-    if (!queryChatReply.trim() && chatAttachments.length === 0) return;
+  const handleSendReply = useCallback(async (queryId, replyText, resetCallback) => {
+    const textToSend = replyText !== undefined ? replyText : queryChatReply;
+    if (!textToSend.trim() && chatAttachments.length === 0) return;
     setQueryChatSending(true);
     try {
       const apiString = process.env.REACT_APP_API_STRING || "";
       await axios.put(`${apiString}/client-queries/${queryId}/reply`, {
-        message: queryChatReply.trim(),
+        message: textToSend.trim(),
         repliedBy: user?.name || "Operations Team",
         senderType: "admin",
         attachments: chatAttachments,
@@ -383,6 +543,7 @@ function JobList(props) {
       setQueryChatData(resp.data?.queries || []);
       setQueryChatReply("");
       setChatAttachments([]);
+      if (resetCallback) resetCallback();
 
       if (queryChatJob?.job_no) {
         fetchQueryStatusForJobs([queryChatJob.job_no]);
@@ -395,8 +556,9 @@ function JobList(props) {
     }
   }, [queryChatReply, chatAttachments, queryChatJob, user, fetchQueryStatusForJobs]);
 
-  const handleRaiseQuerySubmit = useCallback(async () => {
-    if (!raiseQueryMessage.trim() && raiseQueryAttachments.length === 0) {
+  const handleRaiseQuerySubmit = useCallback(async (messageText) => {
+    const msg = messageText !== undefined ? messageText : raiseQueryMessage;
+    if (!msg.trim() && raiseQueryAttachments.length === 0) {
       setQuerySnackbar({ open: true, message: "Message or attachment is required", severity: "warning" });
       return;
     }
@@ -408,7 +570,7 @@ function JobList(props) {
         job_no: raiseQueryJob.job_no,
         job_id: raiseQueryJob._id,
         subject: "Operations Query",
-        message: raiseQueryMessage.trim() || "Query raised with attachment",
+        message: msg.trim() || "Query raised with attachment",
         client_name: user?.name || "Operations Team",
         senderType: "admin",
         attachments: raiseQueryAttachments,
@@ -568,17 +730,23 @@ function JobList(props) {
                       marginBottom: "6px",
                     }}
                   >
+                    {msg.subject && (
+                      <div style={{ fontSize: "11px", fontWeight: "700", color: "#64748b", marginBottom: "2px" }}>
+                        Subject: {msg.subject}
+                      </div>
+                    )}
+
                     <div
                       style={{
-                        backgroundColor: msg.align === "right" ? "#d9fdd3" : "#ffffff",
+                        maxWidth: "80%",
                         padding: "8px 12px",
-                        borderRadius: "12px",
-                        maxWidth: "82%",
+                        borderRadius: msg.align === "right" ? "12px 12px 0 12px" : "12px 12px 12px 0",
+                        backgroundColor: msg.align === "right" ? "#dcf8c6" : "#ffffff",
                         boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
                       }}
                     >
-                      <div style={{ fontSize: "11px", fontWeight: "700", color: "#475569", marginBottom: "2px" }}>
-                        {msg.senderName}
+                      <div style={{ fontSize: "11px", fontWeight: "700", color: msg.align === "right" ? "#15803d" : "#2563eb", marginBottom: "2px" }}>
+                        {msg.senderName} ({msg.senderType})
                       </div>
                       <div style={{ fontSize: "13px", color: "#1f2937", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
                         {msg.message}
@@ -595,25 +763,23 @@ function JobList(props) {
                               style={{
                                 display: "inline-flex",
                                 alignItems: "center",
-                                gap: "6px",
-                                padding: "4px 8px",
-                                backgroundColor: "#e0f2fe",
-                                border: "1px solid #7dd3fc",
-                                borderRadius: "6px",
-                                color: "#0369a1",
+                                gap: "4px",
                                 fontSize: "11px",
-                                fontWeight: "600",
+                                color: "#2563eb",
                                 textDecoration: "none",
+                                backgroundColor: "rgba(37, 99, 235, 0.08)",
+                                padding: "2px 6px",
+                                borderRadius: "4px"
                               }}
                             >
-                              <InsertDriveFileIcon style={{ fontSize: "14px" }} />
-                              {att.fileName || "View Attachment"}
+                              <InsertDriveFileIcon style={{ fontSize: 14 }} />
+                              {att.fileName || "Attachment"}
                             </a>
                           ))}
                         </div>
                       )}
 
-                      <div style={{ fontSize: "10px", color: "#94a3b8", textAlign: "right", marginTop: "4px" }}>
+                      <div style={{ fontSize: "10px", color: "#9ca3af", textAlign: "right", marginTop: "4px" }}>
                         {formatChatTime(msg.createdAt)}
                       </div>
                     </div>
@@ -624,62 +790,16 @@ function JobList(props) {
             )}
 
             {activeQuery && activeQuery.status === "open" ? (
-              <div style={{ marginTop: "12px", paddingTop: "8px", borderTop: "1px solid #cbd5e1" }}>
-                {chatAttachments.length > 0 && (
-                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "6px" }}>
-                    {chatAttachments.map((att, idx) => (
-                      <Chip
-                        key={idx}
-                        size="small"
-                        label={att.fileName}
-                        onDelete={() => setChatAttachments((prev) => prev.filter((_, i) => i !== idx))}
-                        color="primary"
-                        variant="outlined"
-                      />
-                    ))}
-                  </div>
-                )}
-
-                <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    style={{ display: "none" }}
-                    onChange={(e) => handleFileUpload(e, false)}
-                  />
-                  <IconButton
-                    size="small"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploadingAttachment}
-                    title="Attach file"
-                    sx={{ color: "#475569" }}
-                  >
-                    {uploadingAttachment ? <CircularProgress size={18} /> : <AttachFileIcon style={{ fontSize: 20 }} />}
-                  </IconButton>
-
-                  <TextField
-                    fullWidth
-                    size="small"
-                    placeholder="Type your reply to client..."
-                    value={queryChatReply}
-                    onChange={(e) => setQueryChatReply(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !queryChatSending) {
-                        handleSendReply(activeQuery._id);
-                      }
-                    }}
-                    sx={{ bgcolor: "#fff", borderRadius: "20px", "& .MuiOutlinedInput-root": { borderRadius: "20px" } }}
-                  />
-
-                  <IconButton
-                    onClick={() => handleSendReply(activeQuery._id)}
-                    disabled={queryChatSending || (!queryChatReply.trim() && chatAttachments.length === 0)}
-                    sx={{ bgcolor: "#2563eb", color: "#fff", "&:hover": { bgcolor: "#1d4ed8" }, p: 1 }}
-                  >
-                    {queryChatSending ? <CircularProgress size={18} color="inherit" /> : <SendIcon style={{ fontSize: 18 }} />}
-                  </IconButton>
-                </div>
-              </div>
+              <ChatReplyInputSection
+                onSendReply={handleSendReply}
+                sending={queryChatSending}
+                uploadingAttachment={uploadingAttachment}
+                attachments={chatAttachments}
+                onFileUpload={(e) => handleFileUpload(e, false)}
+                onDeleteAttachment={(idx) => setChatAttachments((prev) => prev.filter((_, i) => i !== idx))}
+                fileInputRef={fileInputRef}
+                activeQueryId={activeQuery._id}
+              />
             ) : (
               <div style={{ marginTop: "12px", padding: "8px", backgroundColor: "#dcfce7", color: "#15803d", borderRadius: "8px", textAlign: "center", fontWeight: "700", fontSize: "12px" }}>
                 This query has been marked as RESOLVED.
@@ -696,68 +816,19 @@ function JobList(props) {
           fullWidth
           PaperProps={{ sx: { borderRadius: "12px" } }}
         >
-          <DialogTitle sx={{ fontWeight: 800, borderBottom: "1px solid #e2e8f0", py: 2 }}>
-            Raise Query for Job {raiseQueryJob?.job_no}
-          </DialogTitle>
-          <DialogContent sx={{ pt: 2 }}>
-            <TextField
-              fullWidth
-              multiline
-              rows={4}
-              label="Message"
-              placeholder="Write detailed message to client..."
-              value={raiseQueryMessage}
-              onChange={(e) => setRaiseQueryMessage(e.target.value)}
-              sx={{ mt: 1 }}
+          {raiseQueryOpen && (
+            <RaiseQueryDialogContent
+              job={raiseQueryJob}
+              onSubmit={handleRaiseQuerySubmit}
+              onClose={() => setRaiseQueryOpen(false)}
+              sending={raiseQuerySending}
+              uploadingAttachment={uploadingAttachment}
+              attachments={raiseQueryAttachments}
+              onFileUpload={(e) => handleFileUpload(e, true)}
+              onDeleteAttachment={(idx) => setRaiseQueryAttachments((prev) => prev.filter((_, i) => i !== idx))}
+              fileInputRef={raiseFileInputRef}
             />
-
-            {raiseQueryAttachments.length > 0 && (
-              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "8px" }}>
-                {raiseQueryAttachments.map((att, idx) => (
-                  <Chip
-                    key={idx}
-                    size="small"
-                    label={att.fileName}
-                    onDelete={() => setRaiseQueryAttachments((prev) => prev.filter((_, i) => i !== idx))}
-                    color="primary"
-                    variant="outlined"
-                  />
-                ))}
-              </div>
-            )}
-
-            <div style={{ marginTop: "12px", display: "flex", alignItems: "center", gap: "8px" }}>
-              <input
-                type="file"
-                ref={raiseFileInputRef}
-                style={{ display: "none" }}
-                onChange={(e) => handleFileUpload(e, true)}
-              />
-              <Button
-                size="small"
-                variant="outlined"
-                startIcon={<AttachFileIcon />}
-                onClick={() => raiseFileInputRef.current?.click()}
-                disabled={uploadingAttachment}
-                sx={{ textTransform: "none", fontSize: "12px" }}
-              >
-                {uploadingAttachment ? "Uploading..." : "Attach Document"}
-              </Button>
-            </div>
-          </DialogContent>
-          <DialogActions sx={{ p: 2, borderTop: "1px solid #e2e8f0" }}>
-            <Button onClick={() => setRaiseQueryOpen(false)} sx={{ textTransform: "none", fontSize: "12px" }}>
-              Cancel
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleRaiseQuerySubmit}
-              disabled={raiseQuerySending || (!raiseQueryMessage.trim() && raiseQueryAttachments.length === 0)}
-              sx={{ textTransform: "none", fontSize: "12px", bgcolor: "#2563eb" }}
-            >
-              {raiseQuerySending ? "Submitting..." : "Submit Query"}
-            </Button>
-          </DialogActions>
+          )}
         </Dialog>
 
         {/* Global Query Snackbar */}

@@ -1668,23 +1668,41 @@ function JobDetails() {
       return baseInsurance.toFixed(2);
     };
 
+    if (field === "freight") {
+      updatedRows[rowIndex].is_freight_manual = true;
+    }
+    if (field === "insurance") {
+      updatedRows[rowIndex].is_insurance_manual = true;
+    }
+
+    const isFreightManual = updatedRows[rowIndex].is_freight_manual;
+    const isInsuranceManual = updatedRows[rowIndex].is_insurance_manual;
+
     const triggerFields = ["product_value", "toi", "exchange_rate", "insurance_currency", "inv_currency", "other_charges", "other_charges_exchange_rate", "other_charges_currency"];
 
     if (toiValue === "FOB") {
       if (triggerFields.includes(field)) {
-        updatedRows[rowIndex].freight = baseVal > 0 ? (baseVal * (fRate / 100)).toFixed(2) : "";
-        updatedRows[rowIndex].insurance = calculateInsuranceValue();
+        if (!isFreightManual && (!updatedRows[rowIndex].freight || field === "toi")) {
+          updatedRows[rowIndex].freight = baseVal > 0 ? (baseVal * (fRate / 100)).toFixed(2) : "";
+        }
+        if (!isInsuranceManual && (!updatedRows[rowIndex].insurance || field === "toi")) {
+          updatedRows[rowIndex].insurance = calculateInsuranceValue();
+        }
       }
     } else if (toiValue === "CF") {
       // C&F: auto-calculate insurance as dynamic% of invoice value
       if (triggerFields.includes(field)) {
         updatedRows[rowIndex].freight = "";
-        updatedRows[rowIndex].insurance = calculateInsuranceValue();
+        if (!isInsuranceManual && (!updatedRows[rowIndex].insurance || field === "toi")) {
+          updatedRows[rowIndex].insurance = calculateInsuranceValue();
+        }
       }
     } else if (toiValue === "CI") {
       // C&I: auto-calculate freight as dynamic% of invoice value
       if (triggerFields.includes(field)) {
-        updatedRows[rowIndex].freight = baseVal > 0 ? (baseVal * (fRate / 100)).toFixed(2) : "";
+        if (!isFreightManual && (!updatedRows[rowIndex].freight || field === "toi")) {
+          updatedRows[rowIndex].freight = baseVal > 0 ? (baseVal * (fRate / 100)).toFixed(2) : "";
+        }
         updatedRows[rowIndex].insurance = "";
       }
     } else if (field === "toi") {
@@ -3724,7 +3742,7 @@ function JobDetails() {
                             const toiValue = row.toi || "CIF";
                             if (row.insurance_currency === "INR" && row.inv_currency !== "INR" && (toiValue === "FOB" || toiValue === "CF")) {
                               const rowExRate = parseFloat(row.exchange_rate);
-                              if (isNaN(rowExRate)) {
+                              if (isNaN(rowExRate) && !row.is_insurance_manual && !row.insurance) {
                                 const pv = parseFloat(row.product_value) || 0;
                                 const baseInsurance = pv * 0.01125;
                                 const newInsurance = (baseInsurance * exrateNum).toFixed(2);

@@ -2101,4 +2101,75 @@ $ap-radius-lg:  14px;
   }
 }
 
+/* ── Stage Cards Bar (License counts by status) ── */
+.ar-stage-cards {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+  scrollbar-width: thin;
+
+  &::-webkit-scrollbar {
+    height: 4px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+  }
+}
+
+.ar-stage-card {
+  flex: 0 0 auto;
+  min-width: 105px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  user-select: none;
+
+  &:hover {
+    border-color: #2563eb;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 6px rgba(37, 99, 235, 0.12);
+  }
+
+  &.active {
+    background: #eff6ff;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+
+    .ar-stage-name {
+      color: #1e40af;
+      font-weight: 700;
+    }
+    .ar-stage-count {
+      color: #1d4ed8;
+    }
+  }
+}
+
+.ar-stage-name {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #64748b;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.ar-stage-count {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+  font-family: 'DM Mono', monospace;
+}
+
+
 

@@ -322,6 +322,38 @@ function AuthorizationRegistrationList({ onCountChange }) {
     };
   }, [rows]);
 
+  // Compute count of licenses in each stage
+  const statusCounts = useMemo(() => {
+    const counts = { "": 0 };
+    filterOptions.job_status.forEach((st) => {
+      counts[st] = 0;
+    });
+
+    rows.forEach((row) => {
+      if (filterJobType  && String(row.job_type || "").trim().toLowerCase() !== String(filterJobType).trim().toLowerCase())  return;
+      if (filterFirmName && String(row.party_name || "").trim().toLowerCase() !== String(filterFirmName).trim().toLowerCase()) return;
+      if (filterIec      && String(row.iec_no || "").trim().toLowerCase() !== String(filterIec).trim().toLowerCase())      return;
+      if (filterPortCode && String(row.port_code || "").trim().toLowerCase() !== String(filterPortCode).trim().toLowerCase()) return;
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        if (
+          !(row.job_no     || "").toLowerCase().includes(q) &&
+          !(row.party_name || "").toLowerCase().includes(q) &&
+          !(row.licence_no || "").toLowerCase().includes(q) &&
+          !(row.iec_no     || "").toLowerCase().includes(q) &&
+          !(row.bond_number|| "").toLowerCase().includes(q)
+        ) return;
+      }
+      counts[""] += 1;
+      const st = (row.job_status || "").trim();
+      if (st) {
+        counts[st] = (counts[st] || 0) + 1;
+      }
+    });
+
+    return counts;
+  }, [rows, search, filterJobType, filterFirmName, filterIec, filterPortCode, filterOptions.job_status]);
+
   const validate = () => {
     const errs = {};
     DATE_FIELDS.forEach((key) => {
@@ -503,6 +535,31 @@ function AuthorizationRegistrationList({ onCountChange }) {
 
   return (
     <div>
+      {/* ── Stage Metric Cards ── */}
+      <div className="ar-stage-cards">
+        <div
+          className={`ar-stage-card ${filterStatus === "" ? "active" : ""}`}
+          onClick={() => setFilterStatus("")}
+        >
+          <div className="ar-stage-name">All Statuses</div>
+          <div className="ar-stage-count">{statusCounts[""] || 0}</div>
+        </div>
+        {filterOptions.job_status.map((st) => {
+          const count = statusCounts[st] || 0;
+          const isActive = filterStatus === st;
+          return (
+            <div
+              key={st}
+              className={`ar-stage-card ${isActive ? "active" : ""}`}
+              onClick={() => setFilterStatus(isActive ? "" : st)}
+            >
+              <div className="ar-stage-name">{st}</div>
+              <div className="ar-stage-count">{count}</div>
+            </div>
+          );
+        })}
+      </div>
+
       {/* ── Toolbar ── */}
       <div className="ar-toolbar">
         <div className="ar-toolbar-left">
@@ -527,8 +584,10 @@ function AuthorizationRegistrationList({ onCountChange }) {
             {filterOptions.iec_no.map((o) => <option key={o} value={o}>{o}</option>)}
           </select>
           <select className="ar-filter-select" value={filterStatus}   onChange={(e) => setFilterStatus(e.target.value)}>
-            <option value="">All Statuses</option>
-            {filterOptions.job_status.map((o) => <option key={o} value={o}>{o}</option>)}
+            <option value="">All Statuses ({statusCounts[""] || 0})</option>
+            {filterOptions.job_status.map((o) => (
+              <option key={o} value={o}>{o} ({statusCounts[o] || 0})</option>
+            ))}
           </select>
           <select className="ar-filter-select" value={filterPortCode} onChange={(e) => setFilterPortCode(e.target.value)}>
             <option value="">All Ports</option>

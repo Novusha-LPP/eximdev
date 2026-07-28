@@ -505,6 +505,35 @@ function DgftRegisterList({ onCountChange }) {
     return { filtered: result, grouped: null };
   }, [rows, search, categoryFilter, statusFilter, sort]);
 
+  // Compute count of records in each stage
+  const statusCounts = useMemo(() => {
+    const counts = { "": 0 };
+    JOB_STATUS_OPTIONS.forEach((st) => {
+      counts[st] = 0;
+    });
+
+    rows.forEach((row) => {
+      if (categoryFilter && String(row.category || row.scheme || "").trim().toLowerCase() !== String(categoryFilter).trim().toLowerCase()) return;
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        if (
+          !(row.job_no     || "").toLowerCase().includes(q) &&
+          !(row.party_name || "").toLowerCase().includes(q) &&
+          !(row.category   || "").toLowerCase().includes(q) &&
+          !(row.scheme     || "").toLowerCase().includes(q) &&
+          !(row.licence_no || "").toLowerCase().includes(q)
+        ) return;
+      }
+      counts[""] += 1;
+      const st = (row.job_status || "").trim().toUpperCase();
+      if (st) {
+        counts[st] = (counts[st] || 0) + 1;
+      }
+    });
+
+    return counts;
+  }, [rows, search, categoryFilter]);
+
   // For pagination with grouping
   const renderRows = useMemo(() => {
     if (grouped) {
@@ -537,6 +566,31 @@ function DgftRegisterList({ onCountChange }) {
 
   return (
     <div>
+      {/* ── Stage Metric Cards ── */}
+      <div className="ar-stage-cards">
+        <div
+          className={`ar-stage-card ${statusFilter === "" ? "active" : ""}`}
+          onClick={() => setStatusFilter("")}
+        >
+          <div className="ar-stage-name">All Statuses</div>
+          <div className="ar-stage-count">{statusCounts[""] || 0}</div>
+        </div>
+        {JOB_STATUS_OPTIONS.map((st) => {
+          const count = statusCounts[st] || 0;
+          const isActive = statusFilter === st;
+          return (
+            <div
+              key={st}
+              className={`ar-stage-card ${isActive ? "active" : ""}`}
+              onClick={() => setStatusFilter(isActive ? "" : st)}
+            >
+              <div className="ar-stage-name">{st}</div>
+              <div className="ar-stage-count">{count}</div>
+            </div>
+          );
+        })}
+      </div>
+
       {/* ── Toolbar ── */}
       <div className="ar-toolbar">
         <div className="ar-toolbar-left">
@@ -565,10 +619,10 @@ function DgftRegisterList({ onCountChange }) {
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
-            <option value="">All Statuses</option>
+            <option value="">All Statuses ({statusCounts[""] || 0})</option>
             {JOB_STATUS_OPTIONS.map((opt) => (
               <option key={opt} value={opt}>
-                {opt}
+                {opt} ({statusCounts[opt] || 0})
               </option>
             ))}
           </select>

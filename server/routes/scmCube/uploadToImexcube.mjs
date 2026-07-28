@@ -1271,13 +1271,60 @@ router.post("/api/scmCube/sync-imexcube-job", authMiddleware, auditMiddleware('J
       let existingProducts = [...(job.description_details || [])];
       let productsChanged = false;
 
+      // Group IMEXCUBE products by their invoice serial number
+      const imexProductCounts = {};
+      imexData.Product_Details.forEach((prod) => {
+        const invSrNo = isValuePresent(prod.InvSrNo) ? String(prod.InvSrNo) : "1";
+        imexProductCounts[invSrNo] = (imexProductCounts[invSrNo] || 0) + 1;
+      });
+
+      // Gather all unique invoice serial numbers present in the DB products
+      const dbInvoiceSrNos = new Set();
+      existingProducts.forEach((item) => {
+        dbInvoiceSrNos.add(String(item.sr_no_invoice || "1"));
+      });
+
+      // Combine both sets of invoice serial numbers
+      const allInvoiceSrNos = new Set([...Object.keys(imexProductCounts), ...dbInvoiceSrNos]);
+
+      console.log(`[IMEXCUBE Sync Debug] existingProducts length: ${existingProducts.length}, allInvoiceSrNos:`, Array.from(allInvoiceSrNos), `imexProductCounts:`, imexProductCounts);
+      // Self-healing: Remove excess/removed product entries in DB for each invoice
+      allInvoiceSrNos.forEach((invSrNo) => {
+        const limit = imexProductCounts[invSrNo] || 0;
+        const matchingIndices = [];
+        existingProducts.forEach((item, i) => {
+          if (String(item.sr_no_invoice || "1") === invSrNo) {
+            matchingIndices.push(i);
+          }
+        });
+
+        if (matchingIndices.length > limit) {
+          const indicesToRemove = matchingIndices.slice(limit);
+          indicesToRemove.sort((a, b) => b - a).forEach((idxToRemove) => {
+            existingProducts.splice(idxToRemove, 1);
+          });
+          productsChanged = true;
+          changesSummary.push(`Removed ${indicesToRemove.length} excess/duplicate products for invoice ${invSrNo}`);
+        }
+      });
+
       imexData.Product_Details.forEach((prod) => {
         if (!isValuePresent(prod.ProductDesc) && !isValuePresent(prod.RITCNo)) return;
 
         let idx = -1;
         if (prod.ProductSNo) {
-          if (prod.ProductSNo <= existingProducts.length) {
-            idx = prod.ProductSNo - 1;
+          const targetInvSrNo = isValuePresent(prod.InvSrNo) ? String(prod.InvSrNo) : "1";
+          
+          // Get all indices in existingProducts that belong to this invoice
+          const matchingIndices = [];
+          existingProducts.forEach((item, i) => {
+            if (String(item.sr_no_invoice || "1") === targetInvSrNo) {
+              matchingIndices.push(i);
+            }
+          });
+          
+          if (prod.ProductSNo <= matchingIndices.length) {
+            idx = matchingIndices[prod.ProductSNo - 1];
           }
         } else {
           idx = existingProducts.findIndex(item => item.cth_no === prod.RITCNo && item.description === prod.ProductDesc);

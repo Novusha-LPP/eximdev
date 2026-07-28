@@ -1,5 +1,6 @@
 import React, { useContext, useEffect, useState } from "react";
 import { UserContext } from "../../contexts/UserContext";
+import { YearContext } from "../../contexts/yearContext.js";
 import { Row, Col } from "react-bootstrap";
 import "../../styles/home.scss";
 import { useNavigate } from "react-router-dom";
@@ -31,6 +32,7 @@ const importPriority = [
 
 function Home() {
   const { user } = useContext(UserContext);
+  const { selectedYearState } = useContext(YearContext);
   const [data, setData] = useState();
   const navigate = useNavigate();
 
@@ -101,6 +103,7 @@ function Home() {
 
   const [pendingDocCount, setPendingDocCount] = useState(0);
   const [openPointsCount, setOpenPointsCount] = useState(0);
+  const [billingConfirmCount, setBillingConfirmCount] = useState(0);
 
   useEffect(() => {
     async function fetchPendingCount() {
@@ -123,9 +126,29 @@ function Home() {
       }
     }
 
+    async function fetchBillingConfirmCount() {
+      if (user && (user.role === "Admin" || user.modules?.includes("Billing Confirmation"))) {
+        try {
+          const year = selectedYearState || localStorage.getItem("selectedYear") || "25-26";
+          const res = await axios.get(
+            `${process.env.REACT_APP_API_STRING}/${year}/jobs/Billing_Confirmation/all/all/all?page=1&limit=1`,
+            {
+              headers: {
+                ...(user?.username ? { "x-username": user.username } : {}),
+              },
+            }
+          );
+          setBillingConfirmCount(res.data.total || 0);
+        } catch (err) {
+          console.error("Error fetching billing confirmation count:", err);
+        }
+      }
+    }
+
     fetchPendingCount();
     fetchPointsCount();
-  }, []);
+    fetchBillingConfirmCount();
+  }, [selectedYearState, user]);
 
   const [searchQueryId, setSearchQueryId] = useState("");
   const [searchLoading, setSearchLoading] = useState(false);
@@ -566,6 +589,30 @@ function Home() {
                           }}
                         >
                           {openPointsCount}
+                        </span>
+                      )}
+                      {module === "Billing Confirmation" && billingConfirmCount > 0 && (
+                        <span
+                          style={{
+                            position: "absolute",
+                            top: "-10px",
+                            right: "-10px",
+                            backgroundColor: "#ef4444",
+                            color: "white",
+                            borderRadius: "50%",
+                            width: "22px",
+                            height: "22px",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: "11px",
+                            fontWeight: "bold",
+                            border: "2px solid white",
+                            boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                            zIndex: 10,
+                          }}
+                        >
+                          {billingConfirmCount}
                         </span>
                       )}
                     </div>

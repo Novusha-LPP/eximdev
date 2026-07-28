@@ -1061,6 +1061,31 @@ router.patch("/api/jobs/:id", auditMiddleware("Job"), async (req, res) => {
       return res.status(404).json({ success: false, message: "Job not found" });
     }
 
+    // Sync gross_weight or unit updates to the first description detail row
+    if (updateData.gross_weight !== undefined || updateData.unit !== undefined) {
+      const gWt = updateData.gross_weight !== undefined ? updateData.gross_weight : existing.gross_weight;
+      const uqcVal = updateData.unit !== undefined ? updateData.unit : existing.unit;
+      
+      if (gWt !== undefined || uqcVal !== undefined) {
+        let descDetails = existing.description_details || [];
+        if (descDetails.length === 0) {
+          descDetails = [{
+            quantity: gWt || "",
+            unit: uqcVal || "",
+            description: existing.description || ""
+          }];
+        } else {
+          descDetails = [...descDetails];
+          descDetails[0] = {
+            ...descDetails[0]
+          };
+          if (gWt !== undefined) descDetails[0].quantity = String(gWt);
+          if (uqcVal !== undefined) descDetails[0].unit = String(uqcVal);
+        }
+        updateData.description_details = descDetails;
+      }
+    }
+
     // ✅ Validate license utilization limits & check for duplicates before saving
     if (updateData.description_details) {
       const usdRate = await getUsdImportRate();

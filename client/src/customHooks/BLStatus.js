@@ -301,6 +301,16 @@ const BLStatus = ({
         updateData.discharge_date = formattedDischargeDate;
       }
 
+      // Only add gross_weight if valid
+      if (isValidValue(statusData.grossWeight)) {
+        updateData.gross_weight = statusData.grossWeight;
+      }
+
+      // Only add unit (UQC) if valid
+      if (isValidValue(statusData.uqc)) {
+        updateData.unit = statusData.uqc;
+      }
+
       // FIXED: Check if container_details is an array before processing
       if (
         isIcdKodiyar &&

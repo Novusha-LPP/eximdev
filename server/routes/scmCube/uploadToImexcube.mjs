@@ -45,6 +45,25 @@ const ACTION_CREATE = "created";
 const ACTION_UPDATE = "updated";
 const ACTION_DUPLICATE = "duplicate";
 
+// Helper to determine the package code
+const getPackageCode = (j) => {
+  if (j.no_of_pkgs) {
+    const parts = String(j.no_of_pkgs).trim().split(/\s+/);
+    if (parts.length > 1) {
+      const lastPart = parts[parts.length - 1].toUpperCase();
+      if (/^[A-Z]{3}$/.test(lastPart)) {
+        return lastPart;
+      }
+    }
+  }
+  const unitUpper = String(j.unit || "").toUpperCase().trim();
+  const weightVolumeUoms = ["KGS", "MTS", "LTR", "LTS", "MTR", "MTRS", "TON", "TNS", "CFT", "CBM", "SQM"];
+  if (unitUpper && !weightVolumeUoms.includes(unitUpper)) {
+    return unitUpper;
+  }
+  return "PKG";
+};
+
 const REQUIRED_FIELDS = {
   "Custom House Code": "BE_Details.Custom House Code",
   "User Job No.": "BE_Details.User Job No.",
@@ -310,7 +329,7 @@ async function buildJobPayload(job_number, isPreview = false, senderID = "SURAJA
       "Ware house BE No": validateChar(job.in_bond_be_no, 7, false, "Ware house BE No"),
       "Ware house BE Date": validateDate(job.in_bond_be_date, false, "Ware house BE Date"),
       "No of packages released": validateNum(job.no_of_pkgs, 8, 0, false, "No of packages released"),
-      "Package Code": validateChar(job.unit, 3, false, "Package Code"),
+      "Package Code": validateChar(getPackageCode(job), 3, false, "Package Code"),
       "Gross Weight": validateNum(job.gross_weight, 12, 3, false, "Gross Weight"),
       "Unit of Measurement": validateChar(job.unit, 3, false, "Unit of Measurement"),
       "Additional Charges": validateNum("", 12, 2, false, "Additional Charges"),
@@ -339,7 +358,7 @@ async function buildJobPayload(job_number, isPreview = false, senderID = "SURAJA
         "Total No. Of Packages": validateNum(job.no_of_pkgs, 8, 0, true, "Total No. Of Packages"),
         "Gross Weight": validateNum(job.gross_weight, 9, 3, false, "Gross Weight"),
         "Unit Quantity Code": validateChar(job.unit, 3, false, "Unit Quantity Code"),
-        "Package Code": validateChar(job.unit, 3, false, "Package Code"),
+        "Package Code": validateChar(getPackageCode(job), 3, false, "Package Code"),
         "Marks And Numbers 1": validateChar("AS PER BL", 4000, false, "Marks And Numbers 1"),
         "Marks And Numbers 2": validateChar("", 40, false, "Marks And Numbers 2"),
         "Marks And Numbers 3": validateChar("", 40, false, "Marks And Numbers 3"),
@@ -804,7 +823,7 @@ router.get("/api/scmCube/job-data-preview", async (req, res) => {
         "Ware house BE No": field(job.in_bond_be_no, false),
         "Ware house BE Date": field(fmtDate(job.in_bond_be_date), false),
         "No of packages released": field(job.no_of_pkgs, false),
-        "Package Code": field(job.unit, false),
+        "Package Code": field(getPackageCode(job), false),
         "Gross Weight": field(job.gross_weight, false),
         "Unit of Measurement": field(job.unit, false),
         "Additional Charges": field("", false),
@@ -827,7 +846,7 @@ router.get("/api/scmCube/job-data-preview", async (req, res) => {
         "Total No. Of Packages": field(job.no_of_pkgs, true),
         "Gross Weight": field(job.gross_weight, false),
         "Unit Quantity Code": field(job.unit, false),
-        "Package Code": field(job.unit, false),
+        "Package Code": field(getPackageCode(job), false),
         "Marks And Numbers 1": field("AS PER BL", false),
         "Marks And Numbers 2": field("", false),
         "Marks And Numbers 3": field("", false),

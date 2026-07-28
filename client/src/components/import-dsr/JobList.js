@@ -1196,6 +1196,18 @@ function JobList(props) {
         <TextField
           select
           size="small"
+          value={selectedMode}
+          onChange={(e) => setSelectedMode(e.target.value)}
+          sx={{ width: "110px", marginRight: "10px" }}
+        >
+          <MenuItem value="all">All Modes</MenuItem>
+          <MenuItem value="SEA">SEA</MenuItem>
+          <MenuItem value="AIR">AIR</MenuItem>
+        </TextField>
+
+        <TextField
+          select
+          size="small"
           value={detailedStatus}
           onChange={handleDetailedStatusChange}
           sx={{ width: "220px", marginRight: "10px" }}

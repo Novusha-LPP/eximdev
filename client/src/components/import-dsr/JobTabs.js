@@ -22,6 +22,9 @@ import { useState } from "react";
 import Badge from "@mui/material/Badge";
 import { UserContext } from "../../contexts/UserContext";
 import { useContext } from "react";
+import axios from "axios";
+import { YearContext } from "../../contexts/yearContext";
+import { BranchContext } from "../../contexts/BranchContext";
 import {
   TextField,
   List,
@@ -149,10 +152,76 @@ function JobTabs() {
   const [loading, setLoading] = useState(false);
   const [apiResponse, setApiResponse] = useState(null);
   const [selectedApi, setSelectedApi] = useState(null);
-
   const location = useLocation();
-  const { setSearchQuery, setDetailedStatus, setSelectedICD, setSelectedImporter } = useSearchQuery();
+  const { 
+    setSearchQuery, 
+    setDetailedStatus, 
+    setSelectedICD, 
+    setSelectedImporter,
+    selectedMode 
+  } = useSearchQuery();
   const { user } = useContext(UserContext);
+  const { selectedYearState } = useContext(YearContext);
+  const { selectedBranch, selectedCategory } = useContext(BranchContext);
+  const [counts, setCounts] = useState({
+    Pending: 0,
+    Completed: 0,
+    Cancelled: 0,
+    Billing_Confirmation: 0
+  });
+
+  // Fetch count of jobs for each status/tab
+  React.useEffect(() => {
+    async function fetchCounts() {
+      if (selectedYearState && user) {
+        try {
+          const queryParams = new URLSearchParams({
+            page: 1,
+            limit: 1,
+            search: "",
+          });
+
+          if (selectedBranch && selectedBranch !== "all") {
+            queryParams.append("branchId", selectedBranch);
+          }
+          if (selectedMode && selectedMode !== "all") {
+            queryParams.append("mode", selectedMode);
+          }
+          if (selectedCategory && selectedCategory !== "all") {
+            queryParams.append("category", selectedCategory);
+          }
+
+          const statusesToFetch = ["Pending", "Completed", "Cancelled"];
+          if (user.role === "Admin" || user.modules?.includes("Billing Confirmation")) {
+            statusesToFetch.push("Billing_Confirmation");
+          }
+
+          const requests = statusesToFetch.map((status) =>
+            axios.get(
+              `${process.env.REACT_APP_API_STRING}/${selectedYearState}/jobs/${status}/all/all/all?${queryParams}`,
+              {
+                headers: {
+                  ...(user?.username ? { "x-username": user.username } : {}),
+                },
+              }
+            )
+          );
+
+          const responses = await Promise.all(requests);
+          const newCounts = { Pending: 0, Completed: 0, Cancelled: 0, Billing_Confirmation: 0 };
+          
+          statusesToFetch.forEach((status, idx) => {
+            newCounts[status] = responses[idx].data.total || 0;
+          });
+
+          setCounts(newCounts);
+        } catch (error) {
+          console.error("Error fetching job tab counts:", error);
+        }
+      }
+    }
+    fetchCounts();
+  }, [selectedYearState, user, selectedBranch, selectedMode, selectedCategory, value]);
 
   // --- Effects ---
   React.useEffect(() => {
@@ -297,11 +366,71 @@ function JobTabs() {
       {/* Header Tabs & Actions */}
       <Box sx={{ borderBottom: 1, borderColor: "divider", display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
         <Tabs value={value} onChange={handleChange} aria-label="job type tabs" sx={{ '& .MuiTab-root': { fontWeight: 600 } }}>
-          <Tab label="Pending" {...a11yProps(0)} />
-          <Tab label="Completed" {...a11yProps(1)} />
-          <Tab label="Cancelled" {...a11yProps(2)} />
+          <Tab 
+            label={
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <span>Pending</span>
+                {counts.Pending > 0 && (
+                  <Chip 
+                    label={counts.Pending} 
+                    size="small" 
+                    color="primary" 
+                    sx={{ height: 20, fontSize: "0.75rem", fontWeight: "bold" }} 
+                  />
+                )}
+              </Box>
+            } 
+            {...a11yProps(0)} 
+          />
+          <Tab 
+            label={
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <span>Completed</span>
+                {counts.Completed > 0 && (
+                  <Chip 
+                    label={counts.Completed} 
+                    size="small" 
+                    color="success" 
+                    sx={{ height: 20, fontSize: "0.75rem", fontWeight: "bold" }} 
+                  />
+                )}
+              </Box>
+            } 
+            {...a11yProps(1)} 
+          />
+          <Tab 
+            label={
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <span>Cancelled</span>
+                {counts.Cancelled > 0 && (
+                  <Chip 
+                    label={counts.Cancelled} 
+                    size="small" 
+                    color="default" 
+                    sx={{ height: 20, fontSize: "0.75rem", fontWeight: "bold" }} 
+                  />
+                )}
+              </Box>
+            } 
+            {...a11yProps(2)} 
+          />
           {(user.role === "Admin" || user.modules?.includes("Billing Confirmation")) && (
-            <Tab label="Billing Confirmation" {...a11yProps(3)} />
+            <Tab 
+              label={
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <span>Billing Confirmation</span>
+                  {counts.Billing_Confirmation > 0 && (
+                    <Chip 
+                      label={counts.Billing_Confirmation} 
+                      size="small" 
+                      color="error" 
+                      sx={{ height: 20, fontSize: "0.75rem", fontWeight: "bold" }} 
+                    />
+                  )}
+                </Box>
+              } 
+              {...a11yProps(3)} 
+            />
           )}
         </Tabs>
 

@@ -106,7 +106,7 @@ const resolveJobNumberQuery = (jobNoInput) => {
             }
 
             if (branchRegexStr) {
-                const branchSpecificRegex = new RegExp(`${branchRegexStr}.*0*${seqNum}`, "i");
+                const branchSpecificRegex = new RegExp(`${branchRegexStr}.*(?:^|/|-)0*${seqNum}(?:/|-|$)${yearRegexPart}`, "i");
                 conditions.push({ job_no: { $regex: branchSpecificRegex } });
                 conditions.push({ job_number: { $regex: branchSpecificRegex } });
             }
@@ -117,13 +117,177 @@ const resolveJobNumberQuery = (jobNoInput) => {
 };
 
 /**
+ * Scores a job matching a Tally query input to identify the best fit.
+ */
+const scoreJob = (job, queryInput) => {
+  const queryUpper = String(queryInput || "").toUpperCase().trim();
+  
+  // 1. Exact match check against primary job identifiers
+  const exactFields = [
+    job.job_number,
+    job.job_no,
+    job.jobNo,
+    job.tally_club_ref_no,
+    job.agency_bill_no,
+    job.reimbursement_bill_no,
+    job.tally_bill_no,
+    job.enquiry_no,
+    job.success_no,
+    job.custom_job_no
+  ].map(val => String(val || "").toUpperCase().trim()).filter(Boolean);
+
+  if (exactFields.includes(queryUpper)) {
+    return 1000; // Direct exact match
+  }
+
+  let score = 0;
+
+  // Split query into alphanumeric segments for token matching
+  const queryTokens = queryUpper.split(/[^A-Z0-9]/).filter(Boolean);
+
+  const jobNoStr = String(job.job_no || "").toUpperCase().trim();
+  const branchStr = String(job.branch_code || "").toUpperCase().trim();
+  const yearStr = String(job.year || "").toUpperCase().trim();
+  const modeStr = String(job.mode || "").toUpperCase().trim();
+  const tradeStr = String(job.trade_type || "").toUpperCase().trim();
+
+  // Extract sequence number from query
+  let querySeq = null;
+  for (const token of queryTokens) {
+    if (/^\d+$/.test(token)) {
+      querySeq = parseInt(token, 10);
+      break;
+    }
+  }
+
+  // A. Sequence number check
+  if (querySeq !== null) {
+    const jobSeq = job.sequence_number || parseInt(jobNoStr, 10);
+    if (jobSeq === querySeq) {
+      score += 100;
+    } else {
+      score -= 200; // Highly penalizing mismatch
+    }
+  }
+
+  // B. Year check
+  let hasYearInQuery = false;
+  let yearMatch = false;
+  for (const token of queryTokens) {
+    if (/^\d{2}-\d{2}$|^\d{4}-\d{4}$/.test(token) || (token.length === 2 && /^\d{2}$/.test(token) && queryUpper.includes("-" + token))) {
+      hasYearInQuery = true;
+    }
+  }
+  if (yearStr && queryUpper.includes(yearStr)) {
+    hasYearInQuery = true;
+    yearMatch = true;
+  }
+  if (hasYearInQuery) {
+    if (yearMatch) {
+      score += 150;
+    } else {
+      score -= 300; // Highly penalizing mismatch
+    }
+  }
+
+  // C. Mode check (AIR vs SEA)
+  let hasModeInQuery = false;
+  let modeMatch = false;
+  if (queryTokens.includes("AIR") || queryUpper.includes("AIR") || queryUpper.includes("GIA") || queryUpper.includes("GEA")) {
+    hasModeInQuery = true;
+    if (modeStr === "AIR") modeMatch = true;
+  }
+  if (queryTokens.includes("SEA") || queryUpper.includes("SEA") || queryUpper.includes("GIS") || queryUpper.includes("GES")) {
+    hasModeInQuery = true;
+    if (modeStr === "SEA") modeMatch = true;
+  }
+  if (hasModeInQuery) {
+    if (modeMatch) {
+      score += 100;
+    } else {
+      score -= 200;
+    }
+  }
+
+  // D. Branch check
+  let hasBranchInQuery = false;
+  let branchMatch = false;
+  if (branchStr) {
+    if (queryTokens.includes(branchStr) || queryUpper.includes(branchStr)) {
+      hasBranchInQuery = true;
+      branchMatch = true;
+    } else {
+      // Check for shorthand branch codes mapped in resolveJobNumberQuery
+      if (branchStr === "AMD" && (queryUpper.includes("GIA") || queryUpper.includes("GEA") || queryUpper.includes("GIS") || queryUpper.includes("GES") || queryUpper.startsWith("GI") || queryUpper.startsWith("GE"))) {
+        hasBranchInQuery = true;
+        branchMatch = true;
+      }
+      if ((branchStr === "GND" || branchStr === "GAN") && queryUpper.includes("GG")) {
+        hasBranchInQuery = true;
+        branchMatch = true;
+      }
+      if (branchStr === "HAZ" && queryUpper.includes("GH")) {
+        hasBranchInQuery = true;
+        branchMatch = true;
+      }
+      if ((branchStr === "COK" || branchStr === "COC") && queryUpper.includes("GC")) {
+        hasBranchInQuery = true;
+        branchMatch = true;
+      }
+      if (branchStr === "BAR" && queryUpper.includes("GB")) {
+        hasBranchInQuery = true;
+        branchMatch = true;
+      }
+    }
+  }
+  if (hasBranchInQuery) {
+    if (branchMatch) {
+      score += 100;
+    } else {
+      score -= 200;
+    }
+  }
+
+  // E. Trade type check (IMP vs EXP)
+  let hasTradeInQuery = false;
+  let tradeMatch = false;
+  if (queryTokens.includes("IMP") || queryTokens.includes("IMPORT") || queryUpper.includes("/IA/") || queryUpper.includes("/IR/") || queryUpper.includes("GIA")) {
+    hasTradeInQuery = true;
+    if (tradeStr === "IMP") tradeMatch = true;
+  }
+  if (queryTokens.includes("EXP") || queryTokens.includes("EXPORT") || queryUpper.includes("/EA/") || queryUpper.includes("/ER/") || queryUpper.includes("GEA")) {
+    hasTradeInQuery = true;
+    if (tradeStr === "EXP") tradeMatch = true;
+  }
+  if (hasTradeInQuery) {
+    if (tradeMatch) {
+      score += 50;
+    } else {
+      score -= 100;
+    }
+  }
+
+  return score;
+};
+
+/**
  * Internal helper to retrieve and format job data for Tally
  */
 const getJobDetailsInternal = async (job_number) => {
   if (!job_number) return null;
 
-  const job = await JobModel.findOne({ $or: resolveJobNumberQuery(job_number) }).lean();
-  if (!job) return null;
+  const conditions = resolveJobNumberQuery(job_number);
+  const matchingJobs = await JobModel.find({ $or: conditions }).limit(20).lean();
+  if (!matchingJobs || matchingJobs.length === 0) return null;
+
+  let job = matchingJobs[0];
+  if (matchingJobs.length > 1) {
+    const scoredJobs = matchingJobs.map(j => ({
+      job: j,
+      score: scoreJob(j, job_number)
+    })).sort((a, b) => b.score - a.score);
+    job = scoredJobs[0].job;
+  }
 
   // Extract PO number(s) from top level or invoice details
   const poNumbers = [];

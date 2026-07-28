@@ -14,106 +14,106 @@ router.get("/test", (req, res) => res.json({ status: "Tally API is connected and
  * into an array of MongoDB $or query objects.
  */
 const resolveJobNumberQuery = (jobNoInput) => {
-  if (!jobNoInput) return [{ _id: null }];
-  const cleanJobNo = String(jobNoInput).trim();
-  if (!cleanJobNo) return [{ _id: null }];
+    if (!jobNoInput) return [{ _id: null }];
+    const cleanJobNo = String(jobNoInput).trim();
+    if (!cleanJobNo) return [{ _id: null }];
 
-  const conditions = [];
+    const conditions = [];
 
-  const exactFields = [
-    "job_no",
-    "job_number",
-    "jobNo",
-    "tally_club_ref_no",
-    "agency_bill_no",
-    "reimbursement_bill_no",
-    "tally_bill_no",
-    "enquiry_no",
-    "success_no",
-    "custom_job_no"
-  ];
-  exactFields.forEach((field) => {
-    conditions.push({ [field]: cleanJobNo });
-  });
+    const exactFields = [
+        "job_no",
+        "job_number",
+        "jobNo",
+        "tally_club_ref_no",
+        "agency_bill_no",
+        "reimbursement_bill_no",
+        "tally_bill_no",
+        "enquiry_no",
+        "success_no",
+        "custom_job_no"
+    ];
+    exactFields.forEach((field) => {
+        conditions.push({ [field]: cleanJobNo });
+    });
 
-  let seqNum = null;
-  let yearSuffix = null;
-  let prefixPart = "";
+    let seqNum = null;
+    let yearSuffix = null;
+    let prefixPart = "";
 
-  const slashParts = cleanJobNo.split("/").map(s => s.trim()).filter(Boolean);
+    const slashParts = cleanJobNo.split("/").map(s => s.trim()).filter(Boolean);
+    
+    if (slashParts.length >= 2) {
+        const last = slashParts[slashParts.length - 1];
+        if (/^\d{2}-\d{2}$|^\d{4}-\d{4}$/.test(last)) {
+            yearSuffix = last;
+        }
 
-  if (slashParts.length >= 2) {
-    const last = slashParts[slashParts.length - 1];
-    if (/^\d{2}-\d{2}$|^\d{4}-\d{4}$/.test(last)) {
-      yearSuffix = last;
+        for (const p of slashParts) {
+            if (/^\d+$/.test(p)) {
+                seqNum = parseInt(p, 10);
+                break;
+            }
+        }
+        
+        prefixPart = slashParts[0].toUpperCase();
+        if (slashParts.length > 3 && (slashParts[1] === "IA" || slashParts[1] === "EA" || slashParts[1] === "IR" || slashParts[1] === "ER")) {
+            prefixPart = `${slashParts[0]}/${slashParts[1]}`.toUpperCase();
+        }
+    } else if (/^\d+$/.test(cleanJobNo)) {
+        seqNum = parseInt(cleanJobNo, 10);
+    } else {
+        const numMatch = cleanJobNo.match(/0*(\d+)/);
+        if (numMatch) {
+            seqNum = parseInt(numMatch[1], 10);
+        }
     }
 
-    for (const p of slashParts) {
-      if (/^\d+$/.test(p)) {
-        seqNum = parseInt(p, 10);
-        break;
-      }
+    if (seqNum !== null && !isNaN(seqNum)) {
+        const padded4 = seqNum.toString().padStart(4, '0');
+        const padded5 = seqNum.toString().padStart(5, '0');
+
+        conditions.push({ sequence_number: seqNum });
+        conditions.push({ sequence_no: seqNum });
+        conditions.push({ job_no: seqNum.toString() });
+        conditions.push({ job_no: padded4 });
+        conditions.push({ job_no: padded5 });
+
+        let yearRegexPart = "";
+        if (yearSuffix) {
+            const shortYear = yearSuffix.slice(-5);
+            yearRegexPart = `.*${shortYear}`;
+        }
+
+        const flexRegex = new RegExp(`(?:^|/|-)0*${seqNum}(?:/|-|$)${yearRegexPart}`, "i");
+        conditions.push({ job_no: { $regex: flexRegex } });
+        conditions.push({ job_number: { $regex: flexRegex } });
+        conditions.push({ tally_club_ref_no: { $regex: flexRegex } });
+
+        if (prefixPart) {
+            let branchRegexStr = "";
+            if (prefixPart.startsWith("GH")) {
+                branchRegexStr = "^(HAZ|GH)";
+            } else if (prefixPart.startsWith("GG")) {
+                branchRegexStr = "^(GND|GAN|GG)";
+            } else if (prefixPart.startsWith("GC")) {
+                branchRegexStr = "^(COK|COC|GC)";
+            } else if (prefixPart.startsWith("GB")) {
+                branchRegexStr = "^(BAR|GB)";
+            } else if (prefixPart.startsWith("GE") || prefixPart.startsWith("GI") || prefixPart === "GIA" || prefixPart === "GEA") {
+                branchRegexStr = "^(AMD|AHM|G)";
+            } else if (prefixPart.startsWith("FF")) {
+                branchRegexStr = "^(FF|FF-)";
+            }
+
+            if (branchRegexStr) {
+                const branchSpecificRegex = new RegExp(`${branchRegexStr}.*(?:^|/|-)0*${seqNum}(?:/|-|$)${yearRegexPart}`, "i");
+                conditions.push({ job_no: { $regex: branchSpecificRegex } });
+                conditions.push({ job_number: { $regex: branchSpecificRegex } });
+            }
+        }
     }
 
-    prefixPart = slashParts[0].toUpperCase();
-    if (slashParts.length > 3 && (slashParts[1] === "IA" || slashParts[1] === "EA" || slashParts[1] === "IR" || slashParts[1] === "ER")) {
-      prefixPart = `${slashParts[0]}/${slashParts[1]}`.toUpperCase();
-    }
-  } else if (/^\d+$/.test(cleanJobNo)) {
-    seqNum = parseInt(cleanJobNo, 10);
-  } else {
-    const numMatch = cleanJobNo.match(/0*(\d+)/);
-    if (numMatch) {
-      seqNum = parseInt(numMatch[1], 10);
-    }
-  }
-
-  if (seqNum !== null && !isNaN(seqNum)) {
-    const padded4 = seqNum.toString().padStart(4, '0');
-    const padded5 = seqNum.toString().padStart(5, '0');
-
-    conditions.push({ sequence_number: seqNum });
-    conditions.push({ sequence_no: seqNum });
-    conditions.push({ job_no: seqNum.toString() });
-    conditions.push({ job_no: padded4 });
-    conditions.push({ job_no: padded5 });
-
-    let yearRegexPart = "";
-    if (yearSuffix) {
-      const shortYear = yearSuffix.slice(-5);
-      yearRegexPart = `.*${shortYear}`;
-    }
-
-    const flexRegex = new RegExp(`(?:^|/|-)0*${seqNum}(?:/|-|$)${yearRegexPart}`, "i");
-    conditions.push({ job_no: { $regex: flexRegex } });
-    conditions.push({ job_number: { $regex: flexRegex } });
-    conditions.push({ tally_club_ref_no: { $regex: flexRegex } });
-
-    if (prefixPart) {
-      let branchRegexStr = "";
-      if (prefixPart.startsWith("GH")) {
-        branchRegexStr = "^(HAZ|GH)";
-      } else if (prefixPart.startsWith("GG")) {
-        branchRegexStr = "^(GND|GAN|GG)";
-      } else if (prefixPart.startsWith("GC")) {
-        branchRegexStr = "^(COK|COC|GC)";
-      } else if (prefixPart.startsWith("GB")) {
-        branchRegexStr = "^(BAR|GB)";
-      } else if (prefixPart.startsWith("GE") || prefixPart.startsWith("GI") || prefixPart === "GIA" || prefixPart === "GEA") {
-        branchRegexStr = "^(AMD|AHM|G)";
-      } else if (prefixPart.startsWith("FF")) {
-        branchRegexStr = "^(FF|FF-)";
-      }
-
-      if (branchRegexStr) {
-        const branchSpecificRegex = new RegExp(`${branchRegexStr}.*(?:^|/|-)0*${seqNum}(?:/|-|$)${yearRegexPart}`, "i");
-        conditions.push({ job_no: { $regex: branchSpecificRegex } });
-        conditions.push({ job_number: { $regex: branchSpecificRegex } });
-      }
-    }
-  }
-
-  return conditions;
+    return conditions;
 };
 
 /**
@@ -121,7 +121,7 @@ const resolveJobNumberQuery = (jobNoInput) => {
  */
 const scoreJob = (job, queryInput) => {
   const queryUpper = String(queryInput || "").toUpperCase().trim();
-
+  
   // 1. Exact match check against primary job identifiers
   const exactFields = [
     job.job_number,
@@ -422,7 +422,7 @@ router.get("/next-sequence", authApiKey, async (req, res) => {
     if (type === "purchase") {
       const existing = await PurchaseBookEntryModel.find({
         $or: [
-          { jobNo: canonicalJobNo },
+          { jobNo: canonicalJobNo }, 
           { jobNo: jobNo },
           { entryNo: { $regex: canonicalJobNo } }
         ]
@@ -440,7 +440,7 @@ router.get("/next-sequence", authApiKey, async (req, res) => {
     } else if (type === "payment") {
       const existing = await PaymentRequestModel.find({
         $or: [
-          { jobNo: canonicalJobNo },
+          { jobNo: canonicalJobNo }, 
           { jobNo: jobNo },
           { requestNo: { $regex: canonicalJobNo } }
         ]
@@ -569,7 +569,7 @@ router.post("/purchase-entry", authApiKey, async (req, res) => {
       try {
         console.log("Saving Purchase Entry (Attempt " + (attempts + 1) + "):", data.entryNo);
         entry = await PurchaseBookEntryModel.create(data);
-        break;
+        break; 
       } catch (err) {
         if (err.code === 11000) {
           console.warn("Duplicate Entry No detected, auto-incrementing:", data.entryNo);
@@ -812,7 +812,7 @@ router.post("/payment-request", authApiKey, async (req, res) => {
       if (job) {
         if (job.job_number) data.jobNo = job.job_number;
         if (job.importer && !data.importer) data.importer = job.importer;
-
+        
         // Check if job is completed (has bill numbers)
         const billNos = (job.bill_no || "").split(",");
         if (billNos[0]?.trim() && billNos[1]?.trim()) {

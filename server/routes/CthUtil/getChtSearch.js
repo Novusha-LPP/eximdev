@@ -581,15 +581,19 @@ router.patch('/api/jobs/:jobId/update-duty-from-cth', async (req, res) => {
       cth_bcd_ammount = basic_duty_ntfn;
     }
 
-    // Add new fields to job (without overwriting existing ones)
-    job.cth_basic_duty_sch = basic_duty_sch || '';
-    job.cth_basic_duty_ntfn = basic_duty_ntfn || '';
-    job.cth_igst_ammount = igst || '';
-    job.cth_sws_ammount = sws_10_percent || '';
-    job.cth_bcd_ammount = cth_bcd_ammount;
-
-    // Save the updated job
-    await job.save();
+    // Update the job using updateOne to avoid full schema validation (e.g., CastError on other fields)
+    await JobModel.updateOne(
+      { job_no: jobId },
+      {
+        $set: {
+          cth_basic_duty_sch: basic_duty_sch || '',
+          cth_basic_duty_ntfn: basic_duty_ntfn || '',
+          cth_igst_ammount: igst || '',
+          cth_sws_ammount: sws_10_percent || '',
+          cth_bcd_ammount: cth_bcd_ammount
+        }
+      }
+    );
 
     return res.status(200).json({
       message: 'Job updated with new CTH-based duty fields successfully',

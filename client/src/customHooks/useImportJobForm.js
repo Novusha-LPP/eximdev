@@ -138,6 +138,7 @@ const useImportJobForm = () => {
   // Existing states:
   // const [job_no, setJobNo] = useState("");
   const [custom_house, setCustomHouse] = useState("");
+  const [importer_reference_no, setImporterReferenceNo] = useState("");
   const [importer, setImporter] = useState("");
   const [importer_type, setImporterType] = useState("");
   const [commercial_tax_type, setCommercialTaxType] = useState("");
@@ -1254,6 +1255,7 @@ const useImportJobForm = () => {
     
     if (job.year) setYear(job.year);
     if (job.custom_house) setCustomHouse(job.custom_house);
+    if (job.importer_reference_no) setImporterReferenceNo(job.importer_reference_no);
     if (job.importer) setImporter(job.importer);
     if (job.importer_type) setImporterType(job.importer_type);
     if (job.commercial_tax_type) setCommercialTaxType(job.commercial_tax_type);
@@ -1614,6 +1616,7 @@ const useImportJobForm = () => {
           year, // <-- MANDATORY for backend
           job_date,
           custom_house,
+          importer_reference_no,
           importer,
           importer_type,
           commercial_tax_type,
@@ -1881,6 +1884,8 @@ const useImportJobForm = () => {
     setYear,
     custom_house,
     setCustomHouse,
+    importer_reference_no,
+    setImporterReferenceNo,
     importer,
     importerURL,
     setImporter,

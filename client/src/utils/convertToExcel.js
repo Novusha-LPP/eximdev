@@ -198,7 +198,7 @@ export const convertToExcel = async (
         calculated_inv_val = item.total_inv_value ? String(item.total_inv_value).split(" ")[0] : "";
       }
     }
-    invoice_value_and_unit_price = `${item.inv_currency || ''} | ${calculated_inv_val} | ${item.unit_price || ''}`;
+    const invoice_value_and_unit_price = `${item.inv_currency || ''} | ${calculated_inv_val} | ${item.unit_price || ''}`;
 
     // Safely calculate net weight
     const net_weight = item.container_nos?.reduce((sum, container) => {

@@ -1275,8 +1275,10 @@ router.post("/api/scmCube/sync-imexcube-job", authMiddleware, auditMiddleware('J
         if (!isValuePresent(prod.ProductDesc) && !isValuePresent(prod.RITCNo)) return;
 
         let idx = -1;
-        if (prod.ProductSNo && prod.ProductSNo <= existingProducts.length) {
-          idx = prod.ProductSNo - 1;
+        if (prod.ProductSNo) {
+          if (prod.ProductSNo <= existingProducts.length) {
+            idx = prod.ProductSNo - 1;
+          }
         } else {
           idx = existingProducts.findIndex(item => item.cth_no === prod.RITCNo && item.description === prod.ProductDesc);
         }

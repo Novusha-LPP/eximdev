@@ -175,12 +175,29 @@ function JobDetailsStaticData(props) {
     }
   };
   if (props.data) {
-    let inv_value = props.data.total_inv_value;
-    if (!inv_value || inv_value === "NaN") {
-      const calcValue = parseFloat(props.data.cif_amount) / parseFloat(props.data.exrate);
-      inv_value = !isNaN(calcValue) ? calcValue.toFixed(2) : "";
+    let inv_value = "";
+    if (Array.isArray(props.data.invoice_details) && props.data.invoice_details.length > 0) {
+      const sumPV = props.data.invoice_details.reduce((sum, r) => {
+        const pv = parseFloat(r.product_value);
+        if (!isNaN(pv) && pv > 0) return sum + pv;
+        const amt = parseFloat(r.amount);
+        if (!isNaN(amt) && amt > 0) return sum + amt;
+        const rowVal = parseFloat(r.total_inv_value);
+        if (!isNaN(rowVal) && rowVal > 0) return sum + rowVal;
+        return sum;
+      }, 0);
+      if (sumPV > 0) inv_value = sumPV.toFixed(2);
     }
-    var invoice_value_and_unit_price = `${props.data.inv_currency} ${inv_value} | ${props.data.unit_price}`;
+    if (!inv_value) {
+      const topVal = parseFloat(props.data.total_inv_value);
+      if (!isNaN(topVal) && topVal > 0) {
+        inv_value = topVal.toFixed(2);
+      } else {
+        const calcValue = parseFloat(props.data.cif_amount) / parseFloat(props.data.exrate);
+        inv_value = !isNaN(calcValue) && calcValue > 0 ? calcValue.toFixed(2) : (props.data.total_inv_value && props.data.total_inv_value !== "NaN" ? props.data.total_inv_value : "");
+      }
+    }
+    var invoice_value_and_unit_price = `${props.data.inv_currency || ""} ${inv_value} | ${props.data.unit_price || ""}`;
   }
 
   if (props.container_nos) {

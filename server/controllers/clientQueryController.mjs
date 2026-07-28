@@ -1,5 +1,6 @@
 import ClientQuery from "../model/clientQueryModel.mjs";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { invalidateJobCache } from "../routes/import-dsr/getJobList.mjs";
 
 // Helper: Get S3 Client
 const getS3Client = () => {
@@ -37,6 +38,7 @@ export const createQuery = async (req, res) => {
     });
 
     await newQuery.save();
+    try { invalidateJobCache(); } catch (e) {}
 
     return res.status(201).json({
       success: true,
@@ -149,6 +151,7 @@ export const replyToClientQuery = async (req, res) => {
     }
 
     await query.save();
+    try { invalidateJobCache(); } catch (e) {}
 
     return res.status(200).json({
       success: true,
@@ -178,6 +181,7 @@ export const resolveClientQuery = async (req, res) => {
     query.resolutionNote = resolutionNote || "";
 
     await query.save();
+    try { invalidateJobCache(); } catch (e) {}
 
     return res.status(200).json({
       success: true,

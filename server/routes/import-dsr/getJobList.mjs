@@ -154,10 +154,11 @@ const criticalFields = `
   hss_address hss_address_details hss_branch_id hss_city hss_ie_code_no hss_postal_code hss_country hss_ad_code
   invoice_number invoice_date delivery_chalan_file fine_amount penalty_amount 
   penalty_by_us penalty_by_importer other_do_documents intrest_ammount sws_ammount igst_ammount 
-  bcd_ammount assessable_ammount total_inv_value inv_currency detention_from 
+  bcd_ammount assessable_ammount total_inv_value product_value freight insurance other_charges inv_currency detention_from 
   gross_weight job_net_weight payment_method
   shipping_line_invoice_imgs obl_telex_bl document_received_date
   concor_invoice_and_receipt_copy thar_invoices hasti_invoices icd_cfs_invoice_img cfs_name charges
+  invoice_details description_details
 `;
 
 const additionalFieldsByStatus = {
@@ -405,12 +406,7 @@ router.get(
         query.$and.push(buildSearchQuery(searchTerm));
       }
 
-      // 7) unresolvedOnly
-      if (unresolvedOnly === "true") {
-        query.$and.push({
-          dsr_queries: { $elemMatch: { resolved: { $ne: true } } },
-        });
-      }
+      // 7) unresolvedOnly (handled in dataPipeline after __query_score calculation)
 
       if (query.$and && query.$and.length === 0) {
         delete query.$and;
@@ -455,6 +451,7 @@ router.get(
 
       // always keep fields needed for status
       projection.be_no = 1;
+      projection.job_no = 1;
       projection.type_of_b_e = 1;
       projection.consignment_type = 1;
       projection.out_of_charge = 1;
@@ -465,6 +462,8 @@ router.get(
       projection.container_nos = 1;
       projection.branch_info = 1;
       projection.mode = 1;
+      projection.__client_queries = 1;
+      projection.dsr_queries = 1;
 
       const preProjectStage = { $project: projection };
 
@@ -559,89 +558,23 @@ router.get(
                 $cond: [
                   { $and: ["$$isAir", "$$validOutOfCharge", "$$allDelivery"] },
                   "Billing Pending",
-              {
-                $cond: [
-                  { $and: ["$$isLcl", "$$isInBond", "$$validOutOfCharge"] },
-                  "Billing Pending",
                   {
                     $cond: [
-                      "$$isExBond",
+                      { $and: ["$$isLcl", "$$isInBond", "$$validOutOfCharge"] },
+                      "Billing Pending",
                       {
-                        // Ex-bond
-                        $switch: {
-                          branches: [
-                            {
-                              case: {
-                                $and: [
-                                  "$$bePresent",
-                                  "$$validOutOfCharge",
-                                  "$$allDelivery",
-                                ],
-                              },
-                              then: "Billing Pending",
-                            },
-                            {
-                              case: {
-                                $and: [
-                                  "$$validDoCompleted",
-                                  "$$validOutOfCharge",
-                                  { $eq: ["$$allDelivery", false] },
-                                ],
-                              },
-                              then: "Do completed and Delivery pending",
-                            },
-                            {
-                              case: {
-                                $and: ["$$bePresent", "$$validOutOfCharge"],
-                              },
-                              then: "Custom Clearance Completed",
-                            },
-                            {
-                              case: {
-                                $and: ["$$bePresent", "$$validPcv"],
-                              },
-                              then: "PCV Done, Duty Payment Pending",
-                            },
-                          ],
-                          default: "ETA Date Pending",
-                        },
-                      },
-                      {
-                        // Non Ex-bond (Home + In-Bond etc)
-                        $let: {
-                          vars: {
-                            billingComplete: {
-                              $cond: [
-                                "$$isInBond",
-                                // In-Bond Logic
-                                {
-                                  $cond: [
-                                    "$$isTypeDoIcd",
-                                    "$$allEmptyOffload", // In-Bond ICD: wait for EmptyOff
-                                    { $and: ["$$allEmptyOffload", "$$allDelivery"] } // In-Bond Factory: wait for EmptyOff AND Delivery
-                                  ]
-                                },
-                                // Standard Logic (Home Consumption etc)
-                                {
-                                  $cond: [
-                                    { $or: ["$$isLcl", "$$isTypeDoIcd"] },
-                                    "$$allDelivery", // LCL/ICD: wait for Delivery
-                                    "$$allEmptyOffload" // Container: wait for EmptyOff
-                                  ]
-                                }
-                              ]
-                            },
-                          },
-                          in: {
+                        $cond: [
+                          "$$isExBond",
+                          {
+                            // Ex-bond
                             $switch: {
                               branches: [
                                 {
                                   case: {
                                     $and: [
                                       "$$bePresent",
-                                      "$$anyArrival",
                                       "$$validOutOfCharge",
-                                      "$$billingComplete",
+                                      "$$allDelivery",
                                     ],
                                   },
                                   then: "Billing Pending",
@@ -658,75 +591,141 @@ router.get(
                                 },
                                 {
                                   case: {
-                                    $and: [
-                                      "$$bePresent",
-                                      "$$anyArrival",
-                                      "$$validOutOfCharge",
-                                    ],
+                                    $and: ["$$bePresent", "$$validOutOfCharge"],
                                   },
                                   then: "Custom Clearance Completed",
                                 },
                                 {
                                   case: {
-                                    $and: ["$$bePresent", "$$anyArrival", "$$validPcv"],
+                                    $and: ["$$bePresent", "$$validPcv"],
                                   },
                                   then: "PCV Done, Duty Payment Pending",
-                                },
-                                {
-                                  case: {
-                                    $and: ["$$bePresent", "$$anyArrival"],
-                                  },
-                                  then: "BE Noted, Clearance Pending",
-                                },
-                                {
-                                  case: {
-                                    $and: [{ $not: ["$$bePresent"] }, "$$anyArrival"],
-                                  },
-                                  then: "Arrived, BE Note Pending",
-                                },
-                                {
-                                  case: "$$bePresent",
-                                  then: "BE Noted, Arrival Pending",
-                                },
-                                {
-                                  case: "$$anyRailOut",
-                                  then: "Rail Out",
-                                },
-                                {
-                                  case: "$$validDischarge",
-                                  then: "Discharged",
-                                },
-                                {
-                                  case: {
-                                    $or: [
-                                      "$$validGateway",
-                                      {
-                                        $and: [
-                                          "$$railoutDisabled",
-                                          "$$gatewayIgmDisabled",
-                                          "$$validIgmDate",
-                                          "$$igmNoPresent",
-                                        ],
-                                      },
-                                    ],
-                                  },
-                                  then: "Gateway IGM Filed",
-                                },
-                                {
-                                  case: "$$validVessel",
-                                  then: "Estimated Time of Arrival",
                                 },
                               ],
                               default: "ETA Date Pending",
                             },
                           },
-                        },
+                          {
+                            // Non Ex-bond (Home + In-Bond etc)
+                            $let: {
+                              vars: {
+                                billingComplete: {
+                                  $cond: [
+                                    "$$isInBond",
+                                    // In-Bond Logic
+                                    {
+                                      $cond: [
+                                        "$$isTypeDoIcd",
+                                        "$$allEmptyOffload", // In-Bond ICD: wait for EmptyOff
+                                        { $and: ["$$allEmptyOffload", "$$allDelivery"] } // In-Bond Factory: wait for EmptyOff AND Delivery
+                                      ]
+                                    },
+                                    // Standard Logic (Home Consumption etc)
+                                    {
+                                      $cond: [
+                                        { $or: ["$$isLcl", "$$isTypeDoIcd"] },
+                                        "$$allDelivery", // LCL/ICD: wait for Delivery
+                                        "$$allEmptyOffload" // Container: wait for EmptyOff
+                                      ]
+                                    }
+                                  ]
+                                },
+                              },
+                              in: {
+                                $switch: {
+                                  branches: [
+                                    {
+                                      case: {
+                                        $and: [
+                                          "$$bePresent",
+                                          "$$anyArrival",
+                                          "$$validOutOfCharge",
+                                          "$$billingComplete",
+                                        ],
+                                      },
+                                      then: "Billing Pending",
+                                    },
+                                    {
+                                      case: {
+                                        $and: [
+                                          "$$validDoCompleted",
+                                          "$$validOutOfCharge",
+                                          { $eq: ["$$allDelivery", false] },
+                                        ],
+                                      },
+                                      then: "Do completed and Delivery pending",
+                                    },
+                                    {
+                                      case: {
+                                        $and: [
+                                          "$$bePresent",
+                                          "$$anyArrival",
+                                          "$$validOutOfCharge",
+                                        ],
+                                      },
+                                      then: "Custom Clearance Completed",
+                                    },
+                                    {
+                                      case: {
+                                        $and: ["$$bePresent", "$$anyArrival", "$$validPcv"],
+                                      },
+                                      then: "PCV Done, Duty Payment Pending",
+                                    },
+                                    {
+                                      case: {
+                                        $and: ["$$bePresent", "$$anyArrival"],
+                                      },
+                                      then: "BE Noted, Clearance Pending",
+                                    },
+                                    {
+                                      case: {
+                                        $and: [{ $not: ["$$bePresent"] }, "$$anyArrival"],
+                                      },
+                                      then: "Arrived, BE Note Pending",
+                                    },
+                                    {
+                                      case: "$$bePresent",
+                                      then: "BE Noted, Arrival Pending",
+                                    },
+                                    {
+                                      case: "$$anyRailOut",
+                                      then: "Rail Out",
+                                    },
+                                    {
+                                      case: "$$validDischarge",
+                                      then: "Discharged",
+                                    },
+                                    {
+                                      case: {
+                                        $or: [
+                                          "$$validGateway",
+                                          {
+                                            $and: [
+                                              "$$railoutDisabled",
+                                              "$$gatewayIgmDisabled",
+                                              "$$validIgmDate",
+                                              "$$igmNoPresent",
+                                            ],
+                                          },
+                                        ],
+                                      },
+                                      then: "Gateway IGM Filed",
+                                    },
+                                    {
+                                      case: "$$validVessel",
+                                      then: "Estimated Time of Arrival",
+                                    },
+                                  ],
+                                  default: "ETA Date Pending",
+                                },
+                              },
+                            },
+                          },
+                        ],
                       },
                     ],
                   },
                 ],
-              },
-            ],
               },
             ],
           },
@@ -766,6 +765,56 @@ router.get(
       };
 
       const baseAddFields = {
+        __query_score: {
+          $cond: [
+            {
+              $gt: [
+                {
+                  $size: {
+                    $filter: {
+                      input: { $ifNull: ["$__client_queries", []] },
+                      as: "q",
+                      cond: { $eq: ["$$q.seenByAdmin", false] },
+                    },
+                  },
+                },
+                0,
+              ],
+            },
+            3,
+            {
+              $cond: [
+                {
+                  $gt: [
+                    {
+                      $size: {
+                        $filter: {
+                          input: { $ifNull: ["$__client_queries", []] },
+                          as: "q",
+                          cond: { $eq: ["$$q.status", "open"] },
+                        },
+                      },
+                    },
+                    0,
+                  ],
+                },
+                2,
+                {
+                  $cond: [
+                    {
+                      $gt: [
+                        { $size: { $ifNull: ["$__client_queries", []] } },
+                        0,
+                      ],
+                    },
+                    1,
+                    0,
+                  ],
+                },
+              ],
+            },
+          ],
+        },
         __status_rank: {
           $switch: {
             branches: statusRankBranches,
@@ -797,6 +846,17 @@ router.get(
 
       dataPipeline.push({ $addFields: baseAddFields });
 
+      if (unresolvedOnly === "true") {
+        dataPipeline.push({
+          $match: {
+            $or: [
+              { dsr_queries: { $elemMatch: { resolved: { $ne: true } } } },
+              { __query_score: { $gte: 2 } },
+            ],
+          },
+        });
+      }
+
       dataPipeline.push({
         $addFields: {
           detailed_status: "$__effective_detailed_status",
@@ -805,6 +865,7 @@ router.get(
 
       const sortStage = {
         $sort: {
+          __query_score: -1,
           __status_rank: 1,
           __status_sort_date: 1,
           _id: 1,
@@ -822,20 +883,28 @@ router.get(
 
       const metadataPipeline = [...basePipeline, { $count: "total" }];
 
-       const pipeline = [
-         matchStage,
-         {
-           $lookup: {
-             from: "branches",
-             localField: "branch_id",
-             foreignField: "_id",
-             as: "branch_info",
-           },
-         },
-         {
-           $unwind: { path: "$branch_info", preserveNullAndEmptyArrays: true },
-         },
-         preProjectStage,
+      const pipeline = [
+        matchStage,
+        {
+          $lookup: {
+            from: "branches",
+            localField: "branch_id",
+            foreignField: "_id",
+            as: "branch_info",
+          },
+        },
+        {
+          $unwind: { path: "$branch_info", preserveNullAndEmptyArrays: true },
+        },
+        {
+          $lookup: {
+            from: "clientqueries",
+            localField: "job_no",
+            foreignField: "job_no",
+            as: "__client_queries",
+          },
+        },
+        preProjectStage,
         {
           $facet: {
             metadata: metadataPipeline,
@@ -1091,5 +1160,6 @@ router.get("/api/generate-delivery-note/:year/:jobNo", async (req, res) => {
   }
 });
 
+export { invalidateCache as invalidateJobCache };
 export default router;
 

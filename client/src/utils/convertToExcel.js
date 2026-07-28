@@ -175,34 +175,30 @@ export const convertToExcel = async (
         .join(",\n")
       : "";
 
-    // Safely handle CIF amount and exchange rate calculations
-    let invoice_value_and_unit_price = `${item.inv_currency || ''} | ${item.total_inv_value || ''} | ${item.unit_price || ''}`;
-
-    try {
-      // Only perform Big.js calculations if both values exist and are valid numbers
-      if (item.cif_amount && item.exrate &&
-        !isNaN(parseFloat(item.cif_amount)) &&
-        !isNaN(parseFloat(item.exrate)) &&
-        parseFloat(item.exrate) !== 0) {
-
-        const cif_amount = new Big(item.cif_amount);
-        const exrate = new Big(item.exrate);
-        const inv_value = cif_amount.div(exrate).toFixed(2);
-
-        const exact_inv_value = item.total_inv_value
-          ? item.total_inv_value.split(" ")[0]
-          : inv_value;
-
-        invoice_value_and_unit_price = `${item.inv_currency || ''} | ${exact_inv_value} | ${item.unit_price || ''}`;
-      }
-    } catch (error) {
-      console.warn("Error calculating invoice value:", error);
-      // Use fallback values if calculation fails
-      const exact_inv_value = item.total_inv_value
-        ? item.total_inv_value.split(" ")[0]
-        : "";
-      invoice_value_and_unit_price = `${item.inv_currency || ''} | ${exact_inv_value} | ${item.unit_price || ''}`;
+    let calculated_inv_val = "";
+    if (Array.isArray(item.invoice_details) && item.invoice_details.length > 0) {
+      const sumPV = item.invoice_details.reduce((sum, r) => {
+        const pv = parseFloat(r.product_value);
+        if (!isNaN(pv) && pv > 0) return sum + pv;
+        const amt = parseFloat(r.amount);
+        if (!isNaN(amt) && amt > 0) return sum + amt;
+        const rowVal = parseFloat(r.total_inv_value);
+        if (!isNaN(rowVal) && rowVal > 0) return sum + rowVal;
+        return sum;
+      }, 0);
+      if (sumPV > 0) calculated_inv_val = sumPV.toFixed(2);
     }
+    if (!calculated_inv_val) {
+      const topVal = parseFloat(item.total_inv_value);
+      if (!isNaN(topVal) && topVal > 0) {
+        calculated_inv_val = topVal.toFixed(2);
+      } else if (item.cif_amount && item.exrate && !isNaN(parseFloat(item.cif_amount)) && !isNaN(parseFloat(item.exrate)) && parseFloat(item.exrate) !== 0) {
+        calculated_inv_val = (parseFloat(item.cif_amount) / parseFloat(item.exrate)).toFixed(2);
+      } else {
+        calculated_inv_val = item.total_inv_value ? String(item.total_inv_value).split(" ")[0] : "";
+      }
+    }
+    invoice_value_and_unit_price = `${item.inv_currency || ''} | ${calculated_inv_val} | ${item.unit_price || ''}`;
 
     // Safely calculate net weight
     const net_weight = item.container_nos?.reduce((sum, container) => {

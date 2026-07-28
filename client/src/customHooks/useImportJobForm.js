@@ -703,8 +703,8 @@ const useImportJobForm = () => {
     // Sync global CIF value (term value) across all rows converted to INR
     const totalCif = updatedRows.reduce((sum, row) => sum + (parseFloat(row.total_inv_value) || 0), 0);
     const totalProductVal = updatedRows.reduce((sum, row) => sum + (parseFloat(row.product_value) || 0), 0);
-    if (totalCif > 0) {
-      setTotalInvValue(totalProductVal > 0 ? String(totalProductVal.toFixed(2)) : String(totalCif.toFixed(2)));
+    if (totalCif > 0 || totalProductVal > 0) {
+      setTotalInvValue(totalCif > 0 ? String(totalCif.toFixed(2)) : String(totalProductVal.toFixed(2)));
       
       const syncCifValue = async () => {
         let totalCifInr = 0;

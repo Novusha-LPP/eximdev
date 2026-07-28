@@ -193,6 +193,8 @@ const ImportCreateJob = () => {
     setJobNo,
     custom_house,
     setCustomHouse,
+    importer_reference_no,
+    setImporterReferenceNo,
     importer,
     setImporter,
     shipping_line_airline,
@@ -972,7 +974,7 @@ const ImportCreateJob = () => {
                       </TextField>
                     </FormField>
 
-                    <FormField label="Custom House">
+                    <FormField label="Custom House" xs={12} md={3}>
                       <Autocomplete
                         freeSolo
                         options={dynamicPortOptions}
@@ -987,6 +989,17 @@ const ImportCreateJob = () => {
                             sx={compactInput}
                           />
                         )}
+                      />
+                    </FormField>
+
+                    <FormField label="Importer Reference No" xs={12} md={3}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        value={importer_reference_no}
+                        onChange={(e) => setImporterReferenceNo(e.target.value.toUpperCase())}
+                        variant="outlined"
+                        sx={compactInput}
                       />
                     </FormField>
                   </Grid>

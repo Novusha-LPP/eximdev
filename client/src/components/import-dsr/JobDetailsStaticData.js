@@ -60,6 +60,7 @@ function JobDetailsStaticData(props) {
     const initialFormData = {
       job_no: props.params.job_no || "",
       custom_house: props.data?.custom_house || "",
+      importer_reference_no: props.data?.importer_reference_no || "",
       importer: props.data?.importer || "",
       awb_bl_no: props.data?.awb_bl_no || "",
       be_no: props.data?.be_no || "",
@@ -485,6 +486,13 @@ function JobDetailsStaticData(props) {
             <div style={{ width: "1px", height: "30px", background: "#e0e0e0" }}></div>
 
             <div style={{ display: "flex", flexDirection: "column" }}>
+              <span style={{ fontSize: "0.75rem", color: "#6c757d", fontWeight: "600" }}>Importer Ref No</span>
+              <span style={{ fontSize: "0.9rem", color: "#212529" }}>{props.data?.importer_reference_no || "-"}</span>
+            </div>
+
+            <div style={{ width: "1px", height: "30px", background: "#e0e0e0" }}></div>
+
+            <div style={{ display: "flex", flexDirection: "column" }}>
               <span style={{ fontSize: "0.75rem", color: "#6c757d", fontWeight: "600" }}>Importer</span>
               <span style={{ fontSize: "0.9rem", color: "#212529" }}>{props.data?.importer}</span>
             </div>
@@ -576,6 +584,8 @@ function JobDetailsStaticData(props) {
                 </Tooltip>
                 <span style={{ margin: "0 8px" }}>|</span>
                 Custom House: {props.data?.custom_house}
+                <span style={{ margin: "0 8px" }}>|</span>
+                Importer Ref No: {props.data?.importer_reference_no || "N/A"}
                 {props.data?.be_no ? null : props.data?.priorityJob &&
                   (props.data.priorityJob === "High Priority" ||
                     props.data.priorityJob === "Priority") && (
@@ -673,15 +683,19 @@ function JobDetailsStaticData(props) {
 
           {/* Row 2: Importer Details */}
           <Row style={compactRowStyle}>
-            <Col xs={12} lg={6}>
+            <Col xs={12} md={6} lg={4}>
               <span style={labelStyle}>Importer: </span>
               <span style={valueStyle}>{props.data.importer}</span>
             </Col>
             <Col xs={12} md={6} lg={3}>
+              <span style={labelStyle}>Importer Ref No: </span>
+              <span style={valueStyle}>{props.data.importer_reference_no || "N/A"}</span>
+            </Col>
+            <Col xs={12} md={6} lg={2.5}>
               <span style={labelStyle}>Importer Type: </span>
               <span style={valueStyle}>{importerTypeOptions.find(opt => opt.value === props.data.importer_type)?.label || props.data.importer_type || "N/A"}</span>
             </Col>
-            <Col xs={12} md={6} lg={3}>
+            <Col xs={12} md={6} lg={2.5}>
               <span style={labelStyle}>Comm. Tax Type: </span>
               <span style={valueStyle}>{commercialTaxTypeOptions.find(opt => opt.value === props.data.commercial_tax_type)?.label || props.data.commercial_tax_type || "N/A"}</span>
             </Col>
@@ -1024,6 +1038,22 @@ function JobDetailsStaticData(props) {
             {errorMsg && <Typography color="error" variant="body2" gutterBottom>{errorMsg}</Typography>}
             <Grid container spacing={2} style={{ marginTop: '5px' }}>
               {Object.keys(editFormData).map((key) => {
+                if (key === "importer_reference_no") {
+                  return (
+                    <Grid item xs={12} sm={6} md={4} lg={3} key={key}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Importer Reference No"
+                        name={key}
+                        value={editFormData[key] || ""}
+                        onChange={(e) => {
+                          setEditFormData(prev => ({ ...prev, [key]: e.target.value.toUpperCase() }));
+                        }}
+                      />
+                    </Grid>
+                  );
+                }
                 if (key === "importer") {
                   return (
                     <Grid item xs={12} sm={6} md={4} lg={3} key={key}>

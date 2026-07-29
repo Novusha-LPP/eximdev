@@ -33,6 +33,7 @@ import {
 import FormControlLabel from "@mui/material/FormControlLabel";
 import { IconButton } from "@mui/material";
 import Autocomplete from "@mui/material/Autocomplete";
+import { CONTAINER_TYPE_OPTIONS } from "../../config/containerTypes";
 import CircularProgress from "@mui/material/CircularProgress";
 import FileUpload from "../../components/gallery/FileUpload";
 import ImagePreview from "../../components/gallery/ImagePreview";
@@ -2854,14 +2855,25 @@ const ImportCreateJob = () => {
                       {!shouldHideField('size', mode) && (
                         <Grid item xs={12} md={2}>
                           <TextField
+                            select
                             fullWidth
                             size="small"
                             variant="outlined"
-                            label="Size"
-                            value={container.size}
+                            label="Size / Type"
+                            value={container.size || ""}
                             onChange={(e) => handleContainerChange(index, "size", e.target.value)}
                             sx={compactInput}
-                          />
+                          >
+                            <MenuItem value="">Select</MenuItem>
+                            {CONTAINER_TYPE_OPTIONS.map((opt) => (
+                              <MenuItem key={opt} value={opt}>
+                                {opt}
+                              </MenuItem>
+                            ))}
+                            {container.size && !CONTAINER_TYPE_OPTIONS.includes(container.size) && (
+                              <MenuItem value={container.size}>{container.size}</MenuItem>
+                            )}
+                          </TextField>
                         </Grid>
                       )}
                       {!shouldHideField('seal_no', mode) && (

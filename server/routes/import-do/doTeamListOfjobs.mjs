@@ -157,10 +157,10 @@ router.get(
         $and: [
           {
             $or: [
-              { shipping_line_airline: { $regex: /CMA CGM AGENCIES INDIA PVT\. LTD\./i } },
+              { shipping_line_airline: { $regex: /CMA CGM AGENCIES (\(INDIA\)|INDIA) PVT\. LTD\./i } },
               {
                 shipping_line_airline: {
-                  $regex: /Ocean Network Express \(India\) Private Limited/i,
+                  $regex: /Ocean Network Express (\(India\) Private Limited|Pte Ltd)/i,
                 },
               },
               {

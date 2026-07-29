@@ -247,9 +247,15 @@ function JobDetailsStaticData(props) {
       "Maersk Line": `https://www.maersk.com/tracking/${blNumber}`,
       "CMA CGM AGENCIES INDIA PVT. LTD":
         "https://www.cma-cgm.com/ebusiness/tracking/search",
+      "CMA CGM AGENCIES (INDIA) PVT. LTD":
+        "https://www.cma-cgm.com/ebusiness/tracking/search",
       "Hapag-Lloyd": `https://www.hapag-lloyd.com/en/online-business/track/track-by-booking-solution.html?blno=${blNumber}`,
       "Trans Asia": `http://182.72.192.230/TASFREIGHT/AppTasnet/ContainerTracking.aspx?&containerno=${containerFirst}&blNo=${blNumber}`,
       "ONE LINE":
+        "https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking",
+      "Ocean Network Express (India) Private Limited":
+        "https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking",
+      "OCEAN NETWORK EXPRESS PTE LTD":
         "https://ecomm.one-line.com/one-ecom/manage-shipment/cargo-tracking",
       HMM: "https://www.hmm21.com/e-service/general/trackNTrace/TrackNTrace.do",
       HYUNDI:

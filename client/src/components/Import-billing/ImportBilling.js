@@ -31,10 +31,108 @@ import { TabContext } from "../import-do/ImportDO.js";
 import { BranchContext } from "../../contexts/BranchContext.js";
 
 import ReceiptIcon from "@mui/icons-material/Receipt";
+import EditIcon from "@mui/icons-material/Edit";
+import toast from "react-hot-toast";
 import ContainerTrackButton from '../ContainerTrackButton';
 import CashVoucher from "./CashVoucher";
 import { downloadInvoiceAsPDF } from "../../utils/invoicePrint.js";
 import * as XLSX from "xlsx";
+
+const ReasonForDelayCell = ({ row, onSaveSuccess }) => {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState(row.reason_for_delay || "");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setReason(row.reason_for_delay || "");
+  }, [row.reason_for_delay]);
+
+  const handleSave = async (e) => {
+    if (e) e.stopPropagation();
+    try {
+      setLoading(true);
+      const res = await axios.put(`${process.env.REACT_APP_API_STRING}/api/update-reason-for-delay`, {
+        jobId: row._id,
+        reason_for_delay: reason,
+      });
+      if (res.data?.success) {
+        toast.success("Reason for delay updated successfully");
+        if (onSaveSuccess) {
+          onSaveSuccess(row._id, res.data.reason_for_delay);
+        }
+        setOpen(false);
+      }
+    } catch (err) {
+      console.error("Failed to update reason for delay:", err);
+      toast.error("Failed to update reason for delay");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }} onClick={(e) => e.stopPropagation()}>
+      <Typography
+        variant="body2"
+        sx={{
+          fontSize: "0.85rem",
+          color: row.reason_for_delay ? "#212529" : "#9e9e9e",
+          fontStyle: row.reason_for_delay ? "normal" : "italic",
+          maxWidth: "160px",
+          wordBreak: "break-word"
+        }}
+      >
+        {row.reason_for_delay || "No reason added"}
+      </Typography>
+      <IconButton
+        size="small"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen(true);
+        }}
+        sx={{ color: "#1976d2", p: 0.3 }}
+        title="Edit Reason for Delay"
+      >
+        <EditIcon sx={{ fontSize: "16px" }} />
+      </IconButton>
+
+      <Dialog
+        open={open}
+        onClose={() => setOpen(false)}
+        onClick={(e) => e.stopPropagation()}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: "bold", fontSize: "1rem" }}>Reason for Delay</DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+            Job No: {row.job_number || row.job_no} | Importer: {row.importer}
+          </Typography>
+          <TextField
+            fullWidth
+            multiline
+            rows={3}
+            size="small"
+            variant="outlined"
+            label="Reason for Delay"
+            placeholder="Enter reason for delay..."
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setOpen(false)} color="secondary" disabled={loading}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave} variant="contained" color="primary" disabled={loading}>
+            {loading ? "Saving..." : "Save"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  );
+};
 
 function ImportBilling({ workMode = 'Payment', isDoView = false }) {
   const { currentTab } = useContext(TabContext); // Access context
@@ -687,6 +785,22 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
                 hour12: true,
               });
           },
+        },
+        {
+          accessorKey: "reason_for_delay",
+          header: "Reason for Delay",
+          enableSorting: false,
+          size: 220,
+          Cell: ({ cell }) => (
+            <ReasonForDelayCell
+              row={cell.row.original}
+              onSaveSuccess={(jobId, newReason) => {
+                setRows((prev) =>
+                  prev.map((r) => (r._id === jobId ? { ...r, reason_for_delay: newReason } : r))
+                );
+              }}
+            />
+          ),
         },
 
         {

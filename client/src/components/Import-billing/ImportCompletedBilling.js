@@ -458,6 +458,17 @@ function ImportCompletedBilling({ workMode = 'Payment' }) {
         },
       },
       {
+        accessorKey: "reason_for_delay",
+        header: "Reason for Delay",
+        enableSorting: false,
+        size: 200,
+        Cell: ({ cell }) => (
+          <Typography variant="body2" sx={{ fontSize: "0.85rem", color: cell.getValue() ? "#212529" : "#9e9e9e", fontStyle: cell.getValue() ? "normal" : "italic" }}>
+            {cell.getValue() || "N/A"}
+          </Typography>
+        ),
+      },
+      {
         accessorKey: "bill_document_sent_to_accounts",
         header: "Bill Doc Sent To Accounts",
         enableSorting: false,

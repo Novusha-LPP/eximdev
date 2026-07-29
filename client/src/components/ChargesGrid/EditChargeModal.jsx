@@ -161,6 +161,7 @@ const EditChargeModal = ({
   const [generalOrgs, setGeneralOrgs] = useState([]);
   const [cfsList, setCfsList] = useState([]);
   const [chargeHeads, setChargeHeads] = useState([]);
+  const [createdVirtualTerminals, setCreatedVirtualTerminals] = useState([]);
 
   const [showLogs, setShowLogs] = useState({ open: false, chargeId: null, chargeName: '' });
   const [chargeLogs, setChargeLogs] = useState([]);
@@ -213,14 +214,15 @@ const EditChargeModal = ({
   useEffect(() => {
     const fetchMasterData = async () => {
       try {
-        const [slRes, supRes, orgRes, genOrgRes, cfsRes, transRes, chRes] = await Promise.all([
+        const [slRes, supRes, orgRes, genOrgRes, cfsRes, transRes, chRes, vbRes] = await Promise.all([
           axios.get(`${process.env.REACT_APP_API_STRING}/get-shipping-lines`),
           axios.get(`${process.env.REACT_APP_API_STRING}/get-suppliers`),
           axios.get(`${process.env.REACT_APP_API_STRING}/organization`),
           axios.get(`${process.env.REACT_APP_API_STRING}/get-general-orgs`),
           axios.get(`${process.env.REACT_APP_API_STRING}/get-cfs-list`),
           axios.get(`${process.env.REACT_APP_API_STRING}/get-transporters`),
-          axios.get(`${process.env.REACT_APP_API_STRING}/charge-heads`)
+          axios.get(`${process.env.REACT_APP_API_STRING}/charge-heads`),
+          axios.get(`${process.env.REACT_APP_API_STRING}/api/virtual-balance/created-terminals`).catch(() => ({ data: { data: [] } }))
         ]);
         setShippingLines(slRes.data);
         setSuppliers(supRes.data);
@@ -229,12 +231,28 @@ const EditChargeModal = ({
         setCfsList(cfsRes.data);
         setTransporters(transRes.data);
         setChargeHeads(chRes.data?.data || []);
+        if (vbRes?.data?.success && Array.isArray(vbRes.data.data)) {
+          setCreatedVirtualTerminals(vbRes.data.data.map(t => (t || '').trim().toUpperCase()));
+        }
       } catch (error) {
         console.error("Error fetching master data:", error);
       }
     };
     fetchMasterData();
   }, []);
+
+  // Re-fetch created virtual balance terminals whenever the modal opens
+  useEffect(() => {
+    if (isOpen) {
+      axios.get(`${process.env.REACT_APP_API_STRING}/virtual-balance/created-terminals`)
+        .then(res => {
+          if (res.data?.success && Array.isArray(res.data.data)) {
+            setCreatedVirtualTerminals(res.data.data.map(t => (t || '').trim().toUpperCase()));
+          }
+        })
+        .catch(err => console.error("Error updating created virtual terminals:", err));
+    }
+  }, [isOpen]);
 
   // Fetch Payment Request Audit Info on demand
   useEffect(() => {
@@ -1497,26 +1515,31 @@ const EditChargeModal = ({
                                      t => (t.name || t.organization || '').trim().toUpperCase() === (row.cost?.partyName || '').trim().toUpperCase()
                                    );
                                    if (isTypeTerminal || isPartyTerminal) {
+                                     const allAvailableNames = [...new Set([
+                                        ...createdVirtualTerminals,
+                                        ...(row.cost?.virtualBalanceTerminal ? [row.cost.virtualBalanceTerminal] : [])
+                                      ])].filter((name) => Boolean(name) && name.trim().toUpperCase() !== (row.cost?.partyName || '').trim().toUpperCase());
+
                                      return (
                                        <div className="charges-ep-row">
                                          <span className="charges-ep-label" style={{ fontWeight: 'bold', color: '#0284c7' }}>Virtual Balance Terminal</span>
                                          <select
                                            className="charges-ep-select"
-                                           disabled={effectiveReadOnly}
+                                           disabled={false}
                                            style={{ borderColor: '#38bdf8', backgroundColor: '#f0f9ff', fontWeight: '500' }}
                                            value={row.cost?.virtualBalanceTerminal || ''}
-                                           onChange={e => handleFieldChange(i, 'virtualBalanceTerminal', e.target.value, 'cost')}
+                                           onChange={e => {
+                                             handleFieldChange(i, 'virtualBalanceTerminal', e.target.value, 'cost');
+                                             triggerAutoSave(i, true);
+                                           }}
                                            onBlur={() => triggerAutoSave(i, true)}
                                          >
                                            <option value="">Same as Payable To ({row.cost?.partyName || 'Terminal'})</option>
-                                           {(cfsList || []).map((term, tIdx) => {
-                                             const tName = term.name || term.organization;
-                                             return (
-                                               <option key={tIdx} value={tName}>
-                                                 {tName}
-                                               </option>
-                                             );
-                                           })}
+                                           {allAvailableNames.map((tName, tIdx) => (
+                                             <option key={tIdx} value={tName}>
+                                               {tName}
+                                             </option>
+                                           ))}
                                          </select>
                                        </div>
                                      );

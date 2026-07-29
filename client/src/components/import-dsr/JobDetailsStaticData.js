@@ -61,6 +61,7 @@ function JobDetailsStaticData(props) {
       job_no: props.params.job_no || "",
       custom_house: props.data?.custom_house || "",
       importer_reference_no: props.data?.importer_reference_no || "",
+      reason_for_delay: props.data?.reason_for_delay || "",
       importer: props.data?.importer || "",
       awb_bl_no: props.data?.awb_bl_no || "",
       be_no: props.data?.be_no || "",

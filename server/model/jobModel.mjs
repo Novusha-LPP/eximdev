@@ -321,6 +321,7 @@ const jobSchema = new mongoose.Schema({
 
   custom_house: { type: String, trim: true },
   importer_reference_no: { type: String, trim: true },
+  reason_for_delay: { type: String, trim: true },
   job_date: { type: String, trim: true },
   importer: { type: String, trim: true },
   importer_type: { type: String, trim: true },

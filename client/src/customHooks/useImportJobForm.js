@@ -1778,9 +1778,10 @@ const useImportJobForm = () => {
 
   // Container handlers
   const handleAddContainer = () => {
+    const defaultSize = container_nos.length > 0 ? (container_nos[0]?.size || "") : "";
     const newContainer = sanitizeContainerPayload({
       container_number: "",
-      size: "",
+      size: defaultSize,
       seal_no: "",
       container_gross_weight: "",
       net_weight_as_per_PL_document: "",
@@ -1798,7 +1799,17 @@ const useImportJobForm = () => {
 
   const handleContainerChange = (index, field, value) => {
     const updatedContainers = [...container_nos];
+    const prevFirstSize = container_nos[0]?.size || "";
     updatedContainers[index][field] = value;
+
+    if (index === 0 && field === "size") {
+      for (let i = 1; i < updatedContainers.length; i++) {
+        if (!updatedContainers[i].size || updatedContainers[i].size === prevFirstSize) {
+          updatedContainers[i].size = value;
+        }
+      }
+    }
+
     setContainerNos(updatedContainers);
   };
 

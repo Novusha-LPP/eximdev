@@ -63,6 +63,7 @@ import { Edit, Delete } from "@mui/icons-material";
 import FileUpload from "../../components/gallery/FileUpload.js";
 import ConfirmDialog from "../../components/gallery/ConfirmDialog.js";
 import { TabContext } from "../documentation/DocumentationTab.js";
+import { CONTAINER_TYPE_OPTIONS } from "../../config/containerTypes";
 import DeliveryChallanPdf from "./DeliveryChallanPDF.js";
 import IgstModal from "../gallery/IgstModal.js";
 import IgstCalculationPDF from "./IgstCalculationPDF.js";
@@ -5646,10 +5647,15 @@ function JobDetails() {
                       >
                         <div style={{ fontWeight: "600", color: "#495057", fontSize: "0.9rem" }}>
                           {container.container_number || `${getContainerOrPackageLabel(data?.mode)} ${i + 1}`}
+                          {container.size && !isAirMode(data?.mode) && (
+                            <span style={{ fontSize: "0.8rem", color: "#28a745", fontWeight: "600", marginLeft: "6px" }}>
+                              ({container.size})
+                            </span>
+                          )}
                         </div>
                         {container.size && !isAirMode(data?.mode) && (
-                          <div style={{ fontSize: "0.9rem", color: "#000000" }}>
-                            Size: {container.size}
+                          <div style={{ fontSize: "0.85rem", color: "#6c757d" }}>
+                            Size/Type: {container.size}
                           </div>
                         )}
                       </div>
@@ -5761,6 +5767,11 @@ function JobDetails() {
                                   }}
                                 />
                               </span>
+                              {container.size && !isAirMode(data?.mode) && (
+                                <span style={{ color: "#28a745", fontWeight: "600", fontSize: "0.85rem", backgroundColor: "#e8f5e9", padding: "2px 8px", borderRadius: "4px", border: "1px solid #c8e6c9" }}>
+                                  {container.size}
+                                </span>
+                              )}
                             </h6>
                             <IconButton
                               onClick={() =>
@@ -5793,19 +5804,26 @@ function JobDetails() {
                           <Row className="mb-3">
                             {!isAirMode(data?.mode) && (
                               <Col xs={12} md={3} lg={2} className="mb-3">
-                                <label style={labelStyle}>Size</label>
+                                <label style={labelStyle}>Size / Type</label>
                                 <TextField
                                   select
                                   fullWidth
                                   size="small"
                                   variant="outlined"
                                   name={`container_nos[${index}].size`}
-                                  value={container.size}
+                                  value={container.size || ""}
                                   onChange={formik.handleChange}
                                   sx={compactInputSx}
                                 >
-                                  <MenuItem value="20">20</MenuItem>
-                                  <MenuItem value="40">40</MenuItem>
+                                  <MenuItem value="">Select</MenuItem>
+                                  {CONTAINER_TYPE_OPTIONS.map((opt) => (
+                                    <MenuItem key={opt} value={opt}>
+                                      {opt}
+                                    </MenuItem>
+                                  ))}
+                                  {container.size && !CONTAINER_TYPE_OPTIONS.includes(container.size) && (
+                                    <MenuItem value={container.size}>{container.size}</MenuItem>
+                                  )}
                                 </TextField>
                               </Col>
                             )}

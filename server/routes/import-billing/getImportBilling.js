@@ -2059,4 +2059,31 @@ router.post("/api/add-general-job", async (req, res) => {
   }
 });
 
+// PUT route to update Reason for Delay for a job
+router.put("/api/update-reason-for-delay", async (req, res) => {
+  try {
+    const { jobId, reason_for_delay } = req.body;
+    if (!jobId) {
+      return res.status(400).json({ success: false, message: "Job ID is required" });
+    }
+    const updatedJob = await JobModel.findByIdAndUpdate(
+      jobId,
+      { reason_for_delay: reason_for_delay !== undefined ? reason_for_delay.trim() : "" },
+      { new: true }
+    );
+    if (!updatedJob) {
+      return res.status(404).json({ success: false, message: "Job not found" });
+    }
+    return res.status(200).json({
+      success: true,
+      message: "Reason for delay updated successfully",
+      reason_for_delay: updatedJob.reason_for_delay || "",
+      job: updatedJob
+    });
+  } catch (err) {
+    console.error("Error updating reason for delay:", err);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+});
+
 export default router;

@@ -208,12 +208,13 @@ router.put('/charges/:id', verifyToken, async (req, res) => {
     
     if (req.body.cost) {
       if (isLocked) {
-        // Only allow updating attachments when locked
+        // Allow updating attachments and virtualBalanceTerminal when locked
         const currentCost = charge.cost ? charge.cost.toObject() : {};
         const updatedCost = { ...currentCost };
         if (req.body.cost.url !== undefined) updatedCost.url = req.body.cost.url;
         if (req.body.cost.url_draft !== undefined) updatedCost.url_draft = req.body.cost.url_draft;
         if (req.body.cost.url_final !== undefined) updatedCost.url_final = req.body.cost.url_final;
+        if (req.body.cost.virtualBalanceTerminal !== undefined) updatedCost.virtualBalanceTerminal = req.body.cost.virtualBalanceTerminal;
         charge.cost = updatedCost;
       } else {
         charge.cost = { ...(charge.cost ? charge.cost.toObject() : {}), ...req.body.cost };

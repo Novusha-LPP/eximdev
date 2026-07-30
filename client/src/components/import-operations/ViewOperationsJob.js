@@ -64,11 +64,13 @@ function ViewOperationsJob() {
   const { selectedJobId, searchQuery, page } = location.state || {};
 
   const handleAddContainer = () => {
+    const containersList = formik.values.container_nos || [];
+    const defaultSize = containersList.length > 0 ? (containersList[0]?.size || "") : "";
     const newContainer = {
       container_number: "",
       arrival_date: "",
       detention_from: "",
-      size: "",
+      size: defaultSize,
       net_weight: "",
       container_gross_weight: "",
       pre_weighment: "",

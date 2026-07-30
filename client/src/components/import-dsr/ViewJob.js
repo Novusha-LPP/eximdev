@@ -1201,11 +1201,12 @@ function JobDetails() {
   };
 
   const handleAddContainer = () => {
+    const defaultSize = formik.values.container_nos?.length > 0 ? (formik.values.container_nos[0]?.size || "") : "";
     formik.setFieldValue("container_nos", [
       ...formik.values.container_nos,
       {
         container_number: "",
-        size: "",
+        size: defaultSize,
         arrival_date: "",
         do_validity_upto_container_level: "",
         do_revalidation_date: "",
@@ -5812,7 +5813,21 @@ function JobDetails() {
                                   variant="outlined"
                                   name={`container_nos[${index}].size`}
                                   value={container.size || ""}
-                                  onChange={formik.handleChange}
+                                  onChange={(e) => {
+                                    const newSize = e.target.value;
+                                    const prevFirstSize = formik.values.container_nos[0]?.size || "";
+                                    formik.handleChange(e);
+                                    if (index === 0) {
+                                      const updatedContainers = formik.values.container_nos.map((c, i) => {
+                                        if (i === 0) return { ...c, size: newSize };
+                                        if (!c.size || c.size === prevFirstSize) {
+                                          return { ...c, size: newSize };
+                                        }
+                                        return c;
+                                      });
+                                      formik.setFieldValue("container_nos", updatedContainers);
+                                    }
+                                  }}
                                   sx={compactInputSx}
                                 >
                                   <MenuItem value="">Select</MenuItem>

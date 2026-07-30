@@ -201,7 +201,24 @@ async function buildJobPayload(job_number, isPreview = false, senderID = "SURAJA
         { code: new RegExp(`^${resolvedCustomHouseCode}$`, "i") },
       ],
     }).lean();
-    if (chDoc) resolvedCustomHouseCode = chDoc.code;
+    if (chDoc) {
+      resolvedCustomHouseCode = chDoc.code;
+    } else {
+      // Fallback: Check branches collection's ports list dynamically
+      const activeBranches = await BranchModel.find({ is_active: true }).lean();
+      for (const branch of activeBranches) {
+        if (branch.ports) {
+          const port = branch.ports.find(p => 
+            p.port_name.toLowerCase() === resolvedCustomHouseCode.toLowerCase() ||
+            p.port_code.toLowerCase() === resolvedCustomHouseCode.toLowerCase()
+          );
+          if (port) {
+            resolvedCustomHouseCode = port.port_code;
+            break;
+          }
+        }
+      }
+    }
   }
 
   // Port of Origin lookup
@@ -668,7 +685,24 @@ router.get("/api/scmCube/job-data-preview", async (req, res) => {
           { code: new RegExp(`^${resolvedCustomHouseCode}$`, "i") },
         ],
       }).lean();
-      if (chDoc) resolvedCustomHouseCode = chDoc.code;
+      if (chDoc) {
+        resolvedCustomHouseCode = chDoc.code;
+      } else {
+        // Fallback: Check branches collection's ports list dynamically
+        const activeBranches = await BranchModel.find({ is_active: true }).lean();
+        for (const branch of activeBranches) {
+          if (branch.ports) {
+            const port = branch.ports.find(p => 
+              p.port_name.toLowerCase() === resolvedCustomHouseCode.toLowerCase() ||
+              p.port_code.toLowerCase() === resolvedCustomHouseCode.toLowerCase()
+            );
+            if (port) {
+              resolvedCustomHouseCode = port.port_code;
+              break;
+            }
+          }
+        }
+      }
     }
 
     // Port of Origin lookup
@@ -1159,8 +1193,24 @@ router.post("/api/scmCube/sync-imexcube-job", authMiddleware, auditMiddleware('J
       // Custom Port
       if (isValuePresent(be.CustomPort)) {
         const portCode = String(be.CustomPort).toUpperCase();
-        const chDoc = await CustomHouseModel.findOne({ code: portCode }).lean();
-        const resolvedName = chDoc ? chDoc.name : portCode;
+        let chDoc = await CustomHouseModel.findOne({ code: portCode }).lean();
+        let resolvedName = chDoc ? chDoc.name : null;
+        if (!resolvedName) {
+          // Fallback: Check branches collection's ports list dynamically
+          const activeBranches = await BranchModel.find({ is_active: true }).lean();
+          for (const branch of activeBranches) {
+            if (branch.ports) {
+              const port = branch.ports.find(p => p.port_code.toUpperCase() === portCode);
+              if (port) {
+                resolvedName = port.port_name;
+                break;
+              }
+            }
+          }
+        }
+        if (!resolvedName) {
+          resolvedName = portCode;
+        }
         if (job.custom_house !== resolvedName) {
           updates.custom_house = resolvedName;
           changesSummary.push(`custom_house: ${job.custom_house || 'none'} -> ${resolvedName}`);

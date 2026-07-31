@@ -1164,4 +1164,221 @@ router.get("/transactions", authApiKey, async (req, res) => {
   }
 });
 
+/**
+ * Automatically formats a single raw bill number from Tally (e.g. "0001", "1")
+ * into the official branch bill number for Import (e.g. GIA/00001/26-27, GG/IA/0001/26-27, GH/IA/0001/26-27).
+ */
+const formatTallyBillNumber = (rawBillNo, job = {}, fallbackType = "IMPORT", billCategory = "AGENCY") => {
+    if (!rawBillNo) return "";
+    const cleanBill = String(rawBillNo).trim();
+    if (!cleanBill) return "";
+
+    if (cleanBill.includes("/")) {
+        return cleanBill;
+    }
+
+    const seq = parseInt(cleanBill, 10);
+    if (isNaN(seq)) return cleanBill;
+
+    const jobNoStr = String(job.job_no || job.job_number || job.jobNo || "").toUpperCase();
+    const branchCode = String(job.branch_code || job.branch || "").toUpperCase();
+    const isImport = true;
+    const isReimb = billCategory === "REIMBURSEMENT" || billCategory === "REIMB" || billCategory === "ER" || billCategory === "IR";
+
+    let yearStr = job.year || job.financial_year || "";
+    if (!yearStr && jobNoStr.includes("/")) {
+        const parts = jobNoStr.split("/");
+        const lastPart = parts[parts.length - 1];
+        if (/^\d{2}-\d{2}$|^\d{4}-\d{4}$/.test(lastPart)) {
+            yearStr = lastPart;
+        }
+    }
+    if (!yearStr) {
+        yearStr = "26-27";
+    }
+
+    const isHazira = branchCode.includes("HAZ") || branchCode.includes("GH") || jobNoStr.startsWith("HAZ") || jobNoStr.includes("/HAZ/");
+    const isGandhidham = branchCode.includes("GND") || branchCode.includes("GAN") || branchCode.includes("GG") || jobNoStr.startsWith("GND") || jobNoStr.includes("/GND/");
+    const isCochin = branchCode.includes("COK") || branchCode.includes("COC") || branchCode.includes("GC") || jobNoStr.startsWith("COK") || jobNoStr.includes("/COK/");
+    const isBaroda = branchCode.includes("BAR") || branchCode.includes("GB") || jobNoStr.startsWith("BAR") || jobNoStr.includes("/BAR/");
+
+    if (isHazira) {
+        const prefix = isReimb ? "GH/IR" : "GH/IA";
+        return `${prefix}/${seq.toString().padStart(4, '0')}/${yearStr}`;
+    }
+
+    if (isGandhidham) {
+        const prefix = isReimb ? "GG/IR" : "GG/IA";
+        return `${prefix}/${seq.toString().padStart(4, '0')}/${yearStr}`;
+    }
+
+    if (isCochin) {
+        const prefix = isReimb ? "GC/IR" : "GC/IA";
+        return `${prefix}/${seq.toString().padStart(4, '0')}/${yearStr}`;
+    }
+
+    if (isBaroda) {
+        const prefix = isReimb ? "GB/IR" : "GB/IA";
+        return `${prefix}/${seq.toString().padStart(4, '0')}/${yearStr}`;
+    }
+
+    // Default: Ahmedabad
+    const prefix = isReimb ? "GIR" : "GIA";
+    return `${prefix}/${seq.toString().padStart(5, '0')}/${yearStr}`;
+};
+
+/**
+ * @api {post} /api/tally/billing-details Push/Update billing details from Tally for Import jobs
+ * Protected by authApiKey middleware (Header: x-api-key: <TALLY_KEY> or Authorization: Bearer <TALLY_KEY>)
+ */
+const updateImportBillingDetailsHandler = async (req, res) => {
+    try {
+        const {
+            job_no,
+            jobNo,
+            job_number,
+            bill_no,
+            billNo,
+            bill_number,
+            bill_date,
+            billDate,
+            bill_amount,
+            billAmount,
+            bill_doc,
+            billDoc,
+            agency_bill_no,
+            agencyBillNo,
+            agency_bill_date,
+            agencyBillDate,
+            agency_bill_amount,
+            agencyBillAmount,
+            agency_bill_doc,
+            agencyBillDoc,
+            reimbursement_bill_no,
+            reimbursementBillNo,
+            reimbursement_bill_date,
+            reimbursementBillDate,
+            reimbursement_bill_amount,
+            reimbursementBillAmount,
+            reimbursement_bill_doc,
+            reimbursementBillDoc
+        } = req.body;
+
+        const targetJobNo = (job_no || jobNo || job_number || "").trim();
+        if (!targetJobNo) {
+            return res.status(400).json({ error: "job_no is required in request body" });
+        }
+
+        const rawAgencyNo = bill_no || billNo || bill_number || agency_bill_no || agencyBillNo || "";
+        const rawAgencyDate = bill_date || billDate || agency_bill_date || agencyBillDate;
+        const rawAgencyAmt = (bill_amount ?? billAmount ?? agency_bill_amount ?? agencyBillAmount);
+        const rawAgencyDoc = bill_doc || billDoc || agency_bill_doc || agencyBillDoc || "";
+
+        const rawReimbNo = reimbursement_bill_no || reimbursementBillNo || "";
+        const rawReimbDate = reimbursement_bill_date || reimbursementBillDate;
+        const rawReimbAmt = (reimbursement_bill_amount ?? reimbursementBillAmount);
+        const rawReimbDoc = reimbursement_bill_doc || reimbursementBillDoc || "";
+
+        const conditions = resolveJobNumberQuery(targetJobNo);
+        const matchingJobs = await JobModel.find({ $or: conditions }).limit(20).lean();
+        if (!matchingJobs || matchingJobs.length === 0) {
+            return res.status(404).json({ error: `No Import job found with job_no '${targetJobNo}'` });
+        }
+
+        let doc = matchingJobs[0];
+        if (matchingJobs.length > 1) {
+            const scoredJobs = matchingJobs.map(j => ({
+                job: j,
+                score: scoreJob(j, targetJobNo)
+            })).sort((a, b) => b.score - a.score);
+            doc = scoredJobs[0].job;
+        }
+
+        const matchedJobNo = doc.job_no || doc.job_number || doc.jobNo || targetJobNo;
+
+        const agencyNo = formatTallyBillNumber(rawAgencyNo, doc, "IMPORT", "AGENCY");
+        const agencyDate = normalizeDate(rawAgencyDate);
+        const agencyAmt = (rawAgencyAmt !== undefined && rawAgencyAmt !== null && rawAgencyAmt !== "") ? Number(rawAgencyAmt) : undefined;
+        const agencyDoc = rawAgencyDoc;
+
+        const reimbNo = formatTallyBillNumber(rawReimbNo, doc, "IMPORT", "REIMBURSEMENT");
+        const reimbDate = normalizeDate(rawReimbDate);
+        const reimbAmt = (rawReimbAmt !== undefined && rawReimbAmt !== null && rawReimbAmt !== "") ? Number(rawReimbAmt) : undefined;
+        const reimbDoc = rawReimbDoc;
+
+        const existingBDetails = doc.billing_details || {};
+        const finalAgencyNo = agencyNo || existingBDetails.agency_bill_no || "";
+        const finalAgencyDate = agencyDate || existingBDetails.agency_bill_date || "";
+        const finalAgencyAmt = agencyAmt !== undefined ? agencyAmt : existingBDetails.agency_bill_amount;
+        const finalAgencyDoc = agencyDoc || existingBDetails.agency_bill_doc || "";
+
+        const finalReimbNo = reimbNo || existingBDetails.reimbursement_bill_no || "";
+        const finalReimbDate = reimbDate || existingBDetails.reimbursement_bill_date || "";
+        const finalReimbAmt = reimbAmt !== undefined ? reimbAmt : existingBDetails.reimbursement_bill_amount;
+        const finalReimbDoc = reimbDoc || existingBDetails.reimbursement_bill_doc || "";
+
+        const setObj = {};
+        if (finalAgencyNo) {
+            setObj["billing_details.agency_bill_no"] = finalAgencyNo;
+            setObj["agency_bill_no"] = finalAgencyNo;
+        }
+        if (finalAgencyDate) {
+            setObj["billing_details.agency_bill_date"] = finalAgencyDate;
+            setObj["agency_bill_date"] = finalAgencyDate;
+        }
+        if (finalAgencyAmt !== undefined) {
+            setObj["billing_details.agency_bill_amount"] = finalAgencyAmt;
+            setObj["agency_bill_amount"] = finalAgencyAmt;
+        }
+        if (finalAgencyDoc) {
+            setObj["billing_details.agency_bill_doc"] = finalAgencyDoc;
+            setObj["agency_bill_doc"] = finalAgencyDoc;
+        }
+
+        if (finalReimbNo) {
+            setObj["billing_details.reimbursement_bill_no"] = finalReimbNo;
+            setObj["reimbursement_bill_no"] = finalReimbNo;
+        }
+        if (finalReimbDate) {
+            setObj["billing_details.reimbursement_bill_date"] = finalReimbDate;
+            setObj["reimbursement_bill_date"] = finalReimbDate;
+        }
+        if (finalReimbAmt !== undefined) {
+            setObj["billing_details.reimbursement_bill_amount"] = finalReimbAmt;
+            setObj["reimbursement_bill_amount"] = finalReimbAmt;
+        }
+        if (finalReimbDoc) {
+            setObj["billing_details.reimbursement_bill_doc"] = finalReimbDoc;
+            setObj["reimbursement_bill_doc"] = finalReimbDoc;
+        }
+        setObj["updatedAt"] = new Date();
+
+        await JobModel.updateOne({ _id: doc._id }, { $set: setObj });
+
+        return res.status(200).json({
+            success: true,
+            message: "Billing details updated successfully by Tally API for IMPORT job",
+            job_no: matchedJobNo,
+            job_type: "IMPORT",
+            billing_details: {
+                agency_bill_no: finalAgencyNo,
+                agency_bill_date: finalAgencyDate,
+                agency_bill_amount: finalAgencyAmt !== undefined ? finalAgencyAmt : 0,
+                agency_bill_doc: finalAgencyDoc,
+                reimbursement_bill_no: finalReimbNo,
+                reimbursement_bill_date: finalReimbDate,
+                reimbursement_bill_amount: finalReimbAmt !== undefined ? finalReimbAmt : 0,
+                reimbursement_bill_doc: finalReimbDoc
+            }
+        });
+
+    } catch (error) {
+        console.error("POST Billing Details Error (Import):", error);
+        res.status(500).json({ error: "Internal Server Error updating billing details for Import job" });
+    }
+};
+
+router.post("/billing-details", authApiKey, updateImportBillingDetailsHandler);
+router.put("/billing-details", authApiKey, updateImportBillingDetailsHandler);
+
 export default router;

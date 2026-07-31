@@ -129,6 +129,21 @@ router.get("/api/scmCube/job-data", authApiKey, async (req, res) => {
       }).lean();
       if (chDoc) {
         resolvedCustomHouseCode = chDoc.code;
+      } else {
+        // Fallback: Check branches collection's ports list dynamically
+        const activeBranches = await BranchModel.find({ is_active: true }).lean();
+        for (const branch of activeBranches) {
+          if (branch.ports) {
+            const port = branch.ports.find(p => 
+              p.port_name.toLowerCase() === resolvedCustomHouseCode.toLowerCase() ||
+              p.port_code.toLowerCase() === resolvedCustomHouseCode.toLowerCase()
+            );
+            if (port) {
+              resolvedCustomHouseCode = port.port_code;
+              break;
+            }
+          }
+        }
       }
     }
 

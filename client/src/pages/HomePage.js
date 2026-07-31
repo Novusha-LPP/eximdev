@@ -25,6 +25,7 @@ import JobMigrationUtility from "../components/admin/JobMigrationUtility.js";
 
 // Accounts
 import Accounts from "../components/accounts/Accounts.js";
+import TallyTransactions from "../components/tally/TallyTransactions.jsx";
 // Documentation
 import DocumentationJob from "../components/documentation/DocumentationJob.js";
 
@@ -464,6 +465,14 @@ function HomePageContent() {
                   element={
                     <ProtectedRoute requiredModule={["Accounts", "Bill Cover"]}>
                       <Accounts />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/tally-transactions"
+                  element={
+                    <ProtectedRoute requiredModule="Tally Transactions">
+                      <TallyTransactions />
                     </ProtectedRoute>
                   }
                 />

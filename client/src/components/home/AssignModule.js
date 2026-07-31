@@ -46,7 +46,8 @@ const allModules = [
   "MasterDirectory",
   "Attendance",
   "Bill Cover",
-  "Karma Points"
+  "Karma Points",
+  "Tally Transactions"
 ];
 
 // allowedModules: if provided, only these modules can be assigned (for HOD restriction)

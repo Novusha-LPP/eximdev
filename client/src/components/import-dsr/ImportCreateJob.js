@@ -32,7 +32,7 @@ import {
 } from "@mui/material";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import { IconButton } from "@mui/material";
-import Autocomplete from "@mui/material/Autocomplete";
+import MuiAutocomplete from "@mui/material/Autocomplete";
 import { CONTAINER_TYPE_OPTIONS } from "../../config/containerTypes";
 import CircularProgress from "@mui/material/CircularProgress";
 import FileUpload from "../../components/gallery/FileUpload";
@@ -69,6 +69,10 @@ import {
   isAirMode,
   shouldHideField
 } from "../../utils/modeLogic";
+
+const Autocomplete = (props) => (
+  <MuiAutocomplete autoHighlight autoSelect selectOnFocus {...props} />
+);
 
 const steps = [
   { label: 'General Info', icon: <BusinessIcon /> },
@@ -381,6 +385,10 @@ const ImportCreateJob = () => {
     addInvoicePoDetail,
     removeInvoicePoDetail,
     updateInvoicePoDetail,
+    hasDraft,
+    lastDraftSaved,
+    saveDraft,
+    clearDraft,
   } = useImportJobForm();
 
   const handleHssChange = (val) => {
@@ -813,36 +821,81 @@ const ImportCreateJob = () => {
               </Typography>
             </Box>
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+            {!isEditMode && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                {hasDraft && (
+                  <Box sx={{
+                    px: 1.5,
+                    py: 0.5,
+                    borderRadius: '20px',
+                    bgcolor: 'rgba(74, 222, 128, 0.15)',
+                    border: '1px solid rgba(74, 222, 128, 0.4)',
+                    color: '#4ade80',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.8
+                  }}>
+                    <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: '#4ade80' }} />
+                    <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                      {lastDraftSaved ? `Draft Saved (${new Date(lastDraftSaved).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})` : 'Draft Auto-Saved'}
+                    </Typography>
+                  </Box>
+                )}
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => {
+                    if (window.confirm("Are you sure you want to clear the form draft and reset all fields?")) {
+                      clearDraft(true);
+                    }
+                  }}
+                  sx={{
+                    color: '#f87171',
+                    borderColor: 'rgba(248, 113, 113, 0.4)',
+                    textTransform: 'none',
+                    borderRadius: '8px',
+                    fontWeight: 600,
+                    fontSize: '0.8rem',
+                    '&:hover': { borderColor: '#f87171', bgcolor: 'rgba(239, 68, 68, 0.1)' }
+                  }}
+                >
+                  Clear Form
+                </Button>
+              </Box>
+            )}
+
             <Box sx={{ textAlign: 'right', display: { xs: 'none', md: 'block' } }}>
               <Typography variant="caption" sx={{ opacity: 0.7, textTransform: 'uppercase', fontWeight: 700 }}>
                 Financial Year
               </Typography>
               <Box sx={{ mt: 0.5 }}>
-                <TextField
-                  select
-                  size="small"
-                  value={selectedYear}
-                  onChange={(e) => setSelectedYear(e.target.value)}
-                  sx={{
-                    width: 120,
-                    '& .MuiOutlinedInput-root': {
-                      bgcolor: 'rgba(255,255,255,0.1)',
-                      color: 'white',
-                      borderRadius: '8px',
-                      fontWeight: 600,
-                      '& fieldset': { border: 'none' },
-                      '&:hover': { bgcolor: 'rgba(255,255,255,0.15)' },
-                    },
-                    '& .MuiSelect-icon': { color: 'white' }
-                  }}
-                >
-                  {years.map((yr, index) => (
-                    <MenuItem key={`year-${yr}-${index}`} value={yr}>
-                      {yr}
-                    </MenuItem>
-                  ))}
-                </TextField>
+                <Autocomplete
+                  options={years}
+                  value={selectedYear || ""}
+                  onChange={(event, newValue) => setSelectedYear(newValue || "")}
+                  disableClearable
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      size="small"
+                      sx={{
+                        width: 130,
+                        '& .MuiOutlinedInput-root': {
+                          bgcolor: 'rgba(255,255,255,0.1)',
+                          color: 'white',
+                          borderRadius: '8px',
+                          fontWeight: 600,
+                          fontSize: '0.85rem',
+                          '& fieldset': { border: 'none' },
+                          '&:hover': { bgcolor: 'rgba(255,255,255,0.15)' },
+                        },
+                        '& .MuiInputBase-input': { color: 'white !important' },
+                        '& .MuiSvgIcon-root': { color: 'white !important' }
+                      }}
+                    />
+                  )}
+                />
               </Box>
             </Box>
           </Box>
@@ -912,49 +965,51 @@ const ImportCreateJob = () => {
                       </FormField>
                     )}
                     <FormField label="Select Branch">
-                      <TextField
-                        select
-                        fullWidth
-                        size="small"
-                        value={branch_id}
-                        onChange={(e) => setBranchId(e.target.value)}
-                        variant="outlined"
-                        sx={compactInput}
-                      >
-                        {branches
-                          .filter(b => b.category === mode)
-                          .map((b) => (
-                            <MenuItem key={b._id} value={b._id}>
-                              {b.branch_name} ({b.branch_code})
-                            </MenuItem>
-                          ))}
-                      </TextField>
+                      <Autocomplete
+                        options={branches.filter(b => b.category === mode)}
+                        getOptionLabel={(b) => typeof b === 'string' ? b : `${b.branch_name} (${b.branch_code})`}
+                        value={branches.find(b => b._id === branch_id) || null}
+                        onChange={(event, newValue) => {
+                          setBranchId(newValue ? newValue._id : "");
+                        }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            variant="outlined"
+                            size="small"
+                            placeholder="Select Branch"
+                            fullWidth
+                            sx={compactInput}
+                          />
+                        )}
+                      />
                     </FormField>
 
                     <FormField label="Trade Type">
-                      <TextField
-                        select
-                        fullWidth
-                        size="small"
-                        value={trade_type}
-                        onChange={(e) => setTradeType(e.target.value)}
-                        variant="outlined"
+                      <Autocomplete
                         disabled
-                        sx={compactInput}
-                      >
-                        <MenuItem value="IMP">Import</MenuItem>
-                        <MenuItem value="EXP">Export</MenuItem>
-                      </TextField>
+                        options={[{ value: "IMP", label: "Import" }, { value: "EXP", label: "Export" }]}
+                        getOptionLabel={(opt) => typeof opt === 'string' ? opt : opt.label}
+                        value={{ value: trade_type, label: trade_type === "EXP" ? "Export" : "Import" }}
+                        onChange={(event, newValue) => setTradeType(newValue ? newValue.value : "IMP")}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            variant="outlined"
+                            size="small"
+                            fullWidth
+                            sx={compactInput}
+                          />
+                        )}
+                      />
                     </FormField>
 
                     <FormField label="Mode">
-                      <TextField
-                        select
-                        fullWidth
-                        size="small"
+                      <Autocomplete
+                        options={["SEA", "AIR", "ROAD", "RAIL"]}
                         value={mode}
-                        onChange={(e) => {
-                          const newMode = e.target.value;
+                        onChange={(event, newValue) => {
+                          const newMode = newValue || "SEA";
                           setMode(newMode);
                           const currentBranch = branches.find(b => b._id === branch_id);
                           const validBranches = branches.filter(b => b.category === newMode);
@@ -967,12 +1022,17 @@ const ImportCreateJob = () => {
                             setBranchId("");
                           }
                         }}
-                        variant="outlined"
-                        sx={compactInput}
-                      >
-                        <MenuItem value="SEA">SEA</MenuItem>
-                        <MenuItem value="AIR">AIR</MenuItem>
-                      </TextField>
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            variant="outlined"
+                            size="small"
+                            placeholder="Select Mode"
+                            fullWidth
+                            sx={compactInput}
+                          />
+                        )}
+                      />
                     </FormField>
 
                     <FormField label="Custom House" xs={12} md={3}>
@@ -1450,23 +1510,21 @@ const ImportCreateJob = () => {
                     </FormField>
 
                     <FormField label="HSS">
-                      <TextField
-                        select
-                        variant="outlined"
-                        size="small"
-                        value={HSS}
-                        id="hss"
-                        name="hss"
-                        onChange={(e) => handleHssChange(e.target.value)}
-                        fullWidth
-                        sx={compactInput}
-                      >
-                        {hssOptions.map((option) => (
-                          <MenuItem key={option} value={option}>
-                            {option}
-                          </MenuItem>
-                        ))}
-                      </TextField>
+                      <Autocomplete
+                        options={hssOptions}
+                        value={HSS || "No"}
+                        onChange={(event, newValue) => handleHssChange(newValue || "No")}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            variant="outlined"
+                            size="small"
+                            placeholder="Select HSS"
+                            fullWidth
+                            sx={compactInput}
+                          />
+                        )}
+                      />
                     </FormField>
 
                     {HSS && HSS === "Yes" && (
@@ -1547,19 +1605,21 @@ const ImportCreateJob = () => {
                         </FormField>
 
                         <FormField label="Address" md={6}>
-                          <TextField
-                            select
-                            fullWidth
-                            size="small"
+                          <Autocomplete
+                            options={["Office", "Warehouse", "Factory"]}
                             value={hss_address}
-                            onChange={(e) => setHssAddress(e.target.value)}
-                            variant="outlined"
-                            sx={compactInput}
-                          >
-                            <MenuItem value="Office">Office</MenuItem>
-                            <MenuItem value="Warehouse">Warehouse</MenuItem>
-                            <MenuItem value="Factory">Factory</MenuItem>
-                          </TextField>
+                            onChange={(event, newValue) => setHssAddress(newValue || "")}
+                            renderInput={(params) => (
+                              <TextField
+                                {...params}
+                                variant="outlined"
+                                size="small"
+                                placeholder="Select Address Type"
+                                fullWidth
+                                sx={compactInput}
+                              />
+                            )}
+                          />
                         </FormField>
 
                         <FormField label="Address Details" md={12}>
@@ -1932,18 +1992,21 @@ const ImportCreateJob = () => {
 
                     {!isAirMode(mode) && (
                       <FormField label="Consignment Type">
-                        <TextField
-                          select
+                        <Autocomplete
+                          options={["FCL", "LCL"]}
                           value={consignment_type}
-                          onChange={(e) => setConsignmentType(e.target.value)}
-                          variant="outlined"
-                          size="small"
-                          fullWidth
-                          sx={compactInput}
-                        >
-                          <MenuItem value="FCL">FCL</MenuItem>
-                          <MenuItem value="LCL">LCL</MenuItem>
-                        </TextField>
+                          onChange={(event, newValue) => setConsignmentType(newValue || "")}
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              variant="outlined"
+                              size="small"
+                              placeholder="Select Consignment Type"
+                              fullWidth
+                              sx={compactInput}
+                            />
+                          )}
+                        />
                       </FormField>
                     )}
 
@@ -2033,20 +2096,24 @@ const ImportCreateJob = () => {
                     </Box>
 
                     <Box sx={{ mt: 1, p: 1.5, border: '1px dashed #cbd5e1', borderRadius: '12px' }}>
-                      <FormControl fullWidth size="small" variant="outlined" sx={{ mb: 1 }}>
-                        <Select
-                          value={selectedDocument}
-                          onChange={(e) => setSelectedDocument(e.target.value)}
-                          displayEmpty
-                          sx={{ borderRadius: '8px', fontSize: '0.75rem' }}
-                        >
-                          <MenuItem value="" disabled>Add Document</MenuItem>
-                          {cth_Dropdown.map((doc) => (
-                            <MenuItem key={doc.document_code} value={doc.document_code}>{doc.document_name}</MenuItem>
-                          ))}
-                          <MenuItem value="other">Other</MenuItem>
-                        </Select>
-                      </FormControl>
+                      <Autocomplete
+                        options={[...cth_Dropdown, { document_code: "other", document_name: "Other" }]}
+                        getOptionLabel={(opt) => typeof opt === 'string' ? opt : (opt.document_name || "")}
+                        value={cth_Dropdown.find(d => d.document_code === selectedDocument) || (selectedDocument === "other" ? { document_code: "other", document_name: "Other" } : null)}
+                        onChange={(event, newValue) => {
+                          setSelectedDocument(newValue ? newValue.document_code : "");
+                        }}
+                        renderInput={(params) => (
+                          <TextField
+                            {...params}
+                            variant="outlined"
+                            size="small"
+                            placeholder="Search & Select Document"
+                            fullWidth
+                            sx={{ ...compactInput, mb: 1, bgcolor: 'white' }}
+                          />
+                        )}
+                      />
                       <Button fullWidth variant="outlined" size="small" onClick={handleAddDocument} startIcon={<AddIcon />} sx={{ borderRadius: '8px', fontSize: '0.7rem' }}>
                         Add Section
                       </Button>
@@ -2291,20 +2358,21 @@ const ImportCreateJob = () => {
                                       ))}
                                     </div>
                                   </td>
-                                  <td style={{ padding: '8px 6px', verticalAlign: 'middle', width: '90px' }}>
-                                    <TextField
-                                      select
-                                      size="small"
-                                      fullWidth
+                                  <td style={{ padding: '8px 6px', verticalAlign: 'middle', width: '110px' }}>
+                                    <Autocomplete
+                                      options={["CIF", "FOB", "C&F", "C&I", "EXW", "FCA", "CPT", "CIP", "DAT", "DAP", "DDP"]}
                                       value={row.toi || "CIF"}
-                                      onChange={(e) => updateInvoiceRow(rowIndex, "toi", e.target.value)}
-                                      sx={compactInput}
-                                    >
-                                      <MenuItem value="CIF">CIF</MenuItem>
-                                      <MenuItem value="FOB">FOB</MenuItem>
-                                      <MenuItem value="CF">C&F</MenuItem>
-                                      <MenuItem value="CI">C&I</MenuItem>
-                                    </TextField>
+                                      onChange={(event, newValue) => updateInvoiceRow(rowIndex, "toi", newValue || "CIF")}
+                                      renderInput={(params) => (
+                                        <TextField
+                                          {...params}
+                                          variant="outlined"
+                                          size="small"
+                                          fullWidth
+                                          sx={compactInput}
+                                        />
+                                      )}
+                                    />
                                   </td>
                                   <td style={{ padding: '8px 6px', verticalAlign: 'middle', width: '100px' }}>
                                     <TextField
@@ -2792,20 +2860,22 @@ const ImportCreateJob = () => {
                               })}
                             />
                             <Typography variant="caption">% on</Typography>
-                            <TextField
-                              select
-                              size="small"
-                              sx={{ ...compactInput, width: '120px' }}
-                              value={other_charges_details?.revenue_deposit?.on || "Assessable"}
-                              onChange={(e) => setOtherChargesDetails({
-                                ...other_charges_details,
-                                revenue_deposit: { ...other_charges_details.revenue_deposit, on: e.target.value }
-                              })}
-                            >
-                              <MenuItem value="Assessable">Assessable</MenuItem>
-                              <MenuItem value="Duty">Duty</MenuItem>
-                              <MenuItem value="Total">Total</MenuItem>
-                            </TextField>
+                            <Autocomplete
+                               options={["Assessable", "Duty", "Total"]}
+                               value={other_charges_details?.revenue_deposit?.on || "Assessable"}
+                               onChange={(event, newValue) => setOtherChargesDetails({
+                                 ...other_charges_details,
+                                 revenue_deposit: { ...other_charges_details.revenue_deposit, on: newValue || "Assessable" }
+                               })}
+                               renderInput={(params) => (
+                                 <TextField
+                                   {...params}
+                                   variant="outlined"
+                                   size="small"
+                                   sx={{ ...compactInput, width: '130px' }}
+                                 />
+                               )}
+                             />
                           </Box>
                         </Grid>
                         <Grid item xs={12} md={6}>
@@ -2854,26 +2924,23 @@ const ImportCreateJob = () => {
                       </Grid>
                       {!shouldHideField('size', mode) && (
                         <Grid item xs={12} md={2}>
-                          <TextField
-                            select
-                            fullWidth
-                            size="small"
-                            variant="outlined"
-                            label="Size / Type"
-                            value={container.size || ""}
-                            onChange={(e) => handleContainerChange(index, "size", e.target.value)}
-                            sx={compactInput}
-                          >
-                            <MenuItem value="">Select</MenuItem>
-                            {CONTAINER_TYPE_OPTIONS.map((opt) => (
-                              <MenuItem key={opt} value={opt}>
-                                {opt}
-                              </MenuItem>
-                            ))}
-                            {container.size && !CONTAINER_TYPE_OPTIONS.includes(container.size) && (
-                              <MenuItem value={container.size}>{container.size}</MenuItem>
-                            )}
-                          </TextField>
+                          <Autocomplete
+                             freeSolo
+                             options={CONTAINER_TYPE_OPTIONS}
+                             value={container.size || ""}
+                             onInputChange={(event, newValue) => handleContainerChange(index, "size", newValue || "")}
+                             onChange={(event, newValue) => handleContainerChange(index, "size", newValue || "")}
+                             renderInput={(params) => (
+                               <TextField
+                                 {...params}
+                                 variant="outlined"
+                                 size="small"
+                                 label="Size / Type"
+                                 fullWidth
+                                 sx={compactInput}
+                               />
+                             )}
+                           />
                         </Grid>
                       )}
                       {!shouldHideField('seal_no', mode) && (
@@ -2947,49 +3014,46 @@ const ImportCreateJob = () => {
               >
                 <Grid container spacing={2}>
                   <FormField label="Clearance Under">
-                    <FormControl fullWidth size="small" variant="outlined">
-                      <Select
-                        value={clearanceValue}
-                        onChange={(e) => {
-                          if (canChangeClearance()) {
-                            setClearanceValue(e.target.value);
-                          } else {
-                            alert("Please clear Ex-Bond details before changing Clearance Under.");
-                          }
-                        }}
-                        displayEmpty
-                        sx={compactInput}
-                      >
-                        <MenuItem value="" disabled>
-                          Select Clearance Type
-                        </MenuItem>
-                        {filteredClearanceOptions.map((option, index) => (
-                          <MenuItem key={index} value={option.value}>
-                            {option.label}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
+                    <Autocomplete
+                      options={filteredClearanceOptions}
+                      getOptionLabel={(opt) => typeof opt === 'string' ? opt : (opt.label || "")}
+                      value={filteredClearanceOptions.find(o => o.value === clearanceValue) || null}
+                      onChange={(event, newValue) => {
+                        if (canChangeClearance()) {
+                          setClearanceValue(newValue ? newValue.value : "");
+                        } else {
+                          alert("Please clear Ex-Bond details before changing Clearance Under.");
+                        }
+                      }}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          variant="outlined"
+                          size="small"
+                          placeholder="Select Clearance Type"
+                          fullWidth
+                          sx={compactInput}
+                        />
+                      )}
+                    />
                   </FormField>
 
                   <FormField label="Scheme">
-                    <FormControl fullWidth size="small" variant="outlined">
-                      <Select
-                        value={scheme}
-                        onChange={(e) => setScheme(e.target.value)}
-                        displayEmpty
-                        sx={compactInput}
-                      >
-                        <MenuItem value="" disabled>
-                          Select Scheme
-                        </MenuItem>
-                        {schemeOptions.map((schemeOption, index) => (
-                          <MenuItem key={index} value={schemeOption}>
-                            {schemeOption}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
+                    <Autocomplete
+                      options={schemeOptions}
+                      value={scheme}
+                      onChange={(event, newValue) => setScheme(newValue || "")}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          variant="outlined"
+                          size="small"
+                          placeholder="Select Scheme"
+                          fullWidth
+                          sx={compactInput}
+                        />
+                      )}
+                    />
                   </FormField>
 
                   {clearanceValue === "Ex-Bond" && (
@@ -3000,24 +3064,29 @@ const ImportCreateJob = () => {
                         </Typography>
                         <Grid container spacing={2}>
                           <Grid item xs={12} md={6}>
-                            <FormControl fullWidth size="small" variant="outlined">
-                              <Select
-                                value={exBondValue}
-                                onChange={(e) => setExBondValue(e.target.value)}
-                                displayEmpty
-                                sx={compactInput}
-                              >
-                                <MenuItem value="" disabled>
-                                  Select In-Bond Type
-                                </MenuItem>
-                                <MenuItem value="other">Other</MenuItem>
-                                {jobDetails.map((job) => (
-                                  <MenuItem key={job.job_no} value={job.job_no}>
-                                    {`${job.job_no} - ${job.importer}`}
-                                  </MenuItem>
-                                ))}
-                              </Select>
-                            </FormControl>
+                            <Autocomplete
+                              options={[
+                                { label: "Other", value: "other" },
+                                ...(jobDetails || []).map(j => ({ label: `${j.job_no} - ${j.importer}`, value: j.job_no }))
+                              ]}
+                              getOptionLabel={(opt) => typeof opt === 'string' ? opt : (opt.label || "")}
+                              value={
+                                exBondValue === "other"
+                                  ? { label: "Other", value: "other" }
+                                  : (jobDetails || []).map(j => ({ label: `${j.job_no} - ${j.importer}`, value: j.job_no })).find(o => o.value === exBondValue) || null
+                              }
+                              onChange={(event, newValue) => setExBondValue(newValue ? newValue.value : "")}
+                              renderInput={(params) => (
+                                <TextField
+                                  {...params}
+                                  variant="outlined"
+                                  size="small"
+                                  placeholder="Select In-Bond Type / Job"
+                                  fullWidth
+                                  sx={compactInput}
+                                />
+                              )}
+                            />
                           </Grid>
 
                           {exBondValue === "other" && (
@@ -3176,24 +3245,24 @@ const ImportCreateJob = () => {
                           <td style={{ padding: "8px 6px", textAlign: "center", width: "45px", fontSize: "12px", fontWeight: "bold", color: "#64748b", verticalAlign: "middle" }}>
                             {rowIndex + 1}
                           </td>
-                          <td style={{ padding: '8px 6px', verticalAlign: 'middle' }}>
-                            <TextField
-                              select
-                              size="small"
-                              fullWidth
+                          <td style={{ padding: '8px 6px', verticalAlign: 'middle', width: '90px' }}>
+                            <Autocomplete
+                              options={invoice_details.map((_, idx) => String(idx + 1))}
                               value={row.sr_no_invoice || ""}
-                              onChange={(e) => updateDescriptionRow(rowIndex, "sr_no_invoice", e.target.value)}
-                              sx={compactInput}
-                            >
-                              <MenuItem value="">Select</MenuItem>
-                              {invoice_details.map((_, idx) => (
-                                <MenuItem key={idx + 1} value={String(idx + 1)}>
-                                  {idx + 1}
-                                </MenuItem>
-                              ))}
-                            </TextField>
+                              onChange={(event, newValue) => updateDescriptionRow(rowIndex, "sr_no_invoice", newValue || "")}
+                              renderInput={(params) => (
+                                <TextField
+                                  {...params}
+                                  variant="outlined"
+                                  size="small"
+                                  placeholder="Inv Sr"
+                                  fullWidth
+                                  sx={compactInput}
+                                />
+                              )}
+                            />
                           </td>
-                          <td style={{ padding: '8px 6px', verticalAlign: 'middle' }}>
+                          <td style={{ padding: '8px 6px', verticalAlign: 'middle', width: '300px' }}>
                             <TextField
                               size="small"
                               fullWidth
@@ -3217,7 +3286,7 @@ const ImportCreateJob = () => {
                               }}
                             />
                           </td>
-                          <td style={{ padding: '8px 6px', verticalAlign: 'middle' }}>
+                          <td style={{ padding: '8px 6px', verticalAlign: 'middle', width: '100px' }}>
                             <TextField
                               size="small"
                               fullWidth
@@ -3227,7 +3296,7 @@ const ImportCreateJob = () => {
                               sx={compactInput}
                             />
                           </td>
-                          <td style={{ padding: '8px 6px', verticalAlign: 'middle' }}>
+                          <td style={{ padding: '8px 6px', verticalAlign: 'middle', width: '120px' }}>
                             <Autocomplete
                               size="small"
                               options={units}
@@ -3247,7 +3316,6 @@ const ImportCreateJob = () => {
                                   size="small"
                                   fullWidth
                                   sx={compactInput}
-                                  required
                                 />
                               )}
                               sx={{
@@ -3256,7 +3324,7 @@ const ImportCreateJob = () => {
                               }}
                             />
                           </td>
-                          <td style={{ padding: '8px 6px', verticalAlign: 'middle' }}>
+                          <td style={{ padding: '8px 6px', verticalAlign: 'middle', width: '110px' }}>
                             <TextField
                               size="small"
                               fullWidth
@@ -3266,7 +3334,7 @@ const ImportCreateJob = () => {
                               sx={compactInput}
                             />
                           </td>
-                          <td style={{ padding: '8px 6px', verticalAlign: 'middle' }}>
+                          <td style={{ padding: '8px 6px', verticalAlign: 'middle', width: '110px' }}>
                             <TextField
                               size="small"
                               fullWidth
@@ -3276,7 +3344,7 @@ const ImportCreateJob = () => {
                               sx={compactInput}
                             />
                           </td>
-                          <td style={{ padding: '8px 6px', verticalAlign: 'middle' }}>
+                          <td style={{ padding: '8px 6px', verticalAlign: 'middle', width: '160px' }}>
                             <Autocomplete
                               size="small"
                               freeSolo
@@ -3319,24 +3387,24 @@ const ImportCreateJob = () => {
                               </div>
                             )}
                           </td>
-                          <td style={{ padding: '8px 6px', verticalAlign: 'middle' }}>
-                            <TextField
-                              select
-                              size="small"
-                              fullWidth
+                          <td style={{ padding: '8px 6px', verticalAlign: 'middle', width: '180px' }}>
+                            <Autocomplete
+                              options={schemeOptions}
                               value={row.clearance_under || ""}
-                              onChange={(e) => updateDescriptionRow(rowIndex, "clearance_under", e.target.value)}
-                              sx={compactInput}
-                            >
-                              <MenuItem value="">Select</MenuItem>
-                              {schemeOptions.map((option, index) => (
-                                <MenuItem key={index} value={option}>
-                                  {option}
-                                </MenuItem>
-                              ))}
-                            </TextField>
+                              onChange={(event, newValue) => updateDescriptionRow(rowIndex, "clearance_under", newValue || "")}
+                              renderInput={(params) => (
+                                <TextField
+                                  {...params}
+                                  variant="outlined"
+                                  size="small"
+                                  placeholder="Clearance Under"
+                                  fullWidth
+                                  sx={compactInput}
+                                />
+                              )}
+                            />
                           </td>
-                          <td style={{ padding: '8px 6px', verticalAlign: 'middle' }}>
+                          <td style={{ padding: '8px 6px', verticalAlign: 'middle', width: '90px' }}>
                             <TextField
                               size="small"
                               fullWidth
@@ -3346,18 +3414,22 @@ const ImportCreateJob = () => {
                               sx={compactInput}
                             />
                           </td>
-                          <td style={{ padding: '8px 6px', verticalAlign: 'middle' }}>
-                            <TextField
-                              select
-                              size="small"
-                              fullWidth
+                          <td style={{ padding: '8px 6px', verticalAlign: 'middle', width: '100px' }}>
+                            <Autocomplete
+                              options={["Yes", "No"]}
                               value={row.foc_item || "No"}
-                              onChange={(e) => updateDescriptionRow(rowIndex, "foc_item", e.target.value)}
-                              sx={compactInput}
-                            >
-                              <MenuItem value="Yes">Yes</MenuItem>
-                              <MenuItem value="No">No</MenuItem>
-                            </TextField>
+                              onChange={(event, newValue) => updateDescriptionRow(rowIndex, "foc_item", newValue || "No")}
+                              renderInput={(params) => (
+                                <TextField
+                                  {...params}
+                                  variant="outlined"
+                                  size="small"
+                                  placeholder="FOC"
+                                  fullWidth
+                                  sx={compactInput}
+                                />
+                              )}
+                            />
                           </td>
                           <td style={{ padding: '8px 6px', textAlign: 'center', width: '50px', verticalAlign: 'middle' }}>
                             <IconButton

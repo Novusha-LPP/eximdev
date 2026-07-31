@@ -65,7 +65,8 @@ function ViewOperationsJob() {
 
   const handleAddContainer = () => {
     const containersList = formik.values.container_nos || [];
-    const defaultSize = containersList.length > 0 ? (containersList[0]?.size || "") : "";
+    const existingSizeContainer = containersList.find(c => c && c.size && String(c.size).trim() !== "");
+    const defaultSize = existingSizeContainer ? existingSizeContainer.size : (containersList[0]?.size || "");
     const newContainer = {
       container_number: "",
       arrival_date: "",

@@ -1201,7 +1201,9 @@ function JobDetails() {
   };
 
   const handleAddContainer = () => {
-    const defaultSize = formik.values.container_nos?.length > 0 ? (formik.values.container_nos[0]?.size || "") : "";
+    const containersList = formik.values.container_nos || [];
+    const existingSizeContainer = containersList.find(c => c && c.size && String(c.size).trim() !== "");
+    const defaultSize = existingSizeContainer ? existingSizeContainer.size : (containersList[0]?.size || "");
     formik.setFieldValue("container_nos", [
       ...formik.values.container_nos,
       {

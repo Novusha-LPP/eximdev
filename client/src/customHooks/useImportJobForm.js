@@ -298,9 +298,9 @@ const useImportJobForm = () => {
 
   // For editing a single doc
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editValues, setEditValues] = useState({});
+  const [editIndex, setEditIndex] = useState(null);
+  const [editValues, setEditValues] = useState({ document_name: "", document_code: "" });
 
-  // For new doc from dropdown or user
   const [selectedDocument, setSelectedDocument] = useState("");
   const [newDocumentCode, setNewDocumentCode] = useState("");
   const [newDocumentName, setNewDocumentName] = useState("");
@@ -1244,6 +1244,13 @@ const useImportJobForm = () => {
     setIsEditMode(false);
     setEditJobId(null);
     setJobNumber("");
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+      setHasDraft(false);
+      setLastDraftSaved(null);
+    } catch (e) {
+      console.error("Error clearing draft storage in resetForm:", e);
+    }
   };
 
   const populateJobData = (job) => {
@@ -1477,6 +1484,290 @@ const useImportJobForm = () => {
   };
   //
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "info" });
+
+  // --- Draft Persistence ---
+  const DRAFT_KEY = "exim_import_job_creation_draft";
+  const [hasDraft, setHasDraft] = useState(false);
+  const [lastDraftSaved, setLastDraftSaved] = useState(null);
+
+  const saveDraft = (showToast = false) => {
+    if (isEditMode || editJobId) return;
+    try {
+      const serializableDocs = (cthDocuments || []).map(doc => ({
+        document_name: doc.document_name,
+        document_code: doc.document_code,
+        isDefault: doc.isDefault,
+        url: Array.isArray(doc.url)
+          ? doc.url.filter(u => typeof u === "string")
+          : []
+      }));
+
+      const draftPayload = {
+        updatedAt: new Date().toISOString(),
+        custom_house,
+        importer_reference_no,
+        importer,
+        importer_type,
+        commercial_tax_type,
+        importer_address,
+        importerURL,
+        shipping_line_airline,
+        branchSrNo,
+        adCode,
+        importer_address_details,
+        importer_city,
+        importer_state,
+        importer_postal_code,
+        importer_country,
+        supplier_exporter,
+        awb_bl_no,
+        awb_bl_date,
+        hawb_hbl_date,
+        hawb_hbl_no,
+        vessel_flight,
+        voyage_no,
+        vessel_berthing,
+        type_of_b_e,
+        loading_port,
+        gross_weight,
+        job_net_weight,
+        cth_no,
+        origin_country,
+        port_of_reporting,
+        total_inv_value,
+        inv_currency,
+        invoice_number,
+        invoice_date,
+        po_no,
+        po_date,
+        import_terms,
+        freight,
+        insurance,
+        term_value,
+        cif_amount,
+        exrate,
+        description,
+        description_details,
+        consignment_type,
+        isDraftDoc,
+        branch_id,
+        trade_type,
+        mode,
+        invoice_details,
+        container_nos,
+        fta_Benefit_date_time,
+        exBondValue,
+        cthDocuments: serializableDocs,
+        scheme,
+        in_bond_be_no,
+        in_bond_be_date,
+        in_bond_ooc_copies,
+        clearanceValue,
+        HSS,
+        sallerName,
+        bankName,
+        ie_code_no,
+        gst_no,
+        hss_address,
+        hss_address_details,
+        hss_branch_id,
+        hss_city,
+        hss_state,
+        hss_ie_code_no,
+        hss_postal_code,
+        hss_country,
+        hss_ad_code,
+        other_charges_details
+      };
+
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draftPayload));
+      setHasDraft(true);
+      setLastDraftSaved(draftPayload.updatedAt);
+      if (showToast) {
+        setSnackbar({
+          open: true,
+          message: "Job draft saved successfully!",
+          severity: "success"
+        });
+      }
+    } catch (err) {
+      console.error("Error saving draft to localStorage:", err);
+    }
+  };
+
+  const loadDraft = () => {
+    try {
+      const savedStr = localStorage.getItem(DRAFT_KEY);
+      if (!savedStr) return false;
+      const data = JSON.parse(savedStr);
+      if (!data || typeof data !== "object") return false;
+
+      if (data.custom_house !== undefined) setCustomHouse(data.custom_house);
+      if (data.importer_reference_no !== undefined) setImporterReferenceNo(data.importer_reference_no);
+      if (data.importer !== undefined) setImporter(data.importer);
+      if (data.importer_type !== undefined) setImporterType(data.importer_type);
+      if (data.commercial_tax_type !== undefined) setCommercialTaxType(data.commercial_tax_type);
+      if (data.importer_address !== undefined) setImporterAddress(data.importer_address);
+      if (data.importerURL !== undefined) setImporterURL(data.importerURL);
+      if (data.shipping_line_airline !== undefined) setShippingLineAirline(data.shipping_line_airline);
+      if (data.branchSrNo !== undefined) setBranchSrNo(data.branchSrNo);
+      if (data.adCode !== undefined) setAdCode(data.adCode);
+      if (data.importer_address_details !== undefined) setImporterAddressDetails(data.importer_address_details);
+      if (data.importer_city !== undefined) setImporterCity(data.importer_city);
+      if (data.importer_state !== undefined) setImporterState(data.importer_state);
+      if (data.importer_postal_code !== undefined) setImporterPostalCode(data.importer_postal_code);
+      if (data.importer_country !== undefined) setImporterCountry(data.importer_country);
+      if (data.supplier_exporter !== undefined) setSupplierExporter(data.supplier_exporter);
+      if (data.awb_bl_no !== undefined) setAwbBlNo(data.awb_bl_no);
+      if (data.awb_bl_date !== undefined) setAwbBlDate(data.awb_bl_date);
+      if (data.hawb_hbl_date !== undefined) setHawb_hbl_date(data.hawb_hbl_date);
+      if (data.hawb_hbl_no !== undefined) setHawb_hbl_no(data.hawb_hbl_no);
+      if (data.vessel_flight !== undefined) setVesselFlight(data.vessel_flight);
+      if (data.voyage_no !== undefined) setVoyageNo(data.voyage_no);
+      if (data.vessel_berthing !== undefined) setVesselberthing(data.vessel_berthing);
+      if (data.type_of_b_e !== undefined) setTypeOfBE(data.type_of_b_e);
+      if (data.loading_port !== undefined) setLoadingPort(data.loading_port);
+      if (data.gross_weight !== undefined) setGrossWeight(data.gross_weight);
+      if (data.job_net_weight !== undefined) setJob_net_weight(data.job_net_weight);
+      if (data.cth_no !== undefined) setCthNo(data.cth_no);
+      if (data.origin_country !== undefined) setOriginCountry(data.origin_country);
+      if (data.port_of_reporting !== undefined) setPortOfReporting(data.port_of_reporting);
+      if (data.total_inv_value !== undefined) setTotalInvValue(data.total_inv_value);
+      if (data.inv_currency !== undefined) setInvCurrency(data.inv_currency);
+      if (data.invoice_number !== undefined) setInvoiceNumber(data.invoice_number);
+      if (data.invoice_date !== undefined) setInvoiceDate(data.invoice_date);
+      if (data.po_no !== undefined) setPoNo(data.po_no);
+      if (data.po_date !== undefined) setPoDate(data.po_date);
+      if (data.import_terms !== undefined) setImportTerms(data.import_terms);
+      if (data.freight !== undefined) setFreight(data.freight);
+      if (data.insurance !== undefined) setInsurance(data.insurance);
+      if (data.term_value !== undefined) setTermValue(data.term_value);
+      if (data.cif_amount !== undefined) setCifAmount(data.cif_amount);
+      if (data.exrate !== undefined) setExrate(data.exrate);
+      if (data.description !== undefined) setDescription(data.description);
+      if (data.description_details && Array.isArray(data.description_details) && data.description_details.length > 0) {
+        setDescriptionDetails(data.description_details);
+      }
+      if (data.consignment_type !== undefined) setConsignmentType(data.consignment_type);
+      if (data.isDraftDoc !== undefined) setIsDraftDoc(data.isDraftDoc);
+      if (data.branch_id !== undefined) setBranchId(data.branch_id);
+      if (data.trade_type !== undefined) setTradeType(data.trade_type);
+      if (data.mode !== undefined) setMode(data.mode);
+      if (data.invoice_details && Array.isArray(data.invoice_details) && data.invoice_details.length > 0) {
+        setInvoiceDetails(data.invoice_details);
+      }
+      if (data.container_nos && Array.isArray(data.container_nos) && data.container_nos.length > 0) {
+        setContainerNos(data.container_nos);
+      }
+      if (data.fta_Benefit_date_time !== undefined) setFtaBenefitDateTime(data.fta_Benefit_date_time);
+      if (data.exBondValue !== undefined) setExBondValue(data.exBondValue);
+      if (data.cthDocuments && Array.isArray(data.cthDocuments) && data.cthDocuments.length > 0) {
+        setCthDocuments(data.cthDocuments);
+      }
+      if (data.scheme !== undefined) setScheme(data.scheme);
+      if (data.in_bond_be_no !== undefined) setBeNo(data.in_bond_be_no);
+      if (data.in_bond_be_date !== undefined) setBeDate(data.in_bond_be_date);
+      if (data.in_bond_ooc_copies !== undefined) setOocCopies(data.in_bond_ooc_copies);
+      if (data.clearanceValue !== undefined) setClearanceValue(data.clearanceValue);
+      if (data.HSS !== undefined) setHSS(data.HSS);
+      if (data.sallerName !== undefined) setSallerName(data.sallerName);
+      if (data.bankName !== undefined) setBankName(data.bankName);
+      if (data.ie_code_no !== undefined) setIeCodeNo(data.ie_code_no);
+      if (data.gst_no !== undefined) setGstNo(data.gst_no);
+      if (data.hss_address !== undefined) setHssAddress(data.hss_address);
+      if (data.hss_address_details !== undefined) setHssAddressDetails(data.hss_address_details);
+      if (data.hss_branch_id !== undefined) setHssBranchId(data.hss_branch_id);
+      if (data.hss_city !== undefined) setHssCity(data.hss_city);
+      if (data.hss_state !== undefined) setHssState(data.hss_state);
+      if (data.hss_ie_code_no !== undefined) setHssIeCodeNo(data.hss_ie_code_no);
+      if (data.hss_postal_code !== undefined) setHssPostalCode(data.hss_postal_code);
+      if (data.hss_country !== undefined) setHssCountry(data.hss_country);
+      if (data.hss_ad_code !== undefined) setHssAdCode(data.hss_ad_code);
+      if (data.other_charges_details !== undefined) setOtherChargesDetails(data.other_charges_details);
+
+      setHasDraft(true);
+      setLastDraftSaved(data.updatedAt);
+      return true;
+    } catch (err) {
+      console.error("Error loading draft from localStorage:", err);
+      return false;
+    }
+  };
+
+  const clearDraft = (resetState = true) => {
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+      setHasDraft(false);
+      setLastDraftSaved(null);
+      if (resetState) {
+        resetForm();
+        formik.resetForm();
+        setSnackbar({
+          open: true,
+          message: "Draft cleared and form reset.",
+          severity: "info"
+        });
+      }
+    } catch (err) {
+      console.error("Error clearing draft:", err);
+    }
+  };
+
+  // Restore draft on initial mount if not in edit mode
+  useEffect(() => {
+    if (!isEditMode && !editJobId) {
+      try {
+        const savedStr = localStorage.getItem(DRAFT_KEY);
+        if (savedStr) {
+          setHasDraft(true);
+          const data = JSON.parse(savedStr);
+          if (data && data.updatedAt) {
+            setLastDraftSaved(data.updatedAt);
+          }
+          loadDraft();
+        }
+      } catch (err) {
+        console.error("Error checking draft on mount:", err);
+      }
+    }
+  }, [isEditMode, editJobId]);
+
+  // Debounced auto-save draft whenever form fields change (only when creating a job)
+  useEffect(() => {
+    if (isEditMode || editJobId) return;
+
+    const isFormDirty = Boolean(
+      branch_id || custom_house || importer_reference_no || importer || importer_type ||
+      commercial_tax_type || importer_address || shipping_line_airline || adCode ||
+      supplier_exporter || awb_bl_no || awb_bl_date || hawb_hbl_no || vessel_flight ||
+      voyage_no || type_of_b_e || loading_port || gross_weight || cth_no || origin_country ||
+      port_of_reporting || total_inv_value || invoice_number || description ||
+      (container_nos.length > 0 && (container_nos[0].container_number || container_nos[0].size)) ||
+      (invoice_details.length > 0 && (invoice_details[0].invoice_number || invoice_details[0].product_value))
+    );
+
+    if (!isFormDirty) return;
+
+    const timer = setTimeout(() => {
+      saveDraft(false);
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [
+    isEditMode, editJobId, custom_house, importer_reference_no, importer, importer_type,
+    commercial_tax_type, importer_address, importerURL, shipping_line_airline, branchSrNo,
+    adCode, importer_address_details, importer_city, importer_state, importer_postal_code,
+    importer_country, supplier_exporter, awb_bl_no, awb_bl_date, hawb_hbl_date, hawb_hbl_no,
+    vessel_flight, voyage_no, vessel_berthing, type_of_b_e, loading_port, gross_weight,
+    job_net_weight, cth_no, origin_country, port_of_reporting, total_inv_value, inv_currency,
+    invoice_number, invoice_date, po_no, po_date, import_terms, freight, insurance, term_value,
+    cif_amount, exrate, description, description_details, consignment_type, isDraftDoc,
+    branch_id, trade_type, mode, invoice_details, container_nos, fta_Benefit_date_time,
+    exBondValue, scheme, in_bond_be_no, in_bond_be_date, in_bond_ooc_copies, clearanceValue,
+    HSS, sallerName, bankName, ie_code_no, gst_no, hss_address, hss_address_details,
+    hss_branch_id, hss_city, hss_state, hss_ie_code_no, hss_postal_code, hss_country, hss_ad_code,
+    other_charges_details
+  ]);
 
   const formik = useFormik({
     initialValues: {
@@ -2078,6 +2369,11 @@ const useImportJobForm = () => {
     setImporterPostalCode,
     importer_country,
     setImporterCountry,
+    hasDraft,
+    lastDraftSaved,
+    saveDraft,
+    loadDraft,
+    clearDraft,
   };
 };
 

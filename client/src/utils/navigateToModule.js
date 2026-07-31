@@ -48,6 +48,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/outward-register");
     case "Accounts":
       return navigate("/accounts");
+    case "Tally Transactions":
+      return navigate("/tally-transactions");
     case "Billing Reports":
       return navigate("/billing-reports");
     case "RM Procurement SOP":

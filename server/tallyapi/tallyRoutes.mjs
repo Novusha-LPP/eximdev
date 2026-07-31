@@ -3,6 +3,7 @@ import JobModel from "../model/jobModel.mjs";
 import authApiKey from "../middleware/authApiKey.mjs";
 import PurchaseBookEntryModel from "../model/purchaseBookEntryModel.mjs";
 import PaymentRequestModel from "../model/paymentRequestModel.mjs";
+import TallyApiSyncLogModel from "../model/tallyApiSyncLogModel.mjs";
 
 const router = express.Router();
 
@@ -616,6 +617,18 @@ router.post("/purchase-entry", authApiKey, async (req, res) => {
     });
   } catch (error) {
     console.error("Tally Purchase Entry Storage Error:", error);
+    try {
+      await TallyApiSyncLogModel.create({
+        endpoint: "/purchase-entry",
+        requestType: "purchase",
+        jobNo: req.body["Job No"] || req.body.jobNo || "",
+        entryOrRequestNo: req.body["Entry No"] || req.body.entryNo || "",
+        errorMessage: error.message || "Unknown Error",
+        requestPayload: req.body
+      });
+    } catch (logErr) {
+      console.error("Failed to log API sync error:", logErr);
+    }
     res.status(500).send({ error: "Internal Server Error", details: error.message });
   }
 });
@@ -877,6 +890,18 @@ router.post("/payment-request", authApiKey, async (req, res) => {
     });
   } catch (error) {
     console.error("Tally Payment Request Storage Error:", error);
+    try {
+      await TallyApiSyncLogModel.create({
+        endpoint: "/payment-request",
+        requestType: "payment",
+        jobNo: req.body["Job No"] || req.body.jobNo || "",
+        entryOrRequestNo: req.body["Request No"] || req.body.requestNo || "",
+        errorMessage: error.message || "Unknown Error",
+        requestPayload: req.body
+      });
+    } catch (logErr) {
+      console.error("Failed to log API sync error:", logErr);
+    }
     res.status(500).send({ error: "Internal Server Error", details: error.message });
   }
 });
@@ -964,6 +989,177 @@ router.post("/payment-request/status", authApiKey, async (req, res) => {
   } catch (error) {
 
     console.error("Fetch Payment Status Error:", error);
+    res.status(500).send({ error: "Internal Server Error" });
+  }
+});
+
+/**
+ * @api {get} /api/tally/stats Retrieve Tally Transaction Statistics
+ */
+router.get("/stats", authApiKey, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const dateFilter = {};
+    if (startDate || endDate) {
+      dateFilter.createdAt = {};
+      if (startDate) dateFilter.createdAt.$gte = new Date(startDate);
+      if (endDate) dateFilter.createdAt.$lte = new Date(endDate);
+    }
+
+    // Aggregate purchase book entries by status
+    const pbAgg = await PurchaseBookEntryModel.aggregate([
+      { $match: dateFilter },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          imported: {
+            $sum: { $cond: [{ $in: ["$status", ["Paid", "Success"]] }, 1, 0] }
+          },
+          pending: {
+            $sum: { $cond: [{ $eq: ["$status", ""] }, 1, 0] }
+          },
+          rejected: {
+            $sum: { $cond: [{ $eq: ["$status", "Rejected"] }, 1, 0] }
+          }
+        }
+      }
+    ]);
+
+    // Aggregate payment requests by status
+    const prAgg = await PaymentRequestModel.aggregate([
+      { $match: dateFilter },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          imported: {
+            $sum: { $cond: [{ $in: ["$status", ["Paid", "Success"]] }, 1, 0] }
+          },
+          pending: {
+            $sum: { $cond: [{ $eq: ["$status", ""] }, 1, 0] }
+          },
+          rejected: {
+            $sum: { $cond: [{ $eq: ["$status", "Rejected"] }, 1, 0] }
+          }
+        }
+      }
+    ]);
+
+    const pb = pbAgg[0] || { total: 0, imported: 0, pending: 0, rejected: 0 };
+    const pr = prAgg[0] || { total: 0, imported: 0, pending: 0, rejected: 0 };
+
+    const failedSyncsTotal = await TallyApiSyncLogModel.countDocuments(dateFilter);
+
+    res.status(200).json({
+      purchaseBookEntries: {
+        total: pb.total,
+        imported: pb.imported,
+        notImported: pb.total - pb.imported,
+        pending: pb.pending,
+        rejected: pb.rejected,
+      },
+      paymentRequests: {
+        total: pr.total,
+        imported: pr.imported,
+        notImported: pr.total - pr.imported,
+        pending: pr.pending,
+        rejected: pr.rejected,
+      },
+      failedSyncs: {
+        total: failedSyncsTotal
+      }
+    });
+  } catch (error) {
+    console.error("Fetch Tally Stats Error:", error);
+    res.status(500).send({ error: "Internal Server Error" });
+  }
+});
+
+/**
+ * @api {get} /api/tally/transactions Retrieve Detailed Tally Transactions
+ */
+router.get("/transactions", authApiKey, async (req, res) => {
+  try {
+    const { startDate, endDate, status, type, page = 1, limit = 50 } = req.query;
+
+    const matchQuery = {};
+
+    if (startDate || endDate) {
+      matchQuery.createdAt = {};
+      if (startDate) matchQuery.createdAt.$gte = new Date(startDate);
+      if (endDate) matchQuery.createdAt.$lte = new Date(endDate);
+    }
+
+    if (status) {
+      const statusArray = status.split(",").map(s => {
+        const val = s.trim();
+        // Treat 'Pending' as empty string, since that's how it's stored for un-synced/pending items
+        if (val.toLowerCase() === "pending") return "";
+        return val;
+      });
+      matchQuery.status = { $in: statusArray };
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const limitNum = parseInt(limit);
+
+    let purchaseData = { data: [], total: 0 };
+    let paymentData = { data: [], total: 0 };
+    let failedSyncData = { data: [], total: 0 };
+
+    if (!type || type === "purchase") {
+      purchaseData.total = await PurchaseBookEntryModel.countDocuments(matchQuery);
+      purchaseData.data = await PurchaseBookEntryModel.find(matchQuery)
+        .sort({ createdAt: -1 })
+        .skip(type === "purchase" ? skip : 0) // Paginate properly if only querying one type
+        .limit(type === "purchase" ? limitNum : 50)
+        .lean();
+    }
+
+    if (!type || type === "payment") {
+      paymentData.total = await PaymentRequestModel.countDocuments(matchQuery);
+      paymentData.data = await PaymentRequestModel.find(matchQuery)
+        .sort({ createdAt: -1 })
+        .skip(type === "payment" ? skip : 0)
+        .limit(type === "payment" ? limitNum : 50)
+        .lean();
+    }
+
+    if (!type || type === "failedSync") {
+      // For failed syncs, the status filter from purchase/payment doesn't apply directly.
+      // We'll just apply the date filter to them.
+      const failedQuery = { ...matchQuery };
+      delete failedQuery.status; 
+      
+      failedSyncData.total = await TallyApiSyncLogModel.countDocuments(failedQuery);
+      failedSyncData.data = await TallyApiSyncLogModel.find(failedQuery)
+        .sort({ createdAt: -1 })
+        .skip(type === "failedSync" ? skip : 0)
+        .limit(type === "failedSync" ? limitNum : 50)
+        .lean();
+    }
+
+    res.status(200).json({
+      filtersApplied: {
+        startDate, endDate, status, type, page, limit
+      },
+      purchaseBookEntries: {
+        totalMatches: purchaseData.total,
+        data: purchaseData.data
+      },
+      paymentRequests: {
+        totalMatches: paymentData.total,
+        data: paymentData.data
+      },
+      failedSyncs: {
+        totalMatches: failedSyncData.total,
+        data: failedSyncData.data
+      }
+    });
+
+  } catch (error) {
+    console.error("Fetch Tally Transactions Error:", error);
     res.status(500).send({ error: "Internal Server Error" });
   }
 });

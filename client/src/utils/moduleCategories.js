@@ -43,5 +43,6 @@ export const moduleCategories = {
   "MasterDirectory": "Masters",
   "Karma Points": "Project Management",
   "Pricing Requests": "Accounts",
+  "Tally Transactions": "Accounts",
 };
 

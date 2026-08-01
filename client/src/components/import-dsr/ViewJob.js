@@ -848,13 +848,13 @@ function JobDetails() {
           const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(formik.values.exrate) || 1;
           const ins = parseFloat(row.insurance) || 0;
           const insEx = parseFloat(row.insurance_exchange_rate) || 1;
-          const oth = parseFloat(row.other_charges) || 0;
-          const othEx = parseFloat(row.other_charges_exchange_rate) || 1;
+          const oth = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
+          const othEx = parseFloat(row.misc_exchange_rate !== undefined ? row.misc_exchange_rate : row.other_charges_exchange_rate) || 1;
           
           const pvInr = (pv * pvEx) / getUnitForCurrency(row.inv_currency);
           const frInr = (fr * frEx) / getUnitForCurrency(row.freight_currency);
           const insInr = (ins * insEx) / getUnitForCurrency(row.insurance_currency);
-          const othInr = (oth * othEx) / getUnitForCurrency(row.other_charges_currency);
+          const othInr = (oth * othEx) / getUnitForCurrency(row.misc_currency !== undefined ? row.misc_currency : row.other_charges_currency);
           
           return sum + (pvInr + frInr + insInr + othInr);
         }, 0);
@@ -1588,7 +1588,8 @@ function JobDetails() {
           : [{ po_no: inv.po_no || "", po_date: inv.po_date || "" }],
         freight_currency: inv.freight_currency || inv.inv_currency || "",
         insurance_currency: inv.insurance_currency || "INR",
-        other_charges_currency: inv.other_charges_currency || "USD",
+        misc_currency: inv.misc_currency || inv.other_charges_currency || "USD",
+        misc: inv.misc || inv.other_charges || "",
       }))
       : [
         {
@@ -1597,7 +1598,7 @@ function JobDetails() {
           po_no: "",
           po_details: [{ po_no: "", po_date: "" }],
           product_value: "",
-          other_charges: "",
+          misc: "",
           total_inv_value: "",
           inv_currency: "",
           toi: "CIF",
@@ -1605,7 +1606,7 @@ function JobDetails() {
           insurance: "",
           freight_currency: "",
           insurance_currency: "INR",
-          other_charges_currency: "USD",
+          misc_currency: "USD",
         },
       ];
   }, [formik.values.invoice_details]);
@@ -1616,6 +1617,54 @@ function JobDetails() {
       ...updatedRows[rowIndex],
       [field]: value,
     };
+
+    if (field === "misc") {
+      updatedRows[rowIndex].other_charges = value;
+    }
+    if (field === "misc_currency") {
+      updatedRows[rowIndex].other_charges_currency = value;
+    }
+    if (field === "misc_exchange_rate") {
+      updatedRows[rowIndex].other_charges_exchange_rate = value;
+    }
+    if (field === "other_charges") {
+      updatedRows[rowIndex].misc = value;
+    }
+    if (field === "other_charges_currency") {
+      updatedRows[rowIndex].misc_currency = value;
+    }
+    if (field === "other_charges_exchange_rate") {
+      updatedRows[rowIndex].misc_exchange_rate = value;
+    }
+
+    if (["misc", "other_charges", "misc_currency", "other_charges_currency", "misc_exchange_rate", "other_charges_exchange_rate"].includes(field)) {
+      const totalMiscAmount = updatedRows.reduce((sum, r) => sum + (parseFloat(r.misc || r.other_charges) || 0), 0);
+      formik.setFieldValue("other_charges_details.miscellaneous.amount", totalMiscAmount > 0 ? totalMiscAmount.toFixed(2) : "");
+      
+      const currency = updatedRows[rowIndex].misc_currency || updatedRows[rowIndex].other_charges_currency || "USD";
+      const exchange_rate = updatedRows[rowIndex].misc_exchange_rate || updatedRows[rowIndex].other_charges_exchange_rate || "";
+      formik.setFieldValue("other_charges_details.miscellaneous.currency", currency);
+      formik.setFieldValue("other_charges_details.miscellaneous.exchange_rate", exchange_rate);
+
+      const exrateVal = parseFloat(exchange_rate) || 1;
+      const unitVal = getUnitForCurrency(currency);
+      const amtInr = (totalMiscAmount * exrateVal) / unitVal;
+
+      let totalBaseValInr = updatedRows.reduce((sum, r) => {
+        const pv = parseFloat(r.product_value) || 0;
+        const pvEx = parseFloat(r.exchange_rate) || parseFloat(formik.values.exrate) || 1;
+        const oth = parseFloat(r.misc || r.other_charges) || 0;
+        const othEx = parseFloat(r.misc_exchange_rate || r.other_charges_exchange_rate) || 1;
+        
+        const pvInr = (pv * pvEx) / getUnitForCurrency(r.inv_currency);
+        const othInr = (oth * othEx) / getUnitForCurrency(r.misc_currency || r.other_charges_currency);
+        
+        return sum + (pvInr + othInr);
+      }, 0);
+
+      const calculatedRate = totalBaseValInr > 0 ? (amtInr / totalBaseValInr) * 100 : 0;
+      formik.setFieldValue("other_charges_details.miscellaneous.rate", calculatedRate > 0 ? calculatedRate.toFixed(4) : "");
+    }
 
     if (field === "po_details") {
       if (Array.isArray(value) && value[0]) {
@@ -1682,7 +1731,7 @@ function JobDetails() {
     const isFreightManual = updatedRows[rowIndex].is_freight_manual;
     const isInsuranceManual = updatedRows[rowIndex].is_insurance_manual;
 
-    const triggerFields = ["product_value", "toi", "exchange_rate", "insurance_currency", "inv_currency", "other_charges", "other_charges_exchange_rate", "other_charges_currency"];
+    const triggerFields = ["product_value", "toi", "exchange_rate", "insurance_currency", "inv_currency", "other_charges", "misc", "other_charges_exchange_rate", "misc_exchange_rate", "other_charges_currency", "misc_currency"];
 
     if (toiValue === "FOB") {
       if (triggerFields.includes(field)) {
@@ -1776,10 +1825,12 @@ function JobDetails() {
     if (field === "inv_currency" && invoiceRows[rowIndex]?.inv_currency !== value) {
       updatedRows[rowIndex].freight_currency = value || "";
       updatedRows[rowIndex].insurance_currency = "INR";
+      updatedRows[rowIndex].misc_currency = "USD";
       updatedRows[rowIndex].other_charges_currency = "USD";
       updatedRows[rowIndex].exchange_rate = "";
       updatedRows[rowIndex].freight_exchange_rate = "";
       updatedRows[rowIndex].insurance_exchange_rate = "";
+      updatedRows[rowIndex].misc_exchange_rate = "";
       updatedRows[rowIndex].other_charges_exchange_rate = "";
 
       ["freight"].forEach(key => {
@@ -1803,6 +1854,9 @@ function JobDetails() {
     }
     if (field === "insurance_currency" && invoiceRows[rowIndex]?.insurance_currency !== value) {
       updatedRows[rowIndex].insurance_exchange_rate = "";
+    }
+    if (field === "misc_currency" && invoiceRows[rowIndex]?.misc_currency !== value) {
+      updatedRows[rowIndex].misc_exchange_rate = "";
     }
     if (field === "other_charges_currency" && invoiceRows[rowIndex]?.other_charges_currency !== value) {
       updatedRows[rowIndex].other_charges_exchange_rate = "";
@@ -1835,13 +1889,14 @@ function JobDetails() {
         exchange_rate: "",
         freight_exchange_rate: "",
         insurance_exchange_rate: "",
-        other_charges_exchange_rate: "",
+        misc_exchange_rate: "",
         toi: "CIF",
         freight: "",
         insurance: "",
         freight_currency: invoiceRows[0]?.inv_currency || "",
         insurance_currency: "INR",
-        other_charges_currency: "USD",
+        misc: "",
+        misc_currency: "USD",
       },
     ]);
   };
@@ -1854,6 +1909,53 @@ function JobDetails() {
 
   const handleOtherChargesRateChange = (chargeId, rateValue) => {
     formik.setFieldValue(`other_charges_details.${chargeId}.rate`, rateValue);
+
+    if (chargeId === "miscellaneous") {
+      const rateNum = parseFloat(rateValue) || 0;
+      const chargeDetails = formik.values.other_charges_details?.miscellaneous || {};
+      const exrateVal = parseFloat(chargeDetails.exchange_rate) || 1;
+      const unitVal = getUnitForCurrency(chargeDetails.currency);
+
+      let totalBaseValInr = 0;
+      if (invoiceRows && invoiceRows.length > 0) {
+        totalBaseValInr = invoiceRows.reduce((sum, r) => {
+          const pv = parseFloat(r.product_value) || 0;
+          const pvEx = parseFloat(r.exchange_rate) || parseFloat(formik.values.exrate) || 1;
+          const oth = parseFloat(r.misc !== undefined ? r.misc : r.other_charges) || 0;
+          const othEx = parseFloat(r.misc_exchange_rate !== undefined ? r.misc_exchange_rate : r.other_charges_exchange_rate) || 1;
+          
+          const pvInr = (pv * pvEx) / getUnitForCurrency(r.inv_currency);
+          const othInr = (oth * othEx) / getUnitForCurrency(r.misc_currency !== undefined ? r.misc_currency : r.other_charges_currency);
+          
+          return sum + (pvInr + othInr);
+        }, 0);
+      }
+
+      const amtInr = (totalBaseValInr * rateNum) / 100;
+      const calculatedAmount = amtInr / (exrateVal / unitVal);
+      const amountStr = calculatedAmount > 0 ? calculatedAmount.toFixed(2) : "";
+      formik.setFieldValue(`other_charges_details.miscellaneous.amount`, amountStr);
+
+      if (invoiceRows && invoiceRows.length > 0) {
+        const updatedRows = [...invoiceRows];
+        updatedRows[0] = {
+          ...updatedRows[0],
+          misc: amountStr,
+          other_charges: amountStr,
+          misc_currency: chargeDetails.currency || "USD",
+          other_charges_currency: chargeDetails.currency || "USD",
+          misc_exchange_rate: String(exrateVal),
+          other_charges_exchange_rate: String(exrateVal),
+        };
+        const pv = parseFloat(updatedRows[0].product_value) || 0;
+        const fr = parseFloat(updatedRows[0].freight) || 0;
+        const ins = parseFloat(updatedRows[0].insurance) || 0;
+        const oth = parseFloat(calculatedAmount) || 0;
+        updatedRows[0].total_inv_value = (pv + fr + ins + oth).toFixed(2);
+
+        formik.setFieldValue("invoice_details", updatedRows);
+      }
+    }
 
     if (chargeId === "addl_charge" && formik.values.hss === "Yes") {
       const rateNum = parseFloat(rateValue) || 0;
@@ -1869,13 +1971,13 @@ function JobDetails() {
           const frEx = parseFloat(r.freight_exchange_rate) || parseFloat(formik.values.exrate) || 1;
           const ins = parseFloat(r.insurance) || 0;
           const insEx = parseFloat(r.insurance_exchange_rate) || 1;
-          const oth = parseFloat(r.other_charges) || 0;
-          const othEx = parseFloat(r.other_charges_exchange_rate) || 1;
+          const oth = parseFloat(r.misc !== undefined ? r.misc : r.other_charges) || 0;
+          const othEx = parseFloat(r.misc_exchange_rate !== undefined ? r.misc_exchange_rate : r.other_charges_exchange_rate) || 1;
           
           const pvInr = (pv * pvEx) / getUnitForCurrency(r.inv_currency);
           const frInr = (fr * frEx) / getUnitForCurrency(r.freight_currency);
           const insInr = (ins * insEx) / getUnitForCurrency(r.insurance_currency);
-          const othInr = (oth * othEx) / getUnitForCurrency(r.other_charges_currency);
+          const othInr = (oth * othEx) / getUnitForCurrency(r.misc_currency !== undefined ? r.misc_currency : r.other_charges_currency);
           
           return sum + (pvInr + frInr + insInr + othInr);
         }, 0);
@@ -1899,10 +2001,10 @@ function JobDetails() {
 
       const updatedRows = invoiceRows.map((row) => {
         const pv = parseFloat(row.product_value) || 0;
-        const otherVal = parseFloat(row.other_charges) || 0;
+        const otherVal = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
         const invEx = parseFloat(row.exchange_rate || formik.values.exrate || 1) || 1;
-        const othEx = parseFloat(row.other_charges_exchange_rate || 1) || 1;
-        const otherInInv = ((otherVal * othEx) / getUnitForCurrency(row.other_charges_currency)) / (invEx / getUnitForCurrency(row.inv_currency));
+        const othEx = parseFloat(row.misc_exchange_rate || row.other_charges_exchange_rate || 1) || 1;
+        const otherInInv = ((otherVal * othEx) / getUnitForCurrency(row.misc_currency || row.other_charges_currency)) / (invEx / getUnitForCurrency(row.inv_currency));
         const baseVal = pv + otherInInv;
 
         let newFreight = row.freight;
@@ -1950,7 +2052,7 @@ function JobDetails() {
         const prod = pv;
         const frt = parseFloat(newFreight) || 0;
         const ins = parseFloat(newInsurance) || 0;
-        const other = parseFloat(row.other_charges) || 0;
+        const other = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
 
         const frEx = parseFloat(row.freight_exchange_rate || formik.values.exrate || 1) || 1;
         const insEx = parseFloat(row.insurance_exchange_rate || 1) || 1;
@@ -1958,7 +2060,7 @@ function JobDetails() {
         const prodInInv = prod;
         const frtInInv = ((frt * frEx) / getUnitForCurrency(row.freight_currency)) / (invEx / getUnitForCurrency(row.inv_currency));
         const insInInv = ((ins * insEx) / getUnitForCurrency(row.insurance_currency)) / (invEx / getUnitForCurrency(row.inv_currency));
-        const othInInv = ((other * othEx) / getUnitForCurrency(row.other_charges_currency)) / (invEx / getUnitForCurrency(row.inv_currency));
+        const othInInv = ((other * othEx) / getUnitForCurrency(row.misc_currency || row.other_charges_currency)) / (invEx / getUnitForCurrency(row.inv_currency));
 
         const total = (prodInInv + frtInInv + insInInv + othInInv).toFixed(2);
 
@@ -1981,6 +2083,52 @@ function JobDetails() {
   const handleOtherChargesAmountChange = (chargeId, amountValue) => {
     formik.setFieldValue(`other_charges_details.${chargeId}.amount`, amountValue);
 
+    if (chargeId === "miscellaneous") {
+      const amtNum = parseFloat(amountValue) || 0;
+      const chargeDetails = formik.values.other_charges_details?.miscellaneous || {};
+      const exrateVal = parseFloat(chargeDetails.exchange_rate) || 1;
+      const unitVal = getUnitForCurrency(chargeDetails.currency);
+      const amtInr = (amtNum * exrateVal) / unitVal;
+
+      let totalBaseValInr = 0;
+      if (invoiceRows && invoiceRows.length > 0) {
+        totalBaseValInr = invoiceRows.reduce((sum, r) => {
+          const pv = parseFloat(r.product_value) || 0;
+          const pvEx = parseFloat(r.exchange_rate) || parseFloat(formik.values.exrate) || 1;
+          const oth = parseFloat(r.misc !== undefined ? r.misc : r.other_charges) || 0;
+          const othEx = parseFloat(r.misc_exchange_rate !== undefined ? r.misc_exchange_rate : r.other_charges_exchange_rate) || 1;
+          
+          const pvInr = (pv * pvEx) / getUnitForCurrency(r.inv_currency);
+          const othInr = (oth * othEx) / getUnitForCurrency(r.misc_currency !== undefined ? r.misc_currency : r.other_charges_currency);
+          
+          return sum + (pvInr + othInr);
+        }, 0);
+      }
+      
+      const calculatedRate = totalBaseValInr > 0 ? (amtInr / totalBaseValInr) * 100 : 0;
+      formik.setFieldValue(`other_charges_details.miscellaneous.rate`, calculatedRate > 0 ? calculatedRate.toFixed(4) : "");
+
+      if (invoiceRows && invoiceRows.length > 0) {
+        const updatedRows = [...invoiceRows];
+        updatedRows[0] = {
+          ...updatedRows[0],
+          misc: amountValue,
+          other_charges: amountValue,
+          misc_currency: chargeDetails.currency || "USD",
+          other_charges_currency: chargeDetails.currency || "USD",
+          misc_exchange_rate: String(exrateVal),
+          other_charges_exchange_rate: String(exrateVal),
+        };
+        const pv = parseFloat(updatedRows[0].product_value) || 0;
+        const fr = parseFloat(updatedRows[0].freight) || 0;
+        const ins = parseFloat(updatedRows[0].insurance) || 0;
+        const oth = parseFloat(amountValue) || 0;
+        updatedRows[0].total_inv_value = (pv + fr + ins + oth).toFixed(2);
+
+        formik.setFieldValue("invoice_details", updatedRows);
+      }
+    }
+
     if (chargeId === "addl_charge" && formik.values.hss === "Yes") {
       const amtNum = parseFloat(amountValue) || 0;
       const exrateVal = parseFloat(formik.values.other_charges_details?.addl_charge?.exchange_rate) || 1;
@@ -1996,13 +2144,13 @@ function JobDetails() {
           const frEx = parseFloat(r.freight_exchange_rate) || parseFloat(formik.values.exrate) || 1;
           const ins = parseFloat(r.insurance) || 0;
           const insEx = parseFloat(r.insurance_exchange_rate) || 1;
-          const oth = parseFloat(r.other_charges) || 0;
-          const othEx = parseFloat(r.other_charges_exchange_rate) || 1;
+          const oth = parseFloat(r.misc !== undefined ? r.misc : r.other_charges) || 0;
+          const othEx = parseFloat(r.misc_exchange_rate !== undefined ? r.misc_exchange_rate : r.other_charges_exchange_rate) || 1;
           
           const pvInr = (pv * pvEx) / getUnitForCurrency(r.inv_currency);
           const frInr = (fr * frEx) / getUnitForCurrency(r.freight_currency);
           const insInr = (ins * insEx) / getUnitForCurrency(r.insurance_currency);
-          const othInr = (oth * othEx) / getUnitForCurrency(r.other_charges_currency);
+          const othInr = (oth * othEx) / getUnitForCurrency(r.misc_currency !== undefined ? r.misc_currency : r.other_charges_currency);
           
           return sum + (pvInr + frInr + insInr + othInr);
         }, 0);
@@ -2028,11 +2176,11 @@ function JobDetails() {
         totalBaseValInr = invoiceRows.reduce((sum, r) => {
           const pv = parseFloat(r.product_value) || 0;
           const pvEx = parseFloat(r.exchange_rate) || parseFloat(formik.values.exrate) || 1;
-          const oth = parseFloat(r.other_charges) || 0;
-          const othEx = parseFloat(r.other_charges_exchange_rate) || 1;
+          const oth = parseFloat(r.misc !== undefined ? r.misc : r.other_charges) || 0;
+          const othEx = parseFloat(r.misc_exchange_rate !== undefined ? r.misc_exchange_rate : r.other_charges_exchange_rate) || 1;
           
           const pvInr = (pv * pvEx) / getUnitForCurrency(r.inv_currency);
-          const othInr = (oth * othEx) / getUnitForCurrency(r.other_charges_currency);
+          const othInr = (oth * othEx) / getUnitForCurrency(r.misc_currency !== undefined ? r.misc_currency : r.other_charges_currency);
           
           return sum + (pvInr + othInr);
         }, 0);
@@ -2047,10 +2195,10 @@ function JobDetails() {
 
         const updatedRows = invoiceRows.map((row) => {
           const pv = parseFloat(row.product_value) || 0;
-          const otherVal = parseFloat(row.other_charges) || 0;
+          const otherVal = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
           const invEx = parseFloat(row.exchange_rate || formik.values.exrate || 1) || 1;
-          const othEx = parseFloat(row.other_charges_exchange_rate || 1) || 1;
-          const otherInInv = ((otherVal * othEx) / getUnitForCurrency(row.other_charges_currency)) / (invEx / getUnitForCurrency(row.inv_currency));
+          const othEx = parseFloat(row.misc_exchange_rate || row.other_charges_exchange_rate || 1) || 1;
+          const otherInInv = ((otherVal * othEx) / getUnitForCurrency(row.misc_currency || row.other_charges_currency)) / (invEx / getUnitForCurrency(row.inv_currency));
           const baseVal = pv + otherInInv;
 
           let newFreight = row.freight;
@@ -2098,7 +2246,7 @@ function JobDetails() {
           const prod = pv;
           const frt = parseFloat(newFreight) || 0;
           const ins = parseFloat(newInsurance) || 0;
-          const other = parseFloat(row.other_charges) || 0;
+          const other = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
 
           const frEx = parseFloat(row.freight_exchange_rate || formik.values.exrate || 1) || 1;
           const insEx = parseFloat(row.insurance_exchange_rate || 1) || 1;
@@ -2106,7 +2254,7 @@ function JobDetails() {
           const prodInInv = prod;
           const frtInInv = ((frt * frEx) / getUnitForCurrency(row.freight_currency)) / (invEx / getUnitForCurrency(row.inv_currency));
           const insInInv = ((ins * insEx) / getUnitForCurrency(row.insurance_currency)) / (invEx / getUnitForCurrency(row.inv_currency));
-          const othInInv = ((other * othEx) / getUnitForCurrency(row.other_charges_currency)) / (invEx / getUnitForCurrency(row.inv_currency));
+          const othInInv = ((other * othEx) / getUnitForCurrency(row.misc_currency || row.other_charges_currency)) / (invEx / getUnitForCurrency(row.inv_currency));
 
           const total = (prodInInv + frtInInv + insInInv + othInInv).toFixed(2);
 
@@ -4145,19 +4293,19 @@ function JobDetails() {
                                       <TextField
                                         size="small"
                                         fullWidth
-                                        value={row.other_charges || ""}
-                                        onChange={(e) => updateInvoiceRow(rowIndex, "other_charges", e.target.value)}
+                                        value={row.misc || row.other_charges || ""}
+                                        onChange={(e) => updateInvoiceRow(rowIndex, "misc", e.target.value)}
                                         disabled={isDescriptionTableReadOnly}
-                                        placeholder="Other"
+                                        placeholder="Misc"
                                         sx={compactInputSx}
                                       />
                                       <Autocomplete
                                         freeSolo
                                         size="small"
                                         options={currencies.map(c => c.code)}
-                                        value={row.other_charges_currency || ""}
-                                        onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "other_charges_currency", newValue)}
-                                        onChange={(event, newValue) => updateInvoiceRow(rowIndex, "other_charges_currency", newValue || "")}
+                                        value={row.misc_currency || row.other_charges_currency || ""}
+                                        onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "misc_currency", newValue)}
+                                        onChange={(event, newValue) => updateInvoiceRow(rowIndex, "misc_currency", newValue || "")}
                                         disabled={isDescriptionTableReadOnly}
                                         renderInput={(params) => (
                                           <TextField
@@ -4170,13 +4318,13 @@ function JobDetails() {
                                         )}
                                       />
                                     </div>
-                                    {row.other_charges_currency && row.other_charges_currency.toUpperCase() !== 'INR' && (
+                                    {(row.misc_currency || row.other_charges_currency) && (row.misc_currency || row.other_charges_currency).toUpperCase() !== 'INR' && (
                                       <TextField
                                         size="small"
                                         type="number"
                                         placeholder="Oth. Ex Rate"
-                                        value={row.other_charges_exchange_rate || ""}
-                                        onChange={(e) => updateInvoiceRow(rowIndex, "other_charges_exchange_rate", e.target.value)}
+                                        value={row.misc_exchange_rate || row.other_charges_exchange_rate || ""}
+                                        onChange={(e) => updateInvoiceRow(rowIndex, "misc_exchange_rate", e.target.value)}
                                         disabled={isDescriptionTableReadOnly}
                                         sx={compactInputSx}
                                       />
@@ -4194,13 +4342,13 @@ function JobDetails() {
                                       const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(formik.values.exrate) || 1;
                                       const ins = parseFloat(row.insurance) || 0;
                                       const insEx = parseFloat(row.insurance_exchange_rate) || 1;
-                                      const oth = parseFloat(row.other_charges) || 0;
-                                      const othEx = parseFloat(row.other_charges_exchange_rate) || 1;
+                                      const oth = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
+                                      const othEx = parseFloat(row.misc_exchange_rate !== undefined ? row.misc_exchange_rate : row.other_charges_exchange_rate) || 1;
                                       
                                       const rowCifBase = ((pv * pvEx) / getUnitForCurrency(row.inv_currency)) + 
                                                          ((fr * frEx) / getUnitForCurrency(row.freight_currency)) + 
                                                          ((ins * insEx) / getUnitForCurrency(row.insurance_currency)) + 
-                                                         ((oth * othEx) / getUnitForCurrency(row.other_charges_currency));
+                                                         ((oth * othEx) / getUnitForCurrency(row.misc_currency !== undefined ? row.misc_currency : row.other_charges_currency));
                                       
                                       let hssRowShare = 0;
                                       if (formik.values.hss === "Yes") {
@@ -4215,13 +4363,13 @@ function JobDetails() {
                                           const rfrEx = parseFloat(r.freight_exchange_rate) || parseFloat(formik.values.exrate) || 1;
                                           const rins = parseFloat(r.insurance) || 0;
                                           const rinsEx = parseFloat(r.insurance_exchange_rate) || 1;
-                                          const roth = parseFloat(r.other_charges) || 0;
-                                          const rothEx = parseFloat(r.other_charges_exchange_rate) || 1;
+                                          const roth = parseFloat(r.misc !== undefined ? r.misc : r.other_charges) || 0;
+                                          const rothEx = parseFloat(r.misc_exchange_rate !== undefined ? r.misc_exchange_rate : r.other_charges_exchange_rate) || 1;
                                           
                                           const rpvInr = (rpv * rpvEx) / getUnitForCurrency(r.inv_currency);
                                           const rfrInr = (rfr * rfrEx) / getUnitForCurrency(r.freight_currency);
                                           const rinsInr = (rins * rinsEx) / getUnitForCurrency(r.insurance_currency);
-                                          const rothInr = (roth * rothEx) / getUnitForCurrency(r.other_charges_currency);
+                                          const rothInr = (roth * rothEx) / getUnitForCurrency(roth.misc_currency !== undefined ? roth.misc_currency : roth.other_charges_currency);
                                           
                                           return sum + (rpvInr + rfrInr + rinsInr + rothInr);
                                         }, 0);
@@ -4411,13 +4559,13 @@ function JobDetails() {
                                           const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(formik.values.exrate) || 1;
                                           const ins = parseFloat(row.insurance) || 0;
                                           const insEx = parseFloat(row.insurance_exchange_rate) || 1;
-                                          const oth = parseFloat(row.other_charges) || 0;
-                                          const othEx = parseFloat(row.other_charges_exchange_rate) || 1;
+                                          const oth = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
+                                          const othEx = parseFloat(row.misc_exchange_rate !== undefined ? row.misc_exchange_rate : row.other_charges_exchange_rate) || 1;
                                           
                                           const pvInr = (pv * pvEx) / getUnitForCurrency(row.inv_currency);
                                           const frInr = (fr * frEx) / getUnitForCurrency(row.freight_currency);
                                           const insInr = (ins * insEx) / getUnitForCurrency(row.insurance_currency);
-                                          const othInr = (oth * othEx) / getUnitForCurrency(row.other_charges_currency);
+                                          const othInr = (oth * othEx) / getUnitForCurrency(row.misc_currency !== undefined ? row.misc_currency : row.other_charges_currency);
                                           
                                           return sum + (pvInr + frInr + insInr + othInr);
                                         }, 0);
@@ -4461,13 +4609,13 @@ function JobDetails() {
                                         const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(formik.values.exrate) || 1;
                                         const ins = parseFloat(row.insurance) || 0;
                                         const insEx = parseFloat(row.insurance_exchange_rate) || 1;
-                                        const oth = parseFloat(row.other_charges) || 0;
-                                        const othEx = parseFloat(row.other_charges_exchange_rate) || 1;
+                                        const oth = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
+                                        const othEx = parseFloat(row.misc_exchange_rate !== undefined ? row.misc_exchange_rate : row.other_charges_exchange_rate) || 1;
                                         
                                         const pvInr = (pv * pvEx) / getUnitForCurrency(row.inv_currency);
                                         const frInr = (fr * frEx) / getUnitForCurrency(row.freight_currency);
                                         const insInr = (ins * insEx) / getUnitForCurrency(row.insurance_currency);
-                                        const othInr = (oth * othEx) / getUnitForCurrency(row.other_charges_currency);
+                                        const othInr = (oth * othEx) / getUnitForCurrency(row.misc_currency !== undefined ? row.misc_currency : row.other_charges_currency);
                                         
                                         return sum + (pvInr + frInr + insInr + othInr);
                                       }, 0);
@@ -4477,7 +4625,7 @@ function JobDetails() {
                                     if (baseCifInr < 0) baseCifInr = 0;
 
                                     const minAmountInr = baseCifInr * 0.02;
-                                    if (baseCifInr > 0 && amtInr < minAmountInr) {
+                                    if (baseCifInr > 0 && parseFloat(amtInr.toFixed(2)) < parseFloat(minAmountInr.toFixed(2))) {
                                       const minAmount = minAmountInr / (exrateVal / hssUnit);
                                       formik.setFieldValue("other_charges_details.addl_charge.rate", 2);
                                       formik.setFieldValue("other_charges_details.addl_charge.amount", minAmount.toFixed(2));

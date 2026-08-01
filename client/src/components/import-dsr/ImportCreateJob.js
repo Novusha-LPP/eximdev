@@ -74,6 +74,13 @@ const Autocomplete = (props) => (
   <MuiAutocomplete autoHighlight autoSelect selectOnFocus {...props} />
 );
 
+const getUnitForCurrency = (currencyCode) => {
+  if (!currencyCode) return 1;
+  const code = String(currencyCode).toUpperCase().trim();
+  if (code === "JPY" || code === "KRW") return 100;
+  return 1;
+};
+
 const steps = [
   { label: 'General Info', icon: <BusinessIcon /> },
   { label: 'Importer & Supplier', icon: <BusinessIcon /> },
@@ -2508,18 +2515,18 @@ const ImportCreateJob = () => {
                                         <TextField
                                           size="small"
                                           fullWidth
-                                          placeholder="Other Chrgs"
-                                          value={row.other_charges || ""}
-                                          onChange={(e) => updateInvoiceRow(rowIndex, "other_charges", e.target.value)}
+                                          placeholder="Misc Chrgs"
+                                          value={row.misc || row.other_charges || ""}
+                                          onChange={(e) => updateInvoiceRow(rowIndex, "misc", e.target.value)}
                                           sx={compactInput}
                                         />
                                         <Autocomplete
                                           freeSolo
                                           size="small"
                                           options={currencyOptions}
-                                          value={row.other_charges_currency || ""}
-                                          onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "other_charges_currency", newValue)}
-                                          onChange={(event, newValue) => updateInvoiceRow(rowIndex, "other_charges_currency", newValue || "")}
+                                          value={row.misc_currency || row.other_charges_currency || ""}
+                                          onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "misc_currency", newValue)}
+                                          onChange={(event, newValue) => updateInvoiceRow(rowIndex, "misc_currency", newValue || "")}
                                           renderInput={(params) => (
                                             <TextField
                                               {...params}
@@ -2531,13 +2538,13 @@ const ImportCreateJob = () => {
                                           )}
                                         />
                                       </div>
-                                      {row.other_charges_currency && row.other_charges_currency.toUpperCase() !== 'INR' && (
+                                      {(row.misc_currency || row.other_charges_currency) && (row.misc_currency || row.other_charges_currency).toUpperCase() !== 'INR' && (
                                         <TextField
                                           size="small"
                                           type="number"
                                           placeholder="Oth. Ex Rate"
-                                          value={row.other_charges_exchange_rate || ""}
-                                          onChange={(e) => updateInvoiceRow(rowIndex, "other_charges_exchange_rate", e.target.value)}
+                                          value={row.misc_exchange_rate || row.other_charges_exchange_rate || ""}
+                                          onChange={(e) => updateInvoiceRow(rowIndex, "misc_exchange_rate", e.target.value)}
                                           sx={compactInput}
                                         />
                                       )}
@@ -2555,8 +2562,8 @@ const ImportCreateJob = () => {
                                         const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(exrate) || 1;
                                         const ins = parseFloat(row.insurance) || 0;
                                         const insEx = parseFloat(row.insurance_exchange_rate) || 1;
-                                        const oth = parseFloat(row.other_charges) || 0;
-                                        const othEx = parseFloat(row.other_charges_exchange_rate) || 1;
+                                        const oth = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
+                                        const othEx = parseFloat(row.misc_exchange_rate !== undefined ? row.misc_exchange_rate : row.other_charges_exchange_rate) || 1;
                                         return ((pv * pvEx) + (fr * frEx) + (ins * insEx) + (oth * othEx)).toFixed(2);
                                       })()}
                                       InputProps={{ readOnly: true }}
@@ -2736,6 +2743,36 @@ const ImportCreateJob = () => {
                                             amount: calculatedAmount > 0 ? calculatedAmount.toFixed(2) : ""
                                           }
                                         });
+                                      } else if (row.id === "miscellaneous") {
+                                        const rateNum = parseFloat(val) || 0;
+                                        const exrateVal = parseFloat(other_charges_details?.miscellaneous?.exchange_rate) || 1;
+                                        const hssUnit = getUnitForCurrency(other_charges_details?.miscellaneous?.currency || "USD");
+                                        let totalBaseValInr = 0;
+                                        if (invoice_details && invoice_details.length > 0) {
+                                          totalBaseValInr = invoice_details.reduce((sum, r) => {
+                                            const pv = parseFloat(r.product_value) || 0;
+                                            const pvEx = parseFloat(r.exchange_rate) || parseFloat(exrate) || 1;
+                                            const oth = parseFloat(r.misc || r.other_charges) || 0;
+                                            const othEx = parseFloat(r.misc_exchange_rate || r.other_charges_exchange_rate) || 1;
+                                            const pvInr = (pv * pvEx) / getUnitForCurrency(r.inv_currency);
+                                            const othInr = (oth * othEx) / getUnitForCurrency(r.misc_currency || r.other_charges_currency);
+                                            return sum + (pvInr + othInr);
+                                          }, 0);
+                                        }
+                                        const amtInr = (totalBaseValInr * rateNum) / 100;
+                                        const calculatedAmount = amtInr / (exrateVal / hssUnit);
+                                        const amountStr = calculatedAmount > 0 ? calculatedAmount.toFixed(2) : "";
+                                        setOtherChargesDetails({
+                                          ...other_charges_details,
+                                          miscellaneous: {
+                                            ...other_charges_details.miscellaneous,
+                                            rate: val,
+                                            amount: amountStr
+                                          }
+                                        });
+                                        if (invoice_details && invoice_details.length > 0) {
+                                          updateInvoiceRow(0, "misc", amountStr);
+                                        }
                                       } else {
                                         setOtherChargesDetails({
                                           ...other_charges_details,
@@ -2791,7 +2828,36 @@ const ImportCreateJob = () => {
                                             rate: calculatedRate > 0 ? calculatedRate.toFixed(4) : ""
                                           }
                                         });
-                                      } else {
+                                      } else if (row.id === "miscellaneous") {
+                                         const amtNum = parseFloat(val) || 0;
+                                         const exrateVal = parseFloat(other_charges_details?.miscellaneous?.exchange_rate) || 1;
+                                         const hssUnit = getUnitForCurrency(other_charges_details?.miscellaneous?.currency || "USD");
+                                         const amtInr = (amtNum * exrateVal) / hssUnit;
+                                         let totalBaseValInr = 0;
+                                         if (invoice_details && invoice_details.length > 0) {
+                                           totalBaseValInr = invoice_details.reduce((sum, r) => {
+                                             const pv = parseFloat(r.product_value) || 0;
+                                             const pvEx = parseFloat(r.exchange_rate) || parseFloat(exrate) || 1;
+                                             const oth = parseFloat(r.misc || r.other_charges) || 0;
+                                             const othEx = parseFloat(r.misc_exchange_rate || r.other_charges_exchange_rate) || 1;
+                                             const pvInr = (pv * pvEx) / getUnitForCurrency(r.inv_currency);
+                                             const othInr = (oth * othEx) / getUnitForCurrency(r.misc_currency || r.other_charges_currency);
+                                             return sum + (pvInr + othInr);
+                                           }, 0);
+                                         }
+                                         const calculatedRate = totalBaseValInr > 0 ? (amtInr / totalBaseValInr) * 100 : 0;
+                                         setOtherChargesDetails({
+                                           ...other_charges_details,
+                                           miscellaneous: {
+                                             ...other_charges_details.miscellaneous,
+                                             amount: val,
+                                             rate: calculatedRate > 0 ? calculatedRate.toFixed(4) : ""
+                                           }
+                                         });
+                                         if (invoice_details && invoice_details.length > 0) {
+                                           updateInvoiceRow(0, "misc", val);
+                                         }
+                                       } else {
                                         setOtherChargesDetails({
                                           ...other_charges_details,
                                           [row.id]: { ...other_charges_details[row.id], amount: e.target.value }
@@ -2805,7 +2871,7 @@ const ImportCreateJob = () => {
                                         const exrateVal = parseFloat(other_charges_details?.addl_charge?.exchange_rate) || 1;
                                         const amtInr = amtNum * exrateVal;
                                         const minAmountInr = cifInr * 0.02;
-                                        if (cifInr > 0 && amtInr < minAmountInr) {
+                                        if (cifInr > 0 && parseFloat(amtInr.toFixed(2)) < parseFloat(minAmountInr.toFixed(2))) {
                                           const minAmount = minAmountInr / exrateVal;
                                           setOtherChargesDetails({
                                             ...other_charges_details,

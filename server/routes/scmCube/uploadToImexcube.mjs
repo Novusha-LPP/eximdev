@@ -1276,6 +1276,27 @@ router.post("/api/scmCube/sync-imexcube-job", authMiddleware, auditMiddleware('J
         const mappedFreightCurr = isValuePresent(inv.FreightCurrency) ? String(inv.FreightCurrency) : "";
         const mappedInsurance = isValuePresent(inv.InsuranceAmount) ? String(inv.InsuranceAmount) : "";
         const mappedInsuranceCurr = isValuePresent(inv.InsuranceCurrency) ? String(inv.InsuranceCurrency) : "";
+        const mappedMisc = isValuePresent(inv.MiscAmount) ? String(inv.MiscAmount) : "";
+        const mappedMiscCurr = isValuePresent(inv.MiscCurr) ? String(inv.MiscCurr) : "";
+
+        // Resolve exchange rates dynamically from job exrate or existing values
+        const jobCurrency = job.currency || job._doc?.currency || job.invoice_details?.[0]?.inv_currency || "USD";
+        const getExrateForCurrency = (currencyCode, currentVal) => {
+          const code = String(currencyCode || "").toUpperCase().trim();
+          if (!code) return "";
+          if (code === "INR") return "1";
+          const parsedCurrent = parseFloat(currentVal);
+          if (parsedCurrent && parsedCurrent !== 1) return String(parsedCurrent);
+          if (code === String(jobCurrency || "").toUpperCase().trim() && parseFloat(job.exrate)) {
+            return String(job.exrate);
+          }
+          return currentVal || "1";
+        };
+
+        const mappedExrate = getExrateForCurrency(inv.InvoiceCurrency, currentInv?.exchange_rate);
+        const mappedFreightExrate = getExrateForCurrency(inv.FreightCurrency, currentInv?.freight_exchange_rate);
+        const mappedInsuranceExrate = getExrateForCurrency(inv.InsuranceCurrency, currentInv?.insurance_exchange_rate);
+        const mappedMiscExrate = getExrateForCurrency(inv.MiscCurr, currentInv?.misc_exchange_rate || currentInv?.other_charges_exchange_rate);
 
         if (currentInv) {
           let subChanges = false;
@@ -1287,6 +1308,12 @@ router.post("/api/scmCube/sync-imexcube-job", authMiddleware, auditMiddleware('J
           if (mappedFreightCurr && currentInv.freight_currency !== mappedFreightCurr) { currentInv.freight_currency = mappedFreightCurr; subChanges = true; }
           if (mappedInsurance && currentInv.insurance !== mappedInsurance) { currentInv.insurance = mappedInsurance; subChanges = true; }
           if (mappedInsuranceCurr && currentInv.insurance_currency !== mappedInsuranceCurr) { currentInv.insurance_currency = mappedInsuranceCurr; subChanges = true; }
+          if (mappedExrate && currentInv.exchange_rate !== mappedExrate) { currentInv.exchange_rate = mappedExrate; subChanges = true; }
+          if (mappedFreightExrate && currentInv.freight_exchange_rate !== mappedFreightExrate) { currentInv.freight_exchange_rate = mappedFreightExrate; subChanges = true; }
+          if (mappedInsuranceExrate && currentInv.insurance_exchange_rate !== mappedInsuranceExrate) { currentInv.insurance_exchange_rate = mappedInsuranceExrate; subChanges = true; }
+          if (mappedMisc && currentInv.misc !== mappedMisc) { currentInv.misc = mappedMisc; subChanges = true; }
+          if (mappedMiscCurr && currentInv.misc_currency !== mappedMiscCurr) { currentInv.misc_currency = mappedMiscCurr; subChanges = true; }
+          if (mappedMiscExrate && currentInv.misc_exchange_rate !== mappedMiscExrate) { currentInv.misc_exchange_rate = mappedMiscExrate; subChanges = true; }
 
           if (subChanges) {
             existingInvoices[idx] = currentInv;
@@ -1304,12 +1331,211 @@ router.post("/api/scmCube/sync-imexcube-job", authMiddleware, auditMiddleware('J
             freight_currency: mappedFreightCurr,
             insurance: mappedInsurance,
             insurance_currency: mappedInsuranceCurr,
+            exchange_rate: mappedExrate,
+            freight_exchange_rate: mappedFreightExrate,
+            insurance_exchange_rate: mappedInsuranceExrate,
+            misc: mappedMisc,
+            misc_currency: mappedMiscCurr,
+            misc_exchange_rate: mappedMiscExrate,
           };
           existingInvoices.push(newInv);
           invoiceChanged = true;
           changesSummary.push(`Added invoice ${inv.InvoiceNo}`);
         }
       });
+
+      // Helper function to get currency unit
+      const getUnitForCurrency = (currencyCode) => {
+        if (!currencyCode) return 1;
+        const code = String(currencyCode).toUpperCase().trim();
+        if (code === "JPY" || code === "KRW") return 100;
+        return 1;
+      };
+
+      // Helper function to resolve exchange rate for a currency from invoices or job
+      const getExchangeRateForCurrency = (currencyCode) => {
+        if (!currencyCode) return 1;
+        const code = String(currencyCode).toUpperCase().trim();
+        if (code === "INR") return 1;
+        
+        for (const row of existingInvoices) {
+          if (row.inv_currency && String(row.inv_currency).toUpperCase().trim() === code) {
+            if (parseFloat(row.exchange_rate)) return parseFloat(row.exchange_rate);
+          }
+          if (row.freight_currency && String(row.freight_currency).toUpperCase().trim() === code) {
+            if (parseFloat(row.freight_exchange_rate)) return parseFloat(row.freight_exchange_rate);
+          }
+          if (row.insurance_currency && String(row.insurance_currency).toUpperCase().trim() === code) {
+            if (parseFloat(row.insurance_exchange_rate)) return parseFloat(row.insurance_exchange_rate);
+          }
+          if ((row.misc_currency || row.other_charges_currency) && String(row.misc_currency || row.other_charges_currency).toUpperCase().trim() === code) {
+            if (parseFloat(row.misc_exchange_rate || row.other_charges_exchange_rate)) return parseFloat(row.misc_exchange_rate || row.other_charges_exchange_rate);
+          }
+        }
+        return parseFloat(job.exrate) || 1;
+      };
+
+      const getExchangeRateForCharge = (chargeKey, currencyCode) => {
+        if (!currencyCode) return 1;
+        const code = String(currencyCode).toUpperCase().trim();
+        if (code === "INR") return 1;
+        
+        const existingExrate = parseFloat(job.other_charges_details?.[chargeKey]?.exchange_rate);
+        if (existingExrate) return existingExrate;
+        
+        return getExchangeRateForCurrency(code);
+      };
+
+      // Calculate total base value in INR from the invoices
+      let totalBaseValInr = 0;
+      existingInvoices.forEach((row) => {
+        const pv = parseFloat(row.product_value) || 0;
+        const pvEx = parseFloat(row.exchange_rate) || parseFloat(job.exrate) || 1;
+        const oth = parseFloat(row.misc || row.other_charges) || 0;
+        const othEx = parseFloat(row.misc_exchange_rate || row.other_charges_exchange_rate) || 1;
+        
+        const pvInr = (pv * pvEx) / getUnitForCurrency(row.inv_currency);
+        const othInr = (oth * othEx) / getUnitForCurrency(row.misc_currency || row.other_charges_currency);
+        
+        totalBaseValInr += pvInr + othInr;
+      });
+
+      const calculateRate = (chargeKey, amount, currency) => {
+        const amtVal = parseFloat(amount) || 0;
+        if (amtVal === 0) return 0;
+        if (totalBaseValInr <= 0) {
+          if (chargeKey === "freight") return 20;
+          if (chargeKey === "insurance") return 1.125;
+          return 0;
+        }
+        const exrateVal = getExchangeRateForCharge(chargeKey, currency);
+        const unitVal = getUnitForCurrency(currency);
+        const amtInr = (amtVal * exrateVal) / unitVal;
+        const calculated = (amtInr / totalBaseValInr) * 100;
+        return parseFloat(calculated.toFixed(4));
+      };
+
+      // Calculate aggregates for job-level other_charges_details
+      let totalFreight = 0;
+      let freightCurrency = "";
+      let totalInsurance = 0;
+      let insuranceCurrency = "";
+      let totalMisc = 0;
+      let miscCurrency = "";
+      let totalDiscount = 0;
+      let discountCurrency = "";
+      let totalAgency = 0;
+      let agencyCurrency = "";
+      let totalLoading = 0;
+      let loadingCurrency = "";
+      let totalHighSea = 0;
+      let highSeaCurrency = "";
+
+      imexData.Invoice_Details.forEach((inv) => {
+        if (isValuePresent(inv.FreightAmount)) {
+          totalFreight += parseFloat(inv.FreightAmount) || 0;
+          if (!freightCurrency && isValuePresent(inv.FreightCurrency)) {
+            freightCurrency = String(inv.FreightCurrency);
+          }
+        }
+        if (isValuePresent(inv.InsuranceAmount)) {
+          totalInsurance += parseFloat(inv.InsuranceAmount) || 0;
+          if (!insuranceCurrency && isValuePresent(inv.InsuranceCurrency)) {
+            insuranceCurrency = String(inv.InsuranceCurrency);
+          }
+        }
+        if (isValuePresent(inv.MiscAmount)) {
+          totalMisc += parseFloat(inv.MiscAmount) || 0;
+          if (!miscCurrency && isValuePresent(inv.MiscCurr)) {
+            miscCurrency = String(inv.MiscCurr);
+          }
+        }
+        if (isValuePresent(inv.DiscountAmount)) {
+          totalDiscount += parseFloat(inv.DiscountAmount) || 0;
+          if (!discountCurrency && isValuePresent(inv.DiscountCurrency)) {
+            discountCurrency = String(inv.DiscountCurrency);
+          }
+        }
+        if (isValuePresent(inv.AgencyAmount)) {
+          totalAgency += parseFloat(inv.AgencyAmount) || 0;
+          if (!agencyCurrency && isValuePresent(inv.AgencyCurrency)) {
+            agencyCurrency = String(inv.AgencyCurrency);
+          }
+        }
+        if (isValuePresent(inv.LoadingAmount)) {
+          totalLoading += parseFloat(inv.LoadingAmount) || 0;
+          if (!loadingCurrency && isValuePresent(inv.LoadingCurrency)) {
+            loadingCurrency = String(inv.LoadingCurrency);
+          }
+        }
+        if (isValuePresent(inv.HighSeaAmt)) {
+          totalHighSea += parseFloat(inv.HighSeaAmt) || 0;
+          if (!highSeaCurrency && isValuePresent(inv.HighSeaCurrency)) {
+            highSeaCurrency = String(inv.HighSeaCurrency);
+          }
+        }
+      });
+
+      const otherChargesDetails = {
+        is_single_for_all: job.other_charges_details?.is_single_for_all ?? true,
+        miscellaneous: {
+          currency: miscCurrency || job.other_charges_details?.miscellaneous?.currency || "",
+          exchange_rate: getExchangeRateForCharge("miscellaneous", miscCurrency || job.other_charges_details?.miscellaneous?.currency),
+          rate: calculateRate("miscellaneous", totalMisc, miscCurrency || job.other_charges_details?.miscellaneous?.currency),
+          amount: totalMisc,
+          remark: job.other_charges_details?.miscellaneous?.remark || ""
+        },
+        agency: {
+          currency: agencyCurrency || job.other_charges_details?.agency?.currency || "INR",
+          exchange_rate: getExchangeRateForCharge("agency", agencyCurrency || job.other_charges_details?.agency?.currency || "INR"),
+          rate: calculateRate("agency", totalAgency, agencyCurrency || job.other_charges_details?.agency?.currency || "INR"),
+          amount: totalAgency,
+          remark: job.other_charges_details?.agency?.remark || ""
+        },
+        discount: {
+          currency: discountCurrency || job.other_charges_details?.discount?.currency || "",
+          exchange_rate: getExchangeRateForCharge("discount", discountCurrency || job.other_charges_details?.discount?.currency),
+          rate: calculateRate("discount", totalDiscount, discountCurrency || job.other_charges_details?.discount?.currency),
+          amount: totalDiscount,
+          remark: job.other_charges_details?.discount?.remark || ""
+        },
+        loading: {
+          currency: loadingCurrency || job.other_charges_details?.loading?.currency || "INR",
+          exchange_rate: getExchangeRateForCharge("loading", loadingCurrency || job.other_charges_details?.loading?.currency || "INR"),
+          rate: calculateRate("loading", totalLoading, loadingCurrency || job.other_charges_details?.loading?.currency || "INR"),
+          amount: totalLoading,
+          remark: job.other_charges_details?.loading?.remark || ""
+        },
+        freight: {
+          currency: freightCurrency || job.other_charges_details?.freight?.currency || "",
+          exchange_rate: getExchangeRateForCharge("freight", freightCurrency || job.other_charges_details?.freight?.currency),
+          rate: calculateRate("freight", totalFreight, freightCurrency || job.other_charges_details?.freight?.currency),
+          amount: totalFreight,
+          remark: job.other_charges_details?.freight?.remark || ""
+        },
+        insurance: {
+          currency: insuranceCurrency || job.other_charges_details?.insurance?.currency || "INR",
+          exchange_rate: getExchangeRateForCharge("insurance", insuranceCurrency || job.other_charges_details?.insurance?.currency || "INR"),
+          rate: calculateRate("insurance", totalInsurance, insuranceCurrency || job.other_charges_details?.insurance?.currency || "INR"),
+          amount: totalInsurance,
+          remark: job.other_charges_details?.insurance?.remark || ""
+        },
+        addl_charge: {
+          currency: highSeaCurrency || job.other_charges_details?.addl_charge?.currency || "INR",
+          exchange_rate: getExchangeRateForCharge("addl_charge", highSeaCurrency || job.other_charges_details?.addl_charge?.currency || "INR"),
+          rate: calculateRate("addl_charge", totalHighSea, highSeaCurrency || job.other_charges_details?.addl_charge?.currency || "INR"),
+          amount: totalHighSea,
+          remark: job.other_charges_details?.addl_charge?.remark || ""
+        },
+        revenue_deposit: job.other_charges_details?.revenue_deposit || { rate: 0, on: "Assessable" },
+        landing_charge: job.other_charges_details?.landing_charge || { rate: 0 }
+      };
+
+      const isOtherChargesChanged = JSON.stringify(job.other_charges_details) !== JSON.stringify(otherChargesDetails);
+      if (isOtherChargesChanged) {
+        updates.other_charges_details = otherChargesDetails;
+        changesSummary.push("Updated other_charges_details with aggregated charge amounts");
+      }
 
       if (invoiceChanged) {
         updates.invoice_details = existingInvoices;

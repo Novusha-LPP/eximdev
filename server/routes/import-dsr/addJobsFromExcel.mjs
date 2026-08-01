@@ -116,13 +116,12 @@ router.post(
             const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(req.body.exrate) || 1;
             const ins = parseFloat(row.insurance) || 0;
             const insEx = parseFloat(row.insurance_exchange_rate) || 1;
-            const oth = parseFloat(row.other_charges) || 0;
-            const othEx = parseFloat(row.other_charges_exchange_rate) || 1;
-
             const pvInr = (pv * pvEx) / getUnitForCurrency(row.inv_currency);
             const frInr = (fr * frEx) / getUnitForCurrency(row.freight_currency);
             const insInr = (ins * insEx) / getUnitForCurrency(row.insurance_currency);
-            const othInr = (oth * othEx) / getUnitForCurrency(row.other_charges_currency);
+            const oth = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
+            const othEx = parseFloat(row.misc_exchange_rate !== undefined ? row.misc_exchange_rate : row.other_charges_exchange_rate) || 1;
+            const othInr = (oth * othEx) / getUnitForCurrency(row.misc_currency !== undefined ? row.misc_currency : row.other_charges_currency);
 
             return sum + (pvInr + frInr + insInr + othInr);
           }, 0);
@@ -136,7 +135,7 @@ router.post(
         if (addlRate > 0 && addlRate < 2) {
           return res.status(400).json({ message: "High Sea Sale (HSS) is marked. Additional Charge (High Sea) Rate % cannot be less than 2%." });
         }
-        if (addlAmountInr > 0 && baseCifInr > 0 && addlAmountInr < minAllowedAmountInr) {
+        if (addlAmountInr > 0 && baseCifInr > 0 && parseFloat(addlAmountInr.toFixed(2)) < parseFloat(minAllowedAmountInr.toFixed(2))) {
           return res.status(400).json({ message: `High Sea Sale (HSS) is marked. Additional Charge (High Sea) Amount (${addlAmountInr.toFixed(2)} INR) cannot be less than 2% of CIF (${minAllowedAmountInr.toFixed(2)} INR).` });
         }
         if (addlRate === 0 && addlAmount === 0) {

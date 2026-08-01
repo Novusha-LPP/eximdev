@@ -94,6 +94,7 @@ const invoiceDetailsSchema = new mongoose.Schema(
     po_details: [poDetailSchema],
     product_value: { type: String, trim: true },
     other_charges: { type: String, trim: true },
+    misc: { type: String, trim: true },
     total_inv_value: { type: String, trim: true },
     inv_currency: { type: String, trim: true },
     toi: { type: String, trim: true },
@@ -102,10 +103,12 @@ const invoiceDetailsSchema = new mongoose.Schema(
     freight_currency: { type: String, trim: true },
     insurance_currency: { type: String, trim: true },
     other_charges_currency: { type: String, trim: true },
+    misc_currency: { type: String, trim: true },
     exchange_rate: { type: String, trim: true },
     freight_exchange_rate: { type: String, trim: true },
     insurance_exchange_rate: { type: String, trim: true },
     other_charges_exchange_rate: { type: String, trim: true },
+    misc_exchange_rate: { type: String, trim: true },
   },
   { _id: false }
 );

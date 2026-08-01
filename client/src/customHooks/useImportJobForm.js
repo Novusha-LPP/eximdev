@@ -199,15 +199,15 @@ const useImportJobForm = () => {
       exchange_rate: "",
       freight_exchange_rate: "",
       insurance_exchange_rate: "",
-      other_charges_exchange_rate: "",
+      misc_exchange_rate: "",
       toi: "CIF",
       freight: "",
       insurance: "",
       po_validation_error: "",
-      other_charges: "",
+      misc: "",
       freight_currency: "",
       insurance_currency: "INR",
-      other_charges_currency: "USD",
+      misc_currency: "USD",
     },
   ]);
 
@@ -455,13 +455,13 @@ const useImportJobForm = () => {
           const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(exrate) || 1;
           const ins = parseFloat(row.insurance) || 0;
           const insEx = parseFloat(row.insurance_exchange_rate) || 1;
-          const oth = parseFloat(row.other_charges) || 0;
-          const othEx = parseFloat(row.other_charges_exchange_rate) || 1;
+          const oth = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
+          const othEx = parseFloat(row.misc_exchange_rate !== undefined ? row.misc_exchange_rate : row.other_charges_exchange_rate) || 1;
           
           const pvInr = (pv * pvEx) / getUnitForCurrency(row.inv_currency);
           const frInr = (fr * frEx) / getUnitForCurrency(row.freight_currency);
           const insInr = (ins * insEx) / getUnitForCurrency(row.insurance_currency);
-          const othInr = (oth * othEx) / getUnitForCurrency(row.other_charges_currency);
+          const othInr = (oth * othEx) / getUnitForCurrency(row.misc_currency !== undefined ? row.misc_currency : row.other_charges_currency);
           
           return sum + (pvInr + frInr + insInr + othInr);
         }, 0);
@@ -506,13 +506,13 @@ const useImportJobForm = () => {
         const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(exrate) || 1;
         const ins = parseFloat(row.insurance) || 0;
         const insEx = parseFloat(row.insurance_exchange_rate) || 1;
-        const oth = parseFloat(row.other_charges) || 0;
-        const othEx = parseFloat(row.other_charges_exchange_rate) || 1;
+        const oth = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
+        const othEx = parseFloat(row.misc_exchange_rate !== undefined ? row.misc_exchange_rate : row.other_charges_exchange_rate) || 1;
         
         const rowCif = ((pv * pvEx) / getUnitForCurrency(row.inv_currency)) + 
                        ((fr * frEx) / getUnitForCurrency(row.freight_currency)) + 
                        ((ins * insEx) / getUnitForCurrency(row.insurance_currency)) + 
-                       ((oth * othEx) / getUnitForCurrency(row.other_charges_currency));
+                       ((oth * othEx) / getUnitForCurrency(row.misc_currency !== undefined ? row.misc_currency : row.other_charges_currency));
         totalCifInr += rowCif;
       });
 
@@ -591,11 +591,68 @@ const useImportJobForm = () => {
       [field]: value,
     };
 
+    if (field === "misc") {
+      updatedRows[rowIndex].other_charges = value;
+    }
+    if (field === "misc_currency") {
+      updatedRows[rowIndex].other_charges_currency = value;
+    }
+    if (field === "misc_exchange_rate") {
+      updatedRows[rowIndex].other_charges_exchange_rate = value;
+    }
+    if (field === "other_charges") {
+      updatedRows[rowIndex].misc = value;
+    }
+    if (field === "other_charges_currency") {
+      updatedRows[rowIndex].misc_currency = value;
+    }
+    if (field === "other_charges_exchange_rate") {
+      updatedRows[rowIndex].misc_exchange_rate = value;
+    }
+
+    if (["misc", "other_charges", "misc_currency", "other_charges_currency", "misc_exchange_rate", "other_charges_exchange_rate"].includes(field)) {
+      const totalMiscAmount = updatedRows.reduce((sum, r) => sum + (parseFloat(r.misc || r.other_charges) || 0), 0);
+      const currency = updatedRows[rowIndex].misc_currency || updatedRows[rowIndex].other_charges_currency || "USD";
+      const exchange_rate = updatedRows[rowIndex].misc_exchange_rate || updatedRows[rowIndex].other_charges_exchange_rate || "";
+      
+      const exrateVal = parseFloat(exchange_rate) || 1;
+      const unitVal = getUnitForCurrency(currency);
+      const amtInr = (totalMiscAmount * exrateVal) / unitVal;
+
+      let totalBaseValInr = updatedRows.reduce((sum, r) => {
+        const pv = parseFloat(r.product_value) || 0;
+        const pvEx = parseFloat(r.exchange_rate) || parseFloat(exrate) || 1;
+        const oth = parseFloat(r.misc || r.other_charges) || 0;
+        const othEx = parseFloat(r.misc_exchange_rate || r.other_charges_exchange_rate) || 1;
+        
+        const pvInr = (pv * pvEx) / getUnitForCurrency(r.inv_currency);
+        const othInr = (oth * othEx) / getUnitForCurrency(r.misc_currency || r.other_charges_currency);
+        
+        return sum + (pvInr + othInr);
+      }, 0);
+
+      const calculatedRate = totalBaseValInr > 0 ? (amtInr / totalBaseValInr) * 100 : 0;
+      
+      setOtherChargesDetails(prev => ({
+        ...prev,
+        miscellaneous: {
+          ...prev.miscellaneous,
+          amount: totalMiscAmount > 0 ? totalMiscAmount.toFixed(2) : "",
+          currency: currency,
+          exchange_rate: exchange_rate,
+          rate: calculatedRate > 0 ? calculatedRate.toFixed(4) : "",
+        }
+      }));
+    }
+
     if (field === "freight_currency" && invoice_details[rowIndex]?.freight_currency !== value) {
       updatedRows[rowIndex].freight_exchange_rate = "";
     }
     if (field === "insurance_currency" && invoice_details[rowIndex]?.insurance_currency !== value) {
       updatedRows[rowIndex].insurance_exchange_rate = "";
+    }
+    if (field === "misc_currency" && invoice_details[rowIndex]?.misc_currency !== value) {
+      updatedRows[rowIndex].misc_exchange_rate = "";
     }
     if (field === "other_charges_currency" && invoice_details[rowIndex]?.other_charges_currency !== value) {
       updatedRows[rowIndex].other_charges_exchange_rate = "";
@@ -689,13 +746,13 @@ const useImportJobForm = () => {
     }
 
     // Auto-calculate total_inv_value from contributing fields
-    const calcFields = ["product_value", "freight", "insurance", "other_charges", "toi"];
+    const calcFields = ["product_value", "freight", "insurance", "other_charges", "misc", "toi"];
     if (calcFields.includes(field)) {
       const row = updatedRows[rowIndex];
       const pv = parseFloat(field === "product_value" ? value : (row.product_value || 0)) || 0;
       const fr = parseFloat(field === "freight" ? value : (row.freight || 0)) || 0;
       const ins = parseFloat(field === "insurance" ? value : (row.insurance || 0)) || 0;
-      const oth = parseFloat(field === "other_charges" ? value : (row.other_charges || 0)) || 0;
+      const oth = parseFloat(field === "misc" ? value : (row.misc !== undefined ? row.misc : (field === "other_charges" ? value : (row.other_charges || 0)))) || 0;
       updatedRows[rowIndex].total_inv_value = (pv + fr + ins + oth).toFixed(2);
     }
 
@@ -746,7 +803,7 @@ const useImportJobForm = () => {
           const resInv = await resolveRate(row.inv_currency, row.exchange_rate, date);
           const resFr = await resolveRate(row.freight_currency, row.freight_exchange_rate, date);
           const resIns = await resolveRate(row.insurance_currency, row.insurance_exchange_rate, date);
-          const resOth = await resolveRate(row.other_charges_currency, row.other_charges_exchange_rate, date);
+          const resOth = await resolveRate(row.misc_currency || row.other_charges_currency, row.misc_exchange_rate || row.other_charges_exchange_rate, date);
 
           if (resInv.updated || resFr.updated || resIns.updated || resOth.updated) {
             updated = true;
@@ -755,12 +812,12 @@ const useImportJobForm = () => {
           const pv = parseFloat(row.product_value) || 0;
           const fr = parseFloat(row.freight) || 0;
           const ins = parseFloat(row.insurance) || 0;
-          const oth = parseFloat(row.other_charges) || 0;
+          const oth = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
 
            const rowCif = ((pv * resInv.rate) / getUnitForCurrency(row.inv_currency)) + 
                           ((fr * resFr.rate) / getUnitForCurrency(row.freight_currency)) + 
                           ((ins * resIns.rate) / getUnitForCurrency(row.insurance_currency)) + 
-                          ((oth * resOth.rate) / getUnitForCurrency(row.other_charges_currency));
+                          ((oth * resOth.rate) / getUnitForCurrency(row.misc_currency || row.other_charges_currency));
            totalCifInr += rowCif;
  
            return {
@@ -768,7 +825,7 @@ const useImportJobForm = () => {
              exchange_rate: String(resInv.rate),
              freight_exchange_rate: String(resFr.rate),
              insurance_exchange_rate: String(resIns.rate),
-             other_charges_exchange_rate: String(resOth.rate),
+             misc_exchange_rate: String(resOth.rate),
            };
          }));
  
@@ -816,10 +873,12 @@ const useImportJobForm = () => {
     if (field === "inv_currency" && invoice_details[rowIndex]?.inv_currency !== value) {
       updatedRows[rowIndex].freight_currency = value || "";
       updatedRows[rowIndex].insurance_currency = "INR";
+      updatedRows[rowIndex].misc_currency = "USD";
       updatedRows[rowIndex].other_charges_currency = "USD";
       updatedRows[rowIndex].exchange_rate = "";
       updatedRows[rowIndex].freight_exchange_rate = "";
       updatedRows[rowIndex].insurance_exchange_rate = "";
+      updatedRows[rowIndex].misc_exchange_rate = "";
       updatedRows[rowIndex].other_charges_exchange_rate = "";
 
       setOtherChargesDetails(prev => {
@@ -879,15 +938,15 @@ const useImportJobForm = () => {
         exchange_rate: "",
         freight_exchange_rate: "",
         insurance_exchange_rate: "",
-        other_charges_exchange_rate: "",
+        misc_exchange_rate: "",
         toi: "CIF",
         freight: "",
         insurance: "",
-        other_charges: "",
+        misc: "",
         po_validation_error: "",
         freight_currency: invoice_details[0]?.inv_currency || "",
         insurance_currency: "INR",
-        other_charges_currency: "USD",
+        misc_currency: "USD",
       },
     ]);
   };
@@ -1152,15 +1211,14 @@ const useImportJobForm = () => {
         inv_currency: "",
         exchange_rate: "",
         freight_exchange_rate: "",
-        insurance_exchange_rate: "",
-        other_charges_exchange_rate: "",
+        misc_exchange_rate: "",
         toi: "CIF",
         freight: "",
         insurance: "",
-        other_charges: "",
+        misc: "",
         freight_currency: "",
         insurance_currency: "INR",
-        other_charges_currency: "USD",
+        misc_currency: "USD",
       },
     ]);
     setConsignmentType("");
@@ -1314,11 +1372,11 @@ const useImportJobForm = () => {
           : [{ po_no: inv.po_no || "", po_date: inv.po_date || "" }],
         freight_currency: inv.freight_currency || inv.inv_currency || "",
         insurance_currency: inv.insurance_currency || "INR",
-        other_charges_currency: inv.other_charges_currency || "USD",
+        misc_currency: inv.misc_currency || inv.other_charges_currency || "USD",
         exchange_rate: inv.exchange_rate || "",
         freight_exchange_rate: inv.freight_exchange_rate || "",
         insurance_exchange_rate: inv.insurance_exchange_rate || "",
-        other_charges_exchange_rate: inv.other_charges_exchange_rate || "",
+        misc_exchange_rate: inv.misc_exchange_rate || inv.other_charges_exchange_rate || "",
       })));
     } else if (job.invoice_number || job.total_inv_value) {
       setInvoiceDetails([{
@@ -1333,14 +1391,14 @@ const useImportJobForm = () => {
         toi: job.import_terms || "CIF",
         freight: job.freight || "",
         insurance: job.insurance || "",
-        other_charges: job.other_charges || "",
+        misc: job.misc || job.other_charges || "",
         freight_currency: job.inv_currency || "",
         insurance_currency: "INR",
-        other_charges_currency: "USD",
+        misc_currency: "USD",
         exchange_rate: job.exrate || "",
         freight_exchange_rate: job.exrate || "",
         insurance_exchange_rate: "1",
-        other_charges_exchange_rate: "1",
+        misc_exchange_rate: "1",
       }]);
     }
     
@@ -1802,13 +1860,13 @@ const useImportJobForm = () => {
               const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(exrate) || 1;
               const ins = parseFloat(row.insurance) || 0;
               const insEx = parseFloat(row.insurance_exchange_rate) || 1;
-              const oth = parseFloat(row.other_charges) || 0;
-              const othEx = parseFloat(row.other_charges_exchange_rate) || 1;
+              const oth = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
+              const othEx = parseFloat(row.misc_exchange_rate !== undefined ? row.misc_exchange_rate : row.other_charges_exchange_rate) || 1;
               
               const pvInr = (pv * pvEx) / getUnitForCurrency(row.inv_currency);
               const frInr = (fr * frEx) / getUnitForCurrency(row.freight_currency);
               const insInr = (ins * insEx) / getUnitForCurrency(row.insurance_currency);
-              const othInr = (oth * othEx) / getUnitForCurrency(row.other_charges_currency);
+              const othInr = (oth * othEx) / getUnitForCurrency(row.misc_currency !== undefined ? row.misc_currency : row.other_charges_currency);
               
               return sum + (pvInr + frInr + insInr + othInr);
             }, 0);
@@ -1828,7 +1886,7 @@ const useImportJobForm = () => {
             return;
           }
 
-          if (addlAmountInr > 0 && baseCifInr > 0 && addlAmountInr < minAllowedAmountInr) {
+          if (addlAmountInr > 0 && baseCifInr > 0 && parseFloat(addlAmountInr.toFixed(2)) < parseFloat(minAllowedAmountInr.toFixed(2))) {
             setSnackbar({
               open: true,
               message: `High Sea Sale (HSS) is marked. Additional Charge (High Sea) Amount (${addlAmountInr.toFixed(2)} INR) cannot be less than 2% of CIF (${minAllowedAmountInr.toFixed(2)} INR).`,

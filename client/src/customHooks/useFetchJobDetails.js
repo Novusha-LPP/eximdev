@@ -675,13 +675,13 @@ function useFetchJobDetails(
             const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(values.exrate) || 1;
             const ins = parseFloat(row.insurance) || 0;
             const insEx = parseFloat(row.insurance_exchange_rate) || 1;
-            const oth = parseFloat(row.other_charges) || 0;
-            const othEx = parseFloat(row.other_charges_exchange_rate) || 1;
+            const oth = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
+            const othEx = parseFloat(row.misc_exchange_rate !== undefined ? row.misc_exchange_rate : row.other_charges_exchange_rate) || 1;
             
             const pvInr = (pv * pvEx) / getUnitForCurrency(row.inv_currency);
             const frInr = (fr * frEx) / getUnitForCurrency(row.freight_currency);
             const insInr = (ins * insEx) / getUnitForCurrency(row.insurance_currency);
-            const othInr = (oth * othEx) / getUnitForCurrency(row.other_charges_currency);
+            const othInr = (oth * othEx) / getUnitForCurrency(row.misc_currency !== undefined ? row.misc_currency : row.other_charges_currency);
             
             return sum + (pvInr + frInr + insInr + othInr);
           }, 0);
@@ -696,7 +696,7 @@ function useFetchJobDetails(
           toast.error("High Sea Sale (HSS) is marked. Additional Charge (High Sea) Rate % cannot be less than 2%.");
           return;
         }
-        if (addlAmountInr > 0 && baseCifInr > 0 && addlAmountInr < minAllowedAmountInr) {
+        if (addlAmountInr > 0 && baseCifInr > 0 && parseFloat(addlAmountInr.toFixed(2)) < parseFloat(minAllowedAmountInr.toFixed(2))) {
           toast.error(`High Sea Sale (HSS) is marked. Additional Charge (High Sea) Amount (${addlAmountInr.toFixed(2)} INR) cannot be less than 2% of CIF (${minAllowedAmountInr.toFixed(2)} INR).`);
           return;
         }
@@ -1251,11 +1251,12 @@ function useFetchJobDetails(
                   : [{ po_no: inv.po_no || "", po_date: inv.po_date || "" }],
                 freight_currency: inv.freight_currency || inv.inv_currency || "",
                 insurance_currency: inv.insurance_currency || "INR",
-                other_charges_currency: inv.other_charges_currency || "USD",
+                misc_currency: inv.misc_currency || inv.other_charges_currency || "USD",
+                misc: inv.misc || inv.other_charges || "",
                 exchange_rate: inv.exchange_rate || "",
                 freight_exchange_rate: inv.freight_exchange_rate || "",
                 insurance_exchange_rate: inv.insurance_exchange_rate || "",
-                other_charges_exchange_rate: inv.other_charges_exchange_rate || "",
+                misc_exchange_rate: inv.misc_exchange_rate || inv.other_charges_exchange_rate || "",
               }))
             : [
                 {
@@ -1271,11 +1272,12 @@ function useFetchJobDetails(
                   insurance: safeValue(data.insurance),
                   freight_currency: safeValue(data.inv_currency),
                   insurance_currency: "INR",
-                  other_charges_currency: "USD",
+                  misc_currency: "USD",
+                  misc: "",
                   exchange_rate: safeValue(data.exrate),
                   freight_exchange_rate: safeValue(data.exrate),
                   insurance_exchange_rate: "1",
-                  other_charges_exchange_rate: "1",
+                  misc_exchange_rate: "1",
                 },
               ],
         bill_date: safeValue(data.bill_date),
@@ -1527,11 +1529,11 @@ function useFetchJobDetails(
         };
 
         const newRows = await Promise.all(formik.values.invoice_details.map(async (row) => {
-          const date = row.invoice_date || formik.values.invoice_date || "";
+          const date = formik.values.be_date || row.invoice_date || formik.values.invoice_date || "";
           const resInv = await resolveRate(row.inv_currency, row.exchange_rate, date);
           const resFr = await resolveRate(row.freight_currency, row.freight_exchange_rate, date);
           const resIns = await resolveRate(row.insurance_currency, row.insurance_exchange_rate, date);
-          const resOth = await resolveRate(row.other_charges_currency, row.other_charges_exchange_rate, date);
+          const resOth = await resolveRate(row.misc_currency || row.other_charges_currency, row.misc_exchange_rate || row.other_charges_exchange_rate, date);
 
           if (resInv.updated || resFr.updated || resIns.updated || resOth.updated) {
             updated = true;
@@ -1540,12 +1542,12 @@ function useFetchJobDetails(
           const pv = parseFloat(row.product_value) || 0;
           const fr = parseFloat(row.freight) || 0;
           const ins = parseFloat(row.insurance) || 0;
-          const oth = parseFloat(row.other_charges) || 0;
+          const oth = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
 
           const rowCif = ((pv * resInv.rate) / getUnitForCurrency(row.inv_currency)) + 
                          ((fr * resFr.rate) / getUnitForCurrency(row.freight_currency)) + 
                          ((ins * resIns.rate) / getUnitForCurrency(row.insurance_currency)) + 
-                         ((oth * resOth.rate) / getUnitForCurrency(row.other_charges_currency));
+                         ((oth * resOth.rate) / getUnitForCurrency(row.misc_currency || row.other_charges_currency));
           totalCifInr += rowCif;
 
           return {
@@ -1553,7 +1555,7 @@ function useFetchJobDetails(
             exchange_rate: String(resInv.rate),
             freight_exchange_rate: String(resFr.rate),
             insurance_exchange_rate: String(resIns.rate),
-            other_charges_exchange_rate: String(resOth.rate),
+            misc_exchange_rate: String(resOth.rate),
           };
         }));
 
@@ -1618,7 +1620,7 @@ function useFetchJobDetails(
             }
           } else if (currency) {
             if (!rate || isNaN(rate)) {
-              const invDate = formik.values.invoice_details?.[0]?.invoice_date || formik.values.invoice_date || "";
+              const invDate = formik.values.be_date || formik.values.invoice_details?.[0]?.invoice_date || formik.values.invoice_date || "";
               const fetchedRate = await fetchExrateForCurrency(currency, invDate);
               newDetails[key] = { ...charge, exchange_rate: fetchedRate > 0 ? fetchedRate : 1 };
               updated = true;
@@ -1632,7 +1634,7 @@ function useFetchJobDetails(
       };
       fetchChargesRates();
     }
-  }, [serializedOtherChargesDetails, formik.values.exrate, formik.values.inv_currency, formik.values.invoice_date, formik.values.invoice_details?.[0]?.invoice_date]);
+  }, [serializedOtherChargesDetails, formik.values.exrate, formik.values.inv_currency, formik.values.invoice_date, formik.values.invoice_details?.[0]?.invoice_date, formik.values.be_date]);
 
   const handleFileChange = async (event, documentName, index, isCth) => {
     const file = event.target.files[0];

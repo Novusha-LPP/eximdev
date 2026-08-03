@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import axios from "axios";
 import { useFormik } from "formik";
 import { convertDateFormatForUI } from "../utils/convertDateFormatForUI";
@@ -1635,6 +1635,87 @@ function useFetchJobDetails(
       fetchChargesRates();
     }
   }, [serializedOtherChargesDetails, formik.values.exrate, formik.values.inv_currency, formik.values.invoice_date, formik.values.invoice_details?.[0]?.invoice_date, formik.values.be_date]);
+
+  // Fetch new exchange rates when BE Date or Global Currency changes
+  const prevBeDateRef = useRef(formik.values.be_date);
+  const prevInvCurrencyRef = useRef(formik.values.inv_currency);
+
+  useEffect(() => {
+    const prevBeDate = prevBeDateRef.current;
+    const currentBeDate = formik.values.be_date;
+    const prevInvCurrency = prevInvCurrencyRef.current;
+    const currentInvCurrency = formik.values.inv_currency;
+
+    if (currentBeDate && (currentBeDate !== prevBeDate || currentInvCurrency !== prevInvCurrency)) {
+      const fetchNewRatesForBeDate = async () => {
+        // 1. Fetch rate for global currency
+        if (currentInvCurrency && currentInvCurrency.toUpperCase() !== "INR") {
+          const newExrate = await fetchExrateForCurrency(currentInvCurrency, currentBeDate);
+          if (newExrate > 0) {
+            formik.setFieldValue("exrate", String(newExrate));
+          }
+        }
+
+        // 2. Update invoice_details rates for this new BE Date
+        if (formik.values.invoice_details && formik.values.invoice_details.length > 0) {
+          const updatedInvoices = await Promise.all(
+            formik.values.invoice_details.map(async (row) => {
+              const updatedRow = { ...row };
+              
+              if (row.inv_currency && row.inv_currency.toUpperCase() !== "INR") {
+                const fetchedRate = await fetchExrateForCurrency(row.inv_currency, currentBeDate);
+                if (fetchedRate > 0) updatedRow.exchange_rate = String(fetchedRate);
+              }
+              if (row.freight_currency && row.freight_currency.toUpperCase() !== "INR") {
+                const fetchedRate = await fetchExrateForCurrency(row.freight_currency, currentBeDate);
+                if (fetchedRate > 0) updatedRow.freight_exchange_rate = String(fetchedRate);
+              }
+              if (row.insurance_currency && row.insurance_currency.toUpperCase() !== "INR") {
+                const fetchedRate = await fetchExrateForCurrency(row.insurance_currency, currentBeDate);
+                if (fetchedRate > 0) updatedRow.insurance_exchange_rate = String(fetchedRate);
+              }
+              const miscCurr = row.misc_currency || row.other_charges_currency;
+              if (miscCurr && miscCurr.toUpperCase() !== "INR") {
+                const fetchedRate = await fetchExrateForCurrency(miscCurr, currentBeDate);
+                if (fetchedRate > 0) {
+                  if (row.misc_currency) updatedRow.misc_exchange_rate = String(fetchedRate);
+                  if (row.other_charges_currency) updatedRow.other_charges_exchange_rate = String(fetchedRate);
+                }
+              }
+              return updatedRow;
+            })
+          );
+          formik.setFieldValue("invoice_details", updatedInvoices);
+        }
+
+        // 3. Update other_charges_details rates for this new BE Date
+        if (formik.values.other_charges_details) {
+          const chargeKeys = ["miscellaneous", "agency", "discount", "loading", "freight", "insurance", "addl_charge"];
+          const newDetails = { ...formik.values.other_charges_details };
+          let chargesUpdated = false;
+          await Promise.all(
+            chargeKeys.map(async (key) => {
+              const charge = newDetails[key] || {};
+              const currency = charge.currency;
+              if (currency && currency.toUpperCase() !== "INR") {
+                const fetchedRate = await fetchExrateForCurrency(currency, currentBeDate);
+                if (fetchedRate > 0) {
+                  newDetails[key] = { ...charge, exchange_rate: fetchedRate };
+                  chargesUpdated = true;
+                }
+              }
+            })
+          );
+          if (chargesUpdated) {
+            formik.setFieldValue("other_charges_details", newDetails);
+          }
+        }
+      };
+      fetchNewRatesForBeDate();
+    }
+    prevBeDateRef.current = currentBeDate;
+    prevInvCurrencyRef.current = currentInvCurrency;
+  }, [formik.values.be_date, formik.values.inv_currency]);
 
   const handleFileChange = async (event, documentName, index, isCth) => {
     const file = event.target.files[0];

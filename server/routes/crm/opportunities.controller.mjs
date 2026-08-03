@@ -186,8 +186,9 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
 // GET /api/crm/opportunities
 router.get('/', async (req, res) => {
   try {
-    const { stage, forecastCategory, teamId, startDate, endDate, period, dateField, accountId, source, createdBy, businessVertical } = req.query;
-    const query = { ...(await buildOwnerFilter(req.user, teamId, req)) };
+    const { stage, forecastCategory, teamId, ownerId, startDate, endDate, period, dateField, accountId, source, createdBy, businessVertical } = req.query;
+    const ownerFilter = await buildOwnerFilter(req.user, teamId, req);
+    const query = { ...ownerFilter };
     if (businessVertical && businessVertical !== 'all') {
       query.businessVertical = businessVertical;
     }
@@ -195,19 +196,58 @@ router.get('/', async (req, res) => {
     if (source) query.source = source;
     if (createdBy) query.createdBy = createdBy;
 
+    if (ownerId && ownerId !== 'all') {
+      const objectIdOwnerId = new mongoose.Types.ObjectId(ownerId);
+      if (query.ownerId) {
+        const allowedIds = query.ownerId.$in.map(id => id.toString());
+        if (allowedIds.includes(ownerId.toString())) {
+          query.ownerId = objectIdOwnerId;
+        } else {
+          return res.json([]);
+        }
+      } else if (query.$or) {
+        query.$and = [
+          { $or: query.$or },
+          { ownerId: objectIdOwnerId }
+        ];
+        delete query.$or;
+      } else {
+        query.ownerId = objectIdOwnerId;
+      }
+    }
+
     const filterField = dateField === 'last_updated' || dateField === 'updatedAt' ? 'updatedAt' : 'createdAt';
 
+    // Parse date range
+    let wonLostStart = null;
+    let wonLostEnd = null;
     const dateQuery = {};
     if (startDate && endDate) {
-      dateQuery[filterField] = {
-        $gte: new Date(`${startDate}T00:00:00.000Z`),
-        $lte: new Date(`${endDate}T23:59:59.999Z`)
-      };
+      wonLostStart = new Date(`${startDate}T00:00:00.000Z`);
+      wonLostEnd = new Date(`${endDate}T23:59:59.999Z`);
+      dateQuery[filterField] = { $gte: wonLostStart, $lte: wonLostEnd };
     } else if (period) {
+      const [year, month] = period.split('-');
+      wonLostStart = new Date(year, parseInt(month) - 1, 1);
+      wonLostEnd = new Date(year, parseInt(month), 0, 23, 59, 59, 999);
       dateQuery.period = period;
     } else if (!accountId) {
+      const now = new Date();
+      wonLostStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      wonLostEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
       dateQuery.period = new Date().toISOString().substring(0, 7);
     }
+
+    // Helper: get the date when an opportunity entered its current won/lost stage
+    const getWonLostEntryDate = (opp) => {
+      if (opp.stageHistory && opp.stageHistory.length > 0) {
+        const entry = [...opp.stageHistory].reverse().find(h => h.stage === opp.stage);
+        if (entry && entry.enteredAt) return new Date(entry.enteredAt);
+      }
+      return opp.updatedAt ? new Date(opp.updatedAt) : new Date(opp.createdAt);
+    };
+
+    let opportunities;
 
     if (stage) {
       if (stage === 'sales_visit') {
@@ -215,23 +255,129 @@ router.get('/', async (req, res) => {
           { stage: 'sales_visit' },
           { plannedVisits: { $elemMatch: { isCompleted: false, isCancelled: { $ne: true } } } }
         ];
+        opportunities = await Opportunity.find(query)
+          .populate('accountId', 'name')
+          .populate('ownerId', 'username first_name last_name')
+          .populate('createdBy', 'username first_name last_name')
+          .sort({ createdAt: -1 })
+          .lean();
+      } else if ((stage === 'won' || stage === 'lost') && wonLostStart && wonLostEnd) {
+        // For won/lost, use stageHistory.enteredAt
+        query.stage = stage;
+        const wonLostResults = await Opportunity.find({
+          ...query,
+          'stageHistory.stage': stage,
+          'stageHistory.enteredAt': { $gte: wonLostStart, $lte: wonLostEnd }
+        })
+          .populate('accountId', 'name')
+          .populate('ownerId', 'username first_name last_name')
+          .populate('createdBy', 'username first_name last_name')
+          .sort({ createdAt: -1 })
+          .lean();
+
+        // Legacy fallback
+        const legacyFilter = { ...query, updatedAt: { $gte: wonLostStart, $lte: wonLostEnd } };
+        const legacyStageCheck = { $or: [{ stageHistory: { $exists: false } }, { stageHistory: { $size: 0 } }] };
+        if (query.$or) {
+          legacyFilter.$and = [{ $or: query.$or }, legacyStageCheck];
+          delete legacyFilter.$or;
+        } else {
+          Object.assign(legacyFilter, legacyStageCheck);
+        }
+        const wonLostLegacy = await Opportunity.find(legacyFilter)
+          .populate('accountId', 'name')
+          .populate('ownerId', 'username first_name last_name')
+          .populate('createdBy', 'username first_name last_name')
+          .sort({ createdAt: -1 })
+          .lean();
+
+        // Filter precisely and deduplicate
+        const filtered = wonLostResults.filter(opp => {
+          const entryDate = getWonLostEntryDate(opp);
+          return entryDate >= wonLostStart && entryDate <= wonLostEnd;
+        });
+        const seenIds = new Set();
+        opportunities = [];
+        [...filtered, ...wonLostLegacy].forEach(opp => {
+          const id = opp._id.toString();
+          if (!seenIds.has(id)) { seenIds.add(id); opportunities.push(opp); }
+        });
       } else {
         query.stage = stage;
-        if (stage === 'won' || stage === 'lost') {
-          Object.assign(query, dateQuery);
-        }
+        opportunities = await Opportunity.find(query)
+          .populate('accountId', 'name')
+          .populate('ownerId', 'username first_name last_name')
+          .populate('createdBy', 'username first_name last_name')
+          .sort({ createdAt: -1 })
+          .lean();
       }
     } else if (forecastCategory) {
       query.forecastCategory = forecastCategory;
       if (forecastCategory === 'closed') {
         Object.assign(query, dateQuery);
       }
+      opportunities = await Opportunity.find(query)
+        .populate('accountId', 'name')
+        .populate('ownerId', 'username first_name last_name')
+        .populate('createdBy', 'username first_name last_name')
+        .sort({ createdAt: -1 })
+        .lean();
     } else {
-      if (Object.keys(dateQuery).length > 0) {
-        query.$or = [
-          { stage: { $in: ['lead', 'qualified', 'opportunity', 'sales_visit', 'proposal', 'negotiation'] } },
-          { stage: { $in: ['won', 'lost'] }, ...dateQuery }
-        ];
+      // No stage filter: show all pipeline deals + won/lost from the period
+      if (wonLostStart && wonLostEnd) {
+        const pipelineQuery = { ...query, stage: { $nin: ['won', 'lost'] } };
+        const pipelineResults = await Opportunity.find(pipelineQuery)
+          .populate('accountId', 'name')
+          .populate('ownerId', 'username first_name last_name')
+          .populate('createdBy', 'username first_name last_name')
+          .sort({ createdAt: -1 })
+          .lean();
+
+        const wonLostQuery = { ...query, stage: { $in: ['won', 'lost'] } };
+        const wonLostResults = await Opportunity.find({
+          ...wonLostQuery,
+          'stageHistory.stage': { $in: ['won', 'lost'] },
+          'stageHistory.enteredAt': { $gte: wonLostStart, $lte: wonLostEnd }
+        })
+          .populate('accountId', 'name')
+          .populate('ownerId', 'username first_name last_name')
+          .populate('createdBy', 'username first_name last_name')
+          .sort({ createdAt: -1 })
+          .lean();
+
+        const legacyFilter2 = { ...wonLostQuery, updatedAt: { $gte: wonLostStart, $lte: wonLostEnd } };
+        const legacyStageCheck2 = { $or: [{ stageHistory: { $exists: false } }, { stageHistory: { $size: 0 } }] };
+        if (wonLostQuery.$or) {
+          legacyFilter2.$and = [{ $or: wonLostQuery.$or }, legacyStageCheck2];
+          delete legacyFilter2.$or;
+        } else {
+          Object.assign(legacyFilter2, legacyStageCheck2);
+        }
+        const wonLostLegacy = await Opportunity.find(legacyFilter2)
+          .populate('accountId', 'name')
+          .populate('ownerId', 'username first_name last_name')
+          .populate('createdBy', 'username first_name last_name')
+          .sort({ createdAt: -1 })
+          .lean();
+
+        const filteredWonLost = wonLostResults.filter(opp => {
+          const entryDate = getWonLostEntryDate(opp);
+          return entryDate >= wonLostStart && entryDate <= wonLostEnd;
+        });
+
+        const seenIds = new Set();
+        opportunities = [];
+        [...pipelineResults, ...filteredWonLost, ...wonLostLegacy].forEach(opp => {
+          const id = opp._id.toString();
+          if (!seenIds.has(id)) { seenIds.add(id); opportunities.push(opp); }
+        });
+      } else {
+        opportunities = await Opportunity.find(query)
+          .populate('accountId', 'name')
+          .populate('ownerId', 'username first_name last_name')
+          .populate('createdBy', 'username first_name last_name')
+          .sort({ createdAt: -1 })
+          .lean();
       }
     }
 
@@ -242,13 +388,6 @@ router.get('/', async (req, res) => {
     if (!targetPeriod) {
       targetPeriod = new Date().toISOString().substring(0, 7);
     }
-
-    const opportunities = await Opportunity.find(query)
-      .populate('accountId', 'name')
-      .populate('ownerId', 'username first_name last_name')
-      .populate('createdBy', 'username first_name last_name')
-      .sort({ createdAt: -1 })
-      .lean();
 
     const processedOpps = opportunities.map(opp => {
       if (opp.period && opp.period !== targetPeriod && !['won', 'lost'].includes(opp.stage)) {
@@ -294,31 +433,129 @@ router.get('/', async (req, res) => {
 // GET /api/crm/opportunities/board
 router.get('/board', async (req, res) => {
   try {
-    const { startDate, endDate, period, dateField, source } = req.query;
-    const ownerFilter = await buildOwnerFilter(req.user, null, req);
+    const { startDate, endDate, period, dateField, source, teamId, ownerId } = req.query;
+    const ownerFilter = await buildOwnerFilter(req.user, teamId, req);
     const query = { ...ownerFilter };
     if (source) query.source = source;
 
+    if (ownerId && ownerId !== 'all') {
+      const objectIdOwnerId = new mongoose.Types.ObjectId(ownerId);
+      if (query.ownerId) {
+        const allowedIds = query.ownerId.$in.map(id => id.toString());
+        if (allowedIds.includes(ownerId.toString())) {
+          query.ownerId = objectIdOwnerId;
+        } else {
+          return res.json({
+            lead: [], qualified: [], opportunity: [], sales_visit: [],
+            proposal: [], negotiation: [], won: [], lost: [],
+            aggregates: {
+              lead: { totalValue: 0, count: 0 },
+              qualified: { totalValue: 0, count: 0 },
+              opportunity: { totalValue: 0, count: 0 },
+              sales_visit: { totalValue: 0, count: 0 },
+              proposal: { totalValue: 0, count: 0 },
+              negotiation: { totalValue: 0, count: 0 },
+              won: { totalValue: 0, count: 0 },
+              lost: { totalValue: 0, count: 0 }
+            }
+          });
+        }
+      } else if (query.$or) {
+        query.$and = [
+          { $or: query.$or },
+          { ownerId: objectIdOwnerId }
+        ];
+        delete query.$or;
+      } else {
+        query.ownerId = objectIdOwnerId;
+      }
+    }
+
     const filterField = dateField === 'last_updated' || dateField === 'updatedAt' ? 'updatedAt' : 'createdAt';
 
-    const dateQuery = {};
+    // Parse date range for won/lost filtering
+    let wonLostStart = null;
+    let wonLostEnd = null;
     if (startDate && endDate) {
-      dateQuery[filterField] = {
-        $gte: new Date(`${startDate}T00:00:00.000Z`),
-        $lte: new Date(`${endDate}T23:59:59.999Z`)
-      };
+      wonLostStart = new Date(`${startDate}T00:00:00.000Z`);
+      wonLostEnd = new Date(`${endDate}T23:59:59.999Z`);
     } else if (period) {
-      dateQuery.period = period;
+      const [year, month] = period.split('-');
+      wonLostStart = new Date(year, parseInt(month) - 1, 1);
+      wonLostEnd = new Date(year, parseInt(month), 0, 23, 59, 59, 999);
     } else {
-      dateQuery.period = new Date().toISOString().substring(0, 7);
+      const now = new Date();
+      wonLostStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      wonLostEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
     }
 
-    if (Object.keys(dateQuery).length > 0) {
-      query.$or = [
-        { stage: { $in: ['lead', 'qualified', 'opportunity', 'sales_visit', 'proposal', 'negotiation'] } },
-        { stage: { $in: ['won', 'lost'] }, ...dateQuery }
-      ];
+    // Fetch all active pipeline deals (non-won/lost) — no date filter
+    const pipelineQuery = { ...query, stage: { $nin: ['won', 'lost'] } };
+    if (source) pipelineQuery.source = source;
+
+    const pipelineOpps = await Opportunity.find(pipelineQuery)
+      .populate('accountId', 'name')
+      .populate('ownerId', 'username first_name last_name')
+      .populate('createdBy', 'username first_name last_name')
+      .lean();
+
+    // Fetch won/lost deals using stageHistory.enteredAt
+    const wonLostQuery = { ...query, stage: { $in: ['won', 'lost'] } };
+    if (source) wonLostQuery.source = source;
+
+    const wonLostOpps = await Opportunity.find({
+      ...wonLostQuery,
+      'stageHistory.stage': { $in: ['won', 'lost'] },
+      'stageHistory.enteredAt': { $gte: wonLostStart, $lte: wonLostEnd }
+    })
+      .populate('accountId', 'name')
+      .populate('ownerId', 'username first_name last_name')
+      .populate('createdBy', 'username first_name last_name')
+      .lean();
+
+    // Legacy won/lost data fallback (no stageHistory)
+    const legacyWonLostFilter = {
+      ...wonLostQuery,
+      updatedAt: { $gte: wonLostStart, $lte: wonLostEnd }
+    };
+    const legacyStageCheck = { $or: [{ stageHistory: { $exists: false } }, { stageHistory: { $size: 0 } }] };
+    if (wonLostQuery.$or) {
+      legacyWonLostFilter.$and = [{ $or: wonLostQuery.$or }, legacyStageCheck];
+      delete legacyWonLostFilter.$or;
+    } else {
+      Object.assign(legacyWonLostFilter, legacyStageCheck);
     }
+    const wonLostLegacy = await Opportunity.find(legacyWonLostFilter)
+      .populate('accountId', 'name')
+      .populate('ownerId', 'username first_name last_name')
+      .populate('createdBy', 'username first_name last_name')
+      .lean();
+
+    // Helper: get the date when an opportunity entered its current won/lost stage
+    const getWonLostEntryDate = (opp) => {
+      if (opp.stageHistory && opp.stageHistory.length > 0) {
+        const entry = [...opp.stageHistory].reverse().find(h => h.stage === opp.stage);
+        if (entry && entry.enteredAt) return new Date(entry.enteredAt);
+      }
+      return opp.updatedAt ? new Date(opp.updatedAt) : new Date(opp.createdAt);
+    };
+
+    // Filter won/lost precisely by the last relevant stageHistory entry
+    const filteredWonLost = wonLostOpps.filter(opp => {
+      const entryDate = getWonLostEntryDate(opp);
+      return entryDate >= wonLostStart && entryDate <= wonLostEnd;
+    });
+
+    // Combine and deduplicate
+    const seenIds = new Set();
+    const opportunities = [];
+    [...pipelineOpps, ...filteredWonLost, ...wonLostLegacy].forEach(opp => {
+      const id = opp._id.toString();
+      if (!seenIds.has(id)) {
+        seenIds.add(id);
+        opportunities.push(opp);
+      }
+    });
 
     let targetPeriod = period;
     if (!targetPeriod && startDate) {
@@ -327,12 +564,6 @@ router.get('/board', async (req, res) => {
     if (!targetPeriod) {
       targetPeriod = new Date().toISOString().substring(0, 7);
     }
-
-    const opportunities = await Opportunity.find(query)
-      .populate('accountId', 'name')
-      .populate('ownerId', 'username first_name last_name')
-      .populate('createdBy', 'username first_name last_name')
-      .lean();
 
     const processedOpps = opportunities.map(opp => {
       if (opp.period && opp.period !== targetPeriod && !['won', 'lost'].includes(opp.stage)) {

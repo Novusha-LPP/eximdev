@@ -201,11 +201,13 @@ router.get('/dashboard', async (req, res) => {
     const matchFilter = { ...ownerFilter };
 
     const currentPeriod = new Date().toISOString().substring(0, 7);
+    let start = null;
+    let end = null;
     let targetPeriod = null;
+
     if (startDate && endDate) {
-      const start = new Date(`${startDate}T00:00:00.000Z`);
-      const end = new Date(`${endDate}T23:59:59.999Z`);
-      matchFilter.createdAt = { $gte: start, $lte: end };
+      start = new Date(`${startDate}T00:00:00.000Z`);
+      end = new Date(`${endDate}T23:59:59.999Z`);
     } else if (period === 'this_month' || period === 'current' || !period) {
       targetPeriod = currentPeriod;
     } else if (period && period !== 'all') {
@@ -213,19 +215,23 @@ router.get('/dashboard', async (req, res) => {
     }
 
     if (targetPeriod) {
-      matchFilter.period = targetPeriod;
+      const [year, month] = targetPeriod.split('-');
+      start = new Date(year, parseInt(month) - 1, 1);
+      end = new Date(year, parseInt(month), 0, 23, 59, 59, 999);
     }
 
     const verticalFilter = buildBusinessVerticalFilter(businessVertical);
+    const baseQuery = { ...ownerFilter };
+
     if (verticalFilter) {
-      if (matchFilter.$or) {
-        matchFilter.$and = [
-          { $or: matchFilter.$or },
+      if (baseQuery.$or) {
+        baseQuery.$and = [
+          { $or: baseQuery.$or },
           verticalFilter
         ];
-        delete matchFilter.$or;
+        delete baseQuery.$or;
       } else {
-        Object.assign(matchFilter, verticalFilter);
+        Object.assign(baseQuery, verticalFilter);
       }
     }
 
@@ -264,50 +270,111 @@ router.get('/dashboard', async (req, res) => {
         ownerCond.$or.push({ businessVertical: { $in: verticals.map(v => new RegExp(`^${v.trim()}$`, 'i')) } });
       }
 
-      if (matchFilter.$and) {
-        matchFilter.$and.push(ownerCond);
-      } else if (matchFilter.$or) {
-        matchFilter.$and = [
-          { $or: matchFilter.$or },
+      if (baseQuery.$and) {
+        baseQuery.$and.push(ownerCond);
+      } else if (baseQuery.$or) {
+        baseQuery.$and = [
+          { $or: baseQuery.$or },
           ownerCond
         ];
-        delete matchFilter.$or;
+        delete baseQuery.$or;
       } else {
-        matchFilter.$or = ownerCond.$or;
+        baseQuery.$or = ownerCond.$or;
       }
     }
 
+    // Query opportunities list
+    let opportunities = [];
+    if (start && end) {
+      // 1. Fetch active pipeline deals (no date constraint)
+      const pipelineQuery = { ...baseQuery, stage: { $nin: ['won', 'lost'] } };
+      const pipelineOpps = await Opportunity.find(pipelineQuery).lean();
+
+      // 2. Fetch won/lost deals in the period using stageHistory.enteredAt
+      const wonLostQuery = { ...baseQuery, stage: { $in: ['won', 'lost'] } };
+      const wonLostOpps = await Opportunity.find({
+        ...wonLostQuery,
+        'stageHistory.stage': { $in: ['won', 'lost'] },
+        'stageHistory.enteredAt': { $gte: start, $lte: end }
+      }).lean();
+
+      // Legacy won/lost data fallback (no stageHistory)
+      const legacyFilter = {
+        ...wonLostQuery,
+        updatedAt: { $gte: start, $lte: end }
+      };
+      const legacyStageCheck = { $or: [{ stageHistory: { $exists: false } }, { stageHistory: { $size: 0 } }] };
+      if (wonLostQuery.$or) {
+        legacyFilter.$and = [{ $or: wonLostQuery.$or }, legacyStageCheck];
+        delete legacyFilter.$or;
+      } else {
+        Object.assign(legacyFilter, legacyStageCheck);
+      }
+      const wonLostLegacy = await Opportunity.find(legacyFilter).lean();
+
+      // Helper: get the date when an opportunity entered its current won/lost stage
+      const getWonLostEntryDate = (opp) => {
+        if (opp.stageHistory && opp.stageHistory.length > 0) {
+          const entry = [...opp.stageHistory].reverse().find(h => h.stage === opp.stage);
+          if (entry && entry.enteredAt) return new Date(entry.enteredAt);
+        }
+        return opp.updatedAt ? new Date(opp.updatedAt) : new Date(opp.createdAt);
+      };
+
+      // Filter won/lost precisely by the last relevant stageHistory entry
+      const filteredWonLost = wonLostOpps.filter(opp => {
+        const entryDate = getWonLostEntryDate(opp);
+        return entryDate >= start && entryDate <= end;
+      });
+
+      // Combine and deduplicate
+      const seenIds = new Set();
+      [...pipelineOpps, ...filteredWonLost, ...wonLostLegacy].forEach(opp => {
+        const id = opp._id.toString();
+        if (!seenIds.has(id)) {
+          seenIds.add(id);
+          opportunities.push(opp);
+        }
+      });
+    } else {
+      // Period is 'all' - fetch all without date range
+      opportunities = await Opportunity.find(baseQuery).lean();
+    }
+
     // 1. Pipeline Health (Total value in each stage)
-    const byStage = await Opportunity.aggregate([
-      { $match: matchFilter },
-      { $group: { _id: '$stage', value: { $sum: '$value' }, count: { $sum: 1 } } },
-      { $project: { _id: 0, stage: '$_id', value: 1, count: 1 } }
-    ]);
+    const stagesList = ['lead', 'qualified', 'opportunity', 'sales_visit', 'proposal', 'negotiation', 'won', 'lost'];
+    const byStage = stagesList.map(stage => {
+      const stageDeals = opportunities.filter(o => o.stage === stage);
+      return {
+        stage,
+        value: stageDeals.reduce((sum, o) => sum + (o.value || 0), 0),
+        count: stageDeals.length
+      };
+    });
 
     // 2. Weighted Sales Forecast (expected revenue based on probability)
-    const forecast = await Opportunity.aggregate([
-      { $match: { ...matchFilter, stage: { $nin: ['won', 'lost'] } } },
-      { $project: { weightedRevenue: { $multiply: ['$value', { $divide: ['$probability', 100] }] } } },
-      { $group: { _id: null, totalExpectedRevenue: { $sum: '$weightedRevenue' } } }
-    ]);
+    const activeDeals = opportunities.filter(o => !['won', 'lost'].includes(o.stage));
+    const totalExpectedRevenue = activeDeals.reduce((sum, o) => {
+      return sum + ((o.value || 0) * (o.probability || 0) / 100);
+    }, 0);
 
     // 3. Lead Conversion Stats (counts only closed-won as Converted, in-pipeline as Open, and closed-lost/dead/duplicate as Lost)
     const DEAD_STATUSES = ['lost', 'rejected', 'duplicate', 'cancelled', 'junk'];
 
     // Find all opportunities converted from leads and their stages
-    const convertedOpps = await Opportunity.find({
-      ...matchFilter,
-      convertedFromLead: { $ne: null }
-    }).select('convertedFromLead stage').lean();
-
     const oppMap = {};
-    convertedOpps.forEach(opp => {
+    opportunities.forEach(opp => {
       if (opp.convertedFromLead) {
         oppMap[opp.convertedFromLead.toString()] = opp.stage;
       }
     });
 
-    const allLeads = await Lead.find(matchFilter).select('_id status').lean();
+    // Filter leads by date if period/date range is selected
+    const leadFilter = { ...baseQuery };
+    if (start && end) {
+      leadFilter.createdAt = { $gte: start, $lte: end };
+    }
+    const allLeads = await Lead.find(leadFilter).select('_id status').lean();
 
     let convertedCount = 0;
     let lostCount = 0;
@@ -340,8 +407,8 @@ router.get('/dashboard', async (req, res) => {
 
     // 4. Tasks Status (Tasks has assignedTo instead of ownerId)
     const taskFilter = {};
-    if (matchFilter.ownerId) {
-      taskFilter.assignedTo = matchFilter.ownerId;
+    if (baseQuery.ownerId) {
+      taskFilter.assignedTo = baseQuery.ownerId;
     } else if (ownerFilter.ownerId) {
       taskFilter.assignedTo = ownerFilter.ownerId;
     }
@@ -349,7 +416,7 @@ router.get('/dashboard', async (req, res) => {
 
     res.json({
       byStage,
-      weightedForecast: forecast[0]?.totalExpectedRevenue || 0,
+      weightedForecast: totalExpectedRevenue,
       leadStats: {
         total: totalLeads,
         converted: convertedCount,
@@ -413,11 +480,69 @@ router.get('/performance', async (req, res) => {
       end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
     }
 
-    // Query opportunities within period
-    const opportunities = await Opportunity.find({
+    // Helper: get the date when an opportunity entered its current won/lost stage
+    const getWonLostEntryDate = (opp) => {
+      if (opp.stageHistory && opp.stageHistory.length > 0) {
+        // Find the last stageHistory entry for the current stage (won or lost)
+        const entry = [...opp.stageHistory]
+          .reverse()
+          .find(h => h.stage === opp.stage);
+        if (entry && entry.enteredAt) {
+          return new Date(entry.enteredAt);
+        }
+      }
+      // Fallback to updatedAt if no stageHistory (shouldn't happen for new deals)
+      return opp.updatedAt ? new Date(opp.updatedAt) : new Date(opp.createdAt);
+    };
+
+    // Query 1: Active pipeline deals (non-won/lost) created in the period
+    const pipelineOpportunities = await Opportunity.find({
       ...query,
+      stage: { $nin: ['won', 'lost'] },
       createdAt: { $gte: start, $lte: end }
     }).lean();
+
+    // Query 2: Won/Lost deals where stageHistory shows they entered won/lost in the period
+    // We use stageHistory.enteredAt to find deals that were won/lost during this period
+    const wonLostOpportunities = await Opportunity.find({
+      ...query,
+      stage: { $in: ['won', 'lost'] },
+      'stageHistory.stage': { $in: ['won', 'lost'] },
+      'stageHistory.enteredAt': { $gte: start, $lte: end }
+    }).lean();
+
+    // For won/lost deals without stageHistory (legacy data), fall back to updatedAt
+    const legacyFilter = {
+      stage: { $in: ['won', 'lost'] },
+      updatedAt: { $gte: start, $lte: end }
+    };
+    // Safely combine $or conditions using $and to avoid overwriting ownerFilter's $or
+    const legacyStageCheck = { $or: [{ stageHistory: { $exists: false } }, { stageHistory: { $size: 0 } }] };
+    if (query.$or) {
+      legacyFilter.$and = [{ $or: query.$or }, legacyStageCheck];
+      const { $or: _, ...queryWithoutOr } = query;
+      Object.assign(legacyFilter, queryWithoutOr);
+    } else {
+      Object.assign(legacyFilter, query, legacyStageCheck);
+    }
+    const wonLostLegacy = await Opportunity.find(legacyFilter).lean();
+
+    // Filter won/lost deals more precisely: ensure the LAST won/lost entry in stageHistory falls within the period
+    const filteredWonLost = wonLostOpportunities.filter(opp => {
+      const entryDate = getWonLostEntryDate(opp);
+      return entryDate >= start && entryDate <= end;
+    });
+
+    // Combine: deduplicate by _id
+    const seenIds = new Set();
+    const opportunities = [];
+    [...pipelineOpportunities, ...filteredWonLost, ...wonLostLegacy].forEach(opp => {
+      const id = opp._id.toString();
+      if (!seenIds.has(id)) {
+        seenIds.add(id);
+        opportunities.push(opp);
+      }
+    });
 
     const stages = ['lead', 'qualified', 'opportunity', 'sales_visit', 'proposal', 'negotiation', 'won', 'lost'];
     const performanceData = stages.map(stage => {
@@ -463,8 +588,16 @@ router.get('/performance', async (req, res) => {
     });
 
     // Group week-wise (Week 1: 1-7, Week 2: 8-14, Week 3: 15-21, Week 4: 22+)
-    const getWeekIndex = (dateStr) => {
-      const day = new Date(dateStr).getDate();
+    // For won/lost deals, use the stage entry date; for others, use createdAt
+    const getRelevantDate = (opp) => {
+      if (opp.stage === 'won' || opp.stage === 'lost') {
+        return getWonLostEntryDate(opp);
+      }
+      return new Date(opp.createdAt);
+    };
+
+    const getWeekIndex = (dateObj) => {
+      const day = dateObj.getDate();
       if (day <= 7) return 0;
       if (day <= 14) return 1;
       if (day <= 21) return 2;
@@ -479,7 +612,8 @@ router.get('/performance', async (req, res) => {
     ];
 
     opportunities.forEach(o => {
-      const weekIdx = getWeekIndex(o.createdAt);
+      const relevantDate = getRelevantDate(o);
+      const weekIdx = getWeekIndex(relevantDate);
       weekWise[weekIdx].value += o.value || 0;
       weekWise[weekIdx].count += 1;
     });
@@ -546,18 +680,155 @@ router.get('/stage-analysis', async (req, res) => {
     if (startDate && endDate) {
       start = new Date(`${startDate}T00:00:00.000Z`);
       end = new Date(`${endDate}T23:59:59.999Z`);
-      query.createdAt = { $gte: start, $lte: end };
     } else if (period) {
-      query.period = period;
+      const [year, month] = period.split('-');
+      start = new Date(year, parseInt(month) - 1, 1);
+      end = new Date(year, parseInt(month), 0, 23, 59, 59, 999);
     } else {
-      query.period = new Date().toISOString().substring(0, 7);
+      const now = new Date();
+      start = new Date(now.getFullYear(), now.getMonth(), 1);
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
     }
 
-    const opportunities = await Opportunity.find(query)
-      .populate('accountId', 'name')
-      .populate('primaryContactId', 'firstName lastName email phone')
-      .populate('ownerId', 'username first_name last_name')
-      .lean();
+    // Helper: get the date when an opportunity entered its current won/lost stage
+    const getWonLostEntryDate = (opp) => {
+      if (opp.stageHistory && opp.stageHistory.length > 0) {
+        const entry = [...opp.stageHistory]
+          .reverse()
+          .find(h => h.stage === opp.stage);
+        if (entry && entry.enteredAt) {
+          return new Date(entry.enteredAt);
+        }
+      }
+      return opp.updatedAt ? new Date(opp.updatedAt) : new Date(opp.createdAt);
+    };
+
+    const isWonLostQuery = stage === 'won' || stage === 'lost';
+    const isAllStagesQuery = !stage || stage === 'all';
+    const isActivePipelineQuery = !isWonLostQuery && !isAllStagesQuery;
+
+    let opportunities;
+
+    if (isActivePipelineQuery) {
+      // Querying only an active pipeline stage — filter by createdAt/period
+      if (startDate && endDate) {
+        query.createdAt = { $gte: start, $lte: end };
+      } else if (period) {
+        query.period = period;
+      } else {
+        query.period = new Date().toISOString().substring(0, 7);
+      }
+      opportunities = await Opportunity.find(query)
+        .populate('accountId', 'name')
+        .populate('primaryContactId', 'firstName lastName email phone')
+        .populate('ownerId', 'username first_name last_name')
+        .lean();
+    } else if (isWonLostQuery) {
+      // Querying only won or lost — filter by stageHistory enteredAt
+      const wonLostQuery = { ...query };
+      const wonLostResults = await Opportunity.find({
+        ...wonLostQuery,
+        'stageHistory.stage': { $in: ['won', 'lost'] },
+        'stageHistory.enteredAt': { $gte: start, $lte: end }
+      })
+        .populate('accountId', 'name')
+        .populate('primaryContactId', 'firstName lastName email phone')
+        .populate('ownerId', 'username first_name last_name')
+        .lean();
+
+      // Legacy data fallback — safely combine $or conditions
+      const legacyFilter1 = {
+        ...wonLostQuery,
+        updatedAt: { $gte: start, $lte: end }
+      };
+      const legacyStageCheck1 = { $or: [{ stageHistory: { $exists: false } }, { stageHistory: { $size: 0 } }] };
+      if (wonLostQuery.$or) {
+        legacyFilter1.$and = [{ $or: wonLostQuery.$or }, legacyStageCheck1];
+        delete legacyFilter1.$or;
+      } else {
+        Object.assign(legacyFilter1, legacyStageCheck1);
+      }
+      const wonLostLegacy = await Opportunity.find(legacyFilter1)
+        .populate('accountId', 'name')
+        .populate('primaryContactId', 'firstName lastName email phone')
+        .populate('ownerId', 'username first_name last_name')
+        .lean();
+
+      // Filter precisely by the last relevant stageHistory entry
+      const filtered = wonLostResults.filter(opp => {
+        const entryDate = getWonLostEntryDate(opp);
+        return entryDate >= start && entryDate <= end;
+      });
+
+      const seenIds = new Set();
+      opportunities = [];
+      [...filtered, ...wonLostLegacy].forEach(opp => {
+        const id = opp._id.toString();
+        if (!seenIds.has(id)) {
+          seenIds.add(id);
+          opportunities.push(opp);
+        }
+      });
+    } else {
+      // 'all' stages: fetch active pipeline by createdAt AND won/lost by stageHistory
+      const pipelineQuery = { ...query, stage: { $nin: ['won', 'lost'] } };
+      if (startDate && endDate) {
+        pipelineQuery.createdAt = { $gte: start, $lte: end };
+      } else if (period) {
+        pipelineQuery.period = period;
+      } else {
+        pipelineQuery.period = new Date().toISOString().substring(0, 7);
+      }
+
+      const pipelineResults = await Opportunity.find(pipelineQuery)
+        .populate('accountId', 'name')
+        .populate('primaryContactId', 'firstName lastName email phone')
+        .populate('ownerId', 'username first_name last_name')
+        .lean();
+
+      const wonLostQuery = { ...query, stage: { $in: ['won', 'lost'] } };
+      const wonLostResults = await Opportunity.find({
+        ...wonLostQuery,
+        'stageHistory.stage': { $in: ['won', 'lost'] },
+        'stageHistory.enteredAt': { $gte: start, $lte: end }
+      })
+        .populate('accountId', 'name')
+        .populate('primaryContactId', 'firstName lastName email phone')
+        .populate('ownerId', 'username first_name last_name')
+        .lean();
+
+      const legacyFilter2 = {
+        ...wonLostQuery,
+        updatedAt: { $gte: start, $lte: end }
+      };
+      const legacyStageCheck2 = { $or: [{ stageHistory: { $exists: false } }, { stageHistory: { $size: 0 } }] };
+      if (wonLostQuery.$or) {
+        legacyFilter2.$and = [{ $or: wonLostQuery.$or }, legacyStageCheck2];
+        delete legacyFilter2.$or;
+      } else {
+        Object.assign(legacyFilter2, legacyStageCheck2);
+      }
+      const wonLostLegacy = await Opportunity.find(legacyFilter2)
+        .populate('accountId', 'name')
+        .populate('primaryContactId', 'firstName lastName email phone')
+        .populate('ownerId', 'username first_name last_name')
+        .lean();
+
+      const filteredWonLost = wonLostResults.filter(opp => {
+        const entryDate = getWonLostEntryDate(opp);
+        return entryDate >= start && entryDate <= end;
+      });
+
+      const seenIds = new Set();
+      opportunities = [];
+      [...pipelineResults, ...filteredWonLost, ...wonLostLegacy].forEach(opp => {
+        const id = opp._id.toString();
+        if (!seenIds.has(id)) {
+          seenIds.add(id);
+          opportunities.push(opp);
+        }
+      });
+    }
 
     const deals = opportunities.map(o => {
       let stageEntryDate = o.createdAt;

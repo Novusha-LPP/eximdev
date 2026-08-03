@@ -51,6 +51,20 @@ export default function CRMKanbanBoard() {
   const [showCelebration, setShowCelebration] = useState(false);
   const [celebrationDealName, setCelebrationDealName] = useState('');
 
+  const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
+  const role = user.role || '';
+  const crmRole = user.crmRole || '';
+  const isHOD = role === 'HOD' || role === 'Head_of_Department' || (typeof role === 'string' && (role.toLowerCase() === 'hod' || role.toLowerCase() === 'head_of_department'));
+  const isCrmAdmin = crmRole === 'Admin' || (typeof crmRole === 'string' && crmRole.toLowerCase() === 'admin');
+  const isSystemAdmin = role === 'Admin' || (typeof role === 'string' && role.toLowerCase() === 'admin');
+  const isAdmin = (isSystemAdmin || isCrmAdmin) && !isHOD;
+  const isRestricted = !isAdmin || isHOD;
+
+  const [teams, setTeams] = useState([]);
+  const [selectedTeam, setSelectedTeam] = useState('all');
+  const [users, setUsers] = useState([]);
+  const [selectedOwner, setSelectedOwner] = useState('all');
+
   // CR-010 & CR-008 Filter States
   const [selectedStage, setSelectedStage] = useState(() => getInitialParam('stage', 'all'));
   const [selectedSource, setSelectedSource] = useState(() => getInitialParam('source', ''));
@@ -144,6 +158,12 @@ export default function CRMKanbanBoard() {
       if (selectedSource) {
         params.source = selectedSource;
       }
+      if (selectedTeam && selectedTeam !== 'all') {
+        params.teamId = selectedTeam;
+      }
+      if (selectedOwner && selectedOwner !== 'all') {
+        params.ownerId = selectedOwner;
+      }
 
       if (selectedStage !== 'all') {
         params.stage = selectedStage;
@@ -206,6 +226,85 @@ export default function CRMKanbanBoard() {
     }
   };
 
+  // Selected team's members compiler
+  const getTeamMembers = () => {
+    if (selectedTeam === 'all') {
+      if (isAdmin) return users;
+      const membersMap = new Map();
+      teams.forEach(team => {
+        if (team.memberIds && Array.isArray(team.memberIds)) {
+          team.memberIds.forEach(member => {
+            const memberObj = typeof member === 'object' ? member : users.find(u => (u._id || u.id) === member);
+            if (memberObj) {
+              membersMap.set(memberObj._id || memberObj.id, memberObj);
+            }
+          });
+        }
+        if (team.managerId) {
+          const mgrObj = typeof team.managerId === 'object' ? team.managerId : users.find(u => (u._id || u.id) === team.managerId);
+          if (mgrObj) {
+            membersMap.set(mgrObj._id || mgrObj.id, mgrObj);
+          }
+        }
+      });
+      return Array.from(membersMap.values());
+    }
+
+    const team = teams.find(t => t._id === selectedTeam);
+    if (!team) return [];
+
+    const membersMap = new Map();
+    if (team.memberIds && Array.isArray(team.memberIds)) {
+      team.memberIds.forEach(member => {
+        const memberObj = typeof member === 'object' ? member : users.find(u => (u._id || u.id) === member);
+        if (memberObj) {
+          membersMap.set(memberObj._id || memberObj.id, memberObj);
+        }
+      });
+    }
+    if (team.managerId) {
+      const mgrObj = typeof team.managerId === 'object' ? team.managerId : users.find(u => (u._id || u.id) === team.managerId);
+      if (mgrObj) {
+        membersMap.set(mgrObj._id || mgrObj.id, mgrObj);
+      }
+    }
+    return Array.from(membersMap.values());
+  };
+
+  const visibleMembers = getTeamMembers();
+
+  // Load Teams and Users on Mount
+  useEffect(() => {
+    const fetchMyTeams = async () => {
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/crm/teams/my-teams`,
+          { withCredentials: true }
+        );
+        const fetchedTeams = res.data || [];
+        setTeams(fetchedTeams);
+        if (isRestricted && fetchedTeams.length > 0) {
+          setSelectedTeam(fetchedTeams[0]._id);
+        }
+      } catch (err) {
+        console.error('Failed to load user teams:', err);
+      }
+    };
+    const fetchUsers = async () => {
+      try {
+        const res = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/get-all-users`,
+          { withCredentials: true }
+        );
+        setUsers(res.data || []);
+      } catch (err) {
+        console.error('Failed to load users:', err);
+      }
+    };
+    fetchMyTeams();
+    fetchUsers();
+  }, []);
+
   // Sync URL Params
   useEffect(() => {
     try {
@@ -228,7 +327,7 @@ export default function CRMKanbanBoard() {
 
   useEffect(() => {
     fetchBoard();
-  }, [filters, selectedStage, selectedSource, selectedTimePeriod, selectedDate, selectedWeek, selectedMonth]);
+  }, [filters, selectedStage, selectedSource, selectedTimePeriod, selectedDate, selectedWeek, selectedMonth, selectedTeam, selectedOwner]);
 
   const handleDragStart = (e, opportunity, fromStage) => {
     setDraggedOpportunity({ opportunity, fromStage });
@@ -290,6 +389,7 @@ export default function CRMKanbanBoard() {
       setLostFromStage(null);
     }
   };
+
 
   const handleUpdateOpportunityStage = async (opportunityId, newStage) => {
     if (!draggedOpportunity) return;
@@ -544,6 +644,66 @@ export default function CRMKanbanBoard() {
               <option value="Email Campaign">Email Campaign</option>
             </select>
           </div>
+
+          {/* Teams Dropdown */}
+          {(!isRestricted || teams.length > 1) && teams && teams.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Team:</span>
+              <select
+                value={selectedTeam}
+                onChange={e => {
+                  setSelectedTeam(e.target.value);
+                  setSelectedOwner('all'); // Reset owner on team change
+                }}
+                style={{
+                  padding: '8px 14px',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '10px',
+                  fontSize: '0.85rem',
+                  color: '#334155',
+                  background: '#ffffff',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  outline: 'none'
+                }}
+              >
+                {!isRestricted && <option value="all">All Teams</option>}
+                {teams.map(t => (
+                  <option key={t._id} value={t._id}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Members Dropdown */}
+          {visibleMembers.length > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Member:</span>
+              <select
+                value={selectedOwner}
+                onChange={e => setSelectedOwner(e.target.value)}
+                style={{
+                  padding: '8px 14px',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '10px',
+                  fontSize: '0.85rem',
+                  color: '#334155',
+                  background: '#ffffff',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  outline: 'none'
+                }}
+              >
+                <option value="all">All Members</option>
+                {visibleMembers.map(m => {
+                  const name = [m.first_name, m.last_name].filter(Boolean).join(' ') || m.username;
+                  return (
+                    <option key={m._id || m.id} value={m._id || m.id}>{name}</option>
+                  );
+                })}
+              </select>
+            </div>
+          )}
         </div>
 
         {selectedStage !== 'all' ? (

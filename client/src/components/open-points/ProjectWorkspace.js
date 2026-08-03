@@ -606,7 +606,7 @@ const ProjectWorkspace = () => {
 
                     {/* Actions Group */}
                     <div style={{ display: 'flex', gap: '8px', borderLeft: '1px solid #cbd5e1', paddingLeft: '15px', marginLeft: '5px' }}>
-                        {projectName === 'Internal Software Team' && (user?.role === 'Head_of_Department' || user?.role === 'HOD') && (
+                        {projectName === 'Internal Software Team' && (user?.role === 'Admin' || user?.role === 'Head_of_Department' || user?.role === 'HOD') && (
                             <div style={{ position: 'relative' }}>
                                 <button
                                     className="btn btn-sm"

@@ -12,6 +12,7 @@ export const moduleCategories = {
   "Exit Feedback": "HR & Admin",
   "Document Collection": "HR & Admin",
   "Attendance": "HR & Admin",
+  "5S Audit": "HR & Admin",
   "Customer KYC": "Customer KYC",
   "Import - DSR": "DSR Module",
   "Billing Confirmation": "DSR Module",

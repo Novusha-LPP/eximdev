@@ -638,9 +638,11 @@ export const assignPolicyToUser = async (req, res) => {
       const normalizedShiftIds = Array.isArray(shift_ids) ? shift_ids.filter(Boolean) : [];
       update.shift_ids = normalizedShiftIds;
       update.shift_id = normalizedShiftIds[0] || null;
+      update['work_pattern_override.custom_shift'] = normalizedShiftIds.length > 0;
     } else if (shift_id !== undefined) {
       update.shift_id = shift_id || null;
       update.shift_ids = shift_id ? [shift_id] : [];
+      update['work_pattern_override.custom_shift'] = !!shift_id;
     }
 
     if (leave_policy_ids !== undefined) {

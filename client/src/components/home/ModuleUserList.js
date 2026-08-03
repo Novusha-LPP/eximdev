@@ -55,7 +55,8 @@ const MODULES = [
   "Pulse",
   "Team Pulse",
   "Attendance",
-  "Karma Points"
+  "Karma Points",
+  "5S Audit"
 ];
 
 function ModuleUserList() {

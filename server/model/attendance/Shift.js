@@ -18,9 +18,13 @@ const shiftSchema = new mongoose.Schema({
   late_allowed_minutes: { type: Number, default: 0 },
   early_leave_allowed_minutes: { type: Number, default: 0 },
 
-  // Flexible window for reporting/insights (no enforcement)
   flexible_window_start: { type: String }, // e.g., "08:00"
   flexible_window_end: { type: String },   // e.g., "10:00"
+
+  // Dynamic Shift Proximity & Window settings
+  detection_window_start: { type: String, default: null },
+  detection_window_end: { type: String, default: null },
+  priority: { type: Number, default: 1 },
 
   overtime_threshold_minutes: { type: Number, default: 30 },
   overtime_calculation_type: { type: String, enum: ['daily', 'weekly', 'monthly'], default: 'daily' },

@@ -83,6 +83,7 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
       inTime: emp?.inTime || emp?.first_in || emp?.firstIn || null,
       outTime: emp?.outTime || emp?.last_out || emp?.lastOut || null,
       lateMinutes: Number(emp?.lateMinutes ?? emp?.late_by_minutes ?? emp?.lateBy ?? 0),
+      shiftName: emp?.shiftName || emp?.shift_id?.shift_name || emp?.shift_name || null,
       leave: emp?.leave || null
     };
   });
@@ -360,7 +361,8 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
                   <div className="adb-td-user">
                     <div className="adb-user-avatar">{emp.name?.split(' ').map(n => n.charAt(0)).join('').slice(0, 2).toUpperCase()}</div>
                     <div className="adb-user-info">
-                    <div className="adb-user-name">{emp.name}</div>
+                      <div className="adb-user-name">{emp.name}</div>
+                      {emp.shiftName && <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>{emp.shiftName}</div>}
                     </div>
                   </div>
                   </td>
@@ -414,7 +416,8 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
                     <div className="adb-td-user">
                       <div className="adb-user-avatar">{emp.name?.split(' ').map(n => n.charAt(0)).join('').slice(0, 2).toUpperCase()}</div>
                       <div className="adb-user-info">
-                      <div className="adb-user-name">{emp.name}</div>
+                        <div className="adb-user-name">{emp.name}</div>
+                        {emp.shiftName && <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>{emp.shiftName}</div>}
                       </div>
                     </div>
                     </td>

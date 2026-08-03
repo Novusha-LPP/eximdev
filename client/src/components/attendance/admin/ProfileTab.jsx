@@ -87,9 +87,9 @@ const S = {
     boxShadow: '0 1px 3px 0 rgba(0,0,0,0.05)',
     outline: 'none',
     ...(variant === 'primary' ? { background: 'linear-gradient(135deg, #4f46e5, #3730a3)', color: '#fff', boxShadow: '0 4px 14px rgba(79, 70, 229, 0.25)' } :
-        variant === 'success' ? { background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.25)' } :
+      variant === 'success' ? { background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', boxShadow: '0 4px 14px rgba(16, 185, 129, 0.25)' } :
         variant === 'ghost' ? { background: 'transparent', color: THEME.text, border: `1.5px solid ${THEME.border}` } :
-        { background: '#f1f5f9', color: THEME.text, border: `1.5px solid ${THEME.border}` })
+          { background: '#f1f5f9', color: THEME.text, border: `1.5px solid ${THEME.border}` })
   }),
   table: {
     width: '100%',
@@ -194,12 +194,12 @@ const SegmentedToggle = ({ value, onChange, label }) => {
           borderRadius: '20px',
           background: isNotApplicable ? 'linear-gradient(135deg, #ef4444, #dc2626)' : 'linear-gradient(135deg, #10b981, #059669)',
           transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-          boxShadow: isNotApplicable 
-            ? '0 4px 12px rgba(239,68,68,0.35)' 
+          boxShadow: isNotApplicable
+            ? '0 4px 12px rgba(239,68,68,0.35)'
             : '0 4px 12px rgba(16,185,129,0.35)',
           zIndex: 1
         }} />
-        
+
         <button
           type="button"
           onClick={() => onChange(false)} // Applicable (pf_not_applicable: false)
@@ -226,7 +226,7 @@ const SegmentedToggle = ({ value, onChange, label }) => {
           <FiCheck size={13} />
           Applicable
         </button>
-        
+
         <button
           type="button"
           onClick={() => onChange(true)} // Not Applicable (pf_not_applicable: true)
@@ -314,7 +314,7 @@ const SegmentedSalaryType = ({ value, onChange }) => {
         boxShadow: '0 4px 12px rgba(79,70,229,0.3)',
         zIndex: 1
       }} />
-      
+
       <button
         type="button"
         onClick={() => onChange('GROSS')}
@@ -340,7 +340,7 @@ const SegmentedSalaryType = ({ value, onChange }) => {
       >
         GROSS
       </button>
-      
+
       <button
         type="button"
         onClick={() => onChange('CTC')}
@@ -373,7 +373,7 @@ const SegmentedSalaryType = ({ value, onChange }) => {
 const ProfileTab = ({ employeeId, companyId, employeeName }) => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  
+
   // User Profile Form State
   const [profileForm, setProfileForm] = useState({
     // PF Details
@@ -611,7 +611,7 @@ const ProfileTab = ({ employeeId, companyId, employeeName }) => {
     if (selectedGrade === 'With PF ESIC') {
       const pfEmployee = Math.round(Math.min(basic, 15000) * 0.12);
       const esicEmployee = enteredAmount <= 21000 ? Math.round(enteredAmount * 0.0075) : 0;
-      
+
       const pfEmployer = Math.round(Math.min(basic, 15000) * 0.13);
       const esicEmployer = enteredAmount <= 21000 ? Math.round(enteredAmount * 0.0325) : 0;
 
@@ -695,7 +695,7 @@ const ProfileTab = ({ employeeId, companyId, employeeName }) => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <style>{stylesHtml}</style>
-      
+
       {/* 1. Profile / Settings Form */}
       <form onSubmit={handleProfileSubmit} style={S.card}>
         <div style={S.sectionTitle}>
@@ -703,8 +703,8 @@ const ProfileTab = ({ employeeId, companyId, employeeName }) => {
         </div>
 
         {/* PF Details */}
-        <SubCard 
-          title="PF Details" 
+        <SubCard
+          title="PF Details"
           icon={FiActivity}
           extraHeader={
             <SegmentedToggle
@@ -912,7 +912,7 @@ const ProfileTab = ({ employeeId, companyId, employeeName }) => {
                 ))}
               </div>
             </div>
-            
+
             {/* High Fidelity Biometric Multiselect */}
             <div style={{ position: 'relative' }}>
               <label style={S.label}>Select Biometric Serial No</label>
@@ -977,8 +977,8 @@ const ProfileTab = ({ employeeId, companyId, employeeName }) => {
 
               {/* Click-outside backdrop overlay */}
               {showBioDropdown && (
-                <div 
-                  onClick={() => setShowBioDropdown(false)} 
+                <div
+                  onClick={() => setShowBioDropdown(false)}
                   style={{
                     position: 'fixed',
                     top: 0,
@@ -987,7 +987,7 @@ const ProfileTab = ({ employeeId, companyId, employeeName }) => {
                     bottom: 0,
                     zIndex: 99,
                     background: 'transparent'
-                  }} 
+                  }}
                 />
               )}
 
@@ -1240,7 +1240,7 @@ const ProfileTab = ({ employeeId, companyId, employeeName }) => {
         </div>
 
         <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap' }}>
-          
+
           {/* Controls Panel */}
           <div style={{ flex: '1 1 340px', display: 'flex', flexDirection: 'column', gap: '22px', background: '#f8fafc', padding: '24px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
             <div style={{ fontSize: '13px', fontWeight: '800', color: THEME.primary, borderBottom: '1.5px solid #e2e8f0', paddingBottom: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1337,7 +1337,7 @@ const ProfileTab = ({ employeeId, companyId, employeeName }) => {
             <div style={{ fontSize: '13px', fontWeight: '800', color: THEME.primary, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <FiFileText /> Salary Structure Breakup
             </div>
-            
+
             <table className="premium-table" style={S.table}>
               <thead>
                 <tr>
@@ -1351,7 +1351,7 @@ const ProfileTab = ({ employeeId, companyId, employeeName }) => {
               <tbody>
                 {salaryStructure.map((item, idx) => {
                   const pct = enteredAmount > 0 ? Math.round((item.monthly_amount / enteredAmount) * 100) : 0;
-                  
+
                   // Harmonic colors for visual component display
                   const componentColors = {
                     'BASIC': '#06b6d4',
@@ -1401,7 +1401,7 @@ const ProfileTab = ({ employeeId, companyId, employeeName }) => {
                 })}
               </tbody>
             </table>
-            
+
             {salaryStructure.length === 0 && (
               <div style={{ border: `1.5px dashed ${THEME.border}`, borderRadius: '12px', padding: '50px 20px', textAlign: 'center', color: THEME.muted, fontSize: '13px', marginTop: '12px', background: '#fafafa' }}>
                 <FiAlertCircle size={22} color={THEME.amber} style={{ marginBottom: '8px' }} />

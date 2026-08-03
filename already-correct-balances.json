@@ -1,0 +1,442 @@
+[
+  {
+    "employee_id": "69807755317a48004a06b79c",
+    "employee_name": "RAHUL SOLANKI",
+    "leave_type": "privilege",
+    "opening_balance": 41,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 16
+  },
+  {
+    "employee_id": "6672a2501aa931b68b092004",
+    "employee_name": "SURAJ SUDHAKARAN",
+    "leave_type": "privilege",
+    "opening_balance": 76.5,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 51.5
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091fd4",
+    "employee_name": "CHIRAG SHAH",
+    "leave_type": "privilege",
+    "opening_balance": 72,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 47
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091ffb",
+    "employee_name": "MAHESH PATIL",
+    "leave_type": "privilege",
+    "opening_balance": 166,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 141
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091ffc",
+    "employee_name": "MAJHAR KHAN",
+    "leave_type": "privilege",
+    "opening_balance": 40,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 15
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091ffd",
+    "employee_name": "MANUBHAI RAVAL",
+    "leave_type": "privilege",
+    "opening_balance": 100,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 75
+  },
+  {
+    "employee_id": "6672a2501aa931b68b09200e",
+    "employee_name": "MOHIT SINGH",
+    "leave_type": "privilege",
+    "opening_balance": 95,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 70
+  },
+  {
+    "employee_id": "674d66dadf995f4492c15bb9",
+    "employee_name": "JEEVAN DRAVID",
+    "leave_type": "privilege",
+    "opening_balance": 31,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 6
+  },
+  {
+    "employee_id": "69a563a56cf7571d1230d559",
+    "employee_name": "PARTH SOLANKI",
+    "leave_type": "privilege",
+    "opening_balance": 48.5,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 23.5
+  },
+  {
+    "employee_id": "69609c79427cdad46a2b5fdb",
+    "employee_name": "UDAY ZOPE",
+    "leave_type": "privilege",
+    "opening_balance": 27,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 2
+  },
+  {
+    "employee_id": "667d476104773cd0c087a7d9",
+    "employee_name": "AHMED ADENWALA",
+    "leave_type": "privilege",
+    "opening_balance": 43.5,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 18.5
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091fb9",
+    "employee_name": "PREM CHAUDHARY",
+    "leave_type": "privilege",
+    "opening_balance": 32,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 7
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091fe3",
+    "employee_name": "SANJIV SONI",
+    "leave_type": "privilege",
+    "opening_balance": 57.5,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 32.5
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091fe4",
+    "employee_name": "SHALINI ARUN",
+    "leave_type": "privilege",
+    "opening_balance": 77,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 52
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091fe5",
+    "employee_name": "SOJITH MAMMUTTIL",
+    "leave_type": "privilege",
+    "opening_balance": 33,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 8
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091fe6",
+    "employee_name": "SREEKUMAR PILLAI",
+    "leave_type": "privilege",
+    "opening_balance": 26,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 1
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091ff1",
+    "employee_name": "BHALUSINH RATHOD",
+    "leave_type": "privilege",
+    "opening_balance": 134.5,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 109.5
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091ff7",
+    "employee_name": "HIMMAT PANWAR",
+    "leave_type": "privilege",
+    "opening_balance": 29.5,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 4.5
+  },
+  {
+    "employee_id": "6672a2501aa931b68b092001",
+    "employee_name": "RAHUL VAGHELA",
+    "leave_type": "privilege",
+    "opening_balance": 35.5,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 10.5
+  },
+  {
+    "employee_id": "69dc8828d97d29d2ac29db1f",
+    "employee_name": "SANAL KUMAR",
+    "leave_type": "privilege",
+    "opening_balance": 43,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 18
+  },
+  {
+    "employee_id": "67d582340c097bb06e4b1021",
+    "employee_name": "DIXITA SEVRA",
+    "leave_type": "privilege",
+    "opening_balance": 25.5,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 0.5
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091fda",
+    "employee_name": "MANU PILLAI",
+    "leave_type": "privilege",
+    "opening_balance": 43,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 18
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091fd7",
+    "employee_name": "JYOTHISH R",
+    "leave_type": "privilege",
+    "opening_balance": 37,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 12
+  },
+  {
+    "employee_id": "6852538cfecca8549389c9a4",
+    "employee_name": "BALVIR NANDA",
+    "leave_type": "privilege",
+    "opening_balance": 86.5,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 61.5
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091fdb",
+    "employee_name": "PARTHIV JADAV",
+    "leave_type": "privilege",
+    "opening_balance": 49.5,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 24.5
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091fea",
+    "employee_name": "YASH SHAH",
+    "leave_type": "privilege",
+    "opening_balance": 60.5,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 35.5
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091ff6",
+    "employee_name": "GAURAV SINGH",
+    "leave_type": "privilege",
+    "opening_balance": 43.5,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 18.5
+  },
+  {
+    "employee_id": "685258d1fecca8549389c9d6",
+    "employee_name": "KIRIT BHANUSHALI",
+    "leave_type": "privilege",
+    "opening_balance": 41,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 16
+  },
+  {
+    "employee_id": "68ad512cd4e8150302c6efaf",
+    "employee_name": "ADARSH SINGH",
+    "leave_type": "privilege",
+    "opening_balance": 32,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 7
+  },
+  {
+    "employee_id": "6672a2501aa931b68b09200c",
+    "employee_name": "KULDEEP RAWAT",
+    "leave_type": "privilege",
+    "opening_balance": 61,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 36
+  },
+  {
+    "employee_id": "6672a2501aa931b68b09200d",
+    "employee_name": "LIBIN V.",
+    "leave_type": "privilege",
+    "opening_balance": 34.5,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 9.5
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091fc1",
+    "employee_name": "AKASH PARMAR",
+    "leave_type": "privilege",
+    "opening_balance": 32,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 7
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091fee",
+    "employee_name": "ANAND RAJPUT",
+    "leave_type": "privilege",
+    "opening_balance": 51.5,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 26.5
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091fd1",
+    "employee_name": "ALPESH PARMAR",
+    "leave_type": "privilege",
+    "opening_balance": 41,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 16
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091fce",
+    "employee_name": "PARAS MAKWANA",
+    "leave_type": "privilege",
+    "opening_balance": 36.5,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 11.5
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091fd0",
+    "employee_name": "AKASH MODI",
+    "leave_type": "privilege",
+    "opening_balance": 76,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 51
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091fd8",
+    "employee_name": "KETANKUMAR PATEL",
+    "leave_type": "privilege",
+    "opening_balance": 27,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 2
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091fc5",
+    "employee_name": "AJAY KUMAWAT",
+    "leave_type": "privilege",
+    "opening_balance": 30,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 5
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091fdd",
+    "employee_name": "PRAMOD THEKEPATTU",
+    "leave_type": "privilege",
+    "opening_balance": 40.5,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 15.5
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091fe0",
+    "employee_name": "RAVI PATEL",
+    "leave_type": "privilege",
+    "opening_balance": 166,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 141
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091fe9",
+    "employee_name": "VINODCHANDRA RANA",
+    "leave_type": "privilege",
+    "opening_balance": 117.5,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 92.5
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091fef",
+    "employee_name": "ANURAG PILLAI",
+    "leave_type": "privilege",
+    "opening_balance": 31.5,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 6.5
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091ff8",
+    "employee_name": "JITENDRAKUMAR MAKWANA",
+    "leave_type": "privilege",
+    "opening_balance": 53.5,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 28.5
+  },
+  {
+    "employee_id": "68525317fecca8549389c9a0",
+    "employee_name": "KAPIL GOSWAMI",
+    "leave_type": "privilege",
+    "opening_balance": 42,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 17
+  },
+  {
+    "employee_id": "6672a2501aa931b68b092005",
+    "employee_name": "TEJAS PARIKH",
+    "leave_type": "privilege",
+    "opening_balance": 86.5,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 61.5
+  },
+  {
+    "employee_id": "696f2427e1bae1f749fc64ac",
+    "employee_name": "PRATIK SAKRECHA",
+    "leave_type": "privilege",
+    "opening_balance": 28.5,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 3.5
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091fc7",
+    "employee_name": "DHARMENDRA VINZAVA",
+    "leave_type": "privilege",
+    "opening_balance": 47,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 22
+  },
+  {
+    "employee_id": "66bc6843cb637a5bb0b0ce04",
+    "employee_name": "ELBIN KURIAN",
+    "leave_type": "privilege",
+    "opening_balance": 27,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 2
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091fcd",
+    "employee_name": "NIRALI PATEL",
+    "leave_type": "privilege",
+    "opening_balance": 39,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 14
+  },
+  {
+    "employee_id": "6672a2501aa931b68b092010",
+    "employee_name": "PAHAD SINGH",
+    "leave_type": "privilege",
+    "opening_balance": 78.5,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 53.5
+  },
+  {
+    "employee_id": "6672a2501aa931b68b092014",
+    "employee_name": "SUNIL THAKUR",
+    "leave_type": "privilege",
+    "opening_balance": 36,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 11
+  },
+  {
+    "employee_id": "6672a2501aa931b68b092006",
+    "employee_name": "VIJAYKUMAR JADEJA",
+    "leave_type": "privilege",
+    "opening_balance": 67.5,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 42.5
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091fca",
+    "employee_name": "KALPESH CHAUHAN",
+    "leave_type": "privilege",
+    "opening_balance": 39,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 14
+  },
+  {
+    "employee_id": "6672a2501aa931b68b091fc6",
+    "employee_name": "ANUP CHAUHAN",
+    "leave_type": "privilege",
+    "opening_balance": 27.5,
+    "default_quota": 25,
+    "difference_assumed_carry_forward": 2.5
+  },
+  {
+    "employee_id": "6937e569b367c7f6e9119342",
+    "employee_name": "AJITH SIVADASAN",
+    "leave_type": "casual",
+    "opening_balance": 29,
+    "default_quota": 12,
+    "difference_assumed_carry_forward": 17
+  }
+]

@@ -202,6 +202,7 @@ import ViewDgftRegisterDetails from "../components/dgft/ViewDgftRegisterDetails.
 // CRM Module
 import CRMModule from "../components/crm/CRMModule.jsx";
 import PricingRequestsList from "../components/crm/components/PricingRequestsList.jsx";
+import Audit5sDashboard from "../components/audit5s/Audit5sDashboard.jsx";
 
 import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
@@ -1258,6 +1259,16 @@ function HomePageContent() {
                 <Route
                   path="/dgft/register-details/:id"
                   element={<ViewDgftRegisterDetails />}
+                />
+
+                {/* 5S Audit Checklist Module */}
+                <Route
+                  path="/audit-5s"
+                  element={
+                    <ProtectedRoute requiredModule="5S Audit">
+                      <Audit5sDashboard />
+                    </ProtectedRoute>
+                  }
                 />
 
                 {/* Attendance Module */}

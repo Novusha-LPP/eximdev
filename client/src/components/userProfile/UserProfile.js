@@ -35,7 +35,7 @@ const UserProfile = ({ username: propUsername }) => {
     const [profileData, setProfileData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
-    const [activeTab, setActiveTab] = useState(0);
+    const [activeTab, setActiveTab] = useState('overview');
     const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
     const [openPointsCount, setOpenPointsCount] = useState(0);
     const fileInputRef = useRef(null);
@@ -56,7 +56,7 @@ const UserProfile = ({ username: propUsername }) => {
         if (!dateString) return 'N/A';
         const date = new Date(dateString);
         if (isNaN(date.getTime())) return dateString; // Return original if invalid
-        
+
         const day = String(date.getDate()).padStart(2, '0');
         const month = String(date.getMonth() + 1).padStart(2, '0');
         const year = date.getFullYear();
@@ -298,7 +298,7 @@ const UserProfile = ({ username: propUsername }) => {
 
         setUploading(true);
         try {
-            const endpoint = type === 'kyc' 
+            const endpoint = type === 'kyc'
                 ? `${process.env.REACT_APP_API_STRING}/complete-kyc`
                 : `${process.env.REACT_APP_API_STRING}/complete-onboarding`;
 
@@ -332,7 +332,7 @@ const UserProfile = ({ username: propUsername }) => {
             await axios.post(`${process.env.REACT_APP_API_STRING}/delete-s3-file`, { key });
 
             // 2. Clear field in DB
-            const endpoint = type === 'kyc' 
+            const endpoint = type === 'kyc'
                 ? `${process.env.REACT_APP_API_STRING}/complete-kyc`
                 : `${process.env.REACT_APP_API_STRING}/complete-onboarding`;
 
@@ -368,11 +368,11 @@ const UserProfile = ({ username: propUsername }) => {
             });
 
             const proofField = `${assetType}_proof`;
-            setProfileData(prev => ({ 
-                ...prev, 
+            setProfileData(prev => ({
+                ...prev,
                 [proofField]: res.data.user[proofField]
             }));
-            
+
             setSnackbar({ open: true, message: `${assetType.replace('_', ' ')} proof uploaded successfully!`, severity: 'success' });
         } catch (error) {
             console.error("Error uploading proof:", error);
@@ -405,6 +405,229 @@ const UserProfile = ({ username: propUsername }) => {
         { label: "NDA", field: "nda", type: "onboarding", url: profileData.nda, accept: [".pdf"] },
         { label: "Address Proof", field: "address_proof", type: "onboarding", url: profileData.address_proof, accept: ["image/*", ".pdf"] }
     ];
+
+    // Tab content components
+    const PfEsicDocumentsTab = () => {
+        const [docsData, setDocsData] = useState({
+            pf_no: profileData.pf_no || "",
+            pf_card_url: "",
+            esic_no: profileData.esic_no || "",
+            esic_card_url: ""
+        });
+        const [loadingDocs, setLoadingDocs] = useState(true);
+        const isHrAdmin = loggedInUser?.role === 'Admin' || loggedInUser?.department === 'HR';
+
+        useEffect(() => {
+            const fetchDocs = async () => {
+                try {
+                    const res = await axios.get(
+                        `${process.env.REACT_APP_API_STRING}/hr/pf-esic/${profileData._id}`,
+                        { withCredentials: true }
+                    );
+                    setDocsData(res.data);
+                } catch (err) {
+                    console.error("Failed to fetch PF/ESIC documents:", err);
+                    toast.error("Failed to load PF & ESIC documents.");
+                } finally {
+                    setLoadingDocs(false);
+                }
+            };
+            fetchDocs();
+        }, []);
+
+        const handleSaveUrls = async (updatedData) => {
+            try {
+                const res = await axios.post(
+                    `${process.env.REACT_APP_API_STRING}/hr/pf-esic/${profileData._id}`,
+                    updatedData,
+                    { withCredentials: true }
+                );
+                setDocsData(prev => ({
+                    ...prev,
+                    pf_card_url: res.data.pf_card_url,
+                    esic_card_url: res.data.esic_card_url
+                }));
+                toast.success("Documents updated successfully.");
+            } catch (err) {
+                console.error("Failed to save PF/ESIC documents:", err);
+                toast.error(err.response?.data?.message || "Failed to update documents.");
+            }
+        };
+
+        const handleUpload = (files, field) => {
+            if (files && files.length > 0) {
+                const fileUrl = files[0];
+                handleSaveUrls({ [field]: fileUrl });
+            }
+        };
+
+        const handleDelete = (field) => {
+            if (window.confirm("Are you sure you want to delete this document?")) {
+                handleSaveUrls({ [field]: "" });
+            }
+        };
+
+        if (loadingDocs) {
+            return (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
+                    <CircularProgress size={30} />
+                </div>
+            );
+        }
+
+        return (
+            <motion.div
+                className="tab-content fade-in"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.4 }}
+            >
+                <div className="grid-layout" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+                    {/* Provident Fund Card */}
+                    <div className="grid-card" style={{ padding: '24px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                            <h3 style={{ fontSize: '18px', fontWeight: 600, margin: 0, color: '#1f2937' }}>Provident Fund (PF)</h3>
+                            <Chip label="PF Document" size="small" color="primary" variant="outlined" />
+                        </div>
+                        
+                        <div style={{ marginBottom: '20px' }}>
+                            <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '4px' }}>PF Account Number</div>
+                            <div style={{ fontSize: '16px', fontWeight: 700, color: '#111827' }}>{docsData.pf_no || "Not Available"}</div>
+                        </div>
+
+                        <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '16px' }}>
+                            {docsData.pf_card_url ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#059669', fontSize: '14px', fontWeight: 500 }}>
+                                        <CheckCircleIcon fontSize="small" /> PF Card Uploaded
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <Button
+                                            variant="outlined"
+                                            size="small"
+                                            href={docsData.pf_card_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            startIcon={<OpenInNewIcon />}
+                                            style={{ textTransform: 'none' }}
+                                        >
+                                            View Card
+                                        </Button>
+                                        {isHrAdmin && (
+                                            <>
+                                                <FileUpload
+                                                    label="Replace"
+                                                    onFilesUploaded={(files) => handleUpload(files, "pf_card_url")}
+                                                    bucketPath="pf-esic"
+                                                    singleFileOnly={true}
+                                                    acceptedFileTypes={[".jpg", ".jpeg", ".png", ".pdf"]}
+                                                    buttonSx={{ fontSize: '0.75rem', padding: '4px 12px' }}
+                                                />
+                                                <IconButton
+                                                    color="error"
+                                                    size="small"
+                                                    onClick={() => handleDelete("pf_card_url")}
+                                                >
+                                                    <DeleteIcon />
+                                                </IconButton>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    <div style={{ fontSize: '14px', color: '#9ca3af', fontStyle: 'italic' }}>
+                                        No PF Card file uploaded yet.
+                                    </div>
+                                    {isHrAdmin && (
+                                        <FileUpload
+                                            label="Upload PF Card"
+                                            onFilesUploaded={(files) => handleUpload(files, "pf_card_url")}
+                                            bucketPath="pf-esic"
+                                            singleFileOnly={true}
+                                            acceptedFileTypes={[".jpg", ".jpeg", ".png", ".pdf"]}
+                                            buttonSx={{ textTransform: 'none', padding: '6px 16px' }}
+                                        />
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* ESIC Card */}
+                    <div className="grid-card" style={{ padding: '24px', background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                            <h3 style={{ fontSize: '18px', fontWeight: 600, margin: 0, color: '#1f2937' }}>ESIC Card</h3>
+                            <Chip label="ESIC Document" size="small" color="secondary" variant="outlined" />
+                        </div>
+                        
+                        <div style={{ marginBottom: '20px' }}>
+                            <div style={{ fontSize: '13px', color: '#6b7280', marginBottom: '4px' }}>ESIC Number</div>
+                            <div style={{ fontSize: '16px', fontWeight: 700, color: '#111827' }}>{docsData.esic_no || "Not Available"}</div>
+                        </div>
+
+                        <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: '16px' }}>
+                            {docsData.esic_card_url ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#059669', fontSize: '14px', fontWeight: 500 }}>
+                                        <CheckCircleIcon fontSize="small" /> ESIC Card Uploaded
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <Button
+                                            variant="outlined"
+                                            size="small"
+                                            href={docsData.esic_card_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            startIcon={<OpenInNewIcon />}
+                                            style={{ textTransform: 'none' }}
+                                        >
+                                            View Card
+                                        </Button>
+                                        {isHrAdmin && (
+                                            <>
+                                                <FileUpload
+                                                    label="Replace"
+                                                    onFilesUploaded={(files) => handleUpload(files, "esic_card_url")}
+                                                    bucketPath="pf-esic"
+                                                    singleFileOnly={true}
+                                                    acceptedFileTypes={[".jpg", ".jpeg", ".png", ".pdf"]}
+                                                    buttonSx={{ fontSize: '0.75rem', padding: '4px 12px' }}
+                                                />
+                                                <IconButton
+                                                    color="error"
+                                                    size="small"
+                                                    onClick={() => handleDelete("esic_card_url")}
+                                                >
+                                                    <DeleteIcon />
+                                                </IconButton>
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    <div style={{ fontSize: '14px', color: '#9ca3af', fontStyle: 'italic' }}>
+                                        No ESIC Card file uploaded yet.
+                                    </div>
+                                    {isHrAdmin && (
+                                        <FileUpload
+                                            label="Upload ESIC Card"
+                                            onFilesUploaded={(files) => handleUpload(files, "esic_card_url")}
+                                            bucketPath="pf-esic"
+                                            singleFileOnly={true}
+                                            acceptedFileTypes={[".jpg", ".jpeg", ".png", ".pdf"]}
+                                            buttonSx={{ textTransform: 'none', padding: '6px 16px' }}
+                                        />
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </motion.div>
+        );
+    };
 
     // Tab content components
     const OverviewTab = () => (
@@ -540,14 +763,14 @@ const UserProfile = ({ username: propUsername }) => {
                                                     buttonSx={{ fontSize: '0.7rem', padding: '4px 16px', minWidth: 'auto', borderRadius: '4px' }}
                                                 />
                                             )}
-                                            
+
                                             {doc.url && (
                                                 <div className="hr-upload-actions" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                     <a href={doc.url} target="_blank" rel="noopener noreferrer" className="view-link">View</a>
                                                     {(isOwnProfile || loggedInUser?.role === 'Admin') && (
-                                                        <IconButton 
-                                                            size="small" 
-                                                            color="error" 
+                                                        <IconButton
+                                                            size="small"
+                                                            color="error"
                                                             onClick={() => handleDocumentDelete(doc.field, doc.type)}
                                                             title="Delete document"
                                                         >
@@ -557,7 +780,7 @@ const UserProfile = ({ username: propUsername }) => {
                                                 </div>
                                             )}
                                             {!doc.url && !isOwnProfile && loggedInUser?.role !== 'Admin' && (
-                                                 <span style={{ fontSize: '0.75rem', color: '#999', fontStyle: 'italic' }}>Not uploaded</span>
+                                                <span style={{ fontSize: '0.75rem', color: '#999', fontStyle: 'italic' }}>Not uploaded</span>
                                             )}
                                         </div>
                                     </div>
@@ -809,8 +1032,8 @@ const UserProfile = ({ username: propUsername }) => {
                         maximumAge: 0
                     })
                 );
-                location = { 
-                    latitude: pos.coords.latitude, 
+                location = {
+                    latitude: pos.coords.latitude,
                     longitude: pos.coords.longitude,
                     accuracy: pos.coords.accuracy,
                     altitude: pos.coords.altitude,
@@ -825,7 +1048,7 @@ const UserProfile = ({ username: propUsername }) => {
 
             const punchParams = { type, method: 'web', location };
             if (!isOwnProfile) punchParams.employee_id = profileData._id;
-            
+
             await attendanceAPI.punch(punchParams);
             toast.success(`Punch ${type} recorded successfully!`);
             // Refresh data
@@ -927,7 +1150,7 @@ const UserProfile = ({ username: propUsername }) => {
                             </span>
                         </div>
                     )}
-                    
+
                     {/* User Specific Assets */}
                     {profileData.marketing_assets?.map((asset, i) => (
                         <div key={`personal-${i}`} className="info-row">
@@ -971,7 +1194,7 @@ const UserProfile = ({ username: propUsername }) => {
                     <div className="section-header">
                         Marketing Verification Status
                     </div>
-                    
+
                     <div className="info-table" style={{ padding: '20px' }}>
                         <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
                             To get a blue tick on your profile, please upload screenshots showing your updated profile photo and email signature. Both must be verified.
@@ -983,10 +1206,10 @@ const UserProfile = ({ username: propUsername }) => {
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                                     <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Profile Photo Status</Typography>
                                     {profileData.profile_photo_proof?.status && (
-                                        <Chip 
-                                            label={profileData.profile_photo_proof.status} 
+                                        <Chip
+                                            label={profileData.profile_photo_proof.status}
                                             size="small"
-                                            sx={{ 
+                                            sx={{
                                                 fontSize: '0.65rem',
                                                 height: '20px',
                                                 background: profileData.profile_photo_proof.status === 'Approved' ? '#dcfce7' : profileData.profile_photo_proof.status === 'Rejected' ? '#fef2f2' : '#fef9c3',
@@ -1022,10 +1245,10 @@ const UserProfile = ({ username: propUsername }) => {
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                                     <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Email Signature Status</Typography>
                                     {profileData.email_signature_proof?.status && (
-                                        <Chip 
-                                            label={profileData.email_signature_proof.status} 
+                                        <Chip
+                                            label={profileData.email_signature_proof.status}
                                             size="small"
-                                            sx={{ 
+                                            sx={{
                                                 fontSize: '0.65rem',
                                                 height: '20px',
                                                 background: profileData.email_signature_proof.status === 'Approved' ? '#dcfce7' : profileData.email_signature_proof.status === 'Rejected' ? '#fef2f2' : '#fef9c3',
@@ -1174,23 +1397,42 @@ const UserProfile = ({ username: propUsername }) => {
             <div className="profile-tabs-wrapper">
                 {(() => {
                     const canViewAttendance = isOwnProfile || loggedInUser?.role === 'Admin' || loggedInUser?.role === 'Head_of_Department' || loggedInUser?.role === 'HOD';
+                    const isHrAdmin = loggedInUser?.role === 'Admin' || loggedInUser?.department === 'HR';
+                    const canViewDocuments = isHrAdmin || isOwnProfile;
+
+                    const tabs = [
+                        { id: 'overview', label: 'Overview' },
+                        { id: 'modules', label: `Modules (${profileData.modules?.length || 0})` },
+                        { id: 'importers', label: `Importers (${profileData.assigned_importer_name?.length || 0})` },
+                        { id: 'openpoints', label: `Open Points (${openPointsCount})` }
+                    ];
+
+                    if (canViewAttendance) {
+                        tabs.push({ id: 'attendance', label: 'Attendance' });
+                    }
+
+                    if (canViewDocuments) {
+                        tabs.push({ id: 'pf-esic', label: 'PF & ESIC Documents' });
+                    }
+
+                    if (profileData.email_signature || (profileData.marketing_assets?.length > 0) || (globalAssets.length > 0)) {
+                        tabs.push({ id: 'marketing', label: 'Marketing Assets' });
+                    }
+
+                    const currentTabVal = typeof activeTab === 'string' ? activeTab : tabs[activeTab]?.id || 'overview';
+
                     return (
-                <Tabs
-                    value={activeTab}
-                    onChange={(e, v) => setActiveTab(v)}
-                    className="custom-tabs"
-                    textColor="primary"
-                    indicatorColor="primary"
-                >
-                    <Tab label="Overview" />
-                    <Tab label={`Modules (${profileData.modules?.length || 0})`} />
-                    <Tab label={`Importers (${profileData.assigned_importer_name?.length || 0})`} />
-                    <Tab label={`Open Points (${openPointsCount})`} />
-                    {canViewAttendance && <Tab label="Attendance" />}
-                    {(profileData.email_signature || (profileData.marketing_assets?.length > 0) || (globalAssets.length > 0)) && (
-                        <Tab label="Marketing Assets" />
-                    )}
-                </Tabs>
+                        <Tabs
+                            value={currentTabVal}
+                            onChange={(e, v) => setActiveTab(v)}
+                            className="custom-tabs"
+                            textColor="primary"
+                            indicatorColor="primary"
+                        >
+                            {tabs.map(t => (
+                                <Tab key={t.id} value={t.id} label={t.label} />
+                            ))}
+                        </Tabs>
                     );
                 })()}
             </div>
@@ -1200,15 +1442,20 @@ const UserProfile = ({ username: propUsername }) => {
                 <AnimatePresence mode="wait">
                     {(() => {
                         const canViewAttendance = isOwnProfile || loggedInUser?.role === 'Admin' || loggedInUser?.role === 'Head_of_Department' || loggedInUser?.role === 'HOD';
-                        const marketingIndex = canViewAttendance ? 5 : 4;
+                        const isHrAdmin = loggedInUser?.role === 'Admin' || loggedInUser?.department === 'HR';
+                        const canViewDocuments = isHrAdmin || isOwnProfile;
+                        
+                        const currentTabVal = typeof activeTab === 'string' ? activeTab : 'overview';
+
                         return (
                             <>
-                                {activeTab === 0 && <OverviewTab key="overview" />}
-                                {activeTab === 1 && <ModulesTab key="modules" />}
-                                {activeTab === 2 && <ImportersTab key="importers" />}
-                                {activeTab === 3 && <OpenPointsTab key="openpoints" />}
-                                {activeTab === 4 && canViewAttendance && <AttendanceTab key="attendance" />}
-                                {activeTab === marketingIndex && <MarketingAssetsTab key="marketing" />}
+                                {currentTabVal === 'overview' && <OverviewTab key="overview" />}
+                                {currentTabVal === 'modules' && <ModulesTab key="modules" />}
+                                {currentTabVal === 'importers' && <ImportersTab key="importers" />}
+                                {currentTabVal === 'openpoints' && <OpenPointsTab key="openpoints" />}
+                                {currentTabVal === 'attendance' && canViewAttendance && <AttendanceTab key="attendance" />}
+                                {currentTabVal === 'pf-esic' && canViewDocuments && <PfEsicDocumentsTab key="pf-esic" />}
+                                {currentTabVal === 'marketing' && <MarketingAssetsTab key="marketing" />}
                             </>
                         );
                     })()}

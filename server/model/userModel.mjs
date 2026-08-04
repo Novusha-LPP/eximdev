@@ -276,7 +276,13 @@ const userSchema = new Schema({
   pf_no: {
     type: String,
   },
+  pf_card_url: {
+    type: String,
+  },
   esic_no: {
+    type: String,
+  },
+  esic_card_url: {
     type: String,
   },
   insurance_status: [

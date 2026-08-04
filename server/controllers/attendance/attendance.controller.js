@@ -43,10 +43,10 @@ const getLeaveLocalDateRange = (leave, tz = 'Asia/Kolkata') => {
 
 const logActivity = async (req, module, action, details, metadata = {}) => {
     try {
-        const companyId = resolveCompanyId(req) || 
-                          metadata?.company_id || 
-                          req.user?.company_id?._id || 
-                          req.user?.company_id;
+        const companyId = resolveCompanyId(req) ||
+            metadata?.company_id ||
+            req.user?.company_id?._id ||
+            req.user?.company_id;
 
         if (!companyId) {
             console.warn(`[logActivity] Warning: company_id is missing for activity: ${module}:${action}`);
@@ -81,7 +81,7 @@ const getHodTeams = async (hodId) => {
 
     const targetHodId = mongoose.Types.ObjectId.isValid(hodId) ? hodId : new mongoose.Types.ObjectId(hodId);
     const targetHodUsername = String(user.username || '').toLowerCase();
-    
+
     // Always check if user is set as hodId (primary HOD by assignment, regardless of role)
     const query = {
         $or: [
@@ -138,8 +138,8 @@ const isHODauthorized = async (hodId, employeeId) => {
 
     // Get all teams this actor manages (by hodId or HOD role membership)
     const hodTeams = await getHodTeams(hodId);
-    
-    const authorizedById = hodTeams.some(team => 
+
+    const authorizedById = hodTeams.some(team =>
         team.members?.some(m => m.userId && m.userId.toString() === employeeId.toString())
     );
 
@@ -152,7 +152,7 @@ const isHODauthorized = async (hodId, employeeId) => {
     }
 
     const employeeUsername = String(employee.username).toLowerCase();
-    const authorizedByUsername = hodTeams.some(team => 
+    const authorizedByUsername = hodTeams.some(team =>
         team.members?.some(m => String(m.username || '').toLowerCase() === employeeUsername)
     );
 
@@ -414,10 +414,10 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
         if (leave && !isWorking) {
             const isHalf = (leave.is_half_day || leave.is_start_half_day || leave.is_end_half_day);
             const isPending = String(leave.approval_status || '').toLowerCase() === 'pending';
-            
+
             hStatus = isHalf ? 'half_day' : (isPending ? 'pending_leave' : 'leave');
             hSession = leave.half_day_session || leave.start_half_session || leave.end_half_session;
-            
+
             if (isHalf) actualHalfDay++;
             else actualLeaves++;
         } else if (rec) {
@@ -462,9 +462,9 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
             }
         }
 
-        compactHistory.push({ 
-            date: dayStr, 
-            status: hStatus || 'absent', 
+        compactHistory.push({
+            date: dayStr,
+            status: hStatus || 'absent',
             session: hSession,
             leaveType: leave?.leave_type || null,
             leaveStatus: leave?.approval_status || null,
@@ -531,7 +531,7 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
 async function processDailyAttendance(user, date) {
     // Fetch Company & Shift Config dynamically
     const company = await Company.findById(user.company_id);
-    const shift = await PolicyResolver.resolveShift(user);
+    const shift = await PolicyResolver.resolveShift(user, date);
 
     // Delegate to rule-driven engine and return the processed record
     return await AttendanceEngine.processDaily(user, date, company, shift);
@@ -659,22 +659,22 @@ export const punch = async (req, res) => {
         if (target_employee_id && (req.user.role === 'ADMIN' || req.user.role === 'HOD')) {
             const targetUser = await User.findById(target_employee_id);
             if (!targetUser) return res.status(404).json({ message: 'Target employee not found' });
-            
+
             // Security: Ensure the actor has access to this target user (same company)
             if (targetUser.company_id.toString() !== req.user.company_id.toString()) {
                 return res.status(403).json({ message: 'Forbidden: Access across companies denied' });
             }
-            
+
             // Additional check for HOD: Employee must be in their team
             if (req.user.role === 'HOD') {
                 const hodTeams = await getHodTeams(req.user._id);
-                
+
                 let isInTeam = false;
                 const targetUserIdStr = targetUser._id.toString();
-                
+
                 for (const team of hodTeams) {
                     if (team.members && Array.isArray(team.members)) {
-                        const isMember = team.members.some(m => 
+                        const isMember = team.members.some(m =>
                             m.userId && m.userId.toString() === targetUserIdStr
                         );
                         if (isMember) {
@@ -683,12 +683,12 @@ export const punch = async (req, res) => {
                         }
                     }
                 }
-                
+
                 if (!isInTeam) {
                     return res.status(403).json({ message: 'Forbidden: Employee is not in your team' });
                 }
             }
-            
+
             user = targetUser; // Act on behalf of target employee
         }
 
@@ -739,6 +739,9 @@ export const punch = async (req, res) => {
 
         let warning = null;
         let autoClosedPreviousSession = false;
+
+        const isRabs = company && /RABS/i.test(company.company_name);
+        const currentLimitHours = isRabs ? 24 : MISSED_PUNCH_LIMIT_HOURS;
 
         if (type === 'IN' && activeSession) {
             const elapsedHours = now.diff(moment(activeSession.punch_in_time), 'hours', true);
@@ -807,10 +810,11 @@ export const punch = async (req, res) => {
         // 5a. Manage ActiveSession Lifecycle
         if (type === 'IN') {
             // Create new session on IN punch
+            const resolvedShift = await PolicyResolver.resolveShift(user, today, now.toDate());
             const newSession = new ActiveSession({
                 employee_id: user._id,
                 company_id: user.company_id,
-                shift_id: user.shift_id,
+                shift_id: resolvedShift ? resolvedShift._id : user.shift_id,
                 punch_in_time: now.toDate(),
                 punch_in_entry_id: punch._id,
                 session_date: todayDate,
@@ -1031,7 +1035,7 @@ export const getDashboardData = async (req, res) => {
         }
 
         // 3. Shift Details
-        const shift = await PolicyResolver.resolveShift(user);
+        const shift = await PolicyResolver.resolveShift(user, today);
         if (shift) {
             punchStatus.shiftName = shift.name || shift.shift_name;
             punchStatus.shiftTime = `${shift.start_time} – ${shift.end_time}`;
@@ -1210,7 +1214,7 @@ export const getDashboardData = async (req, res) => {
         const pendingActions = [];
         const incompleteRecords = await AttendanceRecord.find({
             employee_id: user._id,
-            
+
             attendance_date: { $lt: today },
             first_in: { $ne: null },
             last_out: null
@@ -1401,7 +1405,12 @@ export const getDashboardData = async (req, res) => {
             upcomingHolidays: formattedUpcomingHolidays,
             holidayReminders: formattedReminderHolidays,
             holidayRoleContext: holidayRoleContext,
-            pendingLeaves: formattedPendingLeaves
+            pendingLeaves: formattedPendingLeaves,
+            companySettings: {
+                company_name: company?.company_name || '',
+                policy_handbook_url: company?.policy_handbook_url || null,
+                policy_handbook_name: company?.policy_handbook_name || null
+            }
         });
     } catch (err) {
         console.error('>>> [DASHBOARD_ERROR]', err);
@@ -1468,15 +1477,15 @@ export const getHistory = async (req, res) => {
         if (startDate && endDate && (employee_id || req.user.role === 'EMPLOYEE')) {
             const holidays = await Holiday.find({
                 company_id: companyId,
-                holiday_date: { 
-                    $gte: moment.utc(startDate).startOf('day').toDate(), 
-                    $lte: moment.utc(endDate).endOf('day').toDate() 
+                holiday_date: {
+                    $gte: moment.utc(startDate).startOf('day').toDate(),
+                    $lte: moment.utc(endDate).endOf('day').toDate()
                 }
             });
 
             if (holidays.length > 0) {
                 const existingDates = new Set(result.data.map(r => moment.utc(r.attendance_date).format('YYYY-MM-DD')));
-                
+
                 holidays.forEach(h => {
                     const hDateStr = moment.utc(h.holiday_date).format('YYYY-MM-DD');
                     if (!existingDates.has(hDateStr)) {
@@ -1488,7 +1497,7 @@ export const getHistory = async (req, res) => {
                         });
                     }
                 });
-                
+
                 // Re-sort data
                 result.data.sort((a, b) => new Date(b.attendance_date) - new Date(a.attendance_date));
             }
@@ -1622,7 +1631,7 @@ export const getAdminDashboardData = async (req, res) => {
             return res.status(403).json({ message: 'Only admins can access admin dashboard' });
         }
         const companyId = resolveCompanyId(req);
-        
+
         // Diagnostic log as requested in previous troubleshooting
         console.log(`[AdminDashboard] Request Date: ${req.query.date || 'Today'} | Resolved Company: ${companyId || 'ALL'} | Admin: ${req.user?.username}`);
 
@@ -1634,8 +1643,8 @@ export const getAdminDashboardData = async (req, res) => {
         }
 
         const { date, start_date, end_date } = req.query;
-        const tz = 'Asia/Kolkata'; 
-        
+        const tz = 'Asia/Kolkata';
+
         let targetStart, targetEnd;
         if (start_date && end_date) {
             targetStart = moment.tz(start_date, tz).startOf('day').toDate();
@@ -1661,7 +1670,7 @@ export const getAdminDashboardData = async (req, res) => {
             .select('first_name last_name username role department_id company_id')
             .populate('department_id', 'department_name')
             .lean();
-            
+
         const empIdList = employees.map((e) => e._id);
         const totalEmployees = employees.length;
 
@@ -1733,10 +1742,10 @@ export const getAdminDashboardData = async (req, res) => {
         const presentUserIds = attendanceRecs.filter(r => ['present', 'late', 'half_day'].includes(r.status)).map(r => r.employee_id.toString());
         // INCLUDE pending leaves in the count for consistency as requested
         const leaveUserIds = activeLeaves.map(l => l.employee_id.toString());
-        
+
         const presentToday = new Set(presentUserIds).size;
         const onLeaveToday = new Set(leaveUserIds).size;
-        
+
         const accountedIds = new Set([...presentUserIds, ...leaveUserIds]);
         const absentToday = Math.max(0, totalEmployees - accountedIds.size);
 
@@ -1749,13 +1758,13 @@ export const getAdminDashboardData = async (req, res) => {
             const att = attendanceMap.get(empIdStr);
             const employeeLeaves = leavesMap.get(empIdStr) || [];
             const employeeTeamIds = teamIdsByEmployee.get(empIdStr) || [];
-            
+
             // Resolve Leave Status
             let leaveInfo = null;
             if (employeeLeaves.length > 0) {
-                const activeL = employeeLeaves.find(l => l.approval_status === 'approved') 
-                            || employeeLeaves.find(l => l.approval_status === 'pending')
-                            || employeeLeaves[0];
+                const activeL = employeeLeaves.find(l => l.approval_status === 'approved')
+                    || employeeLeaves.find(l => l.approval_status === 'pending')
+                    || employeeLeaves[0];
                 leaveInfo = {
                     type: activeL.leave_type,
                     status: activeL.approval_status,
@@ -1937,12 +1946,12 @@ export const getPayrollData = async (req, res) => {
         if (req.user.role !== 'ADMIN' && !isDynamic && !isHOD) {
             return res.status(403).json({ message: 'Only admins can view payroll data' });
         }
-        
+
         const { month, year, company_id } = req.query;
-        
+
         // Use company_id from query if provided, else resolve from user context
         let companyId = company_id || resolveCompanyId(req) || req.user?.company_id;
-        
+
         if (!companyId) {
             return res.status(400).json({ message: 'Company selection is required for payroll data' });
         }
@@ -1965,7 +1974,7 @@ export const getPayrollData = async (req, res) => {
             role: { $nin: ['ADMIN', 'Admin', 'driver', 'Driver'] }
         };
         query.username = { $ne: 'dev_master' };
-        
+
         // Add company filter - try both formats
         if (mongoose.Types.ObjectId.isValid(companyId)) {
             query.$or = [
@@ -1980,18 +1989,18 @@ export const getPayrollData = async (req, res) => {
         if (restrictedIds) {
             query._id = { $in: restrictedIds.map(id => new mongoose.Types.ObjectId(id)) };
         }
-        
+
         const employees = await User.find(query)
             .select('first_name last_name username employee_code department department_id shift_id joining_date employment_type monthly_salary company_id')
             .populate('department_id')
             .populate('shift_id')
             .lean();
-        
+
         // Debug: Log query result
         if (employees.length === 0) {
             console.log('No employees found with query:', JSON.stringify(query));
             // Try simplified query as fallback
-            const fallbackCount = await User.countDocuments({ 
+            const fallbackCount = await User.countDocuments({
                 company_id: companyId,
                 role: { $nin: ['ADMIN', 'Admin'] }
             });
@@ -2059,15 +2068,15 @@ export const getPayrollData = async (req, res) => {
             }
         }));
 
-        res.json({ 
-            success: true, 
-            data: payrollData, 
+        res.json({
+            success: true,
+            data: payrollData,
             employeeCount: employees.length,
             month: targetMonth,
             year: targetYear,
             company: { id: company._id, name: company.company_name },
             debug: { companyId, yearMonth, queryUsed: 'company_id match' },
-            isLocked: await PayrollEngine.isLocked(company, yearMonth) 
+            isLocked: await PayrollEngine.isLocked(company, yearMonth)
         });
     } catch (err) {
         console.error('Payroll Export Error:', err);
@@ -2081,7 +2090,7 @@ export const getPayrollEmployees = async (req, res) => {
         if (req.user.role !== 'ADMIN' && !isDynamic) {
             return res.status(403).json({ message: 'Only admins can view payroll data' });
         }
-        
+
         let companyId = resolveCompanyId(req);
         if (!companyId && req.user?.company_id) {
             companyId = req.user.company_id;
@@ -2097,7 +2106,7 @@ export const getPayrollEmployees = async (req, res) => {
         }
 
         console.log('Fetching employees for company:', companyId);
-        
+
         const restrictedIds = await getRestrictedEmployeeIds(req.user);
 
         // Count with different conditions
@@ -2107,16 +2116,16 @@ export const getPayrollEmployees = async (req, res) => {
         }
         const totalUsersInDb = await User.countDocuments(totalQuery);
 
-        const usersWithCompanyIdAsObjectIdQuery = { 
-            company_id: new mongoose.Types.ObjectId(companyId) 
+        const usersWithCompanyIdAsObjectIdQuery = {
+            company_id: new mongoose.Types.ObjectId(companyId)
         };
         if (restrictedIds) {
             usersWithCompanyIdAsObjectIdQuery._id = { $in: restrictedIds.map(id => new mongoose.Types.ObjectId(id)) };
         }
         const usersWithCompanyIdAsObjectId = await User.countDocuments(usersWithCompanyIdAsObjectIdQuery);
 
-        const usersWithCompanyIdAsStringQuery = { 
-            company_id: companyId 
+        const usersWithCompanyIdAsStringQuery = {
+            company_id: companyId
         };
         if (restrictedIds) {
             usersWithCompanyIdAsStringQuery._id = { $in: restrictedIds.map(id => new mongoose.Types.ObjectId(id)) };
@@ -2220,7 +2229,7 @@ export const getMyTodayAttendance = async (req, res) => {
         // Force log to file for verification
         try {
             fs.appendFileSync('hod_debug_my_today.log', `${new Date().toISOString()} - User: ${user.username} - isHOD: ${isHOD}\n`);
-        } catch (e) {}
+        } catch (e) { }
 
         res.json({
             ...(record?.toJSON() || {}),
@@ -2321,7 +2330,7 @@ export const getAdminAttendanceReport = async (req, res) => {
         const { designation } = req.query;
 
         // Admin sees all staff in the company.
-       
+
         if (designation && designation !== 'all') {
             userQuery.designation = designation;
         }
@@ -2340,7 +2349,7 @@ export const getAdminAttendanceReport = async (req, res) => {
         if (employees.length === 0) {
             return res.json({ success: true, data: [] });
         }
-        
+
         const employeeIds = employees.map(e => e._id);
 
         // Preload team assignments once to avoid N team queries during per-employee policy resolution.
@@ -2378,9 +2387,9 @@ export const getAdminAttendanceReport = async (req, res) => {
                 employee_id: { $in: employeeIds },
                 attendance_date: { $gte: start, $lte: end }
             })
-            .select(REPORT_ATTENDANCE_SELECT_FIELDS)
-            .populate({ path: 'shift_id', select: 'shift_name start_time end_time' })
-            .lean(),
+                .select(REPORT_ATTENDANCE_SELECT_FIELDS)
+                .populate({ path: 'shift_id', select: 'shift_name start_time end_time' })
+                .lean(),
             LeaveApplication.find({
                 employee_id: { $in: employeeIds },
                 approval_status: { $in: ['approved', 'pending'] },
@@ -2523,9 +2532,9 @@ export const getTeamAttendanceReport = async (req, res) => {
                 employee_id: { $in: employeeIds },
                 attendance_date: { $gte: start, $lte: end }
             })
-            .select(REPORT_ATTENDANCE_SELECT_FIELDS)
-            .populate({ path: 'shift_id', select: 'shift_name start_time end_time' })
-            .lean(),
+                .select(REPORT_ATTENDANCE_SELECT_FIELDS)
+                .populate({ path: 'shift_id', select: 'shift_name start_time end_time' })
+                .lean(),
             LeaveApplication.find({
                 employee_id: { $in: employeeIds },
                 approval_status: { $in: ['approved', 'pending'] },
@@ -2620,7 +2629,7 @@ const getCorrectionFlags = (body = {}) => {
     };
 };
 
-const getAssignedShift = async (employee, shiftId/*, companyId */) => {
+const getAssignedShift = async (employee, shiftId, companyId = null, date = null) => {
     if (shiftId !== undefined && shiftId !== null && shiftId !== '') {
         const selectedShift = await Shift.findById(shiftId);
         if (!selectedShift || selectedShift.status !== 'active') {
@@ -2629,7 +2638,7 @@ const getAssignedShift = async (employee, shiftId/*, companyId */) => {
         return selectedShift;
     }
 
-    const resolved = await PolicyResolver.resolveShift(employee);
+    const resolved = await PolicyResolver.resolveShift(employee, date);
     return resolved || null;
 };
 
@@ -2781,7 +2790,7 @@ export const updateAttendanceRecord = async (req, res) => {
         if (apply_time_correction && first_in && last_out) {
             const durationHours = moment(last_out).diff(moment(first_in), 'hours', true);
             if (durationHours > 20) {
-                return res.status(400).json({ 
+                return res.status(400).json({
                     message: `Invalid Time: Work duration (${durationHours.toFixed(1)}h) exceeds 20-hour limit. Please check dates.`,
                     error: 'DURATION_TOO_LONG'
                 });
@@ -2936,12 +2945,12 @@ export const updateAttendanceRecord = async (req, res) => {
             if (!shift_id) {
                 record.shift_id = null;
             } else {
-                selectedShift = await getAssignedShift(employee, shift_id, effectiveCompanyId);
+                selectedShift = await getAssignedShift(employee, shift_id, effectiveCompanyId, record.attendance_date);
                 record.shift_id = selectedShift._id;
             }
         }
 
-        const fallbackShift = selectedShift || (record.shift_id ? await Shift.findById(record.shift_id) : await PolicyResolver.resolveShift(employee));
+        const fallbackShift = selectedShift || (record.shift_id ? await Shift.findById(record.shift_id) : await PolicyResolver.resolveShift(employee, record.attendance_date));
 
         // Apply corrections based on mode (mutually exclusive after validation above)
         if (isStatusCorrectionMode) {
@@ -3074,7 +3083,7 @@ export const createManualAdjustment = async (req, res) => {
         if (apply_time_correction && first_in && last_out) {
             const durationHours = moment(last_out).diff(moment(first_in), 'hours', true);
             if (durationHours > 20) {
-                return res.status(400).json({ 
+                return res.status(400).json({
                     message: `Invalid Time: Work duration (${durationHours.toFixed(1)}h) exceeds 20-hour limit. Please check dates.`,
                     error: 'DURATION_TOO_LONG'
                 });
@@ -3219,12 +3228,12 @@ export const createManualAdjustment = async (req, res) => {
             if (!shift_id) {
                 record.shift_id = null;
             } else {
-                selectedShift = await getAssignedShift(employee, shift_id, effectiveCompanyId);
+                selectedShift = await getAssignedShift(employee, shift_id, effectiveCompanyId, targetDate);
                 record.shift_id = selectedShift._id;
             }
         }
 
-        const fallbackShift = selectedShift || (record.shift_id ? await Shift.findById(record.shift_id) : await PolicyResolver.resolveShift(employee));
+        const fallbackShift = selectedShift || (record.shift_id ? await Shift.findById(record.shift_id) : await PolicyResolver.resolveShift(employee, targetDate));
 
         // Apply corrections based on mode (mutually exclusive after validation above)
         if (isStatusCorrectionMode) {
@@ -3350,7 +3359,7 @@ export const calculateDailyAttendance = async (req, res) => {
             return res.status(404).json({ message: 'Employee not found' });
         }
 
-        const shift = await PolicyResolver.resolveShift(employee);
+        const shift = await PolicyResolver.resolveShift(employee, attendance_date);
         if (!shift) {
             return res.status(400).json({ message: 'Employee has no shift assigned or applicable' });
         }
@@ -3447,7 +3456,7 @@ async function recalculatePunctuality(record, employee, company) {
     const tz = company?.timezone || 'Asia/Kolkata';
     const dateStr = moment(record.attendance_date).format('YYYY-MM-DD');
     const shiftId = record.shift_id;
-    const shift = shiftId ? await Shift.findById(shiftId) : await PolicyResolver.resolveShift(employee);
+    const shift = shiftId ? await Shift.findById(shiftId) : await PolicyResolver.resolveShift(employee, dateStr);
     const dept = employee.department_id ? await Department.findById(employee.department_id) : null;
     const deptHalfDayThreshold = dept?.half_day_hours;
     const deptFullDayThreshold = dept?.full_day_hours;
@@ -3747,7 +3756,7 @@ export const getEmployeeFullProfile = async (req, res) => {
                 if (existingIndex >= 0) continuityAttendance.splice(existingIndex, 1);
             }
 
-          
+
             const leave = findLeaveForDateLocal(leaves, dayCursor) || findLeaveForDateLocal(pendingLeaves, dayCursor);
 
             if (leave) {
@@ -3823,7 +3832,7 @@ export const getEmployeeFullProfile = async (req, res) => {
         }
 
         continuityAttendance.sort((a, b) => new Date(b.attendance_date) - new Date(a.attendance_date));
-        
+
         const absentItems = continuityAttendance.filter(i => i.status === 'absent');
 
         const holidays = continuityAttendance
@@ -3915,7 +3924,7 @@ export const updateEmployeeProfileHOD = async (req, res) => {
 
         // Verify employee is in HOD's team
         const teams = await getHodTeams(req.user._id);
-        
+
         const memberIds = [];
         teams.forEach(team => {
             if (team.members) {
@@ -3934,10 +3943,13 @@ export const updateEmployeeProfileHOD = async (req, res) => {
         if (shift_id) {
             user.shift_id = shift_id;
             user.shift_ids = [shift_id];
+            user.set('work_pattern_override.custom_shift', true);
+        } else if (shift_id === null || shift_id === '') {
+            user.set('work_pattern_override.custom_shift', false);
         }
 
         await user.save();
-        
+
         await logActivity(req, 'ATTENDANCE', 'UPDATE_PROFILE_HOD', `HOD ${req.user.username} updated shift for ${user.username}`, {
             company_id: user.company_id,
             target_id: id,
@@ -3981,12 +3993,14 @@ export const updateEmployeeProfileAdmin = async (req, res) => {
 
         if (updates.shift_id !== undefined) {
             user.shift_ids = updates.shift_id ? [updates.shift_id] : [];
+            user.set('work_pattern_override.custom_shift', !!updates.shift_id);
         }
 
         if (updates.shift_ids !== undefined) {
             const normalizedShiftIds = Array.isArray(updates.shift_ids) ? updates.shift_ids.filter(Boolean) : [];
             user.shift_ids = normalizedShiftIds;
             user.shift_id = normalizedShiftIds[0] || null;
+            user.set('work_pattern_override.custom_shift', normalizedShiftIds.length > 0);
         }
 
         await user.save();
@@ -4045,7 +4059,7 @@ export const approveRegularization = async (req, res) => {
 
         const employee = await User.findById(regularization.employee_id);
         const company = await Company.findById(companyId);
-        const shift = await PolicyResolver.resolveShift(employee);
+        const shift = await PolicyResolver.resolveShift(employee, regularization.attendance_date);
         const attendanceDate = regularization.attendance_date;
 
         // Fetch all punches for that date
@@ -4173,9 +4187,9 @@ export const migrateEmployee = async (req, res) => {
         }
 
         await employee.save();
-        
+
         // --- 2. Preserve & Map Attendance Data (Dependencies) ---
-        
+
         // Update AttendanceRecords & Regularizations to new company context
         await AttendanceRecord.updateMany({ employee_id: employeeId }, { company_id: destinationOrgId });
         await RegularizationRequest.updateMany({ employee_id: employeeId }, { company_id: destinationOrgId });
@@ -4183,11 +4197,11 @@ export const migrateEmployee = async (req, res) => {
 
         // Map LeaveBalances and Applications to Destination Org's Policies
         const sourceBalances = await LeaveBalance.find({ employee_id: employeeId }).populate('leave_policy_id');
-        
+
         // Create an equivalent policy lookup map by leave_code
         const policyMap = new Map();
         destOrgPolicies.forEach(p => {
-           if (p.leave_code) policyMap.set(p.leave_code.trim().toUpperCase(), p._id);
+            if (p.leave_code) policyMap.set(p.leave_code.trim().toUpperCase(), p._id);
         });
 
         // Update LeaveBalances with new company and mapped policy
@@ -4195,7 +4209,7 @@ export const migrateEmployee = async (req, res) => {
             const oldPolicy = balance.leave_policy_id;
             const leaveCode = oldPolicy?.leave_code?.trim().toUpperCase();
             const destPolicyId = leaveCode ? policyMap.get(leaveCode) : null;
-            
+
             balance.company_id = destinationOrgId;
             if (destPolicyId) {
                 // Check if a destination balance record already exists for this policy
@@ -4228,14 +4242,14 @@ export const migrateEmployee = async (req, res) => {
         const leaveApps = await LeaveApplication.find({ employee_id: employeeId });
         for (const app of leaveApps) {
             app.company_id = destinationOrgId;
-            
+
             // Try to map policy if not already updated via balances above (application usually stores policy id directly)
             // If there's an existing mapped balance, its policy should take precedence
             const balanceForApp = sourceBalances.find(sb => sb.leave_policy_id?._id?.toString() === app.leave_policy_id?.toString() || sb.leave_type === app.leave_type);
             if (balanceForApp && balanceForApp.company_id.toString() === destinationOrgId.toString()) {
                 app.leave_policy_id = balanceForApp.leave_policy_id;
             }
-            
+
             await app.save();
         }
         // Log activity
@@ -4594,12 +4608,12 @@ export const bulkUpdateAttendance = async (req, res) => {
             curr.add(1, 'day');
         }
 
-        await logActivity(req, 'ATTENDANCE', 'BULK_CONTINUITY_UPDATE', 
-            `Bulk updated ${results.length} days for ${employee.first_name}`, 
+        await logActivity(req, 'ATTENDANCE', 'BULK_CONTINUITY_UPDATE',
+            `Bulk updated ${results.length} days for ${employee.first_name}`,
             { company_id: employee.company_id, employeeId: employee_id, range: `${startDate} to ${endDate}`, status });
 
-        res.json({ 
-            success: true, 
+        res.json({
+            success: true,
             message: `Bulk update completed for ${results.length} days (10:00 AM to 07:00 PM assigned for present status)`,
             updatedDays: results.length,
             policySkippedDays,
@@ -4640,7 +4654,7 @@ export const applyFullMonthPresence = async (req, res) => {
         const start = moment({ year: targetYear, month: targetMonth - 1, day: 1 }).startOf('day');
         const end = moment(start).endOf('month').endOf('day');
         const [shift, weekOffPolicy, holidayPolicy] = await Promise.all([
-            PolicyResolver.resolveShift(employee),
+            PolicyResolver.resolveShift(employee, start.format('YYYY-MM-DD')),
             PolicyResolver.resolveWeekOffPolicy(employee),
             PolicyResolver.resolveHolidayPolicy(employee, targetYear)
         ]);
@@ -4730,7 +4744,7 @@ export const applyFullMonthPresence = async (req, res) => {
         // Auto-resolve any pending regularization requests for this employee in the target month
         const startOfMonthStr = moment({ year: targetYear, month: targetMonth - 1, day: 1 }).format('YYYY-MM-DD');
         const endOfMonthStr = moment({ year: targetYear, month: targetMonth - 1, day: 1 }).endOf('month').format('YYYY-MM-DD');
-        
+
         await RegularizationRequest.updateMany(
             {
                 employee_id: employee._id,
@@ -4809,7 +4823,7 @@ export const getPendingCorrectionCount = async (req, res) => {
             if (isHod && user._id) {
                 queryOr.push({ "members.userId": user._id });
             }
-            
+
             if (queryOr.length > 0) {
                 teams = await TeamModel.find({
                     $or: queryOr,
@@ -4873,7 +4887,7 @@ export const getPendingCorrectionCount = async (req, res) => {
 export const toggleAttendanceAllowedAdmin = async (req, res) => {
     try {
         const { target_user_id, is_admin } = req.body;
-        
+
         if (!target_user_id) {
             return res.status(400).json({ message: 'target_user_id is required' });
         }
@@ -4910,8 +4924,8 @@ export const toggleAttendanceAllowedAdmin = async (req, res) => {
         targetUser.isAttendanceAllowedAdmin = !!is_admin;
         await targetUser.save();
 
-        await logActivity(req, 'ATTENDANCE', 'TOGGLE_ATTENDANCE_ALLOWED_ADMIN', 
-            `Toggled isAttendanceAllowedAdmin to ${!!is_admin} for user ${targetUser.username}`, 
+        await logActivity(req, 'ATTENDANCE', 'TOGGLE_ATTENDANCE_ALLOWED_ADMIN',
+            `Toggled isAttendanceAllowedAdmin to ${!!is_admin} for user ${targetUser.username}`,
             { target_user_id, is_allowed: !!is_admin }
         );
 

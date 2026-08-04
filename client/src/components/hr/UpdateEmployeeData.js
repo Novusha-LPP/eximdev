@@ -47,6 +47,7 @@ import axios from 'axios';
 import { UserContext } from '../../contexts/UserContext';
 import { message } from 'antd';
 import { motion, AnimatePresence } from 'framer-motion';
+import FileUpload from "../gallery/FileUpload";
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 const T = {
@@ -301,6 +302,81 @@ const UpdateEmployeeData = () => {
             else { setSelectedEmployee(res.data.user); fetchEmployees(); }
         } catch (err) { console.error(err); message.error("Upload failed"); }
         finally { setUploading(false); }
+    };
+
+    const handlePfEsicUpload = async (files, field) => {
+        if (!files || files.length === 0) return;
+        const fileUrl = files[0];
+        try {
+            setUploading(true);
+            await axios.post(
+                `${process.env.REACT_APP_API_STRING}/hr/pf-esic/${selectedEmployee._id}`,
+                { [field]: fileUrl },
+                { withCredentials: true }
+            );
+            
+            setSelectedEmployee(prev => ({
+                ...prev,
+                [field]: fileUrl
+            }));
+            
+            setEmployeesByCompany(prev => {
+                const updated = { ...prev };
+                for (const company in updated) {
+                    updated[company] = updated[company].map(emp => {
+                        if (emp._id === selectedEmployee._id) {
+                            return { ...emp, [field]: fileUrl };
+                        }
+                        return emp;
+                    });
+                }
+                return updated;
+            });
+
+            message.success("Card uploaded successfully");
+        } catch (err) {
+            console.error("Failed to upload PF/ESIC card:", err);
+            message.error(err.response?.data?.message || "Failed to save card");
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const handlePfEsicDelete = async (field) => {
+        if (!window.confirm("Are you sure you want to remove this card?")) return;
+        try {
+            setUploading(true);
+            await axios.post(
+                `${process.env.REACT_APP_API_STRING}/hr/pf-esic/${selectedEmployee._id}`,
+                { [field]: "" },
+                { withCredentials: true }
+            );
+            
+            setSelectedEmployee(prev => ({
+                ...prev,
+                [field]: ""
+            }));
+
+            setEmployeesByCompany(prev => {
+                const updated = { ...prev };
+                for (const company in updated) {
+                    updated[company] = updated[company].map(emp => {
+                        if (emp._id === selectedEmployee._id) {
+                            return { ...emp, [field]: "" };
+                        }
+                        return emp;
+                    });
+                }
+                return updated;
+            });
+
+            message.success("Card removed successfully");
+        } catch (err) {
+            console.error("Failed to remove card:", err);
+            message.error(err.response?.data?.message || "Failed to remove card");
+        } finally {
+            setUploading(false);
+        }
     };
 
     const handleDelete = async (assetType, assetId = '') => {
@@ -599,6 +675,70 @@ const UpdateEmployeeData = () => {
                                                         <input type="file" hidden onChange={(e) => handleUpload('variable', e.target.files[0], additionalAsset.name)} />
                                                     </Button>
                                                 </Stack>
+                                            </Box>
+                                        </Paper>
+
+                                        {/* PF & ESIC Cards */}
+                                        <Paper elevation={0} sx={{ borderRadius: '12px', border: `1px solid ${T.border}`, bgcolor: T.white, overflow: 'hidden' }}>
+                                            <PanelHeader icon={AttachFileIcon} label="PF & ESIC Cards" />
+                                            <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                {/* PF Card */}
+                                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1.5, borderBottom: `1px solid ${T.bg}` }}>
+                                                    <Box>
+                                                        <Typography sx={{ fontSize: '0.8rem', fontWeight: 700, color: T.ink }}>PF Card</Typography>
+                                                        <Typography sx={{ fontSize: '0.67rem', color: T.muted }}>No: {selectedEmployee.pf_no || 'N/A'}</Typography>
+                                                    </Box>
+                                                    <Stack direction="row" spacing={1} alignItems="center">
+                                                        <FileUpload
+                                                            label={selectedEmployee.pf_card_url ? "Replace" : "Upload"}
+                                                            onFilesUploaded={(files) => handlePfEsicUpload(files, 'pf_card_url')}
+                                                            bucketPath="pf-esic"
+                                                            singleFileOnly={true}
+                                                            acceptedFileTypes={[".jpg", ".jpeg", ".png", ".pdf"]}
+                                                            buttonSx={{ fontSize: '0.72rem', padding: '4px 12px', minWidth: 'auto', borderRadius: '4px', textTransform: 'none' }}
+                                                        />
+                                                        {selectedEmployee.pf_card_url && (
+                                                            <>
+                                                                <Button variant="outlined" size="small" component="a" href={selectedEmployee.pf_card_url} target="_blank"
+                                                                    sx={{ borderRadius: '8px', borderColor: T.border, color: T.ink2, fontWeight: 700, textTransform: 'none', fontSize: '0.75rem', '&:hover': { borderColor: T.blue, color: T.blue, bgcolor: alpha(T.blue, 0.04) } }}>
+                                                                    View
+                                                                </Button>
+                                                                <IconButton onClick={() => handlePfEsicDelete('pf_card_url')} size="small" sx={{ p: '4px', color: T.subtle, '&:hover': { color: T.red } }}>
+                                                                    <DeleteIcon sx={{ fontSize: 15 }} />
+                                                                </IconButton>
+                                                            </>
+                                                        )}
+                                                    </Stack>
+                                                </Box>
+
+                                                {/* ESIC Card */}
+                                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                    <Box>
+                                                        <Typography sx={{ fontSize: '0.8rem', fontWeight: 700, color: T.ink }}>ESIC Card</Typography>
+                                                        <Typography sx={{ fontSize: '0.67rem', color: T.muted }}>No: {selectedEmployee.esic_no || 'N/A'}</Typography>
+                                                    </Box>
+                                                    <Stack direction="row" spacing={1} alignItems="center">
+                                                        <FileUpload
+                                                            label={selectedEmployee.esic_card_url ? "Replace" : "Upload"}
+                                                            onFilesUploaded={(files) => handlePfEsicUpload(files, 'esic_card_url')}
+                                                            bucketPath="pf-esic"
+                                                            singleFileOnly={true}
+                                                            acceptedFileTypes={[".jpg", ".jpeg", ".png", ".pdf"]}
+                                                            buttonSx={{ fontSize: '0.72rem', padding: '4px 12px', minWidth: 'auto', borderRadius: '4px', textTransform: 'none' }}
+                                                        />
+                                                        {selectedEmployee.esic_card_url && (
+                                                            <>
+                                                                <Button variant="outlined" size="small" component="a" href={selectedEmployee.esic_card_url} target="_blank"
+                                                                    sx={{ borderRadius: '8px', borderColor: T.border, color: T.ink2, fontWeight: 700, textTransform: 'none', fontSize: '0.75rem', '&:hover': { borderColor: T.blue, color: T.blue, bgcolor: alpha(T.blue, 0.04) } }}>
+                                                                    View
+                                                                </Button>
+                                                                <IconButton onClick={() => handlePfEsicDelete('esic_card_url')} size="small" sx={{ p: '4px', color: T.subtle, '&:hover': { color: T.red } }}>
+                                                                    <DeleteIcon sx={{ fontSize: 15 }} />
+                                                                </IconButton>
+                                                            </>
+                                                        )}
+                                                    </Stack>
+                                                </Box>
                                             </Box>
                                         </Paper>
 

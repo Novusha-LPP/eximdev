@@ -34,7 +34,7 @@ const Settings = () => {
           timezone: data.timezone || 'Asia/Kolkata',
           financial_year_start: 'April',
         });
-      } 
+      }
     } catch (err) { toast.error(err.message || 'Failed to load settings'); }
     finally { setLoading(false); }
   };
@@ -145,6 +145,19 @@ const Settings = () => {
               <label>Half-Day Threshold (hrs)</label>
               <input type="number" className="form-input" value={settings.attendance_config?.half_day_threshold_hours || ''} onChange={e => setNested('attendance_config', 'half_day_threshold_hours', Number(e.target.value))} />
             </div>
+            {/RABS/i.test(settings.company_name) && (
+              <div className="form-group" style={{ gridColumn: 'span 4' }}>
+                <label className="checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--as-t2)', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={settings.attendance_config?.auto_shift_detection_enabled || false}
+                    onChange={e => setNested('attendance_config', 'auto_shift_detection_enabled', e.target.checked)}
+                    style={{ width: '16px', height: '16px' }}
+                  />
+                  Enable Auto Shift Detection (Dynamic Shift Matching)
+                </label>
+              </div>
+            )}
           </div>
           <button className="ui-save-btn" onClick={handleSave} disabled={saving}>{saving ? 'Saving ' : 'Save Changes'}</button>
         </div>
@@ -200,7 +213,7 @@ const Settings = () => {
                     <FiPlus size={12} /> Add Location
                   </button>
                 </div>
-                
+
                 {(!settings.settings.allowed_locations || settings.settings.allowed_locations.length === 0) ? (
                   <div style={{ textAlign: 'center', padding: '2rem', background: 'var(--as-bg2)', borderRadius: '8px', border: '1px dashed var(--as-border)' }}>
                     <p style={{ fontSize: '.75rem', color: 'var(--as-t3)', margin: 0 }}>No locations defined. All users will be able to punch from anywhere unless they have individual restrictions.</p>

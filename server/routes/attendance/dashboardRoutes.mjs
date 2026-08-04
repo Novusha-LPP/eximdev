@@ -1,6 +1,6 @@
 import express from 'express';
 import AggregationService from '../../services/attendance/AggregationService.js';
-import authMiddleware from '../../middleware/authMiddleware.mjs';
+import attendanceAuthBridge from '../../middleware/attendanceAuthBridge.mjs';
 import { ALLOWED_USERNAMES } from '../../middleware/requireAllowedAdmin.mjs';
 
 const router = express.Router();
@@ -44,7 +44,7 @@ const parseArrayParam = (param) => {
  */
 router.get(
     '/admin-dashboard',
-    authMiddleware,
+    attendanceAuthBridge,
     requireAllowedAdmin,
     async (req, res) => {
         try {
@@ -97,7 +97,7 @@ router.get(
  */
 router.get(
     '/admin-dashboard/daily-summary',
-    authMiddleware,
+    attendanceAuthBridge,
     requireAllowedAdmin,
     async (req, res) => {
         try {
@@ -153,7 +153,7 @@ router.get(
  */
 router.get(
     '/admin-dashboard/monthly-summary',
-    authMiddleware,
+    attendanceAuthBridge,
     requireAllowedAdmin,
     async (req, res) => {
         try {
@@ -215,7 +215,7 @@ router.get(
  */
 router.get(
     '/admin-dashboard/leave-requests',
-    authMiddleware,
+    attendanceAuthBridge,
     requireAllowedAdmin,
     async (req, res) => {
         try {
@@ -264,7 +264,7 @@ router.get(
  */
 router.get(
     '/admin-dashboard/regularization-requests',
-    authMiddleware,
+    attendanceAuthBridge,
     requireAllowedAdmin,
     async (req, res) => {
         try {
@@ -301,7 +301,7 @@ router.get(
  */
 router.get(
     '/admin-dashboard/hierarchy',
-    authMiddleware,
+    attendanceAuthBridge,
     requireAllowedAdmin,
     async (req, res) => {
         try {

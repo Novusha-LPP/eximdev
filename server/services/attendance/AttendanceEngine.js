@@ -32,7 +32,8 @@ class AttendanceEngine {
         };
 
         // Automatically detect if shift spans midnight even if is_cross_day flag is missing
-        const isCrossDay = shift?.is_cross_day || (shift?.start_time && shift?.end_time && 
+        const isRabs = company && /RABS/i.test(company.company_name);
+        const isCrossDay = isRabs || shift?.is_cross_day || (shift?.start_time && shift?.end_time && 
             moment(shift.end_time, 'HH:mm').isSameOrBefore(moment(shift.start_time, 'HH:mm')));
 
         if (isCrossDay) {
@@ -194,7 +195,9 @@ class AttendanceEngine {
                 const isCurrentlyPunchedOut = !lastInPunch;
                 const hoursSinceLastPunch = lastOut ? now.diff(moment(lastOut.punch_time).tz(tz), 'hours') : 0;
                 const hoursSinceIn = lastInPunch ? now.diff(moment(lastInPunch.punch_time).tz(tz), 'hours', true) : 0;
-                const isGapTooLarge = isCurrentlyPunchedOut && hoursSinceLastPunch >= 4;
+                const isGapTooLarge = !isRabs && isCurrentlyPunchedOut && hoursSinceLastPunch >= 4;
+                const currentLimitHours = isRabs ? 24 : MISSED_PUNCH_LIMIT_HOURS;
+                const rabsStatusBypass = isRabs && lastInPunch && hoursSinceIn <= 24;
 
                 // Determine status based on cumulative work hours
                 let effectiveHours = totalWorkHours;
@@ -237,9 +240,9 @@ class AttendanceEngine {
                 } else if (effectiveHours >= adjustedFullDay) {
                     status = 'present';
                 } else if (effectiveHours <= adjustedHalfDay) {
-                    // Only finalize as half_day if shift is over and it's not today, or if it's been > 18h
+                    // Only finalize as half_day if shift is over and it's not today, or if it's been > 24h
                     // For TODAY: Only mark as half_day if they are punched out AND the shift is over.
-                    if ((!isToday && (isShiftOver || hoursSinceIn > missedPunchLimit)) || (isToday && isCurrentlyPunchedOut && isShiftOver)) {
+                    if (!rabsStatusBypass && ((!isToday && (isShiftOver || hoursSinceIn > currentLimitHours)) || (isToday && isCurrentlyPunchedOut && isShiftOver))) {
                         status = 'half_day';
                         isHalfDayFlag = true;
                         isLate = false;
@@ -247,7 +250,7 @@ class AttendanceEngine {
                         status = 'present';
                     }
                 } else {
-                    if ((!isToday && (isShiftOver || hoursSinceIn > missedPunchLimit)) || isGapTooLarge || (isToday && isCurrentlyPunchedOut && isShiftOver)) {
+                    if (!rabsStatusBypass && ((!isToday && (isShiftOver || hoursSinceIn > currentLimitHours)) || isGapTooLarge || (isToday && isCurrentlyPunchedOut && isShiftOver))) {
                          status = 'half_day';
                          isHalfDayFlag = true;
                          isLate = false;
@@ -256,8 +259,8 @@ class AttendanceEngine {
                     }
                 }
 
-                // ✅ Fix: Don't mark as incomplete until shift duration + 4h buffer after punch-in
-                if (!isToday && lastInPunch && status === 'present' && hoursSinceIn > missedPunchLimit) {
+                // ✅ Fix: Don't mark as incomplete until 18 hours after punch-in
+                if (!isToday && lastInPunch && status === 'present' && hoursSinceIn > currentLimitHours) {
                     status = 'incomplete';
                     isHalfDayFlag = false;
                 }
@@ -318,6 +321,7 @@ class AttendanceEngine {
                     company_id: compId,
                     department_id: deptId,
                     shift_id: shift ? (shift._id?._id || shift._id) : null,
+                    assigned_shift_id: user.shift_id || null,
                     first_in: firstIn.punch_time,
                     last_out: lastOut ? lastOut.punch_time : null,
                     total_punches: punches.length,
@@ -337,7 +341,7 @@ class AttendanceEngine {
                     leave_application_id: leaveId,
                     has_incomplete_session: status === 'incomplete',
                     missed_punch: status === 'incomplete',
-                    missed_punch_reason: status === 'incomplete' ? (existingRecordAdminCheck?.missed_punch_reason || 'timeout_12h') : null,
+                    missed_punch_reason: status === 'incomplete' ? (existingRecordAdminCheck?.missed_punch_reason || (isRabs ? 'timeout_24h' : 'timeout_12h')) : null,
                     missed_punch_marked_at: status === 'incomplete' ? (existingRecordAdminCheck?.missed_punch_marked_at || new Date()) : null,
                     missed_punch_source: status === 'incomplete' ? (existingRecordAdminCheck?.missed_punch_source || 'system') : null
                 },
@@ -375,6 +379,8 @@ class AttendanceEngine {
                     attendance_date_str: date,
                     company_id: compId,
                     department_id: deptId,
+                    shift_id: shift ? (shift._id?._id || shift._id) : null,
+                    assigned_shift_id: user.shift_id || null,
                     status: status,
                     is_on_leave: !!leaveId,
                     leave_application_id: leaveId,

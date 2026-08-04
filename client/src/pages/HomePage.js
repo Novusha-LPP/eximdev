@@ -172,6 +172,9 @@ import ProjectWorkspace from "../components/open-points/ProjectWorkspace.js";
 import AnalyticsDashboard from "../components/open-points/AnalyticsDashboard.js";
 import MyOpenPoints from "../components/open-points/MyOpenPoints.js";
 import KarmaPointsModule from "../components/open-points/KarmaPointsModule";
+import PlannedDashboard from "../components/open-points/dashboards/PlannedDashboard.js";
+import ForecastingDashboard from "../components/open-points/dashboards/ForecastingDashboard.js";
+import MonthDashboard from "../components/open-points/dashboards/MonthDashboard.js";
 
 // Project Nucleus
 import NucleusHome from "../components/project-nucleus/NucleusHome.js";
@@ -200,6 +203,7 @@ import ViewDgftRegisterDetails from "../components/dgft/ViewDgftRegisterDetails.
 // CRM Module
 import CRMModule from "../components/crm/CRMModule.jsx";
 import PricingRequestsList from "../components/crm/components/PricingRequestsList.jsx";
+import Audit5sDashboard from "../components/audit5s/Audit5sDashboard.jsx";
 
 import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
@@ -448,6 +452,11 @@ function HomePageContent() {
 
                 {/* Karma Points - New Module */}
                 <Route path="/karma-points" element={<KarmaPointsModule />} />
+                
+                {/* Open Points Dashboards */}
+                <Route path="/open-points/project/:projectId/planned" element={<PlannedDashboard />} />
+                <Route path="/open-points/project/:projectId/forecasting" element={<ForecastingDashboard />} />
+                <Route path="/open-points/project/:projectId/month" element={<MonthDashboard />} />
 
 
                 {/* Protected Routes */}
@@ -1269,6 +1278,16 @@ function HomePageContent() {
                 <Route
                   path="/dgft/register-details/:id"
                   element={<ViewDgftRegisterDetails />}
+                />
+
+                {/* 5S Audit Checklist Module */}
+                <Route
+                  path="/audit-5s"
+                  element={
+                    <ProtectedRoute requiredModule="5S Audit">
+                      <Audit5sDashboard />
+                    </ProtectedRoute>
+                  }
                 />
 
                 {/* Attendance Module */}

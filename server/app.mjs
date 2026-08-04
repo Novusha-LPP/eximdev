@@ -278,6 +278,8 @@ import jobMigrationRouter from "./routes/admin/jobMigration.mjs";
 import userAssetsRoutes from "./routes/hr/userAssetsRoutes.mjs";
 import employeeKPIRoutes from "./routes/hr/employeeKPIRoutes.mjs";
 import profileCompletionRoutes from "./routes/hr/profileCompletionRoutes.mjs";
+import pfEsicRoutes from "./routes/hr/pfEsicRoutes.mjs";
+import audit5sRoutes from "./routes/audit5s/audit5sRoutes.mjs";
 
 const MISSED_PUNCH_LIMIT_HOURS = 12;
 
@@ -428,33 +430,36 @@ app.use((req, res, next) => {
 });
 app.use(
   cors({
-    origin: [
-      "null",
-      "http://eximdev.s3-website.ap-south-1.amazonaws.com",
-      "http://localhost:3000",
-      "http://localhost:3001",
-      "http://localhost:3002",
-      "http://localhost:9007",
-      "http://127.0.0.1:3000",
-      "http://127.0.0.1:3001",
-      "http://localhost:3002",
-      "http://192.168.1.105:3000",
-      "http://192.168.1.105:3001",
-      "http://192.168.2.31:3002",
-      "http://192.168.2.65:3000",
-      "http://192.168.2.65:3001",
-      "http://192.168.2.65:3002",
-      "http://192.168.2.65:5173",
-      "http://192.168.2.31:3000",
-      "http://192.168.2.33:3001",
-      "http://192.168.2.33:3002",
-      "http://192.168.2.33:5173",
-      "http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com",
-      "https://import.alvision.in",
-      "https://test-frontend.alvision.in",
-      "http://localhost:5173",
-      "https://export.alvision.in"
-    ],
+    origin: (origin, callback) => {
+      if (!origin || origin === "null") return callback(null, true);
+      
+      const allowedOrigins = [
+        "http://eximdev.s3-website.ap-south-1.amazonaws.com",
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
+        "http://localhost:9007",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+        "http://localhost:3002",
+        "http://192.168.1.105:3000",
+        "http://192.168.1.105:3001",
+        "http://192.168.2.31:3002",
+        "http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com",
+        "https://import.alvision.in",
+        "https://test-frontend.alvision.in",
+        "http://localhost:5173",
+        "https://export.alvision.in"
+      ];
+
+      const isLocalIp = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|172\.\d+\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$/.test(origin);
+
+      if (allowedOrigins.includes(origin) || isLocalIp) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true,
     // Allow custom headers for audit trail
     exposedHeaders: ["Content-Type", "Authorization"],
@@ -717,6 +722,8 @@ app.use("/api/admin/job-migration", jobMigrationRouter);
 app.use(userAssetsRoutes);
 app.use(employeeKPIRoutes);
 app.use(profileCompletionRoutes);
+app.use(pfEsicRoutes);
+app.use("/api/audit5s", audit5sRoutes);
 
 // Document Collection Module
 app.use(documentCollectionRoutes);

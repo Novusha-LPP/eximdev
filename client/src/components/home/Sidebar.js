@@ -20,6 +20,7 @@ import DomainIcon from "@mui/icons-material/Domain";
 import VpnKeyIcon from "@mui/icons-material/VpnKey";
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
+import FactCheckIcon from "@mui/icons-material/FactCheck";
 import { UserContext } from "../../contexts/UserContext";
 import CurrencyRateDialog from "./CurrencyRateDialog"; // Import the dialog
 
@@ -128,19 +129,35 @@ function Sidebar() {
         </ListItemButton>
       </Tooltip>
 
-      <Tooltip title="Attendance" enterDelay={0} placement="right">
-        <ListItemButton
-          className="appbar-links"
-          aria-label="list-item"
-          onClick={() => navigate("/attendance/dashboard")}
-        >
-          <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-            <Badge badgeContent={pendingCorrectionCount} color="error">
-              <AccessTimeIcon />
-            </Badge>
-          </IconButton>
-        </ListItemButton>
-      </Tooltip>
+      {user?.company && /RABS/i.test(user.company) && (
+        <>
+          <Tooltip title="Attendance" enterDelay={0} placement="right">
+            <ListItemButton
+              className="appbar-links"
+              aria-label="list-item"
+              onClick={() => navigate("/attendance/dashboard")}
+            >
+              <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
+                <Badge badgeContent={pendingCorrectionCount} color="error">
+                  <AccessTimeIcon />
+                </Badge>
+              </IconButton>
+            </ListItemButton>
+          </Tooltip>
+
+          <Tooltip title="5S Audit" enterDelay={0} placement="right">
+            <ListItemButton
+              className="appbar-links"
+              aria-label="list-item"
+              onClick={() => navigate("/audit-5s")}
+            >
+              <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
+                <FactCheckIcon />
+              </IconButton>
+            </ListItemButton>
+          </Tooltip>
+        </>
+      )}
 
       {user.role === "Admin" && (
         <>

@@ -6,6 +6,7 @@ const recordSchema = new mongoose.Schema({
   department_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Department' },
   team_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Team' },
   shift_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Shift' },
+  assigned_shift_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Shift' },
 
   attendance_date: { type: Date, required: true }, // Date object for YYYY-MM-DD
   attendance_date_str: { type: String, required: true, index: true }, // "2026-05-13" string

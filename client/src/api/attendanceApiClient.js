@@ -12,8 +12,35 @@
  */
 import axios from 'axios';
 
+const getDynamicBaseURL = () => {
+  const envVal = process.env.REACT_APP_API_STRING || 'http://localhost:9006';
+  
+  if (typeof window === 'undefined' || !window.location.hostname) {
+    return envVal;
+  }
+
+  const browserHost = window.location.hostname;
+  const isLocalHostOrIp = 
+    browserHost === 'localhost' || 
+    browserHost === '127.0.0.1' || 
+    /^192\.168\.\d+\.\d+$/.test(browserHost) ||
+    /^10\.\d+\.\d+\.\d+$/.test(browserHost) ||
+    /^172\.(1[6-9]|2\d|3[01])\.\d+\.\d+$/.test(browserHost);
+
+  if (isLocalHostOrIp) {
+    try {
+      const url = new URL(envVal);
+      url.hostname = browserHost;
+      return url.toString().replace(/\/$/, '');
+    } catch (e) {
+      // Ignore URL parsing errors
+    }
+  }
+  return envVal;
+};
+
 const attendanceApiClient = axios.create({
-  baseURL: process.env.REACT_APP_API_STRING || 'http://localhost:9006',
+  baseURL: getDynamicBaseURL(),
   timeout: 30000,
   withCredentials: true,          // send the EXIM cookie automatically
 });

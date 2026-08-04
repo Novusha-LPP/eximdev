@@ -315,7 +315,17 @@ const getJobDetailsInternal = async (job_number) => {
   return {
     "Job Number": job.job_number,
     "Job Year": job.year,
-    "Job Type": job.type || `${job.trade_type || ""} ${job.mode || ""}`.trim(),
+    "Job Type": (() => {
+      const type = job.type || `${job.trade_type || ""} ${job.mode || ""}`.trim();
+      const typeUpper = type.toUpperCase();
+      if (typeUpper === "IMP AIR" || typeUpper === "IMP SEA" || typeUpper === "IMP") {
+        return "Import";
+      }
+      if (typeUpper === "EXP AIR" || typeUpper === "EXP SEA" || typeUpper === "EXP") {
+        return "Export";
+      }
+      return type;
+    })(),
     "Job Date": job.job_date,
     "ImporterExporter Name": job.importer || job.exporter || job.supplier_exporter,
     "Shipper Name": job.shipper || job.supplier_exporter,

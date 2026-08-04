@@ -96,6 +96,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/karma-points");
     case "Pricing Requests":
       return navigate("/pricing-requests");
+    case "5S Audit":
+      return navigate("/audit-5s");
     default:
       return navigate("/home");
   }

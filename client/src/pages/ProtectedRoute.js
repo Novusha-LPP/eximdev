@@ -13,10 +13,49 @@ const ProtectedRoute = ({ children, requiredModule, fallbackPath = "/" }) => {
 
   const userModules = user.modules || [];
 
+  // Restrict Attendance module to RABS employees
+  const isRabsUser = user.company && /RABS/i.test(user.company);
+  const isAttendanceModule = Array.isArray(requiredModule)
+    ? requiredModule.includes("Attendance")
+    : requiredModule === "Attendance";
+
+  if (isAttendanceModule && !isRabsUser) {
+    return (
+      <Navigate
+        to={fallbackPath}
+        replace
+        state={{
+          from: location,
+          message: "Access denied. The attendance module is restricted to RABS employees only."
+        }}
+      />
+    );
+  }
+
+  const is5sAuditModule = Array.isArray(requiredModule)
+    ? requiredModule.includes("5S Audit")
+    : requiredModule === "5S Audit";
+
+  if (is5sAuditModule) {
+    if (!isRabsUser && user.role !== 'Admin') {
+      return (
+        <Navigate
+          to={fallbackPath}
+          replace
+          state={{
+            from: location,
+            message: "Access denied. The 5S Audit module is restricted to RABS employees only."
+          }}
+        />
+      );
+    }
+    return children;
+  }
+
   // Check if user has the required module permission
-  const hasPermission = Array.isArray(requiredModule)
+  const hasPermission = user.role === 'Admin' || (Array.isArray(requiredModule)
     ? requiredModule.some(m => userModules.includes(m))
-    : userModules.includes(requiredModule);
+    : userModules.includes(requiredModule));
 
   const isOwnKycRoute = location.pathname.startsWith('/employee-kyc') || location.pathname.startsWith('/complete-kyc');
   const isOwnKyc = isOwnKycRoute && (requiredModule === "Employee KYC");

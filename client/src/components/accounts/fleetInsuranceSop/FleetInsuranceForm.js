@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   Box,
   Button,
@@ -59,16 +60,6 @@ const emptyRecord = {
   remarks: "",
   ncbPercentage: "",
   premium: "",
-  thisYearIdv: "",
-  newIdv: "",
-  newNcbPercentage: "",
-  rsdTaken: "",
-  imt23: "",
-  zeroDepTowingCover: "",
-  premiumQuote: "",
-  renewed: "",
-  newExpiryDate: "",
-  renewedDate: "",
   renewalDate: "",
   engineNumber: "",
   chassisNumber: "",
@@ -78,6 +69,7 @@ const emptyRecord = {
   cngKitIdv: "",
   totalIdv: "",
   odPremium: "",
+  imt23: "",
   imt24: "",
   imt25: "",
   totalOdPremium: "",
@@ -88,48 +80,183 @@ const emptyRecord = {
   liabilityPremium: "",
   totalGst: "",
   totalPolicyPremium: "",
-  quotations: [],
-  selectedInsurerL1: "",
-  reasonForSelection: "",
+  // Renewed Policy Details
+  newInsuranceCompany: "",
+  newPolicyNo: "",
+  newPolicyFromDate: "",
+  newPolicyToDate: "",
+  newIdv: "",
+  newElectricalAccessoriesIdv: "",
+  newCngKitIdv: "",
+  newTotalIdv: "",
+  newPremiumAmount: "",
+  newNcb: "",
+  newPremium: "",
+  newRemarks: "",
+  // Renewed Insurance Premium Breakdown
+  newOdPremium: "",
+  newImt23: "",
+  newImt24: "",
+  newImt25: "",
+  newTotalOdPremium: "",
+  newImt17: "",
+  newImt252: "",
+  newImt28: "",
+  newImt29: "",
+  newLiabilityPremium: "",
+  newTotalGst: "",
+  newTotalPolicyPremium: "",
+  // PR Readiness
+  readyForPr: "",
+  // Workflow
   prNumber: "",
   prDate: "",
-  financialApprovalStatus: "Draft",
+  financialApprovalStatus: "Pending",
   paymentUtr: "",
-  paymentDate: "",
+  paymentDate: new Date().toISOString().split("T")[0],
   renewalStatus: "Pending",
   tat: "",
 };
 
-function FleetInsuranceForm({ proposal, isView, isRenew, onSaved, onCancel }) {
+function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved, onCancel }) {
+  const { id: urlId } = useParams();
+  const navigate = useNavigate();
+  const targetId = proposal?._id || urlId;
+
   const [formData, setFormData] = useState(emptyRecord);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [tabValue, setTabValue] = useState(0);
+  const [tabValue, setTabValue] = useState(initialTab);
+
+  const handleCancelClick = useCallback(() => {
+    if (onCancel) {
+      onCancel();
+    } else {
+      navigate("/procurement-insurance-sops");
+    }
+  }, [onCancel, navigate]);
+
+  const handleSavedClick = useCallback(() => {
+    if (onSaved) {
+      onSaved();
+    } else {
+      navigate("/procurement-insurance-sops");
+    }
+  }, [onSaved, navigate]);
 
   useEffect(() => {
-    if (proposal?._id) {
+    if (initialTab !== undefined && initialTab !== null) {
+      setTabValue(initialTab);
+    }
+  }, [initialTab]);
+
+  useEffect(() => {
+    const todayStr = new Date().toISOString().split("T")[0];
+
+    const loadPrNumber = async (baseData) => {
+      try {
+        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/next-pr-number?date=${baseData.prDate || todayStr}`);
+        if (res.data?.prNumber) {
+          setFormData((prev) => ({
+            ...prev,
+            prNumber: prev.prNumber || res.data.prNumber,
+            prDate: prev.prDate || todayStr,
+          }));
+        }
+      } catch (err) {
+        console.error("Error auto-generating PR Number:", err);
+      }
+    };
+
+    if (targetId) {
       setLoading(true);
       axios
-        .get(`${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/${proposal._id}`)
+        .get(`${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/${targetId}`)
         .then((res) => {
           let fetchedData = res.data.data || {};
           if (isRenew) {
             delete fetchedData._id;
-            fetchedData.policyNo = "";
-            fetchedData.policyFromDate = "";
-            fetchedData.policyToDate = "";
-            fetchedData.premiumQuote = "";
-            fetchedData.renewed = "";
-            // Also reset workflow statuses on renew
+            // Copy renewed details into previous details
+            if (fetchedData.newInsuranceCompany) fetchedData.insuranceCompany = fetchedData.newInsuranceCompany;
+            if (fetchedData.newPolicyNo) fetchedData.policyNo = fetchedData.newPolicyNo;
+            if (fetchedData.newPolicyFromDate) fetchedData.policyFromDate = fetchedData.newPolicyFromDate;
+            if (fetchedData.newPolicyToDate) fetchedData.policyToDate = fetchedData.newPolicyToDate;
+            if (fetchedData.newIdv) fetchedData.idv = fetchedData.newIdv;
+            if (fetchedData.newElectricalAccessoriesIdv) fetchedData.electricalAccessoriesIdv = fetchedData.newElectricalAccessoriesIdv;
+            if (fetchedData.newCngKitIdv) fetchedData.cngKitIdv = fetchedData.newCngKitIdv;
+            if (fetchedData.newTotalIdv) fetchedData.totalIdv = fetchedData.newTotalIdv;
+            if (fetchedData.newPremiumAmount) fetchedData.premiumAmount = fetchedData.newPremiumAmount;
+            if (fetchedData.newNcb) fetchedData.ncbPercentage = fetchedData.newNcb;
+            if (fetchedData.newPremium) fetchedData.premium = fetchedData.newPremium;
+            if (fetchedData.newRemarks) fetchedData.remarks = fetchedData.newRemarks;
+            // Copy renewed premium breakdown into previous premium breakdown
+            if (fetchedData.newOdPremium) fetchedData.odPremium = fetchedData.newOdPremium;
+            if (fetchedData.newImt23) fetchedData.imt23 = fetchedData.newImt23;
+            if (fetchedData.newImt24) fetchedData.imt24 = fetchedData.newImt24;
+            if (fetchedData.newImt25) fetchedData.imt25 = fetchedData.newImt25;
+            if (fetchedData.newTotalOdPremium) fetchedData.totalOdPremium = fetchedData.newTotalOdPremium;
+            if (fetchedData.newImt17) fetchedData.imt17 = fetchedData.newImt17;
+            if (fetchedData.newImt252) fetchedData.imt252 = fetchedData.newImt252;
+            if (fetchedData.newImt28) fetchedData.imt28 = fetchedData.newImt28;
+            if (fetchedData.newImt29) fetchedData.imt29 = fetchedData.newImt29;
+            if (fetchedData.newLiabilityPremium) fetchedData.liabilityPremium = fetchedData.newLiabilityPremium;
+            if (fetchedData.newTotalGst) fetchedData.totalGst = fetchedData.newTotalGst;
+            if (fetchedData.newTotalPolicyPremium) fetchedData.totalPolicyPremium = fetchedData.newTotalPolicyPremium;
+            // Clear renewed fields for fresh input
+            fetchedData.newInsuranceCompany = "";
+            fetchedData.newPolicyNo = "";
+            fetchedData.newPolicyFromDate = "";
+            fetchedData.newPolicyToDate = "";
+            fetchedData.newIdv = "";
+            fetchedData.newElectricalAccessoriesIdv = "";
+            fetchedData.newCngKitIdv = "";
+            fetchedData.newTotalIdv = "";
+            fetchedData.newPremiumAmount = "";
+            fetchedData.newNcb = "";
+            fetchedData.newPremium = "";
+            fetchedData.newRemarks = "";
+            fetchedData.newOdPremium = "";
+            fetchedData.newImt23 = "";
+            fetchedData.newImt24 = "";
+            fetchedData.newImt25 = "";
+            fetchedData.newTotalOdPremium = "";
+            fetchedData.newImt17 = "";
+            fetchedData.newImt252 = "";
+            fetchedData.newImt28 = "";
+            fetchedData.newImt29 = "";
+            fetchedData.newLiabilityPremium = "";
+            fetchedData.newTotalGst = "";
+            fetchedData.newTotalPolicyPremium = "";
+            // Reset PR readiness and workflow statuses for fresh renewal
+            fetchedData.readyForPr = "";
             fetchedData.prNumber = "";
-            fetchedData.prDate = "";
-            fetchedData.financialApprovalStatus = "Draft";
+            fetchedData.prDate = todayStr;
+            fetchedData.financialApprovalStatus = "Pending";
             fetchedData.paymentUtr = "";
-            fetchedData.paymentDate = "";
+            fetchedData.paymentDate = todayStr;
             fetchedData.renewalStatus = "Pending";
             fetchedData.tat = "";
           }
-          setFormData({ ...emptyRecord, ...fetchedData });
+          const merged = { ...emptyRecord };
+          Object.keys(emptyRecord).forEach((key) => {
+            merged[key] = (fetchedData[key] !== null && fetchedData[key] !== undefined) ? fetchedData[key] : emptyRecord[key];
+          });
+          Object.keys(fetchedData).forEach((key) => {
+            if (fetchedData[key] !== null && fetchedData[key] !== undefined && !(key in merged)) {
+              merged[key] = fetchedData[key];
+            }
+          });
+          if (!merged.prDate) merged.prDate = todayStr;
+          if (!merged.paymentDate) merged.paymentDate = todayStr;
+          if (merged.readyForPr === "Yes" && !merged.prNumber) {
+            loadPrNumber(merged);
+          } else if (merged.readyForPr !== "Yes") {
+            merged.prNumber = "";
+          }
+          if (!merged.financialApprovalStatus || merged.financialApprovalStatus === "Draft") {
+            merged.financialApprovalStatus = "Pending";
+          }
+          setFormData(merged);
         })
         .catch((err) => {
           console.error("Error fetching Fleet Insurance SOP:", err);
@@ -137,20 +264,92 @@ function FleetInsuranceForm({ proposal, isView, isRenew, onSaved, onCancel }) {
         })
         .finally(() => setLoading(false));
     } else {
-      setFormData(emptyRecord);
+      const initial = { ...emptyRecord, prDate: todayStr, paymentDate: todayStr, financialApprovalStatus: "Pending" };
+      if (initial.readyForPr === "Yes" && !initial.prNumber) {
+        loadPrNumber(initial);
+      } else {
+        initial.prNumber = "";
+      }
+      setFormData(initial);
     }
   }, [proposal, isRenew]);
+
+  // Auto-calc: TAT days counting from PR generation date to Payment Date (defaults to current date)
+  useEffect(() => {
+    const todayStr = new Date().toISOString().split("T")[0];
+    const targetPayDate = formData.paymentDate || todayStr;
+    if (formData.prDate && targetPayDate) {
+      const pr = new Date(formData.prDate);
+      const pay = new Date(targetPayDate);
+      if (!isNaN(pr) && !isNaN(pay)) {
+        const diffTime = Math.max(0, pay - pr);
+        const calcTat = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        if (formData.tat !== calcTat || !formData.paymentDate) {
+          setFormData((prev) => ({ 
+            ...prev, 
+            paymentDate: prev.paymentDate || todayStr,
+            tat: calcTat 
+          }));
+        }
+      }
+    }
+  }, [formData.prDate, formData.paymentDate, formData.tat]);
 
   const handleChange = useCallback((field, val) => {
     setFormData((prev) => {
       const next = { ...prev, [field]: val };
       
+      if (field === "readyForPr") {
+        if (val === "Yes") {
+          const missing = [];
+          if (!prev.registrationNo?.trim()) missing.push("Registration No.");
+          const hasPolicyNo = (prev.newPolicyNo && prev.newPolicyNo.trim()) || (prev.policyNo && prev.policyNo.trim());
+          if (!hasPolicyNo) missing.push("Policy No.");
+          const hasValidTo = prev.newPolicyToDate || prev.policyToDate;
+          if (!hasValidTo) missing.push("Valid To Date (Expiry)");
+          const hasPremium = (Number(prev.newOdPremium) > 0) || 
+                             (Number(prev.newTotalPolicyPremium) > 0) || 
+                             (Number(prev.odPremium) > 0) || 
+                             (Number(prev.totalPolicyPremium) > 0) ||
+                             (Number(prev.newPremiumAmount) > 0) ||
+                             (Number(prev.premiumAmount) > 0);
+          if (!hasPremium) missing.push("Premium Amount");
+
+          if (missing.length > 0) {
+            alert(`Please fill mandatory details before selecting Ready for PR Generation:\n\n• ${missing.join("\n• ")}`);
+            next.readyForPr = "No";
+            next.prNumber = "";
+            return next;
+          }
+
+          if (!prev.prNumber) {
+            const todayStr = new Date().toISOString().split("T")[0];
+            axios.get(`${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/next-pr-number?date=${prev.prDate || todayStr}`)
+              .then((res) => {
+                if (res.data?.prNumber) {
+                  setFormData((p) => ({ 
+                    ...p, 
+                    readyForPr: "Yes",
+                    prNumber: p.prNumber || res.data.prNumber,
+                    prDate: p.prDate || todayStr 
+                  }));
+                }
+              })
+              .catch((err) => console.error("Error auto-generating PR number:", err));
+          }
+        } else if (val !== "Yes") {
+          next.prNumber = "";
+        }
+      }
+
       if (field === "prDate" || field === "paymentDate") {
-        if (next.prDate && next.paymentDate) {
-          const pr = new Date(next.prDate);
-          const pay = new Date(next.paymentDate);
+        const targetPr = next.prDate;
+        const targetPay = next.paymentDate || new Date().toISOString().split("T")[0];
+        if (targetPr && targetPay) {
+          const pr = new Date(targetPr);
+          const pay = new Date(targetPay);
           if (!isNaN(pr) && !isNaN(pay)) {
-            const diffTime = Math.abs(pay - pr);
+            const diffTime = Math.max(0, pay - pr);
             next.tat = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
           }
         } else {
@@ -165,6 +364,7 @@ function FleetInsuranceForm({ proposal, isView, isRenew, onSaved, onCancel }) {
           next.renewalStatus = "Pending";
         }
       }
+
       return next;
     });
   }, []);
@@ -174,14 +374,109 @@ function FleetInsuranceForm({ proposal, isView, isRenew, onSaved, onCancel }) {
       alert("Registration Number is required");
       return;
     }
+
+    if (isRenew) {
+      if (!formData.newPolicyNo?.trim() && !formData.policyNo?.trim()) {
+        alert("Policy Number is required for renewal");
+        return;
+      }
+      if (!formData.newPolicyToDate && !formData.policyToDate) {
+        alert("Valid To date (Expiry Date) is required for renewal");
+        return;
+      }
+      const hasPremium = (Number(formData.newOdPremium) > 0) || 
+                         (Number(formData.newTotalPolicyPremium) > 0) || 
+                         (Number(formData.odPremium) > 0) || 
+                         (Number(formData.totalPolicyPremium) > 0) ||
+                         (Number(formData.newPremiumAmount) > 0) ||
+                         (Number(formData.premiumAmount) > 0);
+      if (!hasPremium) {
+        alert("Premium amount (OD Premium or Total Policy Premium) is required for renewal");
+        return;
+      }
+    }
+
+    // Default financialApprovalStatus to Pending if empty or Draft
+    const dataToSave = { ...formData };
+    if (!dataToSave.financialApprovalStatus || dataToSave.financialApprovalStatus === "Draft") {
+      dataToSave.financialApprovalStatus = "Pending";
+    }
+
+    // ONCE THE PAYMENT UTR STAGE IS COMPLETED (paymentUtr entered), RENEW THE OLD POLICY WITH THE NEW POLICY
+    if (dataToSave.paymentUtr && dataToSave.paymentUtr.trim().length > 0) {
+      dataToSave.renewed = "YES";
+      dataToSave.renewalStatus = "Renewed";
+
+      // Overwrite previous policy fields with newly renewed policy details if present
+      if (dataToSave.newInsuranceCompany) dataToSave.insuranceCompany = dataToSave.newInsuranceCompany;
+      if (dataToSave.newPolicyNo) dataToSave.policyNo = dataToSave.newPolicyNo;
+      if (dataToSave.newPolicyFromDate) dataToSave.policyFromDate = dataToSave.newPolicyFromDate;
+      if (dataToSave.newPolicyToDate) dataToSave.policyToDate = dataToSave.newPolicyToDate;
+      if (dataToSave.newIdv) dataToSave.idv = dataToSave.newIdv;
+      if (dataToSave.newElectricalAccessoriesIdv) dataToSave.electricalAccessoriesIdv = dataToSave.newElectricalAccessoriesIdv;
+      if (dataToSave.newCngKitIdv) dataToSave.cngKitIdv = dataToSave.newCngKitIdv;
+      if (dataToSave.newTotalIdv) dataToSave.totalIdv = dataToSave.newTotalIdv;
+      if (dataToSave.newPremiumAmount) dataToSave.premiumAmount = dataToSave.newPremiumAmount;
+      if (dataToSave.newNcb) dataToSave.ncbPercentage = dataToSave.newNcb;
+      if (dataToSave.newPremium) dataToSave.premium = dataToSave.newPremium;
+      if (dataToSave.newRemarks) dataToSave.remarks = dataToSave.newRemarks;
+      if (dataToSave.newOdPremium) dataToSave.odPremium = dataToSave.newOdPremium;
+      if (dataToSave.newImt23) dataToSave.imt23 = dataToSave.newImt23;
+      if (dataToSave.newImt24) dataToSave.imt24 = dataToSave.newImt24;
+      if (dataToSave.newImt25) dataToSave.imt25 = dataToSave.newImt25;
+      if (dataToSave.newTotalOdPremium) dataToSave.totalOdPremium = dataToSave.newTotalOdPremium;
+      if (dataToSave.newImt17) dataToSave.imt17 = dataToSave.newImt17;
+      if (dataToSave.newImt252) dataToSave.imt252 = dataToSave.newImt252;
+      if (dataToSave.newImt28) dataToSave.imt28 = dataToSave.newImt28;
+      if (dataToSave.newImt29) dataToSave.imt29 = dataToSave.newImt29;
+      if (dataToSave.newLiabilityPremium) dataToSave.liabilityPremium = dataToSave.newLiabilityPremium;
+      if (dataToSave.newTotalGst) dataToSave.totalGst = dataToSave.newTotalGst;
+      if (dataToSave.newTotalPolicyPremium) dataToSave.totalPolicyPremium = dataToSave.newTotalPolicyPremium;
+
+      // Clear renewed fields after promotion so they are ready for future renewal
+      dataToSave.newInsuranceCompany = "";
+      dataToSave.newPolicyNo = "";
+      dataToSave.newPolicyFromDate = "";
+      dataToSave.newPolicyToDate = "";
+      dataToSave.newIdv = "";
+      dataToSave.newElectricalAccessoriesIdv = "";
+      dataToSave.newCngKitIdv = "";
+      dataToSave.newTotalIdv = "";
+      dataToSave.newPremiumAmount = "";
+      dataToSave.newNcb = "";
+      dataToSave.newPremium = "";
+      dataToSave.newRemarks = "";
+      dataToSave.newOdPremium = "";
+      dataToSave.newImt23 = "";
+      dataToSave.newImt24 = "";
+      dataToSave.newImt25 = "";
+      dataToSave.newTotalOdPremium = "";
+      dataToSave.newImt17 = "";
+      dataToSave.newImt252 = "";
+      dataToSave.newImt28 = "";
+      dataToSave.newImt29 = "";
+      dataToSave.newLiabilityPremium = "";
+      dataToSave.newTotalGst = "";
+      dataToSave.newTotalPolicyPremium = "";
+    }
+
     setSaving(true);
     try {
-      if (proposal?._id && !isRenew) {
-        await axios.put(`${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/${proposal._id}`, formData);
+      let res;
+      if (targetId && !isRenew) {
+        res = await axios.put(`${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/${targetId}`, dataToSave);
       } else {
-        await axios.post(`${process.env.REACT_APP_API_STRING}/fleet-insurance-sop`, formData);
+        res = await axios.post(`${process.env.REACT_APP_API_STRING}/fleet-insurance-sop`, dataToSave);
       }
-      onSaved();
+      const savedData = res.data?.data;
+      alert(res.data?.message || "Record saved successfully!");
+
+      if (savedData && savedData._id) {
+        setFormData((prev) => ({ ...prev, ...savedData }));
+        if (!targetId || isRenew) {
+          navigate(`/fleet-insurance/edit/${savedData._id}`, { replace: true });
+        }
+      }
     } catch (err) {
       console.error("Error saving Fleet Insurance SOP:", err);
       alert(err.response?.data?.message || "Failed to save Record");
@@ -190,53 +485,7 @@ function FleetInsuranceForm({ proposal, isView, isRenew, onSaved, onCancel }) {
     }
   };
 
-  const handleAddQuotation = useCallback(() => {
-    setFormData((prev) => ({
-      ...prev,
-      quotations: [
-        ...(prev.quotations || []),
-        { insuranceCompany: "", idv: "", odPremium: "", liabilityPremium: "", totalPremium: "" },
-      ],
-    }));
-  }, []);
 
-  const handleQuotationChange = useCallback((index, field, val) => {
-    setFormData((prev) => {
-      const newQuotations = [...(prev.quotations || [])];
-      newQuotations[index][field] = val;
-      
-      if (field === "odPremium" || field === "liabilityPremium") {
-        const od = Number(newQuotations[index].odPremium) || 0;
-        const liab = Number(newQuotations[index].liabilityPremium) || 0;
-        newQuotations[index].totalPremium = od + liab;
-        
-        if (prev.selectedInsurerL1 && prev.selectedInsurerL1 === newQuotations[index].insuranceCompany) {
-          return { ...prev, quotations: newQuotations, premiumQuote: od + liab };
-        }
-      }
-      return { ...prev, quotations: newQuotations };
-    });
-  }, []);
-
-  const handleRemoveQuotation = useCallback((index) => {
-    setFormData((prev) => {
-      const newQuotations = [...(prev.quotations || [])];
-      newQuotations.splice(index, 1);
-      return { ...prev, quotations: newQuotations };
-    });
-  }, []);
-
-  const handleSelectL1 = useCallback((index) => {
-    setFormData((prev) => {
-      const selected = prev.quotations[index];
-      return {
-        ...prev,
-        selectedInsurerL1: selected.insuranceCompany,
-        premiumQuote: selected.totalPremium,
-        newIdv: selected.idv,
-      };
-    });
-  }, []);
 
   const formatDateValue = useCallback((dateStr) => {
     return dateStr ? String(dateStr).split("T")[0] : "";
@@ -262,7 +511,31 @@ function FleetInsuranceForm({ proposal, isView, isRenew, onSaved, onCancel }) {
           chassisNumber: prev.chassisNumber || latest.chassisNumber || "",
           cubicCapacityKw: prev.cubicCapacityKw || latest.cubicCapacityKw || "",
           mfgYear: prev.mfgYear || latest.mfgYear || "",
-          premiumAmount: latest.totalPolicyPremium || latest.premiumAmount || prev.premiumAmount || "",
+          // Use renewed details from history as previous details (if available)
+          insuranceCompany: prev.insuranceCompany || latest.newInsuranceCompany || latest.insuranceCompany || "",
+          policyNo: prev.policyNo || latest.newPolicyNo || latest.policyNo || "",
+          policyFromDate: prev.policyFromDate || latest.newPolicyFromDate || latest.policyFromDate || "",
+          policyToDate: prev.policyToDate || latest.newPolicyToDate || latest.policyToDate || "",
+          idv: prev.idv || latest.newIdv || latest.idv || "",
+          electricalAccessoriesIdv: prev.electricalAccessoriesIdv || latest.newElectricalAccessoriesIdv || latest.electricalAccessoriesIdv || "",
+          cngKitIdv: prev.cngKitIdv || latest.newCngKitIdv || latest.cngKitIdv || "",
+          totalIdv: prev.totalIdv || latest.newTotalIdv || latest.totalIdv || "",
+          premiumAmount: prev.premiumAmount || latest.newPremiumAmount || latest.totalPolicyPremium || latest.premiumAmount || "",
+          ncbPercentage: prev.ncbPercentage || latest.newNcb || latest.ncbPercentage || "",
+          premium: prev.premium || latest.newPremium || latest.premium || "",
+          remarks: prev.remarks || latest.newRemarks || latest.remarks || "",
+          odPremium: prev.odPremium || latest.newOdPremium || latest.odPremium || "",
+          imt23: prev.imt23 || latest.newImt23 || latest.imt23 || "",
+          imt24: prev.imt24 || latest.newImt24 || latest.imt24 || "",
+          imt25: prev.imt25 || latest.newImt25 || latest.imt25 || "",
+          totalOdPremium: prev.totalOdPremium || latest.newTotalOdPremium || latest.totalOdPremium || "",
+          imt17: prev.imt17 || latest.newImt17 || latest.imt17 || "",
+          imt252: prev.imt252 || latest.newImt252 || latest.imt252 || "",
+          imt28: prev.imt28 || latest.newImt28 || latest.imt28 || "",
+          imt29: prev.imt29 || latest.newImt29 || latest.imt29 || "",
+          liabilityPremium: prev.liabilityPremium || latest.newLiabilityPremium || latest.liabilityPremium || "",
+          totalGst: prev.totalGst || latest.newTotalGst || latest.totalGst || "",
+          totalPolicyPremium: prev.totalPolicyPremium || latest.newTotalPolicyPremium || latest.totalPolicyPremium || "",
         }));
       }
     } catch (err) {
@@ -272,16 +545,31 @@ function FleetInsuranceForm({ proposal, isView, isRenew, onSaved, onCancel }) {
     }
   }, [proposal]);
 
+  // Auto-calc: Previous OD Total
   useEffect(() => {
-    const od = Number(formData.totalOdPremium) || 0;
-    const liab = Number(formData.liabilityPremium) || 0;
-    const gst = Number(formData.totalGst) || 0;
-    const calculatedTotal = od + liab + gst;
-    
-    if (formData.totalPolicyPremium !== calculatedTotal && (od > 0 || liab > 0 || gst > 0)) {
-        setFormData(prev => ({ ...prev, totalPolicyPremium: calculatedTotal }));
+    const od = Number(formData.odPremium) || 0;
+    const imt23 = Number(formData.imt23) || 0;
+    const imt24 = Number(formData.imt24) || 0;
+    const imt25 = Number(formData.imt25) || 0;
+    const calcTotalOd = od + imt23 + imt24 + imt25;
+
+    if (calcTotalOd > 0 && formData.totalOdPremium !== calcTotalOd) {
+      setFormData((prev) => ({ ...prev, totalOdPremium: calcTotalOd }));
     }
-  }, [formData.totalOdPremium, formData.liabilityPremium, formData.totalGst, formData.totalPolicyPremium]);
+  }, [formData.odPremium, formData.imt23, formData.imt24, formData.imt25, formData.totalOdPremium]);
+
+  // Auto-calc: Renewed OD Total
+  useEffect(() => {
+    const od = Number(formData.newOdPremium) || 0;
+    const imt23 = Number(formData.newImt23) || 0;
+    const imt24 = Number(formData.newImt24) || 0;
+    const imt25 = Number(formData.newImt25) || 0;
+    const calcTotalOd = od + imt23 + imt24 + imt25;
+
+    if (calcTotalOd > 0 && formData.newTotalOdPremium !== calcTotalOd) {
+      setFormData((prev) => ({ ...prev, newTotalOdPremium: calcTotalOd }));
+    }
+  }, [formData.newOdPremium, formData.newImt23, formData.newImt24, formData.newImt25, formData.newTotalOdPremium]);
 
   const handleChangeTab = (event, newValue) => {
     setTabValue(newValue);
@@ -303,52 +591,76 @@ function FleetInsuranceForm({ proposal, isView, isRenew, onSaved, onCancel }) {
   }
 
   return (
-    <Box sx={{ pb: 5 }}>
+    <Box sx={{ pb: 10 }}>
       <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
         <Typography variant="h5" sx={{ fontWeight: "bold", color: "#1a237e" }}>
           {isView ? "View Vehicle Record" : (proposal?._id ? (isRenew ? "Renew Vehicle Policy" : "Edit Vehicle Record") : "Add Vehicle Record")}
         </Typography>
-        <Box sx={{ display: "flex", gap: 2 }}>
-          {!isView && (
-            <Button
-              variant="contained"
-              startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
-              onClick={handleSave}
-              disabled={saving}
-            >
-              Save Record
-            </Button>
-          )}
-          <Button variant="outlined" startIcon={<Cancel />} onClick={onCancel} disabled={saving}>
-            {isView ? "Back" : "Cancel"}
+      </Box>
+
+      {/* Floating Save/Cancel Buttons */}
+      <Box
+        sx={{
+          position: "fixed",
+          bottom: 24,
+          right: 24,
+          display: "flex",
+          gap: 1.5,
+          zIndex: 1200,
+        }}
+      >
+        {!isView && (
+          <Button
+            variant="contained"
+            startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
+            onClick={handleSave}
+            disabled={saving}
+            sx={{ boxShadow: 4, borderRadius: 2, px: 3 }}
+          >
+            Save
           </Button>
-        </Box>
+        )}
+        <Button
+          variant="outlined"
+          startIcon={<Cancel />}
+          onClick={handleCancelClick}
+          disabled={saving}
+          sx={{ boxShadow: 4, borderRadius: 2, px: 3, backgroundColor: "white" }}
+        >
+          {isView ? "Back" : "Cancel"}
+        </Button>
       </Box>
 
       {/* Vehicle Summary Context (Visible across all tabs EXCEPT the first one) */}
       {tabValue !== 0 && (
         <Paper sx={{ p: 2, mb: 2, backgroundColor: "#f8f9fa" }}>
           <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={3}>
+            <Grid item xs={12} sm={6} md={2.4}>
               <Typography variant="body2" color="textSecondary">Registration No.</Typography>
               <Typography variant="subtitle1" fontWeight="bold">{formData.registrationNo || "-"}</Typography>
             </Grid>
-            <Grid item xs={12} sm={3}>
-              <Typography variant="body2" color="textSecondary">Make/Model & Size</Typography>
+            <Grid item xs={12} sm={6} md={2.4}>
+              <Typography variant="body2" color="textSecondary">Insurance Company</Typography>
               <Typography variant="subtitle1" fontWeight="bold">
-                {formData.makeModel || "-"} / {formData.size || "-"}
+                {formData.newInsuranceCompany || formData.insuranceCompany || "-"}
               </Typography>
             </Grid>
-            <Grid item xs={12} sm={3}>
+            <Grid item xs={12} sm={6} md={2.4}>
+              <Typography variant="body2" color="textSecondary">Renewal Total IDV</Typography>
+              <Typography variant="subtitle1" fontWeight="bold">
+                ₹ {Number(formData.newTotalIdv || formData.totalIdv || 0).toLocaleString("en-IN")}
+              </Typography>
+            </Grid>
+            <Grid item xs={12} sm={6} md={2.4}>
               <Typography variant="body2" color="textSecondary">Old Expiry Date</Typography>
               <Typography variant="subtitle1" fontWeight="bold">
                 {formData.policyToDate ? new Date(formData.policyToDate).toLocaleDateString("en-IN") : "-"}
               </Typography>
             </Grid>
-            <Grid item xs={12} sm={3}>
-              <Typography variant="body2" color="textSecondary">Premium Quote L1</Typography>
+            <Grid item xs={12} sm={6} md={2.4}>
+              <Typography variant="body2" color="textSecondary">Renewed Premium</Typography>
               <Typography variant="subtitle1" fontWeight="bold" color="primary">
-                ₹ {formData.premiumQuote || formData.totalPolicyPremium || 0}
+                ₹ {Number(formData.newTotalPolicyPremium || formData.totalPolicyPremium || 0).toLocaleString("en-IN")}
               </Typography>
             </Grid>
           </Grid>
@@ -379,10 +691,6 @@ function FleetInsuranceForm({ proposal, isView, isRenew, onSaved, onCancel }) {
               <Component
                 formData={formData}
                 handleChange={handleChange}
-                handleQuotationChange={handleQuotationChange}
-                handleSelectL1={handleSelectL1}
-                handleRemoveQuotation={handleRemoveQuotation}
-                handleAddQuotation={handleAddQuotation}
                 handleRegistrationBlur={handleRegistrationBlur}
                 formatDateValue={formatDateValue}
                 isView={isView}

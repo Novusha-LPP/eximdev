@@ -9,7 +9,7 @@ function Stage4PaymentUtr({ formData, handleChange, formatDateValue }) {
       </Typography>
       
       <Box sx={{ mb: 3, p: 2, backgroundColor: "#f8f9fa", borderRadius: 1 }}>
-        <Typography variant="subtitle2">Financial Status: {formData.financialApprovalStatus || "Draft"}</Typography>
+        <Typography variant="subtitle2">Financial Status: {formData.financialApprovalStatus === "Pending" ? "Pending Approval" : (formData.financialApprovalStatus || "Pending Approval")}</Typography>
       </Box>
 
       <Grid container spacing={2}>

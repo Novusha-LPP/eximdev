@@ -6,6 +6,133 @@ import { context } from "../../utils/context.mjs";
 
 const router = express.Router();
 
+// Helper to generate next PR Number format: INS/{seq}/{MONTH}/{FY_CODE}
+async function getNextPrNumber(dateInput) {
+  const d = dateInput ? new Date(dateInput) : new Date();
+  const m = d.getMonth();
+  const monthShort = d.toLocaleString("en-US", { month: "short" }).toUpperCase();
+
+  let startYear, endYear;
+  if (m >= 3) {
+    // April (3) to Dec (11)
+    startYear = d.getFullYear();
+    endYear = d.getFullYear() + 1;
+  } else {
+    // Jan (0) to Mar (2)
+    startYear = d.getFullYear() - 1;
+    endYear = d.getFullYear();
+  }
+  const fyCode = `${String(startYear).slice(-2)}${String(endYear).slice(-2)}`;
+
+  const regex = new RegExp(`^INS/(\\d+)/${monthShort}/${fyCode}$`, "i");
+  const records = await FleetInsuranceSopModel.find({ prNumber: { $regex: regex } }).select("prNumber").lean();
+
+  let maxSeq = 0;
+  records.forEach((rec) => {
+    if (rec.prNumber) {
+      const match = rec.prNumber.match(new RegExp(`^INS/(\\d+)/${monthShort}/${fyCode}$`, "i"));
+      if (match && match[1]) {
+        const seq = parseInt(match[1], 10);
+        if (seq > maxSeq) maxSeq = seq;
+      }
+    }
+  });
+
+  const nextSeq = String(maxSeq + 1).padStart(2, "0");
+  return `INS/${nextSeq}/${monthShort}/${fyCode}`;
+}
+
+// Endpoint to fetch next PR number
+router.get("/fleet-insurance-sop/next-pr-number", authMiddleware, async (req, res) => {
+  try {
+    const { date } = req.query;
+    const prNumber = await getNextPrNumber(date);
+    res.status(200).json({ prNumber, prDate: date || new Date().toISOString().split("T")[0] });
+  } catch (error) {
+    console.error("Error generating next PR number:", error);
+    res.status(500).json({ message: "Error generating PR number" });
+  }
+});
+
+// Helper to generate next PO Number format: PO/INS/{seq}/{MONTH}/{FY_CODE}
+async function getNextPoNumber(dateInput) {
+  const d = dateInput ? new Date(dateInput) : new Date();
+  const monthShort = d.toLocaleString("en-US", { month: "short" }).toUpperCase();
+
+  let startYear, endYear;
+  if (d.getMonth() >= 3) {
+    startYear = d.getFullYear();
+    endYear = d.getFullYear() + 1;
+  } else {
+    startYear = d.getFullYear() - 1;
+    endYear = d.getFullYear();
+  }
+  const fyCode = `${String(startYear).slice(-2)}${String(endYear).slice(-2)}`;
+
+  const regex = new RegExp(`^PO/INS/(\\d+)/${monthShort}/${fyCode}$`, "i");
+  const records = await FleetInsuranceSopModel.find({ poNumber: { $regex: regex } }).select("poNumber").lean();
+
+  let maxSeq = 0;
+  records.forEach((rec) => {
+    if (rec.poNumber) {
+      const match = rec.poNumber.match(new RegExp(`^PO/INS/(\\d+)/${monthShort}/${fyCode}$`, "i"));
+      if (match && match[1]) {
+        const seq = parseInt(match[1], 10);
+        if (seq > maxSeq) maxSeq = seq;
+      }
+    }
+  });
+
+  const nextSeq = String(maxSeq + 1).padStart(2, "0");
+  return `PO/INS/${nextSeq}/${monthShort}/${fyCode}`;
+}
+
+// Endpoint to fetch next PO number
+router.get("/fleet-insurance-sop/next-po-number", authMiddleware, async (req, res) => {
+  try {
+    const { date } = req.query;
+    const poNumber = await getNextPoNumber(date);
+    res.status(200).json({ poNumber });
+  } catch (error) {
+    console.error("Error generating next PO number:", error);
+    res.status(500).json({ message: "Error generating PO number" });
+  }
+});
+
+// GET records requiring approval
+router.get("/fleet-insurance-sop/approvals/list", authMiddleware, async (req, res) => {
+  try {
+    const records = await FleetInsuranceSopModel.find({
+      $or: [
+        { financialApprovalStatus: "Pending" },
+        { 
+          prNumber: { $exists: true, $ne: "" }, 
+          financialApprovalStatus: { $nin: ["Approved", "Rejected"] } 
+        }
+      ]
+    }).sort({ updatedAt: -1, createdAt: -1 }).lean();
+
+    res.status(200).json({ data: records, total: records.length });
+  } catch (error) {
+    console.error("Error fetching approval records:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// GET records in Payment & UTR stage (Approved by Finance)
+router.get("/fleet-insurance-sop/payment-utr/list", authMiddleware, async (req, res) => {
+  try {
+    const records = await FleetInsuranceSopModel.find({
+      financialApprovalStatus: "Approved"
+    }).sort({ updatedAt: -1, createdAt: -1 }).lean();
+
+    res.status(200).json({ data: records, total: records.length });
+  } catch (error) {
+    console.error("Error fetching payment UTR records:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 // GET all records with pagination and search
 router.get("/fleet-insurance-sop", authMiddleware, async (req, res) => {
   try {
@@ -52,17 +179,17 @@ router.get("/fleet-insurance-sop", authMiddleware, async (req, res) => {
     if (year && month) {
       // month is 1-12
       const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
-      const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59);
-      query.policyFromDate = { $gte: startDate, $lte: endDate };
+      const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
+      query.policyToDate = { $gte: startDate, $lte: endDate };
     } else if (year) {
       const startDate = new Date(parseInt(year), 0, 1);
-      const endDate = new Date(parseInt(year), 12, 0, 23, 59, 59);
-      query.policyFromDate = { $gte: startDate, $lte: endDate };
+      const endDate = new Date(parseInt(year), 12, 0, 23, 59, 59, 999);
+      query.policyToDate = { $gte: startDate, $lte: endDate };
     } else if (month) {
       const currentYear = new Date().getFullYear();
       const startDate = new Date(currentYear, parseInt(month) - 1, 1);
-      const endDate = new Date(currentYear, parseInt(month), 0, 23, 59, 59);
-      query.policyFromDate = { $gte: startDate, $lte: endDate };
+      const endDate = new Date(currentYear, parseInt(month), 0, 23, 59, 59, 999);
+      query.policyToDate = { $gte: startDate, $lte: endDate };
     }
 
     const pipeline = [
@@ -108,11 +235,13 @@ router.get("/fleet-insurance-sop/filters/options", authMiddleware, async (req, r
     const owners = await FleetInsuranceSopModel.distinct("owner");
     const sizes = await FleetInsuranceSopModel.distinct("size");
     const models = await FleetInsuranceSopModel.distinct("modelType");
+    const registrationNumbers = await FleetInsuranceSopModel.distinct("registrationNo");
     
     res.status(200).json({
       owners: owners.filter(Boolean),
       sizes: sizes.filter(Boolean),
-      models: models.filter(Boolean)
+      models: models.filter(Boolean),
+      registrationNumbers: registrationNumbers.filter(Boolean)
     });
   } catch (error) {
     console.error("Error fetching filter options:", error);
@@ -392,17 +521,17 @@ router.get("/fleet-insurance-sop/export/bulk", authMiddleware, async (req, res) 
 
     if (year && month) {
       const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
-      const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59);
-      query.policyFromDate = { $gte: startDate, $lte: endDate };
+      const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
+      query.policyToDate = { $gte: startDate, $lte: endDate };
     } else if (year) {
       const startDate = new Date(parseInt(year), 0, 1);
-      const endDate = new Date(parseInt(year), 12, 0, 23, 59, 59);
-      query.policyFromDate = { $gte: startDate, $lte: endDate };
+      const endDate = new Date(parseInt(year), 12, 0, 23, 59, 59, 999);
+      query.policyToDate = { $gte: startDate, $lte: endDate };
     } else if (month) {
       const currentYear = new Date().getFullYear();
       const startDate = new Date(currentYear, parseInt(month) - 1, 1);
-      const endDate = new Date(currentYear, parseInt(month), 0, 23, 59, 59);
-      query.policyFromDate = { $gte: startDate, $lte: endDate };
+      const endDate = new Date(currentYear, parseInt(month), 0, 23, 59, 59, 999);
+      query.policyToDate = { $gte: startDate, $lte: endDate };
     }
 
     const docs = await FleetInsuranceSopModel.find(query).sort({ createdAt: -1 }).lean();
@@ -459,6 +588,21 @@ router.get("/fleet-insurance-sop/template/download", authMiddleware, async (req,
     res.send(excelBuffer);
   } catch (error) {
     console.error("Error exporting template:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+// DELETE record by ID
+router.delete("/fleet-insurance-sop/:id", authMiddleware, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deletedRecord = await FleetInsuranceSopModel.findByIdAndDelete(id);
+    if (!deletedRecord) {
+      return res.status(404).json({ message: "Record not found" });
+    }
+    res.status(200).json({ message: "Record deleted successfully", data: deletedRecord });
+  } catch (error) {
+    console.error("Error deleting Fleet Insurance record:", error);
     res.status(500).json({ message: "Internal server error" });
   }
 });

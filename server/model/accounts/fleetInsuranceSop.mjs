@@ -73,11 +73,41 @@ const fleetInsuranceSopSchema = new mongoose.Schema(
     // Renewal Workflow Fields
     prNumber: { type: String },
     prDate: { type: Date },
-    financialApprovalStatus: { type: String, enum: ["Draft", "Pending", "Approved", "Rejected"], default: "Draft" },
+    financialApprovalStatus: { type: String, enum: ["Draft", "Pending", "Approved", "Rejected"], default: "Pending" },
     paymentUtr: { type: String },
     paymentDate: { type: Date },
     renewalStatus: { type: String, enum: ["Pending", "Renewed", "Not Renewed"], default: "Pending" },
     tat: { type: Number },
+
+    // ─── Renewed Policy Details ───
+    newInsuranceCompany: { type: String },
+    newPolicyNo: { type: String },
+    newPolicyFromDate: { type: Date },
+    newPolicyToDate: { type: Date },
+    newElectricalAccessoriesIdv: { type: Number, default: 0 },
+    newCngKitIdv: { type: Number, default: 0 },
+    newTotalIdv: { type: Number, default: 0 },
+    newPremiumAmount: { type: Number },
+    newNcb: { type: Number },
+    newPremium: { type: Number },
+    newRemarks: { type: String },
+
+    // ─── Renewed Insurance Premium Breakdown ───
+    newOdPremium: { type: Number, default: 0 },
+    newImt23: { type: Number, default: 0 },
+    newImt24: { type: Number, default: 0 },
+    newImt25: { type: Number, default: 0 },
+    newTotalOdPremium: { type: Number, default: 0 },
+    newImt17: { type: Number, default: 0 },
+    newImt252: { type: Number, default: 0 },
+    newImt28: { type: Number, default: 0 },
+    newImt29: { type: Number, default: 0 },
+    newLiabilityPremium: { type: Number, default: 0 },
+    newTotalGst: { type: Number, default: 0 },
+    newTotalPolicyPremium: { type: Number, default: 0 },
+
+    // ─── PR Generation Readiness ───
+    readyForPr: { type: String, enum: ["Yes", "No", ""], default: "" },
   },
   { timestamps: true }
 );

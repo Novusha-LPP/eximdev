@@ -151,6 +151,7 @@ import ProcurementInsuranceSopsContainer from "../components/accounts/Procuremen
 import RmProcurementSop from "../components/accounts/rmProcurementSop/RmProcurementSop.js";
 import TyreProcurementSop from "../components/accounts/tyreProcurementSop/TyreProcurementSop.js";
 import FleetInsuranceSop from "../components/accounts/fleetInsuranceSop/FleetInsuranceSop.js";
+import FleetInsuranceHistory from "../components/accounts/fleetInsuranceSop/FleetInsuranceHistory.js";
 
 // Analytics
 import AnalyticsLayout from "../components/analytics/AnalyticsLayout";
@@ -1025,19 +1026,37 @@ function HomePageContent() {
                 />
 
                 <Route
-                  path="/fleet-insurance"
+                  path="/fleet-insurance/*"
                   element={
-                    <ProtectedRoute requiredModule="Fleet Insurance SOP">
+                    <ProtectedRoute requiredModule="Accounts">
                       <FleetInsuranceSop />
                     </ProtectedRoute>
                   }
                 />
 
                 <Route
-                  path="/procurement-insurance-sops"
+                  path="/procurement-insurance-sops/*"
                   element={
                     <ProtectedRoute requiredModule="Accounts">
                       <ProcurementInsuranceSopsContainer />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/fleet-insurance-history"
+                  element={
+                    <ProtectedRoute requiredModule="Accounts">
+                      <FleetInsuranceHistory />
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/fleet-insurance-history/:registrationNo"
+                  element={
+                    <ProtectedRoute requiredModule="Accounts">
+                      <FleetInsuranceHistory />
                     </ProtectedRoute>
                   }
                 />

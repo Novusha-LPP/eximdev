@@ -1068,37 +1068,61 @@ router.put("/api/kpi/sheet/entry", verifyToken, auditMiddleware("KPI_Sheet"), as
             return res.status(404).json({ message: "Row not found" });
         }
 
-        // Update value
         const oldValue = row.daily_values.get(day.toString());
-        row.daily_values.set(day.toString(), Number(value));
+        const isEmpty = value === "" || value === null || value === undefined;
 
-        // Audit Log
-        sheet.audit_log.push({
-            field: `row:${row.label}:${day}`,
-            old_value: oldValue,
-            new_value: value,
-            changed_by: req.user._id,
-            action: "UPDATE"
-        });
-
-        // Recalculate Total (Excluding Sundays and Holidays)
+        // Calculate new sum in-memory
         let sum = 0;
-        for (let [d, val] of row.daily_values.entries()) {
+        const dailyValuesObj = Object.fromEntries(row.daily_values);
+        if (isEmpty) {
+            delete dailyValuesObj[day.toString()];
+        } else {
+            dailyValuesObj[day.toString()] = Number(value);
+        }
+
+        for (let [d, val] of Object.entries(dailyValuesObj)) {
             const dNum = Number(d);
             const dDate = new Date(currentYear, currentMonth, dNum);
+            
             // Skip Sundays (unless marked as working)
             if (dDate.getDay() === 0 && (!sheet.working_sundays || !sheet.working_sundays.includes(dNum))) continue;
-            // Skip Holidays
-            if (sheet.holidays.includes(dNum)) continue;
+            // Skip Holidays & Festivals
+            if (sheet.holidays && sheet.holidays.includes(dNum)) continue;
+            if (sheet.festivals && sheet.festivals.includes(dNum)) continue;
 
-            sum += val;
+            sum += Number(val) || 0;
         }
-        row.total = sum;
 
-        sheet.markModified('rows');
-        await sheet.save();
-        console.log("PUT /api/kpi/sheet/entry - Success");
-        res.json(sheet);
+        // Build atomic update
+        const updateDoc = {
+            $set: {
+                "rows.$.total": sum
+            },
+            $push: {
+                audit_log: {
+                    field: `row:${row.label}:${day}`,
+                    old_value: oldValue,
+                    new_value: isEmpty ? "" : value,
+                    changed_by: req.user._id,
+                    action: "UPDATE"
+                }
+            }
+        };
+
+        if (isEmpty) {
+            updateDoc.$unset = { [`rows.$.daily_values.${day}`]: "" };
+        } else {
+            updateDoc.$set[`rows.$.daily_values.${day}`] = Number(value);
+        }
+
+        const updatedSheet = await KPISheet.findOneAndUpdate(
+            { _id: sheetId, "rows.row_id": rowId },
+            updateDoc,
+            { new: true }
+        );
+
+        console.log("PUT /api/kpi/sheet/entry - Success (Atomic)");
+        res.json(updatedSheet || sheet);
 
     } catch (err) {
         console.error("PUT /api/kpi/sheet/entry ERROR:", err);

@@ -129,7 +129,7 @@ function Sidebar() {
         </ListItemButton>
       </Tooltip>
 
-      {user?.company && /RABS/i.test(user.company) && (
+      {true && (
         <>
           <Tooltip title="Attendance" enterDelay={0} placement="right">
             <ListItemButton

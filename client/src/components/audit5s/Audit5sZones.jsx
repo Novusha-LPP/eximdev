@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import audit5sAPI from "../../api/audit5s.api";
 import apiClient from "../../api/attendanceApiClient";
 import { toast } from "react-hot-toast";
@@ -29,10 +29,10 @@ const Audit5sZones = ({ onZonesChanged }) => {
                 setZones(zonesRes.data);
             }
             if (Array.isArray(usersRes.data)) {
-                const rabsUsers = usersRes.data.filter(u => 
-                    (u.company && /RABS/i.test(u.company)) ||
-                    (u.role && /admin|hr/i.test(u.role))
-                );
+                const rabsUsers = usersRes.data.filter(u => {
+                    const compName = u.company || (u.company_id && u.company_id.company_name) || "";
+                    return /RABS/i.test(compName);
+                });
                 setUsers(rabsUsers);
             }
         } catch (err) {
@@ -166,20 +166,16 @@ const Audit5sZones = ({ onZonesChanged }) => {
 
                     <div className="form-group">
                         <label htmlFor="responsible-user-select">Responsible Person:</label>
-                        <select
-                            id="responsible-user-select"
-                            className="audit5s-input"
+                        <SearchableSelect
                             value={respPersonId}
-                            onChange={(e) => setRespPersonId(e.target.value)}
+                            onChange={setRespPersonId}
+                            options={users.map((u) => ({
+                                value: u._id,
+                                label: u.first_name ? `${u.first_name} ${u.last_name || ""} (${u.username})` : u.username
+                            }))}
+                            placeholder="Select Employee"
                             disabled={actionLoading}
-                        >
-                            <option value="">Select Employee</option>
-                            {users.map((u) => (
-                                <option key={u._id} value={u._id}>
-                                    {u.first_name ? `${u.first_name} ${u.last_name || ""}` : u.username} ({u.username})
-                                </option>
-                            ))}
-                        </select>
+                        />
                     </div>
 
                     <div className="form-actions">
@@ -258,6 +254,129 @@ const Audit5sZones = ({ onZonesChanged }) => {
                     </table>
                 )}
             </div>
+        </div>
+    );
+};
+
+const SearchableSelect = ({ value, onChange, options, placeholder, disabled }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [search, setSearch] = useState("");
+    const dropdownRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const selectedOption = options.find(o => o.value === value);
+
+    const filteredOptions = options.filter(o => 
+        o.label.toLowerCase().includes(search.toLowerCase())
+    );
+
+    return (
+        <div ref={dropdownRef} className="custom-searchable-select" style={{ position: "relative", width: "100%", minWidth: "180px" }}>
+            <div 
+                onClick={() => !disabled && setIsOpen(!isOpen)}
+                style={{
+                    backgroundColor: "#ffffff",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "6px",
+                    padding: "8px 12px",
+                    fontSize: "14px",
+                    color: selectedOption ? "#1e293b" : "#64748b",
+                    cursor: disabled ? "not-allowed" : "pointer",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center"
+                }}
+            >
+                <span>{selectedOption ? selectedOption.label : placeholder}</span>
+                <span style={{ fontSize: "10px", color: "#64748b" }}>▼</span>
+            </div>
+            {isOpen && (
+                <div style={{
+                    position: "absolute",
+                    top: "100%",
+                    left: 0,
+                    right: 0,
+                    backgroundColor: "#ffffff",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "6px",
+                    boxShadow: "0 4px 12px rgba(15, 23, 42, 0.08)",
+                    zIndex: 1000,
+                    marginTop: "4px",
+                    maxHeight: "220px",
+                    display: "flex",
+                    flexDirection: "column"
+                }}>
+                    <input 
+                        type="text"
+                        placeholder="Search employee..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        style={{
+                            border: "none",
+                            borderBottom: "1px solid #e2e8f0",
+                            padding: "8px 12px",
+                            fontSize: "14px",
+                            outline: "none",
+                            width: "100%",
+                            boxSizing: "border-box"
+                        }}
+                        autoFocus
+                    />
+                    <div style={{ overflowY: "auto", flex: 1, maxHeight: "160px" }}>
+                        <div 
+                            onClick={() => {
+                                onChange("");
+                                setIsOpen(false);
+                                setSearch("");
+                            }}
+                            style={{
+                                padding: "8px 12px",
+                                cursor: "pointer",
+                                fontSize: "14px",
+                                color: "#64748b",
+                                backgroundColor: value === "" ? "#f1f5f9" : "transparent"
+                            }}
+                        >
+                            {placeholder}
+                        </div>
+                        {filteredOptions.map(o => (
+                            <div 
+                                key={o.value}
+                                onClick={() => {
+                                    onChange(o.value);
+                                    setIsOpen(false);
+                                    setSearch("");
+                                }}
+                                style={{
+                                    padding: "8px 12px",
+                                    cursor: "pointer",
+                                    fontSize: "14px",
+                                    color: "#1e293b",
+                                    backgroundColor: value === o.value ? "#f1f5f9" : "transparent"
+                                }}
+                                onMouseEnter={(e) => e.target.style.backgroundColor = "#f8fafc"}
+                                onMouseLeave={(e) => e.target.style.backgroundColor = value === o.value ? "#f1f5f9" : "transparent"}
+                            >
+                                {o.label}
+                            </div>
+                        ))}
+                        {filteredOptions.length === 0 && (
+                            <div style={{ padding: "8px 12px", fontSize: "14px", color: "#64748b" }}>
+                                No results found
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

@@ -19,18 +19,7 @@ const ProtectedRoute = ({ children, requiredModule, fallbackPath = "/" }) => {
     ? requiredModule.includes("Attendance")
     : requiredModule === "Attendance";
 
-  if (isAttendanceModule && !isRabsUser) {
-    return (
-      <Navigate
-        to={fallbackPath}
-        replace
-        state={{
-          from: location,
-          message: "Access denied. The attendance module is restricted to RABS employees only."
-        }}
-      />
-    );
-  }
+  // The attendance RABS restriction was removed here
 
   const is5sAuditModule = Array.isArray(requiredModule)
     ? requiredModule.includes("5S Audit")
@@ -60,7 +49,7 @@ const ProtectedRoute = ({ children, requiredModule, fallbackPath = "/" }) => {
   const isOwnKycRoute = location.pathname.startsWith('/employee-kyc') || location.pathname.startsWith('/complete-kyc');
   const isOwnKyc = isOwnKycRoute && (requiredModule === "Employee KYC");
 
-  if (!hasPermission && !isOwnKyc) {
+  if (!hasPermission && !isOwnKyc && !isAttendanceModule) {
     const moduleLabel = Array.isArray(requiredModule) ? requiredModule.join(' or ') : requiredModule;
     // Redirect to fallback path with a message
     return (

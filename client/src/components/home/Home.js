@@ -70,9 +70,9 @@ function Home() {
   let sopsGrouped = false;
   const categorizedModules = data?.modules?.reduce((acc, module) => {
     // Restrict Attendance card to RABS users only
-    if (module === "Attendance" && !(user?.company && /RABS/i.test(user.company))) {
-      return acc;
-    }
+    // if (module === "Attendance" && !(user?.company && /RABS/i.test(user.company))) {
+    //   return acc;
+    // }
 
     // Restrict 5S Audit card to RABS users only
     if (module === "5S Audit" && !(user?.company && /RABS/i.test(user.company))) {

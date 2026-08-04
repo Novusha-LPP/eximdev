@@ -34,18 +34,7 @@ function extractAllowedUserIds(ownerFilter) {
 function buildBusinessVerticalFilter(verticalStr) {
   if (!verticalStr || verticalStr === 'all') return null;
   const normalized = verticalStr.trim();
-  if (normalized.toLowerCase() === 'paramount') {
-    return {
-      $or: [
-        { businessVertical: new RegExp('^paramount$', 'i') },
-        { businessVertical: null },
-        { businessVertical: { $exists: false } },
-        { businessVertical: '' }
-      ]
-    };
-  } else {
-    return { businessVertical: new RegExp(`^${normalized}$`, 'i') };
-  }
+  return { businessVertical: new RegExp(`^${normalized}$`, 'i') };
 }
 
 async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
@@ -58,7 +47,6 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
   const isSystemAdmin = userRole === 'Admin' || (typeof userRole === 'string' && userRole.toLowerCase() === 'admin');
   const isAdmin = (isCrmAdmin || isSystemAdmin) && !isHOD;
 
-  if (isAdmin) return {};
   if (!userId) return {};
 
   const objectIdUserId = new mongoose.Types.ObjectId(userId.toString());
@@ -73,25 +61,16 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
         if (team.managerId) {
           objectIdMemberIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
         }
-        const verticals = [team.businessVertical, team.name?.trim()].filter(Boolean);
         const orConditions = [
           { ownerId: { $in: objectIdMemberIds } },
           { createdBy: { $in: objectIdMemberIds } }
         ];
-        if (verticals.some(v => v.toLowerCase() === 'paramount')) {
-          orConditions.push(
-            { businessVertical: new RegExp('^paramount$', 'i') },
-            { businessVertical: null },
-            { businessVertical: { $exists: false } },
-            { businessVertical: '' }
-          );
-        } else if (verticals.length > 0) {
-          orConditions.push({ businessVertical: { $in: verticals.map(v => new RegExp(`^${v.trim()}$`, 'i')) } });
-        }
         return { $or: orConditions };
       }
     }
   }
+
+  if (isAdmin) return {};
 
   const myTeams = await SalesTeam.find({
     $or: [
@@ -101,7 +80,6 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
   }).lean();
 
   let visibleUserIds = [objectIdUserId];
-  let visibleVerticals = [];
 
   if (myTeams && myTeams.length > 0) {
     myTeams.forEach(team => {
@@ -111,33 +89,15 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
       if (team.managerId) {
         visibleUserIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
       }
-      if (team.businessVertical) {
-        visibleVerticals.push(team.businessVertical.trim());
-      }
-      if (team.name) {
-        visibleVerticals.push(team.name.trim());
-      }
     });
   }
 
   const uniqueUserIds = [...new Map(visibleUserIds.map(id => [id.toString(), id])).values()];
-  const uniqueVerticals = [...new Set(visibleVerticals.filter(Boolean))];
 
   const orConditions = [
     { ownerId: { $in: uniqueUserIds } },
     { createdBy: { $in: uniqueUserIds } }
   ];
-
-  if (uniqueVerticals.length === 0 || uniqueVerticals.some(v => v.toLowerCase() === 'paramount')) {
-    orConditions.push(
-      { businessVertical: new RegExp('^paramount$', 'i') },
-      { businessVertical: null },
-      { businessVertical: { $exists: false } },
-      { businessVertical: '' }
-    );
-  } else {
-    orConditions.push({ businessVertical: { $in: uniqueVerticals.map(v => new RegExp(`^${v}$`, 'i')) } });
-  }
 
   return { $or: orConditions };
 }

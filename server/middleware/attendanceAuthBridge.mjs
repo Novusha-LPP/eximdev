@@ -88,12 +88,7 @@ const attendanceAuthBridge = async (req, res, next) => {
     const finalCompanyId = resolvedCompanyId || freshUser.company_id;
 
     if (!finalCompanyId) {
-      return res.status(403).json({ message: "Access Denied: Attendance module is restricted to RABS employees only (no company assigned)." });
-    }
-
-    const companyDoc = await Company.findById(finalCompanyId).lean();
-    if (!companyDoc || !/RABS/i.test(companyDoc.company_name)) {
-      return res.status(403).json({ message: "Access Denied: Attendance module is restricted to RABS employees only." });
+      return res.status(403).json({ message: "Access Denied: No company assigned to this user." });
     }
 
     // Map EXIM role to attendance role

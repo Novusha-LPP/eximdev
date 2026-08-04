@@ -1,5 +1,6 @@
 import express from "express";
 import UserModel from "../model/userModel.mjs";
+import Company from "../model/attendance/Company.js";
 
 const router = express.Router();
 
@@ -19,9 +20,11 @@ router.get("/api/get-all-users", async (req, res) => {
     query.username = { $ne: 'dev_master' };
   }
 
-  const users = await UserModel.find(query).select(
-    "username role _id first_name last_name isActive deactivatedAt modules isAttendanceAllowedAdmin is_operator category"
-  );
+  const users = await UserModel.find(query)
+    .select(
+      "username role _id first_name last_name isActive deactivatedAt modules isAttendanceAllowedAdmin is_operator category company company_id"
+    )
+    .populate("company_id", "company_name");
 
   res.send(users);
 });

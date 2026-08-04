@@ -741,7 +741,7 @@ export const punch = async (req, res) => {
         let autoClosedPreviousSession = false;
 
         const isRabs = company && /RABS/i.test(company.company_name);
-        const currentLimitHours = isRabs ? 24 : MISSED_PUNCH_LIMIT_HOURS;
+        const currentLimitHours = isRabs ? 24 : 18;
 
         if (type === 'IN' && activeSession) {
             const elapsedHours = now.diff(moment(activeSession.punch_in_time), 'hours', true);

@@ -196,7 +196,7 @@ class AttendanceEngine {
                 const hoursSinceLastPunch = lastOut ? now.diff(moment(lastOut.punch_time).tz(tz), 'hours') : 0;
                 const hoursSinceIn = lastInPunch ? now.diff(moment(lastInPunch.punch_time).tz(tz), 'hours', true) : 0;
                 const isGapTooLarge = !isRabs && isCurrentlyPunchedOut && hoursSinceLastPunch >= 4;
-                const currentLimitHours = isRabs ? 24 : MISSED_PUNCH_LIMIT_HOURS;
+                const currentLimitHours = isRabs ? 24 : 12;
                 const rabsStatusBypass = isRabs && lastInPunch && hoursSinceIn <= 24;
 
                 // Determine status based on cumulative work hours

@@ -444,7 +444,7 @@ app.use(
         "http://localhost:3002",
         "http://192.168.1.105:3000",
         "http://192.168.1.105:3001",
-        "http://192.168.2.31:3002",
+        "http://192.168.2.36:3002",
         "http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com",
         "https://import.alvision.in",
         "https://test-frontend.alvision.in",

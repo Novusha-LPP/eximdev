@@ -66,7 +66,6 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
         return `${day}.${m}.${y}`;
     };
 
-    // Load data
     const loadData = useCallback(async () => {
         try {
             setLoading(true);
@@ -90,10 +89,10 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
             if (isAdminOrHR) {
                 const userRes = await apiClient.get("/get-all-users");
                 if (Array.isArray(userRes.data)) {
-                    const rabsUsers = userRes.data.filter(u =>
-                        (u.company && /RABS/i.test(u.company)) ||
-                        (u.role && /admin|hr/i.test(u.role))
-                    );
+                    const rabsUsers = userRes.data.filter(u => {
+                        const compName = u.company || (u.company_id && u.company_id.company_name) || "";
+                        return /RABS/i.test(compName);
+                    });
                     setUsers(rabsUsers);
                 }
             }
@@ -164,13 +163,26 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
     };
 
     const handleSignClick = (dayNum, currentSig) => {
-        const initials = (user?.first_name ? user.first_name[0] : "") + (user?.last_name ? user.last_name[0] : "") || user?.username?.slice(0, 3) || "ADM";
-        const sigToSave = initials.toUpperCase();
+        const usernameSig = user?.username ? user.username.toUpperCase() : "ADMIN";
 
         if (currentSig) {
-            handleSignatureChange(dayNum, "");
+            setConfirmModal({
+                open: true,
+                message: `Are you sure you want to remove the signature for Day ${dayNum}?`,
+                onConfirm: () => {
+                    handleSignatureChange(dayNum, "");
+                    setConfirmModal({ open: false, message: "", onConfirm: null });
+                }
+            });
         } else {
-            handleSignatureChange(dayNum, sigToSave);
+            setConfirmModal({
+                open: true,
+                message: `Are you sure you want to sign for Day ${dayNum} as "${usernameSig}"?`,
+                onConfirm: () => {
+                    handleSignatureChange(dayNum, usernameSig);
+                    setConfirmModal({ open: false, message: "", onConfirm: null });
+                }
+            });
         }
     };
 
@@ -209,30 +221,40 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
         return sum;
     }, [scoresMap]);
 
-    // Category calculation helper
+    // Category calculation helper: count daily totals only when all items in this category are filled for that day
     const getCategoryScores = useCallback((category) => {
         let actual = 0;
         let max = 0;
 
-        category.items.forEach(item => {
-            const itemScores = scoresMap.get(item._id);
-            const itemActual = getItemTotalScore(item._id);
-            actual += itemActual;
+        if (!category.items || category.items.length === 0) {
+            return { actual, max };
+        }
 
-            if (itemScores) {
-                // Max is based on active filled columns
-                let activeDaysCount = 0;
-                itemScores.forEach((val) => {
-                    if (val !== undefined && val !== null) {
-                        activeDaysCount++;
-                    }
-                });
-                max += activeDaysCount * 2;
+        // Iterate through each day of the month
+        for (let d = 1; d <= daysInMonth; d++) {
+            let allFilled = true;
+            let daySum = 0;
+
+            for (let i = 0; i < category.items.length; i++) {
+                const item = category.items[i];
+                const itemScores = scoresMap.get(item._id);
+                const val = itemScores ? itemScores.get(String(d)) : undefined;
+
+                if (val === undefined || val === null || val === "") {
+                    allFilled = false;
+                    break;
+                }
+                daySum += Number(val);
             }
-        });
+
+            if (allFilled) {
+                actual += daySum;
+                max += category.items.length * 2;
+            }
+        }
 
         return { actual, max };
-    }, [scoresMap, getItemTotalScore]);
+    }, [scoresMap, daysInMonth]);
 
     // Grand total calculation helper
     const grandTotals = useMemo(() => {
@@ -809,18 +831,18 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
                                         </div>
                                         <div>
                                             <strong>ZONE RESP:</strong> {isAdminOrHR ? (
-                                                <select
-                                                    className="meta-inline-select"
-                                                    value={respPersonId}
-                                                    onChange={(e) => setRespPersonId(e.target.value)}
-                                                >
-                                                    <option value="">Select Employee</option>
-                                                    {users.map(u => (
-                                                        <option key={u._id} value={u._id}>
-                                                            {u.first_name ? `${u.first_name} ${u.last_name || ""}` : u.username}
-                                                        </option>
-                                                    ))}
-                                                </select>
+                                                <>
+                                                    <InlineSearchableSelect
+                                                        value={respPersonId}
+                                                        onChange={setRespPersonId}
+                                                        options={users.map(u => ({
+                                                            value: u._id,
+                                                            label: u.first_name ? `${u.first_name} ${u.last_name || ""}` : u.username
+                                                        }))}
+                                                        placeholder="Select Employee"
+                                                    />
+                                                    <span className="meta-value uppercase print-only">{respPersonName}</span>
+                                                </>
                                             ) : (
                                                 <span className="meta-value uppercase">{respPersonName}</span>
                                             )}
@@ -1048,10 +1070,13 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
                                         {/* Category Score summary row */}
                                         <tr className="cat-summary-row">
                                             <td colSpan="2" className="cat-summary-label">
-                                                {cat.name.split(" ")[0]} Score = Total = {catScores.max > 0 ? `${catScores.actual} / ${catScores.max}` : "0"}
+                                                {cat.name.split(" ")[0]} Score = Total
                                             </td>
-                                            <td colSpan={daysInMonth + 1} className="cat-summary-spacer">
+                                            <td colSpan={daysInMonth} className="cat-summary-spacer">
                                                 {/* empty block spacer */}
+                                            </td>
+                                            <td className="total-cell" style={{ fontWeight: "800", backgroundColor: "#cbd5e1" }}>
+                                                {catScores.actual}
                                             </td>
                                         </tr>
                                     </React.Fragment>
@@ -1086,6 +1111,13 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
                                                 className={`sig-click-box ${sigVal ? "signed" : ""}`}
                                                 onClick={() => handleSignClick(day, sigVal)}
                                                 title={sigVal ? `Signed by ${sigVal}. Click to clear.` : "Click to sign"}
+                                                style={{
+                                                    overflow: "hidden",
+                                                    textOverflow: "ellipsis",
+                                                    whiteSpace: "nowrap",
+                                                    fontSize: "9px",
+                                                    padding: "0 2px"
+                                                }}
                                             >
                                                 {sigVal || "—"}
                                             </div>
@@ -1104,21 +1136,6 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
                             <span><strong>2</strong> &gt;&gt; Awareness and system implement</span>
                             <span><strong>1</strong> &gt;&gt; Awareness only and system not implement</span>
                             <span><strong>0</strong> &gt;&gt; Awareness &amp; Requirement not implement</span>
-                        </div>
-
-                        <div className="overall-summary-box">
-                            <div className="overall-row">
-                                <span>Grand Actual Total:</span>
-                                <strong>{grandTotals.actual}</strong>
-                            </div>
-                            <div className="overall-row">
-                                <span>Grand Max Possible:</span>
-                                <strong>{grandTotals.max}</strong>
-                            </div>
-                            <div className="overall-row highlight">
-                                <span>Score Percentage:</span>
-                                <strong>{grandTotals.pct}%</strong>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -1150,6 +1167,126 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
                                 Yes, Proceed
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const InlineSearchableSelect = ({ value, onChange, options, placeholder, disabled }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [search, setSearch] = useState("");
+    const dropdownRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const selectedOption = options.find(o => o.value === value);
+
+    const filteredOptions = options.filter(o => 
+        o.label.toLowerCase().includes(search.toLowerCase())
+    );
+
+    return (
+        <div ref={dropdownRef} className="meta-inline-select-container no-print" style={{ position: "relative", display: "inline-block" }}>
+            <span 
+                onClick={() => !disabled && setIsOpen(!isOpen)}
+                className="meta-inline-select"
+                style={{
+                    cursor: disabled ? "not-allowed" : "pointer",
+                    display: "inline-block",
+                    minWidth: "120px",
+                }}
+            >
+                {selectedOption ? selectedOption.label : placeholder} ▾
+            </span>
+            {isOpen && (
+                <div style={{
+                    position: "absolute",
+                    top: "100%",
+                    left: 0,
+                    backgroundColor: "#ffffff",
+                    border: "1px solid #cbd5e1",
+                    borderRadius: "6px",
+                    boxShadow: "0 4px 12px rgba(15, 23, 42, 0.12)",
+                    zIndex: 1000,
+                    marginTop: "4px",
+                    maxHeight: "220px",
+                    minWidth: "200px",
+                    display: "flex",
+                    flexDirection: "column",
+                    textTransform: "none",
+                    fontWeight: "normal"
+                }}>
+                    <input 
+                        type="text"
+                        placeholder="Search employee..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        style={{
+                            border: "none",
+                            borderBottom: "1px solid #cbd5e1",
+                            padding: "6px 10px",
+                            fontSize: "12px",
+                            outline: "none",
+                            width: "100%",
+                            boxSizing: "border-box"
+                        }}
+                        autoFocus
+                    />
+                    <div style={{ overflowY: "auto", flex: 1, maxHeight: "150px" }}>
+                        <div 
+                            onClick={() => {
+                                onChange("");
+                                setIsOpen(false);
+                                setSearch("");
+                            }}
+                            style={{
+                                padding: "6px 10px",
+                                cursor: "pointer",
+                                fontSize: "12px",
+                                backgroundColor: value === "" ? "#f1f5f9" : "transparent",
+                                color: "#64748b",
+                                textAlign: "left"
+                            }}
+                        >
+                            {placeholder}
+                        </div>
+                        {filteredOptions.map(o => (
+                            <div 
+                                key={o.value}
+                                onClick={() => {
+                                    onChange(o.value);
+                                    setIsOpen(false);
+                                    setSearch("");
+                                }}
+                                style={{
+                                    padding: "6px 10px",
+                                    cursor: "pointer",
+                                    fontSize: "12px",
+                                    backgroundColor: value === o.value ? "#f1f5f9" : "transparent",
+                                    color: "#1e293b",
+                                    textAlign: "left"
+                                }}
+                                onMouseEnter={(e) => e.target.style.backgroundColor = "#f8fafc"}
+                                onMouseLeave={(e) => e.target.style.backgroundColor = value === o.value ? "#f1f5f9" : "transparent"}
+                            >
+                                {o.label}
+                            </div>
+                        ))}
+                        {filteredOptions.length === 0 && (
+                            <div style={{ padding: "6px 10px", fontSize: "12px", color: "#64748b" }}>
+                                No results found
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

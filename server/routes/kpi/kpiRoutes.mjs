@@ -11,6 +11,7 @@ import translate from "google-translate-api-x";
 import EmployeeKPI from "../../model/hr/employeeKPIModel.mjs";
 import AttendanceRecord from "../../model/attendance/AttendanceRecord.js";
 import moment from "moment";
+import fs from "fs";
 
 const router = express.Router();
 
@@ -1126,7 +1127,10 @@ router.put("/api/kpi/sheet/entry", verifyToken, auditMiddleware("KPI_Sheet"), as
 
     } catch (err) {
         console.error("PUT /api/kpi/sheet/entry ERROR:", err);
-        res.status(500).json({ message: "Server Error" });
+        try {
+            fs.appendFileSync('/home/aiserver/eximdev/server/scratch/err_log.txt', new Date().toISOString() + '\\n' + (err.stack || err.toString()) + '\\n\\n');
+        } catch(e) {}
+        res.status(500).json({ message: "Server Error: " + (err.stack || err.toString()) });
     }
 });
 

@@ -19,17 +19,16 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  IconButton,
   Button,
   Tabs,
   Tab,
   InputAdornment,
+  Chip,
 } from "@mui/material";
 import {
   Search,
   Download,
   Refresh,
-  DateRange,
   Timer,
   CheckCircle,
   HourglassEmpty,
@@ -39,6 +38,63 @@ import axios from "axios";
 import * as XLSX from "xlsx";
 import { useFetchYears } from "../../utils/useFetchYears";
 import { BranchContext } from "../../contexts/BranchContext";
+
+const statCards = [
+  {
+    key: "totalJobs",
+    title: "Billed Jobs",
+    description: "Total billed in period",
+    color: "#2563eb",
+    icon: CheckCircle,
+  },
+  {
+    key: "avgDeliveryToSent",
+    title: "Avg Delivery to Sent",
+    description: "Delivery to billing sent",
+    color: "#7c3aed",
+    icon: Timer,
+  },
+  {
+    key: "avgSentToConfirm",
+    title: "Avg Sent to Confirm",
+    description: "Billing sheet confirmation",
+    color: "#ea580c",
+    icon: HourglassEmpty,
+  },
+  {
+    key: "avgConfirmToBill",
+    title: "Avg Confirm to Billed",
+    description: "Bill generation date",
+    color: "#0f766e",
+    icon: CheckCircle,
+  },
+  {
+    key: "avgTotal",
+    title: "Avg Total TAT",
+    description: "Delivery to bill date",
+    color: "#0284c7",
+    icon: TrendingUp,
+  },
+];
+
+const tableHeadCellSx = {
+  color: "#475569",
+  fontSize: 12,
+  fontWeight: 800,
+  letterSpacing: "0.04em",
+  lineHeight: 1.2,
+  textTransform: "uppercase",
+  whiteSpace: "nowrap",
+  backgroundColor: "#f8fafc",
+  borderBottom: "1px solid #dbe3ef",
+};
+
+const tableBodyCellSx = {
+  color: "#334155",
+  fontSize: 13,
+  borderBottom: "1px solid #edf2f7",
+  verticalAlign: "top",
+};
 
 function BillingTATReport() {
   const [loading, setLoading] = useState(true);
@@ -154,6 +210,36 @@ function BillingTATReport() {
     return `${d}d ${h}h`;
   };
 
+  const getTatTone = (days) => {
+    if (days === null || days === undefined) {
+      return { bg: "#f8fafc", color: "#64748b", border: "#e2e8f0" };
+    }
+    if (days <= 1) return { bg: "#ecfdf5", color: "#047857", border: "#bbf7d0" };
+    if (days <= 3) return { bg: "#fff7ed", color: "#c2410c", border: "#fed7aa" };
+    return { bg: "#fef2f2", color: "#b91c1c", border: "#fecaca" };
+  };
+
+  const TatChip = ({ value, strong = false }) => {
+    const tone = getTatTone(value);
+    return (
+      <Chip
+        label={formatTATVal(value)}
+        size="small"
+        sx={{
+          minWidth: 68,
+          height: 26,
+          borderRadius: "6px",
+          border: `1px solid ${tone.border}`,
+          backgroundColor: tone.bg,
+          color: tone.color,
+          fontSize: 12,
+          fontWeight: strong ? 800 : 700,
+          "& .MuiChip-label": { px: 1 },
+        }}
+      />
+    );
+  };
+
   // Analytics calculations
   const calculateAverages = () => {
     const getAvgKey = (key) => {
@@ -207,15 +293,27 @@ function BillingTATReport() {
   };
 
   return (
-    <Box sx={{ p: 1 }}>
+    <Box sx={{ p: { xs: 1, md: 2 }, backgroundColor: "#f8fafc", minHeight: "calc(100vh - 84px)" }}>
       {/* Header and Controls */}
-      <Paper sx={{ p: 2, mb: 3 }} elevation={2}>
+      <Paper
+        elevation={0}
+        sx={{
+          p: { xs: 2, md: 2.5 },
+          mb: 3,
+          border: "1px solid #e2e8f0",
+          borderRadius: "8px",
+          boxShadow: "0 10px 30px rgba(15, 23, 42, 0.06)",
+        }}
+      >
         <Grid container spacing={2} alignItems="center" justifyContent="space-between">
           <Grid item xs={12} md={4}>
-            <Typography variant="h5" sx={{ fontWeight: "700", color: "#1e293b", mb: 0.5 }}>
+            <Typography variant="overline" sx={{ color: "#2563eb", fontWeight: 800, letterSpacing: "0.08em" }}>
+              Reports
+            </Typography>
+            <Typography variant="h5" sx={{ fontWeight: 800, color: "#0f172a", mb: 0.5, letterSpacing: 0 }}>
               Billing TAT Report
             </Typography>
-            <Typography variant="body2" sx={{ color: "#64748b" }}>
+            <Typography variant="body2" sx={{ color: "#64748b", maxWidth: 440 }}>
               Track turnaround times across the delivery, submission, and invoicing flow.
             </Typography>
           </Grid>
@@ -225,30 +323,57 @@ function BillingTATReport() {
             <Tabs
               value={reportType}
               onChange={(_, val) => setReportType(val)}
-              textColor="primary"
-              indicatorColor="primary"
+              TabIndicatorProps={{ sx: { display: "none" } }}
+              sx={{
+                minHeight: 40,
+                p: 0.5,
+                border: "1px solid #dbeafe",
+                borderRadius: "8px",
+                backgroundColor: "#eff6ff",
+                "& .MuiTab-root": {
+                  minHeight: 32,
+                  px: 2,
+                  borderRadius: "6px",
+                  color: "#475569",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  textTransform: "none",
+                },
+                "& .Mui-selected": {
+                  backgroundColor: "#ffffff",
+                  color: "#1d4ed8",
+                  boxShadow: "0 1px 4px rgba(37, 99, 235, 0.16)",
+                },
+              }}
             >
-              <Tab label="Monthly Report" value="monthly" sx={{ fontWeight: "600" }} />
-              <Tab label="Daily Report" value="daily" sx={{ fontWeight: "600" }} />
+              <Tab label="Monthly Report" value="monthly" />
+              <Tab label="Daily Report" value="daily" />
             </Tabs>
           </Grid>
 
-          <Grid item xs={12} md={4} sx={{ display: "flex", gap: 1, justifyContent: "flex-end" }}>
+          <Grid item xs={12} md={4} sx={{ display: "flex", gap: 1, justifyContent: { xs: "flex-start", md: "flex-end" }, flexWrap: "wrap" }}>
             <Button
               variant="outlined"
               color="primary"
               startIcon={<Refresh />}
               onClick={() => fetchTATData()}
               disabled={loading}
+              sx={{ borderRadius: "6px", fontWeight: 700, textTransform: "none" }}
             >
               Refresh
             </Button>
             <Button
               variant="contained"
-              color="success"
               startIcon={<Download />}
               onClick={handleExport}
               disabled={loading || filteredData.length === 0}
+              sx={{
+                borderRadius: "6px",
+                backgroundColor: "#0f766e",
+                fontWeight: 700,
+                textTransform: "none",
+                "&:hover": { backgroundColor: "#115e59" },
+              }}
             >
               Export Excel
             </Button>
@@ -256,7 +381,7 @@ function BillingTATReport() {
         </Grid>
 
         {/* Date Filter Inputs */}
-        <Box sx={{ mt: 3, pt: 2, borderTop: "1px solid #f1f5f9" }}>
+        <Box sx={{ mt: 3, pt: 2, borderTop: "1px solid #e2e8f0" }}>
           <Grid container spacing={2} alignItems="center">
             {reportType === "monthly" ? (
               <>
@@ -341,6 +466,7 @@ function BillingTATReport() {
                     </InputAdornment>
                   ),
                 }}
+                sx={{ "& .MuiOutlinedInput-root": { backgroundColor: "#ffffff" } }}
               />
             </Grid>
           </Grid>
@@ -350,105 +476,54 @@ function BillingTATReport() {
       {/* Analytics Summaries */}
       {!loading && !error && (
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          {/* Card 1: Billed Jobs */}
-          <Grid item xs={12} sm={6} md={2.4}>
-            <Card sx={{ borderLeft: "5px solid #6366f1", height: "100%" }}>
-              <CardContent sx={{ pb: "16px !important" }}>
-                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: "600" }}>
-                    Billed Jobs
-                  </Typography>
-                  <CheckCircle sx={{ color: "#6366f1", fontSize: 22 }} />
-                </Box>
-                <Typography variant="h4" sx={{ fontWeight: "700", color: "#1e293b" }}>
-                  {stats.totalJobs}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Total billed in period
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
+          {statCards.map((card) => {
+            const Icon = card.icon;
+            const value = card.key === "totalJobs" ? stats.totalJobs : formatTATVal(stats[card.key]);
 
-          {/* Card 2: Delivery -> Sent to Billing */}
-          <Grid item xs={12} sm={6} md={2.4}>
-            <Card sx={{ borderLeft: "5px solid #a855f7", height: "100%" }}>
-              <CardContent sx={{ pb: "16px !important" }}>
-                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: "600" }}>
-                    Avg Delivery → Sent
-                  </Typography>
-                  <Timer sx={{ color: "#a855f7", fontSize: 22 }} />
-                </Box>
-                <Typography variant="h4" sx={{ fontWeight: "700", color: "#1e293b" }}>
-                  {formatTATVal(stats.avgDeliveryToSent)}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Delivery to Billing Sent
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Card 3: Sent -> Confirm */}
-          <Grid item xs={12} sm={6} md={2.4}>
-            <Card sx={{ borderLeft: "5px solid #f97316", height: "100%" }}>
-              <CardContent sx={{ pb: "16px !important" }}>
-                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: "600" }}>
-                    Avg Sent → Confirm
-                  </Typography>
-                  <HourglassEmpty sx={{ color: "#f97316", fontSize: 22 }} />
-                </Box>
-                <Typography variant="h4" sx={{ fontWeight: "700", color: "#1e293b" }}>
-                  {formatTATVal(stats.avgSentToConfirm)}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Billing Sheet Confirmation
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Card 4: Confirm -> Billed */}
-          <Grid item xs={12} sm={6} md={2.4}>
-            <Card sx={{ borderLeft: "5px solid #14b8a6", height: "100%" }}>
-              <CardContent sx={{ pb: "16px !important" }}>
-                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: "600" }}>
-                    Avg Confirm → Billed
-                  </Typography>
-                  <CheckCircle sx={{ color: "#14b8a6", fontSize: 22 }} />
-                </Box>
-                <Typography variant="h4" sx={{ fontWeight: "700", color: "#1e293b" }}>
-                  {formatTATVal(stats.avgConfirmToBill)}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Bill Generation Date
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Card 5: Avg. Total TAT */}
-          <Grid item xs={12} sm={6} md={2.4}>
-            <Card sx={{ borderLeft: "5px solid #0ea5e9", height: "100%" }}>
-              <CardContent sx={{ pb: "16px !important" }}>
-                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
-                  <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: "600" }}>
-                    Avg Total TAT
-                  </Typography>
-                  <TrendingUp sx={{ color: "#0ea5e9", fontSize: 22 }} />
-                </Box>
-                <Typography variant="h4" sx={{ fontWeight: "700", color: "#1e293b" }}>
-                  {formatTATVal(stats.avgTotal)}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Delivery to Bill Date
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
+            return (
+              <Grid item xs={12} sm={6} md={2.4} key={card.key}>
+                <Card
+                  elevation={0}
+                  sx={{
+                    height: "100%",
+                    border: "1px solid #e2e8f0",
+                    borderTop: `4px solid ${card.color}`,
+                    borderRadius: "8px",
+                    boxShadow: "0 8px 24px rgba(15, 23, 42, 0.05)",
+                  }}
+                >
+                  <CardContent sx={{ p: 2, pb: "16px !important" }}>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 1, mb: 1.5 }}>
+                      <Typography variant="subtitle2" sx={{ color: "#475569", fontSize: 13, fontWeight: 800, lineHeight: 1.25 }}>
+                        {card.title}
+                      </Typography>
+                      <Box
+                        sx={{
+                          width: 34,
+                          height: 34,
+                          borderRadius: "8px",
+                          backgroundColor: `${card.color}14`,
+                          color: card.color,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          flex: "0 0 auto",
+                        }}
+                      >
+                        <Icon sx={{ fontSize: 20 }} />
+                      </Box>
+                    </Box>
+                    <Typography variant="h4" sx={{ color: "#0f172a", fontSize: { xs: 26, md: 28 }, fontWeight: 800, letterSpacing: 0, mb: 0.5 }}>
+                      {value}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600 }}>
+                      {card.description}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            );
+          })}
         </Grid>
       )}
 
@@ -464,46 +539,72 @@ function BillingTATReport() {
       ) : filteredData.length === 0 ? (
         <Alert severity="info">No billed jobs found for the selected filter criteria.</Alert>
       ) : (
-        <TableContainer component={Paper} elevation={1}>
-          <Table sx={{ minWidth: 650 }} size="small" aria-label="billing tat report table">
-            <TableHead sx={{ backgroundColor: "#f8fafc" }}>
+        <TableContainer
+          component={Paper}
+          elevation={0}
+          sx={{
+            border: "1px solid #e2e8f0",
+            borderRadius: "8px",
+            boxShadow: "0 10px 30px rgba(15, 23, 42, 0.06)",
+            maxHeight: "calc(100vh - 330px)",
+          }}
+        >
+          <Table stickyHeader sx={{ minWidth: 1180 }} size="small" aria-label="billing tat report table">
+            <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: "700", color: "#475569" }}>Job Number</TableCell>
-                <TableCell sx={{ fontWeight: "700", color: "#475569" }}>Importer Name</TableCell>
-                <TableCell sx={{ fontWeight: "700", color: "#475569" }}>Port / CFS</TableCell>
-                <TableCell sx={{ fontWeight: "700", color: "#475569" }}>Mode</TableCell>
-                <TableCell sx={{ fontWeight: "700", color: "#475569" }}>Delivered</TableCell>
-                <TableCell sx={{ fontWeight: "700", color: "#475569" }}>Sent to Billing</TableCell>
-                <TableCell sx={{ fontWeight: "700", color: "#475569" }}>Confirmed</TableCell>
-                <TableCell sx={{ fontWeight: "700", color: "#475569" }}>Billed Date</TableCell>
-                <TableCell sx={{ fontWeight: "700", color: "#475569" }}>Delivery → Sent</TableCell>
-                <TableCell sx={{ fontWeight: "700", color: "#475569" }}>Sent → Confirm</TableCell>
-                <TableCell sx={{ fontWeight: "700", color: "#475569" }}>Confirm → Billed</TableCell>
-                <TableCell sx={{ fontWeight: "700", color: "#475569" }}>Total TAT</TableCell>
+                <TableCell sx={tableHeadCellSx}>Job Number</TableCell>
+                <TableCell sx={tableHeadCellSx}>Importer Name</TableCell>
+                <TableCell sx={tableHeadCellSx}>Port / CFS</TableCell>
+                <TableCell sx={tableHeadCellSx}>Mode</TableCell>
+                <TableCell sx={tableHeadCellSx}>Delivered</TableCell>
+                <TableCell sx={tableHeadCellSx}>Sent to Billing</TableCell>
+                <TableCell sx={tableHeadCellSx}>Confirmed</TableCell>
+                <TableCell sx={tableHeadCellSx}>Billed Date</TableCell>
+                <TableCell sx={tableHeadCellSx}>Delivery to Sent</TableCell>
+                <TableCell sx={tableHeadCellSx}>Sent to Confirm</TableCell>
+                <TableCell sx={tableHeadCellSx}>Confirm to Billed</TableCell>
+                <TableCell sx={tableHeadCellSx}>Total TAT</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {filteredData.map((row, idx) => (
                 <TableRow
                   key={row.job_no || idx}
-                  sx={{ "&:last-child td, &:last-child th": { border: 0 }, "&:hover": { backgroundColor: "#f8fafc" } }}
+                  sx={{
+                    backgroundColor: idx % 2 === 0 ? "#ffffff" : "#fbfdff",
+                    "&:last-child td, &:last-child th": { border: 0 },
+                    "&:hover": { backgroundColor: "#eff6ff" },
+                  }}
                 >
-                  <TableCell component="th" scope="row" sx={{ fontWeight: "600" }}>
+                  <TableCell component="th" scope="row" sx={{ ...tableBodyCellSx, color: "#1d4ed8", fontWeight: 800, whiteSpace: "nowrap" }}>
                     {row.job_number || row.job_no}
                   </TableCell>
-                  <TableCell>{row.importer}</TableCell>
-                  <TableCell>{row.custom_house}</TableCell>
-                  <TableCell>{row.mode}</TableCell>
-                  <TableCell sx={{ color: "#334155" }}>{row.deliveryDate || "-"}</TableCell>
-                  <TableCell sx={{ color: "#334155" }}>{row.sentToBillingDate || "-"}</TableCell>
-                  <TableCell sx={{ color: "#334155" }}>{row.billingConfirmationDate || "-"}</TableCell>
-                  <TableCell sx={{ color: "#334155", fontWeight: "600" }}>{row.billDate || "-"}</TableCell>
+                  <TableCell sx={{ ...tableBodyCellSx, minWidth: 220, fontWeight: 600 }}>{row.importer || "-"}</TableCell>
+                  <TableCell sx={{ ...tableBodyCellSx, minWidth: 150 }}>{row.custom_house || "-"}</TableCell>
+                  <TableCell sx={tableBodyCellSx}>
+                    <Chip
+                      label={row.mode || "-"}
+                      size="small"
+                      sx={{
+                        height: 24,
+                        borderRadius: "6px",
+                        backgroundColor: "#eef2ff",
+                        color: "#3730a3",
+                        fontSize: 12,
+                        fontWeight: 700,
+                      }}
+                    />
+                  </TableCell>
+                  <TableCell sx={{ ...tableBodyCellSx, whiteSpace: "nowrap" }}>{row.deliveryDate || "-"}</TableCell>
+                  <TableCell sx={{ ...tableBodyCellSx, whiteSpace: "nowrap" }}>{row.sentToBillingDate || "-"}</TableCell>
+                  <TableCell sx={{ ...tableBodyCellSx, whiteSpace: "nowrap" }}>{row.billingConfirmationDate || "-"}</TableCell>
+                  <TableCell sx={{ ...tableBodyCellSx, color: "#0f172a", fontWeight: 800, whiteSpace: "nowrap" }}>{row.billDate || "-"}</TableCell>
 
                   {/* TAT columns */}
-                  <TableCell sx={{ color: "#475569" }}>{formatTATVal(row.tatDeliveryToSent)}</TableCell>
-                  <TableCell sx={{ color: "#475569" }}>{formatTATVal(row.tatSentToConfirm)}</TableCell>
-                  <TableCell sx={{ color: "#475569" }}>{formatTATVal(row.tatConfirmToBill)}</TableCell>
-                  <TableCell sx={{ color: "#0ea5e9", fontWeight: "700" }}>{formatTATVal(row.totalTat)}</TableCell>
+                  <TableCell sx={tableBodyCellSx}><TatChip value={row.tatDeliveryToSent} /></TableCell>
+                  <TableCell sx={tableBodyCellSx}><TatChip value={row.tatSentToConfirm} /></TableCell>
+                  <TableCell sx={tableBodyCellSx}><TatChip value={row.tatConfirmToBill} /></TableCell>
+                  <TableCell sx={tableBodyCellSx}><TatChip value={row.totalTat} strong /></TableCell>
                 </TableRow>
               ))}
             </TableBody>

@@ -4,6 +4,7 @@ import React, {
   useContext,
   useState,
   useCallback,
+  useMemo,
 } from "react";
 import { UserContext } from "../../contexts/UserContext";
 
@@ -129,6 +130,12 @@ function MarketIntelligence() {
   const [iframeState, setIframeState] = useState("loading"); // loading | ready | error
   const [isVisible, setIsVisible] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
+
+  // ─── Compute initial iframe source based on hash ──────────────
+  const iframeSrc = useMemo(() => {
+    const hash = window.location.hash.replace('#', '');
+    return hash ? `${MI_FRONTEND_URL}${hash}` : MI_FRONTEND_URL;
+  }, []);
 
   // ─── Lazy Load: Only mount iframe when component is visible ──
   useEffect(() => {
@@ -258,7 +265,7 @@ function MarketIntelligence() {
         <iframe
           key={retryKey}
           ref={iframeRef}
-          src={MI_FRONTEND_URL}
+          src={iframeSrc}
           title="Market Intelligence - Mystique"
           onLoad={handleIframeLoad}
           onError={handleIframeError}

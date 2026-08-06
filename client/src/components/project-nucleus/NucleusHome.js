@@ -12,10 +12,6 @@ import Top10ImportersReport from './reports/Top10ImportersReport';
 import Top10TransportersReport from './reports/Top10TransportersReport';
 import FleetUtilizationReport from './reports/FleetUtilizationReport';
 import ElockLrCompletedReport from './reports/ElockLrCompletedReport';
-import CustomerUdyamReport from './reports/CustomerUdyamReport';
-import CustomerTrainingReport from './reports/CustomerTrainingReport';
-import ClientLoginAnalyticsReport from './reports/ClientLoginAnalyticsReport';
-import NewCustomersReport from './reports/NewCustomersReport';
 import ElockUtilizationReport from './reports/ElockUtilizationReport';
 import ElockAssignedCountReport from './reports/ElockAssignedCountReport';
 import ElockBillingReport from './reports/ElockBillingReport';
@@ -57,17 +53,6 @@ const NucleusHome = () => {
                 { id: 'transport_table', label: 'Top 10 Transporters' },
                 { id: 'fleet_utilization', label: 'Fleet Utilization' },
                 { id: 'elock_lr_completed', label: 'LR Completed Count' }
-            ]
-        },
-        {
-            id: 'business',
-            label: 'Business',
-            icon: '💼',
-            reports: [
-                { id: 'udyam', label: 'Customer UDYAM Registration' },
-                { id: 'training', label: 'Customer Training Records' },
-                { id: 'client_login_analytics', label: 'Client User Login Analytics' },
-                { id: 'new_customers', label: 'New Customer Added / KYC Report' }
             ]
         },
         { id: 'sharanga', label: 'Sharanga', icon: '🕉️', reports: [] },
@@ -216,14 +201,6 @@ const NucleusHome = () => {
                         selectedFinancialYear={selectedFinancialYear}
                     />
                 );
-            case 'udyam':
-                return <CustomerUdyamReport />;
-            case 'training':
-                return <CustomerTrainingReport />;
-            case 'client_login_analytics':
-                return <ClientLoginAnalyticsReport />;
-            case 'new_customers':
-                return <NewCustomersReport />;
             case 'export_pulse':
                 return <ExportPulseReport />;
             case 'transport_table':
@@ -355,8 +332,8 @@ const NucleusHome = () => {
         }
     };
 
-    // Determine if date controls are needed (udyam, training, client login analytics, new_customers don't need them)
-    const showDateControls = !['udyam', 'training', 'client_login_analytics', 'new_customers', 'export_pulse', 'import_pending_summary'].includes(activeReport);
+    // Determine if date controls are needed (export_pulse, import_pending_summary don't need them)
+    const showDateControls = !['export_pulse', 'import_pending_summary'].includes(activeReport);
 
     return (
         <div className="nucleus-layout">

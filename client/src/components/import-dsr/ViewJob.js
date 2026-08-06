@@ -552,7 +552,7 @@ function JobDetails() {
         `${process.env.REACT_APP_API_STRING}/scmCube/sync-imexcube-job`,
         { job_number: jobNumber }
       );
-      
+
       if (res.data?.success) {
         setImexcubeDetailsDialogOpen(false);
         setImexcubeSnackbar({
@@ -850,12 +850,12 @@ function JobDetails() {
           const insEx = parseFloat(row.insurance_exchange_rate) || 1;
           const oth = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
           const othEx = parseFloat(row.misc_exchange_rate !== undefined ? row.misc_exchange_rate : row.other_charges_exchange_rate) || 1;
-          
+
           const pvInr = (pv * pvEx) / getUnitForCurrency(row.inv_currency);
           const frInr = (fr * frEx) / getUnitForCurrency(row.freight_currency);
           const insInr = (ins * insEx) / getUnitForCurrency(row.insurance_currency);
           const othInr = (oth * othEx) / getUnitForCurrency(row.misc_currency !== undefined ? row.misc_currency : row.other_charges_currency);
-          
+
           return sum + (pvInr + frInr + insInr + othInr);
         }, 0);
       } else {
@@ -871,7 +871,7 @@ function JobDetails() {
       const exrateVal = parseFloat(formik.values.other_charges_details?.addl_charge?.exchange_rate) || 1;
       const hssUnit = getUnitForCurrency(formik.values.other_charges_details?.addl_charge?.currency);
       const expectedAmount = ((baseCifInr * rateNum) / 100) / (exrateVal / hssUnit);
-      
+
       const currentAmount = parseFloat(formik.values.other_charges_details?.addl_charge?.amount) || 0;
       if (Math.abs(currentAmount - expectedAmount) > 0.01) {
         formik.setFieldValue("other_charges_details.addl_charge.amount", expectedAmount > 0 ? expectedAmount.toFixed(2) : "");
@@ -1640,7 +1640,7 @@ function JobDetails() {
     if (["misc", "other_charges", "misc_currency", "other_charges_currency", "misc_exchange_rate", "other_charges_exchange_rate"].includes(field)) {
       const totalMiscAmount = updatedRows.reduce((sum, r) => sum + (parseFloat(r.misc || r.other_charges) || 0), 0);
       formik.setFieldValue("other_charges_details.miscellaneous.amount", totalMiscAmount > 0 ? totalMiscAmount.toFixed(2) : "");
-      
+
       const currency = updatedRows[rowIndex].misc_currency || updatedRows[rowIndex].other_charges_currency || "USD";
       const exchange_rate = updatedRows[rowIndex].misc_exchange_rate || updatedRows[rowIndex].other_charges_exchange_rate || "";
       formik.setFieldValue("other_charges_details.miscellaneous.currency", currency);
@@ -1655,10 +1655,10 @@ function JobDetails() {
         const pvEx = parseFloat(r.exchange_rate) || parseFloat(formik.values.exrate) || 1;
         const oth = parseFloat(r.misc || r.other_charges) || 0;
         const othEx = parseFloat(r.misc_exchange_rate || r.other_charges_exchange_rate) || 1;
-        
+
         const pvInr = (pv * pvEx) / getUnitForCurrency(r.inv_currency);
         const othInr = (oth * othEx) / getUnitForCurrency(r.misc_currency || r.other_charges_currency);
-        
+
         return sum + (pvInr + othInr);
       }, 0);
 
@@ -1923,10 +1923,10 @@ function JobDetails() {
           const pvEx = parseFloat(r.exchange_rate) || parseFloat(formik.values.exrate) || 1;
           const oth = parseFloat(r.misc !== undefined ? r.misc : r.other_charges) || 0;
           const othEx = parseFloat(r.misc_exchange_rate !== undefined ? r.misc_exchange_rate : r.other_charges_exchange_rate) || 1;
-          
+
           const pvInr = (pv * pvEx) / getUnitForCurrency(r.inv_currency);
           const othInr = (oth * othEx) / getUnitForCurrency(r.misc_currency !== undefined ? r.misc_currency : r.other_charges_currency);
-          
+
           return sum + (pvInr + othInr);
         }, 0);
       }
@@ -1961,7 +1961,7 @@ function JobDetails() {
       const rateNum = parseFloat(rateValue) || 0;
       const exrateVal = parseFloat(formik.values.other_charges_details?.addl_charge?.exchange_rate) || 1;
       const hssUnit = getUnitForCurrency(formik.values.other_charges_details?.addl_charge?.currency);
-      
+
       let baseCifInr = 0;
       if (invoiceRows && invoiceRows.length > 0) {
         baseCifInr = invoiceRows.reduce((sum, r) => {
@@ -1973,12 +1973,12 @@ function JobDetails() {
           const insEx = parseFloat(r.insurance_exchange_rate) || 1;
           const oth = parseFloat(r.misc !== undefined ? r.misc : r.other_charges) || 0;
           const othEx = parseFloat(r.misc_exchange_rate !== undefined ? r.misc_exchange_rate : r.other_charges_exchange_rate) || 1;
-          
+
           const pvInr = (pv * pvEx) / getUnitForCurrency(r.inv_currency);
           const frInr = (fr * frEx) / getUnitForCurrency(r.freight_currency);
           const insInr = (ins * insEx) / getUnitForCurrency(r.insurance_currency);
           const othInr = (oth * othEx) / getUnitForCurrency(r.misc_currency !== undefined ? r.misc_currency : r.other_charges_currency);
-          
+
           return sum + (pvInr + frInr + insInr + othInr);
         }, 0);
       } else {
@@ -2012,7 +2012,7 @@ function JobDetails() {
 
         if (row.toi === "FOB") {
           newFreight = baseVal > 0 ? (baseVal * (fRate / 100)).toFixed(2) : "";
-          
+
           if (baseVal > 0) {
             const baseInsurance = baseVal * (iRate / 100);
             const invCurr = row.inv_currency || "";
@@ -2097,14 +2097,14 @@ function JobDetails() {
           const pvEx = parseFloat(r.exchange_rate) || parseFloat(formik.values.exrate) || 1;
           const oth = parseFloat(r.misc !== undefined ? r.misc : r.other_charges) || 0;
           const othEx = parseFloat(r.misc_exchange_rate !== undefined ? r.misc_exchange_rate : r.other_charges_exchange_rate) || 1;
-          
+
           const pvInr = (pv * pvEx) / getUnitForCurrency(r.inv_currency);
           const othInr = (oth * othEx) / getUnitForCurrency(r.misc_currency !== undefined ? r.misc_currency : r.other_charges_currency);
-          
+
           return sum + (pvInr + othInr);
         }, 0);
       }
-      
+
       const calculatedRate = totalBaseValInr > 0 ? (amtInr / totalBaseValInr) * 100 : 0;
       formik.setFieldValue(`other_charges_details.miscellaneous.rate`, calculatedRate > 0 ? calculatedRate.toFixed(4) : "");
 
@@ -2146,12 +2146,12 @@ function JobDetails() {
           const insEx = parseFloat(r.insurance_exchange_rate) || 1;
           const oth = parseFloat(r.misc !== undefined ? r.misc : r.other_charges) || 0;
           const othEx = parseFloat(r.misc_exchange_rate !== undefined ? r.misc_exchange_rate : r.other_charges_exchange_rate) || 1;
-          
+
           const pvInr = (pv * pvEx) / getUnitForCurrency(r.inv_currency);
           const frInr = (fr * frEx) / getUnitForCurrency(r.freight_currency);
           const insInr = (ins * insEx) / getUnitForCurrency(r.insurance_currency);
           const othInr = (oth * othEx) / getUnitForCurrency(r.misc_currency !== undefined ? r.misc_currency : r.other_charges_currency);
-          
+
           return sum + (pvInr + frInr + insInr + othInr);
         }, 0);
       } else {
@@ -2178,14 +2178,14 @@ function JobDetails() {
           const pvEx = parseFloat(r.exchange_rate) || parseFloat(formik.values.exrate) || 1;
           const oth = parseFloat(r.misc !== undefined ? r.misc : r.other_charges) || 0;
           const othEx = parseFloat(r.misc_exchange_rate !== undefined ? r.misc_exchange_rate : r.other_charges_exchange_rate) || 1;
-          
+
           const pvInr = (pv * pvEx) / getUnitForCurrency(r.inv_currency);
           const othInr = (oth * othEx) / getUnitForCurrency(r.misc_currency !== undefined ? r.misc_currency : r.other_charges_currency);
-          
+
           return sum + (pvInr + othInr);
         }, 0);
       }
-      
+
       const calculatedRate = totalBaseValInr > 0 ? (amtInr / totalBaseValInr) * 100 : 0;
       formik.setFieldValue(`other_charges_details.${chargeId}.rate`, calculatedRate > 0 ? calculatedRate.toFixed(4) : "");
 
@@ -2206,7 +2206,7 @@ function JobDetails() {
 
           if (row.toi === "FOB") {
             newFreight = baseVal > 0 ? (baseVal * (fRate / 100)).toFixed(2) : "";
-            
+
             if (baseVal > 0) {
               const baseInsurance = baseVal * (iRate / 100);
               const invCurr = row.inv_currency || "";
@@ -2842,15 +2842,15 @@ function JobDetails() {
                           >
                             {formik.values.billing_confirmation_date
                               ? new Date(
-                                  formik.values.billing_confirmation_date
-                                ).toLocaleString("en-US", {
-                                  timeZone: "Asia/Kolkata",
-                                  month: "short",
-                                  day: "2-digit",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                  hour12: true,
-                                })
+                                formik.values.billing_confirmation_date
+                              ).toLocaleString("en-US", {
+                                timeZone: "Asia/Kolkata",
+                                month: "short",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                hour12: true,
+                              })
                               : "Pending"}
                           </span>
                         </div>
@@ -2866,8 +2866,8 @@ function JobDetails() {
                               value={
                                 formik.values.billing_confirmation_date
                                   ? formatDateForInput(
-                                      formik.values.billing_confirmation_date
-                                    )
+                                    formik.values.billing_confirmation_date
+                                  )
                                   : ""
                               }
                               onChange={(e) =>
@@ -3240,45 +3240,45 @@ function JobDetails() {
                     <Col xs={12} md={2} lg={2} className="mb-3">
                       <label style={{ display: "block", marginBottom: "4px", fontSize: "0.9rem", fontWeight: "600", color: "#000000" }}>HSS</label>
                       <TextField fullWidth select size="small" variant="outlined" id="hss" name="hss"
-                        disabled={user?.role !== "Admin" && isSubmissionDate} value={formik.values.hss || "No"} 
+                        disabled={user?.role !== "Admin" && isSubmissionDate} value={formik.values.hss || "No"}
                         onChange={(e) => {
                           const val = e.target.value;
                           formik.setFieldValue("hss", val);
                           if (val === "Yes") {
                             const currentRate = parseFloat(formik.values.other_charges_details?.addl_charge?.rate) || 0;
                             const rateToSet = currentRate < 2 ? 2 : currentRate;
-                            
-                             let baseCifInr = 0;
-                             if (formik.values.invoice_details && formik.values.invoice_details.length > 0) {
-                               baseCifInr = formik.values.invoice_details.reduce((sum, row) => {
-                                 const pv = parseFloat(row.product_value) || 0;
-                                 const pvEx = parseFloat(row.exchange_rate) || parseFloat(formik.values.exrate) || 1;
-                                 const fr = parseFloat(row.freight) || 0;
-                                 const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(formik.values.exrate) || 1;
-                                 const ins = parseFloat(row.insurance) || 0;
-                                 const insEx = parseFloat(row.insurance_exchange_rate) || 1;
-                                 const oth = parseFloat(row.other_charges) || 0;
-                                 const othEx = parseFloat(row.other_charges_exchange_rate) || 1;
-                                 
-                                 const pvInr = (pv * pvEx) / getUnitForCurrency(row.inv_currency);
-                                 const frInr = (fr * frEx) / getUnitForCurrency(row.freight_currency);
-                                 const insInr = (ins * insEx) / getUnitForCurrency(row.insurance_currency);
-                                 const othInr = (oth * othEx) / getUnitForCurrency(row.other_charges_currency);
-                                 
-                                 return sum + (pvInr + frInr + insInr + othInr);
-                               }, 0);
-                             } else {
-                               baseCifInr = parseFloat(formik.values.cif_amount || formik.values.cifValue) || 0;
-                             }
-                             if (baseCifInr < 0) baseCifInr = 0;
 
-                             const exrateVal = parseFloat(formik.values.other_charges_details?.addl_charge?.exchange_rate) || 1;
-                             const hssUnit = getUnitForCurrency(formik.values.other_charges_details?.addl_charge?.currency);
-                             const minAmount = (baseCifInr * (rateToSet / 100)) / (exrateVal / hssUnit);
-                             formik.setFieldValue("other_charges_details.addl_charge.rate", rateToSet);
-                             formik.setFieldValue("other_charges_details.addl_charge.amount", minAmount > 0 ? minAmount.toFixed(2) : "0.00");
+                            let baseCifInr = 0;
+                            if (formik.values.invoice_details && formik.values.invoice_details.length > 0) {
+                              baseCifInr = formik.values.invoice_details.reduce((sum, row) => {
+                                const pv = parseFloat(row.product_value) || 0;
+                                const pvEx = parseFloat(row.exchange_rate) || parseFloat(formik.values.exrate) || 1;
+                                const fr = parseFloat(row.freight) || 0;
+                                const frEx = parseFloat(row.freight_exchange_rate) || parseFloat(formik.values.exrate) || 1;
+                                const ins = parseFloat(row.insurance) || 0;
+                                const insEx = parseFloat(row.insurance_exchange_rate) || 1;
+                                const oth = parseFloat(row.other_charges) || 0;
+                                const othEx = parseFloat(row.other_charges_exchange_rate) || 1;
+
+                                const pvInr = (pv * pvEx) / getUnitForCurrency(row.inv_currency);
+                                const frInr = (fr * frEx) / getUnitForCurrency(row.freight_currency);
+                                const insInr = (ins * insEx) / getUnitForCurrency(row.insurance_currency);
+                                const othInr = (oth * othEx) / getUnitForCurrency(row.other_charges_currency);
+
+                                return sum + (pvInr + frInr + insInr + othInr);
+                              }, 0);
+                            } else {
+                              baseCifInr = parseFloat(formik.values.cif_amount || formik.values.cifValue) || 0;
+                            }
+                            if (baseCifInr < 0) baseCifInr = 0;
+
+                            const exrateVal = parseFloat(formik.values.other_charges_details?.addl_charge?.exchange_rate) || 1;
+                            const hssUnit = getUnitForCurrency(formik.values.other_charges_details?.addl_charge?.currency);
+                            const minAmount = (baseCifInr * (rateToSet / 100)) / (exrateVal / hssUnit);
+                            formik.setFieldValue("other_charges_details.addl_charge.rate", rateToSet);
+                            formik.setFieldValue("other_charges_details.addl_charge.amount", minAmount > 0 ? minAmount.toFixed(2) : "0.00");
                           }
-                        }} 
+                        }}
                         sx={compactInputSx}>
                         <MenuItem value="Yes">Yes</MenuItem>
                         <MenuItem value="No">No</MenuItem>
@@ -3898,25 +3898,25 @@ function JobDetails() {
                                 const pv = parseFloat(row.product_value) || 0;
                                 const baseInsurance = pv * 0.01125;
                                 const newInsurance = (baseInsurance * exrateNum).toFixed(2);
-                                
+
                                 // Recalculate row's total invoice value too
                                 const frt = parseFloat(row.freight) || 0;
                                 const ins = parseFloat(newInsurance) || 0;
                                 const other = parseFloat(row.other_charges) || 0;
-                                
+
                                 // Exchange rates for summing
                                 const invEx = exrateNum || 1;
                                 const frEx = parseFloat(row.freight_exchange_rate || exrateNum || 1) || 1;
                                 const insEx = parseFloat(row.insurance_exchange_rate || 1) || 1;
                                 const othEx = parseFloat(row.other_charges_exchange_rate || 1) || 1;
-                                
+
                                 const prodInInv = pv;
                                 const frtInInv = (frt * frEx) / invEx;
                                 const insInInv = (ins * insEx) / invEx;
                                 const othInInv = (other * othEx) / invEx;
-                                
+
                                 const total = (prodInInv + frtInInv + insInInv + othInInv).toFixed(2);
-                                
+
                                 return {
                                   ...row,
                                   insurance: newInsurance,
@@ -4344,18 +4344,18 @@ function JobDetails() {
                                       const insEx = parseFloat(row.insurance_exchange_rate) || 1;
                                       const oth = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
                                       const othEx = parseFloat(row.misc_exchange_rate !== undefined ? row.misc_exchange_rate : row.other_charges_exchange_rate) || 1;
-                                      
-                                      const rowCifBase = ((pv * pvEx) / getUnitForCurrency(row.inv_currency)) + 
-                                                         ((fr * frEx) / getUnitForCurrency(row.freight_currency)) + 
-                                                         ((ins * insEx) / getUnitForCurrency(row.insurance_currency)) + 
-                                                         ((oth * othEx) / getUnitForCurrency(row.misc_currency !== undefined ? row.misc_currency : row.other_charges_currency));
-                                      
+
+                                      const rowCifBase = ((pv * pvEx) / getUnitForCurrency(row.inv_currency)) +
+                                        ((fr * frEx) / getUnitForCurrency(row.freight_currency)) +
+                                        ((ins * insEx) / getUnitForCurrency(row.insurance_currency)) +
+                                        ((oth * othEx) / getUnitForCurrency(row.misc_currency !== undefined ? row.misc_currency : row.other_charges_currency));
+
                                       let hssRowShare = 0;
                                       if (formik.values.hss === "Yes") {
                                         const totalHssAmt = parseFloat(formik.values.other_charges_details?.addl_charge?.amount) || 0;
                                         const hssEx = parseFloat(formik.values.other_charges_details?.addl_charge?.exchange_rate) || 1;
                                         const totalHssInr = (totalHssAmt * hssEx) / getUnitForCurrency(formik.values.other_charges_details?.addl_charge?.currency);
-                                        
+
                                         const totalCifBase = invoiceRows.reduce((sum, r) => {
                                           const rpv = parseFloat(r.product_value) || 0;
                                           const rpvEx = parseFloat(r.exchange_rate) || parseFloat(formik.values.exrate) || 1;
@@ -4365,22 +4365,22 @@ function JobDetails() {
                                           const rinsEx = parseFloat(r.insurance_exchange_rate) || 1;
                                           const roth = parseFloat(r.misc !== undefined ? r.misc : r.other_charges) || 0;
                                           const rothEx = parseFloat(r.misc_exchange_rate !== undefined ? r.misc_exchange_rate : r.other_charges_exchange_rate) || 1;
-                                          
+
                                           const rpvInr = (rpv * rpvEx) / getUnitForCurrency(r.inv_currency);
                                           const rfrInr = (rfr * rfrEx) / getUnitForCurrency(r.freight_currency);
                                           const rinsInr = (rins * rinsEx) / getUnitForCurrency(r.insurance_currency);
                                           const rothInr = (roth * rothEx) / getUnitForCurrency(roth.misc_currency !== undefined ? roth.misc_currency : roth.other_charges_currency);
-                                          
+
                                           return sum + (rpvInr + rfrInr + rinsInr + rothInr);
                                         }, 0);
-                                        
+
                                         if (totalCifBase > 0) {
                                           hssRowShare = totalHssInr * (rowCifBase / totalCifBase);
                                         } else {
                                           hssRowShare = totalHssInr / invoiceRows.length;
                                         }
                                       }
-                                      
+
                                       return (rowCifBase + hssRowShare).toFixed(2);
                                     })()}
                                     InputProps={{ readOnly: true }}
@@ -4561,12 +4561,12 @@ function JobDetails() {
                                           const insEx = parseFloat(row.insurance_exchange_rate) || 1;
                                           const oth = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
                                           const othEx = parseFloat(row.misc_exchange_rate !== undefined ? row.misc_exchange_rate : row.other_charges_exchange_rate) || 1;
-                                          
+
                                           const pvInr = (pv * pvEx) / getUnitForCurrency(row.inv_currency);
                                           const frInr = (fr * frEx) / getUnitForCurrency(row.freight_currency);
                                           const insInr = (ins * insEx) / getUnitForCurrency(row.insurance_currency);
                                           const othInr = (oth * othEx) / getUnitForCurrency(row.misc_currency !== undefined ? row.misc_currency : row.other_charges_currency);
-                                          
+
                                           return sum + (pvInr + frInr + insInr + othInr);
                                         }, 0);
                                       } else {
@@ -4611,12 +4611,12 @@ function JobDetails() {
                                         const insEx = parseFloat(row.insurance_exchange_rate) || 1;
                                         const oth = parseFloat(row.misc !== undefined ? row.misc : row.other_charges) || 0;
                                         const othEx = parseFloat(row.misc_exchange_rate !== undefined ? row.misc_exchange_rate : row.other_charges_exchange_rate) || 1;
-                                        
+
                                         const pvInr = (pv * pvEx) / getUnitForCurrency(row.inv_currency);
                                         const frInr = (fr * frEx) / getUnitForCurrency(row.freight_currency);
                                         const insInr = (ins * insEx) / getUnitForCurrency(row.insurance_currency);
                                         const othInr = (oth * othEx) / getUnitForCurrency(row.misc_currency !== undefined ? row.misc_currency : row.other_charges_currency);
-                                        
+
                                         return sum + (pvInr + frInr + insInr + othInr);
                                       }, 0);
                                     } else {
@@ -5045,10 +5045,15 @@ function JobDetails() {
                             { label: "Unit Price", width: "100px", align: "left" },
                             { label: "Currency", width: "90px", align: "left" },
                             { label: "Amount", width: "115px", align: "left" },
-                            { label: "License No", width: "180px", align: "left" },
-                            { label: "License Date", width: "120px", align: "left" },
-                            { label: "License SR", width: "90px", align: "left" },
-                            { label: "RODTEP", width: "180px", align: "left" },
+                            { label: "Clearance Under", width: "140px", align: "left" },
+                            ...((formik.values.clearanceValue !== "Full Duty" && formik.values.clearanceValue !== "RODTEP") ? [
+                              { label: "License No", width: "180px", align: "left" },
+                              { label: "License Date", width: "120px", align: "left" },
+                              { label: "License SR", width: "90px", align: "left" }
+                            ] : []),
+                            ...((formik.values.clearanceValue === "RODTEP") ? [
+                              { label: "RODTEP", width: "180px", align: "left" }
+                            ] : []),
                             { label: "Action", width: "50px", align: "center" }
                           ].map((col) => (
                             <th
@@ -5355,170 +5360,207 @@ function JobDetails() {
                                 sx={compactInputSx}
                               />
                             </td>
-                            {/* License No */}
-                            <td style={{ padding: "8px 6px", width: "180px", verticalAlign: "middle" }}>
-                              <Autocomplete
-                                size="small"
-                                fullWidth
-                                freeSolo
-                                options={authorizationsList.map((auth) => auth.authorization_no)}
-                                value={row.sr_no_lic || row.license_no || ""}
-                                onChange={async (e, newValue) => {
-                                  if (newValue) {
-                                    const selectedAuth = authorizationsList.find(a => a.authorization_no === newValue);
-                                    let licenseDate = "";
-                                    let importItems = [];
-                                    if (selectedAuth) {
-                                      licenseDate = selectedAuth.authorization_date || "";
-                                      importItems = selectedAuth.import_details_array || [];
-                                    } else {
-                                      try {
-                                        const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-authorization-by-no?authorization_no=${newValue}`);
-                                        if (res.data) {
-                                          licenseDate = res.data.licence_date || res.data.auth_date || "";
-                                          importItems = res.data.import_details_array || [];
-                                        }
-                                      } catch (err) {
-                                        console.error("Error fetching license:", err);
-                                      }
-                                    }
-
-                                    const rowNormalizedHs = row.cth_no ? String(row.cth_no).replace(/[^a-zA-Z0-9]/g, "") : "";
-                                    let autoSr = "";
-                                    if (rowNormalizedHs && importItems.length > 0) {
-                                      const matchingItems = importItems.filter(item => {
-                                        const itemNormalizedHs = item.hs_code ? String(item.hs_code).replace(/[^a-zA-Z0-9]/g, "") : "";
-                                        return itemNormalizedHs === rowNormalizedHs;
-                                      });
-                                      if (matchingItems.length === 1) {
-                                        autoSr = Number(matchingItems[0].sr_no) || 1;
-                                      }
-                                    }
-
-                                    updateDescriptionRowMultiple(rowIndex, {
-                                      sr_no_lic: newValue,
-                                      license_no: newValue,
-                                      license_date: licenseDate,
-                                      license_sr: autoSr
-                                    });
-                                  } else {
-                                    updateDescriptionRowMultiple(rowIndex, {
-                                      sr_no_lic: "",
-                                      license_no: "",
-                                      license_date: "",
-                                      license_sr: ""
-                                    });
-                                  }
-                                }}
-                                onInputChange={(e, newInputValue, reason) => {
-                                  if (reason === "input") {
-                                    updateDescriptionRowMultiple(rowIndex, {
-                                      sr_no_lic: newInputValue,
-                                      license_no: newInputValue
-                                    });
-                                  }
-                                }}
-                                disabled={isDescriptionTableReadOnly}
-                                renderInput={(params) => (
-                                  <TextField
-                                    {...params}
-                                    size="small"
-                                    sx={compactInputSx}
-                                  />
-                                )}
-                              />
-                            </td>
-                            {/* License Date */}
-                            <td style={{ padding: "8px 6px", width: "120px", verticalAlign: "middle" }}>
+                            {/* Clearance Under */}
+                            <td style={{ padding: "8px 6px", width: "140px", verticalAlign: "middle" }}>
                               <TextField
+                                select
                                 size="small"
                                 fullWidth
-                                value={row.license_date || ""}
-                                onChange={(e) => updateDescriptionRow(rowIndex, "license_date", e.target.value)}
+                                variant="outlined"
+                                value={row.clearance_under || formik.values.clearanceValue || ""}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (canChangeClearance && canChangeClearance()) {
+                                    formik.setFieldValue("clearanceValue", val);
+                                    const updatedRows = descriptionRows.map(r => ({ ...r, clearance_under: val }));
+                                    formik.setFieldValue("description_details", updatedRows);
+                                  } else {
+                                    alert("Please clear Ex-Bond details before changing Clearance Under.");
+                                  }
+                                }}
                                 disabled={isDescriptionTableReadOnly}
                                 sx={compactInputSx}
-                              />
+                              >
+                                <MenuItem value="" disabled>Select</MenuItem>
+                                {filteredClearanceOptions.map((option, index) => (
+                                  <MenuItem key={index} value={option.value || ""}>
+                                    {option.label}
+                                  </MenuItem>
+                                ))}
+                              </TextField>
                             </td>
-                            {/* License SR */}
-                            <td style={{ padding: "8px 6px", width: "90px", verticalAlign: "middle" }}>
-                              {(() => {
-                                const licNum = row.sr_no_lic || row.license_no;
-                                const selectedAuth = authorizationsList.find(a => a.authorization_no === licNum);
-                                const importItems = selectedAuth?.import_details_array || [];
+                            {/* License No */}
+                            {formik.values.clearanceValue !== "Full Duty" && formik.values.clearanceValue !== "RODTEP" && (
+                              <td style={{ padding: "8px 6px", width: "180px", verticalAlign: "middle" }}>
+                                <Autocomplete
+                                  size="small"
+                                  fullWidth
+                                  freeSolo
+                                  options={authorizationsList.map((auth) => auth.authorization_no)}
+                                  value={row.sr_no_lic || row.license_no || ""}
+                                  onChange={async (e, newValue) => {
+                                    if (newValue) {
+                                      const selectedAuth = authorizationsList.find(a => a.authorization_no === newValue);
+                                      let licenseDate = "";
+                                      let importItems = [];
+                                      if (selectedAuth) {
+                                        licenseDate = selectedAuth.authorization_date || "";
+                                        importItems = selectedAuth.import_details_array || [];
+                                      } else {
+                                        try {
+                                          const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-authorization-by-no?authorization_no=${newValue}`);
+                                          if (res.data) {
+                                            licenseDate = res.data.licence_date || res.data.auth_date || "";
+                                            importItems = res.data.import_details_array || [];
+                                          }
+                                        } catch (err) {
+                                          console.error("Error fetching license:", err);
+                                        }
+                                      }
 
-                                const rowNormalizedHs = row.cth_no ? String(row.cth_no).replace(/[^a-zA-Z0-9]/g, "") : "";
-                                const filteredItems = rowNormalizedHs
-                                  ? importItems.filter(item => {
-                                    const itemNormalizedHs = item.hs_code ? String(item.hs_code).replace(/[^a-zA-Z0-9]/g, "") : "";
-                                    return itemNormalizedHs === rowNormalizedHs;
-                                  })
-                                  : importItems;
+                                      const rowNormalizedHs = row.cth_no ? String(row.cth_no).replace(/[^a-zA-Z0-9]/g, "") : "";
+                                      let autoSr = "";
+                                      if (rowNormalizedHs && importItems.length > 0) {
+                                        const matchingItems = importItems.filter(item => {
+                                          const itemNormalizedHs = item.hs_code ? String(item.hs_code).replace(/[^a-zA-Z0-9]/g, "") : "";
+                                          return itemNormalizedHs === rowNormalizedHs;
+                                        });
+                                        if (matchingItems.length === 1) {
+                                          autoSr = Number(matchingItems[0].sr_no) || 1;
+                                        }
+                                      }
 
-                                if (filteredItems.length > 0) {
-                                  return (
+                                      updateDescriptionRowMultiple(rowIndex, {
+                                        sr_no_lic: newValue,
+                                        license_no: newValue,
+                                        license_date: licenseDate,
+                                        license_sr: autoSr
+                                      });
+                                    } else {
+                                      updateDescriptionRowMultiple(rowIndex, {
+                                        sr_no_lic: "",
+                                        license_no: "",
+                                        license_date: "",
+                                        license_sr: ""
+                                      });
+                                    }
+                                  }}
+                                  onInputChange={(e, newInputValue, reason) => {
+                                    if (reason === "input") {
+                                      updateDescriptionRowMultiple(rowIndex, {
+                                        sr_no_lic: newInputValue,
+                                        license_no: newInputValue
+                                      });
+                                    }
+                                  }}
+                                  disabled={isDescriptionTableReadOnly}
+                                  renderInput={(params) => (
                                     <TextField
-                                      select
+                                      {...params}
                                       size="small"
-                                      fullWidth
-                                      value={String(row.license_sr || "")}
-                                      onChange={(e) => {
-                                        const val = e.target.value;
-                                        updateDescriptionRow(rowIndex, "license_sr", val ? Number(val) : "");
-                                      }}
-                                      disabled={isDescriptionTableReadOnly}
-                                      sx={compactInputSx}
-                                    >
-                                      <MenuItem value="">Select</MenuItem>
-                                      {filteredItems.map((item) => (
-                                        <MenuItem key={item.sr_no || item.value_usd} value={String(item.sr_no)}>
-                                          {item.sr_no}
-                                        </MenuItem>
-                                      ))}
-                                    </TextField>
-                                  );
-                                } else {
-                                  return (
-                                    <TextField
-                                      size="small"
-                                      fullWidth
-                                      value={row.license_sr || ""}
-                                      onChange={(e) => {
-                                        const val = e.target.value;
-                                        updateDescriptionRow(rowIndex, "license_sr", val ? Number(val) : "");
-                                      }}
-                                      disabled={isDescriptionTableReadOnly}
                                       sx={compactInputSx}
                                     />
-                                  );
-                                }
-                              })()}
-                            </td>
-                            {/* RODTEP */}
-                            <td style={{ padding: "8px 6px", width: "180px", verticalAlign: "middle" }}>
-                              <Autocomplete
-                                size="small"
-                                fullWidth
-                                freeSolo
-                                options={rodtepsList.map((r) => r.rodtep)}
-                                value={row.rodtep || ""}
-                                onChange={(e, newValue) => {
-                                  updateDescriptionRow(rowIndex, "rodtep", newValue || "");
-                                }}
-                                onInputChange={(e, newInputValue, reason) => {
-                                  if (reason === "input") {
-                                    updateDescriptionRow(rowIndex, "rodtep", newInputValue);
+                                  )}
+                                />
+                              </td>
+                            )}
+                            {/* License Date */}
+                            {formik.values.clearanceValue !== "Full Duty" && formik.values.clearanceValue !== "RODTEP" && (
+                              <td style={{ padding: "8px 6px", width: "120px", verticalAlign: "middle" }}>
+                                <TextField
+                                  size="small"
+                                  fullWidth
+                                  value={row.license_date || ""}
+                                  onChange={(e) => updateDescriptionRow(rowIndex, "license_date", e.target.value)}
+                                  disabled={isDescriptionTableReadOnly}
+                                  sx={compactInputSx}
+                                />
+                              </td>
+                            )}
+                            {/* License SR */}
+                            {formik.values.clearanceValue !== "Full Duty" && formik.values.clearanceValue !== "RODTEP" && (
+                              <td style={{ padding: "8px 6px", width: "90px", verticalAlign: "middle" }}>
+                                {(() => {
+                                  const licNum = row.sr_no_lic || row.license_no;
+                                  const selectedAuth = authorizationsList.find(a => a.authorization_no === licNum);
+                                  const importItems = selectedAuth?.import_details_array || [];
+
+                                  const rowNormalizedHs = row.cth_no ? String(row.cth_no).replace(/[^a-zA-Z0-9]/g, "") : "";
+                                  const filteredItems = rowNormalizedHs
+                                    ? importItems.filter(item => {
+                                      const itemNormalizedHs = item.hs_code ? String(item.hs_code).replace(/[^a-zA-Z0-9]/g, "") : "";
+                                      return itemNormalizedHs === rowNormalizedHs;
+                                    })
+                                    : importItems;
+
+                                  if (filteredItems.length > 0) {
+                                    return (
+                                      <TextField
+                                        select
+                                        size="small"
+                                        fullWidth
+                                        value={String(row.license_sr || "")}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          updateDescriptionRow(rowIndex, "license_sr", val ? Number(val) : "");
+                                        }}
+                                        disabled={isDescriptionTableReadOnly}
+                                        sx={compactInputSx}
+                                      >
+                                        <MenuItem value="">Select</MenuItem>
+                                        {filteredItems.map((item) => (
+                                          <MenuItem key={item.sr_no || item.value_usd} value={String(item.sr_no)}>
+                                            {item.sr_no}
+                                          </MenuItem>
+                                        ))}
+                                      </TextField>
+                                    );
+                                  } else {
+                                    return (
+                                      <TextField
+                                        size="small"
+                                        fullWidth
+                                        value={row.license_sr || ""}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          updateDescriptionRow(rowIndex, "license_sr", val ? Number(val) : "");
+                                        }}
+                                        disabled={isDescriptionTableReadOnly}
+                                        sx={compactInputSx}
+                                      />
+                                    );
                                   }
-                                }}
-                                disabled={isDescriptionTableReadOnly}
-                                renderInput={(params) => (
-                                  <TextField
-                                    {...params}
-                                    size="small"
-                                    sx={compactInputSx}
-                                  />
-                                )}
-                              />
-                            </td>
+                                })()}
+                              </td>
+                            )}
+                            {/* RODTEP */}
+                            {formik.values.clearanceValue === "RODTEP" && (
+                              <td style={{ padding: "8px 6px", width: "180px", verticalAlign: "middle" }}>
+                                <Autocomplete
+                                  size="small"
+                                  fullWidth
+                                  freeSolo
+                                  options={rodtepsList.map((r) => r.rodtep)}
+                                  value={row.rodtep || ""}
+                                  onChange={(e, newValue) => {
+                                    updateDescriptionRow(rowIndex, "rodtep", newValue || "");
+                                  }}
+                                  onInputChange={(e, newInputValue, reason) => {
+                                    if (reason === "input") {
+                                      updateDescriptionRow(rowIndex, "rodtep", newInputValue);
+                                    }
+                                  }}
+                                  disabled={isDescriptionTableReadOnly}
+                                  renderInput={(params) => (
+                                    <TextField
+                                      {...params}
+                                      size="small"
+                                      sx={compactInputSx}
+                                    />
+                                  )}
+                                />
+                              </td>
+                            )}
                             {/* Action */}
                             <td style={{ padding: "8px 6px", textAlign: "center", width: "50px", verticalAlign: "middle" }}>
                               {!isDescriptionTableReadOnly && (
@@ -7361,9 +7403,9 @@ function JobDetails() {
           )}
         </DialogContent>
         <DialogActions>
-          <Button 
-            onClick={handleSyncImexcubeDetails} 
-            variant="contained" 
+          <Button
+            onClick={handleSyncImexcubeDetails}
+            variant="contained"
             color="success"
             disabled={imexcubeSyncing || !imexcubeDetailsData || !!imexcubeDetailsData.error || imexcubeDetailsLoading}
             sx={{ mr: 1 }}

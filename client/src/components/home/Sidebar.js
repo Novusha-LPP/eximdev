@@ -259,6 +259,22 @@ function Sidebar() {
         )
       }
 
+      {
+        ['shipra_tripathi', 'suraj_rajan', 'masood_raza'].includes(user.username) && (
+          <Tooltip title="Market Intelligence" enterDelay={0} placement="right">
+            <ListItemButton
+              className="appbar-links"
+              aria-label="list-item"
+              onClick={() => navigate("/market-intelligence")}
+            >
+              <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
+                <InsightsIcon />
+              </IconButton>
+            </ListItemButton>
+          </Tooltip>
+        )
+      }
+
       <Tooltip title="Release Notes" enterDelay={0} placement="right">
         <ListItemButton
           sx={{ textAlign: "left" }}

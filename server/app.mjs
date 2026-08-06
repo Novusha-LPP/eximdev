@@ -380,6 +380,9 @@ import payrollRoutes from "./routes/attendance/payrollRoutes.mjs";
 import scmCubeRoutes from "./routes/scmCubeRoutes.mjs";
 import uploadToImexcube from "./routes/scmCube/uploadToImexcube.mjs";
 
+// Market Intelligence Module Proxy
+import miProxy from "./routes/miProxy.mjs";
+
 
 
 
@@ -449,7 +452,9 @@ app.use(
         "https://import.alvision.in",
         "https://test-frontend.alvision.in",
         "http://localhost:5173",
-        "https://export.alvision.in"
+        "https://export.alvision.in",
+        "http://localhost:3002",
+        "https://mi.alvision.in",
       ];
 
       const isLocalIp = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|172\.\d+\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$/.test(origin);
@@ -766,6 +771,8 @@ app.use("/api/client-queries", clientQueryRoutes);
 app.use(scmCubeRoutes);
 app.use(uploadToImexcube);
 
+// Market Intelligence Module (Proxy to MI Gateway)
+app.use(miProxy);
 
 
 

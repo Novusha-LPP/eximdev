@@ -202,6 +202,9 @@ import ViewDgftRegisterDetails from "../components/dgft/ViewDgftRegisterDetails.
 
 // CRM Module
 import CRMModule from "../components/crm/CRMModule.jsx";
+
+// Market Intelligence Module
+import MarketIntelligence from "../components/market-intelligence/MarketIntelligence.js";
 import PricingRequestsList from "../components/crm/components/PricingRequestsList.jsx";
 import Audit5sDashboard from "../components/audit5s/Audit5sDashboard.jsx";
 
@@ -1278,6 +1281,16 @@ function HomePageContent() {
                 <Route
                   path="/dgft/register-details/:id"
                   element={<ViewDgftRegisterDetails />}
+                />
+
+                {/* Market Intelligence Module */}
+                <Route
+                  path="/market-intelligence"
+                  element={
+                    <ProtectedRoute requiredModule="Market Intelligence">
+                      <MarketIntelligence />
+                    </ProtectedRoute>
+                  }
                 />
 
                 {/* 5S Audit Checklist Module */}

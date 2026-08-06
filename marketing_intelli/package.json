@@ -1,0 +1,29 @@
+{
+  "name": "aivision-market-intelligence",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AIVision Market Intelligence Module — Micromonolithic Architecture",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:gateway\" \"npm run dev:mystique\" \"npm run dev:web\"",
+    "dev:gateway": "cd services/gateway && npm run dev",
+    "dev:mystique": "cd services/mystique && ./start-dev.sh",
+    "dev:web": "cd web && npm run dev",
+    "build": "npm run build:gateway && npm run build:web",
+    "build:gateway": "cd services/gateway && npm run build",
+    "build:web": "cd web && npm run build",
+    "test": "npm run test:gateway && npm run test:mystique && npm run test:web",
+    "test:gateway": "cd services/gateway && npm run test",
+    "test:mystique": "cd services/mystique && python -m pytest",
+    "test:web": "cd web && npm run test",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "seed": "node scripts/seed/index.mjs",
+    "lint": "concurrently \"cd services/gateway && npm run lint\" \"cd web && npm run lint\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.4"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}

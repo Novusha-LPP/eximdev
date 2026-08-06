@@ -45,5 +45,6 @@ export const moduleCategories = {
   "Karma Points": "Project Management",
   "Pricing Requests": "Accounts",
   "Tally Transactions": "Accounts",
+  "Market Intelligence": "Market Intelligence",
 };
 

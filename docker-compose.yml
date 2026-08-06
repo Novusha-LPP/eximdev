@@ -1,0 +1,61 @@
+version: "3.9"
+
+services:
+  # ─── Exim Backend (existing) ─────────────────────────────────
+  exim-server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    network_mode: "host"
+    env_file: ./server/.env
+    environment:
+      - MI_GATEWAY_URL=http://localhost:3005
+      - SERVER_MONGODB_URI=mongodb://127.0.0.1:27017/eximNew
+      - DEV_MONGODB_URI=mongodb://127.0.0.1:27017/eximNew
+    depends_on:
+      - mi-gateway
+    restart: unless-stopped
+
+  # ─── MI Gateway (Node.js API) ────────────────────────────────
+  mi-gateway:
+    build:
+      context: .
+      dockerfile: ./marketing_intelli/docker/gateway/Dockerfile
+    network_mode: "host"
+    env_file: ./marketing_intelli/services/gateway/.env
+    environment:
+      - MONGO_URI=${MI_MONGO_URI:-mongodb://127.0.0.1:27017/market_intelligence}
+      - EXIM_MONGO_URI=${EXIM_MONGO_URI:-mongodb://127.0.0.1:27017/eximNew}
+      - EXPORT_MONGO_URI=${EXPORT_MONGO_URI:-mongodb://127.0.0.1:27017/export}
+      - MYSTIQUE_INTERNAL_URL=http://localhost:8100
+    depends_on:
+      - mi-mystique
+    restart: unless-stopped
+
+  # ─── MI Web (Next.js Frontend) ───────────────────────────────
+  mi-web:
+    build:
+      context: .
+      dockerfile: ./marketing_intelli/docker/web/Dockerfile
+    network_mode: "host"
+    environment:
+      - PORT=3002
+      - NEXT_PUBLIC_GATEWAY_URL=http://localhost:3005
+      - MI_GATEWAY_URL=http://localhost:3005
+      - MYSTIQUE_INTERNAL_URL=http://localhost:8100
+    depends_on:
+      - mi-gateway
+    restart: unless-stopped
+
+  # ─── Mystique AI (Python FastAPI) ────────────────────────────
+  mi-mystique:
+    build:
+      context: .
+      dockerfile: ./marketing_intelli/docker/mystique/Dockerfile
+    network_mode: "host"
+    environment:
+      - MONGO_URI=${MI_MONGO_URI:-mongodb://127.0.0.1:27017/market_intelligence}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://ollama.alvision.in}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-gemma4}
+      - LLM_PROVIDER=ollama
+    restart: unless-stopped

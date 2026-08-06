@@ -1,0 +1,96 @@
+version: "3.9"
+
+services:
+  # ─── Node.js Main Backend ─────────────────────────────────────
+  gateway:
+    build:
+      context: .
+      dockerfile: docker/gateway/Dockerfile
+    ports:
+      - "3001:3001"
+    env_file: .env
+    depends_on:
+      - mongo
+    volumes:
+      - ./services/gateway:/app/services/gateway
+      - ./shared:/app/shared
+    networks:
+      - mi-network
+
+  # ─── Python AI Service (Mystique) ─────────────────────────────
+  mystique:
+    build:
+      context: .
+      dockerfile: docker/mystique/Dockerfile
+    ports:
+      - "8100:8100"
+    env_file: .env
+    depends_on:
+      - mongo
+    volumes:
+      - ./services/mystique:/app/services/mystique
+      - ./shared:/app/shared
+      # Mount local model cache
+      - ${MODEL_CACHE_DIR:-./models}:/app/models
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - mi-network
+
+  # ─── Next.js Frontend ────────────────────────────────────────
+  web:
+    build:
+      context: .
+      dockerfile: docker/web/Dockerfile
+    ports:
+      - "3000:3000"
+    env_file: .env
+    depends_on:
+      - gateway
+    volumes:
+      - ./web:/app/web
+    networks:
+      - mi-network
+
+  # ─── MongoDB ──────────────────────────────────────────────────
+  mongo:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+      - ./scripts/seed/init-mongo.js:/docker-entrypoint-initdb.d/init.js:ro
+    environment:
+      MONGO_INITDB_DATABASE: market_intelligence
+    networks:
+      - mi-network
+
+  # ─── Ollama (Local LLM Server) ───────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - mi-network
+
+volumes:
+  mongo-data:
+  ollama-data:
+
+networks:
+  mi-network:
+    driver: bridge

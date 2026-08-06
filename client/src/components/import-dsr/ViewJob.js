@@ -901,6 +901,7 @@ function JobDetails() {
       do_completed,
       igm_no,
       igm_date,
+      delivery_completed_date,
     } = formik.values;
 
     const isValidDate = (date) => {
@@ -923,6 +924,8 @@ function JobDetails() {
     const allDelivered = hasContainers
       ? container_nos.every((c) => isValidDate(c?.delivery_date))
       : false;
+
+    const isDeliveryCompleted = isValidDate(delivery_completed_date) || allDelivered;
 
     const allEmptyOffloaded = hasContainers
       ? container_nos.every((c) => isValidDate(c?.emptyContainerOffLoadDate))
@@ -956,11 +959,11 @@ function JobDetails() {
 
     // Ex-Bond: return early to avoid fall-through
     if (isExBond) {
-      if (be_no && validOOC && allDelivered) {
+      if (be_no && validOOC && isDeliveryCompleted) {
         formik.setFieldValue("detailed_status", "Billing Pending");
         return;
       }
-      if (validDoCompleted && !allDelivered) {
+      if (validDoCompleted && !isDeliveryCompleted) {
         formik.setFieldValue("detailed_status", "Do completed and Delivery pending");
         return;
       }
@@ -988,16 +991,16 @@ function JobDetails() {
         billingComplete = allEmptyOffloaded;
       } else {
         // In-Bond Factory: Needs EmptyOff AND Delivery
-        billingComplete = allEmptyOffloaded && allDelivered;
+        billingComplete = allEmptyOffloaded && isDeliveryCompleted;
       }
     } else {
       // Standard Logic (Home Consumption, etc.)
-      billingComplete = (isLCL || isTypeDoIcd) ? allDelivered : allEmptyOffloaded;
+      billingComplete = (isLCL || isTypeDoIcd) ? isDeliveryCompleted : allEmptyOffloaded;
     }
 
     if (be_no && anyArrival && validOOC && billingComplete) {
       formik.setFieldValue("detailed_status", "Billing Pending");
-    } else if (validDoCompleted && !allDelivered) {
+    } else if (validDoCompleted && !isDeliveryCompleted) {
       formik.setFieldValue("detailed_status", "Do completed and Delivery pending");
     } else if (be_no && anyArrival && validOOC) {
       formik.setFieldValue("detailed_status", "Custom Clearance Completed");
@@ -1046,7 +1049,6 @@ function JobDetails() {
   useEffect(() => {
     updateDetailedStatus();
   }, [
-    formik.values.vessel_berthing,
     formik.values.gateway_igm_date,
     formik.values.discharge_date,
     // formik.values.rail_out_date,
@@ -1059,6 +1061,7 @@ function JobDetails() {
     formik.values.be_no,
     formik.values.emptyContainerOffLoadDate,
     formik.values.delivery_date,
+    formik.values.delivery_completed_date,
     formik.values.container_nos, // Include container_nos to track the changes in arrival_date for containers
   ]);
 
@@ -2754,6 +2757,70 @@ function JobDetails() {
                         >
                           <span style={{ fontWeight: "600", color: "#495057" }}>
                             Delivery Completed:
+                          </span>
+                          <span
+                            style={{
+                              fontWeight: "700",
+                              color: (formik.values.delivery_completed_date || deliveryCompletedDate)
+                                ? "#28a745"
+                                : "#212529",
+                            }}
+                          >
+                            {(formik.values.delivery_completed_date || deliveryCompletedDate)
+                              ? new Date(
+                                formik.values.delivery_completed_date || deliveryCompletedDate
+                              ).toLocaleString("en-US", {
+                                timeZone: "Asia/Kolkata",
+                                month: "short",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                hour12: true,
+                              })
+                              : "-"}
+                          </span>
+                        </div>
+                        {user?.role === "Admin" && (
+                          <div>
+                            <TextField
+                              type="datetime-local"
+                              fullWidth
+                              size="small"
+                              variant="outlined"
+                              id="delivery_completed_date"
+                              name="delivery_completed_date"
+                              value={
+                                formik.values.delivery_completed_date
+                                  ? formatDateForInput(
+                                    formik.values.delivery_completed_date
+                                  )
+                                  : ""
+                              }
+                              onChange={(e) =>
+                                formik.setFieldValue(
+                                  "delivery_completed_date",
+                                  e.target.value
+                                )
+                              }
+                              InputLabelProps={{ shrink: true }}
+                              sx={compactInputSx}
+                            />
+                          </div>
+                        )}
+                      </Col>
+
+                      <Col xs={12} md={6} lg={3} className="pb-3">
+                        <div
+                          style={{
+                            fontSize: "0.95rem",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "10px",
+                            marginBottom: "6px",
+                          }}
+                        >
+                          <span style={{ fontWeight: "600", color: "#495057" }}>
+                            DO Sent to Billing:
                           </span>
                           <span
                             style={{

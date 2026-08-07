@@ -1433,6 +1433,31 @@ function JobDetails() {
       ];
   }, [formik.values.description_details, formik.values.clearanceValue]);
 
+  const calculateProductTaxableValue = (productAmount, invoiceIndex) => {
+    const amtNum = parseFloat(productAmount) || 0;
+    const activeInvoice = (formik.values.invoice_details || [])[invoiceIndex] || {};
+    const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
+    
+    if (activeInvoice.toi === "FOB") {
+      // Calculate Total Freight and Total Invoice Value across all FOB invoices
+      const allFobInvoices = (formik.values.invoice_details || []).filter(inv => inv.toi === "FOB");
+      const totalFobFreight = allFobInvoices.reduce((sum, inv) => sum + (parseFloat(inv.freight) || 0), 0);
+      const totalFobValue = allFobInvoices.reduce((sum, inv) => sum + (parseFloat(inv.product_value) || 0), 0);
+      
+      const fRate = totalFobValue > 0 ? (totalFobFreight / totalFobValue) : 0;
+      const productFreight = amtNum * fRate;
+      
+      const iRateVal = formik.values.other_charges_details?.insurance?.rate;
+      const iRate = (iRateVal === undefined || iRateVal === null || iRateVal === "" || isNaN(parseFloat(iRateVal))) ? 1.125 : parseFloat(iRateVal);
+      const productInsurance = amtNum * (iRate / 100);
+      
+      const totalCifUSD = amtNum + productFreight + productInsurance;
+      return (totalCifUSD * exrate).toFixed(2);
+    }
+    
+    return (amtNum * exrate).toFixed(2);
+  };
+
   const updateDescriptionRowMultiple = (rowIndex, updates) => {
     const updatedRows = [...descriptionRows];
     updatedRows[rowIndex] = {
@@ -1745,24 +1770,8 @@ function JobDetails() {
           updatedRows[rowIndex].insurance = calculateInsuranceValue();
         }
       }
-    } else if (toiValue === "CF") {
-      // C&F: auto-calculate insurance as dynamic% of invoice value
-      if (triggerFields.includes(field)) {
-        updatedRows[rowIndex].freight = "";
-        if (!isInsuranceManual && (!updatedRows[rowIndex].insurance || field === "toi")) {
-          updatedRows[rowIndex].insurance = calculateInsuranceValue();
-        }
-      }
-    } else if (toiValue === "CI") {
-      // C&I: auto-calculate freight as dynamic% of invoice value
-      if (triggerFields.includes(field)) {
-        if (!isFreightManual && (!updatedRows[rowIndex].freight || field === "toi")) {
-          updatedRows[rowIndex].freight = baseVal > 0 ? (baseVal * (fRate / 100)).toFixed(2) : "";
-        }
-        updatedRows[rowIndex].insurance = "";
-      }
     } else if (field === "toi") {
-      // CIF or other
+      // CF, CI, CIF or other
       updatedRows[rowIndex].freight = "";
       updatedRows[rowIndex].insurance = "";
     }
@@ -1793,30 +1802,18 @@ function JobDetails() {
 
     formik.setFieldValue("invoice_details", updatedRows);
 
-    // Also sync F & I Charges tab amounts and rates based on FOB/CF/CI invoices
+    // Also sync F & I Charges tab amounts and rates based on FOB invoices
     const hasFOB = updatedRows.some(row => row.toi === "FOB");
-    const hasCF = updatedRows.some(row => row.toi === "CF");
-    const hasCI = updatedRows.some(row => row.toi === "CI");
 
-    if (hasFOB || hasCF || hasCI) {
+    if (hasFOB) {
       const totalFreight = updatedRows.reduce((sum, row) => sum + (parseFloat(row.freight) || 0), 0);
       const totalInsurance = updatedRows.reduce((sum, row) => sum + (parseFloat(row.insurance) || 0), 0);
 
-      if (hasFOB || hasCI) {
-        formik.setFieldValue("other_charges_details.freight.amount", totalFreight > 0 ? totalFreight.toFixed(2) : "");
-        formik.setFieldValue("other_charges_details.freight.rate", fRate.toString());
-      } else {
-        formik.setFieldValue("other_charges_details.freight.amount", "");
-        formik.setFieldValue("other_charges_details.freight.rate", 0);
-      }
+      formik.setFieldValue("other_charges_details.freight.amount", totalFreight > 0 ? totalFreight.toFixed(2) : "");
+      formik.setFieldValue("other_charges_details.freight.rate", fRate.toString());
 
-      if (hasFOB || hasCF) {
-        formik.setFieldValue("other_charges_details.insurance.amount", totalInsurance > 0 ? totalInsurance.toFixed(2) : "");
-        formik.setFieldValue("other_charges_details.insurance.rate", iRate.toString());
-      } else {
-        formik.setFieldValue("other_charges_details.insurance.amount", "");
-        formik.setFieldValue("other_charges_details.insurance.rate", 0);
-      }
+      formik.setFieldValue("other_charges_details.insurance.amount", totalInsurance > 0 ? totalInsurance.toFixed(2) : "");
+      formik.setFieldValue("other_charges_details.insurance.rate", iRate.toString());
     } else if (field === "toi") {
       formik.setFieldValue("other_charges_details.freight.amount", "");
       formik.setFieldValue("other_charges_details.freight.rate", 0);
@@ -2030,24 +2027,8 @@ function JobDetails() {
             newInsurance = "";
           }
 
-        } else if (row.toi === "CF") {
+        } else {
           newFreight = "";
-          if (baseVal > 0) {
-            const baseInsurance = baseVal * (iRate / 100);
-            const invCurr = row.inv_currency || "";
-            const insCurr = row.insurance_currency || "INR";
-            const exRate = parseFloat(row.exchange_rate || formik.values.exrate || 1) || 1;
-            if (insCurr === "INR" && invCurr !== "INR") {
-              newInsurance = ((baseInsurance * exRate) / getUnitForCurrency(invCurr)).toFixed(2);
-            } else {
-              newInsurance = baseInsurance.toFixed(2);
-            }
-          } else {
-            newInsurance = "";
-          }
-
-        } else if (row.toi === "CI") {
-          newFreight = baseVal > 0 ? (baseVal * (fRate / 100)).toFixed(2) : "";
           newInsurance = "";
         }
 
@@ -2224,24 +2205,8 @@ function JobDetails() {
               newInsurance = "";
             }
 
-          } else if (row.toi === "CF") {
+          } else {
             newFreight = "";
-            if (baseVal > 0) {
-              const baseInsurance = baseVal * (iRate / 100);
-              const invCurr = row.inv_currency || "";
-              const insCurr = row.insurance_currency || "INR";
-              const exRate = parseFloat(row.exchange_rate || formik.values.exrate || 1) || 1;
-              if (insCurr === "INR" && invCurr !== "INR") {
-                newInsurance = ((baseInsurance * exRate) / getUnitForCurrency(invCurr)).toFixed(2);
-              } else {
-                newInsurance = baseInsurance.toFixed(2);
-              }
-            } else {
-              newInsurance = "";
-            }
-
-          } else if (row.toi === "CI") {
-            newFreight = baseVal > 0 ? (baseVal * (fRate / 100)).toFixed(2) : "";
             newInsurance = "";
           }
 
@@ -3959,7 +3924,7 @@ function JobDetails() {
                           // Also recalculate auto-derived insurance amounts in invoices based on the new exchange rate
                           const updatedInvoiceDetails = invoiceDetails.map(row => {
                             const toiValue = row.toi || "CIF";
-                            if (row.insurance_currency === "INR" && row.inv_currency !== "INR" && (toiValue === "FOB" || toiValue === "CF")) {
+                            if (row.insurance_currency === "INR" && row.inv_currency !== "INR" && toiValue === "FOB") {
                               const rowExRate = parseFloat(row.exchange_rate);
                               if (isNaN(rowExRate) && !row.is_insurance_manual && !row.insurance) {
                                 const pv = parseFloat(row.product_value) || 0;
@@ -4089,6 +4054,7 @@ function JobDetails() {
                                 { label: "Insurance", width: "170px", align: "left" },
                                 { label: "Other Chrgs", width: "170px", align: "left" },
                                 { label: "CIF Value", width: "130px", align: "left" },
+                                { label: "New CIF", width: "130px", align: "left" },
                                 { label: "Action", width: "50px", align: "center" }
                               ].map((col) => (
                                 <th
@@ -4274,7 +4240,7 @@ function JobDetails() {
                                         fullWidth
                                         value={row.freight || ""}
                                         onChange={(e) => updateInvoiceRow(rowIndex, "freight", e.target.value)}
-                                        disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CI")}
+                                        disabled={isDescriptionTableReadOnly || row.toi !== "FOB"}
                                         placeholder="Freight"
                                         sx={compactInputSx}
                                       />
@@ -4285,7 +4251,7 @@ function JobDetails() {
                                         value={row.freight_currency || ""}
                                         onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "freight_currency", newValue)}
                                         onChange={(event, newValue) => updateInvoiceRow(rowIndex, "freight_currency", newValue || "")}
-                                        disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CI")}
+                                        disabled={isDescriptionTableReadOnly || row.toi !== "FOB"}
                                         renderInput={(params) => (
                                           <TextField
                                             {...params}
@@ -4304,7 +4270,7 @@ function JobDetails() {
                                         placeholder="Fr. Ex Rate"
                                         value={row.freight_exchange_rate || ""}
                                         onChange={(e) => updateInvoiceRow(rowIndex, "freight_exchange_rate", e.target.value)}
-                                        disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CI")}
+                                        disabled={isDescriptionTableReadOnly || row.toi !== "FOB"}
                                         sx={compactInputSx}
                                       />
                                     )}
@@ -4318,7 +4284,7 @@ function JobDetails() {
                                         fullWidth
                                         value={row.insurance || ""}
                                         onChange={(e) => updateInvoiceRow(rowIndex, "insurance", e.target.value)}
-                                        disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CF")}
+                                        disabled={isDescriptionTableReadOnly || row.toi !== "FOB"}
                                         placeholder="Insurance"
                                         sx={compactInputSx}
                                       />
@@ -4329,7 +4295,7 @@ function JobDetails() {
                                         value={row.insurance_currency || ""}
                                         onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "insurance_currency", newValue)}
                                         onChange={(event, newValue) => updateInvoiceRow(rowIndex, "insurance_currency", newValue || "")}
-                                        disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CF")}
+                                        disabled={isDescriptionTableReadOnly || row.toi !== "FOB"}
                                         renderInput={(params) => (
                                           <TextField
                                             {...params}
@@ -4348,7 +4314,7 @@ function JobDetails() {
                                         placeholder="Ins. Ex Rate"
                                         value={row.insurance_exchange_rate || ""}
                                         onChange={(e) => updateInvoiceRow(rowIndex, "insurance_exchange_rate", e.target.value)}
-                                        disabled={isDescriptionTableReadOnly || !(row.toi === "FOB" || row.toi === "CF")}
+                                        disabled={isDescriptionTableReadOnly || row.toi !== "FOB"}
                                         sx={compactInputSx}
                                       />
                                     )}
@@ -4453,6 +4419,30 @@ function JobDetails() {
                                     InputProps={{ readOnly: true }}
                                     disabled={isDescriptionTableReadOnly}
                                     placeholder="CIF Value"
+                                    sx={compactInputSx}
+                                  />
+                                </td>
+                                <td style={{ padding: "8px 6px", width: "130px", verticalAlign: "middle" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={(() => {
+                                      const invoiceSr = String(rowIndex + 1);
+                                      let newCifInr = 0;
+                                      descriptionRows.forEach((dRow, idx) => {
+                                        if (dRow.sr_no_invoice === invoiceSr || (!dRow.sr_no_invoice && rowIndex === 0)) {
+                                          let tVal = parseFloat(dRow.taxable_value_inr);
+                                          if (isNaN(tVal) || tVal === 0) {
+                                            tVal = parseFloat(calculateProductTaxableValue(dRow.amount, rowIndex)) || 0;
+                                          }
+                                          newCifInr += tVal;
+                                        }
+                                      });
+                                      return newCifInr.toFixed(2);
+                                    })()}
+                                    InputProps={{ readOnly: true }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    placeholder="New CIF"
                                     sx={compactInputSx}
                                   />
                                 </td>
@@ -5112,6 +5102,7 @@ function JobDetails() {
                             { label: "Unit Price", width: "100px", align: "left" },
                             { label: "Currency", width: "90px", align: "left" },
                             { label: "Amount", width: "115px", align: "left" },
+                            { label: "CIF Value", width: "130px", align: "right" },
                             { label: "Clearance Under", width: "140px", align: "left" },
                             ...((formik.values.clearanceValue !== "Full Duty" && formik.values.clearanceValue !== "RODTEP") ? [
                               { label: "License No", width: "180px", align: "left" },
@@ -5173,12 +5164,14 @@ function JobDetails() {
                                   const price = parseFloat(row.unit_price) || 0;
                                   const amount = qty * price;
 
+                                  const taxVal = calculateProductTaxableValue(amount, invIdx);
+
                                   updateDescriptionRowMultiple(rowIndex, {
                                     sr_no_invoice: val,
                                     ...(!row.taxable_value_manual && {
-                                      taxable_value_inr: (amount * exrate).toFixed(2),
+                                      taxable_value_inr: taxVal,
                                       ...(!row.igst_amount_manual && {
-                                        igst_amount_inr: ((amount * exrate * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
+                                        igst_amount_inr: ((parseFloat(taxVal) * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
                                       })
                                     })
                                   });
@@ -5301,14 +5294,16 @@ function JobDetails() {
                                     const activeInvoice = (formik.values.invoice_details || [])[invIndex] || {};
                                     const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
 
+                                    const taxVal = calculateProductTaxableValue(calculatedAmount, invIndex);
+
                                     updateDescriptionRowMultiple(rowIndex, {
                                       quantity: qty,
                                       unit_price: calculatedPrice > 0 ? calculatedPrice.toFixed(4) : "",
                                       amount: calculatedAmount > 0 ? calculatedAmount.toFixed(2) : "",
                                       ...(!row.taxable_value_manual && {
-                                        taxable_value_inr: (calculatedAmount * exrate).toFixed(2),
+                                        taxable_value_inr: taxVal,
                                         ...(!row.igst_amount_manual && {
-                                          igst_amount_inr: ((calculatedAmount * exrate * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
+                                          igst_amount_inr: ((parseFloat(taxVal) * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
                                         })
                                       })
                                     });
@@ -5355,13 +5350,15 @@ function JobDetails() {
                                   const activeInvoice = (formik.values.invoice_details || [])[invIndex] || {};
                                   const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
 
+                                  const taxVal = calculateProductTaxableValue(amount, invIndex);
+
                                   updateDescriptionRowMultiple(rowIndex, {
                                     unit_price: price,
                                     amount: amount.toFixed(2),
                                     ...(!row.taxable_value_manual && {
-                                      taxable_value_inr: (amount * exrate).toFixed(2),
+                                      taxable_value_inr: taxVal,
                                       ...(!row.igst_amount_manual && {
-                                        igst_amount_inr: ((amount * exrate * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
+                                        igst_amount_inr: ((parseFloat(taxVal) * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
                                       })
                                     })
                                   });
@@ -5412,13 +5409,15 @@ function JobDetails() {
                                   const activeInvoice = (formik.values.invoice_details || [])[invIndex] || {};
                                   const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
 
+                                  const taxVal = calculateProductTaxableValue(amtNum, invIndex);
+
                                   updateDescriptionRowMultiple(rowIndex, {
                                     amount: amt,
                                     unit_price: calculatedPrice > 0 ? calculatedPrice.toFixed(4) : "",
                                     ...(!row.taxable_value_manual && {
-                                      taxable_value_inr: (amtNum * exrate).toFixed(2),
+                                      taxable_value_inr: taxVal,
                                       ...(!row.igst_amount_manual && {
-                                        igst_amount_inr: ((amtNum * exrate * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
+                                        igst_amount_inr: ((parseFloat(taxVal) * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
                                       })
                                     })
                                   });
@@ -5426,6 +5425,28 @@ function JobDetails() {
                                 disabled={isDescriptionTableReadOnly}
                                 sx={compactInputSx}
                               />
+                            </td>
+                            {/* CIF Value */}
+                            <td style={{ padding: "8px 6px", width: "130px", verticalAlign: "middle", textAlign: "right" }}>
+                              {(() => {
+                                const activeInvoice = (formik.values.invoice_details || [])[Number(row.sr_no_invoice) - 1] || {};
+                                const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
+                                let taxVal = parseFloat(row.taxable_value_inr);
+                                if (isNaN(taxVal) || taxVal === 0) {
+                                  taxVal = parseFloat(calculateProductTaxableValue(row.amount, Number(row.sr_no_invoice) - 1)) || 0;
+                                }
+                                const cifVal = exrate > 0 ? (taxVal / exrate).toFixed(2) : "";
+                                return (
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={cifVal}
+                                    disabled
+                                    inputProps={{ style: { textAlign: 'right', fontWeight: 'bold', color: '#0f172a', backgroundColor: '#f8fafc' } }}
+                                    sx={compactInputSx}
+                                  />
+                                );
+                              })()}
                             </td>
                             {/* Clearance Under */}
                             <td style={{ padding: "8px 6px", width: "140px", verticalAlign: "middle" }}>

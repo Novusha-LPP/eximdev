@@ -12,7 +12,7 @@ const contactSchema = new mongoose.Schema({
   tags: [{ type: String }],
   businessVertical: {
     type: String,
-    enum: ['Paramount', 'Transportation', 'Customs Clearance', 'Export', 'Import'],
+    enum: ['Paramount', 'Transportation', 'Freight Forwarding', 'Export', 'Import'],
     default: 'Paramount'
   },
   convertedFromLead: { type: mongoose.Schema.Types.ObjectId, ref: 'Lead' },

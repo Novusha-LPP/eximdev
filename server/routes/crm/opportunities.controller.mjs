@@ -560,8 +560,11 @@ router.get('/board', async (req, res) => {
     const tasks = await Task.find({
       'relatedTo.model': 'Opportunity',
       'relatedTo.id': { $in: oppIds },
-      status: { $in: ['open', 'in_progress'] }
-    }).populate('assignedTo', 'username first_name last_name').lean();
+      status: { $in: ['open', 'in_progress', 'completed'] }
+    })
+    .populate('assignedTo', 'username first_name last_name')
+    .populate('createdBy', 'username first_name last_name')
+    .lean();
 
     processedOpps.forEach(opp => {
       opp.pricingRequests = pricingRequests.filter(pr =>
@@ -633,7 +636,7 @@ router.get('/:id', async (req, res) => {
     const tasks = await Task.find({
       'relatedTo.model': 'Opportunity',
       'relatedTo.id': opp._id,
-      status: { $in: ['open', 'in_progress'] }
+      status: { $in: ['open', 'in_progress', 'completed'] }
     }).populate('assignedTo', 'username first_name last_name').lean();
 
     const oppObj = opp.toObject();

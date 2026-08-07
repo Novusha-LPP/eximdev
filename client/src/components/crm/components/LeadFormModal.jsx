@@ -4,7 +4,6 @@ import { X } from 'lucide-react';
 import { message } from 'antd';
 
 const ALLOWED_SERVICES = [
-  'custom clearance', 
   'freight forwarding', 
   'dgft', 
   'e-lock', 
@@ -378,7 +377,7 @@ const getHeaders = () => {
               >
                 <option value="Paramount">Paramount</option>
                 <option value="Transportation">Transportation</option>
-                <option value="Customs Clearance">Customs Clearance</option>
+                <option value="Freight Forwarding">Freight Forwarding</option>
                 <option value="Export">Export</option>
                 <option value="Import">Import</option>
               </select>
@@ -447,7 +446,7 @@ const getHeaders = () => {
               </div>
             ) : null}
 
-            {formData.businessVertical === 'Customs Clearance' && (
+            {formData.businessVertical === 'Freight Forwarding' && (
               <>
                 {/* Shipper */}
                 <div>
@@ -636,7 +635,7 @@ const getHeaders = () => {
             )}
 
             {/* Crate Size */}
-            {!['transportation', 'customs clearance', 'export', 'import'].includes((formData.businessVertical || '').toLowerCase()) && (
+            {!['transportation', 'freight forwarding', 'export', 'import'].includes((formData.businessVertical || '').toLowerCase()) && (
               <div>
                 <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Crate Size (Optional)</label>
                 <input 

@@ -7,7 +7,6 @@ import LeadDetailModal from './components/LeadDetailModal';
 import FilterBar from './components/FilterBar';
 
 const ALLOWED_SERVICES = [
-  'custom clearance',
   'freight forwarding',
   'dgft',
   'e-lock',
@@ -43,11 +42,13 @@ export default function LeadList() {
   // Teams & Source for filtering
   const [userTeams, setUserTeams] = useState([]);
   const [selectedTeamId, setSelectedTeamId] = useState('');
+  const [viewScope, setViewScope] = useState('my_teams');
   const [selectedSource, setSelectedSource] = useState('');
   const [selectedService, setSelectedService] = useState('');
   const [selectedLeadForDuplicate, setSelectedLeadForDuplicate] = useState(null);
   const [selectedLeadForEdit, setSelectedLeadForEdit] = useState(null);
   const [searchReferral, setSearchReferral] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [filters, setFilters] = useState(() => {
     try {
@@ -77,16 +78,18 @@ export default function LeadList() {
     });
   };
 
-  const fetchLeads = async (teamId = selectedTeamId, source = selectedSource, service = selectedService, referral = searchReferral, activeFilters = filters) => {
+  const fetchLeads = async (teamId = selectedTeamId, source = selectedSource, service = selectedService, referral = searchReferral, activeFilters = filters, scope = viewScope, query = searchQuery) => {
     if (!activeFilters) return;
     setLoading(true);
     setError(null);
     try {
       const queryParams = new URLSearchParams();
+      if (scope === 'all') queryParams.append('all', 'true');
       if (teamId) queryParams.append('teamId', teamId);
       if (source) queryParams.append('source', source);
       if (service) queryParams.append('service', service);
       if (referral) queryParams.append('referralSourceName', referral);
+      if (query) queryParams.append('searchQuery', query);
 
       if (activeFilters.startDate && activeFilters.endDate) {
         queryParams.append('startDate', activeFilters.startDate);
@@ -94,6 +97,8 @@ export default function LeadList() {
       } else if (activeFilters.month) {
         queryParams.append('period', activeFilters.month);
       }
+
+      queryParams.append('_t', Date.now());
 
       const res = await axios.get(
         `${process.env.REACT_APP_API_STRING}/crm/leads?${queryParams.toString()}`,
@@ -141,13 +146,20 @@ export default function LeadList() {
 
   useEffect(() => {
     fetchUserTeams();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     if (filters) {
-      fetchLeads(selectedTeamId, selectedSource, selectedService, searchReferral, filters);
+      // Adding a small debounce for the search query if the user is typing fast
+      const delayDebounceFn = setTimeout(() => {
+        fetchLeads(selectedTeamId, selectedSource, selectedService, searchReferral, filters, viewScope, searchQuery);
+      }, 500);
+
+      return () => clearTimeout(delayDebounceFn);
     }
-  }, [filters, selectedTeamId, selectedSource, selectedService, searchReferral]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters, selectedTeamId, selectedSource, selectedService, searchReferral, viewScope, searchQuery]);
 
   const handleConvert = async (leadId, leadName) => {
     if (!window.confirm(`Convert "${leadName}" into an Account & Opportunity?\n\nThis will create a new account, contact, and sales opportunity.`)) {
@@ -236,8 +248,23 @@ export default function LeadList() {
         <h2 style={{ margin: 0, color: '#1e293b', fontWeight: 700 }}>Lead Management</h2>
 
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+          {/* View Scope Dropdown */}
+          <select
+            value={viewScope}
+            onChange={(e) => {
+              setViewScope(e.target.value);
+              if (e.target.value === 'all') {
+                setSelectedTeamId('');
+              }
+            }}
+            style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#4f46e5', fontWeight: 600, outline: 'none', cursor: 'pointer' }}
+          >
+            <option value="my_teams">My Team Leads</option>
+            <option value="all">All Company Leads</option>
+          </select>
+
           {/* Team Filter Dropdown */}
-          {userTeams.length > 0 && (
+          {userTeams.length > 0 && viewScope !== 'all' && (
             <select
               value={selectedTeamId}
               onChange={(e) => setSelectedTeamId(e.target.value)}
@@ -290,6 +317,15 @@ export default function LeadList() {
             placeholder="Search Referral By..."
             value={searchReferral}
             onChange={(e) => setSearchReferral(e.target.value)}
+            style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontWeight: 500, outline: 'none', width: '160px' }}
+          />
+
+          {/* General Search Input */}
+          <input
+            type="text"
+            placeholder="Search Leads..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
             style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontWeight: 500, outline: 'none', width: '160px' }}
           />
 

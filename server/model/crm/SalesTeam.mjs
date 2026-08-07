@@ -30,6 +30,11 @@ const salesTeamSchema = new mongoose.Schema({
   },
   
   performance: {
+
+
+
+
+    
     currentRevenue: { type: Number, default: 0 },
     currentDeals: { type: Number, default: 0 },
     winRate: { type: Number, default: 0 },
@@ -49,7 +54,7 @@ const salesTeamSchema = new mongoose.Schema({
   
   businessVertical: {
     type: String,
-    enum: ['Paramount', 'Transportation', 'Customs Clearance', 'Export', 'Import'],
+    enum: ['Paramount', 'Transportation', 'Freight Forwarding', 'Export', 'Import'],
     default: 'Paramount'
   },
   isActive: { type: Boolean, default: true },

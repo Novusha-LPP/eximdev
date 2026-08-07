@@ -100,7 +100,7 @@ export default function TasksList() {
       // Update state immediately for instant visual feedback
       const updatedTasks = tasks.map(t => t._id === taskId ? { ...t, status: newStatus } : t);
       setTasks(updatedTasks);
-      
+
       // Save to database
       await axios.put(`${process.env.REACT_APP_API_STRING}/crm/tasks/${taskId}`, { status: newStatus }, getHeaders());
       message.success('Task status updated');
@@ -177,9 +177,9 @@ export default function TasksList() {
         </div>
         <button
           onClick={() => setIsFormOpen(true)}
-          style={{ 
-            background: '#4f46e5', color: 'white', padding: '12px 24px', border: 'none', 
-            borderRadius: '12px', fontWeight: 700, cursor: 'pointer', display: 'flex', 
+          style={{
+            background: '#4f46e5', color: 'white', padding: '12px 24px', border: 'none',
+            borderRadius: '12px', fontWeight: 700, cursor: 'pointer', display: 'flex',
             alignItems: 'center', gap: '8px', boxShadow: '0 4px 6px -1px rgba(79, 70, 229, 0.4)',
             transition: 'all 0.2s', fontSize: '0.95rem'
           }}
@@ -191,10 +191,10 @@ export default function TasksList() {
       </div>
 
       {/* Filters Bar */}
-      <div style={{ 
-        display: 'flex', gap: '12px', marginBottom: '2rem', flexWrap: 'wrap', 
-        padding: '16px', background: '#fff', borderRadius: '12px', 
-        border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' 
+      <div style={{
+        display: 'flex', gap: '12px', marginBottom: '2rem', flexWrap: 'wrap',
+        padding: '16px', background: '#fff', borderRadius: '12px',
+        border: '1px solid #e2e8f0', boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: '8px' }}>
           <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Filter By:</span>
@@ -235,7 +235,7 @@ export default function TasksList() {
             const hasStatusPermission = canUpdateStatus(task);
             const hasEditPermission = canEditOrDelete(task);
             const overdue = isOverdue(task);
-            
+
             return (
               <div
                 key={task._id}
@@ -254,7 +254,7 @@ export default function TasksList() {
                 }}
                 onMouseEnter={e => {
                   e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = overdue 
+                  e.currentTarget.style.boxShadow = overdue
                     ? '0 10px 20px rgba(239,68,68,0.12)'
                     : '0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -2px rgba(0,0,0,0.05)';
                   e.currentTarget.style.borderColor = overdue ? '#f87171' : '#cbd5e1';
@@ -266,8 +266,8 @@ export default function TasksList() {
                 }}
               >
                 <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flex: 1 }}>
-                  <div style={{ 
-                    width: '4px', height: '40px', borderRadius: '2px', 
+                  <div style={{
+                    width: '4px', height: '40px', borderRadius: '2px',
                     background: overdue ? '#ef4444' : (PRIORITY_COLORS[task.priority || 'medium']?.text || '#475569'),
                     opacity: 0.8
                   }}></div>
@@ -324,20 +324,20 @@ export default function TasksList() {
                         <span style={{ color: '#cbd5e1' }}>📅</span> Due: <span style={{ color: overdue ? '#dc2626' : '#64748b', fontWeight: overdue ? 700 : 500 }}>{formatDate(task.dueDate)}</span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ color: '#cbd5e1' }}>👤</span> Assigned to: 
+                        <span style={{ color: '#cbd5e1' }}>👤</span> Assigned to:
                         <span style={{ color: '#4f46e5' }}>
                           {typeof task.assignedTo === 'object' && task.assignedTo
-                            ? (task.assignedTo.first_name ? `${task.assignedTo.first_name} ${task.assignedTo.last_name || ''}`.trim() : task.assignedTo.username || 'Unassigned') 
+                            ? (task.assignedTo.first_name ? `${task.assignedTo.first_name} ${task.assignedTo.last_name || ''}`.trim() : task.assignedTo.username || 'Unassigned')
                             : (task.assignedTo || 'Unassigned')}
                         </span>
                       </div>
                       {task.relatedTo?.model && task.relatedTo?.id && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <span style={{ color: '#cbd5e1' }}>🔗</span> Linked: 
-                          <span style={{ 
-                            background: '#eef2ff', color: '#4f46e5', 
+                          <span style={{ color: '#cbd5e1' }}>🔗</span> Linked:
+                          <span style={{
+                            background: '#eef2ff', color: '#4f46e5',
                             padding: '2px 8px', borderRadius: '4px', border: '1px solid #dbeafe',
-                            fontWeight: 700, fontSize: '0.725rem' 
+                            fontWeight: 700, fontSize: '0.725rem'
                           }}>
                             {task.relatedTo.model}: {task.relatedTo.name || 'View Record'}
                           </span>
@@ -346,9 +346,9 @@ export default function TasksList() {
                     </div>
 
                     {task.reassignmentHistory && task.reassignmentHistory.length > 0 && (
-                      <div style={{ 
-                        marginTop: '12px', padding: '10px 14px', background: '#f8fafc', 
-                        borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '0.75rem' 
+                      <div style={{
+                        marginTop: '12px', padding: '10px 14px', background: '#f8fafc',
+                        borderRadius: '10px', border: '1px solid #e2e8f0', fontSize: '0.75rem'
                       }}>
                         <div style={{ fontWeight: 700, color: '#64748b', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.025em' }}>Reassignment Log</div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>

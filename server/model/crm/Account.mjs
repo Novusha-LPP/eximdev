@@ -14,7 +14,7 @@ const accountSchema = new mongoose.Schema({
   healthScore: { type: Number, default: 0 },
   businessVertical: {
     type: String,
-    enum: ['Paramount', 'Transportation', 'Customs Clearance', 'Export', 'Import'],
+    enum: ['Paramount', 'Transportation', 'Freight Forwarding', 'Export', 'Import'],
     default: 'Paramount'
   },
   address: { type: String },

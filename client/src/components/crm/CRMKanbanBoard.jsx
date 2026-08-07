@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import OpportunityDetailModal from './components/OpportunityDetailModal';
+import TaskFormModal from './components/TaskFormModal';
 import FilterBar from './components/FilterBar';
 import confetti from 'canvas-confetti';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -18,7 +19,6 @@ const PIPELINE_STAGES = [
 ];
 
 const ALLOWED_SERVICES = [
-  'custom clearance',
   'freight forwarding',
   'dgft',
   'e-lock',
@@ -30,6 +30,20 @@ const ALLOWED_SERVICES = [
 ];
 
 export default function CRMKanbanBoard() {
+  const getHeaders = () => {
+    const user = JSON.parse(localStorage.getItem('exim_user') || '{}');
+    return {
+      headers: {
+        'Content-Type': 'application/json',
+        'user-id': user._id || user.id || '',
+        'username': user.username || '',
+        'user-role': user.role || '',
+        'Authorization': user.token ? `Bearer ${user.token}` : undefined
+      },
+      withCredentials: true
+    };
+  };
+
   const getInitialParam = (name, fallback) => {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -87,6 +101,10 @@ export default function CRMKanbanBoard() {
   const [duplicateService, setDuplicateService] = useState('');
   const [duplicateValue, setDuplicateValue] = useState(0);
   const [duplicateCloseDate, setDuplicateCloseDate] = useState('');
+
+  // Task Management States
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [selectedTaskForModal, setSelectedTaskForModal] = useState(null);
 
   const [filters, setFilters] = useState(() => {
     try {
@@ -193,7 +211,7 @@ export default function CRMKanbanBoard() {
       if (selectedStage === 'all') {
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/crm/opportunities/board`,
-          { params, withCredentials: true }
+          { params, ...getHeaders() }
         );
 
         const realBoard = res.data || {};
@@ -206,14 +224,33 @@ export default function CRMKanbanBoard() {
         setBoard(realBoard);
         setAggregates(aggs);
         setDealsList([]);
+
+        // Sync selected opportunity to update modal state
+        if (selectedOpportunity) {
+          let found = null;
+          for (const stageId in realBoard) {
+            if (Array.isArray(realBoard[stageId])) {
+              found = realBoard[stageId].find(o => o._id === selectedOpportunity._id);
+              if (found) break;
+            }
+          }
+          if (found) setSelectedOpportunity(found);
+        }
       } else {
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/crm/opportunities`,
-          { params, withCredentials: true }
+          { params, ...getHeaders() }
         );
-        setDealsList(Array.isArray(res.data) ? res.data : []);
+        const list = Array.isArray(res.data) ? res.data : [];
+        setDealsList(list);
         setBoard({});
         setAggregates({});
+
+        // Sync selected opportunity to update modal state
+        if (selectedOpportunity) {
+          const found = list.find(o => o._id === selectedOpportunity._id);
+          if (found) setSelectedOpportunity(found);
+        }
       }
     } catch (err) {
       console.error('Error fetching pipeline board/deals:', err);
@@ -279,7 +316,7 @@ export default function CRMKanbanBoard() {
       try {
         const res = await axios.get(
           `${process.env.REACT_APP_API_STRING}/crm/teams/my-teams`,
-          { withCredentials: true }
+          getHeaders()
         );
         const fetchedTeams = res.data || [];
         setTeams(fetchedTeams);
@@ -376,7 +413,7 @@ export default function CRMKanbanBoard() {
           closeReason: lostReason,
           closeNotes: lostNotes
         },
-        { withCredentials: true }
+        getHeaders()
       );
       message.success('Opportunity marked as Lost');
       fetchBoard();
@@ -417,7 +454,7 @@ export default function CRMKanbanBoard() {
       await axios.put(
         `${process.env.REACT_APP_API_STRING}/crm/opportunities/${opportunityId}`,
         { stage: newStage },
-        { withCredentials: true }
+        getHeaders()
       );
 
       // Trigger celebration if moved to 'won'
@@ -489,7 +526,7 @@ export default function CRMKanbanBoard() {
           expectedCloseDate: duplicateCloseDate,
           stage: duplicatingOpp.stage
         },
-        { withCredentials: true }
+        getHeaders()
       );
       message.success('Deal duplicated successfully!');
       setIsDuplicateModalOpen(false);
@@ -500,6 +537,50 @@ export default function CRMKanbanBoard() {
       console.error(err);
     } finally {
       setUpdating(false);
+    }
+  };
+  const handleAddTaskClick = (opp) => {
+    setSelectedTaskForModal({
+      relatedTo: {
+        model: 'Opportunity',
+        id: opp._id,
+        name: opp.name
+      }
+    });
+    setIsTaskModalOpen(true);
+  };
+
+  const handleEditTaskClick = (task, opp) => {
+    setSelectedTaskForModal({
+      ...task,
+      relatedTo: task.relatedTo || {
+        model: 'Opportunity',
+        id: opp._id,
+        name: opp.name
+      }
+    });
+    setIsTaskModalOpen(true);
+  };
+
+  const handleToggleTaskComplete = async (task) => {
+    try {
+      const newStatus = task.status === 'completed' ? 'open' : 'completed';
+      await axios.put(`${process.env.REACT_APP_API_STRING}/crm/tasks/${task._id}`, { status: newStatus }, getHeaders());
+      message.success(newStatus === 'completed' ? 'Task marked as completed' : 'Task marked as open');
+      fetchBoard();
+    } catch (err) {
+      message.error(err.response?.data?.message || err.message || 'Failed to update task status');
+    }
+  };
+
+  const handleDeleteTask = async (taskId) => {
+    if (!window.confirm('Are you sure you want to delete this task?')) return;
+    try {
+      await axios.delete(`${process.env.REACT_APP_API_STRING}/crm/tasks/${taskId}`, getHeaders());
+      message.success('Task deleted successfully');
+      fetchBoard();
+    } catch (err) {
+      message.error(err.response?.data?.message || err.message || 'Failed to delete task');
     }
   };
 
@@ -929,7 +1010,7 @@ export default function CRMKanbanBoard() {
         </div>
       ) : (
         /* Standard Kanban Board */
-        <div 
+        <div
           ref={bottomScrollRef}
           onMouseDown={handleMouseDown}
           onMouseLeave={handleMouseLeave}
@@ -1198,50 +1279,85 @@ export default function CRMKanbanBoard() {
                         )}
 
                         {/* Tasks Display */}
-                        {opp.tasks && opp.tasks.length > 0 && (
-                          <div style={{
-                            marginBottom: '8px',
-                            background: '#f8fafc',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '8px',
-                            padding: '8px 10px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '4px'
-                          }}>
-                            <div style={{ fontSize: '0.65rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.02em', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <span>📋 Pending Tasks</span>
-                              <span style={{ background: '#e2e8f0', color: '#475569', padding: '1px 5px', borderRadius: '4px', fontSize: '0.6rem' }}>{opp.tasks.length}</span>
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                              {opp.tasks.slice(0, 2).map((task) => (
-                                <div key={task._id} style={{ display: 'flex', flexDirection: 'column', fontSize: '0.75rem', color: '#334155' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600 }}>
-                                    <span style={{
-                                      width: '6px',
-                                      height: '6px',
-                                      borderRadius: '50%',
-                                      background: task.priority === 'urgent' || task.priority === 'high' ? '#ef4444' : '#6366f1',
-                                      flexShrink: 0
-                                    }}></span>
-                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '240px' }} title={task.title}>
-                                      {task.title}
-                                    </span>
-                                  </div>
-                                  {task.dueDate && (
-                                    <span style={{ fontSize: '0.65rem', color: '#94a3b8', marginLeft: '10px' }}>
-                                      Due: {new Date(task.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                                      {task.assignedTo && ` • ${task.assignedTo.first_name || task.assignedTo.username}`}
-                                    </span>
-                                  )}
-                                </div>
-                              ))}
-                              {opp.tasks.length > 2 && (
-                                <span style={{ fontSize: '0.65rem', color: '#94a3b8', fontStyle: 'italic', marginLeft: '10px' }}>
-                                  +{opp.tasks.length - 2} more tasks
+                        {opp.tasks && opp.tasks.length > 0 ? (() => {
+                          const total = opp.tasks.length;
+                          const completed = opp.tasks.filter(t => t.status === 'completed').length;
+                          const pct = Math.round((completed / total) * 100);
+                          return (
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              style={{
+                                marginBottom: '10px',
+                                background: '#f8fafc',
+                                border: '1px solid #e2e8f0',
+                                borderRadius: '8px',
+                                padding: '8px 10px'
+                              }}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.7rem', fontWeight: 700, color: '#64748b', marginBottom: '4px' }}>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  📋 Tasks ({completed}/{total})
                                 </span>
-                              )}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={{ color: pct === 100 ? '#10b981' : '#4f46e5' }}>{pct}%</span>
+                                  <button
+                                    title="Add Task"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleAddTaskClick(opp);
+                                    }}
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      color: '#4f46e5',
+                                      fontSize: '0.75rem',
+                                      padding: '0 2px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      fontWeight: 'bold',
+                                      borderRadius: '4px',
+                                      transition: 'background 0.2s'
+                                    }}
+                                    onMouseEnter={e => e.currentTarget.style.background = '#e2e8f0'}
+                                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                  >
+                                    ➕
+                                  </button>
+                                </div>
+                              </div>
+                              <div style={{ width: '100%', height: '6px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
+                                <div style={{ width: `${pct}%`, height: '100%', background: pct === 100 ? '#10b981' : '#4f46e5', borderRadius: '3px', transition: 'width 0.3s ease' }}></div>
+                              </div>
                             </div>
+                          );
+                        })() : (
+                          <div style={{ marginBottom: '8px' }}>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleAddTaskClick(opp);
+                              }}
+                              style={{
+                                background: '#f8fafc',
+                                border: '1px dashed #cbd5e1',
+                                borderRadius: '6px',
+                                padding: '6px 10px',
+                                width: '100%',
+                                textAlign: 'left',
+                                fontSize: '0.7rem',
+                                color: '#64748b',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px',
+                                transition: 'all 0.2s'
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = '#f8fafc'; }}
+                            >
+                              ➕ Add Task
+                            </button>
                           </div>
                         )}
 
@@ -1527,6 +1643,16 @@ export default function CRMKanbanBoard() {
           </div>
         </div>
       )}
+
+      <TaskFormModal
+        isOpen={isTaskModalOpen}
+        onClose={() => {
+          setIsTaskModalOpen(false);
+          setSelectedTaskForModal(null);
+        }}
+        onRefresh={fetchBoard}
+        task={selectedTaskForModal}
+      />
     </>
   );
 }

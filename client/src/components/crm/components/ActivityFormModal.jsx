@@ -14,6 +14,13 @@ const modelMap = {
   Account: 'Account'
 };
 
+const getLocalISOString = (dateInput) => {
+  const date = dateInput ? new Date(dateInput) : new Date();
+  if (isNaN(date.getTime())) return '';
+  const tzOffset = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - tzOffset).toISOString().substring(0, 16);
+};
+
 export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity, linkedId, linkedType = 'opportunity' }) {
   const [formData, setFormData] = useState({
     subject: '',
@@ -22,7 +29,7 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
     duration: '',
     outcome: 'neutral',
     nextSteps: '',
-    activityDate: new Date().toISOString().substring(0, 16),
+    activityDate: getLocalISOString(),
     relatedTo: {
       model: '',
       id: '',
@@ -78,7 +85,7 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
       if (activity) {
         setFormData({
           ...activity,
-          activityDate: activity.activityDate ? new Date(activity.activityDate).toISOString().substring(0, 16) : new Date().toISOString().substring(0, 16),
+          activityDate: getLocalISOString(activity.activityDate),
           relatedTo: activity.relatedTo || { model: '', id: '', name: '' }
         });
         if (activity.relatedTo?.model) {
@@ -96,7 +103,7 @@ export default function ActivityFormModal({ isOpen, onClose, onRefresh, activity
           duration: '',
           outcome: 'neutral',
           nextSteps: '',
-          activityDate: new Date().toISOString().substring(0, 16),
+          activityDate: getLocalISOString(),
           relatedTo: {
             model: initialModel || '',
             id: linkedId || '',

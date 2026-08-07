@@ -5,26 +5,59 @@ import {
   Grid,
   TextField,
   MenuItem,
-  Alert
+  Button,
+  IconButton,
+  Box,
 } from "@mui/material";
+import { Add, Delete } from "@mui/icons-material";
 
-function Stage1PolicyProposal({ formData, handleChange, handleRegistrationBlur, formatDateValue, isView }) {
-  // Check mandatory fields required before PR generation readiness can be set to Yes
-  const missingFields = [];
-  if (!formData.registrationNo?.trim()) missingFields.push("Registration No.");
-  const hasPolicyNo = (formData.newPolicyNo && formData.newPolicyNo.trim()) || (formData.policyNo && formData.policyNo.trim());
-  if (!hasPolicyNo) missingFields.push("Policy No.");
-  const hasValidTo = formData.newPolicyToDate || formData.policyToDate;
-  if (!hasValidTo) missingFields.push("Valid To Date (Expiry)");
-  const hasPremium = (Number(formData.newOdPremium) > 0) || 
-                     (Number(formData.newTotalPolicyPremium) > 0) || 
-                     (Number(formData.odPremium) > 0) || 
-                     (Number(formData.totalPolicyPremium) > 0) ||
-                     (Number(formData.newPremiumAmount) > 0) ||
-                     (Number(formData.premiumAmount) > 0);
-  if (!hasPremium) missingFields.push("Premium Amount (OD / Total Policy Premium)");
+function Stage1PolicyProposal({ formData, handleChange, handleRegistrationBlur, formatDateValue, isView, isRenew }) {
+  const addCustomField = (key) => {
+    const current = formData[key] || [];
+    handleChange(key, [...current, { id: Date.now(), label: "", value: "" }]);
+  };
 
-  const isMandatoryFilled = missingFields.length === 0;
+  const updateCustomField = (key, index, field, value) => {
+    const current = [...(formData[key] || [])];
+    current[index] = { ...current[index], [field]: value };
+    handleChange(key, current);
+  };
+
+  const removeCustomField = (key, index) => {
+    const current = (formData[key] || []).filter((_, i) => i !== index);
+    handleChange(key, current);
+  };
+
+  const renderCustomFields = (key) => {
+    const fields = formData[key] || [];
+    return fields.map((cf, idx) => (
+      <Grid item xs={12} sm={6} md={3} key={cf.id || idx}>
+        <Paper variant="outlined" sx={{ p: 1, backgroundColor: "#f8fafc" }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 1 }}>
+            <TextField
+              label="Custom Field Title"
+              placeholder="e.g. RTI Cover / Zero Dep"
+              value={cf.label || ""}
+              onChange={(e) => updateCustomField(key, idx, "label", e.target.value)}
+              size="small"
+              fullWidth
+              variant="standard"
+            />
+            <IconButton size="small" color="error" onClick={() => removeCustomField(key, idx)}>
+              <Delete fontSize="small" />
+            </IconButton>
+          </Box>
+          <TextField
+            label={cf.label ? `${cf.label} (₹)` : "Value (₹)"}
+            value={cf.value ?? ""}
+            onChange={(e) => updateCustomField(key, idx, "value", e.target.value)}
+            fullWidth
+            size="small"
+          />
+        </Paper>
+      </Grid>
+    ));
+  };
 
   return (
     <>
@@ -92,11 +125,21 @@ function Stage1PolicyProposal({ formData, handleChange, handleRegistrationBlur, 
         </Grid>
       </Paper>
 
-      {/* Previous Policy Details */}
+      {/* Current / Previous Policy Details */}
       <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" gutterBottom color="primary">
-          2. Previous Policy Details
-        </Typography>
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+          <Typography variant="h6" color="primary">
+            {isRenew ? "2. Previous Policy Details" : "2. Current Policy Details"}
+          </Typography>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<Add />}
+            onClick={() => addCustomField("section2CustomFields")}
+          >
+            + Add Field (Section 2)
+          </Button>
+        </Box>
         <Grid container spacing={2}>
           <Grid item xs={12} sm={6} md={4}>
             <TextField label="Insurance Company" value={formData.insuranceCompany ?? ""} onChange={(e) => handleChange("insuranceCompany", e.target.value)} fullWidth size="small" />
@@ -124,18 +167,24 @@ function Stage1PolicyProposal({ formData, handleChange, handleRegistrationBlur, 
             <TextField label="Total IDV (₹)" type="number" value={formData.totalIdv || ((Number(formData.idv) || 0) + (Number(formData.electricalAccessoriesIdv) || 0) + (Number(formData.cngKitIdv) || 0))} fullWidth size="small" InputProps={{ readOnly: true }} sx={{ "& .MuiInputBase-root": { backgroundColor: "#f5f5f5" } }} />
           </Grid>
 
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField label="Prev Premium (₹)" type="number" value={formData.premiumAmount ?? ""} onChange={(e) => handleChange("premiumAmount", e.target.value)} fullWidth size="small" />
+          <Grid item xs={12} sm={6} md={4}>
+            <TextField
+              label={isRenew ? "Prev Premium (₹)" : "Current Premium (₹)"}
+              type="number"
+              value={formData.premiumAmount ?? formData.premium ?? ""}
+              onChange={(e) => {
+                handleChange("premiumAmount", e.target.value);
+                handleChange("premium", e.target.value);
+              }}
+              fullWidth
+              size="small"
+            />
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField label="NCB (%)" type="number" value={formData.ncbPercentage ?? ""} onChange={(e) => handleChange("ncbPercentage", e.target.value)} fullWidth size="small" />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField label="Premium (₹)" type="number" value={formData.premium ?? ""} onChange={(e) => handleChange("premium", e.target.value)} fullWidth size="small" />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid item xs={12} sm={6} md={4}>
             <TextField label="Renewal Date" type="date" InputLabelProps={{ shrink: true }} value={formatDateValue(formData.renewalDate)} onChange={(e) => handleChange("renewalDate", e.target.value)} fullWidth size="small" />
           </Grid>
+
+          {renderCustomFields("section2CustomFields")}
 
           <Grid item xs={12}>
             <TextField label="Remarks" multiline rows={2} value={formData.remarks ?? ""} onChange={(e) => handleChange("remarks", e.target.value)} fullWidth size="small" />
@@ -143,17 +192,33 @@ function Stage1PolicyProposal({ formData, handleChange, handleRegistrationBlur, 
         </Grid>
       </Paper>
 
-      {/* Insurance Premium Breakdown */}
+      {/* Current / Previous Insurance Premium Breakdown */}
       <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" gutterBottom color="primary">
-          2B. Insurance Premium Breakdown
-        </Typography>
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+          <Typography variant="h6" color="primary">
+            {isRenew ? "2B. Previous Insurance Premium Breakdown" : "2B. Current Insurance Premium Breakdown"}
+          </Typography>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<Add />}
+            onClick={() => addCustomField("section2BCustomFields")}
+          >
+            + Add Field (Section 2B)
+          </Button>
+        </Box>
         <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
-          Granular premium breakdown from the insurance portal data.
+          {isRenew ? "Granular premium breakdown from previous policy." : "Granular premium breakdown from current policy data."}
         </Typography>
         <Grid container spacing={2}>
           <Grid item xs={12} sm={6} md={3}>
             <TextField label="OD Premium (₹)" type="number" value={formData.odPremium ?? ""} onChange={(e) => handleChange("odPremium", e.target.value)} fullWidth size="small" />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField label="Hydraulic Jack Cover (₹)" type="number" value={formData.hydraulicJackCoverPremium ?? formData.hydraulicJackCover ?? formData.hydrolicJackCover ?? ""} onChange={(e) => { handleChange("hydraulicJackCoverPremium", e.target.value); handleChange("hydraulicJackCover", e.target.value); handleChange("hydrolicJackCover", e.target.value); }} fullWidth size="small" />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField label="Moderation Amount (Tipper) (₹)" type="number" value={formData.moderationAmountTipper ?? formData.moderationAmount ?? ""} onChange={(e) => { handleChange("moderationAmountTipper", e.target.value); handleChange("moderationAmount", e.target.value); }} fullWidth size="small" />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <TextField label="IMT 23 (₹)" type="number" value={formData.imt23 ?? ""} onChange={(e) => handleChange("imt23", e.target.value)} fullWidth size="small" />
@@ -164,9 +229,22 @@ function Stage1PolicyProposal({ formData, handleChange, handleRegistrationBlur, 
           <Grid item xs={12} sm={6} md={3}>
             <TextField label="IMT 25 (₹)" type="number" value={formData.imt25 ?? ""} onChange={(e) => handleChange("imt25", e.target.value)} fullWidth size="small" />
           </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField label="NCB Amount (₹)" type="number" value={formData.ncbAmount ?? formData.ncb ?? ""} onChange={(e) => { handleChange("ncbAmount", e.target.value); handleChange("ncb", e.target.value); }} fullWidth size="small" />
+          </Grid>
+
+          {renderCustomFields("section2BCustomFields")}
 
           <Grid item xs={12} sm={6} md={3}>
-            <TextField label="Total OD Premium (₹)" type="number" value={formData.totalOdPremium ?? ""} onChange={(e) => handleChange("totalOdPremium", e.target.value)} fullWidth size="small" />
+            <TextField
+              label="Total OD Premium (₹)"
+              type="number"
+              value={formData.totalOdPremium ?? ""}
+              onChange={(e) => handleChange("totalOdPremium", e.target.value)}
+              fullWidth
+              size="small"
+              helperText="= OD + Jack + Moderation + IMT23/24/25 - NCB"
+            />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <TextField label="IMT 17 (₹)" type="number" value={formData.imt17 ?? ""} onChange={(e) => handleChange("imt17", e.target.value)} fullWidth size="small" />
@@ -195,9 +273,19 @@ function Stage1PolicyProposal({ formData, handleChange, handleRegistrationBlur, 
 
       {/* Renewed Policy Details */}
       <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" gutterBottom color="primary">
-          3. Renewed Policy Details
-        </Typography>
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+          <Typography variant="h6" color="primary">
+            3. Renewed Policy Details
+          </Typography>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<Add />}
+            onClick={() => addCustomField("section3CustomFields")}
+          >
+            + Add Field (Section 3)
+          </Button>
+        </Box>
         <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
           Enter the new/renewed policy details here. These will become "Previous Policy Details" during the next renewal.
         </Typography>
@@ -228,15 +316,21 @@ function Stage1PolicyProposal({ formData, handleChange, handleRegistrationBlur, 
             <TextField label="Total IDV (₹)" type="number" value={formData.newTotalIdv || ((Number(formData.newIdv) || 0) + (Number(formData.newElectricalAccessoriesIdv) || 0) + (Number(formData.newCngKitIdv) || 0))} fullWidth size="small" InputProps={{ readOnly: true }} sx={{ "& .MuiInputBase-root": { backgroundColor: "#f5f5f5" } }} />
           </Grid>
 
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField label="Premium Amount (₹)" type="number" value={formData.newPremiumAmount ?? ""} onChange={(e) => handleChange("newPremiumAmount", e.target.value)} fullWidth size="small" />
+          <Grid item xs={12} sm={6} md={6}>
+            <TextField
+              label="Premium Amount (₹)"
+              type="number"
+              value={formData.newPremiumAmount ?? formData.newPremium ?? ""}
+              onChange={(e) => {
+                handleChange("newPremiumAmount", e.target.value);
+                handleChange("newPremium", e.target.value);
+              }}
+              fullWidth
+              size="small"
+            />
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField label="NCB (%)" type="number" value={formData.newNcb ?? ""} onChange={(e) => handleChange("newNcb", e.target.value)} fullWidth size="small" />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField label="Premium (₹)" type="number" value={formData.newPremium ?? ""} onChange={(e) => handleChange("newPremium", e.target.value)} fullWidth size="small" />
-          </Grid>
+
+          {renderCustomFields("section3CustomFields")}
 
           <Grid item xs={12}>
             <TextField label="Remarks" multiline rows={2} value={formData.newRemarks ?? ""} onChange={(e) => handleChange("newRemarks", e.target.value)} fullWidth size="small" />
@@ -246,15 +340,31 @@ function Stage1PolicyProposal({ formData, handleChange, handleRegistrationBlur, 
 
       {/* Renewed Insurance Premium Breakdown */}
       <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" gutterBottom color="primary">
-          3B. Renewed Insurance Premium Breakdown
-        </Typography>
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+          <Typography variant="h6" color="primary">
+            3B. Renewed Insurance Premium Breakdown
+          </Typography>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<Add />}
+            onClick={() => addCustomField("section3BCustomFields")}
+          >
+            + Add Field (Section 3B)
+          </Button>
+        </Box>
         <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
           Granular premium breakdown for the renewed/new policy.
         </Typography>
         <Grid container spacing={2}>
           <Grid item xs={12} sm={6} md={3}>
             <TextField label="OD Premium (₹) *" type="number" value={formData.newOdPremium ?? ""} onChange={(e) => handleChange("newOdPremium", e.target.value)} fullWidth size="small" required />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField label="Hydraulic Jack Cover Premium (₹)" type="number" value={formData.newHydraulicJackCoverPremium ?? formData.newHydraulicJackCover ?? formData.newHydrolicJackCover ?? ""} onChange={(e) => { handleChange("newHydraulicJackCoverPremium", e.target.value); handleChange("newHydraulicJackCover", e.target.value); handleChange("newHydrolicJackCover", e.target.value); }} fullWidth size="small" />
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField label="Moderation Amount (Tipper) (₹)" type="number" value={formData.newModerationAmountTipper ?? formData.newModerationAmount ?? ""} onChange={(e) => { handleChange("newModerationAmountTipper", e.target.value); handleChange("newModerationAmount", e.target.value); }} fullWidth size="small" />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <TextField label="IMT 23 (₹)" type="number" value={formData.newImt23 ?? ""} onChange={(e) => handleChange("newImt23", e.target.value)} fullWidth size="small" />
@@ -265,9 +375,22 @@ function Stage1PolicyProposal({ formData, handleChange, handleRegistrationBlur, 
           <Grid item xs={12} sm={6} md={3}>
             <TextField label="IMT 25 (₹)" type="number" value={formData.newImt25 ?? ""} onChange={(e) => handleChange("newImt25", e.target.value)} fullWidth size="small" />
           </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <TextField label="NCB Amount (₹)" type="number" value={formData.newNcbAmount ?? formData.newNcb ?? ""} onChange={(e) => { handleChange("newNcbAmount", e.target.value); handleChange("newNcb", e.target.value); }} fullWidth size="small" />
+          </Grid>
+
+          {renderCustomFields("section3BCustomFields")}
 
           <Grid item xs={12} sm={6} md={3}>
-            <TextField label="Total OD Premium (₹)" type="number" value={formData.newTotalOdPremium ?? ""} onChange={(e) => handleChange("newTotalOdPremium", e.target.value)} fullWidth size="small" />
+            <TextField
+              label="Total OD Premium (₹)"
+              type="number"
+              value={formData.newTotalOdPremium ?? ""}
+              onChange={(e) => handleChange("newTotalOdPremium", e.target.value)}
+              fullWidth
+              size="small"
+              helperText="= OD + Jack + Moderation + IMT23/24/25 - NCB"
+            />
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
             <TextField label="IMT 17 (₹)" type="number" value={formData.newImt17 ?? ""} onChange={(e) => handleChange("newImt17", e.target.value)} fullWidth size="small" />
@@ -291,32 +414,6 @@ function Stage1PolicyProposal({ formData, handleChange, handleRegistrationBlur, 
           <Grid item xs={12} sm={6} md={3}>
             <TextField label="Total Policy Premium (₹) *" type="number" value={formData.newTotalPolicyPremium ?? ""} onChange={(e) => handleChange("newTotalPolicyPremium", e.target.value)} fullWidth size="small" required />
           </Grid>
-        </Grid>
-      </Paper>
-
-      {/* Ready for PR Generation */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" gutterBottom color="primary">
-          4. PR Generation Readiness
-        </Typography>
-        <Grid container spacing={2} alignItems="center">
-          <Grid item xs={12} sm={6} md={4}>
-            <TextField select label="Ready for PR Generation?" value={formData.readyForPr || ""} onChange={(e) => handleChange("readyForPr", e.target.value)} fullWidth size="small">
-              <MenuItem value="">Select</MenuItem>
-              <MenuItem value="Yes" disabled={!isMandatoryFilled}>
-                Yes {!isMandatoryFilled ? "(Fill mandatory details first)" : ""}
-              </MenuItem>
-              <MenuItem value="No">No</MenuItem>
-            </TextField>
-          </Grid>
-          {!isMandatoryFilled && (
-            <Grid item xs={12}>
-              <Alert severity="warning" sx={{ py: 0.5 }}>
-                To enable <strong>Ready for PR Generation = Yes</strong>, please fill mandatory details:{" "}
-                <strong>{missingFields.join(", ")}</strong>.
-              </Alert>
-            </Grid>
-          )}
         </Grid>
       </Paper>
     </>

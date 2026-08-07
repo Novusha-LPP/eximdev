@@ -4,6 +4,7 @@ import auditPlugin from "../../plugins/auditPlugin.mjs";
 const statusEnum = [
   "Draft",
   "PR Raised",
+  "Preparing for Quotation",
   "Quotation Received",
   "Finance Approved",
   "Payment Done",
@@ -75,6 +76,12 @@ const supplierQuoteSchema = new mongoose.Schema(
     phoneNumber: String,
     emailWhatsApp: String,
     gstNumber: String,
+    selectedTyreType: String,
+    bankAccountNo: String,
+    bankName: String,
+    bankIfscCode: String,
+    bankBranchCode: String,
+    supplierNameInBank: String,
     tyreBrand: String,
     sizeSpecification: String,
     unitPriceNew: { type: Number, default: 0 },
@@ -91,6 +98,16 @@ const supplierQuoteSchema = new mongoose.Schema(
   { _id: true }
 );
 
+const selectedSupplierSchema = new mongoose.Schema(
+  {
+    selectedSupplier: String,
+    priceQuoted: { type: Number, default: 0 },
+    totalOrderValue: { type: Number, default: 0 },
+    reasonForSelection: String,
+  },
+  { _id: true }
+);
+
 const stage2Schema = new mongoose.Schema(
   {
     prNumber: String,
@@ -102,6 +119,7 @@ const stage2Schema = new mongoose.Schema(
     l1PriceQuoted: { type: Number, default: 0 },
     reasonForSelection: String,
     totalOrderValue: { type: Number, default: 0 },
+    selectedSuppliers: { type: [selectedSupplierSchema], default: [] },
     declaration: String,
     routingChecklist: { type: [routingChecklistSchema], default: [] },
   },
@@ -139,6 +157,20 @@ const stage3Schema = new mongoose.Schema(
 );
 
 // ─── Stage 4 ───
+const supplierPaymentSchema = new mongoose.Schema(
+  {
+    supplierName: String,
+    paymentTerms: String,
+    paymentMethod: String,
+    utrNumber: String,
+    paymentDate: Date,
+    isPaid: { type: Boolean, default: false },
+    creditDays: { type: Number, default: 0 },
+    dueDate: Date,
+  },
+  { _id: true }
+);
+
 const stage4Schema = new mongoose.Schema(
   {
     poNumberDate: String,
@@ -154,6 +186,7 @@ const stage4Schema = new mongoose.Schema(
       branch: String,
       upiVpa: String,
     },
+    supplierPayments: { type: [supplierPaymentSchema], default: [] },
     paymentDetails: {
       paymentMethod: String,
       paymentDate: Date,
@@ -177,6 +210,32 @@ const stage4Schema = new mongoose.Schema(
 );
 
 // ─── Stage 5 ───
+const supplierDispatchSchema = new mongoose.Schema(
+  {
+    supplierName: String,
+    utrNumber: String,
+    orderPlacedBy: String,
+    orderPlacedDate: Date,
+    orderConfirmation: String,
+    modeOfConfirmation: String,
+    dispatchDetails: {
+      dispatchDate: Date,
+      expectedDeliveryDate: Date,
+      vehicleNumber: String,
+      transporterName: String,
+      driverName: String,
+      driverContactNumber: String,
+      dcNumber: String,
+      lrNumber: String,
+      invoiceNumber: String,
+      invoiceAmount: { type: Number, default: 0 },
+      deliveryLocationSite: String,
+      noOfTyresDispatched: { type: Number, default: 0 },
+    },
+  },
+  { _id: true }
+);
+
 const stage5Schema = new mongoose.Schema(
   {
     prNumber: String,
@@ -201,6 +260,7 @@ const stage5Schema = new mongoose.Schema(
       deliveryLocationSite: String,
       noOfTyresDispatched: { type: Number, default: 0 },
     },
+    supplierDispatches: { type: [supplierDispatchSchema], default: [] },
     remarks: String,
   },
   { _id: false }

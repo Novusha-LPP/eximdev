@@ -109,12 +109,20 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                             ? (parseFloat(initialData.amount) - tdsVal).toFixed(2)
                             : '');
 
+                const commonInvNo = initialData.invoice_number || initialData.awbBlNo || awbBlNo || '';
+                const firstInvDate = initialData.invoice_date || initialData.awbBlDate || awbBlDate || '';
+
+                const revAmt = Number(initialData?.revenueAmount || initialData?.revenueTotal || initialData?.revenueBasicAmount || 0);
+                const revBasic = Number(initialData?.revenueBasicAmount || revAmt || 0);
+                const revGst = Number(initialData?.revenueGstAmount || 0);
+                const revTot = Number(initialData?.revenueTotal || revAmt || 0);
+
                 setFormData(prev => ({
                     ...prev,
                     "Entry No": finalEntryNo,
                     "Job No": updatedJobNum,
-                    "Supplier Inv No": initialData.invoice_number || initialData.awbBlNo || awbBlNo || '',
-                    "Supplier Inv Date": formatToISO(initialData.invoice_date || initialData.awbBlDate || awbBlDate || ''),
+                    "Supplier Inv No": commonInvNo,
+                    "Supplier Inv Date": formatToISO(firstInvDate),
                     "Supplier Name": initialData.partyName || '',
                     "Address 1": branch.address || '',
                     "Address 2": branch.city || '',
@@ -126,7 +134,9 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                     "PAN": branch.pan || '',
                     "CIN": party?.cin || '',
                     "Credit Terms": party?.credit_terms || '',
-                    "Taxable Value": taxableVal,
+                    "Taxable Value": isReimbursement
+                        ? (initialData.amount || initialData.basicAmount || 0).toFixed(2)
+                        : (initialData.basicAmount || initialData.rate || 0).toFixed(2),
                     "GST%": isReimbursement ? '' : (initialData.gstRate || ''),
                     "CGST": isReimbursement ? '' : ((initialData.cgst > 0) ? initialData.cgst.toFixed(2) : ''),
                     "SGST": isReimbursement ? '' : ((initialData.sgst > 0) ? initialData.sgst.toFixed(2) : ''),
@@ -138,6 +148,13 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                             initialData.chargeHeadCategory === 'Reimbursement' ? `NEW - ${initialData.partyName || ''}` :
                                 initialData.chargeHead
                     ) : '',
+                    "Revenue Amount": revAmt ? revAmt.toFixed(2) : '0.00',
+                    "Revenue Basic Amount": revBasic ? revBasic.toFixed(2) : '0.00',
+                    "Revenue GST Amount": revGst ? revGst.toFixed(2) : '0.00',
+                    "Revenue CGST": initialData.revenueCgst ? Number(initialData.revenueCgst).toFixed(2) : '0.00',
+                    "Revenue SGST": initialData.revenueSgst ? Number(initialData.revenueSgst).toFixed(2) : '0.00',
+                    "Revenue IGST": initialData.revenueIgst ? Number(initialData.revenueIgst).toFixed(2) : '0.00',
+                    "Revenue Total": Math.round(revTot),
                     "Charge Heading": initialData.chargeHead || '',
                     "SAC": initialData.cthNo || '',
                     "Status": '',
@@ -258,6 +275,53 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                 }
             }
         }
+
+        const revAmt = Number(finalFormData["Revenue Amount"] || initialData?.revenueAmount || initialData?.revenueTotal || 0);
+        const revBasic = Number(finalFormData["Revenue Basic Amount"] || initialData?.revenueBasicAmount || revAmt || 0);
+        const revGst = Number(finalFormData["Revenue GST Amount"] || initialData?.revenueGstAmount || 0);
+        const revTot = Number(finalFormData["Revenue Total"] || initialData?.revenueTotal || revAmt || 0);
+
+        const singleChargeItem = {
+            chargeHead: initialData?.chargeHead || '',
+            chargeDescription: initialData?.chargeDescription || initialData?.chargeHead || '',
+            chargeId: initialData?.chargeId || '',
+            sac: initialData?.cthNo || '',
+            chargeType: initialData?.chargeHeadCategory || '',
+            category: initialData?.chargeHeadCategory || '',
+            costAmount: Number(initialData?.amount || 0),
+            basicAmount: Number(initialData?.basicAmount || initialData?.amount || 0),
+            taxableValue: Number(finalFormData["Taxable Value"] || initialData?.basicAmount || 0),
+            costGstAmount: Number(finalFormData["CGST"] || 0) + Number(finalFormData["SGST"] || 0) + Number(finalFormData["IGST"] || 0),
+            gstRate: Number(finalFormData["GST%"] || initialData?.gstRate || 0),
+            gstAmount: Number(finalFormData["CGST"] || 0) + Number(finalFormData["SGST"] || 0) + Number(finalFormData["IGST"] || 0),
+            cgst: Number(finalFormData["CGST"] || 0),
+            sgst: Number(finalFormData["SGST"] || 0),
+            igst: Number(finalFormData["IGST"] || 0),
+            tdsAmount: Number(finalFormData["TDS"] || initialData?.tdsAmount || 0),
+            total: Number(finalFormData["Total"] || initialData?.totalAmount || 0),
+            netPayable: Number(finalFormData["Total"] || initialData?.netPayable || 0),
+            revenueAmount: revAmt,
+            revenueBasicAmount: revBasic,
+            revenueGstAmount: revGst,
+            revenueCgst: Number(finalFormData["Revenue CGST"] || initialData?.revenueCgst || 0),
+            revenueSgst: Number(finalFormData["Revenue SGST"] || initialData?.revenueSgst || 0),
+            revenueIgst: Number(finalFormData["Revenue IGST"] || initialData?.revenueIgst || 0),
+            revenueTotal: revTot,
+            invoiceNumber: finalFormData["Supplier Inv No"] || initialData?.invoice_number || '',
+            invoiceDate: finalFormData["Supplier Inv Date"] || initialData?.invoice_date || ''
+        };
+
+        finalFormData["Revenue Amount"] = revAmt.toFixed(2);
+        finalFormData["Revenue Basic Amount"] = revBasic.toFixed(2);
+        finalFormData["Revenue GST Amount"] = revGst.toFixed(2);
+        finalFormData["Revenue Total"] = Math.round(revTot);
+        finalFormData.revenueAmount = revAmt;
+        finalFormData.revenueBasicAmount = revBasic;
+        finalFormData.revenueGstAmount = revGst;
+        finalFormData.revenueTotal = revTot;
+
+        finalFormData.chargeItems = [singleChargeItem];
+        finalFormData.chargeRefs = initialData?.chargeId ? [initialData.chargeId] : [];
 
         setLoading(true);
         try {
@@ -414,6 +478,10 @@ const PurchaseBookModal = ({ isOpen, onClose, initialData, jobNumber, jobDisplay
                             <div className="charges-ep-row">
                                 <span className="charges-ep-label">Total</span>
                                 <input type="number" name="Total" className="charges-ep-desc-input" value={formData["Total"]} onChange={handleInputChange} />
+                            </div>
+                            <div className="charges-ep-row">
+                                <span className="charges-ep-label" style={{ color: '#2e7d32', fontWeight: 700 }}>Revenue Amount</span>
+                                <input type="number" name="Revenue Amount" className="charges-ep-desc-input" style={{ borderColor: '#81c784', fontWeight: 600 }} value={formData["Revenue Amount"] || ''} onChange={handleInputChange} />
                             </div>
                             <div className="charges-ep-row">
                                 <span className="charges-ep-label">Status</span>

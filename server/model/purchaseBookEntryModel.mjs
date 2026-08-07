@@ -31,6 +31,13 @@ const purchaseBookEntrySchema = new mongoose.Schema({
   igstAmt: { type: Number },
   tds: { type: Number },
   total: { type: Number },
+  revenueAmount: { type: Number },
+  revenueBasicAmount: { type: Number },
+  revenueGstAmount: { type: Number },
+  revenueCgst: { type: Number },
+  revenueSgst: { type: Number },
+  revenueIgst: { type: Number },
+  revenueTotal: { type: Number },
   isApproved: { type: Boolean, default: false },
   isPostBilling: { type: Boolean, default: false },
   approvedByFirst: { type: String, trim: true },
@@ -53,6 +60,9 @@ const purchaseBookEntrySchema = new mongoose.Schema({
   tdsCategory: { type: String, default: '94C' },
   status: { type: String, default: '' },
   virtualBalanceTerminal: { type: String, default: '' },
+  isMultiCharge: { type: Boolean, default: false },
+  chargeItems: { type: Array, default: [] },
+  chargeRefs: { type: [String], default: [] },
   createdAt: { type: Date, default: Date.now }
 }, { timestamps: true });
 

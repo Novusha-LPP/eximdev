@@ -67,6 +67,10 @@ const emptyRecord = {
   mfgYear: "",
   electricalAccessoriesIdv: "",
   cngKitIdv: "",
+  hydraulicJackCover: "",
+  hydrolicJackCover: "",
+  moderationAmount: "",
+  moderationAmountTipper: "",
   totalIdv: "",
   odPremium: "",
   imt23: "",
@@ -88,6 +92,10 @@ const emptyRecord = {
   newIdv: "",
   newElectricalAccessoriesIdv: "",
   newCngKitIdv: "",
+  newHydraulicJackCover: "",
+  newHydrolicJackCover: "",
+  newModerationAmount: "",
+  newModerationAmountTipper: "",
   newTotalIdv: "",
   newPremiumAmount: "",
   newNcb: "",
@@ -108,6 +116,11 @@ const emptyRecord = {
   newTotalPolicyPremium: "",
   // PR Readiness
   readyForPr: "",
+  // Dynamic Custom Fields
+  section2CustomFields: [],
+  section2BCustomFields: [],
+  section3CustomFields: [],
+  section3BCustomFields: [],
   // Workflow
   prNumber: "",
   prDate: "",
@@ -184,6 +197,14 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
             if (fetchedData.newIdv) fetchedData.idv = fetchedData.newIdv;
             if (fetchedData.newElectricalAccessoriesIdv) fetchedData.electricalAccessoriesIdv = fetchedData.newElectricalAccessoriesIdv;
             if (fetchedData.newCngKitIdv) fetchedData.cngKitIdv = fetchedData.newCngKitIdv;
+            if (fetchedData.newHydraulicJackCover || fetchedData.newHydrolicJackCover) {
+              fetchedData.hydraulicJackCover = fetchedData.newHydraulicJackCover || fetchedData.newHydrolicJackCover;
+              fetchedData.hydrolicJackCover = fetchedData.hydraulicJackCover;
+            }
+            if (fetchedData.newModerationAmount || fetchedData.newModerationAmountTipper) {
+              fetchedData.moderationAmount = fetchedData.newModerationAmount || fetchedData.newModerationAmountTipper;
+              fetchedData.moderationAmountTipper = fetchedData.moderationAmount;
+            }
             if (fetchedData.newTotalIdv) fetchedData.totalIdv = fetchedData.newTotalIdv;
             if (fetchedData.newPremiumAmount) fetchedData.premiumAmount = fetchedData.newPremiumAmount;
             if (fetchedData.newNcb) fetchedData.ncbPercentage = fetchedData.newNcb;
@@ -210,6 +231,10 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
             fetchedData.newIdv = "";
             fetchedData.newElectricalAccessoriesIdv = "";
             fetchedData.newCngKitIdv = "";
+            fetchedData.newHydraulicJackCover = "";
+            fetchedData.newHydrolicJackCover = "";
+            fetchedData.newModerationAmount = "";
+            fetchedData.newModerationAmountTipper = "";
             fetchedData.newTotalIdv = "";
             fetchedData.newPremiumAmount = "";
             fetchedData.newNcb = "";
@@ -285,10 +310,10 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
         const diffTime = Math.max(0, pay - pr);
         const calcTat = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         if (formData.tat !== calcTat || !formData.paymentDate) {
-          setFormData((prev) => ({ 
-            ...prev, 
+          setFormData((prev) => ({
+            ...prev,
             paymentDate: prev.paymentDate || todayStr,
-            tat: calcTat 
+            tat: calcTat
           }));
         }
       }
@@ -298,7 +323,7 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
   const handleChange = useCallback((field, val) => {
     setFormData((prev) => {
       const next = { ...prev, [field]: val };
-      
+
       if (field === "readyForPr") {
         if (val === "Yes") {
           const missing = [];
@@ -307,12 +332,12 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
           if (!hasPolicyNo) missing.push("Policy No.");
           const hasValidTo = prev.newPolicyToDate || prev.policyToDate;
           if (!hasValidTo) missing.push("Valid To Date (Expiry)");
-          const hasPremium = (Number(prev.newOdPremium) > 0) || 
-                             (Number(prev.newTotalPolicyPremium) > 0) || 
-                             (Number(prev.odPremium) > 0) || 
-                             (Number(prev.totalPolicyPremium) > 0) ||
-                             (Number(prev.newPremiumAmount) > 0) ||
-                             (Number(prev.premiumAmount) > 0);
+          const hasPremium = (Number(prev.newOdPremium) > 0) ||
+            (Number(prev.newTotalPolicyPremium) > 0) ||
+            (Number(prev.odPremium) > 0) ||
+            (Number(prev.totalPolicyPremium) > 0) ||
+            (Number(prev.newPremiumAmount) > 0) ||
+            (Number(prev.premiumAmount) > 0);
           if (!hasPremium) missing.push("Premium Amount");
 
           if (missing.length > 0) {
@@ -327,11 +352,11 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
             axios.get(`${process.env.REACT_APP_API_STRING}/fleet-insurance-sop/next-pr-number?date=${prev.prDate || todayStr}`)
               .then((res) => {
                 if (res.data?.prNumber) {
-                  setFormData((p) => ({ 
-                    ...p, 
+                  setFormData((p) => ({
+                    ...p,
                     readyForPr: "Yes",
                     prNumber: p.prNumber || res.data.prNumber,
-                    prDate: p.prDate || todayStr 
+                    prDate: p.prDate || todayStr
                   }));
                 }
               })
@@ -384,12 +409,12 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
         alert("Valid To date (Expiry Date) is required for renewal");
         return;
       }
-      const hasPremium = (Number(formData.newOdPremium) > 0) || 
-                         (Number(formData.newTotalPolicyPremium) > 0) || 
-                         (Number(formData.odPremium) > 0) || 
-                         (Number(formData.totalPolicyPremium) > 0) ||
-                         (Number(formData.newPremiumAmount) > 0) ||
-                         (Number(formData.premiumAmount) > 0);
+      const hasPremium = (Number(formData.newOdPremium) > 0) ||
+        (Number(formData.newTotalPolicyPremium) > 0) ||
+        (Number(formData.odPremium) > 0) ||
+        (Number(formData.totalPolicyPremium) > 0) ||
+        (Number(formData.newPremiumAmount) > 0) ||
+        (Number(formData.premiumAmount) > 0);
       if (!hasPremium) {
         alert("Premium amount (OD Premium or Total Policy Premium) is required for renewal");
         return;
@@ -402,11 +427,31 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
       dataToSave.financialApprovalStatus = "Pending";
     }
 
-    // ONCE THE PAYMENT UTR STAGE IS COMPLETED (paymentUtr entered), RENEW THE OLD POLICY WITH THE NEW POLICY
-    if (dataToSave.paymentUtr && dataToSave.paymentUtr.trim().length > 0) {
+    // Ensure totalIdv and newTotalIdv are calculated before saving
+    const calcPrevTotalIdv = (Number(dataToSave.idv) || 0) + (Number(dataToSave.electricalAccessoriesIdv) || 0) + (Number(dataToSave.cngKitIdv) || 0);
+    if (calcPrevTotalIdv > 0) dataToSave.totalIdv = calcPrevTotalIdv;
+
+    const calcNewTotalIdv = (Number(dataToSave.newIdv) || 0) + (Number(dataToSave.newElectricalAccessoriesIdv) || 0) + (Number(dataToSave.newCngKitIdv) || 0);
+    if (calcNewTotalIdv > 0) dataToSave.newTotalIdv = calcNewTotalIdv;
+
+    const hasRenewedFields = Boolean(
+      dataToSave.newPolicyNo?.trim() ||
+      dataToSave.newInsuranceCompany?.trim() ||
+      dataToSave.newPolicyToDate ||
+      dataToSave.newPolicyFromDate
+    );
+
+    // If new policy details are entered OR payment UTR is completed, mark renewed status as YES
+    if (hasRenewedFields || (dataToSave.paymentUtr && dataToSave.paymentUtr.trim().length > 0)) {
       dataToSave.renewed = "YES";
       dataToSave.renewalStatus = "Renewed";
+    } else {
+      dataToSave.renewed = "NO";
+      dataToSave.renewalStatus = "Pending";
+    }
 
+    // ONCE THE PAYMENT UTR STAGE IS COMPLETED (paymentUtr entered), RENEW THE OLD POLICY WITH THE NEW POLICY
+    if (dataToSave.paymentUtr && dataToSave.paymentUtr.trim().length > 0) {
       // Overwrite previous policy fields with newly renewed policy details if present
       if (dataToSave.newInsuranceCompany) dataToSave.insuranceCompany = dataToSave.newInsuranceCompany;
       if (dataToSave.newPolicyNo) dataToSave.policyNo = dataToSave.newPolicyNo;
@@ -415,6 +460,14 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
       if (dataToSave.newIdv) dataToSave.idv = dataToSave.newIdv;
       if (dataToSave.newElectricalAccessoriesIdv) dataToSave.electricalAccessoriesIdv = dataToSave.newElectricalAccessoriesIdv;
       if (dataToSave.newCngKitIdv) dataToSave.cngKitIdv = dataToSave.newCngKitIdv;
+      if (dataToSave.newHydraulicJackCover || dataToSave.newHydrolicJackCover) {
+        dataToSave.hydraulicJackCover = dataToSave.newHydraulicJackCover || dataToSave.newHydrolicJackCover;
+        dataToSave.hydrolicJackCover = dataToSave.hydraulicJackCover;
+      }
+      if (dataToSave.newModerationAmount || dataToSave.newModerationAmountTipper) {
+        dataToSave.moderationAmount = dataToSave.newModerationAmount || dataToSave.newModerationAmountTipper;
+        dataToSave.moderationAmountTipper = dataToSave.moderationAmount;
+      }
       if (dataToSave.newTotalIdv) dataToSave.totalIdv = dataToSave.newTotalIdv;
       if (dataToSave.newPremiumAmount) dataToSave.premiumAmount = dataToSave.newPremiumAmount;
       if (dataToSave.newNcb) dataToSave.ncbPercentage = dataToSave.newNcb;
@@ -433,6 +486,13 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
       if (dataToSave.newTotalGst) dataToSave.totalGst = dataToSave.newTotalGst;
       if (dataToSave.newTotalPolicyPremium) dataToSave.totalPolicyPremium = dataToSave.newTotalPolicyPremium;
 
+      if (Array.isArray(dataToSave.section3CustomFields) && dataToSave.section3CustomFields.length > 0) {
+        dataToSave.section2CustomFields = dataToSave.section3CustomFields;
+      }
+      if (Array.isArray(dataToSave.section3BCustomFields) && dataToSave.section3BCustomFields.length > 0) {
+        dataToSave.section2BCustomFields = dataToSave.section3BCustomFields;
+      }
+
       // Clear renewed fields after promotion so they are ready for future renewal
       dataToSave.newInsuranceCompany = "";
       dataToSave.newPolicyNo = "";
@@ -441,6 +501,10 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
       dataToSave.newIdv = "";
       dataToSave.newElectricalAccessoriesIdv = "";
       dataToSave.newCngKitIdv = "";
+      dataToSave.newHydraulicJackCover = "";
+      dataToSave.newHydrolicJackCover = "";
+      dataToSave.newModerationAmount = "";
+      dataToSave.newModerationAmountTipper = "";
       dataToSave.newTotalIdv = "";
       dataToSave.newPremiumAmount = "";
       dataToSave.newNcb = "";
@@ -458,6 +522,8 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
       dataToSave.newLiabilityPremium = "";
       dataToSave.newTotalGst = "";
       dataToSave.newTotalPolicyPremium = "";
+      dataToSave.section3CustomFields = [];
+      dataToSave.section3BCustomFields = [];
     }
 
     setSaving(true);
@@ -519,6 +585,10 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
           idv: prev.idv || latest.newIdv || latest.idv || "",
           electricalAccessoriesIdv: prev.electricalAccessoriesIdv || latest.newElectricalAccessoriesIdv || latest.electricalAccessoriesIdv || "",
           cngKitIdv: prev.cngKitIdv || latest.newCngKitIdv || latest.cngKitIdv || "",
+          hydraulicJackCover: prev.hydraulicJackCover || latest.newHydraulicJackCover || latest.hydraulicJackCover || latest.hydrolicJackCover || "",
+          hydrolicJackCover: prev.hydrolicJackCover || latest.newHydrolicJackCover || latest.hydrolicJackCover || latest.hydraulicJackCover || "",
+          moderationAmount: prev.moderationAmount || latest.newModerationAmount || latest.moderationAmount || latest.moderationAmountTipper || "",
+          moderationAmountTipper: prev.moderationAmountTipper || latest.newModerationAmountTipper || latest.moderationAmountTipper || latest.moderationAmount || "",
           totalIdv: prev.totalIdv || latest.newTotalIdv || latest.totalIdv || "",
           premiumAmount: prev.premiumAmount || latest.newPremiumAmount || latest.totalPolicyPremium || latest.premiumAmount || "",
           ncbPercentage: prev.ncbPercentage || latest.newNcb || latest.ncbPercentage || "",
@@ -545,31 +615,91 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
     }
   }, [proposal]);
 
-  // Auto-calc: Previous OD Total
+  // Auto-calc: Previous OD Total (OD + Hydraulic Jack + Moderation + IMT23 + IMT24 + IMT25 - NCB)
   useEffect(() => {
     const od = Number(formData.odPremium) || 0;
+    const jack = Number(formData.hydraulicJackCoverPremium ?? formData.hydraulicJackCover ?? formData.hydrolicJackCover) || 0;
+    const mod = Number(formData.moderationAmountTipper ?? formData.moderationAmount) || 0;
     const imt23 = Number(formData.imt23) || 0;
     const imt24 = Number(formData.imt24) || 0;
     const imt25 = Number(formData.imt25) || 0;
-    const calcTotalOd = od + imt23 + imt24 + imt25;
+    const ncb = Number(formData.ncbAmount ?? formData.ncb) || 0;
 
-    if (calcTotalOd > 0 && formData.totalOdPremium !== calcTotalOd) {
+    const calcTotalOd = od + jack + mod + imt23 + imt24 + imt25 - ncb;
+
+    if (calcTotalOd !== undefined && formData.totalOdPremium !== calcTotalOd) {
       setFormData((prev) => ({ ...prev, totalOdPremium: calcTotalOd }));
     }
-  }, [formData.odPremium, formData.imt23, formData.imt24, formData.imt25, formData.totalOdPremium]);
+  }, [
+    formData.odPremium,
+    formData.hydraulicJackCoverPremium,
+    formData.hydraulicJackCover,
+    formData.hydrolicJackCover,
+    formData.moderationAmountTipper,
+    formData.moderationAmount,
+    formData.imt23,
+    formData.imt24,
+    formData.imt25,
+    formData.ncbAmount,
+    formData.ncb,
+    formData.totalOdPremium,
+  ]);
 
-  // Auto-calc: Renewed OD Total
+  // Auto-calc: Renewed OD Total (OD + Hydraulic Jack + Moderation + IMT23 + IMT24 + IMT25 - NCB)
   useEffect(() => {
     const od = Number(formData.newOdPremium) || 0;
+    const jack = Number(formData.newHydraulicJackCoverPremium ?? formData.newHydraulicJackCover ?? formData.newHydrolicJackCover) || 0;
+    const mod = Number(formData.newModerationAmountTipper ?? formData.newModerationAmount) || 0;
     const imt23 = Number(formData.newImt23) || 0;
     const imt24 = Number(formData.newImt24) || 0;
     const imt25 = Number(formData.newImt25) || 0;
-    const calcTotalOd = od + imt23 + imt24 + imt25;
+    const ncb = Number(formData.newNcbAmount ?? formData.newNcb) || 0;
 
-    if (calcTotalOd > 0 && formData.newTotalOdPremium !== calcTotalOd) {
+    const calcTotalOd = od + jack + mod + imt23 + imt24 + imt25 - ncb;
+
+    if (calcTotalOd !== undefined && formData.newTotalOdPremium !== calcTotalOd) {
       setFormData((prev) => ({ ...prev, newTotalOdPremium: calcTotalOd }));
     }
-  }, [formData.newOdPremium, formData.newImt23, formData.newImt24, formData.newImt25, formData.newTotalOdPremium]);
+  }, [
+    formData.newOdPremium,
+    formData.newHydraulicJackCoverPremium,
+    formData.newHydraulicJackCover,
+    formData.newHydrolicJackCover,
+    formData.newModerationAmountTipper,
+    formData.newModerationAmount,
+    formData.newImt23,
+    formData.newImt24,
+    formData.newImt25,
+    formData.newNcbAmount,
+    formData.newNcb,
+    formData.newTotalOdPremium,
+  ]);
+
+
+
+  // Auto-calc: Previous / Current Total IDV (Vehicle IDV + Electrical Accessories IDV + CNG Kit IDV)
+  useEffect(() => {
+    const vIdv = Number(formData.idv) || 0;
+    const elecIdv = Number(formData.electricalAccessoriesIdv) || 0;
+    const cngIdv = Number(formData.cngKitIdv) || 0;
+    const calcTotalIdv = vIdv + elecIdv + cngIdv;
+
+    if (calcTotalIdv > 0 && formData.totalIdv !== calcTotalIdv) {
+      setFormData((prev) => ({ ...prev, totalIdv: calcTotalIdv }));
+    }
+  }, [formData.idv, formData.electricalAccessoriesIdv, formData.cngKitIdv, formData.totalIdv]);
+
+  // Auto-calc: Renewed Total IDV (New Vehicle IDV + New Electrical Accessories IDV + New CNG Kit IDV)
+  useEffect(() => {
+    const vIdv = Number(formData.newIdv) || 0;
+    const elecIdv = Number(formData.newElectricalAccessoriesIdv) || 0;
+    const cngIdv = Number(formData.newCngKitIdv) || 0;
+    const calcTotalIdv = vIdv + elecIdv + cngIdv;
+
+    if (calcTotalIdv > 0 && formData.newTotalIdv !== calcTotalIdv) {
+      setFormData((prev) => ({ ...prev, newTotalIdv: calcTotalIdv }));
+    }
+  }, [formData.newIdv, formData.newElectricalAccessoriesIdv, formData.newCngKitIdv, formData.newTotalIdv]);
 
   const handleChangeTab = (event, newValue) => {
     setTabValue(newValue);
@@ -652,8 +782,8 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
               </Typography>
             </Grid>
             <Grid item xs={12} sm={6} md={2.4}>
-              <Typography variant="body2" color="textSecondary">Old Expiry Date</Typography>
-              <Typography variant="subtitle1" fontWeight="bold">
+              <Typography variant="body2" color="textSecondary">Expiry Date</Typography>
+              <Typography variant="subtitle1" fontWeight="bold" color='red'>
                 {formData.policyToDate ? new Date(formData.policyToDate).toLocaleDateString("en-IN") : "-"}
               </Typography>
             </Grid>
@@ -694,6 +824,7 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
                 handleRegistrationBlur={handleRegistrationBlur}
                 formatDateValue={formatDateValue}
                 isView={isView}
+                isRenew={isRenew}
               />
             </fieldset>
           </CustomTabPanel>

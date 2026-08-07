@@ -19,6 +19,7 @@ import {
   Chip,
   MenuItem,
   TextField,
+  Autocomplete,
   Tabs,
   Tab,
   Divider,
@@ -212,20 +213,24 @@ function FleetInsuranceHistory({ registrationNo, onEdit, onRenew, onView, onBack
           </Box>
 
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <TextField
-              select
-              label="Select Vehicle Reg No."
-              value={activeRegNo}
-              onChange={(e) => setActiveRegNo(e.target.value)}
+            <Autocomplete
               size="small"
-              sx={{ minWidth: 220 }}
-            >
-              {allVehicles.map((reg) => (
-                <MenuItem key={reg} value={reg}>
-                  {reg}
-                </MenuItem>
-              ))}
-            </TextField>
+              options={allVehicles}
+              value={activeRegNo || null}
+              onChange={(event, newValue) => {
+                if (newValue) setActiveRegNo(newValue);
+              }}
+              isOptionEqualToValue={(option, value) => option === value}
+              sx={{ minWidth: 260 }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Select Vehicle Reg No."
+                  size="small"
+                  placeholder="Type to search..."
+                />
+              )}
+            />
 
             <Button
               variant="contained"
@@ -464,6 +469,14 @@ function FleetInsuranceHistory({ registrationNo, onEdit, onRenew, onView, onBack
                               <Typography variant="body2">₹ {(rec.idv || 0).toLocaleString("en-IN")}</Typography>
                             </Grid>
                             <Grid item xs={6}>
+                              <Typography variant="caption" color="textSecondary">Hydraulic Jack Cover</Typography>
+                              <Typography variant="body2">₹ {(rec.hydraulicJackCover || rec.hydrolicJackCover || 0).toLocaleString("en-IN")}</Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                              <Typography variant="caption" color="textSecondary">Moderation Amount (Tipper)</Typography>
+                              <Typography variant="body2">₹ {(rec.moderationAmount || rec.moderationAmountTipper || 0).toLocaleString("en-IN")}</Typography>
+                            </Grid>
+                            <Grid item xs={6}>
                               <Typography variant="caption" color="textSecondary">Total Policy Premium</Typography>
                               <Typography variant="body2" fontWeight="bold" color="primary">
                                 ₹ {(rec.totalPolicyPremium || rec.premiumAmount || rec.premium || 0).toLocaleString("en-IN")}
@@ -499,6 +512,14 @@ function FleetInsuranceHistory({ registrationNo, onEdit, onRenew, onView, onBack
                             <Grid item xs={6}>
                               <Typography variant="caption" color="textSecondary">Renewed Total IDV</Typography>
                               <Typography variant="body2">₹ {(rec.newTotalIdv || rec.newIdv || 0).toLocaleString("en-IN")}</Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                              <Typography variant="caption" color="textSecondary">Renewed Hydraulic Jack</Typography>
+                              <Typography variant="body2">₹ {(rec.newHydraulicJackCover || rec.newHydrolicJackCover || 0).toLocaleString("en-IN")}</Typography>
+                            </Grid>
+                            <Grid item xs={6}>
+                              <Typography variant="caption" color="textSecondary">Renewed Moderation Amount</Typography>
+                              <Typography variant="body2">₹ {(rec.newModerationAmount || rec.newModerationAmountTipper || 0).toLocaleString("en-IN")}</Typography>
                             </Grid>
                             <Grid item xs={6}>
                               <Typography variant="caption" color="textSecondary">Renewed Total Premium</Typography>

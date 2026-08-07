@@ -6,8 +6,10 @@ import AddChargeModal from './AddChargeModal';
 import EditChargeModal from './EditChargeModal';
 import FileUploadModal from './FileUploadModal';
 import ConfirmDialog from './ConfirmDialog';
+import MultiPurchaseBookModal from './MultiPurchaseBookModal';
 import { useCharges } from './useCharges';
 import './charges.css';
+import axios from 'axios';
 
 const ChargesGrid = ({ 
   parentId, 
@@ -58,6 +60,147 @@ const ChargesGrid = ({
   
   const [fileModalCharge, setFileModalCharge] = useState(null); // { charge: object, tab: 'revenue' | 'cost' | 'particulars' }
   const [confirmState, setConfirmState] = useState({ open: false, title: '', message: '', onConfirm: null });
+  const [multiPbChargesData, setMultiPbChargesData] = useState(null);
+
+  const handleMultiPurchaseBook = async () => {
+    const selectedCharges = charges.filter(c => selectedIds.has(c._id));
+    if (selectedCharges.length < 2) {
+      alert("Please select at least 2 charges to create a combined Purchase Book.");
+      return;
+    }
+
+    // Check if any selected charge already has a PB
+    const existingPb = selectedCharges.filter(c => c.purchase_book_no);
+    if (existingPb.length > 0) {
+      alert(`The following charge(s) already have a Purchase Book Entry:\n${existingPb.map(c => `• ${c.chargeHead} (${c.purchase_book_no})`).join('\n')}\n\nPlease unselect them before proceeding.`);
+      return;
+    }
+
+    // Validate that all selected charges have cost partyName
+    const missingParty = selectedCharges.filter(c => !c.cost?.partyName);
+    if (missingParty.length > 0) {
+      alert(`The following charge(s) are missing supplier/party name in Cost section:\n${missingParty.map(c => `• ${c.chargeHead}`).join('\n')}`);
+      return;
+    }
+
+    // Validate that all selected charges belong to the same supplier/party
+    const normalize = (str) => (str || '').toString().replace(/[^a-z0-9]/gi, '').toUpperCase();
+    const firstPartyNorm = normalize(selectedCharges[0].cost.partyName);
+    const mismatchedParty = selectedCharges.filter(c => normalize(c.cost.partyName) !== firstPartyNorm);
+    if (mismatchedParty.length > 0) {
+      alert(`All selected charges must belong to the SAME supplier/party.\n\nFirst supplier: "${selectedCharges[0].cost.partyName}"\nMismatched charges:\n${mismatchedParty.map(c => `• ${c.chargeHead}: "${c.cost.partyName}"`).join('\n')}`);
+      return;
+    }
+
+    // Validate that all selected charges have the SAME Supplier Invoice Number (if filled)
+    const setInvNumbers = [...new Set(selectedCharges.map(c => (c.invoice_number || c.cost?.invoiceNo || '').toString().trim()).filter(Boolean))];
+    if (setInvNumbers.length > 1) {
+      alert(`All selected charges must have the SAME Supplier Invoice Number.\n\nMismatched Supplier Invoice Numbers found:\n${setInvNumbers.map(n => `• "${n}"`).join('\n')}\n\nPlease ensure the supplier invoice number is common across selected charges before creating a combined Purchase Book.`);
+      return;
+    }
+
+    // Validate that all selected charges have the SAME Supplier Invoice Date (if filled)
+    const setInvDates = [...new Set(selectedCharges.map(c => (c.invoice_date || c.cost?.invoiceDate || '').toString().trim()).filter(Boolean))];
+    if (setInvDates.length > 1) {
+      alert(`All selected charges must have the SAME Supplier Invoice Date.\n\nMismatched Supplier Invoice Dates found:\n${setInvDates.map(d => `• "${d}"`).join('\n')}\n\nPlease ensure the supplier invoice date is common across selected charges before creating a combined Purchase Book.`);
+      return;
+    }
+
+    // Fetch party directory details for the supplier
+    let partyDetails = null;
+    const targetPartyName = selectedCharges[0].cost.partyName;
+    try {
+      const [slRes, supRes, orgRes, cfsRes, transRes] = await Promise.all([
+        axios.get(`${process.env.REACT_APP_API_STRING}/get-shipping-lines`),
+        axios.get(`${process.env.REACT_APP_API_STRING}/get-suppliers`),
+        axios.get(`${process.env.REACT_APP_API_STRING}/organization`),
+        axios.get(`${process.env.REACT_APP_API_STRING}/get-cfs-list`),
+        axios.get(`${process.env.REACT_APP_API_STRING}/get-transporters`)
+      ]);
+      const allParties = [
+        ...(slRes.data || []),
+        ...(supRes.data || []),
+        ...(orgRes.data?.organizations || []),
+        ...(cfsRes.data || []),
+        ...(transRes.data || [])
+      ];
+      const allMatches = allParties.filter(p => normalize(p.name || p.organization) === firstPartyNorm);
+      partyDetails = allMatches.find(p => p.branches?.length > 0 && p.branches[0]?.gst) || allMatches[0];
+    } catch (err) {
+      console.error("Failed to fetch party directory details:", err);
+    }
+
+    // Construct structured array for MultiPurchaseBookModal
+    const formattedData = selectedCharges.map(c => {
+      const cost = c.cost || {};
+      const rate = parseFloat(cost.gstRate) || 18;
+      const amt = parseFloat(cost.amount) || 0;
+      const includeGst = cost.isGst || false;
+
+      let basic = parseFloat(cost.basicAmount);
+      let totalGst = parseFloat(cost.gstAmount);
+
+      if (isNaN(basic)) {
+        if (includeGst) {
+          basic = amt / (1 + (rate / 100));
+          totalGst = amt - basic;
+        } else {
+          basic = amt;
+          totalGst = amt * (rate / 100);
+        }
+      }
+
+      const branch = partyDetails?.branches?.[cost.branchIndex || 0] || {};
+      const isGujarat = branch.gst?.startsWith('24');
+
+      if (c.category === 'Reimbursement') {
+        basic = amt;
+        totalGst = 0;
+      }
+
+      const revenue = c.revenue || {};
+      return {
+        partyName: targetPartyName,
+        chargeHeading: c.category === 'Margin' ? (targetPartyName || '') : `NEW - ${targetPartyName}`,
+        partyDetails,
+        amount: amt,
+        basicAmount: basic,
+        gstAmount: totalGst,
+        gstRate: (c.category === 'Reimbursement') ? 0 : rate,
+        cgst: isGujarat ? totalGst / 2 : 0,
+        sgst: isGujarat ? totalGst / 2 : 0,
+        igst: !isGujarat ? totalGst : 0,
+        tdsAmount: cost.tdsAmount,
+        netPayable: cost.netPayable,
+        rate: cost.rate,
+        totalAmount: cost.totalAmount,
+        revenueAmount: revenue.amount,
+        revenueBasicAmount: revenue.basicAmount,
+        revenueGstAmount: revenue.gstAmount,
+        revenueGstRate: revenue.gstRate,
+        revenueCgst: revenue.cgst,
+        revenueSgst: revenue.sgst,
+        revenueIgst: revenue.igst,
+        revenueTotal: revenue.amountINR || revenue.totalAmount || revenue.amount,
+        revenuePartyName: revenue.partyName,
+        chargeHead: c.chargeHead,
+        invoice_number: c.invoice_number,
+        invoice_date: c.invoice_date,
+        cthNo: c.sacHsn || cthNo,
+        jobDisplayNumber,
+        branchIndex: cost.branchIndex || 0,
+        chargeId: c._id,
+        jobId: parentId,
+        chargeHeadCategory: c.category,
+        chargeDescription: cost.chargeDescription || '',
+        tdsCategory: cost.tdsCategory || '94C',
+        tdsPercent: cost.tdsPercent || 0,
+        awbBlNo: awbBlNo
+      };
+    });
+
+    setMultiPbChargesData(formattedData);
+  };
 
   const handleSelectCharge = (id) => {
     const newSel = new Set(selectedIds);
@@ -232,6 +375,7 @@ const ChargesGrid = ({
          onDeleteSelected={handleDeleteSelected}
          readOnly={readOnlyFinal}
          isDeleteDisabled={isDeleteDisabled}
+         onMultiPurchaseBook={selectedIds.size >= 2 ? handleMultiPurchaseBook : null}
       />
       
       <div style={{ position: 'relative' }}>
@@ -284,6 +428,31 @@ const ChargesGrid = ({
           readOnlyBase={readOnly}
         />
       )}
+
+      <MultiPurchaseBookModal
+        isOpen={multiPbChargesData !== null}
+        onClose={() => setMultiPbChargesData(null)}
+        chargesData={multiPbChargesData}
+        jobNumber={jobNumber}
+        jobDisplayNumber={jobDisplayNumber}
+        jobYear={jobYear}
+        awbBlNo={awbBlNo}
+        awbBlDate={awbBlDate}
+        onSuccess={async (entryNo) => {
+          if (multiPbChargesData && multiPbChargesData.length > 0) {
+            for (const c of multiPbChargesData) {
+              if (c.chargeId) {
+                await updateCharge(c.chargeId, {
+                  purchase_book_no: entryNo,
+                  purchase_book_status: 'Pending'
+                });
+              }
+            }
+          }
+          setSelectedIds(new Set());
+          setMultiPbChargesData(null);
+        }}
+      />
 
       {fileModalCharge && (
         <FileUploadModal 

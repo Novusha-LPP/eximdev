@@ -1,7 +1,7 @@
 import React from 'react';
 import './charges.css';
 
-const Toolbar = ({ onAddCharge, onAddHeading, onDeleteSelected, readOnly, isDeleteDisabled }) => {
+const Toolbar = ({ onAddCharge, onAddHeading, onDeleteSelected, readOnly, isDeleteDisabled, onMultiPurchaseBook }) => {
   if (readOnly) return null;
 
   return (
@@ -29,6 +29,37 @@ const Toolbar = ({ onAddCharge, onAddHeading, onDeleteSelected, readOnly, isDele
         </svg>
         Delete Selected
       </button>
+
+      {onMultiPurchaseBook && (
+        <>
+          <div className="charges-toolbar-sep"></div>
+          <button
+            type="button"
+            className="charges-toolbar-btn"
+            onClick={onMultiPurchaseBook}
+            style={{
+              background: "#1a237e",
+              color: "#fff",
+              borderColor: "transparent",
+              fontWeight: 600
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = "#0d47a1";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "#1a237e";
+            }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '4px' }}>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="12" y1="18" x2="12" y2="12" />
+              <line x1="9" y1="15" x2="15" y2="15" />
+            </svg>
+            Combined Purchase Book
+          </button>
+        </>
+      )}
     </div>
   );
 };

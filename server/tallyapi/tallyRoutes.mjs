@@ -16,8 +16,11 @@ router.get("/test", (req, res) => res.json({ status: "Tally API is connected and
  */
 const resolveJobNumberQuery = (jobNoInput) => {
     if (!jobNoInput) return [{ _id: null }];
-    const cleanJobNo = String(jobNoInput).trim();
-    if (!cleanJobNo) return [{ _id: null }];
+    const rawJobNo = String(jobNoInput).trim();
+    if (!rawJobNo) return [{ _id: null }];
+
+    // Strip Purchase Book / Payment Request prefix if present e.g. PB/01/..., R1/01/..., PB/02/...
+    const cleanJobNo = rawJobNo.replace(/^(?:PB|R1|PB\d+|R\d+)\/\d+\//i, "").replace(/^(?:PB|R1|PB\d+|R\d+)\//i, "");
 
     const conditions = [];
 
@@ -35,6 +38,9 @@ const resolveJobNumberQuery = (jobNoInput) => {
     ];
     exactFields.forEach((field) => {
         conditions.push({ [field]: cleanJobNo });
+        if (cleanJobNo !== rawJobNo) {
+            conditions.push({ [field]: rawJobNo });
+        }
     });
 
     let seqNum = null;
@@ -49,8 +55,10 @@ const resolveJobNumberQuery = (jobNoInput) => {
             yearSuffix = last;
         }
 
-        for (const p of slashParts) {
-            if (/^\d+$/.test(p)) {
+        // Loop backwards to find the sequence number before yearSuffix
+        for (let i = slashParts.length - 1; i >= 0; i--) {
+            const p = slashParts[i];
+            if (p !== yearSuffix && /^\d+$/.test(p)) {
                 seqNum = parseInt(p, 10);
                 break;
             }
@@ -121,7 +129,10 @@ const resolveJobNumberQuery = (jobNoInput) => {
  * Scores a job matching a Tally query input to identify the best fit.
  */
 const scoreJob = (job, queryInput) => {
-  const queryUpper = String(queryInput || "").toUpperCase().trim();
+  if (!queryInput) return 0;
+  const rawQuery = String(queryInput).trim();
+  const cleanQuery = rawQuery.replace(/^(?:PB|R1|PB\d+|R\d+)\/\d+\//i, "").replace(/^(?:PB|R1|PB\d+|R\d+)\//i, "");
+  const queryUpper = cleanQuery.toUpperCase();
   
   // 1. Exact match check against primary job identifiers
   const exactFields = [
@@ -137,7 +148,7 @@ const scoreJob = (job, queryInput) => {
     job.custom_job_no
   ].map(val => String(val || "").toUpperCase().trim()).filter(Boolean);
 
-  if (exactFields.includes(queryUpper)) {
+  if (exactFields.includes(queryUpper) || exactFields.includes(rawQuery.toUpperCase())) {
     return 1000; // Direct exact match
   }
 
@@ -146,7 +157,7 @@ const scoreJob = (job, queryInput) => {
   // Split query into alphanumeric segments for token matching
   const queryTokens = queryUpper.split(/[^A-Z0-9]/).filter(Boolean);
 
-  const jobNoStr = String(job.job_no || "").toUpperCase().trim();
+  const jobNoStr = String(job.job_no || job.job_number || "").toUpperCase().trim();
   const branchStr = String(job.branch_code || "").toUpperCase().trim();
   const yearStr = String(job.year || "").toUpperCase().trim();
   const modeStr = String(job.mode || "").toUpperCase().trim();
@@ -154,8 +165,9 @@ const scoreJob = (job, queryInput) => {
 
   // Extract sequence number from query
   let querySeq = null;
-  for (const token of queryTokens) {
-    if (/^\d+$/.test(token)) {
+  for (let i = queryTokens.length - 1; i >= 0; i--) {
+    const token = queryTokens[i];
+    if (/^\d+$/.test(token) && !/^\d{2}-\d{2}$|^\d{4}-\d{4}$/.test(token)) {
       querySeq = parseInt(token, 10);
       break;
     }
@@ -163,7 +175,7 @@ const scoreJob = (job, queryInput) => {
 
   // A. Sequence number check
   if (querySeq !== null) {
-    const jobSeq = job.sequence_number || parseInt(jobNoStr, 10);
+    const jobSeq = job.sequence_number || job.sequence_no || parseInt(jobNoStr.replace(/\D/g, ''), 10);
     if (jobSeq === querySeq) {
       score += 100;
     } else {
@@ -276,6 +288,7 @@ const scoreJob = (job, queryInput) => {
  */
 const getJobDetailsInternal = async (job_number) => {
   if (!job_number) return null;
+  const cleanNo = String(job_number).trim().replace(/^(?:PB|R1|PB\d+|R\d+)\/\d+\//i, "").replace(/^(?:PB|R1|PB\d+|R\d+)\//i, "");
 
   const conditions = resolveJobNumberQuery(job_number);
   const matchingJobs = await JobModel.find({ $or: conditions }).limit(20).lean();
@@ -538,6 +551,13 @@ const mapPurchaseEntryData = (data) => {
     igstAmt: data["IGST"] || data.igstAmt,
     tds: data["TDS"] || data.tds,
     total: data["Total"] || data.total || data["Taxable Value"] || data.taxableValue,
+    revenueAmount: Number(data["Revenue Amount"] || data.revenueAmount || data["Revenue Total"] || data.revenueTotal || 0),
+    revenueBasicAmount: Number(data["Revenue Basic Amount"] || data.revenueBasicAmount || 0),
+    revenueGstAmount: Number(data["Revenue GST Amount"] || data.revenueGstAmount || 0),
+    revenueCgst: Number(data["Revenue CGST"] || data.revenueCgst || 0),
+    revenueSgst: Number(data["Revenue SGST"] || data.revenueSgst || 0),
+    revenueIgst: Number(data["Revenue IGST"] || data.revenueIgst || 0),
+    revenueTotal: Number(data["Revenue Total"] || data.revenueTotal || data["Revenue Amount"] || data.revenueAmount || 0),
     chargeRef: data.chargeRef,
     jobRef: data.jobRef,
     chargeDescription: data["Charge Description"] || data.chargeDescription || '',
@@ -545,7 +565,10 @@ const mapPurchaseEntryData = (data) => {
     tdsCategory: data["TDS Category"] || data.tdsCategory || '94C',
     status: data["Status"] || data.status || '',
     attachments: data.attachments || [],
-    virtualBalanceTerminal: data["Virtual Balance Terminal"] || data["Virtual Balance"] || data.virtualBalanceTerminal || data.virtualBalance || ''
+    virtualBalanceTerminal: data["Virtual Balance Terminal"] || data["Virtual Balance"] || data.virtualBalanceTerminal || data.virtualBalance || '',
+    isMultiCharge: data.isMultiCharge !== undefined ? data.isMultiCharge : false,
+    chargeItems: Array.isArray(data.chargeItems) ? data.chargeItems : [],
+    chargeRefs: Array.isArray(data.chargeRefs) ? data.chargeRefs : []
   };
 };
 
@@ -556,6 +579,12 @@ router.post("/purchase-entry", authApiKey, async (req, res) => {
   try {
     const rawData = req.body;
     const data = mapPurchaseEntryData(rawData);
+
+    if (rawData.isMultiCharge && Array.isArray(rawData.chargeItems)) {
+      data.isMultiCharge = true;
+      data.chargeItems = rawData.chargeItems;
+      data.chargeRefs = rawData.chargeRefs || [];
+    }
 
     let isPostBilling = false;
     // Standardize jobNo to canonicalJobNo if possible before saving
@@ -605,7 +634,20 @@ router.post("/purchase-entry", authApiKey, async (req, res) => {
 
     if (!entry) throw new Error("Failed to generate a unique Entry No after multiple attempts.");
 
-    if (data.jobRef && data.chargeRef) {
+    if (data.isMultiCharge && Array.isArray(data.chargeRefs) && data.chargeRefs.length > 0 && data.jobRef) {
+      await JobModel.updateOne(
+        { _id: data.jobRef },
+        {
+          $set: {
+            "charges.$[elem].purchase_book_no": entry.entryNo,
+            "charges.$[elem].purchase_book_status": "Pending",
+            "charges.$[elem].purchase_book_requested_by": entry.requestedBy,
+            "charges.$[elem].isPostBilling": entry.isPostBilling
+          }
+        },
+        { arrayFilters: [{ "elem._id": { $in: data.chargeRefs } }] }
+      );
+    } else if (data.jobRef && data.chargeRef) {
       await JobModel.updateOne(
         { _id: data.jobRef, "charges._id": data.chargeRef },
         {
@@ -676,24 +718,32 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
       }
     }
 
-    // Determine TDS rate & category
+    // Determine TDS rate & category & fetch charge object if available
     let tdsPercent = 0;
     let tdsCategory = entry.tdsCategory || '94C';
+    let matchedCharge = null;
 
-    if (entry.jobRef && entry.chargeRef) {
+    if (entry.jobRef || entry.jobNo) {
       try {
-        const job = await JobModel.findOne(
-          { _id: entry.jobRef, "charges._id": entry.chargeRef },
-          { "charges.$": 1 }
-        ).lean();
-        if (job && job.charges && job.charges[0] && job.charges[0].cost) {
-          tdsPercent = job.charges[0].cost.tdsPercent || 0;
-          if (job.charges[0].cost.tdsCategory) {
-            tdsCategory = job.charges[0].cost.tdsCategory;
+        const query = entry.jobRef ? { _id: entry.jobRef } : { job_no: entry.jobNo };
+        const job = await JobModel.findOne(query).lean();
+        if (job && job.charges) {
+          if (entry.chargeRef) {
+            matchedCharge = job.charges.find(c => c._id?.toString() === entry.chargeRef);
+          }
+          if (!matchedCharge && entry.chargeHeading) {
+            const normH = entry.chargeHeading.trim().toLowerCase();
+            matchedCharge = job.charges.find(c => (c.chargeHead || c.name)?.trim().toLowerCase() === normH);
+          }
+          if (matchedCharge && matchedCharge.cost) {
+            tdsPercent = matchedCharge.cost.tdsPercent || 0;
+            if (matchedCharge.cost.tdsCategory) {
+              tdsCategory = matchedCharge.cost.tdsCategory;
+            }
           }
         }
       } catch (err) {
-        console.error("Error fetching TDS details for purchase entry:", err);
+        console.error("Error fetching TDS/charge details for purchase entry:", err);
       }
     }
 
@@ -706,6 +756,12 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
     if (tdsPercent === 2 || tdsCategory === '94C_2') {
       tdsKey = "TDS ON CONTRACT 94C 1024";
     }
+
+    // Determine revenue details (from entry or fallback to job charge)
+    let revObj = (matchedCharge && matchedCharge.revenue) ? matchedCharge.revenue : {};
+    let revenueAmount = (entry.revenueAmount !== undefined && entry.revenueAmount !== null && entry.revenueAmount !== 0)
+      ? Number(entry.revenueAmount)
+      : Number(revObj.amountINR || revObj.amount || revObj.totalAmount || (revObj.rate ? revObj.rate * (revObj.qty || 1) : 0));
 
     const formattedData = {
       "Entry No": entry.entryNo,
@@ -726,19 +782,6 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
       "CIN": entry.cin,
       "Place of Supply": entry.placeOfSupply,
       "Credit Terms": entry.creditTerms,
-      "Description of Services": entry.descriptionOfServices || "",
-      "Charge Heading": entry.chargeHeading || "",
-      "SAC": entry.sac,
-      "Taxable Value": entry.taxableValue,
-      "GST%": entry.gstPercent,
-      "CGST": entry.cgstAmt,
-      "SGST": entry.sgstAmt,
-      "IGST": entry.igstAmt,
-      [tdsKey]: entry.tds,
-      "Total": entry.total,
-      "Charge Description": entry.chargeDescription || '',
-      "Charge Head Category": chargeCategory || '',
-      "TDS Category": tdsCategory,
       "Status": entry.status
     };
 
@@ -747,7 +790,106 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
     const jobDetails = await getJobDetailsInternal(job_number);
     if (jobDetails) {
       formattedData["Job Details"] = jobDetails;
+    } else {
+      formattedData["Job Details"] = [];
     }
+
+    // Include chargeItems array with cost & revenue details
+    formattedData["isMultiCharge"] = entry.isMultiCharge || false;
+    formattedData["chargeItems"] = (Array.isArray(entry.chargeItems) && entry.chargeItems.length > 0)
+      ? entry.chargeItems.map(item => {
+        const cat = item.category || item.chargeType || '';
+        const isReimbursement = (cat === 'Reimbursement');
+        const isMargin = (String(cat).toLowerCase() === 'margin');
+
+        let itemHead = item.chargeHead || item.chargeHeading || '';
+        if (isMargin && itemHead && !itemHead.endsWith(' - E')) {
+          itemHead = `${itemHead} - E`;
+        }
+
+        let itemDesc = item.descriptionOfServices || item.chargeDescription || '';
+        if (!itemDesc) {
+          if (isReimbursement) {
+            itemDesc = `REIMBURSEMENT - ${entry.supplierName || ''}`;
+          } else if (isMargin) {
+            itemDesc = itemHead;
+          } else {
+            itemDesc = entry.supplierName ? `NEW - ${entry.supplierName}` : itemHead;
+          }
+        }
+
+        const itemTaxable = Number(item.taxableValue || item.costAmount || item.basicAmount || item.total || 0);
+        const itemTds = Number(item.tdsAmount || item.tds || 0);
+        const itemNet = (item.netPayable !== undefined && item.netPayable !== null && item.netPayable !== 0)
+          ? Number(item.netPayable)
+          : (itemTaxable - itemTds);
+
+        let itemTotal = Number(item.total || item.totalAmount || 0);
+        if (isReimbursement || isMargin) {
+          itemTotal = itemNet;
+        }
+
+        const itemRevAmt = (item.revenueAmount !== undefined && item.revenueAmount !== null && item.revenueAmount !== 0)
+          ? Number(item.revenueAmount)
+          : revenueAmount;
+
+        return {
+          "Charge Heading": itemHead,
+          "Description of Services": itemDesc,
+          "Charge ID": item.chargeId || '',
+          "SAC": item.sac || '',
+          "Charge Head Category": cat,
+          "TDS Category": tdsKey,
+          [tdsKey]: itemTds,
+          "Taxable Value": itemTaxable.toFixed(2),
+          "GST%": isReimbursement ? "" : (item.gstRate || 0),
+          "CGST": isReimbursement ? "" : (item.cgst || 0),
+          "SGST": isReimbursement ? "" : (item.sgst || 0),
+          "IGST": isReimbursement ? "" : (item.igst || 0),
+          "Total": Math.round(itemTotal),
+          "Net Amount": Math.round(itemNet),
+          "Revenue Amount": itemRevAmt.toFixed(2),
+          "Supplier Inv No": item.invoiceNumber || entry.supplierInvNo || '',
+          "Supplier Inv Date": item.invoiceDate || entry.supplierInvDate || ''
+        };
+      })
+      : (() => {
+        const fallbackIsMargin = (String(chargeCategory).toLowerCase() === 'margin');
+        let fallbackHead = entry.chargeHeading || '';
+        if (fallbackIsMargin && fallbackHead && !fallbackHead.endsWith(' - E')) {
+          fallbackHead = `${fallbackHead} - E`;
+        }
+        let fallbackDesc = entry.descriptionOfServices || '';
+        if (!fallbackDesc) {
+          if (chargeCategory === 'Reimbursement') {
+            fallbackDesc = `REIMBURSEMENT - ${entry.supplierName || ''}`;
+          } else if (fallbackIsMargin) {
+            fallbackDesc = fallbackHead;
+          } else {
+            fallbackDesc = entry.supplierName ? `NEW - ${entry.supplierName}` : fallbackHead;
+          }
+        }
+        return [{
+          "Charge Heading": fallbackHead,
+          "Description of Services": fallbackDesc,
+          "Charge ID": entry.chargeRef || '',
+          "SAC": entry.sac || '',
+          "Charge Head Category": chargeCategory || '',
+          "TDS Category": tdsKey,
+          [tdsKey]: Number(entry.tds || 0),
+          "Taxable Value": Number(entry.taxableValue || 0).toFixed(2),
+          "GST%": (chargeCategory === 'Reimbursement') ? "" : (entry.gstPercent || 0),
+          "CGST": (chargeCategory === 'Reimbursement') ? "" : (entry.cgstAmt || 0),
+          "SGST": (chargeCategory === 'Reimbursement') ? "" : (entry.sgstAmt || 0),
+          "IGST": (chargeCategory === 'Reimbursement') ? "" : (entry.igstAmt || 0),
+          "Total": Math.round(entry.total || 0),
+          "Net Amount": Math.round(entry.netAmount || entry.total || 0),
+          "Revenue Amount": revenueAmount.toFixed(2),
+          "Supplier Inv No": entry.supplierInvNo || '',
+          "Supplier Inv Date": entry.supplierInvDate || ''
+        }];
+      })();
+    formattedData["chargeRefs"] = entry.chargeRefs || (entry.chargeRef ? [entry.chargeRef] : []);
 
     res.status(200).json(formattedData);
 

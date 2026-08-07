@@ -1714,6 +1714,7 @@ const EditChargeModal = ({
 
                                           setPurchaseBookData(() => {
                                             const cost = row.cost || {};
+                                            const revenue = row.revenue || {};
                                             const rate = parseFloat(cost.gstRate) || 18;
                                             const amt = parseFloat(cost.amount) || 0;
                                             const includeGst = cost.isGst || false;
@@ -1755,6 +1756,15 @@ const EditChargeModal = ({
                                               netPayable: cost.netPayable,
                                               rate: cost.rate,
                                               totalAmount: cost.totalAmount,
+                                              revenueAmount: revenue.amountINR || revenue.amount || (revenue.rate ? revenue.rate * (revenue.qty || 1) : 0),
+                                              revenueBasicAmount: revenue.basicAmount || revenue.amountINR || revenue.amount || 0,
+                                              revenueGstAmount: Number(revenue.gstAmount || 0),
+                                              revenueGstRate: Number(revenue.gstRate || 0),
+                                              revenueCgst: Number(revenue.cgst || 0),
+                                              revenueSgst: Number(revenue.sgst || 0),
+                                              revenueIgst: Number(revenue.igst || 0),
+                                              revenueTotal: revenue.amountINR || revenue.totalAmount || revenue.amount || 0,
+                                              revenuePartyName: revenue.partyName,
                                               chargeHead: row.chargeHead,
                                               invoice_number: row.invoice_number,
                                               invoice_date: row.invoice_date,

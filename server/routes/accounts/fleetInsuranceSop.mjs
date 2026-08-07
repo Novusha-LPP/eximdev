@@ -99,17 +99,12 @@ router.get("/fleet-insurance-sop/next-po-number", authMiddleware, async (req, re
   }
 });
 
-// GET records requiring approval
+// GET records requiring approval (only those with a generated PR number pending approval)
 router.get("/fleet-insurance-sop/approvals/list", authMiddleware, async (req, res) => {
   try {
     const records = await FleetInsuranceSopModel.find({
-      $or: [
-        { financialApprovalStatus: "Pending" },
-        { 
-          prNumber: { $exists: true, $ne: "" }, 
-          financialApprovalStatus: { $nin: ["Approved", "Rejected"] } 
-        }
-      ]
+      prNumber: { $exists: true, $ne: "" },
+      financialApprovalStatus: { $nin: ["Approved", "Rejected"] }
     }).sort({ updatedAt: -1, createdAt: -1 }).lean();
 
     res.status(200).json({ data: records, total: records.length });
@@ -119,11 +114,15 @@ router.get("/fleet-insurance-sop/approvals/list", authMiddleware, async (req, re
   }
 });
 
-// GET records in Payment & UTR stage (Approved by Finance)
+// GET records in Payment & UTR stage (Approved by Finance with active PR awaiting UTR)
 router.get("/fleet-insurance-sop/payment-utr/list", authMiddleware, async (req, res) => {
   try {
     const records = await FleetInsuranceSopModel.find({
-      financialApprovalStatus: "Approved"
+      prNumber: { $exists: true, $ne: "" },
+      financialApprovalStatus: "Approved",
+      renewed: { $ne: "YES" },
+      renewalStatus: { $ne: "Renewed" },
+      $or: [{ paymentUtr: { $exists: false } }, { paymentUtr: null }, { paymentUtr: "" }]
     }).sort({ updatedAt: -1, createdAt: -1 }).lean();
 
     res.status(200).json({ data: records, total: records.length });
@@ -138,7 +137,6 @@ router.get("/fleet-insurance-sop", authMiddleware, async (req, res) => {
   try {
     const { page = 1, limit = 10, search = "", month = "", year = "", regNo, owner, size, modelType, premiumAmount, premiumQuote, expiryDate, renewed } = req.query;
     const query = {};
-
     if (search) {
       query.$or = [
         { registrationNo: { $regex: search, $options: "i" } },
@@ -156,7 +154,7 @@ router.get("/fleet-insurance-sop", authMiddleware, async (req, res) => {
     if (premiumQuote) query.premiumQuote = Number(premiumQuote);
     if (renewed) {
       if (renewed.toUpperCase() === "YES") {
-        query.renewed = { $regex: "^yes$", $options: "i" };
+        query.$or = [{ renewed: { $regex: "^yes$", $options: "i" } }, { renewalStatus: "Renewed" }];
       } else if (renewed.toUpperCase() === "NO") {
         query.$or = [
           { renewed: { $regex: "^no$", $options: "i" } },
@@ -166,8 +164,6 @@ router.get("/fleet-insurance-sop", authMiddleware, async (req, res) => {
       }
     }
     if (expiryDate) {
-      // filter by date string exact match or range. A simple regex on date string won't work well on Date type.
-      // Usually users type a date. We can parse it and match the start/end of that day.
       const date = new Date(expiryDate);
       if (!isNaN(date.getTime())) {
         const startOfDay = new Date(date.setHours(0, 0, 0, 0));
@@ -176,25 +172,90 @@ router.get("/fleet-insurance-sop", authMiddleware, async (req, res) => {
       }
     }
 
+    // Build pipeline with effective dates computation
+    const pipeline = [
+      { $match: query },
+      {
+        $addFields: {
+          effectiveFromDate: {
+            $cond: {
+              if: {
+                $and: [
+                  { $ne: ["$newPolicyFromDate", null] },
+                  { $ne: ["$newPolicyFromDate", ""] },
+                  { $gt: ["$newPolicyFromDate", new Date("1970-01-01")] }
+                ]
+              },
+              then: "$newPolicyFromDate",
+              else: "$policyFromDate"
+            }
+          },
+          effectiveExpiryDate: {
+            $cond: {
+              if: {
+                $and: [
+                  { $ne: ["$newPolicyToDate", null] },
+                  { $ne: ["$newPolicyToDate", ""] },
+                  { $gt: ["$newPolicyToDate", new Date("1970-01-01")] }
+                ]
+              },
+              then: "$newPolicyToDate",
+              else: "$policyToDate"
+            }
+          }
+        }
+      },
+    ];
+
+    // Apply date filter (matching policyToDate OR effectiveExpiryDate OR effectiveFromDate OR active period overlap)
     if (year && month) {
-      // month is 1-12
       const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
       const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
-      query.policyToDate = { $gte: startDate, $lte: endDate };
+      pipeline.push({
+        $match: {
+          $or: [
+            { policyToDate: { $gte: startDate, $lte: endDate } },
+            { effectiveExpiryDate: { $gte: startDate, $lte: endDate } },
+            { effectiveFromDate: { $gte: startDate, $lte: endDate } },
+            { policyFromDate: { $gte: startDate, $lte: endDate } },
+            { $and: [{ effectiveFromDate: { $lte: endDate } }, { effectiveExpiryDate: { $gte: startDate } }] }
+          ]
+        }
+      });
     } else if (year) {
       const startDate = new Date(parseInt(year), 0, 1);
       const endDate = new Date(parseInt(year), 12, 0, 23, 59, 59, 999);
-      query.policyToDate = { $gte: startDate, $lte: endDate };
+      pipeline.push({
+        $match: {
+          $or: [
+            { policyToDate: { $gte: startDate, $lte: endDate } },
+            { effectiveExpiryDate: { $gte: startDate, $lte: endDate } },
+            { effectiveFromDate: { $gte: startDate, $lte: endDate } },
+            { policyFromDate: { $gte: startDate, $lte: endDate } },
+            { $and: [{ effectiveFromDate: { $lte: endDate } }, { effectiveExpiryDate: { $gte: startDate } }] }
+          ]
+        }
+      });
     } else if (month) {
       const currentYear = new Date().getFullYear();
       const startDate = new Date(currentYear, parseInt(month) - 1, 1);
       const endDate = new Date(currentYear, parseInt(month), 0, 23, 59, 59, 999);
-      query.policyToDate = { $gte: startDate, $lte: endDate };
+      pipeline.push({
+        $match: {
+          $or: [
+            { policyToDate: { $gte: startDate, $lte: endDate } },
+            { effectiveExpiryDate: { $gte: startDate, $lte: endDate } },
+            { effectiveFromDate: { $gte: startDate, $lte: endDate } },
+            { policyFromDate: { $gte: startDate, $lte: endDate } },
+            { $and: [{ effectiveFromDate: { $lte: endDate } }, { effectiveExpiryDate: { $gte: startDate } }] }
+          ]
+        }
+      });
     }
 
-    const pipeline = [
-      { $match: query },
-      { $sort: { policyToDate: -1, createdAt: -1 } },
+    // Continue with grouping (sorting by effectiveFromDate DESC & effectiveExpiryDate DESC so newest active/renewed policy is picked per vehicle)
+    pipeline.push(
+      { $sort: { effectiveFromDate: -1, effectiveExpiryDate: -1, updatedAt: -1, createdAt: -1 } },
       {
         $group: {
           _id: { $toLower: "$registrationNo" },
@@ -202,7 +263,7 @@ router.get("/fleet-insurance-sop", authMiddleware, async (req, res) => {
         }
       },
       { $replaceRoot: { newRoot: "$latestDoc" } },
-      { $sort: { registrationDate: -1, policyFromDate: -1, createdAt: -1 } },
+      { $sort: { registrationDate: -1, effectiveFromDate: -1, createdAt: -1 } },
       {
         $facet: {
           data: [
@@ -214,7 +275,7 @@ router.get("/fleet-insurance-sop", authMiddleware, async (req, res) => {
           ]
         }
       }
-    ];
+    );
 
     console.log("Fleet Insurance query:", JSON.stringify(query));
 
@@ -391,6 +452,8 @@ const fDataNewHeaders = [
   "VEHICLE IDV",
   "ELECTRICAL ACCESSORIES IDV",
   "CNG KIT IDV",
+  "HYDRAULIC JACK COVER",
+  "MODERATION AMOUNT (TIPPER)",
   "TOTAL IDV (VALUE)",
   "OD PREMIUM",
   "IMT23",
@@ -459,6 +522,8 @@ function fDataNewRow(doc) {
     doc.idv || 0,
     doc.electricalAccessoriesIdv || 0,
     doc.cngKitIdv || 0,
+    doc.hydraulicJackCover || doc.hydrolicJackCover || 0,
+    doc.moderationAmount || doc.moderationAmountTipper || 0,
     doc.totalIdv || ((doc.idv || 0) + (doc.electricalAccessoriesIdv || 0) + (doc.cngKitIdv || 0)),
     doc.odPremium || 0,
     doc.imt23 || 0,
@@ -519,19 +584,39 @@ router.get("/fleet-insurance-sop/export/bulk", authMiddleware, async (req, res) 
       ];
     }
 
+    const buildDateQuery = (startDate, endDate) => {
+      return {
+        $or: [
+          { newPolicyToDate: { $gte: startDate, $lte: endDate } },
+          {
+            $and: [
+              { policyToDate: { $gte: startDate, $lte: endDate } },
+              {
+                $or: [
+                  { newPolicyToDate: null },
+                  { newPolicyToDate: { $exists: false } },
+                  { newPolicyToDate: "" }
+                ]
+              }
+            ]
+          }
+        ]
+      };
+    };
+
     if (year && month) {
       const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
       const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
-      query.policyToDate = { $gte: startDate, $lte: endDate };
+      Object.assign(query, buildDateQuery(startDate, endDate));
     } else if (year) {
       const startDate = new Date(parseInt(year), 0, 1);
       const endDate = new Date(parseInt(year), 12, 0, 23, 59, 59, 999);
-      query.policyToDate = { $gte: startDate, $lte: endDate };
+      Object.assign(query, buildDateQuery(startDate, endDate));
     } else if (month) {
       const currentYear = new Date().getFullYear();
       const startDate = new Date(currentYear, parseInt(month) - 1, 1);
       const endDate = new Date(currentYear, parseInt(month), 0, 23, 59, 59, 999);
-      query.policyToDate = { $gte: startDate, $lte: endDate };
+      Object.assign(query, buildDateQuery(startDate, endDate));
     }
 
     const docs = await FleetInsuranceSopModel.find(query).sort({ createdAt: -1 }).lean();

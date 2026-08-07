@@ -18,6 +18,29 @@ const MonthDashboard = () => {
     const [points, setPoints] = useState([]);
     const [project, setProject] = useState(null);
     const [loading, setLoading] = useState(true);
+    const now = moment();
+    const currentYear = now.year();
+    const currentMonthNum = now.month() + 1;
+
+    const [selectedYear, setSelectedYear] = useState(currentYear);
+    const [selectedMonth, setSelectedMonth] = useState(currentMonthNum);
+
+    const availableYears = useMemo(() => {
+        const yearsSet = new Set([currentYear]);
+        points.forEach(p => {
+            if (p.completion_date) {
+                const y = moment(p.completion_date).year();
+                if (y <= currentYear) yearsSet.add(y);
+            }
+            if (p.target_date) {
+                const y = moment(p.target_date).year();
+                if (y <= currentYear) yearsSet.add(y);
+            }
+        });
+        return Array.from(yearsSet).sort((a, b) => b - a);
+    }, [points, currentYear]);
+
+    const allMonths = moment.months().map((m, i) => ({ val: i + 1, label: m }));
 
     useEffect(() => {
         const loadData = async () => {
@@ -42,8 +65,18 @@ const MonthDashboard = () => {
         if (!points.length) return null;
 
         const now = moment();
-        const startOfMonth = now.clone().startOf('month');
-        const endOfMonth = now.clone().endOf('month');
+        let startOfMonth, endOfMonth;
+        const isAllTime = selectedYear === 'allTime';
+        const timeFilterStr = isAllTime ? 'allTime' : `${selectedYear}-${String(selectedMonth).padStart(2, '0')}`;
+        
+        if (isAllTime) {
+            startOfMonth = now.clone().startOf('month');
+            endOfMonth = now.clone().endOf('month');
+        } else {
+            startOfMonth = moment(timeFilterStr, 'YYYY-MM').startOf('month');
+            endOfMonth = moment(timeFilterStr, 'YYYY-MM').endOf('month');
+        }
+
         const lastWeekStart = now.clone().subtract(7, 'days');
 
         const currentMonthTasks = [];
@@ -67,16 +100,21 @@ const MonthDashboard = () => {
             let inCurrentMonth = false;
 
             if (p.status === 'Green') {
-                if (completedMoment && completedMoment.isBetween(startOfMonth, endOfMonth, 'day', '[]')) {
+                const effectiveCompletedMoment = completedMoment || targetMoment || moment();
+                if (effectiveCompletedMoment && effectiveCompletedMoment.isBetween(startOfMonth, endOfMonth, 'day', '[]')) {
                     inCurrentMonth = true;
                 }
-                if (completedMoment && completedMoment.isBetween(lastWeekStart, now, 'day', '[]')) {
+                if (effectiveCompletedMoment && effectiveCompletedMoment.isBetween(lastWeekStart, now, 'day', '[]')) {
                     lastWeekCompleted.push(p);
                 }
             } else {
-                if (targetMoment && targetMoment.isSameOrBefore(endOfMonth, 'day')) {
+                if (targetMoment && targetMoment.isBetween(startOfMonth, endOfMonth, 'day', '[]')) {
                     inCurrentMonth = true;
                 }
+            }
+
+            if (isAllTime) {
+                inCurrentMonth = true;
             }
 
             if (inCurrentMonth) {
@@ -111,8 +149,20 @@ const MonthDashboard = () => {
         });
 
         const totalTasks = currentMonthTasks.length;
+        
+        let dateStr = now.format('DD-MMM-YYYY');
+        if (isAllTime) dateStr = 'All Time';
+        else {
+            const filterMoment = moment(timeFilterStr, 'YYYY-MM');
+            if (filterMoment.isSame(now, 'month') && filterMoment.isSame(now, 'year')) {
+                dateStr = now.format('DD-MMM-YYYY');
+            } else {
+                dateStr = filterMoment.endOf('month').format('DD-MMM-YYYY');
+            }
+        }
+
         return {
-            dateStr: now.format('DD-MMM-YYYY'),
+            dateStr,
             totalTasks,
             totalGreen, totalYellow, totalRed, totalHold,
             pctGreen: totalTasks ? (totalGreen / totalTasks * 100).toFixed(1) : 0,
@@ -125,7 +175,7 @@ const MonthDashboard = () => {
             devs,
             lastWeekCompleted: lastWeekCompleted.sort((a, b) => moment(b.completion_date).diff(moment(a.completion_date)))
         };
-    }, [points]);
+    }, [points, selectedYear, selectedMonth]);
 
     if (loading) return <div style={{ padding: '20px', textAlign: 'center' }}>Loading report...</div>;
     if (!processedData) return <div style={{ padding: '20px', textAlign: 'center' }}>No data available for this month.</div>;
@@ -196,7 +246,42 @@ const MonthDashboard = () => {
             </div>
 
             <div className="wrap">
-                <h2>Overall Team Snapshot ({totalTasks} Tasks)</h2>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                    <h2 style={{ flex: 1 }}>Overall Team Snapshot ({totalTasks} Tasks)</h2>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                        <select 
+                            value={selectedYear}
+                            onChange={(e) => {
+                                const y = e.target.value;
+                                setSelectedYear(y);
+                                if (y === String(currentYear) && selectedMonth > currentMonthNum) {
+                                    setSelectedMonth(currentMonthNum);
+                                }
+                            }}
+                            style={{ padding: '6px 12px', borderRadius: '4px', border: '1px solid var(--navy)', background: '#fff', color: 'var(--navy)', fontWeight: '600', cursor: 'pointer', outline: 'none', fontSize: '13px', marginBottom: '6px' }}
+                        >
+                            <option value="allTime">All Time</option>
+                            {availableYears.map(y => (
+                                <option key={y} value={y}>{y}</option>
+                            ))}
+                        </select>
+                        
+                        {selectedYear !== 'allTime' && (
+                            <select 
+                                value={selectedMonth}
+                                onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                                style={{ padding: '6px 12px', borderRadius: '4px', border: '1px solid var(--navy)', background: '#fff', color: 'var(--navy)', fontWeight: '600', cursor: 'pointer', outline: 'none', fontSize: '13px', marginBottom: '6px' }}
+                            >
+                                {allMonths.map(m => {
+                                    const isFuture = String(selectedYear) === String(currentYear) && m.val > currentMonthNum;
+                                    return <option key={m.val} value={m.val} disabled={isFuture}>
+                                        {m.label} {isFuture ? '(No Data)' : ''}
+                                    </option>;
+                                })}
+                            </select>
+                        )}
+                    </div>
+                </div>
                 <div className="cards">
                     <div className="card"><h3>Total Tasks</h3><div className="num">{totalTasks}</div></div>
                     <div className="card green"><h3>Green (Done)</h3><div className="num">{totalGreen}</div></div>

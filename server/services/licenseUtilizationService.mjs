@@ -399,11 +399,36 @@ export async function recalculateLicenseUtilizationForJob(jobDoc, session = null
       const amtCurrency = row.amount_currency || "USD";
       const exrate = parseFloat(row.exchange_rate_used) || parseFloat(jobDoc.exrate) || usdRate || 84;
 
-      // Calculate CIF values historically based on the job's exchange rate
+      // Calculate CIF values based on the job's exchange rate or pre-calculated taxable value
       let cifUsd = 0;
       let cifInr = 0;
+      
+      const savedTaxableValueInr = parseFloat(row.taxable_value_inr);
+      const invIdx = Number(row.sr_no_invoice) - 1;
+      const activeInvoice = (jobDoc.invoice_details || [])[invIdx] || {};
 
-      if (amtCurrency === "INR") {
+      if (!isNaN(savedTaxableValueInr) && savedTaxableValueInr > 0) {
+        // If the frontend has explicitly calculated and saved a true CIF/Taxable Value (e.g. for FOB)
+        cifInr = savedTaxableValueInr;
+        cifUsd = exrate > 0 ? savedTaxableValueInr / exrate : 0;
+      } else if (activeInvoice.toi === "FOB") {
+        // Dynamic fallback calculation for brand new FOB jobs
+        const allFobInvoices = (jobDoc.invoice_details || []).filter(inv => inv.toi === "FOB");
+        const totalFobFreight = allFobInvoices.reduce((sum, inv) => sum + (parseFloat(inv.freight) || 0), 0);
+        const totalFobValue = allFobInvoices.reduce((sum, inv) => sum + (parseFloat(inv.product_value) || 0), 0);
+        
+        const fRate = totalFobValue > 0 ? (totalFobFreight / totalFobValue) : 0;
+        const productFreight = rawAmount * fRate;
+        
+        // Find insurance rate from other_charges_details or default to 1.125
+        const iRateVal = jobDoc.other_charges_details?.insurance?.rate;
+        const iRate = (iRateVal === undefined || iRateVal === null || iRateVal === "" || isNaN(parseFloat(iRateVal))) ? 1.125 : parseFloat(iRateVal);
+        const productInsurance = rawAmount * (iRate / 100);
+        
+        const totalCifUSD = rawAmount + productFreight + productInsurance;
+        cifInr = totalCifUSD * exrate;
+        cifUsd = totalCifUSD;
+      } else if (amtCurrency === "INR") {
         cifInr = rawAmount;
         cifUsd = exrate > 0 ? rawAmount / exrate : 0;
       } else {

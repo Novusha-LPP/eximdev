@@ -100,10 +100,11 @@ const MonthDashboard = () => {
             let inCurrentMonth = false;
 
             if (p.status === 'Green') {
-                if (completedMoment && completedMoment.isBetween(startOfMonth, endOfMonth, 'day', '[]')) {
+                const effectiveCompletedMoment = completedMoment || targetMoment || moment();
+                if (effectiveCompletedMoment && effectiveCompletedMoment.isBetween(startOfMonth, endOfMonth, 'day', '[]')) {
                     inCurrentMonth = true;
                 }
-                if (completedMoment && completedMoment.isBetween(lastWeekStart, now, 'day', '[]')) {
+                if (effectiveCompletedMoment && effectiveCompletedMoment.isBetween(lastWeekStart, now, 'day', '[]')) {
                     lastWeekCompleted.push(p);
                 }
             } else {

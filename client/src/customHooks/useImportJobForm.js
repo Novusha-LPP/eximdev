@@ -714,35 +714,81 @@ const useImportJobForm = () => {
     // Auto-calculate freight and insurance based on TOI
     const toiValue = field === "toi" ? value : (updatedRows[rowIndex].toi || "CIF");
     const pv = parseFloat(field === "product_value" ? value : (updatedRows[rowIndex].product_value || 0)) || 0;
-    if (toiValue === "FOB") {
-      if (field === "product_value" || field === "toi") {
-        if (!isFreightManual && (!updatedRows[rowIndex].freight || field === "toi")) {
-          updatedRows[rowIndex].freight = pv > 0 ? (pv * 0.20).toFixed(2) : "";
+
+    const descriptionLength = description_details?.length || 0;
+    if (updatedRows.length === 1 && descriptionLength === 1) {
+      if (toiValue === "FOB") {
+        if (field === "product_value" || field === "toi") {
+          if (!isFreightManual && (!updatedRows[rowIndex].freight || field === "toi")) {
+            updatedRows[rowIndex].freight = pv > 0 ? (pv * 0.20).toFixed(2) : "";
+          }
+          if (!isInsuranceManual && (!updatedRows[rowIndex].insurance || field === "toi")) {
+            updatedRows[rowIndex].insurance = pv > 0 ? (pv * 0.01125).toFixed(2) : "";
+          }
         }
-        if (!isInsuranceManual && (!updatedRows[rowIndex].insurance || field === "toi")) {
-          updatedRows[rowIndex].insurance = pv > 0 ? (pv * 0.01125).toFixed(2) : "";
+      } else if (toiValue === "CF") {
+        // C&F: auto-calculate insurance as 1.125% of invoice value
+        if (field === "product_value" || field === "toi") {
+          updatedRows[rowIndex].freight = "";
+          if (!isInsuranceManual && (!updatedRows[rowIndex].insurance || field === "toi")) {
+            updatedRows[rowIndex].insurance = pv > 0 ? (pv * 0.01125).toFixed(2) : "";
+          }
         }
-      }
-    } else if (toiValue === "CF") {
-      // C&F: auto-calculate insurance as 1.125% of invoice value
-      if (field === "product_value" || field === "toi") {
+      } else if (toiValue === "CI") {
+        // C&I: auto-calculate freight as 20% of invoice value
+        if (field === "product_value" || field === "toi") {
+          if (!isFreightManual && (!updatedRows[rowIndex].freight || field === "toi")) {
+            updatedRows[rowIndex].freight = pv > 0 ? (pv * 0.20).toFixed(2) : "";
+          }
+          updatedRows[rowIndex].insurance = "";
+        }
+      } else if (field === "toi") {
+        // CIF or other
         updatedRows[rowIndex].freight = "";
-        if (!isInsuranceManual && (!updatedRows[rowIndex].insurance || field === "toi")) {
-          updatedRows[rowIndex].insurance = pv > 0 ? (pv * 0.01125).toFixed(2) : "";
-        }
-      }
-    } else if (toiValue === "CI") {
-      // C&I: auto-calculate freight as 20% of invoice value
-      if (field === "product_value" || field === "toi") {
-        if (!isFreightManual && (!updatedRows[rowIndex].freight || field === "toi")) {
-          updatedRows[rowIndex].freight = pv > 0 ? (pv * 0.20).toFixed(2) : "";
-        }
         updatedRows[rowIndex].insurance = "";
       }
-    } else if (field === "toi") {
-      // CIF or other
-      updatedRows[rowIndex].freight = "";
-      updatedRows[rowIndex].insurance = "";
+    } else {
+      const otherVal = parseFloat(field === "other_charges" ? value : (updatedRows[rowIndex].other_charges || 0)) || 0;
+      
+      const invEx = parseFloat(field === "exchange_rate" ? value : (updatedRows[rowIndex].exchange_rate || exrate || 1)) || 1;
+      const othEx = parseFloat(field === "other_charges_exchange_rate" ? value : (updatedRows[rowIndex].other_charges_exchange_rate || 1)) || 1;
+      const otherInInv = (otherVal * othEx) / invEx;
+      const baseVal = pv + otherInInv;
+
+      const fRateVal = other_charges_details?.freight?.rate;
+      const fRate = (fRateVal === undefined || fRateVal === null || fRateVal === "" || isNaN(parseFloat(fRateVal))) ? 20 : parseFloat(fRateVal);
+
+      const iRateVal = other_charges_details?.insurance?.rate;
+      const iRate = (iRateVal === undefined || iRateVal === null || iRateVal === "" || isNaN(parseFloat(iRateVal))) ? 1.125 : parseFloat(iRateVal);
+
+      const calculateInsuranceValue = () => {
+        if (baseVal <= 0) return "";
+        const baseInsurance = baseVal * (iRate / 100);
+        const invCurr = field === "inv_currency" ? value : (updatedRows[rowIndex].inv_currency || "");
+        const insCurr = field === "insurance_currency" ? value : (updatedRows[rowIndex].insurance_currency || "INR");
+        const exRate = parseFloat(field === "exchange_rate" ? value : (updatedRows[rowIndex].exchange_rate || exrate || 1)) || 1;
+
+        if (insCurr === "INR" && invCurr !== "INR") {
+          return (baseInsurance * exRate).toFixed(2);
+        }
+        return baseInsurance.toFixed(2);
+      };
+
+      const triggerFields = ["product_value", "toi", "exchange_rate", "insurance_currency", "inv_currency", "other_charges", "misc", "other_charges_exchange_rate", "misc_exchange_rate", "other_charges_currency", "misc_currency"];
+
+      if (toiValue === "FOB") {
+        if (triggerFields.includes(field)) {
+          if (!isFreightManual && (!updatedRows[rowIndex].freight || field === "toi")) {
+            updatedRows[rowIndex].freight = baseVal > 0 ? (baseVal * (fRate / 100)).toFixed(2) : "";
+          }
+          if (!isInsuranceManual && (!updatedRows[rowIndex].insurance || field === "toi")) {
+            updatedRows[rowIndex].insurance = calculateInsuranceValue();
+          }
+        }
+      } else if (field === "toi") {
+        updatedRows[rowIndex].freight = "";
+        updatedRows[rowIndex].insurance = "";
+      }
     }
 
     // Auto-calculate total_inv_value from contributing fields

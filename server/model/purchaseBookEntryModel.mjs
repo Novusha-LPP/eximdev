@@ -23,6 +23,7 @@ const purchaseBookEntrySchema = new mongoose.Schema({
   placeOfSupply: { type: String },
   creditTerms: { type: String },
   descriptionOfServices: { type: String },
+  revenueLedger: { type: String },
   sac: { type: String },
   taxableValue: { type: Number },
   gstPercent: { type: Number },

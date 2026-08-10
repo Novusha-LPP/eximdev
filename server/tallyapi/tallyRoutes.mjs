@@ -535,14 +535,8 @@ const mapPurchaseEntryData = (data) => {
     placeOfSupply: data["Place of Supply"] || data.placeOfSupply,
     creditTerms: data["Credit Terms"] || data.creditTerms,
     descriptionOfServices: data["Description of Services"] || data.descriptionOfServices,
-    chargeHeading: (() => {
-      const heading = data["Charge Heading"] || data.chargeHeading;
-      const category = data["Charge Head Category"] || data.chargeHeadCategory || '';
-      if (category === 'Margin' && heading && !heading.endsWith(' - E')) {
-        return `${heading} - E`;
-      }
-      return heading;
-    })(),
+    revenueLedger: (data["Revenue Ledger"] || data["Revenue ledger"] || data.revenueLedger || data.revenue_ledger || '').replace(/\s*-\s*[EI]$/i, '').replace(/^NEW\s*-\s*/i, '').replace(/^NEW\s+/i, '').trim(),
+    chargeHeading: (data["Charge Heading"] || data.chargeHeading || '').replace(/\s*-\s*[EI]$/i, '').replace(/^NEW\s*-\s*/i, '').replace(/^NEW\s+/i, '').trim(),
     sac: data["SAC"] || data.sac,
     taxableValue: data["Taxable Value"] || data.taxableValue,
     gstPercent: data["GST%"] || data.gstPercent,
@@ -802,21 +796,33 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
         const isReimbursement = (cat === 'Reimbursement');
         const isMargin = (String(cat).toLowerCase() === 'margin');
 
-        let itemHead = item.chargeHead || item.chargeHeading || '';
-        if (isMargin && itemHead && !itemHead.endsWith(' - E')) {
-          itemHead = `${itemHead} - E`;
-        }
+        let rawItemHead = item.chargeHead || item.chargeHeading || item.name || item.chargeName || (matchedCharge && (matchedCharge.name || matchedCharge.chargeHead || matchedCharge.chargeHeading || matchedCharge.particulars)) || entry.chargeHeading || entry.chargeDescription || (isReimbursement ? entry.supplierName : '') || '';
+        let itemHead = typeof rawItemHead === 'string'
+          ? rawItemHead.replace(/\s*-\s*[EI]$/i, '').replace(/^NEW\s*-\s*/i, '').replace(/^NEW\s+/i, '').trim()
+          : rawItemHead;
 
         let itemDesc = item.descriptionOfServices || item.chargeDescription || '';
         if (!itemDesc) {
           if (isReimbursement) {
-            itemDesc = `REIMBURSEMENT - ${entry.supplierName || ''}`;
+            itemDesc = entry.supplierName ? `NEW - ${entry.supplierName}` : itemHead;
           } else if (isMargin) {
             itemDesc = itemHead;
           } else {
             itemDesc = entry.supplierName ? `NEW - ${entry.supplierName}` : itemHead;
           }
         }
+        if (isReimbursement && entry.supplierName && !itemDesc.startsWith('NEW - ')) {
+          itemDesc = `NEW - ${entry.supplierName}`;
+        }
+        if (isMargin && itemDesc && !itemDesc.endsWith(' - E')) {
+          itemDesc = `${itemDesc} - E`;
+        }
+
+        // Revenue Ledger: Fall back to revObj -> entry.revenueLedger -> itemHead -> matchedCharge -> entry.supplierName
+        let rawRevLedger = item.revenueLedger || item.revenue_ledger || item.revenueHead || item.revenueHeading || (revObj && (revObj.chargeHead || revObj.chargeHeading || revObj.particulars || revObj.name)) || entry.revenueLedger || itemHead || (matchedCharge && (matchedCharge.name || matchedCharge.chargeHead || matchedCharge.chargeHeading || matchedCharge.particulars)) || entry.chargeHeading || entry.supplierName || '';
+        let itemRevLedger = typeof rawRevLedger === 'string'
+          ? rawRevLedger.replace(/\s*-\s*[EI]$/i, '').replace(/^NEW\s*-\s*/i, '').replace(/^NEW\s+/i, '').trim()
+          : rawRevLedger;
 
         const itemTaxable = Number(item.taxableValue || item.costAmount || item.basicAmount || item.total || 0);
         const itemTds = Number(item.tdsAmount || item.tds || 0);
@@ -836,6 +842,7 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
         return {
           "Charge Heading": itemHead,
           "Description of Services": itemDesc,
+          "Revenue Ledger": itemRevLedger,
           "Charge ID": item.chargeId || '',
           "SAC": item.sac || '',
           "Charge Head Category": cat,
@@ -855,23 +862,37 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
       })
       : (() => {
         const fallbackIsMargin = (String(chargeCategory).toLowerCase() === 'margin');
-        let fallbackHead = entry.chargeHeading || '';
-        if (fallbackIsMargin && fallbackHead && !fallbackHead.endsWith(' - E')) {
-          fallbackHead = `${fallbackHead} - E`;
-        }
+        let rawFallbackHead = entry.chargeHeading || entry.chargeDescription || (matchedCharge && (matchedCharge.name || matchedCharge.chargeHead || matchedCharge.chargeHeading || matchedCharge.particulars)) || (chargeCategory === 'Reimbursement' ? entry.supplierName : '') || '';
+        let fallbackHead = typeof rawFallbackHead === 'string'
+          ? rawFallbackHead.replace(/\s*-\s*[EI]$/i, '').replace(/^NEW\s*-\s*/i, '').replace(/^NEW\s+/i, '').trim()
+          : rawFallbackHead;
+
         let fallbackDesc = entry.descriptionOfServices || '';
         if (!fallbackDesc) {
           if (chargeCategory === 'Reimbursement') {
-            fallbackDesc = `REIMBURSEMENT - ${entry.supplierName || ''}`;
+            fallbackDesc = entry.supplierName ? `NEW - ${entry.supplierName}` : fallbackHead;
           } else if (fallbackIsMargin) {
             fallbackDesc = fallbackHead;
           } else {
             fallbackDesc = entry.supplierName ? `NEW - ${entry.supplierName}` : fallbackHead;
           }
         }
+        if (chargeCategory === 'Reimbursement' && entry.supplierName && !fallbackDesc.startsWith('NEW - ')) {
+          fallbackDesc = `NEW - ${entry.supplierName}`;
+        }
+        if (fallbackIsMargin && fallbackDesc && !fallbackDesc.endsWith(' - E')) {
+          fallbackDesc = `${fallbackDesc} - E`;
+        }
+
+        let rawFallbackRevLedger = entry.revenueLedger || (revObj && (revObj.chargeHead || revObj.chargeHeading || revObj.particulars || revObj.name)) || fallbackHead || (matchedCharge && (matchedCharge.name || matchedCharge.chargeHead || matchedCharge.chargeHeading || matchedCharge.particulars)) || entry.chargeHeading || entry.supplierName || '';
+        let fallbackRevLedger = typeof rawFallbackRevLedger === 'string'
+          ? rawFallbackRevLedger.replace(/\s*-\s*[EI]$/i, '').replace(/^NEW\s*-\s*/i, '').replace(/^NEW\s+/i, '').trim()
+          : rawFallbackRevLedger;
+
         return [{
           "Charge Heading": fallbackHead,
           "Description of Services": fallbackDesc,
+          "Revenue Ledger": fallbackRevLedger,
           "Charge ID": entry.chargeRef || '',
           "SAC": entry.sac || '',
           "Charge Head Category": chargeCategory || '',

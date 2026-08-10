@@ -60,16 +60,12 @@ const PlannedDashboard = () => {
             const targetMoment = p.target_date ? moment(p.target_date) : null;
             const effectiveCompletedMoment = completedMoment || targetMoment || now;
             
-            // Last month completed
-            if (p.status === 'Green' && effectiveCompletedMoment && effectiveCompletedMoment.month() === lastMonth && effectiveCompletedMoment.year() === lastMonthYear) {
+            // Strictly bucket by target date, exactly as requested
+            if (targetMoment && targetMoment.month() === lastMonth && targetMoment.year() === lastMonthYear) {
                 lastMonthTasks.push(p);
             }
 
-            // Current month planned or completed (including overdue carrying forward)
-            if (
-                (p.status === 'Green' && effectiveCompletedMoment && effectiveCompletedMoment.month() === currentMonth && effectiveCompletedMoment.year() === currentYear) ||
-                (p.status !== 'Green' && targetMoment && targetMoment.isSameOrBefore(now.clone().endOf('month'), 'day'))
-            ) {
+            if (targetMoment && targetMoment.month() === currentMonth && targetMoment.year() === currentYear) {
                 currentMonthTasks.push(p);
             }
         });

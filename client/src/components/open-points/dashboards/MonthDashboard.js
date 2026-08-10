@@ -99,17 +99,15 @@ const MonthDashboard = () => {
 
             let inCurrentMonth = false;
 
+            // Strictly bucket by target date, exactly as requested
+            if (targetMoment && targetMoment.isBetween(startOfMonth, endOfMonth, 'day', '[]')) {
+                inCurrentMonth = true;
+            }
+
             if (p.status === 'Green') {
                 const effectiveCompletedMoment = completedMoment || targetMoment || moment();
-                if (effectiveCompletedMoment && effectiveCompletedMoment.isBetween(startOfMonth, endOfMonth, 'day', '[]')) {
-                    inCurrentMonth = true;
-                }
                 if (effectiveCompletedMoment && effectiveCompletedMoment.isBetween(lastWeekStart, now, 'day', '[]')) {
                     lastWeekCompleted.push(p);
-                }
-            } else {
-                if (targetMoment && targetMoment.isBetween(startOfMonth, endOfMonth, 'day', '[]')) {
-                    inCurrentMonth = true;
                 }
             }
 

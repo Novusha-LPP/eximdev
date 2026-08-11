@@ -68,15 +68,34 @@ function Home() {
   }, [user]);
 
   let sopsGrouped = false;
-  const categorizedModules = data?.modules?.reduce((acc, module) => {
+  const isRabsUser = user?.company && /RABS/i.test(user.company);
+  let userModulesList = data?.modules || [];
+  if (isRabsUser && !userModulesList.includes("First Aid")) {
+    userModulesList = [...userModulesList, "First Aid"];
+  }
+
+  const categorizedModules = userModulesList.reduce((acc, module) => {
     // Restrict Attendance card to RABS users only
     // if (module === "Attendance" && !(user?.company && /RABS/i.test(user.company))) {
     //   return acc;
     // }
 
-    // Restrict 5S Audit card to RABS users only
-    if (module === "5S Audit" && !(user?.company && /RABS/i.test(user.company))) {
-      return acc;
+    // Restrict 5S Audit card to RABS Admin and HOD users only
+    if (module === "5S Audit") {
+      const isRabs = user?.company && /RABS/i.test(user.company);
+      const isAdminOrHod = user?.role === "Admin" || user?.role === "Head_of_Department" || user?.role === "HOD" || user?.isHOD;
+      if (!(isRabs && isAdminOrHod)) {
+        return acc;
+      }
+    }
+
+    // Restrict First Aid card to RABS Admin and HOD users only
+    if (module === "First Aid") {
+      const isRabs = user?.company && /RABS/i.test(user.company);
+      const isAdminOrHod = user?.role === "Admin" || user?.role === "Head_of_Department" || user?.role === "HOD" || user?.isHOD;
+      if (!(isRabs && isAdminOrHod)) {
+        return acc;
+      }
     }
 
     if (["RM Procurement SOP", "Tyre Procurement SOP", "Fleet Insurance SOP"].includes(module)) {

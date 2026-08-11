@@ -7,6 +7,7 @@ import './Penalty.css';
 import BillingPending from './BillingPending'; // Importing the existing component
 import MonthlyContainers from './monthlyContainers';
 import ActivityReport from './ActivityReport';
+import BillingTATReport from './BillingTATReport';
 import { BranchContext } from '../../contexts/BranchContext';
 
 const Penalty = () => {
@@ -217,6 +218,10 @@ const Penalty = () => {
   const renderContent = () => {
     if (activeReport === 'billing') {
       return <div className="billing-wrapper"><BillingPending /></div>;
+    }
+
+    if (activeReport === 'billing-tat') {
+      return <BillingTATReport />;
     }
 
     if (activeReport === 'monthly-container') {
@@ -656,6 +661,12 @@ const Penalty = () => {
             onClick={() => setActiveReport('billing')}
           >
             Billing Pending
+          </div>
+          <div
+            className={`sidebar-item ${activeReport === 'billing-tat' ? 'active' : ''}`}
+            onClick={() => setActiveReport('billing-tat')}
+          >
+            Billing TAT Report
           </div>
           <div
             className={`sidebar-item ${activeReport === 'activity' ? 'active' : ''}`}

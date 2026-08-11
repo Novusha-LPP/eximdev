@@ -221,6 +221,7 @@ import updateSubmissionJob from "./routes/submission/updateSubmissionJob.mjs";
 import getPenaltyReport from "./routes/report/getPenaltyReport.mjs";
 import getBillingPendingReport from "./routes/report/getBillingPendingReport.mjs";
 import getBillingChargesReport from "./routes/report/getBillingChargesReport.mjs";
+import getBillingTATReport from "./routes/report/getBillingTATReport.mjs";
 
 // Audit Trail
 import auditTrail from "./routes/audit/auditTrail.mjs";
@@ -677,6 +678,7 @@ app.use(getSubmissionJobs);
 app.use(getPenaltyReport);
 app.use(getBillingPendingReport);
 app.use(getBillingChargesReport);
+app.use(getBillingTATReport);
 app.use(monthlyContainersRouter);
 app.use(monthlyClearanceRouter);
 

@@ -312,7 +312,7 @@ export default function PricingRequestFormModal({ isOpen, onClose, onRefresh, in
                   <textarea
                     value={formData.additionalRequirement}
                     onChange={e => setFormData({ ...formData, additionalRequirement: e.target.value })}
-                    placeholder="Ex. Customs clearance needed, priority shipping..."
+                    placeholder="Ex. Freight forwarding needed, priority shipping..."
                     rows={4}
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.9rem', resize: 'vertical' }}
                   />
@@ -409,7 +409,7 @@ export default function PricingRequestFormModal({ isOpen, onClose, onRefresh, in
                     type="text"
                     value={formData.additionalRequirement}
                     onChange={e => setFormData({ ...formData, additionalRequirement: e.target.value })}
-                    placeholder="Ex. Priority customs clearance needed..."
+                    placeholder="Ex. Priority freight forwarding needed..."
                     style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.9rem' }}
                   />
                 </div>

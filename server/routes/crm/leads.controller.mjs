@@ -90,9 +90,26 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
 // GET /api/crm/leads
 router.get('/', async (req, res) => {
   try {
-    const { status, source, referralSourceName, teamId, startDate, endDate, period, service, businessVertical } = req.query;
+    const { status, source, referralSourceName, teamId, startDate, endDate, period, service, businessVertical, searchQuery } = req.query;
     const ownerFilter = await buildOwnerFilter(req.user, teamId, req);
     const query = { ...ownerFilter };
+    
+    if (searchQuery) {
+      const searchOr = [
+        { company: { $regex: searchQuery, $options: 'i' } },
+        { firstName: { $regex: searchQuery, $options: 'i' } },
+        { lastName: { $regex: searchQuery, $options: 'i' } },
+        { email: { $regex: searchQuery, $options: 'i' } },
+        { phone: { $regex: searchQuery, $options: 'i' } }
+      ];
+      if (query.$or) {
+        query.$and = [{ $or: query.$or }, { $or: searchOr }];
+        delete query.$or;
+      } else {
+        query.$or = searchOr;
+      }
+    }
+
     if (businessVertical && businessVertical !== 'all') {
       query.businessVertical = businessVertical;
     }
@@ -114,9 +131,14 @@ router.get('/', async (req, res) => {
       query.period = new Date().toISOString().substring(0, 7);
     }
 
+    const userId = req.user?._id || req.headers['user-id'];
+    console.log(`[CRM GET Leads] User: ${userId}, period: ${query.period}, teamId: ${teamId}, all: ${req.query.all}`);
+
     const leads = await Lead.find(query)
       .populate('ownerId', 'username first_name last_name')
       .sort({ createdAt: -1 });
+      
+    console.log(`[CRM GET Leads] Returning ${leads.length} leads to user ${userId}`);
     res.json(leads);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

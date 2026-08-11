@@ -2243,7 +2243,7 @@ const ImportCreateJob = () => {
                         <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: '#ffffff', minWidth: `${invoiceTableWidth}px` }}>
                           <thead>
                             <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                              {["Sr", "Inv No", "Inv Date", isPoMandatory ? "PO Details *" : "PO Details", "TOI", "Invoice Value", "Currency", "Ex. Rate", "Freight", "Insurance", "Others", "CIF Value", "Action"].map((h) => (
+                              {["Sr", "Inv No", "Inv Date", isPoMandatory ? "PO Details *" : "PO Details", "TOI", "Invoice Value", "Currency", "Ex. Rate", "Freight", "Insurance", "Others", "CIF", "Action"].map((h) => (
                                 <th
                                   key={h}
                                   style={{
@@ -2431,7 +2431,7 @@ const ImportCreateJob = () => {
                                           value={row.freight || ""}
                                           onChange={(e) => updateInvoiceRow(rowIndex, "freight", e.target.value)}
                                           sx={compactInput}
-                                          disabled={!(row.toi === "FOB" || row.toi === "CI")}
+                                          disabled={false}
                                         />
                                         <Autocomplete
                                           freeSolo
@@ -2440,7 +2440,7 @@ const ImportCreateJob = () => {
                                           value={row.freight_currency || ""}
                                           onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "freight_currency", newValue)}
                                           onChange={(event, newValue) => updateInvoiceRow(rowIndex, "freight_currency", newValue || "")}
-                                          disabled={!(row.toi === "FOB" || row.toi === "CI")}
+                                          disabled={false}
                                           renderInput={(params) => (
                                             <TextField
                                               {...params}
@@ -2459,7 +2459,7 @@ const ImportCreateJob = () => {
                                           placeholder="Fr. Ex Rate"
                                           value={row.freight_exchange_rate || ""}
                                           onChange={(e) => updateInvoiceRow(rowIndex, "freight_exchange_rate", e.target.value)}
-                                          disabled={!(row.toi === "FOB" || row.toi === "CI")}
+                                          disabled={false}
                                           sx={compactInput}
                                         />
                                       )}
@@ -2475,7 +2475,7 @@ const ImportCreateJob = () => {
                                           value={row.insurance || ""}
                                           onChange={(e) => updateInvoiceRow(rowIndex, "insurance", e.target.value)}
                                           sx={compactInput}
-                                          disabled={!(row.toi === "FOB" || row.toi === "CF")}
+                                          disabled={false}
                                         />
                                         <Autocomplete
                                           freeSolo
@@ -2484,7 +2484,7 @@ const ImportCreateJob = () => {
                                           value={row.insurance_currency || ""}
                                           onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "insurance_currency", newValue)}
                                           onChange={(event, newValue) => updateInvoiceRow(rowIndex, "insurance_currency", newValue || "")}
-                                          disabled={!(row.toi === "FOB" || row.toi === "CF")}
+                                          disabled={false}
                                           renderInput={(params) => (
                                             <TextField
                                               {...params}
@@ -2503,7 +2503,7 @@ const ImportCreateJob = () => {
                                           placeholder="Ins. Ex Rate"
                                           value={row.insurance_exchange_rate || ""}
                                           onChange={(e) => updateInvoiceRow(rowIndex, "insurance_exchange_rate", e.target.value)}
-                                          disabled={!(row.toi === "FOB" || row.toi === "CF")}
+                                          disabled={false}
                                           sx={compactInput}
                                         />
                                       )}
@@ -2554,7 +2554,7 @@ const ImportCreateJob = () => {
                                     <TextField
                                       size="small"
                                       fullWidth
-                                      placeholder="CIF Value"
+                                      placeholder="CIF"
                                       value={(() => {
                                         const pv = parseFloat(row.product_value) || 0;
                                         const pvEx = parseFloat(row.exchange_rate) || parseFloat(exrate) || 1;

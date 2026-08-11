@@ -87,7 +87,8 @@ router.get('/my-teams', async (req, res) => {
     const isAdmin = isCrmAdmin && !isHOD;
 
     let query = { isActive: true };
-    if (!isAdmin && userId) {
+    const seeAll = req.query.all === 'true' || req.query.seeAll === 'true';
+    if (!isAdmin && !seeAll && userId) {
       query.$or = [
         { managerId: userId },
         { memberIds: userId }

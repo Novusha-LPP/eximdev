@@ -86,10 +86,6 @@ const validateStageTransition = (currentStage, newStage) => {
 
 // Ownership filter — team owner sees all member opportunities, others see own
 async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
-  if (req?.query?.all === 'true' || req?.query?.forSelect === 'true') {
-    return {};
-  }
-
   const role = user?.crmRole || user?.role || req?.headers?.['user-role'];
   const userRole = user?.role || req?.headers?.['user-role'];
   const userId = user?._id || user?.id || user?.userId || req?.headers?.['user-id'];
@@ -98,6 +94,8 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
   const isCrmAdmin = role === 'Admin' || (typeof role === 'string' && role.toLowerCase() === 'admin');
   const isSystemAdmin = userRole === 'Admin' || (typeof userRole === 'string' && userRole.toLowerCase() === 'admin');
   const isAdmin = (isCrmAdmin || isSystemAdmin) && !isHOD;
+
+  const seeAll = req?.query?.all === 'true' || req?.query?.forSelect === 'true' || req?.query?.seeAll === 'true';
 
   if (!userId) return {};
 
@@ -108,7 +106,7 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
     if (team) {
       const isManager = team.managerId?.toString() === userId?.toString();
       const isMember = team.memberIds?.some(m => m?.toString() === userId?.toString());
-      if (isAdmin || isManager || isMember) {
+      if (isAdmin || isManager || isMember || seeAll) {
         const objectIdMemberIds = (team.memberIds || []).map(id => new mongoose.Types.ObjectId(id.toString()));
         if (team.managerId) {
           objectIdMemberIds.push(new mongoose.Types.ObjectId(team.managerId.toString()));
@@ -122,7 +120,7 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
     }
   }
 
-  if (isAdmin) return {};
+  if (seeAll || isAdmin) return {};
 
   const myTeams = await SalesTeam.find({
     $or: [

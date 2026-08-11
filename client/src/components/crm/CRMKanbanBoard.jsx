@@ -78,6 +78,7 @@ export default function CRMKanbanBoard() {
   const [selectedTeam, setSelectedTeam] = useState('all');
   const [users, setUsers] = useState([]);
   const [selectedOwner, setSelectedOwner] = useState('all');
+  const [seeAllData, setSeeAllData] = useState(false);
 
   // CR-010 & CR-008 Filter States
   const [selectedStage, setSelectedStage] = useState(() => getInitialParam('stage', 'all'));
@@ -182,6 +183,9 @@ export default function CRMKanbanBoard() {
       if (selectedOwner && selectedOwner !== 'all') {
         params.ownerId = selectedOwner;
       }
+      if (seeAllData) {
+        params.seeAll = 'true';
+      }
 
       if (selectedStage !== 'all') {
         params.stage = selectedStage;
@@ -266,7 +270,7 @@ export default function CRMKanbanBoard() {
   // Selected team's members compiler
   const getTeamMembers = () => {
     if (selectedTeam === 'all') {
-      if (isAdmin) return users;
+      if (isAdmin || seeAllData) return users;
       const membersMap = new Map();
       teams.forEach(team => {
         if (team.memberIds && Array.isArray(team.memberIds)) {
@@ -310,23 +314,32 @@ export default function CRMKanbanBoard() {
 
   const visibleMembers = getTeamMembers();
 
-  // Load Teams and Users on Mount
-  useEffect(() => {
-    const fetchMyTeams = async () => {
-      try {
-        const res = await axios.get(
-          `${process.env.REACT_APP_API_STRING}/crm/teams/my-teams`,
-          getHeaders()
-        );
-        const fetchedTeams = res.data || [];
-        setTeams(fetchedTeams);
-        if (isRestricted && fetchedTeams.length > 0) {
-          setSelectedTeam(fetchedTeams[0]._id);
+  const fetchMyTeams = async (all = false) => {
+    try {
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/crm/teams/my-teams`,
+        {
+          params: { all: all ? 'true' : 'false' },
+          ...getHeaders()
         }
-      } catch (err) {
-        console.error('Failed to load user teams:', err);
+      );
+      const fetchedTeams = res.data || [];
+      setTeams(fetchedTeams);
+      if (!all && isRestricted && fetchedTeams.length > 0) {
+        setSelectedTeam(prev => prev === 'all' ? fetchedTeams[0]._id : prev);
       }
-    };
+    } catch (err) {
+      console.error('Failed to load user teams:', err);
+    }
+  };
+
+  // Load Teams when seeAllData changes
+  useEffect(() => {
+    fetchMyTeams(seeAllData);
+  }, [seeAllData]);
+
+  // Load Users on Mount
+  useEffect(() => {
     const fetchUsers = async () => {
       try {
         const res = await axios.get(
@@ -338,7 +351,6 @@ export default function CRMKanbanBoard() {
         console.error('Failed to load users:', err);
       }
     };
-    fetchMyTeams();
     fetchUsers();
   }, []);
 
@@ -364,7 +376,7 @@ export default function CRMKanbanBoard() {
 
   useEffect(() => {
     fetchBoard();
-  }, [filters, selectedStage, selectedSource, selectedTimePeriod, selectedDate, selectedWeek, selectedMonth, selectedTeam, selectedOwner]);
+  }, [filters, selectedStage, selectedSource, selectedTimePeriod, selectedDate, selectedWeek, selectedMonth, selectedTeam, selectedOwner, seeAllData]);
 
   const handleDragStart = (e, opportunity, fromStage) => {
     setDraggedOpportunity({ opportunity, fromStage });
@@ -727,7 +739,7 @@ export default function CRMKanbanBoard() {
           </div>
 
           {/* Teams Dropdown */}
-          {(!isRestricted || teams.length > 1) && teams && teams.length > 0 && (
+          {(!isRestricted || seeAllData || teams.length > 1) && teams && teams.length > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Team:</span>
               <select
@@ -748,7 +760,7 @@ export default function CRMKanbanBoard() {
                   outline: 'none'
                 }}
               >
-                {!isRestricted && <option value="all">All Teams</option>}
+                {(!isRestricted || seeAllData) && <option value="all">All Teams</option>}
                 {teams.map(t => (
                   <option key={t._id} value={t._id}>{t.name}</option>
                 ))}
@@ -785,6 +797,44 @@ export default function CRMKanbanBoard() {
               </select>
             </div>
           )}
+
+          {/* See All Toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '4px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', gap: '8px', userSelect: 'none' }}>
+              <div style={{
+                position: 'relative',
+                width: '38px',
+                height: '20px',
+                backgroundColor: seeAllData ? '#10b981' : '#cbd5e1',
+                borderRadius: '10px',
+                transition: 'background-color 0.2s',
+              }}>
+                <div style={{
+                  position: 'absolute',
+                  top: '2px',
+                  left: seeAllData ? '20px' : '2px',
+                  width: '16px',
+                  height: '16px',
+                  backgroundColor: '#ffffff',
+                  borderRadius: '50%',
+                  transition: 'left 0.2s',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.15)'
+                }} />
+              </div>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>All Teams & Members</span>
+              <input
+                type="checkbox"
+                checked={seeAllData}
+                onChange={e => {
+                  const val = e.target.checked;
+                  setSeeAllData(val);
+                  setSelectedTeam('all');
+                  setSelectedOwner('all');
+                }}
+                style={{ display: 'none' }}
+              />
+            </label>
+          </div>
         </div>
 
         {selectedStage !== 'all' ? (

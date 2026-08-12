@@ -6,20 +6,20 @@ import TaskFormModal from './TaskFormModal';
 import ActivityFormModal from './ActivityFormModal';
 
 const DAYS_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 const EVENT_TYPE_COLORS = {
-  call:    { bg: '#dbeafe', text: '#1d4ed8', border: '#93c5fd' },
-  email:   { bg: '#fef3c7', text: '#b45309', border: '#fcd34d' },
+  call: { bg: '#dbeafe', text: '#1d4ed8', border: '#93c5fd' },
+  email: { bg: '#fef3c7', text: '#b45309', border: '#fcd34d' },
   meeting: { bg: '#ede9fe', text: '#6d28d9', border: '#c4b5fd' },
-  demo:    { bg: '#fce7f3', text: '#be185d', border: '#f9a8d4' },
-  note:    { bg: '#e0f2fe', text: '#0369a1', border: '#7dd3fc' },
+  demo: { bg: '#fce7f3', text: '#be185d', border: '#f9a8d4' },
+  note: { bg: '#e0f2fe', text: '#0369a1', border: '#7dd3fc' },
   // tasks
-  call_task:     { bg: '#dcfce7', text: '#166534', border: '#86efac' },
-  email_task:    { bg: '#fef9c3', text: '#713f12', border: '#fde68a' },
-  meeting_task:  { bg: '#f3e8ff', text: '#6b21a8', border: '#d8b4fe' },
+  call_task: { bg: '#dcfce7', text: '#166534', border: '#86efac' },
+  email_task: { bg: '#fef9c3', text: '#713f12', border: '#fde68a' },
+  meeting_task: { bg: '#f3e8ff', text: '#6b21a8', border: '#d8b4fe' },
   research_task: { bg: '#e0f2fe', text: '#075985', border: '#7dd3fc' },
-  other_task:    { bg: '#f1f5f9', text: '#475569', border: '#cbd5e1' },
+  other_task: { bg: '#f1f5f9', text: '#475569', border: '#cbd5e1' },
 };
 
 const getTaskColor = (task) => {
@@ -49,18 +49,18 @@ function getWeekRange(date) {
   const day = d.getDay();
   const start = new Date(d);
   start.setDate(d.getDate() - day);
-  start.setHours(0,0,0,0);
+  start.setHours(0, 0, 0, 0);
   const end = new Date(start);
   end.setDate(start.getDate() + 6);
-  end.setHours(23,59,59,999);
+  end.setHours(23, 59, 59, 999);
   return { start, end };
 }
 
 function getDayRange(date) {
   const start = new Date(date);
-  start.setHours(0,0,0,0);
+  start.setHours(0, 0, 0, 0);
   const end = new Date(date);
-  end.setHours(23,59,59,999);
+  end.setHours(23, 59, 59, 999);
   return { start, end };
 }
 
@@ -191,7 +191,7 @@ function WeekView({ events, weekStart, onCellClick, onEventClick, onMoreClick })
                 <EventPill key={ev._id} event={ev} onClick={onEventClick} />
               ))}
               {dayEvents.length > 5 && (
-                <div 
+                <div
                   onClick={(e) => {
                     e.stopPropagation();
                     onMoreClick(day);
@@ -268,7 +268,7 @@ function MonthView({ events, year, month, onCellClick, onEventClick, onMoreClick
                     <EventPill key={ev._id} event={ev} onClick={onEventClick} />
                   ))}
                   {dayEvents.length > 3 && (
-                    <div 
+                    <div
                       onClick={(e) => {
                         e.stopPropagation();
                         onMoreClick(dt);
@@ -297,7 +297,7 @@ function EventDetailPanel({ event, onClose, onEdit, onDelete }) {
   return (
     <>
       {/* Backdrop overlay */}
-      <div 
+      <div
         onClick={onClose}
         style={{
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -316,10 +316,10 @@ function EventDetailPanel({ event, onClose, onEdit, onDelete }) {
             <span style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: colors.text }}>{isTask ? 'Task' : `Activity – ${event.type}`}</span>
             <h3 style={{ margin: '4px 0 0 0', fontSize: '1.05rem', fontWeight: 800, color: '#1e293b' }}>{event.title || event.subject}</h3>
           </div>
-          <button 
-            onClick={onClose} 
-            style={{ 
-              background: '#fff', border: '1px solid #e2e8f0', cursor: 'pointer', 
+          <button
+            onClick={onClose}
+            style={{
+              background: '#fff', border: '1px solid #e2e8f0', cursor: 'pointer',
               color: '#64748b', borderRadius: '8px', padding: '6px',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
@@ -494,7 +494,8 @@ export default function ActivityCalendar() {
   const handleCellClick = (date, hour) => {
     const d = new Date(date);
     if (hour !== undefined) d.setHours(hour, 0, 0, 0);
-    setPrefilledDate(d.toISOString().substring(0, 16));
+    const tzOffset = d.getTimezoneOffset() * 60000;
+    setPrefilledDate(new Date(d.getTime() - tzOffset).toISOString().substring(0, 16));
     setAddMenuVisible(true);
   };
 
@@ -699,11 +700,11 @@ export default function ActivityCalendar() {
                 return null;
               })}
             </div>
-            <WeekView 
-              events={events} 
-              weekStart={weekStart} 
-              onCellClick={handleCellClick} 
-              onEventClick={handleEventClick} 
+            <WeekView
+              events={events}
+              weekStart={weekStart}
+              onCellClick={handleCellClick}
+              onEventClick={handleEventClick}
               onMoreClick={(dt) => {
                 setCurrentDate(dt);
                 setView('day');

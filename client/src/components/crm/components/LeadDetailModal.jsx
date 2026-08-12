@@ -120,7 +120,7 @@ export default function LeadDetailModal({ isOpen, onClose, lead, onEdit, onRefre
               <p style={{ margin: '4px 0 0 0', color: '#1e293b', fontWeight: 600 }}>⭐ {lead.score || 0}</p>
             </div>
 
-            {lead.crateSize && !['transportation', 'customs clearance', 'export', 'import'].includes((lead.businessVertical || '').toLowerCase()) && (
+            {lead.crateSize && !['transportation', 'freight forwarding', 'export', 'import'].includes((lead.businessVertical || '').toLowerCase()) && (
               <div>
                 <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 500 }}>Crate Size</span>
                 <p style={{ margin: '4px 0 0 0', color: '#1e293b', fontWeight: 600 }}>{lead.crateSize}</p>

@@ -6,11 +6,11 @@ import { UserContext } from '../../../contexts/UserContext';
 import ActivityTimeline from './ActivityTimeline';
 import QuoteFormModal from './QuoteFormModal';
 import PricingRequestFormModal from './PricingRequestFormModal';
+import TaskFormModal from './TaskFormModal';
 
 const STAGES = ['lead', 'qualified', 'opportunity', 'sales_visit', 'proposal', 'negotiation', 'won', 'lost'];
 
 const ALLOWED_SERVICES = [
-  'custom clearance',
   'freight forwarding',
   'dgft',
   'e-lock',
@@ -35,6 +35,8 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
   const [postponingVisitId, setPostponingVisitId] = useState(null);
   const [postponeDate, setPostponeDate] = useState('');
   const [customSource, setCustomSource] = useState('');
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [selectedTaskForModal, setSelectedTaskForModal] = useState(null);
 
   const { user } = useContext(UserContext);
   const fullUserName = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username : 'Unknown User';
@@ -317,6 +319,77 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
     });
   };
 
+  const handleAddTaskClick = () => {
+    setSelectedTaskForModal({
+      relatedTo: {
+        model: 'Opportunity',
+        id: opportunity._id,
+        name: opportunity.name
+      }
+    });
+    setIsTaskModalOpen(true);
+  };
+
+  const handleEditTaskClick = (task) => {
+    setSelectedTaskForModal({
+      ...task,
+      relatedTo: task.relatedTo || {
+        model: 'Opportunity',
+        id: opportunity._id,
+        name: opportunity.name
+      }
+    });
+    setIsTaskModalOpen(true);
+  };
+
+  const handleToggleTaskComplete = async (task) => {
+    try {
+      const newStatus = task.status === 'completed' ? 'open' : 'completed';
+      await axios.put(
+        `${process.env.REACT_APP_API_STRING}/crm/tasks/${task._id}`,
+        { status: newStatus },
+        getHeaders()
+      );
+      message.success(newStatus === 'completed' ? 'Task marked as completed' : 'Task marked as open');
+      onRefresh();
+      // Refresh local modal data
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/crm/opportunities/${opportunity._id}`,
+        getHeaders()
+      );
+      setFormData(res.data);
+    } catch (err) {
+      message.error(err.response?.data?.message || err.message || 'Failed to update task status');
+    }
+  };
+
+  const handleDeleteTask = async (taskId) => {
+    Modal.confirm({
+      title: 'Delete Task',
+      content: 'Are you sure you want to delete this task?',
+      okText: 'Delete',
+      okType: 'danger',
+      async onOk() {
+        try {
+          await axios.delete(
+            `${process.env.REACT_APP_API_STRING}/crm/tasks/${taskId}`,
+            getHeaders()
+          );
+          message.success('Task deleted successfully');
+          onRefresh();
+          // Refresh local modal data
+          const res = await axios.get(
+            `${process.env.REACT_APP_API_STRING}/crm/opportunities/${opportunity._id}`,
+            getHeaders()
+          );
+          setFormData(res.data);
+        } catch (err) {
+          message.error(err.response?.data?.message || err.message || 'Failed to delete task');
+        }
+      }
+    });
+  };
+
   if (!isOpen || !opportunity) return null;
 
   return (
@@ -512,7 +585,7 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
 
               <div style={{
                 display: 'grid',
-                gridTemplateColumns: !['transportation', 'customs clearance', 'export', 'import'].includes((formData.businessVertical || '').toLowerCase()) ? '1fr 1fr' : '1fr',
+                gridTemplateColumns: !['transportation', 'freight forwarding', 'export', 'import'].includes((formData.businessVertical || '').toLowerCase()) ? '1fr 1fr' : '1fr',
                 gap: '16px',
                 marginBottom: '16px'
               }}>
@@ -525,7 +598,7 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                     style={{ width: '100%', padding: '10px 12px', border: '1px solid #e2e8f0', borderRadius: '8px', fontSize: '0.9rem' }}
                   />
                 </div>
-                {!['transportation', 'customs clearance', 'export', 'import'].includes((formData.businessVertical || '').toLowerCase()) && (
+                {!['transportation', 'freight forwarding', 'export', 'import'].includes((formData.businessVertical || '').toLowerCase()) && (
                   <div>
                     <label style={{ display: 'block', marginBottom: '6px', color: '#475569', fontWeight: 600, fontSize: '0.9rem' }}>Crate Size</label>
                     <input
@@ -853,7 +926,7 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                   </div>
                 </div>
 
-                {formData.crateSize && !['transportation', 'customs clearance', 'export', 'import'].includes((formData.businessVertical || '').toLowerCase()) && (
+                {formData.crateSize && !['transportation', 'freight forwarding', 'export', 'import'].includes((formData.businessVertical || '').toLowerCase()) && (
                   <div style={{ marginBottom: '16px' }}>
                     <span style={{ fontSize: '0.8rem', color: '#64748b' }}>📦 Crate Size</span>
                     <p style={{ margin: '4px 0 0 0', color: '#334155', fontWeight: 600 }}>{formData.crateSize}</p>
@@ -947,6 +1020,164 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
                 </div>
               )}
 
+              {/* Tasks Checklist Section */}
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <h4 style={{ color: '#475569', fontWeight: 700, margin: 0, fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Tasks
+                  </h4>
+                  <button
+                    onClick={handleAddTaskClick}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      background: '#4f46e5',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '4px 10px',
+                      fontSize: '0.8rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 4px rgba(79, 70, 229, 0.2)',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#4338ca'}
+                    onMouseLeave={e => e.currentTarget.style.background = '#4f46e5'}
+                  >
+                    <span>➕ Add Task</span>
+                  </button>
+                </div>
+
+                {formData.tasks && formData.tasks.length > 0 ? (() => {
+                  const total = formData.tasks.length;
+                  const completed = formData.tasks.filter(t => t.status === 'completed').length;
+                  const pct = Math.round((completed / total) * 100);
+                  const sortedTasks = [...formData.tasks].sort((a, b) => {
+                    if (a.status === 'completed' && b.status !== 'completed') return 1;
+                    if (a.status !== 'completed' && b.status === 'completed') return -1;
+                    return new Date(a.dueDate || 0) - new Date(b.dueDate || 0);
+                  });
+
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      {/* Tasks Progress Bar */}
+                      <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', fontWeight: 700, color: '#475569', marginBottom: '6px' }}>
+                          <span>Progress ({completed}/{total} Completed)</span>
+                          <span style={{ color: pct === 100 ? '#10b981' : '#4f46e5' }}>{pct}%</span>
+                        </div>
+                        <div style={{ width: '100%', height: '8px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
+                          <div style={{ width: `${pct}%`, height: '100%', background: pct === 100 ? '#10b981' : '#4f46e5', borderRadius: '4px', transition: 'width 0.3s ease' }}></div>
+                        </div>
+                      </div>
+
+                      {/* Tasks List */}
+                      {sortedTasks.map((task) => {
+                        const taskCreatorId = task.createdBy?._id || task.createdBy;
+                        const isCreator = taskCreatorId && (taskCreatorId.toString() === (user?._id || user?.id)?.toString());
+                        const isAdminUser = user?.role?.toLowerCase() === 'admin';
+                        const canModify = isCreator || isAdminUser;
+                        const isOverdue = task.dueDate && task.status !== 'completed' && new Date(task.dueDate) < new Date(new Date().toDateString());
+
+                        return (
+                          <div
+                            key={task._id}
+                            style={{
+                              background: '#fff',
+                              padding: '12px 16px',
+                              borderRadius: '10px',
+                              border: isOverdue ? '1.5px solid #fca5a5' : '1px solid #e2e8f0',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: '12px',
+                              boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
+                              transition: 'all 0.2s'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+                              <input
+                                type="checkbox"
+                                checked={task.status === 'completed'}
+                                onChange={() => handleToggleTaskComplete(task)}
+                                style={{ cursor: 'pointer', width: '16px', height: '16px', flexShrink: 0 }}
+                              />
+                              <div style={{ minWidth: 0, flex: 1 }}>
+                                <span
+                                  style={{
+                                    fontSize: '0.9rem',
+                                    fontWeight: 600,
+                                    textDecoration: task.status === 'completed' ? 'line-through' : 'none',
+                                    color: task.status === 'completed' ? '#94a3b8' : '#1e293b',
+                                    display: 'block',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                  title={task.title}
+                                >
+                                  {task.title}
+                                </span>
+                                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginTop: '2px' }}>
+                                  {task.dueDate && (
+                                    <span style={{ fontSize: '0.75rem', color: isOverdue ? '#dc2626' : '#64748b', fontWeight: isOverdue ? 700 : 500 }}>
+                                      📅 Due: {new Date(task.dueDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                    </span>
+                                  )}
+                                  {task.assignedTo && (
+                                    <span style={{ fontSize: '0.75rem', color: '#4f46e5', fontWeight: 500 }}>
+                                      👤 {task.assignedTo.first_name ? `${task.assignedTo.first_name} ${task.assignedTo.last_name || ''}`.trim() : task.assignedTo.username}
+                                    </span>
+                                  )}
+                                  {isOverdue && (
+                                    <span style={{ background: '#fef2f2', color: '#dc2626', fontSize: '0.65rem', fontWeight: 800, padding: '1px 6px', borderRadius: '4px', border: '1px solid #fecaca' }}>
+                                      ⚠️ OVERDUE
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {canModify && (
+                              <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleEditTaskClick(task)}
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2563eb', padding: '4px' }}
+                                  title="Edit Task"
+                                >
+                                  <Edit2 size={16} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteTask(task._id)}
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', padding: '4px' }}
+                                  title="Delete Task"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })() : (
+                  <div style={{ padding: '20px', textAlign: 'center', color: '#94a3b8', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
+                    <div style={{ fontSize: '0.85rem', fontStyle: 'italic', marginBottom: '8px' }}>No tasks assigned to this opportunity yet.</div>
+                    <button
+                      onClick={handleAddTaskClick}
+                      style={{ background: '#4f46e5', color: 'white', border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}
+                    >
+                      ➕ Create First Task
+                    </button>
+                  </div>
+                )}
+              </div>
+
               {/* Remarks History */}
               <div style={{ marginBottom: '24px' }}>
                 <h4 style={{ color: '#475569', fontWeight: 700, marginBottom: '12px', fontSize: '0.95rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Remarks History</h4>
@@ -1031,6 +1262,22 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
         initialSubject={`Pricing rate request for Opportunity: ${opportunity.name}`}
         initialTargetPrice={formData.value || opportunity.value}
         onRefresh={onRefresh}
+      />
+      <TaskFormModal
+        isOpen={isTaskModalOpen}
+        onClose={() => {
+          setIsTaskModalOpen(false);
+          setSelectedTaskForModal(null);
+        }}
+        onRefresh={async () => {
+          onRefresh();
+          const res = await axios.get(
+            `${process.env.REACT_APP_API_STRING}/crm/opportunities/${opportunity._id}`,
+            getHeaders()
+          );
+          setFormData(res.data);
+        }}
+        task={selectedTaskForModal}
       />
     </div>
   );

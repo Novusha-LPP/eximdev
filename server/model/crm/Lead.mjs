@@ -1,7 +1,6 @@
 import mongoose from 'mongoose';
 
 const allowedServices = [
-  'custom clearance', 
   'freight forwarding', 
   'dgft', 
   'e-lock', 
@@ -51,7 +50,7 @@ const leadSchema = new mongoose.Schema({
   referralSourceName: { type: String },
   businessVertical: {
     type: String,
-    enum: ['Paramount', 'Transportation', 'Customs Clearance', 'Export', 'Import'],
+    enum: ['Paramount', 'Transportation', 'Freight Forwarding', 'Export', 'Import'],
     default: 'Paramount'
   },
   monthlyVolume: { type: String },

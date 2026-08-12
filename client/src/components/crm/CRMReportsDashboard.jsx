@@ -452,7 +452,7 @@ export default function CRMReportsDashboard() {
                   <option key={v} value={v}>{v}</option>
                 ))
               ) : (
-                ['Paramount', 'Transportation', 'Customs Clearance', 'Export', 'Import'].map(v => (
+                ['Paramount', 'Transportation', 'Freight Forwarding', 'Export', 'Import'].map(v => (
                   <option key={v} value={v}>{v}</option>
                 ))
               )}

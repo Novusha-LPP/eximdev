@@ -48,7 +48,12 @@ async function buildTaskFilter(user, requestedTeamId = null, req = null) {
 
   visibleUserIds = [...new Set(visibleUserIds)];
   const objectIdUserIds = visibleUserIds.map(id => new mongoose.Types.ObjectId(id));
-  return { assignedTo: { $in: objectIdUserIds } };
+  return {
+    $or: [
+      { assignedTo: { $in: objectIdUserIds } },
+      { createdBy: new mongoose.Types.ObjectId(userId.toString()) }
+    ]
+  };
 }
 
 // GET /api/crm/tasks
@@ -59,7 +64,7 @@ router.get('/', async (req, res) => {
     const query = { ...taskFilter };
     if (status) query.status = status.toLowerCase();
     if (priority) query.priority = priority.toLowerCase();
-    
+
     if (assignedTo) {
       if (!query.assignedTo) {
         query.assignedTo = assignedTo;
@@ -97,7 +102,7 @@ router.get('/my', async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     const query = { assignedTo: req.user?._id };
-    
+
     if (startDate && endDate) {
       query.dueDate = {
         $gte: new Date(startDate),
@@ -144,8 +149,8 @@ router.post('/', async (req, res) => {
       req.body.dueDate = null;
     }
 
-    const newTask = new Task({ 
-      ...req.body, 
+    const newTask = new Task({
+      ...req.body,
       createdBy: req.user?._id
     });
     await newTask.save();
@@ -167,6 +172,26 @@ router.put('/:id', async (req, res) => {
 
     const task = await Task.findById(req.params.id);
     if (!task) return res.status(404).json({ message: 'Task not found' });
+
+    const userId = req.user?._id || req.user?.id || req.headers?.['user-id'];
+    const role = req.user?.crmRole || req.user?.role || req.headers?.['user-role'];
+    const isAdmin = role === 'Admin';
+    const isCreator = task.createdBy && task.createdBy.toString() === userId?.toString();
+    const isAssignee = task.assignedTo && task.assignedTo.toString() === userId?.toString();
+
+    // Check if user is updating details (any field other than status)
+    const isUpdatingDetails = Object.keys(req.body).some(key => key !== 'status');
+
+    if (isUpdatingDetails) {
+      if (!isCreator && !isAdmin) {
+        return res.status(403).json({ message: 'Only the creator of this task can update its details' });
+      }
+    } else {
+      // User is only updating status
+      if (!isCreator && !isAssignee && !isAdmin) {
+        return res.status(403).json({ message: 'Only the assignee or creator of this task can update its status' });
+      }
+    }
 
     const originalAssignee = task.assignedTo?.toString();
     const newAssignee = req.body.assignedTo?.toString();
@@ -217,15 +242,46 @@ router.put('/:id', async (req, res) => {
 // PATCH /api/crm/tasks/:id/complete
 router.patch('/:id/complete', async (req, res) => {
   try {
-    const task = await Task.findOneAndUpdate(
-      { _id: req.params.id },
-      { status: 'completed' },
-      { new: true }
-    );
+    const task = await Task.findById(req.params.id);
     if (!task) return res.status(404).json({ message: 'Task not found' });
+
+    const userId = req.user?._id || req.user?.id || req.headers?.['user-id'];
+    const role = req.user?.crmRole || req.user?.role || req.headers?.['user-role'];
+    const isAdmin = role === 'Admin';
+    const isCreator = task.createdBy && task.createdBy.toString() === userId?.toString();
+    const isAssignee = task.assignedTo && task.assignedTo.toString() === userId?.toString();
+
+    if (!isCreator && !isAssignee && !isAdmin) {
+      return res.status(403).json({ message: 'Only the assignee or creator of this task can mark it completed' });
+    }
+
+    task.status = 'completed';
+    await task.save();
     res.json(task);
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
+  }
+});
+
+// DELETE /api/crm/tasks/:id
+router.delete('/:id', async (req, res) => {
+  try {
+    const task = await Task.findById(req.params.id);
+    if (!task) return res.status(404).json({ message: 'Task not found' });
+
+    const userId = req.user?._id || req.user?.id || req.headers?.['user-id'];
+    const role = req.user?.crmRole || req.user?.role || req.headers?.['user-role'];
+    const isAdmin = role === 'Admin';
+    const isCreator = task.createdBy && task.createdBy.toString() === userId?.toString();
+
+    if (!isCreator && !isAdmin) {
+      return res.status(403).json({ message: 'Only the creator of this task can delete it' });
+    }
+
+    await task.deleteOne();
+    res.json({ success: true, message: 'Task deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 

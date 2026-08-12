@@ -96,12 +96,16 @@ export default function TaskFormModal({ isOpen, onClose, onRefresh, task }) {
 
   useEffect(() => {
     if (task) {
+      const assignedToId = task.assignedTo?._id || task.assignedTo || '';
       setFormData({
         ...task,
-        assignedTo: task.assignedTo?._id || task.assignedTo || '',
+        assignedTo: assignedToId,
         reminder: !!task.reminder,
         relatedTo: task.relatedTo || { model: '', id: '', name: '' }
       });
+      if (!assignedToId) {
+        setUserSearch('');
+      }
       if (task.relatedTo?.model) {
         fetchEntityOptions(task.relatedTo.model);
         setEntitySearch(task.relatedTo.name || '');

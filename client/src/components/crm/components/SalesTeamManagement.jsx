@@ -240,7 +240,7 @@ export default function SalesTeamManagement() {
                   >
                     <option value="Paramount">Paramount</option>
                     <option value="Transportation">Transportation</option>
-                    <option value="Customs Clearance">Customs Clearance</option>
+                    <option value="Freight Forwarding">Freight Forwarding</option>
                     <option value="Export">Export</option>
                     <option value="Import">Import</option>
                   </select>

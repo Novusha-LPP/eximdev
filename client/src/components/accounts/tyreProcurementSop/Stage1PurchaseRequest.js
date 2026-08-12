@@ -1,4 +1,5 @@
 import React from "react";
+import axios from "axios";
 import {
   Box,
   Grid,
@@ -15,26 +16,29 @@ import {
   Button,
   MenuItem,
   Alert,
+  Checkbox,
+  Chip,
 } from "@mui/material";
-import { Add, Delete, CloudDownload } from "@mui/icons-material";
+import { Add, Delete, CloudDownload, CheckCircle } from "@mui/icons-material";
 
 const approvalOptions = ["WhatsApp", "Phone Call", "Email", "In-Person"];
 const tyreTypeOptions = ["New Tyre", "Remould Tyre"];
 
 function Stage1PurchaseRequest({ data, onChange, globalData, onGlobalChange }) {
   const updateField = (field, value) => {
-    onChange({ [field]: value });
+    onChange({ [field]: typeof value === "string" ? value.toUpperCase() : value });
   };
 
   const updateNested = (group, field, value) => {
-    onChange({ [group]: { ...data[group], [field]: value } });
+    onChange({ [group]: { ...data[group], [field]: typeof value === "string" ? value.toUpperCase() : value } });
   };
 
   const itemsRequired = data.itemsRequired || [];
   const routingChecklist = data.routingChecklist || [];
 
   const updateItem = (idx, field, value) => {
-    const updated = itemsRequired.map((item, i) => (i === idx ? { ...item, [field]: value } : item));
+    const val = typeof value === "string" ? value.toUpperCase() : value;
+    const updated = itemsRequired.map((item, i) => (i === idx ? { ...item, [field]: val } : item));
     onChange({ itemsRequired: updated });
   };
 
@@ -46,15 +50,83 @@ function Stage1PurchaseRequest({ data, onChange, globalData, onGlobalChange }) {
     onChange({ itemsRequired: itemsRequired.filter((_, i) => i !== idx) });
   };
 
-  const updateChecklist = (idx, field, value) => {
-    const updated = routingChecklist.map((item, i) => (i === idx ? { ...item, [field]: value } : item));
-    onChange({ routingChecklist: updated });
+  const handleChecklistToggle = async (idx, checked) => {
+    const today = new Date().toISOString().split("T")[0];
+    const defaultSteps = [
+      { step: "Step 1", action: "PR Raised by Requester", responsible: "Operations Team" },
+      { step: "Step 2", action: "Validated by HoD", responsible: "Head of Department" },
+    ];
+    const current = [...routingChecklist];
+    while (current.length <= idx) {
+      current.push(defaultSteps[current.length] || { step: `Step ${current.length + 1}`, action: "", responsible: "" });
+    }
+
+    if (checked) {
+      current[idx] = { ...current[idx], date: today, status: "Done" };
+      if (idx === 0) {
+        if (onGlobalChange) onGlobalChange("status", "PR Raised");
+      } else if (idx === 1) {
+        // HoD Approval: Auto-generate PR Number & PO Number if not set or mock
+        let generatedPr = globalData?.prNumber;
+        let generatedPo = globalData?.poNumber;
+
+        const isMockOrEmpty =
+          !generatedPr ||
+          generatedPr.startsWith("TT-TYRE-") ||
+          !generatedPr.includes("/");
+
+        if (isMockOrEmpty) {
+          try {
+            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/tyre-procurement/next-numbers?date=${today}`);
+            if (res.data?.success) {
+              generatedPr = res.data.prNumber;
+              generatedPo = res.data.poNumber;
+            }
+          } catch (err) {
+            console.error("Error generating PR/PO numbers:", err);
+            const mShort = new Date(today).toLocaleString("en-US", { month: "short" }).toUpperCase();
+            generatedPr = `TT/TYRE/${mShort}/01/26-27`;
+            generatedPo = `TYRE/${mShort}-01/26-27`;
+          }
+        }
+
+        if (onGlobalChange) {
+          if (generatedPr) onGlobalChange("prNumber", generatedPr);
+          if (generatedPo) onGlobalChange("poNumber", generatedPo);
+          onGlobalChange("status", "Preparing for Quotation");
+        }
+
+        onChange({
+          routingChecklist: current,
+          prDate: today,
+          hodValidation: {
+            ...(data.hodValidation || {}),
+            dateTimeOfApproval: today,
+          },
+        });
+        return;
+      }
+    } else {
+      current[idx] = { ...current[idx], date: "", status: "Pending" };
+      if (idx === 0) {
+        if (onGlobalChange) onGlobalChange("status", "Draft");
+      } else if (idx === 1) {
+        const isStep1Done = current[0]?.status === "Done";
+        if (onGlobalChange) onGlobalChange("status", isStep1Done ? "PR Raised" : "Draft");
+      }
+    }
+    onChange({ routingChecklist: current });
   };
 
   const handleMockPull = () => {
+    const today = new Date().toISOString().split("T")[0];
+    const mShort = new Date(today).toLocaleString("en-US", { month: "short" }).toUpperCase();
+    if (onGlobalChange) {
+      onGlobalChange("prNumber", `TT/TYRE/${mShort}/01/26-27`);
+      onGlobalChange("poNumber", `TYRE/${mShort}-01/26-27`);
+    }
     onChange({
-      prNumber: "TT-TYRE-2026-0042",
-      prDate: new Date().toISOString().split("T")[0],
+      prDate: today,
       preparedBy: "Jishnu",
       contactNumber: "+91 98765 43210",
       departmentLocation: "Logistics Hub - Delhi",
@@ -63,7 +135,7 @@ function Stage1PurchaseRequest({ data, onChange, globalData, onGlobalChange }) {
         validatedBy: "Mohit Singh",
         designation: "Fleet HOD",
         approvalMode: "WhatsApp",
-        dateTimeOfApproval: new Date().toISOString().split("T")[0],
+        dateTimeOfApproval: today,
         hodSignature: "M.S.",
       },
       itemsRequired: [
@@ -77,9 +149,8 @@ function Stage1PurchaseRequest({ data, onChange, globalData, onGlobalChange }) {
       currentStockUsedRemould: 5,
       comments: "Urgent purchase request due to seasonal trailer servicing backlog.",
       routingChecklist: [
-        { step: "Step 1", action: "PR Raised by Requester", responsible: "Operations Team", date: new Date().toISOString().split("T")[0], status: "Done" },
-        { step: "Step 2", action: "Validated by HoD", responsible: "Head of Department", date: new Date().toISOString().split("T")[0], status: "Done" },
-        { step: "Step 3", action: "Forwarded to Purchase Officer", responsible: "Purchase Officer", date: new Date().toISOString().split("T")[0], status: "Done" },
+        { step: "Step 1", action: "PR Raised by Requester", responsible: "Operations Team", date: today, status: "Done" },
+        { step: "Step 2", action: "Validated by HoD", responsible: "Head of Department", date: today, status: "Done" },
       ],
     });
   };
@@ -111,6 +182,8 @@ function Stage1PurchaseRequest({ data, onChange, globalData, onGlobalChange }) {
             onChange={(e) => onGlobalChange("prNumber", e.target.value)}
             fullWidth
             size="small"
+            placeholder="TT/TYRE/AUG/01/26-27"
+            helperText="Format: TT/TYRE/AUG/01/26-27 (Auto-generated after HoD Approval)"
           />
         </Grid>
         <Grid item xs={12} md={4}>
@@ -414,49 +487,44 @@ function Stage1PurchaseRequest({ data, onChange, globalData, onGlobalChange }) {
         <Table size="small">
           <TableHead>
             <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
-              <TableCell>Step</TableCell>
-              <TableCell>Action</TableCell>
-              <TableCell>Responsible</TableCell>
-              <TableCell>Date</TableCell>
-              <TableCell>Status</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Check</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Step</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Action</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Responsible</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Date Completed</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Status</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {[
               ["Step 1", "PR Raised by Requester", "Operations Team"],
               ["Step 2", "Validated by HoD", "Head of Department"],
-              ["Step 3", "Forwarded to Purchase Officer", "Purchase Officer"],
-            ].map(([step, action, resp], idx) => (
-              <TableRow key={idx}>
-                <TableCell>{step}</TableCell>
-                <TableCell>{action}</TableCell>
-                <TableCell>{resp}</TableCell>
-                <TableCell>
-                  <TextField
-                    type="date"
-                    InputLabelProps={{ shrink: true }}
-                    value={routingChecklist[idx]?.date ? routingChecklist[idx].date.split("T")[0] : ""}
-                    onChange={(e) => updateChecklist(idx, "date", e.target.value)}
-                    size="small"
-                  />
-                </TableCell>
-                <TableCell>
-                  <TextField
-                    select
-                    value={routingChecklist[idx]?.status || ""}
-                    onChange={(e) => updateChecklist(idx, "status", e.target.value)}
-                    size="small"
-                    sx={{ minWidth: 100 }}
-                  >
-                    {["Pending", "Done"].map((s) => (
-                      <MenuItem key={s} value={s}>
-                        {s}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                </TableCell>
-              </TableRow>
-            ))}
+            ].map(([step, action, resp], idx) => {
+              const isDone = routingChecklist[idx]?.status === "Done";
+              const dateVal = routingChecklist[idx]?.date ? routingChecklist[idx].date.split("T")[0] : "";
+              return (
+                <TableRow key={idx}>
+                  <TableCell>
+                    <Checkbox
+                      checked={isDone}
+                      onChange={(e) => handleChecklistToggle(idx, e.target.checked)}
+                      color="primary"
+                    />
+                  </TableCell>
+                  <TableCell>{step}</TableCell>
+                  <TableCell sx={{ fontWeight: 500 }}>{action}</TableCell>
+                  <TableCell>{resp}</TableCell>
+                  <TableCell>{dateVal || "-"}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={isDone ? "Done" : "Pending"}
+                      color={isDone ? "success" : "default"}
+                      size="small"
+                    />
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </TableContainer>

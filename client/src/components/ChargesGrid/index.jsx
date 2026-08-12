@@ -255,8 +255,18 @@ const ChargesGrid = ({
         category: head.category,
         isPurchaseBookMandatory: head.isPurchaseBookMandatory,
         sacHsn: head.sacHsn || '',
-        revenue: { isGst: true },
-        cost: { isGst: true },
+        revenue: {
+          isGst: true,
+          isTds: !!head.tdsCategory,
+          tdsPercent: head.tdsCategory ? 2 : 0,
+          tdsCategory: head.tdsCategory || ''
+        },
+        cost: {
+          isGst: true,
+          isTds: !!head.tdsCategory,
+          tdsPercent: head.tdsCategory ? 2 : 0,
+          tdsCategory: head.tdsCategory || ''
+        },
         copyToCost: true
       };
     });

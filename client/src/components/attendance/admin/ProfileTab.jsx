@@ -402,6 +402,7 @@ const ProfileTab = ({ employeeId, companyId, employeeName }) => {
     attendance_from: 'Biometric', // 'Mobile', 'Biometric', 'Mobile & Biometric'
     biometric_serial_no: [],
     biometric_code: '',
+    has_smartphone: 'Yes',
 
     // Salary calculation Act & policy
     salary_calculation_act: 'Shop Act', // 'Shop Act', 'Factory Act', 'On Working Days'
@@ -522,6 +523,7 @@ const ProfileTab = ({ employeeId, companyId, employeeName }) => {
           attendance_from: attFrom,
           biometric_serial_no: user.biometric_serial_no || [],
           biometric_code: user.biometric_code || '',
+          has_smartphone: user.attendance_settings?.has_smartphone !== false ? 'Yes' : 'No',
           salary_calculation_act: user.salary_calculation_act || 'Shop Act',
           payroll_frequency: user.payroll_frequency || 'Monthly',
           overtime_applicable: user.overtime_eligible || user.overtime_applicable ? 'Yes' : 'No',
@@ -568,7 +570,8 @@ const ProfileTab = ({ employeeId, companyId, employeeName }) => {
       const payload = {
         ...profileForm,
         attendance_settings: {
-          punch_methods: pm
+          punch_methods: pm,
+          has_smartphone: profileForm.has_smartphone === 'Yes'
         },
         overtime_eligible: profileForm.overtime_applicable === 'Yes',
         enable_full_month_presence: profileForm.enable_full_month_presence === 'Yes'
@@ -1045,6 +1048,24 @@ const ProfileTab = ({ employeeId, companyId, employeeName }) => {
                 onChange={e => setProfileForm(prev => ({ ...prev, biometric_code: e.target.value }))}
                 className="premium-input"
               />
+            </div>
+            <div>
+              <label style={S.label}>Has Smartphone *</label>
+              <div style={S.radioGroup}>
+                {['Yes', 'No'].map(opt => (
+                  <label key={opt} style={S.radioLabel}>
+                    <input
+                      type="radio"
+                      name="has_smart"
+                      value={opt}
+                      checked={profileForm.has_smartphone === opt}
+                      onChange={e => setProfileForm(prev => ({ ...prev, has_smartphone: e.target.value }))}
+                      style={{ accentColor: THEME.indigo }}
+                    />
+                    {opt}
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
         </SubCard>

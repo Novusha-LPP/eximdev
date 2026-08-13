@@ -35,12 +35,16 @@ function FirstAidDashboard() {
     // Modal state for adding product
     const [showAddProductModal, setShowAddProductModal] = useState(false);
     const [newProductName, setNewProductName] = useState('');
+    const [newProductGenericName, setNewProductGenericName] = useState('');
+    const [newProductPurpose, setNewProductPurpose] = useState('');
     const [submittingProduct, setSubmittingProduct] = useState(false);
 
     // Modal state for editing product
     const [showEditProductModal, setShowEditProductModal] = useState(false);
     const [editProduct, setEditProduct] = useState(null); // { _id, name, status }
     const [editProductName, setEditProductName] = useState('');
+    const [editProductGenericName, setEditProductGenericName] = useState('');
+    const [editProductPurpose, setEditProductPurpose] = useState('');
     const [editProductStatus, setEditProductStatus] = useState('active');
 
     // Create Checklist State
@@ -147,10 +151,16 @@ function FirstAidDashboard() {
 
         try {
             setSubmittingProduct(true);
-            const data = await firstAidAPI.addProduct(newProductName);
+            const data = await firstAidAPI.addProduct({
+                name: newProductName,
+                genericName: newProductGenericName,
+                purpose: newProductPurpose
+            });
             toast.success('Medicine product added successfully.');
             setProducts([...products, data].sort((a, b) => a.name.localeCompare(b.name)));
             setNewProductName('');
+            setNewProductGenericName('');
+            setNewProductPurpose('');
             setShowAddProductModal(false);
         } catch (err) {
             console.error('Failed to add product:', err);
@@ -170,12 +180,17 @@ function FirstAidDashboard() {
         try {
             const data = await firstAidAPI.updateProduct(editProduct._id, {
                 name: editProductName,
+                genericName: editProductGenericName,
+                purpose: editProductPurpose,
                 status: editProductStatus
             });
             toast.success('Medicine product updated successfully.');
             setProducts(products.map(p => p._id === editProduct._id ? data : p).sort((a, b) => a.name.localeCompare(b.name)));
             setShowEditProductModal(false);
             setEditProduct(null);
+            setEditProductName('');
+            setEditProductGenericName('');
+            setEditProductPurpose('');
         } catch (err) {
             console.error('Failed to update product:', err);
             toast.error(err.response?.data?.message || 'Failed to update product.');
@@ -392,10 +407,12 @@ function FirstAidDashboard() {
                             <table className="firstaid-table">
                                 <thead>
                                     <tr>
-                                        <th style={{ width: '80px', textAlign: 'center' }}>S.No</th>
+                                        <th style={{ width: '60px', textAlign: 'center' }}>S.No</th>
                                         <th>Medicine / Supply Name</th>
-                                        <th style={{ width: '150px', textAlign: 'center' }}>Status</th>
-                                        <th style={{ width: '200px', textAlign: 'center' }}>Actions</th>
+                                        <th>Generic Name</th>
+                                        <th>Used For (Purpose)</th>
+                                        <th style={{ width: '120px', textAlign: 'center' }}>Status</th>
+                                        <th style={{ width: '180px', textAlign: 'center' }}>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -403,6 +420,8 @@ function FirstAidDashboard() {
                                         <tr key={p._id}>
                                             <td style={{ textAlign: 'center', fontWeight: 600, color: '#64748b' }}>{idx + 1}</td>
                                             <td style={{ fontWeight: 700, color: '#1e293b' }}>{p.name}</td>
+                                            <td style={{ color: '#475569' }}>{p.generic_name || '—'}</td>
+                                            <td style={{ color: '#475569', fontSize: '13px' }}>{p.purpose || '—'}</td>
                                             <td style={{ textAlign: 'center' }}>
                                                 <span className={`firstaid-badge ${p.status === 'active' ? 'firstaid-badge-success' : 'firstaid-badge-error'}`}>
                                                     {p.status === 'active' ? 'Active' : 'Inactive'}
@@ -416,6 +435,8 @@ function FirstAidDashboard() {
                                                         onClick={() => {
                                                             setEditProduct(p);
                                                             setEditProductName(p.name);
+                                                            setEditProductGenericName(p.generic_name || '');
+                                                            setEditProductPurpose(p.purpose || '');
                                                             setEditProductStatus(p.status);
                                                             setShowEditProductModal(true);
                                                         }}
@@ -505,11 +526,11 @@ function FirstAidDashboard() {
                 <div className="firstaid-modal-overlay">
                     <div className="firstaid-modal">
                         <div className="firstaid-modal-header">
-                            <span className="firstaid-modal-title">Add Medicine / supply</span>
+                            <span className="firstaid-modal-title">Add Medicine / Supply</span>
                             <button className="firstaid-modal-close" onClick={() => setShowAddProductModal(false)}>&times;</button>
                         </div>
                         <form onSubmit={handleAddProduct}>
-                            <div className="firstaid-modal-body">
+                            <div className="firstaid-modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                 <div className="firstaid-form-group">
                                     <label>Medicine Name</label>
                                     <input
@@ -519,6 +540,26 @@ function FirstAidDashboard() {
                                         onChange={(e) => setNewProductName(e.target.value)}
                                         placeholder="e.g. Paracetamol Tablets IP 500 mg"
                                         required
+                                    />
+                                </div>
+                                <div className="firstaid-form-group">
+                                    <label>Generic Name</label>
+                                    <input
+                                        type="text"
+                                        className="firstaid-input"
+                                        value={newProductGenericName}
+                                        onChange={(e) => setNewProductGenericName(e.target.value)}
+                                        placeholder="e.g. Paracetamol"
+                                    />
+                                </div>
+                                <div className="firstaid-form-group">
+                                    <label>Used For (Purpose)</label>
+                                    <input
+                                        type="text"
+                                        className="firstaid-input"
+                                        value={newProductPurpose}
+                                        onChange={(e) => setNewProductPurpose(e.target.value)}
+                                        placeholder="e.g. Fever, headache, body pain"
                                     />
                                 </div>
                             </div>
@@ -553,6 +594,24 @@ function FirstAidDashboard() {
                                         value={editProductName}
                                         onChange={(e) => setEditProductName(e.target.value)}
                                         required
+                                    />
+                                </div>
+                                <div className="firstaid-form-group">
+                                    <label>Generic Name</label>
+                                    <input
+                                        type="text"
+                                        className="firstaid-input"
+                                        value={editProductGenericName}
+                                        onChange={(e) => setEditProductGenericName(e.target.value)}
+                                    />
+                                </div>
+                                <div className="firstaid-form-group">
+                                    <label>Used For (Purpose)</label>
+                                    <input
+                                        type="text"
+                                        className="firstaid-input"
+                                        value={editProductPurpose}
+                                        onChange={(e) => setEditProductPurpose(e.target.value)}
                                     />
                                 </div>
                                 <div className="firstaid-form-group">

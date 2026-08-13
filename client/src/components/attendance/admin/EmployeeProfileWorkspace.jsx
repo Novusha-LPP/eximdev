@@ -292,6 +292,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
 
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showPendingLeavesModal, setShowPendingLeavesModal] = useState(false);
+  const [showAllLeaveHistory, setShowAllLeaveHistory] = useState(false);
   const [leavePolicies, setLeavePolicies] = useState([]);
   const [users, setUsers] = useState([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
@@ -592,10 +593,22 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
   const leaveHistory = useMemo(() => {
     const approved = Array.isArray(profile?.leaves) ? profile.leaves : [];
     const pending = Array.isArray(profile?.pendingLeaves) ? profile.pendingLeaves : [];
-    return [...approved, ...pending]
-      .filter(l => !['rejected', 'cancelled', 'withdrawn'].includes(String(l?.approval_status || l?.status || '').toLowerCase()))
-      .sort((a, b) => new Date(b.createdAt || b.from_date || 0) - new Date(a.createdAt || a.from_date || 0));
-  }, [profile?.leaves, profile?.pendingLeaves]);
+    let combined = [...approved, ...pending]
+      .filter(l => !['rejected', 'cancelled', 'withdrawn'].includes(String(l?.approval_status || l?.status || '').toLowerCase()));
+
+    if (!showAllLeaveHistory) {
+      const targetStart = moment([browseYear, browseMonth - 1]).startOf('month');
+      const targetEnd = moment([browseYear, browseMonth - 1]).endOf('month');
+      combined = combined.filter(l => {
+        if (!l.from_date || !l.to_date) return false;
+        const from = moment(l.from_date);
+        const to = moment(l.to_date);
+        return (from.isSameOrBefore(targetEnd) && to.isSameOrAfter(targetStart));
+      });
+    }
+
+    return combined.sort((a, b) => new Date(b.createdAt || b.from_date || 0) - new Date(a.createdAt || a.from_date || 0));
+  }, [profile?.leaves, profile?.pendingLeaves, showAllLeaveHistory, browseMonth, browseYear]);
 
   const visibleShiftPolicies = useMemo(() => {
     const seen = new Set();
@@ -743,7 +756,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
       weekoff_policy_id: e.weekoff_policy_id?._id || e.weekoff_policy_id || ov.weekoff_policy_id?._id || ov.weekoff_policy_id || '',
       holiday_policy_id: e.holiday_policy_id?._id || e.holiday_policy_id || ov.holiday_policy_id?._id || ov.holiday_policy_id || '',
       shift_id: policyShiftOptions.some(s => String(s._id) === String(rsi)) ? rsi : '',
-      attendance_settings: e.attendance_settings || { geo_fencing_required: true, allowed_locations: [] }
+      attendance_settings: e.attendance_settings || { geo_fencing_required: true, allowed_locations: [], has_smartphone: true }
     });
   }, [profile, policyShiftOptions]);
 
@@ -3084,24 +3097,45 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
 
             {/* Leave History */}
             <div>
-              <div style={{ fontSize: '13px', fontWeight: '700', color: THEME.navy, marginBottom: '10px' }}>📋 Leave History</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <span style={{ fontSize: '13px', fontWeight: '700', color: THEME.navy }}>📋 Leave History</span>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', fontWeight: '600', color: '#475569', cursor: 'pointer', margin: 0 }}>
+                  <input
+                    type="checkbox"
+                    checked={showAllLeaveHistory}
+                    onChange={(e) => setShowAllLeaveHistory(e.target.checked)}
+                  />
+                  Show Past Months
+                </label>
+              </div>
               <div style={{ overflowX: 'auto', border: `1px solid ${THEME.border}`, borderRadius: '8px' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                   <thead>
                     <tr style={{ background: '#f8fafc' }}>
-                      {['Type', 'From', 'To', 'Status'].map(h => <th key={h} style={{ padding: '10px 12px', fontWeight: '700', color: THEME.navy, borderBottom: `1px solid ${THEME.border}`, textAlign: 'left' }}>{h}</th>)}
+                      {['Type', 'From', 'To', 'Days', 'Status'].map(h => <th key={h} style={{ padding: '10px 12px', fontWeight: '700', color: THEME.navy, borderBottom: `1px solid ${THEME.border}`, textAlign: 'left' }}>{h}</th>)}
                     </tr>
                   </thead>
                   <tbody>
-                    {leaveHistory.map(l => (
-                      <tr key={l._id} style={{ borderBottom: `1px solid ${THEME.border}` }}>
-                        <td style={{ padding: '8px 12px' }}>{l.leave_type || l.leave_policy_id?.policy_name || 'Leave'}</td>
-                        <td style={{ padding: '8px 12px' }}>{l.from_date ? formatAttendanceDate(l.from_date) : '--'}</td>
-                        <td style={{ padding: '8px 12px' }}>{l.to_date ? formatAttendanceDate(l.to_date) : '--'}</td>
-                        <td style={{ padding: '8px 12px' }}><span style={{ background: '#f1f5f9', padding: '2px 7px', borderRadius: '5px', fontSize: '11px' }}>{l.approval_status || l.status || '--'}</span></td>
-                      </tr>
-                    ))}
-                    {!leaveHistory.length && <tr><td colSpan={4} style={{ padding: '16px', textAlign: 'center', color: THEME.muted }}>No leave history</td></tr>}
+                    {leaveHistory.map(l => {
+                      const duration = l.total_days !== undefined ? l.total_days : (() => {
+                        if (l.is_half_day || l.half_day_session) return 0.5;
+                        if (!l.from_date || !l.to_date) return 1;
+                        const f = moment(l.from_date).startOf('day');
+                        const t = moment(l.to_date).startOf('day');
+                        const diff = t.diff(f, 'days') + 1;
+                        return diff > 0 ? diff : 1;
+                      })();
+                      return (
+                        <tr key={l._id} style={{ borderBottom: `1px solid ${THEME.border}` }}>
+                          <td style={{ padding: '8px 12px' }}>{l.leave_type || l.leave_policy_id?.policy_name || 'Leave'}</td>
+                          <td style={{ padding: '8px 12px' }}>{l.from_date ? formatAttendanceDate(l.from_date) : '--'}</td>
+                          <td style={{ padding: '8px 12px' }}>{l.to_date ? formatAttendanceDate(l.to_date) : '--'}</td>
+                          <td style={{ padding: '8px 12px', fontWeight: 600 }}>{duration}</td>
+                          <td style={{ padding: '8px 12px' }}><span style={{ background: '#f1f5f9', padding: '2px 7px', borderRadius: '5px', fontSize: '11px' }}>{l.approval_status || l.status || '--'}</span></td>
+                        </tr>
+                      );
+                    })}
+                    {!leaveHistory.length && <tr><td colSpan={5} style={{ padding: '16px', textAlign: 'center', color: THEME.muted }}>No leave history</td></tr>}
                   </tbody>
                 </table>
               </div>
@@ -3237,6 +3271,30 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                 </div>
               )}
 
+              {/* Smartphone User Toggle */}
+              <div style={{ paddingTop: '16px', borderTop: `1px solid ${THEME.border}`, marginBottom: '16px' }}>
+                <div style={{ fontSize: '13px', fontWeight: '700', color: THEME.navy, marginBottom: '10px' }}>📱 Device Configuration</div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: isEditingPolicy ? 'pointer' : 'not-allowed', fontSize: '13px', fontWeight: '600' }}>
+                  <input 
+                    type="checkbox" 
+                    disabled={!isEditingPolicy} 
+                    checked={policyForm.attendance_settings?.has_smartphone !== false} 
+                    onChange={e => setPolicyForm(p => ({ 
+                      ...p, 
+                      attendance_settings: { 
+                        ...(p.attendance_settings || {}), 
+                        has_smartphone: e.target.checked 
+                      } 
+                    }))} 
+                    style={{ width: '16px', height: '16px' }} 
+                  />
+                  Has Smartphone (Allow mobile self-punching)
+                </label>
+                <div style={{ fontSize: '11px', color: THEME.muted, marginTop: '4px', marginLeft: '24px' }}>
+                  Unchecking this configures the operator for manual-punch marking via the HOD/Admin Operator Desk.
+                </div>
+              </div>
+
               {/* Geofencing */}
               <div style={{ paddingTop: '16px', borderTop: `1px solid ${THEME.border}` }}>
                 <div style={{ fontSize: '13px', fontWeight: '700', color: THEME.navy, marginBottom: '10px' }}>📍 Geofencing Configuration</div>
@@ -3281,7 +3339,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
 
               {isEditingPolicy && (
                 <div style={{ display: 'flex', gap: '10px', paddingTop: '8px' }}>
-                  <button type="button" onClick={() => { setIsEditingPolicy(false); const e = profile.employee, ov = e.policy_overrides || {}; setPolicyForm({ weekoff_policy_id: e.weekoff_policy_id?._id || e.weekoff_policy_id || ov.weekoff_policy_id?._id || ov.weekoff_policy_id || '', holiday_policy_id: e.holiday_policy_id?._id || e.holiday_policy_id || ov.holiday_policy_id?._id || ov.holiday_policy_id || '', shift_id: resolveShiftPolicyId(e, ov.shift_id), attendance_settings: e.attendance_settings || { geo_fencing_required: true, allowed_locations: [] } }); }} style={{ ...S.btn('ghost'), padding: '8px 20px' }}>Discard</button>
+                  <button type="button" onClick={() => { setIsEditingPolicy(false); const e = profile.employee, ov = e.policy_overrides || {}; setPolicyForm({ weekoff_policy_id: e.weekoff_policy_id?._id || e.weekoff_policy_id || ov.weekoff_policy_id?._id || ov.weekoff_policy_id || '', holiday_policy_id: e.holiday_policy_id?._id || e.holiday_policy_id || ov.holiday_policy_id?._id || ov.holiday_policy_id || '', shift_id: resolveShiftPolicyId(e, ov.shift_id), attendance_settings: e.attendance_settings || { geo_fencing_required: true, allowed_locations: [], has_smartphone: true } }); }} style={{ ...S.btn('ghost'), padding: '8px 20px' }}>Discard</button>
                   <button type="submit" disabled={policySaving} style={{ ...S.btn('primary'), padding: '8px 24px', opacity: policySaving ? 0.7 : 1 }}>{policySaving ? 'Saving…' : '💾 Save Policy Overrides'}</button>
                 </div>
               )}
@@ -3352,7 +3410,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
               <FiFileText size={17} /> PF & ESIC Documents
             </h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
-              
+
               {/* PF Card */}
               <div style={{ padding: '16px', border: `1px solid ${THEME.border}`, borderRadius: '8px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>

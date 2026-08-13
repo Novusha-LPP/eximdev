@@ -26,6 +26,30 @@ const ProtectedRoute = ({ children, requiredModule, fallbackPath = "/" }) => {
     : requiredModule === "5S Audit";
 
   if (is5sAuditModule) {
+    const isHod = user.role === 'Head_of_Department' || user.role === 'HOD' || user.isHOD;
+    const isAdmin = user.role === 'Admin';
+    const has5sAccess = isRabsUser && (isAdmin || isHod);
+
+    if (!has5sAccess) {
+      return (
+        <Navigate
+          to={fallbackPath}
+          replace
+          state={{
+            from: location,
+            message: "Access denied. The 5S Audit module is restricted to RABS Admin and HOD users only."
+          }}
+        />
+      );
+    }
+    return children;
+  }
+
+  const isFirstAidModule = Array.isArray(requiredModule)
+    ? requiredModule.includes("First Aid")
+    : requiredModule === "First Aid";
+
+  if (isFirstAidModule) {
     if (!isRabsUser && user.role !== 'Admin') {
       return (
         <Navigate
@@ -33,7 +57,7 @@ const ProtectedRoute = ({ children, requiredModule, fallbackPath = "/" }) => {
           replace
           state={{
             from: location,
-            message: "Access denied. The 5S Audit module is restricted to RABS employees only."
+            message: "Access denied. The First Aid module is restricted to RABS employees only."
           }}
         />
       );

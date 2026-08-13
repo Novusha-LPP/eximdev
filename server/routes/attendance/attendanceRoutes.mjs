@@ -14,7 +14,7 @@ const router = express.Router();
 const requireReportAccess = (req, res, next) => {
     const role = String(req.user?.role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
     const username = String(req.user?.username || '').trim().toLowerCase();
-    
+
     if (username === 'chirag_shah' || role === 'ADMIN' || role === 'HOD' || req.user?.isAttendanceAllowedAdmin === true) {
         return next();
     }

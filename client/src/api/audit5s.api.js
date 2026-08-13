@@ -45,6 +45,11 @@ const audit5sAPI = {
         return response.data;
     },
 
+    getChecklists: async () => {
+        const response = await apiClient.get('/audit5s/checklists');
+        return response.data;
+    },
+
     updateChecklist: async (id, checklistData) => {
         const response = await apiClient.put(`/audit5s/checklist/${id}`, checklistData);
         return response.data;

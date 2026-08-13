@@ -573,7 +573,7 @@ export const getDesignations = async (req, res) => {
 
 export const listCompanies = async (req, res) => {
   try {
-    if (req.user?.role !== 'ADMIN') {
+    if (req.user?.role !== 'ADMIN' && req.user?.isAttendanceAllowedAdmin !== true) {
       return res.status(403).json({ message: 'Only admins can list companies' });
     }
     const companies = await Company.find({})
@@ -886,6 +886,10 @@ export const getUsers = async (req, res) => {
 
     if (req.query.isActive !== undefined) {
       query.isActive = req.query.isActive === 'true' || req.query.isActive === true;
+    }
+
+    if (req.query.has_smartphone !== undefined) {
+      query['attendance_settings.has_smartphone'] = req.query.has_smartphone === 'true' || req.query.has_smartphone === true;
     }
 
     // Filter out drivers always, and dev_master in production

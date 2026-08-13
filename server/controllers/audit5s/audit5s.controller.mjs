@@ -272,6 +272,18 @@ export const deleteZone = async (req, res) => {
     }
 };
 
+export const getAllChecklists = async (req, res) => {
+    try {
+        const checklists = await Audit5sChecklistModel.find()
+            .populate("responsiblePerson", "username first_name last_name email")
+            .sort({ month: -1, zoneNo: 1 });
+        res.status(200).json({ success: true, data: checklists });
+    } catch (error) {
+        console.error("Error in getAllChecklists:", error);
+        res.status(500).json({ success: false, message: "Failed to fetch checklists list" });
+    }
+};
+
 // ─── Checklist Controllers ───
 
 export const getChecklist = async (req, res) => {

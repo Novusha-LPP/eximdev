@@ -80,7 +80,7 @@ const recordSchema = new mongoose.Schema({
   remarks: String,
 
   processed_at: { type: Date },
-  processed_by: { type: String, enum: ['system', 'admin', 'cron'], default: 'system' },
+  processed_by: { type: String, enum: ['system', 'admin', 'cron', 'hod', 'regularization'], default: 'system' },
 
   is_half_day: { type: Boolean, default: false },
   half_day_session: { type: String, enum: ['first_half', 'second_half', null], default: null },

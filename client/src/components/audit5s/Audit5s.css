@@ -237,9 +237,11 @@
 }
 
 .header-logo-cell {
-    width: 100px;
+    width: 110px;
     text-align: center;
     background-color: #ffffff;
+    vertical-align: middle;
+    padding: 4px !important;
 }
 
 .rabs-logo-box {
@@ -495,6 +497,9 @@
     padding: 0 !important;
     text-align: center;
     height: 28px;
+    width: 22px !important;
+    max-width: 22px !important;
+    overflow: hidden;
 }
 
 .sig-input {
@@ -835,15 +840,16 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 80px;
-    height: 80px;
+    width: 95px;
+    height: 95px;
     margin: 0 auto;
 }
 
 .rabs-logo-img {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
+    width: 65px !important;
+    height: 88px !important;
+    display: block;
+    margin: 0 auto;
 }
 
 /* Inline Sheet Editing Styles */
@@ -976,9 +982,10 @@
     align-items: center;
     justify-content: center;
     height: 100%;
-    width: 100%;
+    width: 22px !important;
+    max-width: 22px !important;
     min-height: 28px;
-    font-size: 10px;
+    font-size: 8px;
     font-weight: 700;
     cursor: pointer;
     background-color: #f8fafc;
@@ -986,6 +993,9 @@
     color: #64748b;
     user-select: none;
     box-sizing: border-box;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .sig-click-box:hover {
@@ -994,8 +1004,8 @@
 }
 
 .sig-click-box.signed {
-    background-color: #e2e8f0;
-    color: #1e293b;
+    background-color: #d1fae5;
+    color: #065f46;
 }
 
 .btn-add-cat-sheet {
@@ -1542,4 +1552,400 @@
 
 .btn-confirm-ok:active {
     transform: translateY(0);
+}
+
+/* Subtabs Navigation Bar */
+.audit-subtabs-nav {
+    display: flex;
+    gap: 12px;
+    margin: 0 0 20px 0;
+    padding: 6px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    align-self: flex-start;
+}
+
+.audit-subtab-btn {
+    background: transparent;
+    border: none;
+    padding: 8px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.audit-subtab-btn:hover {
+    color: #0f172a;
+    background: rgba(241, 245, 249, 0.6);
+}
+
+.audit-subtab-btn.active {
+    color: #0f172a;
+    background: #ffffff;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    border: 1px solid #e2e8f0;
+}
+
+/* Monthly Score Report View Styles */
+.monthly-view-mode {
+    padding: 30px !important;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+    border: 1px solid #e2e8f0;
+}
+
+.monthly-score-view {
+    width: 100%;
+    font-family: 'Arial', sans-serif;
+    color: #1e293b;
+}
+
+.monthly-header-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 0px;
+}
+
+.monthly-header-table td {
+    border: 1.5px solid #64748b;
+    padding: 10px;
+}
+
+.monthly-header-table .header-logo-cell {
+    width: 15%;
+    background-color: #d32f2f;
+    color: #ffffff;
+    text-align: center;
+    font-weight: 900;
+    font-size: 24px;
+}
+
+.monthly-header-table .header-title-cell {
+    width: 55%;
+    text-align: center;
+}
+
+.monthly-header-table .header-title-cell h2 {
+    font-size: 18px;
+    font-weight: 800;
+    margin: 0 0 4px 0;
+    letter-spacing: 1px;
+}
+
+.monthly-header-table .header-title-cell h3 {
+    font-size: 14px;
+    font-weight: 700;
+    margin: 0;
+    color: #475569;
+}
+
+.monthly-header-table .header-meta-cell {
+    width: 30%;
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.monthly-header-table .meta-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 2px;
+}
+
+.monthly-header-table .meta-row:last-child {
+    margin-bottom: 0;
+}
+
+.monthly-header-table .meta-label {
+    color: #475569;
+}
+
+.monthly-header-table .meta-value {
+    color: #0f172a;
+}
+
+/* Zone Area & Zone No row */
+.monthly-zone-row {
+    display: flex;
+    justify-content: space-between;
+    border-left: 1.5px solid #64748b;
+    border-right: 1.5px solid #64748b;
+    border-bottom: 1.5px solid #64748b;
+    padding: 8px 12px;
+    font-size: 13px;
+    background: #f8fafc;
+}
+
+.monthly-zone-row strong {
+    color: #475569;
+}
+
+/* Grid Table */
+.monthly-grid-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 0px;
+}
+
+.monthly-grid-table th, 
+.monthly-grid-table td {
+    border: 1.5px solid #64748b;
+    padding: 8px 6px;
+    font-size: 12px;
+    vertical-align: middle;
+}
+
+.monthly-grid-table th {
+    background: #f1f5f9;
+    font-weight: 800;
+    text-align: center;
+}
+
+.super-header-row th {
+    font-size: 13px;
+    padding: 10px 6px;
+}
+
+.prev-month-hdr {
+    background-color: #f1f5f9 !important;
+    color: #0f172a;
+}
+
+.curr-month-hdr {
+    background-color: #e2e8f0 !important;
+    color: #0f172a;
+    border-left: 2px solid #475569;
+}
+
+.resp-col-hdr {
+    background-color: #e2e8f0 !important;
+}
+
+.sub-header-row th {
+    font-size: 11px;
+}
+
+.leader-photo-cell {
+    background: #ffffff;
+    text-align: center;
+    width: 14%;
+}
+
+.leader-avatar-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 120px;
+    border: 1px dashed #cbd5e1;
+    border-radius: 8px;
+    background: #f8fafc;
+    color: #64748b;
+}
+
+.leader-avatar-placeholder .avatar-icon {
+    font-size: 32px;
+}
+
+.leader-avatar-placeholder .avatar-lbl {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.desc-cell-val {
+    text-align: left;
+    font-weight: 600;
+    padding-left: 10px !important;
+}
+
+.center-val {
+    text-align: center;
+}
+
+.status-cell-val {
+    text-align: center;
+    padding: 4px !important;
+}
+
+/* Status Badges */
+.status-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 800;
+    text-align: center;
+}
+
+.status-badge.ok {
+    background-color: #d1fae5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+}
+
+.status-badge.ng {
+    background-color: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fca5a5;
+}
+
+.status-badge.range-red {
+    background-color: #fee2e2 !important;
+    color: #991b1b !important;
+    border: 1px solid #fca5a5 !important;
+}
+
+.status-badge.range-yellow {
+    background-color: #fef3c7 !important;
+    color: #92400e !important;
+    border: 1px solid #fcd34d !important;
+}
+
+.status-badge.range-green {
+    background-color: #d1fae5 !important;
+    color: #065f46 !important;
+    border: 1px solid #a7f3d0 !important;
+}
+
+/* Totals and Pct row styles */
+.name-sig-row {
+    background-color: #f8fafc;
+}
+
+.leader-name-label {
+    text-align: center;
+    font-weight: 800;
+    background-color: #f1f5f9;
+}
+
+.leader-name-value {
+    text-align: center;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.total-score-lbl, 
+.score-pct-lbl {
+    text-align: center;
+    font-weight: 800;
+    background-color: #e2e8f0;
+}
+
+.score-pct-row {
+    background-color: #f8fafc;
+}
+
+.auditee-sig-row {
+    background-color: #ffffff;
+}
+
+.auditee-sig-label {
+    text-align: center;
+    font-weight: 800;
+    background-color: #f1f5f9;
+}
+
+.meta-footer-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    text-align: left;
+    padding: 4px 6px;
+}
+
+.meta-footer-info strong {
+    color: #475569;
+}
+
+/* Criteria and note box */
+.monthly-footer-info-box {
+    margin-top: 15px;
+    border: 1.5px solid #64748b;
+    border-radius: 6px;
+    padding: 12px;
+    background-color: #f8fafc;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.6;
+}
+
+.monthly-footer-info-box .criteria-lbl {
+    margin-bottom: 6px;
+}
+
+.monthly-footer-info-box span {
+    font-size: 10px;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin-left: 4px;
+}
+
+.monthly-footer-info-box .badge-red {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.monthly-footer-info-box .badge-yellow {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.monthly-footer-info-box .badge-green {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.monthly-footer-info-box .note-lbl {
+    color: #475569;
+}
+
+.bg-range-red {
+    background-color: #fee2e2 !important;
+    color: #991b1b !important;
+}
+
+.bg-range-yellow {
+    background-color: #fef3c7 !important;
+    color: #92400e !important;
+}
+
+.bg-range-green {
+    background-color: #d1fae5 !important;
+    color: #065f46 !important;
+}
+
+/* Signature Screen/Print view toggle */
+.sig-print-only {
+    display: none !important;
+}
+.sig-screen-only {
+    display: inline !important;
+}
+
+@media print {
+    .sig-screen-only {
+        display: none !important;
+    }
+    .sig-print-only {
+        display: inline !important;
+        font-size: 7px !important;
+    }
+    .sig-cell {
+        width: auto !important;
+        max-width: none !important;
+    }
+    .sig-click-box {
+        width: auto !important;
+        max-width: none !important;
+    }
 }

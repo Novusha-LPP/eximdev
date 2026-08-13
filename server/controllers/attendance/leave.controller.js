@@ -1329,6 +1329,8 @@ export const applyLeave = async (req, res) => {
                 throw new Error(`Insufficient balance during transaction. Available: ${currentAvailable}, Required: ${total_days}`);
             }
 
+            const isManagerApplyingForOther = employee_id && String(employee_id) !== String(actor._id);
+
             // console.log('[DEBUG] Creating application...');
             // 7. Create Application
             const application = new LeaveApplication({
@@ -1352,9 +1354,9 @@ export const applyLeave = async (req, res) => {
                 contact_during_leave: req.body.contact_during_leave,
                 emergency_contact: req.body.emergency_contact,
                 is_lop: policy.deduction_rules?.deduct_from_salary || false,
-                approval_status: 'pending',
-                approval_stage: assignedStage,
-                current_approver_id: currentApproverId,
+                approval_status: isManagerApplyingForOther ? 'approved' : 'pending',
+                approval_stage: isManagerApplyingForOther ? null : assignedStage,
+                current_approver_id: isManagerApplyingForOther ? undefined : currentApproverId,
                 approval_chain: approvalChain,
                 application_number: `LA-${Date.now()}-${user._id.toString().slice(-4)}`,
                 attachment_urls: req.file ? [`uploads/leaves/${req.file.filename}`] : [],
@@ -1373,6 +1375,12 @@ export const applyLeave = async (req, res) => {
                 application.half_day_session = req.body.half_day_session;
             }
 
+            if (isManagerApplyingForOther) {
+                application.final_reviewed_by = actor._id;
+                application.final_reviewed_at = new Date();
+                application.final_review_comment = 'Auto-approved on submission by Admin/HOD';
+            }
+
             // console.log('[DEBUG] Saving application...');
             await application.save();
             // console.log('[DEBUG] Application saved.');
@@ -1380,7 +1388,11 @@ export const applyLeave = async (req, res) => {
             // 8. Update Balance (Deduct from Pending/Available)
             // console.log('[DEBUG] Updating currentBalance...');
             if (!isUnpaidLeave) {
-                currentBalance.pending_approval = Number(currentBalance.pending_approval || 0) + total_days;
+                if (isManagerApplyingForOther) {
+                    currentBalance.used = Number(currentBalance.used || 0) + total_days;
+                } else {
+                    currentBalance.pending_approval = Number(currentBalance.pending_approval || 0) + total_days;
+                }
             }
             currentBalance.closing_balance = isUnpaidLeave
                 ? currentBalance.closing_balance
@@ -1389,9 +1401,37 @@ export const applyLeave = async (req, res) => {
             await currentBalance.save();
             // console.log('[DEBUG] Balance saved.');
 
+            // 8b. Update AttendanceRecord directly if leave is auto-approved
+            if (isManagerApplyingForOther) {
+                let curr = start.clone();
+                while (curr.isSameOrBefore(end, 'day')) {
+                    const dateStr = curr.format('YYYY-MM-DD');
+                    const attDate = moment.utc(dateStr, 'YYYY-MM-DD').startOf('day').toDate();
+
+                    await AttendanceRecord.findOneAndUpdate(
+                        { employee_id: user._id, attendance_date: attDate },
+                        {
+                            employee_id: user._id,
+                            company_id: companyId,
+                            attendance_date: attDate,
+                            attendance_date_str: dateStr,
+                            status: isHalfDay ? 'half_day' : 'leave',
+                            is_half_day: isHalfDay || false,
+                            half_day_session: isHalfDay ? req.body.half_day_session : null,
+                            year_month: curr.format('YYYY-MM'),
+                            processed_by: 'admin',
+                            is_on_leave: true,
+                            leave_application_id: application._id
+                        },
+                        { upsert: true }
+                    );
+                    curr.add(1, 'day');
+                }
+            }
+
             res.json({
                 success: true,
-                message: 'Leave application submitted successfully',
+                message: 'Leave application submitted and approved successfully',
                 application_id: application._id
             });
         } catch (error) {

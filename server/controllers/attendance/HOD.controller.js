@@ -16,6 +16,10 @@ import AggregationService from '../../services/attendance/AggregationService.js'
 import ActivityLog from '../../model/attendance/ActivityLog.js';
 import { syncBalanceFromApplications } from './leave.controller.js';
 import { isRestrictedAllowedAdmin, getRestrictedEmployeeIds } from '../../utils/attendance/allowedAdminRestriction.mjs';
+import { WorkHoursCalculator } from '../../services/attendance/WorkHoursCalculator.js';
+import { AttendanceStatusResolver } from '../../services/attendance/AttendanceStatusResolver.js';
+import AttendancePunch from '../../model/attendance/AttendancePunch.js';
+import { fetchDayOverrides } from './attendance.controller.js';
 
 const normalizeRole = (role) => String(role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
 const isAdminRole = (role) => normalizeRole(role) === 'ADMIN';
@@ -321,7 +325,7 @@ const getShaliniApprover = async (companyId) => {
 
 export const migrateLegacyPendingLeaves = async ({ companyId, employeeIds }) => {
     const query = { approval_status: 'pending_hod' };
-    
+
     if (employeeIds && Array.isArray(employeeIds) && employeeIds.length > 0) {
         query.employee_id = { $in: employeeIds };
     } else if (companyId) {
@@ -489,8 +493,8 @@ export const getDashboard = async (req, res) => {
             // HOD sees only their team members
             debugLog.push(`Loading teams for HOD: ${hod.username}`);
             const hodUsername = String(hod.username || '').toLowerCase();
-            
-            const teams = await TeamModel.find({ 
+
+            const teams = await TeamModel.find({
                 $or: [
                     { hodId: hod._id },
                     { hodUsername: hod.username },
@@ -499,9 +503,9 @@ export const getDashboard = async (req, res) => {
                 isActive: { $ne: false }
             });
             allTeamsForHOD = teams; // Capture for mapping later
-            
+
             debugLog.push(`Found ${teams.length} teams for HOD`);
-            
+
             // Extract all member IDs from all teams, including legacy username-based members
             const memberUserIds = new Set();
             const memberUsernames = new Set();
@@ -517,7 +521,7 @@ export const getDashboard = async (req, res) => {
                 }
             });
 
-            
+
             if (memberUsernames.size > 0) {
                 const legacyQuery = {
                     username: { $in: [...memberUsernames] },
@@ -534,7 +538,7 @@ export const getDashboard = async (req, res) => {
             }
 
             debugLog.push(`Total unique team members: ${memberUserIds.size}`);
-            
+
             if (memberUserIds.size === 0) {
                 debugLog.push(`No team members found for HOD`);
                 // Return empty dashboard
@@ -562,7 +566,7 @@ export const getDashboard = async (req, res) => {
                     }
                 });
             }
-            
+
             // Convert Set to Array of ObjectIds
             employeeIds = Array.from(memberUserIds).map(id => id);
         }
@@ -587,7 +591,7 @@ export const getDashboard = async (req, res) => {
                 detailQuery.username = { $ne: 'dev_master' };
             }
             employees = await User.find(detailQuery).select('_id first_name last_name username email role department_id company_id');
-            
+
             debugLog.push(`Loaded ${employees.length} active team member details`);
         }
 
@@ -600,8 +604,8 @@ export const getDashboard = async (req, res) => {
         const getTeamName = (empId) => {
             const empIdStr = empId?.toString();
             const empUsername = empIdToUsernameMap.get(empIdStr);
-            const team = allTeamsForHOD.find(t => 
-                t.members && t.members.some(m => 
+            const team = allTeamsForHOD.find(t =>
+                t.members && t.members.some(m =>
                     m.userId?.toString() === empIdStr ||
                     (m.username && empUsername && String(m.username).trim().toLowerCase() === empUsername)
                 )
@@ -619,8 +623,8 @@ export const getDashboard = async (req, res) => {
         const getTeamNameForMember = (empId) => {
             const empIdStr = empId?.toString();
             const empUsername = empIdToUsernameMap.get(empIdStr);
-            const matchedTeam = (allTeamsForHOD || []).find(t => 
-                t.members && t.members.some(m => 
+            const matchedTeam = (allTeamsForHOD || []).find(t =>
+                t.members && t.members.some(m =>
                     m.userId?.toString() === empIdStr ||
                     (m.username && empUsername && String(m.username).trim().toLowerCase() === empUsername)
                 )
@@ -741,7 +745,7 @@ export const getDashboard = async (req, res) => {
                 absentEmployees.push({
                     name: emp.first_name ? `${emp.first_name} ${emp.last_name || ''}`.trim() : emp.username,
                     reason: `On leave`,
-                        onLeave: true,
+                    onLeave: true,
                     leaveType: leaveRecord?.leave_policy_id?.leave_type || 'Leave'
                 });
             }
@@ -949,7 +953,7 @@ export const getDashboard = async (req, res) => {
 
                 // Check attendance record
                 // --- FIX START: Compare formatted strings instead of Date Object vs String ---
-                const attRecord = weekAttendance.find(att => 
+                const attRecord = weekAttendance.find(att =>
                     att.employee_id.toString() === empId && att.attendance_date_str === dateStr
                 );
                 // --- FIX END ---
@@ -1488,31 +1492,86 @@ export const approveRequest = async (req, res) => {
                 if (comments) request.remarks = comments;
                 await request.save();
 
-                // If approved, update attendance record
+                // If approved, update attendance record with recalculated work hours
                 if (status === 'approved') {
                     const empId = request.employee_id?._id || request.employee_id;
-
+                    const employee = await User.findById(empId);
+                    const company = await Company.findById(request.company_id);
+                    const shift = await PolicyResolver.resolveShift(employee, request.attendance_date);
                     const dateStr = request.attendance_date;
                     const companyId = request.company_id?._id || request.company_id;
                     const attDate = moment.utc(dateStr, 'YYYY-MM-DD').startOf('day').toDate();
 
-                    await AttendanceRecord.findOneAndUpdate(
-                        { employee_id: empId, attendance_date: attDate },
-                        {
+                    // Fetch all punches for that date
+                    const punches = await AttendancePunch.find({
+                        employee_id: empId,
+                        punch_date: moment.utc(request.attendance_date).format('YYYY-MM-DD')
+                    }).sort({ punch_time: 1 });
+
+                    // Recalculate work hours with corrected times from regularization
+                    const workData = WorkHoursCalculator.recalculateWithRegularization(
+                        punches,
+                        request,
+                        shift
+                    );
+
+                    // Resolve status based on work hours
+                    const overrides = await fetchDayOverrides(empId, request.attendance_date, companyId);
+                    const statusResult = AttendanceStatusResolver.resolveStatus(workData, shift, overrides);
+
+                    let record = await AttendanceRecord.findOne({
+                        employee_id: empId,
+                        company_id: companyId,
+                        attendance_date: attDate
+                    });
+
+                    if (!record) {
+                        record = new AttendanceRecord({
                             employee_id: empId,
                             company_id: companyId,
                             attendance_date: attDate,
                             attendance_date_str: dateStr,
-                            year_month: moment.utc(dateStr, 'YYYY-MM-DD').format('YYYY-MM'),
-                            first_in: request.requested_in_time || request.expected_in,
-                            last_out: request.requested_out_time || request.expected_out,
-                            status: 'present',
-                            is_regularized: true,
-                            processed_at: new Date(),
-                            processed_by: actor.role === 'ADMIN' ? 'admin' : 'hod'
-                        },
-                        { upsert: true }
-                    );
+                            year_month: moment.utc(dateStr, 'YYYY-MM-DD').format('YYYY-MM')
+                        });
+                    }
+
+                    // Update record with recalculated data
+                    record.status = statusResult.status;
+                    record.total_work_hours = workData.total_work_hours;
+                    record.total_work_sessions = workData.total_sessions;
+                    record.work_sessions = workData.sessions;
+                    record.has_incomplete_session = workData.has_incomplete;
+                    record.is_late = workData.is_late;
+                    record.late_by_minutes = workData.late_by_minutes;
+                    record.is_early_exit = workData.is_early_exit;
+                    record.early_exit_minutes = workData.early_exit_minutes;
+                    record.regularization_applied = request._id;
+                    record.is_regularized = true;
+                    if (comments) record.remarks = comments;
+
+                    // Update first_in / last_out from recalculated data so hours display correctly
+                    if (workData.primary_in_time) {
+                        record.first_in = workData.primary_in_time;
+                    }
+                    if (workData.primary_out_time) {
+                        record.last_out = workData.primary_out_time;
+                    }
+
+                    // Clear missed-punch flags since the correction has been approved
+                    record.missed_punch = false;
+                    record.missed_punch_reason = null;
+                    record.missed_punch_source = null;
+                    record.missed_punch_marked_at = null;
+                    record.processed_by = 'regularization';
+                    record.processed_at = new Date();
+
+                    await record.save();
+
+                    // Save corrected times to the request object
+                    request.corrected_punch_in_time = request.corrected_punch_in_time || request.requested_in_time;
+                    request.corrected_punch_out_time = request.corrected_punch_out_time || request.requested_out_time;
+                    request.corrected_total_hours = workData.total_work_hours;
+                    await request.save();
                 }
             }
 
@@ -1825,24 +1884,24 @@ export const getAdminLeaveRequests = async (req, res) => {
             teams = allTeams;
         } else {
             // Regular HOD/Admins see only their assigned teams
-            teams = allTeams.filter(t => 
-                (t.hodId && t.hodId.toString() === adminIdStr) || 
+            teams = allTeams.filter(t =>
+                (t.hodId && t.hodId.toString() === adminIdStr) ||
                 (t.hodUsername && String(t.hodUsername).toLowerCase() === adminUsername) ||
                 (t.members && t.members.some(m => m.userId && m.userId.toString() === adminIdStr)) ||
                 (t.members && t.members.some(m => m.username && String(m.username).toLowerCase() === adminUsername))
             );
-            
+
             if (teams.length === 0) {
-                return res.json({ 
-                    data: { 
-                        pendingLeaves: [], 
-                        recentProcessedLeaves: [], 
-                        teams: [], 
-                        isAllowedAdmin: false, 
+                return res.json({
+                    data: {
+                        pendingLeaves: [],
+                        recentProcessedLeaves: [],
+                        teams: [],
+                        isAllowedAdmin: false,
                         totalHistory: 0,
                         historyPage: page,
                         historyLimit: limit
-                    } 
+                    }
                 });
             }
         }
@@ -1896,16 +1955,16 @@ export const getAdminLeaveRequests = async (req, res) => {
                 });
                 employeeFilter = { $in: objectIds };
             } else {
-                return res.json({ 
-                    data: { 
-                        pendingLeaves: [], 
-                        recentProcessedLeaves: [], 
+                return res.json({
+                    data: {
+                        pendingLeaves: [],
+                        recentProcessedLeaves: [],
                         teams: teams.map(t => ({ _id: t._id, name: t.name, hodUsername: t.hodUsername })),
                         isAllowedAdmin,
                         totalHistory: 0,
                         historyPage: page,
                         historyLimit: limit
-                    } 
+                    }
                 });
             }
         } else if (!isAllowedAdmin) {
@@ -2004,7 +2063,7 @@ export const getAdminLeaveRequests = async (req, res) => {
 
         // Fetch recent processed leaves with pagination
         const historyQuery = { ...leaveQuery };
-        
+
         // If a specific status is requested, use it; otherwise, admins see all for tracking
         if (status && status !== 'all') {
             historyQuery.approval_status = status;
@@ -2039,7 +2098,7 @@ export const getAdminLeaveRequests = async (req, res) => {
                 ]
             }).select('_id');
             const searchEmployeeIds = matchingUsers.map(u => u._id.toString());
-            
+
             if (historyQuery.employee_id && historyQuery.employee_id.$in) {
                 const existingIds = historyQuery.employee_id.$in.map(id => id.toString());
                 const intersectedIds = existingIds.filter(id => searchEmployeeIds.includes(id));
@@ -2223,7 +2282,7 @@ export const getPendingLeavesCount = async (req, res) => {
             // Apply role & username filters
             if (String(leave.employee_id.role || '').trim().toLowerCase() === 'driver') continue;
             if (process.env.NODE_ENV === 'production' && leave.employee_id.username === 'dev_master') continue;
-            
+
             // Apply self-exclusion for non-allowed admins
             if (isAdmin && !ALLOWED_USERNAMES.has(actorUsername)) {
                 const requesterId = leave.employee_id._id ? leave.employee_id._id.toString() : leave.employee_id.toString();

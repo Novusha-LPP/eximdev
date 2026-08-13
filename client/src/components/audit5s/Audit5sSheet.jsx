@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback, useContext } from "react";
+import { createPortal } from "react-dom";
 import audit5sAPI from "../../api/audit5s.api";
 import apiClient from "../../api/attendanceApiClient";
 import { UserContext } from "../../contexts/UserContext";
@@ -12,6 +13,8 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
     const { user } = useContext(UserContext);
     const [template, setTemplate] = useState(null);
     const [checklist, setChecklist] = useState(null);
+    const [prevChecklist, setPrevChecklist] = useState(null);
+    const [activeSubTab, setActiveSubTab] = useState("daily"); // "daily" or "monthly"
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -66,12 +69,186 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
         return `${day}.${m}.${y}`;
     };
 
+    const formatSigDisplay = (sig) => {
+        if (!sig) return "—";
+        if (sig.includes("_") || sig.includes(" ")) {
+            const parts = sig.split(/[_\s]+/);
+            if (parts.length >= 2 && parts[0] && parts[1]) {
+                return (parts[0][0] + parts[1][0]).toUpperCase();
+            }
+        }
+        return sig.slice(0, 2).toUpperCase();
+    };
+
+    const getPrevMonthStr = useCallback((mStr) => {
+        if (!mStr) return "";
+        const [year, m] = mStr.split("-").map(Number);
+        const prevDate = new Date(year, m - 2, 15);
+        const prevYear = prevDate.getFullYear();
+        const prevM = String(prevDate.getMonth() + 1).padStart(2, "0");
+        return `${prevYear}-${prevM}`;
+    }, []);
+
+    const getShortMonthLabel = useCallback((mStr) => {
+        if (!mStr) return "";
+        const [year, m] = mStr.split("-").map(Number);
+        const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const monthName = months[m - 1];
+        const year2Digit = String(year).slice(-2);
+        return `${monthName}-${year2Digit}`;
+    }, []);
+
+    const prevMonthStr = useMemo(() => {
+        return getPrevMonthStr(month);
+    }, [month, getPrevMonthStr]);
+
+    const prevMonthDays = useMemo(() => {
+        if (!prevMonthStr) return 30;
+        const [year, m] = prevMonthStr.split("-").map(Number);
+        return new Date(year, m, 0).getDate();
+    }, [prevMonthStr]);
+
+    const prevMonthLabel = useMemo(() => {
+        return getShortMonthLabel(prevMonthStr);
+    }, [prevMonthStr, getShortMonthLabel]);
+
+    const currentMonthLabel = useMemo(() => {
+        return getShortMonthLabel(month);
+    }, [month, getShortMonthLabel]);
+
+    const getCatShortName = useCallback((cat) => {
+        const name = cat.name.toLowerCase();
+        if (name.includes("sort")) return "SORT";
+        if (name.includes("order")) return "SET IN ORDER";
+        if (name.includes("shine")) return "SHINE";
+        if (name.includes("standard")) return "STANDARDIZE";
+        if (name.includes("sustain")) return "SUSTAIN";
+        return (cat.subName || cat.name).toUpperCase();
+    }, []);
+
+    const calculateCategoryScoresForChecklist = useCallback((chk, cat, totalDays) => {
+        let actual = 0;
+        let max = 0;
+        if (!cat.items || cat.items.length === 0 || !chk) {
+            return { actual, max };
+        }
+
+        const chkScoresMap = new Map();
+        if (chk.scores && Array.isArray(chk.scores)) {
+            chk.scores.forEach(s => {
+                const dailyMap = new Map();
+                if (s.dailyScores) {
+                    if (typeof s.dailyScores.toJSON === "function") {
+                        const plain = s.dailyScores.toJSON();
+                        Object.entries(plain).forEach(([k, v]) => dailyMap.set(k, v));
+                    } else if (s.dailyScores instanceof Map) {
+                        s.dailyScores.forEach((v, k) => dailyMap.set(k, v));
+                    } else {
+                        Object.entries(s.dailyScores).forEach(([k, v]) => dailyMap.set(k, v));
+                    }
+                }
+                chkScoresMap.set(s.itemId, dailyMap);
+            });
+        }
+
+        for (let d = 1; d <= totalDays; d++) {
+            let allFilled = true;
+            let daySum = 0;
+
+            for (let i = 0; i < cat.items.length; i++) {
+                const item = cat.items[i];
+                const itemScores = chkScoresMap.get(item._id);
+                const val = itemScores ? itemScores.get(String(d)) : undefined;
+
+                if (val === undefined || val === null || val === "") {
+                    allFilled = false;
+                    break;
+                }
+                daySum += Number(val);
+            }
+
+            if (allFilled) {
+                actual += daySum;
+                max += cat.items.length * 2;
+            }
+        }
+
+        return { actual, max };
+    }, []);
+
+    const getAuditorsList = useCallback((chk) => {
+        if (!chk || !chk.auditorSignatures) return "";
+        let plainSigs = {};
+        if (typeof chk.auditorSignatures.toJSON === "function") {
+            plainSigs = chk.auditorSignatures.toJSON();
+        } else if (chk.auditorSignatures instanceof Map) {
+            plainSigs = Object.fromEntries(chk.auditorSignatures);
+        } else {
+            plainSigs = chk.auditorSignatures;
+        }
+        const signatures = Object.values(plainSigs).filter(Boolean);
+        const uniqueSigs = [...new Set(signatures)];
+        return uniqueSigs.join(", ");
+    }, []);
+
+    const getLastDayOfMonthStr = useCallback((mStr) => {
+        if (!mStr) return "";
+        const [year, m] = mStr.split("-").map(Number);
+        const lastDay = new Date(year, m, 0).getDate();
+        const mm = String(m).padStart(2, "0");
+        return `${String(lastDay).padStart(2, "0")}.${mm}.${year}`;
+    }, []);
+
+    const getBadgeClass = useCallback((max, actual) => {
+        if (!max || max === 0) return "";
+        const pct = (actual / max) * 100;
+        if (pct < 50) return "range-red";
+        if (pct <= 80) return "range-yellow";
+        return "range-green";
+    }, []);
+
+    const getRangeColorClass = useCallback((max, actual) => {
+        if (!max || max === 0) return "";
+        const pct = (actual / max) * 100;
+        if (pct < 50) return "bg-range-red";
+        if (pct <= 80) return "bg-range-yellow";
+        return "bg-range-green";
+    }, []);
+
+    const prevMonthGrandTotals = useMemo(() => {
+        let actual = 0;
+        let max = 0;
+        if (!template || !prevChecklist) return { actual, max, pct: 0 };
+        template.categories.forEach(cat => {
+            const catScores = calculateCategoryScoresForChecklist(prevChecklist, cat, prevMonthDays);
+            actual += catScores.actual;
+            max += catScores.max;
+        });
+        const pct = max > 0 ? Number(((actual / max) * 100).toFixed(2)) : 0;
+        return { actual, max, pct };
+    }, [template, prevChecklist, prevMonthDays, calculateCategoryScoresForChecklist]);
+
+    const currentMonthGrandTotals = useMemo(() => {
+        let actual = 0;
+        let max = 0;
+        if (!template || !checklist) return { actual, max, pct: 0 };
+        template.categories.forEach(cat => {
+            const catScores = calculateCategoryScoresForChecklist(checklist, cat, daysInMonth);
+            actual += catScores.actual;
+            max += catScores.max;
+        });
+        const pct = max > 0 ? Number(((actual / max) * 100).toFixed(2)) : 0;
+        return { actual, max, pct };
+    }, [template, checklist, daysInMonth, calculateCategoryScoresForChecklist]);
+
     const loadData = useCallback(async () => {
         try {
             setLoading(true);
-            const [tplRes, chkRes] = await Promise.all([
+            const pMonthStr = getPrevMonthStr(month);
+            const [tplRes, chkRes, prevChkRes] = await Promise.all([
                 audit5sAPI.getTemplate(zoneId),
-                audit5sAPI.getChecklist(month, zoneId)
+                audit5sAPI.getChecklist(month, zoneId),
+                audit5sAPI.getChecklist(pMonthStr, zoneId).catch(() => ({ success: false }))
             ]);
 
             if (tplRes.success) {
@@ -84,6 +261,11 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
                 setRevNo(chk.revNo || tplRes.data.revNo || "00");
                 setRevDate(formatDateYYYYMMDD(chk.revDate || tplRes.data.revDate || "2024-12-10"));
                 setRespPersonId(chk.responsiblePerson?._id || chk.responsiblePerson || "");
+            }
+            if (prevChkRes && prevChkRes.success) {
+                setPrevChecklist(prevChkRes.data);
+            } else {
+                setPrevChecklist(null);
             }
 
             if (isAdminOrHR) {
@@ -102,7 +284,7 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
         } finally {
             setLoading(false);
         }
-    }, [month, zoneId, isAdminOrHR]);
+    }, [month, zoneId, isAdminOrHR, getPrevMonthStr]);
 
     useEffect(() => {
         loadData();
@@ -269,7 +451,11 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
             max += catScores.max;
         });
 
-        const pct = max > 0 ? Math.round((actual / max) * 100) : 0;
+
+
+        
+
+        const pct = max > 0 ? Number(((actual / max) * 100).toFixed(2)) : 0;
         return { actual, max, pct };
     }, [template, getCategoryScores]);
 
@@ -385,9 +571,37 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
         try {
             toast.loading("Generating PDF...", { id: "pdf-gen" });
 
-            const canvas = await html2canvas(sheetRef.current, {
+            const element = sheetRef.current.querySelector(".audit-sheet") || sheetRef.current;
+
+            const canvas = await html2canvas(element, {
                 scale: 2, // higher resolution
-                useCORS: true
+                useCORS: true,
+                windowWidth: 3000, // ensure wide iframe layout to prevent horizontal clipping
+                onclone: (clonedDoc) => {
+                    // Hide screen-only initials
+                    const screenElements = clonedDoc.querySelectorAll(".sig-screen-only");
+                    screenElements.forEach(el => el.style.setProperty("display", "none", "important"));
+
+                    // Show print-only full names
+                    const printElements = clonedDoc.querySelectorAll(".sig-print-only");
+                    printElements.forEach(el => {
+                        el.style.setProperty("display", "inline", "important");
+                        el.style.setProperty("font-size", "7px", "important");
+                    });
+
+                    // Remove width constraints on signature cells and inner boxes
+                    const sigCells = clonedDoc.querySelectorAll(".sig-cell");
+                    sigCells.forEach(el => {
+                        el.style.setProperty("width", "auto", "important");
+                        el.style.setProperty("max-width", "none", "important");
+                    });
+
+                    const sigClickBoxes = clonedDoc.querySelectorAll(".sig-click-box");
+                    sigClickBoxes.forEach(el => {
+                        el.style.setProperty("width", "auto", "important");
+                        el.style.setProperty("max-width", "none", "important");
+                    });
+                }
             });
 
             const imgData = canvas.toDataURL("image/png");
@@ -414,12 +628,14 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
         window.print();
     };
 
-    const handleExportExcel = async () => {
+    const handleExportDailyExcel = async () => {
         try {
             toast.loading("Generating Excel...", { id: "excel-gen" });
             const ExcelJS = await import("exceljs");
             const workbook = new ExcelJS.Workbook();
-            const worksheet = workbook.addWorksheet("5S Audit");
+            
+            // ─── SHEET 1: DAILY DETAIL AUDIT ───
+            const worksheet = workbook.addWorksheet("5S Daily Audit");
 
             const colWidths = [
                 { width: 25 }, // A: Category
@@ -641,65 +857,6 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
                 worksheet.getCell(currentRow, c).border = thinBorder;
             }
 
-            currentRow += 2;
-
-            // Legends & totals
-            worksheet.mergeCells(currentRow, 2, currentRow, 6);
-            const legendHeader = worksheet.getCell(currentRow, 2);
-            legendHeader.value = "LEGENDS :";
-            legendHeader.font = { name: "Arial", size: 9, bold: true };
-
-            worksheet.mergeCells(currentRow, totalColsCount - 3, currentRow, totalColsCount - 2);
-            const totalActualLabel = worksheet.getCell(currentRow, totalColsCount - 3);
-            totalActualLabel.value = "Grand Actual Total:";
-            totalActualLabel.font = { name: "Arial", size: 9, bold: true };
-
-            const totalActualVal = worksheet.getCell(currentRow, totalColsCount - 1);
-            totalActualVal.value = grandTotals.actual;
-            totalActualVal.font = { name: "Arial", size: 9, bold: true };
-            totalActualVal.alignment = { horizontal: "center" };
-
-            currentRow++;
-
-            worksheet.mergeCells(currentRow, 2, currentRow, 6);
-            const legend1 = worksheet.getCell(currentRow, 2);
-            legend1.value = "2 >> Awareness and system implement";
-            legend1.font = { name: "Arial", size: 8 };
-
-            worksheet.mergeCells(currentRow, totalColsCount - 3, currentRow, totalColsCount - 2);
-            const totalPossibleLabel = worksheet.getCell(currentRow, totalColsCount - 3);
-            totalPossibleLabel.value = "Grand Max Possible:";
-            totalPossibleLabel.font = { name: "Arial", size: 9, bold: true };
-
-            const totalPossibleVal = worksheet.getCell(currentRow, totalColsCount - 1);
-            totalPossibleVal.value = grandTotals.max;
-            totalPossibleVal.font = { name: "Arial", size: 9, bold: true };
-            totalPossibleVal.alignment = { horizontal: "center" };
-
-            currentRow++;
-
-            worksheet.mergeCells(currentRow, 2, currentRow, 6);
-            const legend2 = worksheet.getCell(currentRow, 2);
-            legend2.value = "1 >> Awareness only and system not implement";
-            legend2.font = { name: "Arial", size: 8 };
-
-            worksheet.mergeCells(currentRow, totalColsCount - 3, currentRow, totalColsCount - 2);
-            const pctLabel = worksheet.getCell(currentRow, totalColsCount - 3);
-            pctLabel.value = "Score Percentage:";
-            pctLabel.font = { name: "Arial", size: 10, bold: true };
-
-            const pctVal = worksheet.getCell(currentRow, totalColsCount - 1);
-            pctVal.value = `${grandTotals.pct}%`;
-            pctVal.font = { name: "Arial", size: 10, bold: true };
-            pctVal.alignment = { horizontal: "center" };
-
-            currentRow++;
-
-            worksheet.mergeCells(currentRow, 2, currentRow, 6);
-            const legend3 = worksheet.getCell(currentRow, 2);
-            legend3.value = "0 >> Awareness & Requirement not implement";
-            legend3.font = { name: "Arial", size: 8 };
-
             const buffer = await workbook.xlsx.writeBuffer();
             const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
             const url = window.URL.createObjectURL(blob);
@@ -707,16 +864,640 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
             anchor.href = url;
             const monthStr = month ? month.toUpperCase() : "AUDIT";
             const zoneStr = checklist?.zoneName ? checklist.zoneName.toUpperCase().replace(/\s+/g, "_") : "ZONE";
-            anchor.download = `5S_Audit_${zoneStr}_${monthStr}.xlsx`;
+            anchor.download = `5S_Daily_Audit_${zoneStr}_${monthStr}.xlsx`;
             document.body.appendChild(anchor);
             anchor.click();
             document.body.removeChild(anchor);
             window.URL.revokeObjectURL(url);
 
-            toast.success("Excel sheet exported successfully!", { id: "excel-gen" });
+            toast.success("Daily Excel sheet exported successfully!", { id: "excel-gen" });
         } catch (err) {
-            console.error("Failed to export Excel:", err);
-            toast.error("Failed to export Excel.", { id: "excel-gen" });
+            console.error("Failed to export Daily Excel:", err);
+            toast.error("Failed to export Daily Excel.", { id: "excel-gen" });
+        }
+    };
+
+    const handleExportMonthlyExcel = async () => {
+        try {
+            toast.loading("Generating Monthly Excel...", { id: "excel-gen" });
+            const ExcelJS = await import("exceljs");
+            const workbook = new ExcelJS.Workbook();
+
+            const thinBorder = {
+                top: { style: "thin" },
+                left: { style: "thin" },
+                bottom: { style: "thin" },
+                right: { style: "thin" }
+            };
+            
+            // ─── SHEET 2: MONTHLY AUDIT SCORE COMPARISON ───
+            const getPrevMonthStr = (mStr) => {
+                if (!mStr) return "";
+                const [year, m] = mStr.split("-").map(Number);
+                const prevDate = new Date(year, m - 2, 15);
+                const prevYear = prevDate.getFullYear();
+                const prevM = String(prevDate.getMonth() + 1).padStart(2, "0");
+                return `${prevYear}-${prevM}`;
+            };
+
+            const prevMonthStr = getPrevMonthStr(month);
+            let prevChecklist = null;
+            try {
+                const prevChkRes = await audit5sAPI.getChecklist(prevMonthStr, zoneId);
+                if (prevChkRes && prevChkRes.success) {
+                    prevChecklist = prevChkRes.data;
+                }
+            } catch (err) {
+                console.warn("Could not retrieve previous month checklist:", err);
+            }
+
+            const getShortMonthLabel = (mStr) => {
+                if (!mStr) return "";
+                const [year, m] = mStr.split("-").map(Number);
+                const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                const monthName = months[m - 1];
+                const year2Digit = String(year).slice(-2);
+                return `${monthName}-${year2Digit}`;
+            };
+
+            const prevMonthLabel = getShortMonthLabel(prevMonthStr);
+            const currentMonthLabel = getShortMonthLabel(month);
+
+            const getPrevMonthDays = () => {
+                if (!prevMonthStr) return 30;
+                const [year, m] = prevMonthStr.split("-").map(Number);
+                return new Date(year, m, 0).getDate();
+            };
+            const prevMonthDays = getPrevMonthDays();
+
+            const getScoresMapForChecklist = (chk) => {
+                const map = new Map();
+                if (!chk || !Array.isArray(chk.scores)) return map;
+                chk.scores.forEach(s => {
+                    const dailyMap = new Map();
+                    if (s.dailyScores) {
+                        if (typeof s.dailyScores.toJSON === "function") {
+                            const plain = s.dailyScores.toJSON();
+                            Object.entries(plain).forEach(([k, v]) => dailyMap.set(k, v));
+                        } else if (s.dailyScores instanceof Map) {
+                            s.dailyScores.forEach((v, k) => dailyMap.set(k, v));
+                        } else if (typeof s.dailyScores.forEach === "function") {
+                            s.dailyScores.forEach((v, k) => dailyMap.set(k, v));
+                        } else {
+                            Object.entries(s.dailyScores).forEach(([k, v]) => dailyMap.set(k, v));
+                        }
+                    }
+                    map.set(s.itemId, dailyMap);
+                });
+                return map;
+            };
+
+            const calculateCategoryScoresForChecklist = (chk, cat, totalDays) => {
+                let actual = 0;
+                let max = 0;
+                if (!cat.items || cat.items.length === 0 || !chk) {
+                    return { actual, max };
+                }
+
+                const chkScoresMap = getScoresMapForChecklist(chk);
+
+                for (let d = 1; d <= totalDays; d++) {
+                    let allFilled = true;
+                    let daySum = 0;
+
+                    for (let i = 0; i < cat.items.length; i++) {
+                        const item = cat.items[i];
+                        const itemScores = chkScoresMap.get(item._id);
+                        const val = itemScores ? itemScores.get(String(d)) : undefined;
+
+                        if (val === undefined || val === null || val === "") {
+                            allFilled = false;
+                            break;
+                        }
+                        daySum += Number(val);
+                    }
+
+                    if (allFilled) {
+                        actual += daySum;
+                        max += cat.items.length * 2;
+                    }
+                }
+
+                return { actual, max };
+            };
+
+            const monthlySheet = workbook.addWorksheet("Monthly Audit Score");
+            monthlySheet.columns = [
+                { width: 10 }, // A
+                { width: 10 }, // B
+                { width: 15 }, // C
+                { width: 10 }, // D
+                { width: 12 }, // E
+                { width: 12 }, // F
+                { width: 12 }, // G
+                { width: 10 }, // H
+                { width: 15 }, // I
+                { width: 10 }, // J
+                { width: 12 }, // K
+                { width: 12 }, // L
+                { width: 12 }, // M
+                { width: 10 }  // N
+            ];
+
+            // Title section
+            monthlySheet.mergeCells(1, 1, 3, 1);
+            const mLogoCell = monthlySheet.getCell(1, 1);
+            mLogoCell.value = "RABS";
+            mLogoCell.font = { name: "Arial", size: 18, bold: true, color: { argb: "FFFFFF" } };
+            mLogoCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "D32F2F" } };
+            mLogoCell.alignment = { vertical: "middle", horizontal: "center" };
+
+            monthlySheet.mergeCells(1, 2, 1, 11);
+            const mTitleCell = monthlySheet.getCell(1, 2);
+            mTitleCell.value = "RABS INDUSTRIES";
+            mTitleCell.font = { name: "Arial", size: 16, bold: true };
+            mTitleCell.alignment = { vertical: "middle", horizontal: "center" };
+
+            monthlySheet.mergeCells(1, 12, 1, 14);
+            const mDocCell = monthlySheet.getCell(1, 12);
+            mDocCell.value = `DOC NO: ${docNo}`;
+            mDocCell.font = { name: "Arial", size: 9, bold: true };
+            mDocCell.alignment = { vertical: "middle", horizontal: "left" };
+
+            monthlySheet.mergeCells(2, 2, 2, 11);
+            const mSubTitleCell = monthlySheet.getCell(2, 2);
+            mSubTitleCell.value = "5S MONTHLY AUDIT SCORE ";
+            mSubTitleCell.font = { name: "Arial", size: 12, bold: true };
+            mSubTitleCell.alignment = { vertical: "middle", horizontal: "center" };
+
+            monthlySheet.mergeCells(2, 12, 2, 14);
+            const mRevCell = monthlySheet.getCell(2, 12);
+            mRevCell.value = `REV.NO: ${revNo}`;
+            mRevCell.font = { name: "Arial", size: 9, bold: true };
+            mRevCell.alignment = { vertical: "middle", horizontal: "left" };
+
+            monthlySheet.mergeCells(3, 12, 3, 14);
+            const mDateCell = monthlySheet.getCell(3, 12);
+            mDateCell.value = `REV.DATE: ${formatDateDisplay(revDate)}`;
+            mDateCell.font = { name: "Arial", size: 9, bold: true };
+            mDateCell.alignment = { vertical: "middle", horizontal: "left" };
+
+            // Metadata Row 4
+            monthlySheet.mergeCells(4, 1, 4, 7);
+            const mZoneCell = monthlySheet.getCell(4, 1);
+            mZoneCell.value = `ZONE AREA :  ${checklist.zoneName ? checklist.zoneName.toUpperCase() : "SECURITY AREA"}`;
+            mZoneCell.font = { name: "Arial", size: 10, bold: true };
+            mZoneCell.alignment = { vertical: "middle", horizontal: "left" };
+
+            monthlySheet.mergeCells(4, 8, 4, 14);
+            const mZoneNoCell = monthlySheet.getCell(4, 8);
+            mZoneNoCell.value = `ZONE NO: ${checklist.zoneNo || "01"}`;
+            mZoneNoCell.font = { name: "Arial", size: 10, bold: true };
+            mZoneNoCell.alignment = { vertical: "middle", horizontal: "left" };
+
+            // Row 5: Responsible & Month Names
+            monthlySheet.mergeCells(5, 1, 5, 2);
+            const mRespCell = monthlySheet.getCell(5, 1);
+            mRespCell.value = "RESPONSIBLE";
+            mRespCell.font = { name: "Arial", size: 10, bold: true };
+            mRespCell.alignment = { vertical: "middle", horizontal: "center" };
+            mRespCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E2E8F0" } };
+
+            monthlySheet.mergeCells(5, 3, 5, 8);
+            const mPrevMonthTitle = monthlySheet.getCell(5, 3);
+            mPrevMonthTitle.value = ` AUDIT SCORE- ${prevMonthLabel || "PREVIOUS MONTH"}`;
+            mPrevMonthTitle.font = { name: "Arial", size: 11, bold: true };
+            mPrevMonthTitle.alignment = { vertical: "middle", horizontal: "center" };
+            mPrevMonthTitle.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F1F5F9" } };
+
+            monthlySheet.mergeCells(5, 9, 5, 14);
+            const mCurrMonthTitle = monthlySheet.getCell(5, 9);
+            mCurrMonthTitle.value = ` AUDIT SCORE- ${currentMonthLabel || "CURRENT MONTH"}`;
+            mCurrMonthTitle.font = { name: "Arial", size: 11, bold: true };
+            mCurrMonthTitle.alignment = { vertical: "middle", horizontal: "center" };
+            mCurrMonthTitle.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E2E8F0" } };
+
+            // Row 6: Columns
+            monthlySheet.mergeCells(6, 1, 6, 2);
+            const mPhotoLabel = monthlySheet.getCell(6, 1);
+            mPhotoLabel.value = " Photos";
+            mPhotoLabel.font = { name: "Arial", size: 10, bold: true };
+            mPhotoLabel.alignment = { vertical: "middle", horizontal: "center" };
+            mPhotoLabel.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F1F5F9" } };
+
+            monthlySheet.mergeCells(6, 3, 6, 4);
+            const mDescLabel1 = monthlySheet.getCell(6, 3);
+            mDescLabel1.value = "5S Description ";
+            mDescLabel1.font = { name: "Arial", size: 10, bold: true };
+            mDescLabel1.alignment = { vertical: "middle", horizontal: "center" };
+            mDescLabel1.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F1F5F9" } };
+
+            monthlySheet.mergeCells(6, 5, 6, 8);
+            const mAvgLabel1 = monthlySheet.getCell(6, 5);
+            mAvgLabel1.value = "Mark/Average monthly";
+            mAvgLabel1.font = { name: "Arial", size: 10, bold: true };
+            mAvgLabel1.alignment = { vertical: "middle", horizontal: "center" };
+            mAvgLabel1.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F1F5F9" } };
+
+            monthlySheet.mergeCells(6, 9, 6, 10);
+            const mDescLabel2 = monthlySheet.getCell(6, 9);
+            mDescLabel2.value = "5S Description ";
+            mDescLabel2.font = { name: "Arial", size: 10, bold: true };
+            mDescLabel2.alignment = { vertical: "middle", horizontal: "center" };
+            mDescLabel2.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F1F5F9" } };
+
+            monthlySheet.mergeCells(6, 11, 6, 14);
+            const mAvgLabel2 = monthlySheet.getCell(6, 11);
+            mAvgLabel2.value = "Mark/Average monthly";
+            mAvgLabel2.font = { name: "Arial", size: 10, bold: true };
+            mAvgLabel2.alignment = { vertical: "middle", horizontal: "center" };
+            mAvgLabel2.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F1F5F9" } };
+
+            // Row 7: Details
+            monthlySheet.mergeCells(7, 1, 7, 2);
+            const mLeaderLabel = monthlySheet.getCell(7, 1);
+            mLeaderLabel.value = "Leader";
+            mLeaderLabel.font = { name: "Arial", size: 10, bold: true };
+            mLeaderLabel.alignment = { vertical: "middle", horizontal: "center" };
+            mLeaderLabel.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F8FAFC" } };
+
+            const subHeaders = [
+                " Total Score ", "Required", "Actual ", "Status ",
+                " Total Score ", "Required", "Actual ", "Status "
+            ];
+            const subCols = [5, 6, 7, 8, 11, 12, 13, 14];
+            subHeaders.forEach((sh, idx) => {
+                const cell = monthlySheet.getCell(7, subCols[idx]);
+                cell.value = sh;
+                cell.font = { name: "Arial", size: 9, bold: true };
+                cell.alignment = { vertical: "middle", horizontal: "center" };
+                cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F8FAFC" } };
+            });
+
+            // Set borders for Row 1-7
+            for (let r = 1; r <= 7; r++) {
+                for (let c = 1; c <= 14; c++) {
+                    monthlySheet.getCell(r, c).border = thinBorder;
+                }
+            }
+
+            // Categories
+            const getCatShortName = (cat) => {
+                const name = cat.name.toLowerCase();
+                if (name.includes("sort")) return "SORT";
+                if (name.includes("order")) return "SET IN ORDER";
+                if (name.includes("shine")) return "SHINE";
+                if (name.includes("standard")) return "STANDARDIZE";
+                if (name.includes("sustain")) return "SUSTAIN";
+                return (cat.subName || cat.name).toUpperCase();
+            };
+
+            const numCats = template.categories.length;
+
+            template.categories.forEach((cat, idx) => {
+                const catRow = 8 + 2 * idx;
+                const catNameStr = getCatShortName(cat);
+
+                // Prev month scores
+                const prevScores = calculateCategoryScoresForChecklist(prevChecklist, cat, prevMonthDays);
+                // Curr month scores
+                const currScores = calculateCategoryScoresForChecklist(checklist, cat, daysInMonth);
+
+                // Previous month category cells
+                monthlySheet.mergeCells(catRow, 3, catRow, 4);
+                const pDescCell = monthlySheet.getCell(catRow, 3);
+                pDescCell.value = catNameStr;
+                pDescCell.font = { name: "Arial", size: 9, bold: true };
+                pDescCell.alignment = { vertical: "middle", horizontal: "center" };
+
+                const pTotalCell = monthlySheet.getCell(catRow, 5);
+                pTotalCell.value = prevScores.max;
+                pTotalCell.font = { name: "Arial", size: 9 };
+                pTotalCell.alignment = { vertical: "middle", horizontal: "center" };
+
+                const pReqCell = monthlySheet.getCell(catRow, 6);
+                pReqCell.value = prevScores.max * 0.5;
+                pReqCell.font = { name: "Arial", size: 9 };
+                pReqCell.alignment = { vertical: "middle", horizontal: "center" };
+
+                const pActCell = monthlySheet.getCell(catRow, 7);
+                pActCell.value = prevChecklist ? prevScores.actual : "";
+                pActCell.font = { name: "Arial", size: 9 };
+                pActCell.alignment = { vertical: "middle", horizontal: "center" };
+
+                const pStatusCell = monthlySheet.getCell(catRow, 8);
+                pStatusCell.value = { formula: `IF(G${catRow}<>"",IF(G${catRow}>=F${catRow},"OK","NG"),"")` };
+                pStatusCell.font = { name: "Arial", size: 9, bold: true };
+                pStatusCell.alignment = { vertical: "middle", horizontal: "center" };
+
+                // Current month category cells
+                monthlySheet.mergeCells(catRow, 9, catRow, 10);
+                const cDescCell = monthlySheet.getCell(catRow, 9);
+                cDescCell.value = catNameStr;
+                cDescCell.font = { name: "Arial", size: 9, bold: true };
+                cDescCell.alignment = { vertical: "middle", horizontal: "center" };
+
+                const cTotalCell = monthlySheet.getCell(catRow, 11);
+                cTotalCell.value = currScores.max;
+                cTotalCell.font = { name: "Arial", size: 9 };
+                cTotalCell.alignment = { vertical: "middle", horizontal: "center" };
+
+                const cReqCell = monthlySheet.getCell(catRow, 12);
+                cReqCell.value = currScores.max * 0.5;
+                cReqCell.font = { name: "Arial", size: 9 };
+                cReqCell.alignment = { vertical: "middle", horizontal: "center" };
+
+                const cActCell = monthlySheet.getCell(catRow, 13);
+                cActCell.value = currScores.actual;
+                cActCell.font = { name: "Arial", size: 9 };
+                cActCell.alignment = { vertical: "middle", horizontal: "center" };
+
+                const cStatusCell = monthlySheet.getCell(catRow, 14);
+                cStatusCell.value = { formula: `IF(M${catRow}<>"",IF(M${catRow}>=L${catRow},"OK","NG"),"")` };
+                cStatusCell.font = { name: "Arial", size: 9, bold: true };
+                cStatusCell.alignment = { vertical: "middle", horizontal: "center" };
+
+                // Set borders for cat row & empty row
+                for (let col = 1; col <= 14; col++) {
+                    monthlySheet.getCell(catRow, col).border = thinBorder;
+                    monthlySheet.getCell(catRow + 1, col).border = thinBorder;
+                }
+            });
+
+            // Merges for Leader Section (Left Panel)
+            // 1. Photo Area (A8 to B15 in standard layout)
+            const photoEndRow = 8 + 2 * (numCats - 1) - 1; // row 15
+            monthlySheet.mergeCells(8, 1, photoEndRow, 2);
+            const leaderPhotoCell = monthlySheet.getCell(8, 1);
+            leaderPhotoCell.value = "Photo";
+            leaderPhotoCell.font = { name: "Arial", size: 10, italic: true };
+            leaderPhotoCell.alignment = { vertical: "middle", horizontal: "center" };
+
+            // 2. Leader Name Label ("Name ")
+            const nameStartRow = 8 + 2 * (numCats - 1); // row 16
+            monthlySheet.mergeCells(nameStartRow, 1, nameStartRow + 1, 2);
+            const leaderNameLabel = monthlySheet.getCell(nameStartRow, 1);
+            leaderNameLabel.value = "Name ";
+            leaderNameLabel.font = { name: "Arial", size: 10, bold: true };
+            leaderNameLabel.alignment = { vertical: "middle", horizontal: "center" };
+            leaderNameLabel.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F1F5F9" } };
+
+            const totalScoreRow = 8 + 2 * numCats; // row 18
+            const scorePctRow = totalScoreRow + 1; // row 19
+
+            // 3. Leader Name Value
+            monthlySheet.mergeCells(totalScoreRow, 1, totalScoreRow, 2);
+            const leaderNameValCell = monthlySheet.getCell(totalScoreRow, 1);
+            leaderNameValCell.value = respPersonName;
+            leaderNameValCell.font = { name: "Arial", size: 9, bold: true };
+            leaderNameValCell.alignment = { vertical: "middle", horizontal: "center" };
+            leaderNameValCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F8FAFC" } };
+
+            // 4. Auditee Signature Label
+            monthlySheet.mergeCells(scorePctRow, 1, scorePctRow, 2);
+            const signatureLabelCell = monthlySheet.getCell(scorePctRow, 1);
+            signatureLabelCell.value = "Auditee Signature ";
+            signatureLabelCell.font = { name: "Arial", size: 9, bold: true };
+            signatureLabelCell.alignment = { vertical: "middle", horizontal: "center" };
+            signatureLabelCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F1F5F9" } };
+
+            // TOTAL SCORE Row
+            monthlySheet.mergeCells(totalScoreRow, 3, totalScoreRow, 4);
+            const pTotalLabel = monthlySheet.getCell(totalScoreRow, 3);
+            pTotalLabel.value = "TOTAL  SCORE";
+            pTotalLabel.font = { name: "Arial", size: 10, bold: true };
+            pTotalLabel.alignment = { vertical: "middle", horizontal: "center" };
+            pTotalLabel.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E2E8F0" } };
+
+            // Prev month totals
+            const pTotScore = monthlySheet.getCell(totalScoreRow, 5);
+            pTotScore.value = { formula: `SUM(E8:E${totalScoreRow - 1})` };
+            pTotScore.font = { name: "Arial", size: 10, bold: true };
+            pTotScore.alignment = { vertical: "middle", horizontal: "center" };
+            pTotScore.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E2E8F0" } };
+
+            const pTotReq = monthlySheet.getCell(totalScoreRow, 6);
+            pTotReq.value = { formula: `SUM(F8:F${totalScoreRow - 1})` };
+            pTotReq.font = { name: "Arial", size: 10, bold: true };
+            pTotReq.alignment = { vertical: "middle", horizontal: "center" };
+            pTotReq.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E2E8F0" } };
+
+            const pTotAct = monthlySheet.getCell(totalScoreRow, 7);
+            pTotAct.value = prevChecklist ? { formula: `SUM(G8:G${totalScoreRow - 1})` } : "";
+            pTotAct.font = { name: "Arial", size: 10, bold: true };
+            pTotAct.alignment = { vertical: "middle", horizontal: "center" };
+            pTotAct.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E2E8F0" } };
+
+            const pTotStatus = monthlySheet.getCell(totalScoreRow, 8);
+            pTotStatus.value = { formula: `IF(G${totalScoreRow}<>"",IF(G${totalScoreRow}>=F${totalScoreRow},"OK","NG"),"")` };
+            pTotStatus.font = { name: "Arial", size: 10, bold: true };
+            pTotStatus.alignment = { vertical: "middle", horizontal: "center" };
+            pTotStatus.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E2E8F0" } };
+
+            // Current month totals
+            monthlySheet.mergeCells(totalScoreRow, 9, totalScoreRow, 10);
+            const cTotalLabel = monthlySheet.getCell(totalScoreRow, 9);
+            cTotalLabel.value = "TOTAL  SCORE";
+            cTotalLabel.font = { name: "Arial", size: 10, bold: true };
+            cTotalLabel.alignment = { vertical: "middle", horizontal: "center" };
+            cTotalLabel.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E2E8F0" } };
+
+            const cTotScore = monthlySheet.getCell(totalScoreRow, 11);
+            cTotScore.value = { formula: `SUM(K8:K${totalScoreRow - 1})` };
+            cTotScore.font = { name: "Arial", size: 10, bold: true };
+            cTotScore.alignment = { vertical: "middle", horizontal: "center" };
+            cTotScore.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E2E8F0" } };
+
+            const cTotReq = monthlySheet.getCell(totalScoreRow, 12);
+            cTotReq.value = { formula: `SUM(L8:L${totalScoreRow - 1})` };
+            cTotReq.font = { name: "Arial", size: 10, bold: true };
+            cTotReq.alignment = { vertical: "middle", horizontal: "center" };
+            cTotReq.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E2E8F0" } };
+
+            const cTotAct = monthlySheet.getCell(totalScoreRow, 13);
+            cTotAct.value = { formula: `SUM(M8:M${totalScoreRow - 1})` };
+            cTotAct.font = { name: "Arial", size: 10, bold: true };
+            cTotAct.alignment = { vertical: "middle", horizontal: "center" };
+            cTotAct.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E2E8F0" } };
+
+            const cTotStatus = monthlySheet.getCell(totalScoreRow, 14);
+            cTotStatus.value = { formula: `IF(M${totalScoreRow}<>"",IF(M${totalScoreRow}>=L${totalScoreRow},"OK","NG"),"")` };
+            cTotStatus.font = { name: "Arial", size: 10, bold: true };
+            cTotStatus.alignment = { vertical: "middle", horizontal: "center" };
+            cTotStatus.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E2E8F0" } };
+
+            // SCORE % Row
+            monthlySheet.mergeCells(scorePctRow, 3, scorePctRow, 4);
+            const pPctLabel = monthlySheet.getCell(scorePctRow, 3);
+            pPctLabel.value = " SCORE %";
+            pPctLabel.font = { name: "Arial", size: 10, bold: true };
+            pPctLabel.alignment = { vertical: "middle", horizontal: "center" };
+            pPctLabel.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E2E8F0" } };
+
+            // Prev month %
+            const pPctVal = monthlySheet.getCell(scorePctRow, 5);
+            pPctVal.value = 100;
+            pPctVal.font = { name: "Arial", size: 10, bold: true };
+            pPctVal.alignment = { vertical: "middle", horizontal: "center" };
+            pPctVal.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E2E8F0" } };
+
+            const pPctReq = monthlySheet.getCell(scorePctRow, 6);
+            pPctReq.value = 50;
+            pPctReq.font = { name: "Arial", size: 10, bold: true };
+            pPctReq.alignment = { vertical: "middle", horizontal: "center" };
+            pPctReq.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E2E8F0" } };
+
+            const pPctAct = monthlySheet.getCell(scorePctRow, 7);
+            pPctAct.value = prevChecklist ? { formula: `IF(E${totalScoreRow}>0,ROUND(G${totalScoreRow}/E${totalScoreRow}*E${scorePctRow},2),"")` } : "";
+            pPctAct.font = { name: "Arial", size: 10, bold: true };
+            pPctAct.alignment = { vertical: "middle", horizontal: "center" };
+            pPctAct.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E2E8F0" } };
+
+            const pPctStatus = monthlySheet.getCell(scorePctRow, 8);
+            pPctStatus.value = { formula: `IF(G${scorePctRow}<>"",IF(G${scorePctRow}>=F${scorePctRow},"OK","NG"),"")` };
+            pPctStatus.font = { name: "Arial", size: 10, bold: true };
+            pPctStatus.alignment = { vertical: "middle", horizontal: "center" };
+            pPctStatus.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E2E8F0" } };
+
+            // Current month %
+            monthlySheet.mergeCells(scorePctRow, 9, scorePctRow, 10);
+            const cPctLabel = monthlySheet.getCell(scorePctRow, 9);
+            cPctLabel.value = " SCORE %";
+            cPctLabel.font = { name: "Arial", size: 10, bold: true };
+            cPctLabel.alignment = { vertical: "middle", horizontal: "center" };
+            cPctLabel.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E2E8F0" } };
+
+            const cPctVal = monthlySheet.getCell(scorePctRow, 11);
+            cPctVal.value = 100;
+            cPctVal.font = { name: "Arial", size: 10, bold: true };
+            cPctVal.alignment = { vertical: "middle", horizontal: "center" };
+            cPctVal.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E2E8F0" } };
+
+            const cPctReq = monthlySheet.getCell(scorePctRow, 12);
+            cPctReq.value = 50;
+            cPctReq.font = { name: "Arial", size: 10, bold: true };
+            cPctReq.alignment = { vertical: "middle", horizontal: "center" };
+            cPctReq.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E2E8F0" } };
+
+            const cPctAct = monthlySheet.getCell(scorePctRow, 13);
+            cPctAct.value = { formula: `IF(K${totalScoreRow}>0,ROUND(M${totalScoreRow}/K${totalScoreRow}*K${scorePctRow},2),"")` };
+            cPctAct.font = { name: "Arial", size: 10, bold: true };
+            cPctAct.alignment = { vertical: "middle", horizontal: "center" };
+            cPctAct.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E2E8F0" } };
+
+            const cPctStatus = monthlySheet.getCell(scorePctRow, 14);
+            cPctStatus.value = { formula: `IF(M${scorePctRow}<>"",IF(M${scorePctRow}>=L${scorePctRow},"OK","NG"),"")` };
+            cPctStatus.font = { name: "Arial", size: 10, bold: true };
+            cPctStatus.alignment = { vertical: "middle", horizontal: "center" };
+            cPctStatus.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E2E8F0" } };
+
+            // Set borders for totals and pct rows
+            for (let c = 1; c <= 14; c++) {
+                monthlySheet.getCell(totalScoreRow, c).border = thinBorder;
+                monthlySheet.getCell(scorePctRow, c).border = thinBorder;
+            }
+
+            // Dates & Auditors rows
+            const dateRow = totalScoreRow + 2;
+            const auditorRow = totalScoreRow + 3;
+
+            const getLastDayOfMonthStr = (mStr) => {
+                if (!mStr) return "";
+                const [year, m] = mStr.split("-").map(Number);
+                const lastDay = new Date(year, m, 0).getDate();
+                const mm = String(m).padStart(2, "0");
+                return `${String(lastDay).padStart(2, "0")}-${mm}-${year}`;
+            };
+
+            const getAuditorsList = (chk) => {
+                if (!chk || !chk.auditorSignatures) return "";
+                let plainSigs = {};
+                if (typeof chk.auditorSignatures.toJSON === "function") {
+                    plainSigs = chk.auditorSignatures.toJSON();
+                } else if (chk.auditorSignatures instanceof Map) {
+                    plainSigs = Object.fromEntries(chk.auditorSignatures);
+                } else {
+                    plainSigs = chk.auditorSignatures;
+                }
+                const signatures = Object.values(plainSigs).filter(Boolean);
+                const uniqueSigs = [...new Set(signatures)];
+                return uniqueSigs.join(", ");
+            };
+
+            // Prev month Date & Auditor
+            monthlySheet.mergeCells(dateRow, 3, dateRow, 4);
+            const pDateCell = monthlySheet.getCell(dateRow, 3);
+            pDateCell.value = prevChecklist ? `Date :  ${getLastDayOfMonthStr(prevMonthStr)}` : "Date : ";
+            pDateCell.font = { name: "Arial", size: 10, bold: true };
+            pDateCell.alignment = { vertical: "middle", horizontal: "left" };
+
+            monthlySheet.mergeCells(auditorRow, 3, auditorRow, 8);
+            const pAuditorCell = monthlySheet.getCell(auditorRow, 3);
+            pAuditorCell.value = `Auditor  by: ${getAuditorsList(prevChecklist)}`;
+            pAuditorCell.font = { name: "Arial", size: 10, bold: true };
+            pAuditorCell.alignment = { vertical: "middle", horizontal: "left" };
+
+            // Curr month Date & Auditor
+            monthlySheet.mergeCells(dateRow, 9, dateRow, 10);
+            const cDateCell = monthlySheet.getCell(dateRow, 9);
+            cDateCell.value = `Date : ${getLastDayOfMonthStr(month)}`;
+            cDateCell.font = { name: "Arial", size: 10, bold: true };
+            cDateCell.alignment = { vertical: "middle", horizontal: "left" };
+
+            monthlySheet.mergeCells(auditorRow, 9, auditorRow, 14);
+            const cAuditorCell = monthlySheet.getCell(auditorRow, 9);
+            cAuditorCell.value = `Auditor  by: ${getAuditorsList(checklist)}`;
+            cAuditorCell.font = { name: "Arial", size: 10, bold: true };
+            cAuditorCell.alignment = { vertical: "middle", horizontal: "left" };
+
+            // Borders for date & auditor rows
+            for (let r = dateRow; r <= auditorRow; r++) {
+                for (let c = 1; c <= 14; c++) {
+                    monthlySheet.getCell(r, c).border = thinBorder;
+                }
+            }
+
+            // Criteria & Notes
+            const criteriaRow = totalScoreRow + 4;
+            const noteRow = totalScoreRow + 5;
+
+            monthlySheet.mergeCells(criteriaRow, 1, criteriaRow, 14);
+            const criteriaCell = monthlySheet.getCell(criteriaRow, 1);
+            criteriaCell.value = "Score Criteria :  Red Below=50% , Yellow= 50-80% , Green =81-100%";
+            criteriaCell.font = { name: "Arial", size: 9, bold: true };
+            criteriaCell.alignment = { vertical: "middle", horizontal: "left" };
+
+            monthlySheet.mergeCells(noteRow, 1, noteRow, 14);
+            const noteCell = monthlySheet.getCell(noteRow, 1);
+            noteCell.value = "Note :   Data will be update last day of this month.Score for answer of overall month";
+            noteCell.font = { name: "Arial", size: 9, bold: true };
+            noteCell.alignment = { vertical: "middle", horizontal: "left" };
+
+            for (let r = criteriaRow; r <= noteRow; r++) {
+                for (let c = 1; c <= 14; c++) {
+                    monthlySheet.getCell(r, c).border = thinBorder;
+                }
+            }
+
+
+            // ─── WRITE WORKBOOK ───
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+            const url = window.URL.createObjectURL(blob);
+            const anchor = document.createElement("a");
+            anchor.href = url;
+            const monthStr = month ? month.toUpperCase() : "AUDIT";
+            const zoneStr = checklist?.zoneName ? checklist.zoneName.toUpperCase().replace(/\s+/g, "_") : "ZONE";
+            anchor.download = `5S_Monthly_Score_${zoneStr}_${monthStr}.xlsx`;
+            document.body.appendChild(anchor);
+            anchor.click();
+            document.body.removeChild(anchor);
+            window.URL.revokeObjectURL(url);
+
+            toast.success("Monthly Excel sheet exported successfully!", { id: "excel-gen" });
+        } catch (err) {
+            console.error("Failed to export Monthly Excel:", err);
+            toast.error("Failed to export Monthly Excel.", { id: "excel-gen" });
         }
     };
 
@@ -765,9 +1546,16 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
                 <button
                     type="button"
                     className="btn-audit5s btn-secondary"
-                    onClick={handleExportExcel}
+                    onClick={handleExportDailyExcel}
                 >
-                    🟢 Download Excel
+                    🟢 Daily Excel
+                </button>
+                <button
+                    type="button"
+                    className="btn-audit5s btn-secondary"
+                    onClick={handleExportMonthlyExcel}
+                >
+                    📊 Monthly Excel
                 </button>
                 {isAdminOrHR && (
                     <button
@@ -788,361 +1576,592 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
                 </button>
             </div>
 
+            {/* Sub Tabs Selection */}
+            <div className="audit-subtabs-nav no-print">
+                <button
+                    className={`audit-subtab-btn ${activeSubTab === "daily" ? "active" : ""}`}
+                    onClick={() => setActiveSubTab("daily")}
+                >
+                    📋 Daily Checklist
+                </button>
+                <button
+                    className={`audit-subtab-btn ${activeSubTab === "monthly" ? "active" : ""}`}
+                    onClick={() => setActiveSubTab("monthly")}
+                >
+                    📊 Monthly Score Report
+                </button>
+            </div>
+
             {/* Print Sheet Viewport */}
             <div className="audit-sheet-print-container" ref={sheetRef}>
-                <div className="audit-sheet">
-                    {/* Header Table */}
-                    <table className="sheet-header-table">
-                        <tbody>
-                            <tr>
-                                <td className="header-logo-cell" rowSpan="2">
-                                    <div className="rabs-logo-box-img">
-                                        <img src={rabsLogo} alt="RABS Logo" className="rabs-logo-img" />
-                                    </div>
-                                </td>
-                                <td className="header-title-cell">
-                                    <h2>RABS INDUSTRIES INDIA PVT.LTD.</h2>
-                                    <h3>5'S' Audit Check Sheet</h3>
-                                </td>
-                                <td className="header-meta-cell">
-                                    <div className="meta-row">
-                                        <span className="meta-label">DOC NO :</span>
-                                        {isAdminOrHR ? (
-                                            <input
-                                                type="text"
-                                                className="meta-inline-input"
-                                                value={docNo}
-                                                onChange={(e) => setDocNo(e.target.value)}
-                                            />
-                                        ) : (
-                                            <span className="meta-value">{docNo}</span>
-                                        )}
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td className="header-zone-info">
-                                    <div className="info-grid">
-                                        <div>
-                                            <strong>ZONE NO :</strong> {checklist.zoneNo || "01"}
-                                        </div>
-                                        <div>
-                                            <strong>ZONE NAME :</strong> {checklist.zoneName || "OFFICE"}
-                                        </div>
-                                        <div>
-                                            <strong>ZONE RESP:</strong> {isAdminOrHR ? (
-                                                <>
-                                                    <InlineSearchableSelect
-                                                        value={respPersonId}
-                                                        onChange={setRespPersonId}
-                                                        options={users.map(u => ({
-                                                            value: u._id,
-                                                            label: u.first_name ? `${u.first_name} ${u.last_name || ""}` : u.username
-                                                        }))}
-                                                        placeholder="Select Employee"
-                                                    />
-                                                    <span className="meta-value uppercase print-only">{respPersonName}</span>
-                                                </>
-                                            ) : (
-                                                <span className="meta-value uppercase">{respPersonName}</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                </td>
-                                <td className="header-meta-cell secondary">
-                                    <div className="meta-row">
-                                        <span className="meta-label">RE.NO:</span>
-                                        {isAdminOrHR ? (
-                                            <input
-                                                type="text"
-                                                className="meta-inline-input"
-                                                value={revNo}
-                                                onChange={(e) => setRevNo(e.target.value)}
-                                            />
-                                        ) : (
-                                            <span className="meta-value">{revNo}</span>
-                                        )}
-                                    </div>
-                                    <div className="meta-row">
-                                        <span className="meta-label">REV.DATE :</span>
-                                        {isAdminOrHR ? (
-                                            <input
-                                                type="date"
-                                                className="meta-inline-input-date"
-                                                value={revDate}
-                                                onChange={(e) => setRevDate(e.target.value)}
-                                            />
-                                        ) : (
-                                            <span className="meta-value">{formatDateDisplay(revDate)}</span>
-                                        )}
-                                    </div>
-                                    <div className="meta-row">
-                                        <span className="meta-label">MONTH :</span>
-                                        <span className="meta-value">{monthLabel}</span>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-
-                    {/* Main Score Grid */}
-                    <table className="sheet-grid-table">
-                        <thead>
-                            <tr>
-                                <th rowSpan="2" className="col-cat">Category</th>
-                                <th rowSpan="2" className="col-item">Item</th>
-                                <th colSpan={daysInMonth} className="col-date-header">DATE</th>
-                                <th rowSpan="2" className="col-total">Total Actual Score</th>
-                            </tr>
-                            <tr className="date-numbers-row">
-                                {daysArray.map(day => (
-                                    <th key={day} className="col-day-num">{day}</th>
-                                ))}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {template.categories.map((cat, catIdx) => {
-                                const catScores = getCategoryScores(cat);
-
-                                if (cat.items.length === 0) {
-                                    return (
-                                        <tr key={cat._id || catIdx} className="empty-cat-row">
-                                            <td className="cat-cell">
-                                                <div className="cat-box">
-                                                    {editStructureMode ? (
-                                                        <div className="cat-edit-inline-box">
-                                                            <input
-                                                                type="text"
-                                                                className="sheet-inline-input cat-name-edit"
-                                                                value={cat.name}
-                                                                onChange={(e) => handleCategoryMetaChange(catIdx, "name", e.target.value)}
-                                                                placeholder="Category Name"
-                                                            />
-                                                            <input
-                                                                type="text"
-                                                                className="sheet-inline-input cat-sub-edit"
-                                                                value={cat.subName || ""}
-                                                                onChange={(e) => handleCategoryMetaChange(catIdx, "subName", e.target.value)}
-                                                                placeholder="Subname"
-                                                            />
-                                                            <div className="cat-inline-action-btns">
-                                                                <button
-                                                                    type="button"
-                                                                    className="btn-sheet-add-item"
-                                                                    onClick={() => handleAddItem(catIdx)}
-                                                                    title="Add Question Item"
-                                                                >
-                                                                    ➕ Add Item
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    className="btn-sheet-del-cat"
-                                                                    onClick={() => handleRemoveCategory(catIdx)}
-                                                                    title="Delete Category"
-                                                                >
-                                                                    ✕
-                                                                </button>
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <>
-                                                            <span className="cat-title">{cat.name}</span>
-                                                            {cat.subName && <span className="cat-sub">({cat.subName})</span>}
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="item-cell italic-msg">
-                                                No questions in this category.
-                                                {editStructureMode && " Click \"Add Item\" on the left to add questions."}
-                                            </td>
-                                            <td colSpan={daysInMonth + 1} className="cat-summary-spacer"></td>
-                                        </tr>
-                                    );
-                                }
-
-                                return (
-                                    <React.Fragment key={cat._id || catIdx}>
-                                        {/* Render items in this category */}
-                                        {cat.items.map((item, itemIdx) => {
-                                            const itemScores = scoresMap.get(item._id);
-
-                                            return (
-                                                <tr key={item._id || itemIdx}>
-                                                    {/* Category label (Row spanned across all items of this category) */}
-                                                    {itemIdx === 0 && (
-                                                        <td className="cat-cell" rowSpan={cat.items.length}>
-                                                            <div className="cat-box">
-                                                                {editStructureMode ? (
-                                                                    <div className="cat-edit-inline-box">
-                                                                        <input
-                                                                            type="text"
-                                                                            className="sheet-inline-input cat-name-edit"
-                                                                            value={cat.name}
-                                                                            onChange={(e) => handleCategoryMetaChange(catIdx, "name", e.target.value)}
-                                                                            placeholder="Category Name"
-                                                                        />
-                                                                        <input
-                                                                            type="text"
-                                                                            className="sheet-inline-input cat-sub-edit"
-                                                                            value={cat.subName || ""}
-                                                                            onChange={(e) => handleCategoryMetaChange(catIdx, "subName", e.target.value)}
-                                                                            placeholder="Subname"
-                                                                        />
-                                                                        <div className="cat-inline-action-btns">
-                                                                            <button
-                                                                                type="button"
-                                                                                className="btn-sheet-add-item"
-                                                                                onClick={() => handleAddItem(catIdx)}
-                                                                                title="Add Question Item"
-                                                                            >
-                                                                                ➕ Add Item
-                                                                            </button>
-                                                                            <button
-                                                                                type="button"
-                                                                                className="btn-sheet-del-cat"
-                                                                                onClick={() => handleRemoveCategory(catIdx)}
-                                                                                title="Delete Category"
-                                                                            >
-                                                                                ✕
-                                                                            </button>
-                                                                        </div>
-                                                                    </div>
-                                                                ) : (
-                                                                    <>
-                                                                        <span className="cat-title">{cat.name}</span>
-                                                                        {cat.subName && <span className="cat-sub">({cat.subName})</span>}
-                                                                    </>
-                                                                )}
-                                                            </div>
-                                                        </td>
-                                                    )}
-
-                                                    {/* Item text */}
-                                                    <td className="item-cell">
-                                                        {editStructureMode ? (
-                                                            <div className="item-edit-inline-box">
-                                                                <textarea
-                                                                    className="sheet-inline-textarea"
-                                                                    value={item.text}
-                                                                    onChange={(e) => handleItemTextChange(catIdx, itemIdx, e.target.value)}
-                                                                    placeholder="Enter checklist item question..."
-                                                                />
-                                                                <button
-                                                                    type="button"
-                                                                    className="btn-sheet-del-item"
-                                                                    onClick={() => handleRemoveItem(catIdx, itemIdx)}
-                                                                    title="Delete Item"
-                                                                >
-                                                                    ✕
-                                                                </button>
-                                                            </div>
-                                                        ) : (
-                                                            item.text
-                                                        )}
-                                                    </td>
-
-                                                    {/* Score input columns */}
-                                                    {daysArray.map(day => {
-                                                        const scoreVal = itemScores?.get(String(day)) ?? "";
-
-                                                        return (
-                                                            <td key={day} className={`score-cell score-val-${scoreVal}`}>
-                                                                <input
-                                                                    type="text"
-                                                                    className="score-input"
-                                                                    value={scoreVal}
-                                                                    onChange={(e) => handleScoreChange(item._id, day, e.target.value)}
-                                                                    placeholder=""
-                                                                    maxLength="1"
-                                                                    disabled={editStructureMode}
-                                                                />
-                                                            </td>
-                                                        );
-                                                    })}
-
-                                                    {/* Total score horizontally */}
-                                                    <td className="total-cell">{getItemTotalScore(item._id)}</td>
-                                                </tr>
-                                            );
-                                        })}
-
-                                        {/* Category Score summary row */}
-                                        <tr className="cat-summary-row">
-                                            <td colSpan="2" className="cat-summary-label">
-                                                {cat.name.split(" ")[0]} Score = Total
-                                            </td>
-                                            <td colSpan={daysInMonth} className="cat-summary-spacer">
-                                                {/* empty block spacer */}
-                                            </td>
-                                            <td className="total-cell" style={{ fontWeight: "800", backgroundColor: "#cbd5e1" }}>
-                                                {catScores.actual}
-                                            </td>
-                                        </tr>
-                                    </React.Fragment>
-                                );
-                            })}
-
-                            {editStructureMode && (
-                                <tr className="add-category-row no-print">
-                                    <td colSpan={daysInMonth + 4} className="center">
-                                        <button
-                                            type="button"
-                                            className="btn-audit5s btn-secondary btn-add-cat-sheet"
-                                            onClick={handleAddCategory}
-                                        >
-                                            ➕ Add New Category Row
-                                        </button>
-                                    </td>
-                                </tr>
-                            )}
-
-                            {/* Auditor signature row */}
-                            <tr className="sig-row">
-                                <td colSpan="2" className="sig-label">
-                                    5S Auditor Signature
-                                </td>
-                                {daysArray.map(day => {
-                                    const sigVal = checklist.auditorSignatures?.[String(day)] ?? "";
-
-                                    return (
-                                        <td key={day} className="sig-cell" style={{ padding: 0 }}>
-                                            <div
-                                                className={`sig-click-box ${sigVal ? "signed" : ""}`}
-                                                onClick={() => handleSignClick(day, sigVal)}
-                                                title={sigVal ? `Signed by ${sigVal}. Click to clear.` : "Click to sign"}
-                                                style={{
-                                                    overflow: "hidden",
-                                                    textOverflow: "ellipsis",
-                                                    whiteSpace: "nowrap",
-                                                    fontSize: "9px",
-                                                    padding: "0 2px"
-                                                }}
-                                            >
-                                                {sigVal || "—"}
+                <div className={`audit-sheet ${activeSubTab === "monthly" ? "monthly-view-mode" : "daily-view-mode"}`}>
+                    {activeSubTab === "daily" ? (
+                        <>
+                            {/* Header Table */}
+                            <table className="sheet-header-table">
+                                <tbody>
+                                    <tr>
+                                        <td className="header-logo-cell" rowSpan="2">
+                                            <div className="rabs-logo-box-img">
+                                                <img src={rabsLogo} alt="RABS Logo" className="rabs-logo-img" />
                                             </div>
                                         </td>
-                                    );
-                                })}
-                                <td className="sig-cell-spacer"></td>
-                            </tr>
-                        </tbody>
-                    </table>
+                                        <td className="header-title-cell">
+                                            <h2>RABS INDUSTRIES INDIA PVT.LTD.</h2>
+                                            <h3>5'S' Audit Check Sheet</h3>
+                                        </td>
+                                        <td className="header-meta-cell">
+                                            <div className="meta-row">
+                                                <span className="meta-label">DOC NO :</span>
+                                                {isAdminOrHR ? (
+                                                    <input
+                                                        type="text"
+                                                        className="meta-inline-input"
+                                                        value={docNo}
+                                                        onChange={(e) => setDocNo(e.target.value)}
+                                                    />
+                                                ) : (
+                                                    <span className="meta-value">{docNo}</span>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td className="header-zone-info">
+                                            <div className="info-grid">
+                                                <div>
+                                                    <strong>ZONE NO :</strong> {checklist.zoneNo || "01"}
+                                                </div>
+                                                <div>
+                                                    <strong>ZONE NAME :</strong> {checklist.zoneName || "OFFICE"}
+                                                </div>
+                                                <div>
+                                                    <strong>ZONE RESP:</strong> {isAdminOrHR ? (
+                                                        <>
+                                                            <InlineSearchableSelect
+                                                                value={respPersonId}
+                                                                onChange={setRespPersonId}
+                                                                options={users.map(u => ({
+                                                                    value: u._id,
+                                                                    label: u.first_name ? `${u.first_name} ${u.last_name || ""}` : u.username
+                                                                }))}
+                                                                placeholder="Select Employee"
+                                                            />
+                                                            <span className="meta-value uppercase print-only">{respPersonName}</span>
+                                                        </>
+                                                    ) : (
+                                                        <span className="meta-value uppercase">{respPersonName}</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="header-meta-cell secondary">
+                                            <div className="meta-row">
+                                                <span className="meta-label">RE.NO:</span>
+                                                {isAdminOrHR ? (
+                                                    <input
+                                                        type="text"
+                                                        className="meta-inline-input"
+                                                        value={revNo}
+                                                        onChange={(e) => setRevNo(e.target.value)}
+                                                    />
+                                                ) : (
+                                                    <span className="meta-value">{revNo}</span>
+                                                )}
+                                            </div>
+                                            <div className="meta-row">
+                                                <span className="meta-label">REV.DATE :</span>
+                                                {isAdminOrHR ? (
+                                                    <input
+                                                        type="date"
+                                                        className="meta-inline-input-date"
+                                                        value={revDate}
+                                                        onChange={(e) => setRevDate(e.target.value)}
+                                                    />
+                                                ) : (
+                                                    <span className="meta-value">{formatDateDisplay(revDate)}</span>
+                                                )}
+                                            </div>
+                                            <div className="meta-row">
+                                                <span className="meta-label">MONTH :</span>
+                                                <span className="meta-value">{monthLabel}</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
 
-                    {/* Footer legends & overall calculations */}
-                    <div className="sheet-footer">
-                        <div className="legends-box">
-                            <strong>LEGENDS :</strong>
-                            <span><strong>2</strong> &gt;&gt; Awareness and system implement</span>
-                            <span><strong>1</strong> &gt;&gt; Awareness only and system not implement</span>
-                            <span><strong>0</strong> &gt;&gt; Awareness &amp; Requirement not implement</span>
+                            {/* Main Score Grid */}
+                            <table className="sheet-grid-table">
+                                <thead>
+                                    <tr>
+                                        <th rowSpan="2" className="col-cat">Category</th>
+                                        <th rowSpan="2" className="col-item">Item</th>
+                                        <th colSpan={daysInMonth} className="col-date-header">DATE</th>
+                                        <th rowSpan="2" className="col-total">Total Actual Score</th>
+                                    </tr>
+                                    <tr className="date-numbers-row">
+                                        {daysArray.map(day => (
+                                            <th key={day} className="col-day-num">{day}</th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {template.categories.map((cat, catIdx) => {
+                                        const catScores = getCategoryScores(cat);
+
+                                        if (cat.items.length === 0) {
+                                            return (
+                                                <tr key={cat._id || catIdx} className="empty-cat-row">
+                                                    <td className="cat-cell">
+                                                        <div className="cat-box">
+                                                            {editStructureMode ? (
+                                                                <div className="cat-edit-inline-box">
+                                                                    <input
+                                                                        type="text"
+                                                                        className="sheet-inline-input cat-name-edit"
+                                                                        value={cat.name}
+                                                                        onChange={(e) => handleCategoryMetaChange(catIdx, "name", e.target.value)}
+                                                                        placeholder="Category Name"
+                                                                    />
+                                                                    <input
+                                                                        type="text"
+                                                                        className="sheet-inline-input cat-sub-edit"
+                                                                        value={cat.subName || ""}
+                                                                        onChange={(e) => handleCategoryMetaChange(catIdx, "subName", e.target.value)}
+                                                                        placeholder="Subname"
+                                                                    />
+                                                                    <div className="cat-inline-action-btns">
+                                                                        <button
+                                                                            type="button"
+                                                                            className="btn-sheet-add-item"
+                                                                            onClick={() => handleAddItem(catIdx)}
+                                                                            title="Add Question Item"
+                                                                        >
+                                                                            ➕ Add Item
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="btn-sheet-del-cat"
+                                                                            onClick={() => handleRemoveCategory(catIdx)}
+                                                                            title="Delete Category"
+                                                                        >
+                                                                            ✕
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <>
+                                                                    <span className="cat-title">{cat.name}</span>
+                                                                    {cat.subName && <span className="cat-sub">({cat.subName})</span>}
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="item-cell italic-msg">
+                                                        No questions in this category.
+                                                        {editStructureMode && " Click \"Add Item\" on the left to add questions."}
+                                                    </td>
+                                                    <td colSpan={daysInMonth + 1} className="cat-summary-spacer"></td>
+                                                </tr>
+                                            );
+                                        }
+
+                                        return (
+                                            <React.Fragment key={cat._id || catIdx}>
+                                                {/* Render items in this category */}
+                                                {cat.items.map((item, itemIdx) => {
+                                                    const itemScores = scoresMap.get(item._id);
+
+                                                    return (
+                                                        <tr key={item._id || itemIdx}>
+                                                            {/* Category label (Row spanned across all items of this category) */}
+                                                            {itemIdx === 0 && (
+                                                                <td className="cat-cell" rowSpan={cat.items.length}>
+                                                                    <div className="cat-box">
+                                                                        {editStructureMode ? (
+                                                                            <div className="cat-edit-inline-box">
+                                                                                <input
+                                                                                    type="text"
+                                                                                    className="sheet-inline-input cat-name-edit"
+                                                                                    value={cat.name}
+                                                                                    onChange={(e) => handleCategoryMetaChange(catIdx, "name", e.target.value)}
+                                                                                    placeholder="Category Name"
+                                                                                />
+                                                                                <input
+                                                                                    type="text"
+                                                                                    className="sheet-inline-input cat-sub-edit"
+                                                                                    value={cat.subName || ""}
+                                                                                    onChange={(e) => handleCategoryMetaChange(catIdx, "subName", e.target.value)}
+                                                                                    placeholder="Subname"
+                                                                                />
+                                                                                <div className="cat-inline-action-btns">
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        className="btn-sheet-add-item"
+                                                                                        onClick={() => handleAddItem(catIdx)}
+                                                                                        title="Add Question Item"
+                                                                                    >
+                                                                                        ➕ Add Item
+                                                                                    </button>
+                                                                                    <button
+                                                                                        type="button"
+                                                                                        className="btn-sheet-del-cat"
+                                                                                        onClick={() => handleRemoveCategory(catIdx)}
+                                                                                        title="Delete Category"
+                                                                                    >
+                                                                                        ✕
+                                                                                    </button>
+                                                                                </div>
+                                                                            </div>
+                                                                        ) : (
+                                                                            <>
+                                                                                <span className="cat-title">{cat.name}</span>
+                                                                                {cat.subName && <span className="cat-sub">({cat.subName})</span>}
+                                                                            </>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
+                                                            )}
+
+                                                            {/* Item text */}
+                                                            <td className="item-cell">
+                                                                {editStructureMode ? (
+                                                                    <div className="item-edit-inline-box">
+                                                                        <textarea
+                                                                            className="sheet-inline-textarea"
+                                                                            value={item.text}
+                                                                            onChange={(e) => handleItemTextChange(catIdx, itemIdx, e.target.value)}
+                                                                            placeholder="Enter checklist item question..."
+                                                                        />
+                                                                        <button
+                                                                            type="button"
+                                                                            className="btn-sheet-del-item"
+                                                                            onClick={() => handleRemoveItem(catIdx, itemIdx)}
+                                                                            title="Delete Item"
+                                                                        >
+                                                                            ✕
+                                                                        </button>
+                                                                    </div>
+                                                                ) : (
+                                                                    item.text
+                                                                )}
+                                                            </td>
+
+                                                            {/* Score input columns */}
+                                                            {daysArray.map(day => {
+                                                                const scoreVal = itemScores?.get(String(day)) ?? "";
+
+                                                                return (
+                                                                    <td key={day} className={`score-cell score-val-${scoreVal}`}>
+                                                                        <input
+                                                                            type="text"
+                                                                            className="score-input"
+                                                                            value={scoreVal}
+                                                                            onChange={(e) => handleScoreChange(item._id, day, e.target.value)}
+                                                                            placeholder=""
+                                                                            maxLength="1"
+                                                                            disabled={editStructureMode}
+                                                                        />
+                                                                    </td>
+                                                                );
+                                                            })}
+
+                                                            {/* Total score horizontally */}
+                                                            <td className="total-cell">{getItemTotalScore(item._id)}</td>
+                                                        </tr>
+                                                    );
+                                                })}
+
+                                                {/* Category Score summary row */}
+                                                <tr className="cat-summary-row">
+                                                    <td colSpan="2" className="cat-summary-label">
+                                                        {cat.name.split(" ")[0]} Score = Total
+                                                    </td>
+                                                    <td colSpan={daysInMonth} className="cat-summary-spacer">
+                                                        {/* empty block spacer */}
+                                                    </td>
+                                                    <td className="total-cell" style={{ fontWeight: "800", backgroundColor: "#cbd5e1" }}>
+                                                        {catScores.actual}
+                                                    </td>
+                                                </tr>
+                                            </React.Fragment>
+                                        );
+                                    })}
+
+                                    {editStructureMode && (
+                                        <tr className="add-category-row no-print">
+                                            <td colSpan={daysInMonth + 4} className="center">
+                                                <button
+                                                    type="button"
+                                                    className="btn-audit5s btn-secondary btn-add-cat-sheet"
+                                                    onClick={handleAddCategory}
+                                                >
+                                                    ➕ Add New Category Row
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    )}
+
+                                    {/* Auditor signature row */}
+                                    <tr className="sig-row">
+                                        <td colSpan="2" className="sig-label">
+                                            5S Auditor Signature
+                                        </td>
+                                        {daysArray.map(day => {
+                                            const sigVal = checklist.auditorSignatures?.[String(day)] ?? "";
+
+                                            return (
+                                                <td key={day} className="sig-cell" style={{ padding: 0 }}>
+                                                    <div
+                                                        className={`sig-click-box ${sigVal ? "signed" : ""}`}
+                                                        onClick={() => handleSignClick(day, sigVal)}
+                                                        title={sigVal ? `Signed by ${sigVal}. Click to clear.` : "Click to sign"}
+                                                        style={{
+                                                            overflow: "hidden",
+                                                            textOverflow: "ellipsis",
+                                                            whiteSpace: "nowrap",
+                                                            fontSize: "9px",
+                                                            padding: "0 2px"
+                                                        }}
+                                                    >
+                                                        <span className="sig-screen-only">{formatSigDisplay(sigVal)}</span>
+                                                        <span className="sig-print-only">{sigVal || "—"}</span>
+                                                    </div>
+                                                </td>
+                                            );
+                                        })}
+                                        <td className="sig-cell-spacer"></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            {/* Footer legends */}
+                            <div className="sheet-footer">
+                                <div className="legends-box">
+                                    <strong>LEGENDS :</strong>
+                                    <span><strong>2</strong> &gt;&gt; Awareness and system implement</span>
+                                    <span><strong>1</strong> &gt;&gt; Awareness only and system not implement</span>
+                                    <span><strong>0</strong> &gt;&gt; Awareness &amp; Requirement not implement</span>
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="monthly-score-view">
+                            {/* Header Block */}
+                            <table className="monthly-header-table">
+                                <tbody>
+                                    <tr>
+                                        <td className="header-logo-cell" rowSpan="3">
+                                            <div className="rabs-logo-box-img">
+                                                <img src={rabsLogo} alt="RABS Logo" className="rabs-logo-img" />
+                                            </div>
+                                        </td>
+                                        <td className="header-title-cell" colSpan="2">
+                                            <h2>RABS INDUSTRIES</h2>
+                                            <h3>5S MONTHLY AUDIT SCORE</h3>
+                                        </td>
+                                        <td className="header-meta-cell">
+                                            <div className="meta-row">
+                                                <span className="meta-label">DOC NO:</span>
+                                                <span className="meta-value">{docNo}</span>
+                                            </div>
+                                            <div className="meta-row">
+                                                <span className="meta-label">REV.NO:</span>
+                                                <span className="meta-value">{revNo}</span>
+                                            </div>
+                                            <div className="meta-row">
+                                                <span className="meta-label">REV.DATE:</span>
+                                                <span className="meta-value">{formatDateDisplay(revDate)}</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            {/* Zone Area & Zone No Row */}
+                            <div className="monthly-zone-row">
+                                <div className="zone-area-lbl">
+                                    <strong>ZONE AREA :</strong> {(checklist.zoneName || "OFFICE").toUpperCase()}
+                                </div>
+                                <div className="zone-no-lbl">
+                                    <strong>ZONE NO:</strong> {checklist.zoneNo || "01"}
+                                </div>
+                            </div>
+
+                            {/* Main Grid Table */}
+                            <table className="monthly-grid-table">
+                                <thead>
+                                    <tr className="super-header-row">
+                                        <th colSpan="2" className="resp-col-hdr">RESPONSIBLE</th>
+                                        <th colSpan="6" className="prev-month-hdr">
+                                            AUDIT SCORE - {prevMonthLabel || "PREVIOUS MONTH"}
+                                        </th>
+                                        <th colSpan="6" className="curr-month-hdr">
+                                            AUDIT SCORE - {currentMonthLabel || "CURRENT MONTH"}
+                                        </th>
+                                    </tr>
+                                    <tr className="sub-header-row">
+                                        <th colSpan="2" className="photo-hdr-col">Photos / Leader</th>
+                                        <th colSpan="2" className="desc-hdr-col">5S Description</th>
+                                        <th className="val-hdr-col">Total Score</th>
+                                        <th className="val-hdr-col">Required</th>
+                                        <th className="val-hdr-col">Actual</th>
+                                        <th className="status-hdr-col">Status</th>
+                                        <th colSpan="2" className="desc-hdr-col">5S Description</th>
+                                        <th className="val-hdr-col">Total Score</th>
+                                        <th className="val-hdr-col">Required</th>
+                                        <th className="val-hdr-col">Actual</th>
+                                        <th className="status-hdr-col">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {template.categories.map((cat, idx) => {
+                                        const catName = getCatShortName(cat);
+                                        const prevScores = calculateCategoryScoresForChecklist(prevChecklist, cat, prevMonthDays);
+                                        const currScores = calculateCategoryScoresForChecklist(checklist, cat, daysInMonth);
+
+                                        const prevStatus = prevChecklist && prevScores.max > 0
+                                            ? (prevScores.actual >= prevScores.max * 0.5 ? "OK" : "NG")
+                                            : "";
+                                        const currStatus = currScores.max > 0
+                                            ? (currScores.actual >= currScores.max * 0.5 ? "OK" : "NG")
+                                            : "";
+
+                                        return (
+                                            <tr key={cat._id || idx} className="cat-row-comp">
+                                                {/* Left Panel: Photo Area spanning categories */}
+                                                {idx === 0 && (
+                                                    <td colSpan="2" rowSpan={template.categories.length} className="leader-photo-cell">
+                                                        <div className="leader-avatar-placeholder">
+                                                            <span className="avatar-icon">👤</span>
+                                                            <span className="avatar-lbl">Leader Photo</span>
+                                                        </div>
+                                                    </td>
+                                                )}
+
+                                                {/* Previous Month Category Detail */}
+                                                <td colSpan="2" className="desc-cell-val font-semibold">{catName}</td>
+                                                <td className="center-val">{prevScores.max || "—"}</td>
+                                                <td className="center-val">{prevScores.max ? prevScores.max * 0.5 : "—"}</td>
+                                                <td className={`center-val ${getRangeColorClass(prevScores.max, prevScores.actual)}`}>{prevChecklist ? prevScores.actual : "—"}</td>
+                                                <td className="status-cell-val">
+                                                    {prevStatus && (
+                                                        <span className={`status-badge ${getBadgeClass(prevScores.max, prevScores.actual)}`}>
+                                                            {prevStatus}
+                                                        </span>
+                                                    )}
+                                                </td>
+
+                                                {/* Current Month Category Detail */}
+                                                <td colSpan="2" className="desc-cell-val font-semibold">{catName}</td>
+                                                <td className="center-val">{currScores.max}</td>
+                                                <td className="center-val">{currScores.max * 0.5}</td>
+                                                <td className={`center-val ${getRangeColorClass(currScores.max, currScores.actual)}`}>{currScores.actual}</td>
+                                                <td className="status-cell-val">
+                                                    {currStatus ? (
+                                                        <span className={`status-badge ${getBadgeClass(currScores.max, currScores.actual)}`}>
+                                                            {currStatus}
+                                                        </span>
+                                                    ) : "—"}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+
+                                    {/* Name & Signature Row */}
+                                    <tr className="name-sig-row">
+                                        <td colSpan="2" className="leader-name-label">Name</td>
+                                        <td colSpan="2" className="total-score-lbl">TOTAL SCORE</td>
+                                        {/* Prev Total */}
+                                        <td className="center-val font-bold">{prevMonthGrandTotals.max || "—"}</td>
+                                        <td className="center-val font-bold">{prevMonthGrandTotals.max ? prevMonthGrandTotals.max * 0.5 : "—"}</td>
+                                        <td className={`center-val font-bold ${getRangeColorClass(prevMonthGrandTotals.max, prevMonthGrandTotals.actual)}`}>{prevChecklist ? prevMonthGrandTotals.actual : "—"}</td>
+                                        <td className="status-cell-val">
+                                            {prevChecklist && prevMonthGrandTotals.max > 0 && (
+                                                <span className={`status-badge ${getBadgeClass(prevMonthGrandTotals.max, prevMonthGrandTotals.actual)}`}>
+                                                    {prevMonthGrandTotals.actual >= prevMonthGrandTotals.max * 0.5 ? "OK" : "NG"}
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td colSpan="2" className="total-score-lbl">TOTAL SCORE</td>
+                                        {/* Curr Total */}
+                                        <td className="center-val font-bold">{currentMonthGrandTotals.max}</td>
+                                        <td className="center-val font-bold">{currentMonthGrandTotals.max * 0.5}</td>
+                                        <td className={`center-val font-bold ${getRangeColorClass(currentMonthGrandTotals.max, currentMonthGrandTotals.actual)}`}>{currentMonthGrandTotals.actual}</td>
+                                        <td className="status-cell-val">
+                                            {currentMonthGrandTotals.max > 0 ? (
+                                                <span className={`status-badge ${getBadgeClass(currentMonthGrandTotals.max, currentMonthGrandTotals.actual)}`}>
+                                                    {currentMonthGrandTotals.actual >= currentMonthGrandTotals.max * 0.5 ? "OK" : "NG"}
+                                                </span>
+                                            ) : "—"}
+                                        </td>
+                                    </tr>
+
+                                    {/* Score % Row */}
+                                    <tr className="score-pct-row">
+                                        <td colSpan="2" className="leader-name-value">{respPersonName}</td>
+                                        <td colSpan="2" className="score-pct-lbl">SCORE %</td>
+                                        {/* Prev Month % */}
+                                        <td className="center-val font-bold">100</td>
+                                        <td className="center-val font-bold">50</td>
+                                        <td className={`center-val font-bold ${getRangeColorClass(prevMonthGrandTotals.max, prevMonthGrandTotals.actual)}`}>{prevChecklist ? `${prevMonthGrandTotals.pct}%` : "—"}</td>
+                                        <td className="status-cell-val">
+                                            {prevChecklist && prevMonthGrandTotals.max > 0 && (
+                                                <span className={`status-badge ${getBadgeClass(prevMonthGrandTotals.max, prevMonthGrandTotals.actual)}`}>
+                                                    {prevMonthGrandTotals.pct >= 50 ? "OK" : "NG"}
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td colSpan="2" className="score-pct-lbl">SCORE %</td>
+                                        {/* Curr Month % */}
+                                        <td className="center-val font-bold">100</td>
+                                        <td className="center-val font-bold">50</td>
+                                        <td className={`center-val font-bold ${getRangeColorClass(currentMonthGrandTotals.max, currentMonthGrandTotals.actual)}`}>{`${currentMonthGrandTotals.pct}%`}</td>
+                                        <td className="status-cell-val">
+                                            {currentMonthGrandTotals.max > 0 ? (
+                                                <span className={`status-badge ${getBadgeClass(currentMonthGrandTotals.max, currentMonthGrandTotals.actual)}`}>
+                                                    {currentMonthGrandTotals.pct >= 50 ? "OK" : "NG"}
+                                                </span>
+                                            ) : "—"}
+                                        </td>
+                                    </tr>
+
+                                    {/* Auditee Signature Row */}
+                                    <tr className="auditee-sig-row">
+                                        <td colSpan="2" className="auditee-sig-label">Auditee Signature</td>
+                                        <td colSpan="6" className="prev-date-auditor">
+                                            <div className="meta-footer-info">
+                                                <span><strong>Date:</strong> {prevChecklist ? getLastDayOfMonthStr(prevMonthStr) : "—"}</span>
+                                                <span><strong>Audited by:</strong> {prevChecklist ? getAuditorsList(prevChecklist) : "—"}</span>
+                                            </div>
+                                        </td>
+                                        <td colSpan="6" className="curr-date-auditor">
+                                            <div className="meta-footer-info">
+                                                <span><strong>Date:</strong> {getLastDayOfMonthStr(month)}</span>
+                                                <span><strong>Audited by:</strong> {getAuditorsList(checklist)}</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            {/* Criteria & Note Footer */}
+                            <div className="monthly-footer-info-box">
+                                <div className="criteria-lbl">
+                                    <strong>Score Criteria:</strong> <span className="badge-red">Red Below 50%</span>, <span className="badge-yellow">Yellow 50-80%</span>, <span className="badge-green">Green 81-100%</span>
+                                </div>
+                                <div className="note-lbl">
+                                    <strong>Note:</strong> Data will be updated on the last day of this month. Score represents answers for the overall month.
+                                </div>
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             </div>
 
             {/* Custom Confirm Modal overlay */}
-            {confirmModal.open && (
+            {confirmModal.open && createPortal(
                 <div className="custom-confirm-overlay no-print">
                     <div className="custom-confirm-card">
                         <div className="confirm-header">
@@ -1168,7 +2187,8 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </div>
     );

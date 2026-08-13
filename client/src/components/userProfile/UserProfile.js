@@ -1398,7 +1398,9 @@ const UserProfile = ({ username: propUsername }) => {
                 {(() => {
                     const canViewAttendance = isOwnProfile || loggedInUser?.role === 'Admin' || loggedInUser?.role === 'Head_of_Department' || loggedInUser?.role === 'HOD';
                     const isHrAdmin = loggedInUser?.role === 'Admin' || loggedInUser?.department === 'HR';
-                    const canViewDocuments = isHrAdmin || isOwnProfile;
+                    const isProfileRabs = profileData?.company && /RABS/i.test(profileData.company);
+                    const isLoggedInRabs = loggedInUser?.company && /RABS/i.test(loggedInUser.company);
+                    const canViewDocuments = (isHrAdmin || isOwnProfile) && isProfileRabs && (isLoggedInRabs || loggedInUser?.role === 'Admin');
 
                     const tabs = [
                         { id: 'overview', label: 'Overview' },
@@ -1443,7 +1445,9 @@ const UserProfile = ({ username: propUsername }) => {
                     {(() => {
                         const canViewAttendance = isOwnProfile || loggedInUser?.role === 'Admin' || loggedInUser?.role === 'Head_of_Department' || loggedInUser?.role === 'HOD';
                         const isHrAdmin = loggedInUser?.role === 'Admin' || loggedInUser?.department === 'HR';
-                        const canViewDocuments = isHrAdmin || isOwnProfile;
+                        const isProfileRabs = profileData?.company && /RABS/i.test(profileData.company);
+                        const isLoggedInRabs = loggedInUser?.company && /RABS/i.test(loggedInUser.company);
+                        const canViewDocuments = (isHrAdmin || isOwnProfile) && isProfileRabs && (isLoggedInRabs || loggedInUser?.role === 'Admin');
                         
                         const currentTabVal = typeof activeTab === 'string' ? activeTab : 'overview';
 

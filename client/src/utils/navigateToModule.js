@@ -98,6 +98,8 @@ export const navigateToModule = (module, navigate) => {
       return navigate("/pricing-requests");
     case "5S Audit":
       return navigate("/audit-5s");
+    case "First Aid":
+      return navigate("/first-aid");
     default:
       return navigate("/home");
   }

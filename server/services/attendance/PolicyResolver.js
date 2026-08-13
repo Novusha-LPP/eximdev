@@ -122,13 +122,35 @@ class PolicyResolver {
       autoShiftEnabled = false;
     }
 
-    if (isRabs) {
-      console.log(`[AutoShiftDetection] Executing shift resolution for RABS user: ${user.username}. Auto Shift Detection flag: ${autoShiftEnabled}`);
-    } else {
-      console.log(`[AutoShiftDetection] Skipping shift resolution for user: ${user.username} (Non-RABS or explicitly overridden shift). Using standard assigned shift logic.`);
+    let resolveDynamically = isRabs;
+
+    if (!resolveDynamically) {
+      const hasReferenceTime = !!referenceTime;
+      let hasPunches = false;
+      if (date) {
+        const AttendancePunch = mongoose.model('AttendancePunch');
+        const dateStr = typeof date === 'string' ? date : moment(date).format('YYYY-MM-DD');
+        const firstInPunch = await AttendancePunch.findOne({
+          employee_id: user._id,
+          punch_type: 'IN',
+          punch_date_str: dateStr
+        }).sort({ punch_time: 1 }).lean();
+        if (firstInPunch) {
+          hasPunches = true;
+        }
+      }
+      if (hasReferenceTime || hasPunches) {
+        resolveDynamically = true;
+      }
     }
 
-    if (isRabs) {
+    if (resolveDynamically) {
+      console.log(`[AutoShiftDetection] Executing shift resolution for user: ${user.username}. Auto Shift Detection flag: ${autoShiftEnabled}`);
+    } else {
+      console.log(`[AutoShiftDetection] Skipping shift resolution for user: ${user.username} (Non-RABS and no current/past punches). Using standard assigned shift logic.`);
+    }
+
+    if (resolveDynamically) {
       const activeShifts = await Shift.find({ company_id: companyId, status: 'active' }).lean();
       if (activeShifts.length > 0) {
         let comparisonTime = referenceTime;

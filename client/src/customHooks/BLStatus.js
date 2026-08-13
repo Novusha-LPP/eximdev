@@ -40,6 +40,7 @@ const BLStatus = ({
   isOpen,
   onClose,
   mawbNumber,
+  hawbNumber,
   jobId,
   onUpdateSuccess,
   customHouse,
@@ -76,7 +77,7 @@ const BLStatus = ({
       fetchCargoDetails();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, mawbNumber]);
+  }, [isOpen, mawbNumber, hawbNumber]);
 
   // Show snackbar message
   const showSnackbar = (message, severity = "success") => {
@@ -101,7 +102,7 @@ const BLStatus = ({
     try {
       const res = await axios.post(
         `${process.env.REACT_APP_API_STRING}/bl-tracking`,
-        { mawbNumber },
+        { mawbNumber, hawbNumber },
         { timeout: 35000, headers: { "Content-Type": "application/json" } }
       );
       if (res.data?.success) {
@@ -742,6 +743,15 @@ const BLStatus = ({
                     variant="outlined"
                     sx={{ fontWeight: 600 }}
                   />
+                  {hawbNumber && (
+                    <Chip
+                      icon={<DescriptionIcon fontSize="small" />}
+                      label={`HAWB: ${renderValue(hawbNumber)}`}
+                      size="small"
+                      variant="outlined"
+                      sx={{ fontWeight: 600 }}
+                    />
+                  )}
                   {cargoDetails?.status_data?.[0] && (
                     <>
                       <Chip

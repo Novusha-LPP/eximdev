@@ -398,6 +398,8 @@ const ImportCreateJob = () => {
     clearDraft,
   } = useImportJobForm();
 
+  const isLCL = consignment_type?.toString()?.trim()?.toUpperCase() === "LCL";
+
   const handleHssChange = (val) => {
     setHSS(val);
     if (val === "Yes") {
@@ -2243,7 +2245,7 @@ const ImportCreateJob = () => {
                         <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: '#ffffff', minWidth: `${invoiceTableWidth}px` }}>
                           <thead>
                             <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                              {["Sr", "Inv No", "Inv Date", isPoMandatory ? "PO Details *" : "PO Details", "TOI", "Invoice Value", "Currency", "Ex. Rate", "Freight", "Insurance", "Others", "CIF", "Action"].map((h) => (
+                              {["Sr", "Inv No", "Inv Date", isPoMandatory ? "PO Details *" : "PO Details", "TOI", "Invoice Value", "Currency", "Ex. Rate", "Freight", "Insurance", "Others", "CIF Value", "Action"].map((h) => (
                                 <th
                                   key={h}
                                   style={{
@@ -2431,7 +2433,7 @@ const ImportCreateJob = () => {
                                           value={row.freight || ""}
                                           onChange={(e) => updateInvoiceRow(rowIndex, "freight", e.target.value)}
                                           sx={compactInput}
-                                          disabled={false}
+                                          disabled={row.toi !== "FOB"}
                                         />
                                         <Autocomplete
                                           freeSolo
@@ -2440,7 +2442,7 @@ const ImportCreateJob = () => {
                                           value={row.freight_currency || ""}
                                           onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "freight_currency", newValue)}
                                           onChange={(event, newValue) => updateInvoiceRow(rowIndex, "freight_currency", newValue || "")}
-                                          disabled={false}
+                                          disabled={row.toi !== "FOB"}
                                           renderInput={(params) => (
                                             <TextField
                                               {...params}
@@ -2459,7 +2461,7 @@ const ImportCreateJob = () => {
                                           placeholder="Fr. Ex Rate"
                                           value={row.freight_exchange_rate || ""}
                                           onChange={(e) => updateInvoiceRow(rowIndex, "freight_exchange_rate", e.target.value)}
-                                          disabled={false}
+                                          disabled={row.toi !== "FOB"}
                                           sx={compactInput}
                                         />
                                       )}
@@ -2475,7 +2477,7 @@ const ImportCreateJob = () => {
                                           value={row.insurance || ""}
                                           onChange={(e) => updateInvoiceRow(rowIndex, "insurance", e.target.value)}
                                           sx={compactInput}
-                                          disabled={false}
+                                          disabled={row.toi !== "FOB"}
                                         />
                                         <Autocomplete
                                           freeSolo
@@ -2484,7 +2486,7 @@ const ImportCreateJob = () => {
                                           value={row.insurance_currency || ""}
                                           onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "insurance_currency", newValue)}
                                           onChange={(event, newValue) => updateInvoiceRow(rowIndex, "insurance_currency", newValue || "")}
-                                          disabled={false}
+                                          disabled={row.toi !== "FOB"}
                                           renderInput={(params) => (
                                             <TextField
                                               {...params}
@@ -2503,7 +2505,7 @@ const ImportCreateJob = () => {
                                           placeholder="Ins. Ex Rate"
                                           value={row.insurance_exchange_rate || ""}
                                           onChange={(e) => updateInvoiceRow(rowIndex, "insurance_exchange_rate", e.target.value)}
-                                          disabled={false}
+                                          disabled={row.toi !== "FOB"}
                                           sx={compactInput}
                                         />
                                       )}
@@ -2554,7 +2556,7 @@ const ImportCreateJob = () => {
                                     <TextField
                                       size="small"
                                       fullWidth
-                                      placeholder="CIF"
+                                      placeholder="CIF Value"
                                       value={(() => {
                                         const pv = parseFloat(row.product_value) || 0;
                                         const pvEx = parseFloat(row.exchange_rate) || parseFloat(exrate) || 1;
@@ -2969,9 +2971,9 @@ const ImportCreateJob = () => {
 
             {/* Section 7: Container Details */}
             <Grid item xs={12}>
-              <Paper elevation={0} sx={{ p: 2, mb: 2, borderRadius: '12px', border: '1px solid #eaedf2' }}>
-                <Typography variant="caption" fontWeight={700} color="primary.main" sx={{ mb: 1, display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  {getContainerOrPackageLabel(mode)} Details
+              <Paper elevation={0} sx={{ p: 2, mb: 2, borderRadius: '12px', border: '1px solid #eaedf2', opacity: isLCL ? 0.65 : 1 }}>
+                <Typography variant="caption" fontWeight={700} color={isLCL ? "text.secondary" : "primary.main"} sx={{ mb: 1, display: 'block', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  {getContainerOrPackageLabel(mode)} Details {isLCL ? "(Disabled for LCL)" : ""}
                 </Typography>
 
                 <Grid container spacing={2}>
@@ -2982,6 +2984,7 @@ const ImportCreateJob = () => {
                           fullWidth
                           size="small"
                           variant="outlined"
+                          disabled={isLCL}
                           label={`${getContainerOrPackageLabel(mode)} No`}
                           value={container.container_number}
                           onChange={(e) => handleContainerChange(index, "container_number", e.target.value)}
@@ -2992,6 +2995,7 @@ const ImportCreateJob = () => {
                         <Grid item xs={12} md={2}>
                           <Autocomplete
                              freeSolo
+                             disabled={isLCL}
                              options={CONTAINER_TYPE_OPTIONS}
                              value={container.size || ""}
                              onInputChange={(event, newValue) => handleContainerChange(index, "size", newValue || "")}
@@ -3015,6 +3019,7 @@ const ImportCreateJob = () => {
                             fullWidth
                             size="small"
                             variant="outlined"
+                            disabled={isLCL}
                             label="Seal No"
                             value={container.seal_no}
                             onChange={(e) => handleContainerChange(index, "seal_no", e.target.value)}
@@ -3027,6 +3032,7 @@ const ImportCreateJob = () => {
                           fullWidth
                           size="small"
                           variant="outlined"
+                          disabled={isLCL}
                           label="Gross Wt"
                           value={container.container_gross_weight}
                           onChange={(e) => handleContainerChange(index, "container_gross_weight", e.target.value)}
@@ -3038,6 +3044,7 @@ const ImportCreateJob = () => {
                           fullWidth
                           size="small"
                           variant="outlined"
+                          disabled={isLCL}
                           label="Net Wt"
                           value={container.net_weight_as_per_PL_document}
                           onChange={(e) => handleContainerChange(index, "net_weight_as_per_PL_document", e.target.value)}
@@ -3047,6 +3054,7 @@ const ImportCreateJob = () => {
                       <Grid item xs={12} md={shouldHideField('size', mode) && shouldHideField('seal_no', mode) ? 6 : 2} sx={{ display: 'flex', alignItems: 'center' }}>
                         <IconButton
                           color="error"
+                          disabled={isLCL}
                           onClick={() => handleRemoveContainer(index)}
                           title={`Remove ${getContainerOrPackageLabel(mode)}`}
                         >
@@ -3061,8 +3069,9 @@ const ImportCreateJob = () => {
                   variant="outlined"
                   color="primary"
                   size="small"
+                  disabled={isLCL}
                   startIcon={<AddIcon />}
-                  onClick={handleAddContainer}
+                  onClick={isLCL ? undefined : handleAddContainer}
                   sx={{ mt: 1, borderRadius: '8px', textTransform: 'none', fontWeight: 600 }}
                 >
                   Add {getContainerOrPackageLabel(mode)}

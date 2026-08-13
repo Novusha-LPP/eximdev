@@ -154,6 +154,7 @@ const FIELDS = [
 const TABLE_COLUMNS = [
   { key: "sr_no",            label: "SR NO",               width: 70 },
   { key: "job_no",           label: "JOB NO",              width: 120 },
+  { key: "createdAt",        label: "DATE",                width: 130 },
   { key: "party_name",       label: "FIRM NAME",           width: 250 },
   { key: "iec_no",           label: "IEC NAME",            width: 130 },
   { key: "licence_no",       label: "AUTHORIZATION NUMBER",width: 180 },
@@ -733,6 +734,20 @@ function AuthorizationRegistrationList({ onCountChange }) {
                       }
                       if (col.key === "party_name") {
                         return <td key={col.key} style={{ whiteSpace: "normal", wordBreak: "break-word", maxWidth: 180 }}>{rawVal}</td>;
+                      }
+                      if (col.key === "createdAt") {
+                        let dateVal = null;
+                        if (rawVal) {
+                          dateVal = new Date(rawVal);
+                        } else if (row._id) {
+                          // Fallback: extract timestamp from MongoDB ObjectId
+                          const timestamp = parseInt(row._id.toString().substring(0, 8), 16) * 1000;
+                          dateVal = new Date(timestamp);
+                        }
+                        
+                        if (!dateVal || isNaN(dateVal)) return <td key={col.key}>—</td>;
+                        const formatted = `${String(dateVal.getDate()).padStart(2, '0')}-${String(dateVal.getMonth() + 1).padStart(2, '0')}-${dateVal.getFullYear()}`;
+                        return <td key={col.key}>{formatted}</td>;
                       }
                       if (DATE_FIELDS.has(col.key)) {
                         return <td key={col.key}>{formatDateToDdMmYyyy(rawVal)}</td>;

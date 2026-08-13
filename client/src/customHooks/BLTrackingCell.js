@@ -33,6 +33,7 @@ const BLTrackingCell = ({
   const [selectedBL, setSelectedBL] = useState("");
   const [selectedLocation, setSelectedLocation] = useState("");
   const [isExtended, setIsExtended] = useState(false);
+  const [selectedHawb, setSelectedHawb] = useState("");
 
   const { branches } = useContext(BranchContext);
   const activeBranchConfig = branches?.find(b => b.branch_code === branch_code)?.configuration || null;
@@ -82,9 +83,10 @@ const BLTrackingCell = ({
   });
 
   // Handle opening BL Status dialog
-  const handleOpenAirCargoDialog = (event, mawbNumber) => {
+  const handleOpenAirCargoDialog = (event, mawbNumber, hawbNumber = "") => {
     event.preventDefault();
     setSelectedMawb(mawbNumber);
+    setSelectedHawb(hawbNumber);
     
     // Logic for AMD branch AIR mode
     if (branch_code?.startsWith('AMD') && mode === 'AIR') {
@@ -128,14 +130,22 @@ const BLTrackingCell = ({
   };
 
   // Unified tracking handler
-  const handleOpenTracking = (event, num) => {
+  const handleOpenTracking = (event, num, isHbl = false) => {
     if ((branch_code?.startsWith('AMD') || branch_code?.startsWith('BRD')) && mode === 'SEA') {
       // AMD and BRD SEA branch uses BL tracking
-      handleOpenAirCargoDialog(event, num);
+      if (isHbl) {
+        handleOpenAirCargoDialog(event, blNumber || num, blNumber ? num : "");
+      } else {
+        handleOpenAirCargoDialog(event, num);
+      }
     } else if (mode === 'SEA' || branch_code?.startsWith('GIM')) {
       handleOpenSeaCargoDialog(event, num);
     } else {
-      handleOpenAirCargoDialog(event, num);
+      if (isHbl) {
+        handleOpenAirCargoDialog(event, blNumber || num, blNumber ? num : "");
+      } else {
+        handleOpenAirCargoDialog(event, num);
+      }
     }
   };
 
@@ -164,7 +174,7 @@ const BLTrackingCell = ({
         {/* Number as clickable link - opens tracking dialog */}
         <a
           href="#"
-          onClick={(e) => handleOpenTracking(e, num)}
+          onClick={(e) => handleOpenTracking(e, num, label === "HBL Number")}
           style={{
             cursor: "pointer",
             color: "#1976d2",
@@ -249,8 +259,12 @@ const BLTrackingCell = ({
         jobId={jobId}
         customHouse={customHouse}
         container_nos={container_nos}
-        onClose={() => setIsAirCargoDialogOpen(false)}
+        onClose={() => {
+          setIsAirCargoDialogOpen(false);
+          setSelectedHawb("");
+        }}
         mawbNumber={selectedMawb}
+        hawbNumber={selectedHawb}
       />
 
       {/* Air Cargo Status Dialog (Extended) */}

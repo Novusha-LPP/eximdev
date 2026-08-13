@@ -1445,52 +1445,94 @@ function JobDetails() {
       let productFreight = 0;
       let productInsurance = 0;
 
-      const descriptionLength = formik.values.description_details?.length || 0;
-      if (allInvoices.length === 1 && descriptionLength === 1) {
-        // Old Logic: Flat 20% Freight, 1.125% Insurance
-        productFreight = amtNum * 0.20;
-        productInsurance = amtNum * 0.01125;
-      } else {
-        // New Logic: Proportional calculation for multiple invoices
-        const totalFobFreight = allFobInvoices.reduce((sum, inv) => sum + (parseFloat(inv.freight) || 0), 0);
-        const totalFobValue = allFobInvoices.reduce((sum, inv) => sum + (parseFloat(inv.product_value) || 0), 0);
+      // Proportional calculation for FOB
+      const totalFobFreight = allFobInvoices.reduce((sum, inv) => {
+        const frAmount = parseFloat(inv.freight) || 0;
+        const invCurr = inv.inv_currency || "";
+        const frCurr = inv.freight_currency || invCurr;
+        const rowExRate = parseFloat(inv.exchange_rate) || parseFloat(formik.values.exrate) || 1;
         
-        const fRate = totalFobValue > 0 ? (totalFobFreight / totalFobValue) : 0;
-        productFreight = amtNum * fRate;
+        let frInvCurr = frAmount;
+        if (frCurr === "INR" && invCurr !== "INR") {
+           frInvCurr = (frAmount / rowExRate) * getUnitForCurrency(invCurr);
+        }
+        return sum + frInvCurr;
+      }, 0);
+      
+      const totalFobValue = allFobInvoices.reduce((sum, inv) => sum + (parseFloat(inv.product_value) || 0), 0);
+      
+      const fRate = totalFobValue > 0 ? (totalFobFreight / totalFobValue) : 0;
+      productFreight = amtNum * fRate;
+      
+      // Calculate Total Insurance across all FOB invoices in Invoice Currency
+      const totalFobInsurance = allFobInvoices.reduce((sum, inv) => {
+        const insAmount = parseFloat(inv.insurance) || 0;
+        const insCurr = inv.insurance_currency || "INR";
+        const invCurr = inv.inv_currency || "";
+        const rowExRate = parseFloat(inv.exchange_rate) || parseFloat(formik.values.exrate) || 1;
         
-        // Calculate Total Insurance across all FOB invoices in Invoice Currency
-        const totalFobInsurance = allFobInvoices.reduce((sum, inv) => {
-          const insAmount = parseFloat(inv.insurance) || 0;
-          const insCurr = inv.insurance_currency || "INR";
-          const invCurr = inv.inv_currency || "";
-          const rowExRate = parseFloat(inv.exchange_rate) || parseFloat(formik.values.exrate) || 1;
-          
-          let insInvCurr = insAmount;
-          if (insCurr === "INR" && invCurr !== "INR") {
-             insInvCurr = (insAmount / rowExRate) * getUnitForCurrency(invCurr);
-          }
-          return sum + insInvCurr;
-        }, 0);
-        
-        const iRateFromTotal = totalFobValue > 0 ? (totalFobInsurance / totalFobValue) : 0;
-        productInsurance = amtNum * iRateFromTotal;
-      }
+        let insInvCurr = insAmount;
+        if (insCurr === "INR" && invCurr !== "INR") {
+           insInvCurr = (insAmount / rowExRate) * getUnitForCurrency(invCurr);
+        }
+        return sum + insInvCurr;
+      }, 0);
+      
+      const iRateFromTotal = totalFobValue > 0 ? (totalFobInsurance / totalFobValue) : 0;
+      productInsurance = amtNum * iRateFromTotal;
 
       const totalCifUSD = amtNum + productFreight + productInsurance;
       return (totalCifUSD * exrate).toFixed(2);
     } else if (activeInvoice.toi === "CF" || activeInvoice.toi === "C&F") {
-      // C&F: Freight is included in the base value. Add flat 1.125% Insurance.
-      const productInsurance = amtNum * 0.01125;
+      const allInvoices = formik.values.invoice_details || [];
+      const allCfInvoices = allInvoices.filter(inv => inv.toi === "CF" || inv.toi === "C&F");
+
+      const totalCfValue = allCfInvoices.reduce((sum, inv) => sum + (parseFloat(inv.product_value) || 0), 0);
+      
+      const totalCfInsurance = allCfInvoices.reduce((sum, inv) => {
+        const insAmount = parseFloat(inv.insurance) || 0;
+        const insCurr = inv.insurance_currency || "INR";
+        const invCurr = inv.inv_currency || "";
+        const rowExRate = parseFloat(inv.exchange_rate) || parseFloat(formik.values.exrate) || 1;
+        
+        let insInvCurr = insAmount;
+        if (insCurr === "INR" && invCurr !== "INR") {
+           insInvCurr = (insAmount / rowExRate) * getUnitForCurrency(invCurr);
+        }
+        return sum + insInvCurr;
+      }, 0);
+      
+      const iRateFromTotal = totalCfValue > 0 ? (totalCfInsurance / totalCfValue) : 0;
+      const productInsurance = amtNum * iRateFromTotal;
+
       const totalCifUSD = amtNum + productInsurance;
       return (totalCifUSD * exrate).toFixed(2);
     } else if (activeInvoice.toi === "CI" || activeInvoice.toi === "C&I") {
-      // C&I: Insurance is included in the base value. Add flat 20% Freight.
-      const productFreight = amtNum * 0.20;
+      const allInvoices = formik.values.invoice_details || [];
+      const allCiInvoices = allInvoices.filter(inv => inv.toi === "CI" || inv.toi === "C&I");
+
+      const totalCiValue = allCiInvoices.reduce((sum, inv) => sum + (parseFloat(inv.product_value) || 0), 0);
+      const totalCiFreight = allCiInvoices.reduce((sum, inv) => {
+        const frAmount = parseFloat(inv.freight) || 0;
+        const invCurr = inv.inv_currency || "";
+        const frCurr = inv.freight_currency || invCurr;
+        const rowExRate = parseFloat(inv.exchange_rate) || parseFloat(formik.values.exrate) || 1;
+        
+        let frInvCurr = frAmount;
+        if (frCurr === "INR" && invCurr !== "INR") {
+           frInvCurr = (frAmount / rowExRate) * getUnitForCurrency(invCurr);
+        }
+        return sum + frInvCurr;
+      }, 0);
+      
+      const fRate = totalCiValue > 0 ? (totalCiFreight / totalCiValue) : 0;
+      const productFreight = amtNum * fRate;
+
       const totalCifUSD = amtNum + productFreight;
       return (totalCifUSD * exrate).toFixed(2);
     }
     
-    // CIF or other: Freight and Insurance are already included in the base value.
+    // CIF or other
     return (amtNum * exrate).toFixed(2);
   };
 
@@ -1774,73 +1816,53 @@ function JobDetails() {
     const iRateVal = formik.values.other_charges_details?.insurance?.rate;
     const iRate = (iRateVal === undefined || iRateVal === null || iRateVal === "" || isNaN(parseFloat(iRateVal))) ? 1.125 : parseFloat(iRateVal);
 
-    const descriptionLength = formik.values.description_details?.length || 0;
-    if (updatedRows.length === 1 && descriptionLength === 1) {
+    const otherVal = parseFloat(field === "other_charges" ? value : (updatedRows[rowIndex].other_charges || 0)) || 0;
+
+    // Convert other_charges to invoice currency for correct base value summing
+    const invEx = parseFloat(field === "exchange_rate" ? value : (updatedRows[rowIndex].exchange_rate || formik.values.exrate || 1)) || 1;
+    const othEx = parseFloat(field === "other_charges_exchange_rate" ? value : (updatedRows[rowIndex].other_charges_exchange_rate || 1)) || 1;
+    const otherInInv = (otherVal * othEx) / invEx;
+    const baseVal = pv + otherInInv;
+
+    const calculateInsuranceValue = () => {
+      if (baseVal <= 0) return "";
+      const baseInsurance = baseVal * (iRate / 100);
+      const invCurr = field === "inv_currency" ? value : (updatedRows[rowIndex].inv_currency || "");
+      const insCurr = field === "insurance_currency" ? value : (updatedRows[rowIndex].insurance_currency || "INR");
+      const exRate = parseFloat(field === "exchange_rate" ? value : (updatedRows[rowIndex].exchange_rate || formik.values.exrate || 1)) || 1;
+
+      if (insCurr === "INR" && invCurr !== "INR") {
+        return (baseInsurance * exRate).toFixed(2);
+      }
+      return baseInsurance.toFixed(2);
+    };
+
+    const triggerFields = ["product_value", "toi", "exchange_rate", "insurance_currency", "inv_currency", "other_charges", "misc", "other_charges_exchange_rate", "misc_exchange_rate", "other_charges_currency", "misc_currency"];
+
+    if (triggerFields.includes(field)) {
       if (toiValue === "FOB") {
-        if (field === "product_value" || field === "toi") {
-          if (!isFreightManual && (!updatedRows[rowIndex].freight || field === "toi")) {
-            updatedRows[rowIndex].freight = pv > 0 ? (pv * 0.20).toFixed(2) : "";
-          }
-          if (!isInsuranceManual && (!updatedRows[rowIndex].insurance || field === "toi")) {
-            updatedRows[rowIndex].insurance = pv > 0 ? (pv * 0.01125).toFixed(2) : "";
-          }
+        if (!isFreightManual && (!updatedRows[rowIndex].freight || field === "toi")) {
+          updatedRows[rowIndex].freight = baseVal > 0 ? (baseVal * (fRate / 100)).toFixed(2) : "";
         }
-      } else if (toiValue === "CF") {
-        // C&F: auto-calculate insurance as 1.125% of invoice value
-        if (field === "product_value" || field === "toi") {
+        if (!isInsuranceManual && (!updatedRows[rowIndex].insurance || field === "toi")) {
+          updatedRows[rowIndex].insurance = calculateInsuranceValue();
+        }
+      } else if (toiValue === "CF" || toiValue === "C&F") {
+        if (field === "toi") {
           updatedRows[rowIndex].freight = "";
-          if (!isInsuranceManual && (!updatedRows[rowIndex].insurance || field === "toi")) {
-            updatedRows[rowIndex].insurance = pv > 0 ? (pv * 0.01125).toFixed(2) : "";
-          }
         }
-      } else if (toiValue === "CI") {
-        // C&I: auto-calculate freight as 20% of invoice value
-        if (field === "product_value" || field === "toi") {
-          if (!isFreightManual && (!updatedRows[rowIndex].freight || field === "toi")) {
-            updatedRows[rowIndex].freight = pv > 0 ? (pv * 0.20).toFixed(2) : "";
-          }
+        if (!isInsuranceManual && (!updatedRows[rowIndex].insurance || field === "toi")) {
+          updatedRows[rowIndex].insurance = calculateInsuranceValue();
+        }
+      } else if (toiValue === "CI" || toiValue === "C&I") {
+        if (field === "toi") {
           updatedRows[rowIndex].insurance = "";
+        }
+        if (!isFreightManual && (!updatedRows[rowIndex].freight || field === "toi")) {
+          updatedRows[rowIndex].freight = baseVal > 0 ? (baseVal * (fRate / 100)).toFixed(2) : "";
         }
       } else if (field === "toi") {
         // CIF or other
-        updatedRows[rowIndex].freight = "";
-        updatedRows[rowIndex].insurance = "";
-      }
-    } else {
-      const otherVal = parseFloat(field === "other_charges" ? value : (updatedRows[rowIndex].other_charges || 0)) || 0;
-
-      // Convert other_charges to invoice currency for correct base value summing
-      const invEx = parseFloat(field === "exchange_rate" ? value : (updatedRows[rowIndex].exchange_rate || formik.values.exrate || 1)) || 1;
-      const othEx = parseFloat(field === "other_charges_exchange_rate" ? value : (updatedRows[rowIndex].other_charges_exchange_rate || 1)) || 1;
-      const otherInInv = (otherVal * othEx) / invEx;
-      const baseVal = pv + otherInInv;
-
-      const calculateInsuranceValue = () => {
-        if (baseVal <= 0) return "";
-        const baseInsurance = baseVal * (iRate / 100);
-        const invCurr = field === "inv_currency" ? value : (updatedRows[rowIndex].inv_currency || "");
-        const insCurr = field === "insurance_currency" ? value : (updatedRows[rowIndex].insurance_currency || "INR");
-        const exRate = parseFloat(field === "exchange_rate" ? value : (updatedRows[rowIndex].exchange_rate || formik.values.exrate || 1)) || 1;
-
-        if (insCurr === "INR" && invCurr !== "INR") {
-          return (baseInsurance * exRate).toFixed(2);
-        }
-        return baseInsurance.toFixed(2);
-      };
-
-      const triggerFields = ["product_value", "toi", "exchange_rate", "insurance_currency", "inv_currency", "other_charges", "misc", "other_charges_exchange_rate", "misc_exchange_rate", "other_charges_currency", "misc_currency"];
-
-      if (toiValue === "FOB") {
-        if (triggerFields.includes(field)) {
-          if (!isFreightManual && (!updatedRows[rowIndex].freight || field === "toi")) {
-            updatedRows[rowIndex].freight = baseVal > 0 ? (baseVal * (fRate / 100)).toFixed(2) : "";
-          }
-          if (!isInsuranceManual && (!updatedRows[rowIndex].insurance || field === "toi")) {
-            updatedRows[rowIndex].insurance = calculateInsuranceValue();
-          }
-        }
-      } else if (field === "toi") {
-        // CF, CI, CIF or other
         updatedRows[rowIndex].freight = "";
         updatedRows[rowIndex].insurance = "";
       }
@@ -4124,9 +4146,7 @@ function JobDetails() {
                                 { label: "Insurance", width: "170px", align: "left" },
                                 { label: "Other Chrgs", width: "170px", align: "left" },
                                 { label: "CIF", width: "130px", align: "left" },
-                                ...((invoiceRows.length > 0 && invoiceRows.every(r => r.toi === "CIF")) ? [] : [
-                                  { label: "Calculated CIF", width: "130px", align: "left" }
-                                ]),
+
                                 { label: "Action", width: "50px", align: "center" }
                               ].map((col) => (
                                 <th
@@ -4494,33 +4514,7 @@ function JobDetails() {
                                     sx={compactInputSx}
                                   />
                                 </td>
-                                {!(invoiceRows.length > 0 && invoiceRows.every(r => r.toi === "CIF")) && (
-                                  <td style={{ padding: "8px 6px", width: "130px", verticalAlign: "middle" }}>
-                                    <TextField
-                                      size="small"
-                                      fullWidth
-                                      value={(() => {
-                                        if (row.toi === "CIF") return "-";
-                                        const invoiceSr = String(rowIndex + 1);
-                                        let newCifInr = 0;
-                                        descriptionRows.forEach((dRow, idx) => {
-                                          if (dRow.sr_no_invoice === invoiceSr || (!dRow.sr_no_invoice && rowIndex === 0)) {
-                                            let tVal = parseFloat(dRow.taxable_value_inr);
-                                            if (isNaN(tVal) || tVal === 0) {
-                                              tVal = parseFloat(calculateProductTaxableValue(dRow.amount, rowIndex)) || 0;
-                                            }
-                                            newCifInr += tVal;
-                                          }
-                                        });
-                                        return newCifInr.toFixed(2);
-                                      })()}
-                                      InputProps={{ readOnly: true }}
-                                      disabled={isDescriptionTableReadOnly}
-                                      placeholder="New CIF"
-                                      sx={compactInputSx}
-                                    />
-                                  </td>
-                                )}
+
                                 <td style={{ padding: "8px 6px", textAlign: "center", width: "50px", verticalAlign: "middle" }}>
                                   {!isDescriptionTableReadOnly && (
                                     <IconButton
@@ -5178,7 +5172,7 @@ function JobDetails() {
                             { label: "Currency", width: "90px", align: "left" },
                             { label: "Amount", width: "115px", align: "left" },
                             ...((invoiceRows.length > 0 && invoiceRows.every(r => r.toi === "CIF")) ? [] : [
-                              { label: "CIF Value", width: "130px", align: "right" }
+                              { label: "CIF Value (INR)", width: "130px", align: "right" }
                             ]),
                             { label: "Clearance Under", width: "140px", align: "left" },
                             ...((formik.values.clearanceValue !== "Full Duty" && formik.values.clearanceValue !== "RODTEP") ? [
@@ -5513,7 +5507,7 @@ function JobDetails() {
                                   if (isNaN(taxVal) || taxVal === 0) {
                                     taxVal = parseFloat(calculateProductTaxableValue(row.amount, Number(row.sr_no_invoice) - 1)) || 0;
                                   }
-                                  const cifVal = exrate > 0 ? (taxVal / exrate).toFixed(2) : "";
+                                  const cifVal = taxVal > 0 ? taxVal.toFixed(2) : "";
                                   return (
                                     <TextField
                                       size="small"

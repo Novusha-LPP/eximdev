@@ -1,14 +1,30 @@
 import React from "react";
-import { Typography, Paper, Grid, TextField, Box, Button, InputAdornment, Alert } from "@mui/material";
+import { Typography, Paper, Grid, TextField, Box, Button, InputAdornment, Alert, MenuItem, Chip } from "@mui/material";
 import { Autorenew } from "@mui/icons-material";
 import axios from "axios";
 
 function Stage2PRGeneration({ formData, handleChange, formatDateValue }) {
+  // Check mandatory fields required before PR generation readiness can be set to Yes
+  const missingFields = [];
+  if (!formData.registrationNo?.trim()) missingFields.push("Registration No.");
+  const hasPolicyNo = (formData.newPolicyNo && formData.newPolicyNo.trim()) || (formData.policyNo && formData.policyNo.trim());
+  if (!hasPolicyNo) missingFields.push("Policy No.");
+  const hasValidTo = formData.newPolicyToDate || formData.policyToDate;
+  if (!hasValidTo) missingFields.push("Valid To Date (Expiry)");
+  const hasPremium = (Number(formData.newOdPremium) > 0) || 
+                     (Number(formData.newTotalPolicyPremium) > 0) || 
+                     (Number(formData.odPremium) > 0) || 
+                     (Number(formData.totalPolicyPremium) > 0) ||
+                     (Number(formData.newPremiumAmount) > 0) ||
+                     (Number(formData.premiumAmount) > 0);
+  if (!hasPremium) missingFields.push("Premium Amount (OD / Total Policy Premium)");
+
+  const isMandatoryFilled = missingFields.length === 0;
   const isReady = formData.readyForPr === "Yes";
 
   const handleGenerateNextPr = async () => {
     if (!isReady) {
-      alert("Please select 'Ready for PR Generation? -> Yes' in Stage 1 (Policy Proposal) first.");
+      alert("Please select 'Ready for PR Generation? -> Yes' first.");
       return;
     }
     try {
@@ -30,10 +46,36 @@ function Stage2PRGeneration({ formData, handleChange, formatDateValue }) {
       <Typography variant="h6" gutterBottom color="primary">
         Purchase Request Generation
       </Typography>
+
+      {/* ─── PR Generation Readiness (moved from Stage 1) ─── */}
+      <Paper variant="outlined" sx={{ p: 2, mb: 3, backgroundColor: "#fafafa" }}>
+        <Typography variant="subtitle1" fontWeight="bold" gutterBottom color="secondary">
+          PR Generation Readiness
+        </Typography>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} sm={6} md={4}>
+            <TextField select label="Ready for PR Generation?" value={formData.readyForPr || ""} onChange={(e) => handleChange("readyForPr", e.target.value)} fullWidth size="small">
+              <MenuItem value="">Select</MenuItem>
+              <MenuItem value="Yes" disabled={!isMandatoryFilled}>
+                Yes {!isMandatoryFilled ? "(Fill mandatory details first)" : ""}
+              </MenuItem>
+              <MenuItem value="No">No</MenuItem>
+            </TextField>
+          </Grid>
+          {!isMandatoryFilled && (
+            <Grid item xs={12}>
+              <Alert severity="warning" sx={{ py: 0.5 }}>
+                To enable <strong>Ready for PR Generation = Yes</strong>, please fill mandatory details in Policy Proposal (Stage 1):{" "}
+                <strong>{missingFields.join(", ")}</strong>.
+              </Alert>
+            </Grid>
+          )}
+        </Grid>
+      </Paper>
       
       {!isReady && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          PR Number generation is pending. Please set <strong>Ready for PR Generation?</strong> to <strong>Yes</strong> in <em>Stage 1 (Policy Proposal)</em> to enable PR generation.
+        <Alert severity="info" sx={{ mb: 2 }}>
+          PR Number generation is pending. Please set <strong>Ready for PR Generation?</strong> to <strong>Yes</strong> above to enable PR generation.
         </Alert>
       )}
 

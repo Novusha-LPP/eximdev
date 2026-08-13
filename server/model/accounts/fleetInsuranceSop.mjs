@@ -52,6 +52,10 @@ const fleetInsuranceSopSchema = new mongoose.Schema(
     mfgYear: { type: String },        // "2018 / 13-06-2018" format from Excel
     electricalAccessoriesIdv: { type: Number, default: 0 },
     cngKitIdv: { type: Number, default: 0 },
+    hydraulicJackCover: { type: Number, default: 0 },
+    hydrolicJackCover: { type: Number, default: 0 },
+    moderationAmount: { type: Number, default: 0 },
+    moderationAmountTipper: { type: Number, default: 0 },
     totalIdv: { type: Number, default: 0 },       // vehicleIDV + electricalIDV + cngKitIDV
     odPremium: { type: Number, default: 0 },
     imt24: { type: Number, default: 0 },
@@ -84,8 +88,13 @@ const fleetInsuranceSopSchema = new mongoose.Schema(
     newPolicyNo: { type: String },
     newPolicyFromDate: { type: Date },
     newPolicyToDate: { type: Date },
+    newIdv: { type: Number, default: 0 },
     newElectricalAccessoriesIdv: { type: Number, default: 0 },
     newCngKitIdv: { type: Number, default: 0 },
+    newHydraulicJackCover: { type: Number, default: 0 },
+    newHydrolicJackCover: { type: Number, default: 0 },
+    newModerationAmount: { type: Number, default: 0 },
+    newModerationAmountTipper: { type: Number, default: 0 },
     newTotalIdv: { type: Number, default: 0 },
     newPremiumAmount: { type: Number },
     newNcb: { type: Number },
@@ -94,6 +103,8 @@ const fleetInsuranceSopSchema = new mongoose.Schema(
 
     // ─── Renewed Insurance Premium Breakdown ───
     newOdPremium: { type: Number, default: 0 },
+    newHydraulicJackCoverPremium: { type: Number, default: 0 },
+    newNcbAmount: { type: Number, default: 0 },
     newImt23: { type: Number, default: 0 },
     newImt24: { type: Number, default: 0 },
     newImt25: { type: Number, default: 0 },
@@ -106,10 +117,19 @@ const fleetInsuranceSopSchema = new mongoose.Schema(
     newTotalGst: { type: Number, default: 0 },
     newTotalPolicyPremium: { type: Number, default: 0 },
 
+    // ─── Custom User-Defined Fields for Sections 2, 2B, 3, and 3B ───
+    hydraulicJackCoverPremium: { type: Number, default: 0 },
+    ncbAmount: { type: Number, default: 0 },
+    ncb: { type: Number, default: 0 },
+    section2CustomFields: [{ id: mongoose.Schema.Types.Mixed, label: String, value: mongoose.Schema.Types.Mixed }],
+    section2BCustomFields: [{ id: mongoose.Schema.Types.Mixed, label: String, value: mongoose.Schema.Types.Mixed }],
+    section3CustomFields: [{ id: mongoose.Schema.Types.Mixed, label: String, value: mongoose.Schema.Types.Mixed }],
+    section3BCustomFields: [{ id: mongoose.Schema.Types.Mixed, label: String, value: mongoose.Schema.Types.Mixed }],
+
     // ─── PR Generation Readiness ───
     readyForPr: { type: String, enum: ["Yes", "No", ""], default: "" },
   },
-  { timestamps: true }
+  { timestamps: true, strict: false }
 );
 
 fleetInsuranceSopSchema.plugin(auditPlugin, { documentType: "FleetInsuranceSop" });

@@ -5,201 +5,250 @@ import {
   TextField,
   Typography,
   Paper,
-  MenuItem,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Checkbox,
+  Chip,
   Divider,
 } from "@mui/material";
-
-const yesNoOptions = ["Yes", "No"];
-const decisionOptions = ["APPROVED", "REJECTED", "On Hold"];
+import PoLandscapePdfGenerator from "./PoLandscapePdfGenerator";
 
 function Stage3FinanceApproval({ data, onChange, globalData, onGlobalChange }) {
   const updateField = (field, value) => {
     onChange({ [field]: value });
   };
 
-  const updateNested = (group, field, value) => {
-    onChange({ [group]: { ...data[group], [field]: value } });
+  const isApproved =
+    data.decision?.decision === "APPROVED" ||
+    globalData?.status === "Finance Approved" ||
+    globalData?.status === "Payment Done" ||
+    globalData?.status === "Order Placed" ||
+    globalData?.status === "GRN Done" ||
+    globalData?.status === "Closed";
+
+  const approvalDate = data.signOff?.dateOfApproval
+    ? data.signOff.dateOfApproval.split("T")[0]
+    : "";
+  const approvalTime = data.signOff?.timeOfApproval || "";
+
+  // Fetch all selected suppliers from Stage 2 (or fallback to Stage 3 / L1)
+  const stage2Selected = globalData?.stage2?.selectedSuppliers;
+  const selectedSuppliers =
+    stage2Selected && stage2Selected.length > 0
+      ? stage2Selected
+      : [
+          {
+            selectedSupplier: data.selectedSupplierL1 || globalData?.stage2?.selectedSupplierL1 || "",
+            priceQuoted: globalData?.stage2?.l1PriceQuoted || 0,
+            totalOrderValue: data.totalOrderValue || globalData?.stage2?.totalOrderValue || 0,
+            reasonForSelection: globalData?.stage2?.reasonForSelection || "",
+          },
+        ];
+
+  const overallTotalOrderValue = selectedSuppliers.reduce(
+    (acc, item) => acc + (Number(item.totalOrderValue) || 0),
+    0
+  );
+
+  const handleToggleApproval = (checked) => {
+    if (checked) {
+      const now = new Date();
+      const today = now.toISOString().split("T")[0];
+      const timeStr = now.toLocaleTimeString("en-GB", { hour12: false });
+
+      onChange({
+        ...data,
+        selectedSupplierL1: selectedSuppliers[0]?.selectedSupplier || "",
+        totalOrderValue: overallTotalOrderValue,
+        decision: {
+          ...(data.decision || {}),
+          decision: "APPROVED",
+        },
+        signOff: {
+          ...(data.signOff || {}),
+          dateOfApproval: today,
+          timeOfApproval: timeStr,
+        },
+      });
+
+      if (onGlobalChange) {
+        onGlobalChange("status", "Finance Approved");
+      }
+    } else {
+      onChange({
+        ...data,
+        decision: {
+          ...(data.decision || {}),
+          decision: "Pending",
+        },
+        signOff: {
+          ...(data.signOff || {}),
+          dateOfApproval: "",
+          timeOfApproval: "",
+        },
+      });
+
+      if (onGlobalChange) {
+        onGlobalChange("status", "Quotation Received");
+      }
+    }
   };
 
   return (
     <Box>
-      <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: "bold" }}>
-        A. Reference Information
-      </Typography>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
+          A. Reference Information
+        </Typography>
+        <PoLandscapePdfGenerator globalData={globalData} stage3Data={data} />
+      </Box>
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={3}>
           <TextField
             label="PO Number"
-            value={globalData?.poNumber || ""}
-            onChange={() => {}}
+            value={globalData?.poNumber || data.poNumber || "-"}
             InputProps={{ readOnly: true, sx: { backgroundColor: "#f5f5f5" } }}
             fullWidth
             size="small"
           />
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={3}>
           <TextField
             label="PO Date"
-            type="date"
-            InputLabelProps={{ shrink: true }}
-            value={data.poDate ? data.poDate.split("T")[0] : ""}
-            onChange={(e) => updateField("poDate", e.target.value)}
+            value={
+              data.poDate || globalData?.stage2?.poDate
+                ? new Date(data.poDate || globalData?.stage2?.poDate).toLocaleDateString("en-GB")
+                : "-"
+            }
+            InputProps={{ readOnly: true, sx: { backgroundColor: "#f5f5f5" } }}
             fullWidth
             size="small"
           />
         </Grid>
-        <Grid item xs={12} md={4}>
-          <TextField
-            label="Selected Supplier (L1)"
-            value={data.selectedSupplierL1 || ""}
-            onChange={(e) => updateField("selectedSupplierL1", e.target.value)}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <TextField
-            label="Total Order Value (₹)"
-            type="number"
-            value={data.totalOrderValue || 0}
-            onChange={(e) => updateField("totalOrderValue", e.target.value)}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={3}>
           <TextField
             label="Purchase Officer Name"
-            value={data.purchaseOfficerName || ""}
-            onChange={(e) => updateField("purchaseOfficerName", e.target.value)}
+            value={data.purchaseOfficerName || globalData?.stage2?.purchaseOfficerName || "-"}
+            InputProps={{ readOnly: true, sx: { backgroundColor: "#f5f5f5" } }}
             fullWidth
             size="small"
           />
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={3}>
           <TextField
             label="Date Received by Finance"
-            type="date"
-            InputLabelProps={{ shrink: true }}
-            value={data.dateReceivedByFinance ? data.dateReceivedByFinance.split("T")[0] : ""}
-            onChange={(e) => updateField("dateReceivedByFinance", e.target.value)}
+            value={
+              data.dateReceivedByFinance || globalData?.stage2?.routingChecklist?.[0]?.date
+                ? new Date(data.dateReceivedByFinance || globalData?.stage2?.routingChecklist?.[0]?.date).toLocaleDateString("en-GB")
+                : "-"
+            }
+            InputProps={{ readOnly: true, sx: { backgroundColor: "#f5f5f5" } }}
             fullWidth
             size="small"
           />
         </Grid>
       </Grid>
 
+      {/* ─── Selected / Awarded Supplier(s) Static Table ─── */}
       <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: "bold" }}>
-        B. Finance Review Checklist
+        B. Awarded / Selected Supplier(s) Summary
       </Typography>
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <Grid container spacing={2}>
-          {[
-            ["1. Budget availability confirmed for this purchase", "budgetAvailable"],
-            ["2. L1 supplier price is reasonable and within market range", "priceReasonable"],
-            ["3. GST number of supplier verified", "gstVerified"],
-            ["4. Payment terms reviewed and accepted", "paymentTermsAccepted"],
-            ["5. Supporting documents (PR, Quotation Sheet) are attached", "docsAttached"],
-          ].map(([label, field]) => (
-            <Grid item xs={12} md={6} key={field} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <Typography variant="body2">{label}</Typography>
-              <TextField
-                select
-                value={data.reviewChecklist?.[field] || ""}
-                onChange={(e) => updateNested("reviewChecklist", field, e.target.value)}
-                size="small"
-                sx={{ width: 100 }}
-              >
-                {yesNoOptions.map((o) => (
-                  <MenuItem key={o} value={o}>
-                    {o}
-                  </MenuItem>
-                ))}
-              </TextField>
-            </Grid>
-          ))}
-        </Grid>
-      </Paper>
-
-      <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: "bold" }}>
-        C. Finance Manager Decision
-      </Typography>
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={4}>
-          <TextField
-            select
-            label="Decision"
-            value={data.decision?.decision || ""}
-            onChange={(e) => updateNested("decision", "decision", e.target.value)}
-            fullWidth
-            size="small"
-          >
-            {decisionOptions.map((o) => (
-              <MenuItem key={o} value={o}>
-                {o}
-              </MenuItem>
+      <TableContainer component={Paper} sx={{ mb: 3 }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
+              <TableCell sx={{ fontWeight: "bold", width: 50 }}>#</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Selected Supplier</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Price Quoted (₹)</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Total Order Value (₹)</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Reason for Selection</TableCell>
+              <TableCell sx={{ fontWeight: "bold", textAlign: "center" }}>Download PO</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {selectedSuppliers.map((sup, idx) => (
+              <TableRow key={idx}>
+                <TableCell sx={{ fontWeight: 500 }}>{idx + 1}</TableCell>
+                <TableCell sx={{ fontWeight: 600, color: "#1976d2" }}>
+                  {sup.selectedSupplier || "Not Specified"}
+                </TableCell>
+                <TableCell>₹{(Number(sup.priceQuoted) || 0).toLocaleString("en-IN")}</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>
+                  ₹{(Number(sup.totalOrderValue) || 0).toLocaleString("en-IN")}
+                </TableCell>
+                <TableCell>{sup.reasonForSelection || "N/A"}</TableCell>
+                <TableCell sx={{ textAlign: "center" }}>
+                  <PoLandscapePdfGenerator
+                    globalData={globalData}
+                    stage3Data={data}
+                    targetSupplier={sup}
+                    buttonLabel="PO PDF"
+                    size="small"
+                  />
+                </TableCell>
+              </TableRow>
             ))}
-          </TextField>
-        </Grid>
-        <Grid item xs={12} md={8}>
-          <TextField
-            label="Remarks / Rejection Reason"
-            value={data.decision?.remarksRejectionReason || ""}
-            onChange={(e) => updateNested("decision", "remarksRejectionReason", e.target.value)}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-      </Grid>
+            <TableRow sx={{ backgroundColor: "#eef2ff" }}>
+              <TableCell colSpan={3} sx={{ fontWeight: "bold", textAlign: "right" }}>
+                OVERALL TOTAL ORDER VALUE (₹):
+              </TableCell>
+              <TableCell colSpan={3} sx={{ fontWeight: "bold", color: "#1e40af", fontSize: "0.95rem" }}>
+                ₹{overallTotalOrderValue.toLocaleString("en-IN")}
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TableContainer>
 
       <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: "bold" }}>
-        D. Finance Manager Sign-Off
+        C. Finance Approval Checklist
       </Typography>
-      <Grid container spacing={2}>
-        <Grid item xs={12} md={3}>
-          <TextField
-            label="Finance Manager Name"
-            value={data.signOff?.financeManagerName || ""}
-            onChange={(e) => updateNested("signOff", "financeManagerName", e.target.value)}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <TextField
-            label="Date of Approval"
-            type="date"
-            InputLabelProps={{ shrink: true }}
-            value={data.signOff?.dateOfApproval ? data.signOff.dateOfApproval.split("T")[0] : ""}
-            onChange={(e) => updateNested("signOff", "dateOfApproval", e.target.value)}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <TextField
-            label="Signature / Digital Approval Ref"
-            value={data.signOff?.signatureDigitalApprovalRef || ""}
-            onChange={(e) => updateNested("signOff", "signatureDigitalApprovalRef", e.target.value)}
-            fullWidth
-            size="small"
-          />
-        </Grid>
-        <Grid item xs={12} md={3}>
-          <TextField
-            label="Time of Approval"
-            value={data.signOff?.timeOfApproval || ""}
-            onChange={(e) => updateNested("signOff", "timeOfApproval", e.target.value)}
-            fullWidth
-            size="small"
-            placeholder="e.g. 14:30"
-          />
-        </Grid>
-      </Grid>
-      
+      <TableContainer component={Paper} sx={{ mb: 3 }}>
+        <Table size="small">
+          <TableHead>
+            <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
+              <TableCell sx={{ fontWeight: "bold", width: 80 }}>Check</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Step</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Action</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Responsible</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Date Completed</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Time Completed</TableCell>
+              <TableCell sx={{ fontWeight: "bold" }}>Status</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            <TableRow>
+              <TableCell>
+                <Checkbox
+                  checked={isApproved}
+                  onChange={(e) => handleToggleApproval(e.target.checked)}
+                  color="primary"
+                />
+              </TableCell>
+              <TableCell sx={{ fontWeight: 500 }}>Step 1</TableCell>
+              <TableCell sx={{ fontWeight: 500 }}>Approved by Finance Manager</TableCell>
+              <TableCell>Finance Manager</TableCell>
+              <TableCell>{approvalDate || "-"}</TableCell>
+              <TableCell>{approvalTime || "-"}</TableCell>
+              <TableCell>
+                <Chip
+                  label={isApproved ? "Approved" : "Pending"}
+                  color={isApproved ? "success" : "default"}
+                  size="small"
+                />
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TableContainer>
+
       <Divider sx={{ my: 3 }} />
       <Typography variant="caption" color="textSecondary" display="block">
-        * Once approved, this form is forwarded to the Accounting Team with supplier bank details for payment processing.
+        * Checking the approval box automatically records approval date & time and forwards the entry to Stage 4 (Payment & UTR).
       </Typography>
     </Box>
   );

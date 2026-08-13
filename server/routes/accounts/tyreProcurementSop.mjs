@@ -4,10 +4,144 @@ import TyreProcurementSop from "../../model/accounts/tyreProcurementSop.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import logger from "../../logger.js";
 
+import TyreSupplierModel from "../../model/accounts/tyreSupplierModel.mjs";
+
 const router = express.Router();
 
 // ─── Helpers ───
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString("en-GB") : "");
+
+function uppercaseDeep(obj) {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === "string") return obj.toUpperCase();
+  if (Array.isArray(obj)) return obj.map(uppercaseDeep);
+  if (typeof obj === "object" && !(obj instanceof Date)) {
+    const res = {};
+    for (const key of Object.keys(obj)) {
+      if (key === "_id" || key === "createdAt" || key === "updatedAt" || key === "__v" || key.endsWith("Date") || key.endsWith("Time") || key.endsWith("Dt") || key === "date") {
+        res[key] = obj[key];
+      } else {
+        res[key] = uppercaseDeep(obj[key]);
+      }
+    }
+    return res;
+  }
+  return obj;
+}
+
+async function saveSuppliersFromDoc(doc) {
+  try {
+    const suppliers = doc?.stage2?.suppliers || [];
+    for (const s of suppliers) {
+      if (s && s.supplierName && s.supplierName.trim()) {
+        const name = s.supplierName.trim().toUpperCase();
+        const updateData = {
+          supplierName: name,
+          contactPerson: s.contactPerson ? String(s.contactPerson).toUpperCase() : "",
+          phoneNumber: s.phoneNumber ? String(s.phoneNumber).toUpperCase() : "",
+          emailWhatsApp: s.emailWhatsApp ? String(s.emailWhatsApp).toUpperCase() : "",
+          gstNumber: s.gstNumber ? String(s.gstNumber).toUpperCase() : "",
+          bankAccountNo: s.bankAccountNo ? String(s.bankAccountNo).toUpperCase() : "",
+          bankName: s.bankName ? String(s.bankName).toUpperCase() : "",
+          bankIfscCode: s.bankIfscCode ? String(s.bankIfscCode).toUpperCase() : "",
+          bankBranchCode: s.bankBranchCode ? String(s.bankBranchCode).toUpperCase() : "",
+          supplierNameInBank: s.supplierNameInBank ? String(s.supplierNameInBank).toUpperCase() : "",
+          paymentTerms: s.paymentTerms ? String(s.paymentTerms).toUpperCase() : "",
+        };
+        await TyreSupplierModel.findOneAndUpdate(
+          { supplierName: name },
+          { $set: updateData },
+          { upsert: true, new: true }
+        );
+      }
+    }
+  } catch (err) {
+    logger.error("Error auto-saving suppliers from Tyre Procurement doc:", err);
+  }
+}
+
+function parseCreditDays(terms) {
+  if (!terms) return 0;
+  const str = String(terms).toUpperCase();
+  if (str.includes("ADVANCE") || str.includes("ADV")) return 0;
+  const match = str.match(/(\d+)\s*(DAY|DAYS)?/);
+  if (match && match[1]) {
+    return parseInt(match[1], 10);
+  }
+  return 0;
+}
+
+function deriveStatus(doc) {
+  const s6 = doc.stage6 || {};
+  const s5 = doc.stage5 || {};
+  const s4 = doc.stage4 || {};
+  const s3 = doc.stage3 || {};
+  const s2 = doc.stage2 || {};
+  const s1 = doc.stage1 || {};
+
+  const s6Approvals = s6.approvals || [];
+  const purchaseOfficerReview = s6Approvals[2] || s6Approvals.find((a) => a && (a.role?.includes("Purchase Officer") || a.reviewedByPurchaseOfficer));
+  const isPurchaseOfficerDone = Boolean(purchaseOfficerReview?.date || purchaseOfficerReview?.signature || purchaseOfficerReview?.name || s6.reviewedByPurchaseOfficer);
+
+  if (doc.status === "Closed" || doc.status === "GRN Received" || isPurchaseOfficerDone) {
+    return "GRN Received";
+  }
+
+  if (s5.dispatchDone || s5.isDispatchDone || s6.grnSeriesNo || s5.orderPlacedDate || s5.dispatchDetails?.dispatchDate) {
+    return "Order Placed";
+  }
+
+  const isFinanceApproved = s3.decision?.decision === "APPROVED" || Boolean(s3.signOff?.dateOfApproval);
+
+  if (isFinanceApproved) {
+    const stage2Suppliers = s2.suppliers || [];
+    const selectedSuppliers = s2.selectedSuppliers || [];
+
+    const awardedQuoteSuppliers = stage2Suppliers.filter((s) =>
+      selectedSuppliers.some(
+        (sel) => sel.selectedSupplier === s.supplierName || sel.selectedSupplier === s._id
+      )
+    );
+    const targetSuppliers = awardedQuoteSuppliers.length > 0 ? awardedQuoteSuppliers : stage2Suppliers;
+
+    const hasCreditTerms = targetSuppliers.some((s) => parseCreditDays(s.paymentTerms) > 0);
+
+    if (hasCreditTerms) {
+      // Skips Stage 4 payment waiting tab and moves straight to Order & Dispatch!
+      return "Payment Done";
+    }
+
+    const supplierPayments = s4.supplierPayments || [];
+    const allPaid =
+      supplierPayments.length > 0
+        ? supplierPayments.every((sp) => sp.isPaid && sp.utrNumber?.trim())
+        : Boolean(
+            s4.paymentDetails?.paymentReferenceUtr?.trim() ||
+            s4.paymentDetails?.paymentDate ||
+            doc.status === "Payment Done"
+          );
+
+    if (allPaid) {
+      return "Payment Done";
+    }
+
+    return "Finance Approved";
+  }
+
+  if (s2.routingChecklist?.[0]?.status === "Done" || s2.routingChecklist?.[0]?.date) {
+    return "Quotation Received";
+  }
+
+  if (s1.routingChecklist?.[1]?.status === "Done" || s1.routingChecklist?.[1]?.date || s1.hodValidation?.dateTimeOfApproval) {
+    return "Preparing for Quotation";
+  }
+
+  if (s1.routingChecklist?.[0]?.status === "Done" || s1.routingChecklist?.[0]?.date) {
+    return "PR Raised";
+  }
+
+  return doc.status || "Draft";
+}
 
 function computeDoc(doc) {
   const clone = JSON.parse(JSON.stringify(doc));
@@ -22,6 +156,8 @@ function computeDoc(doc) {
     clone.stage1.estimatedTotalCost = estTotalCost;
   }
 
+  clone.status = deriveStatus(clone);
+
   return clone;
 }
 
@@ -34,13 +170,141 @@ function emptyRow(cols) {
   return Array(cols).fill("");
 }
 
+// Helper to generate next PR Number and PO Number
+// Formats:
+// PR: TT/TYRE/{MONTH}/{SEQ}/{FINANCIAL_YEAR}  e.g. TT/TYRE/AUG/01/26-27
+// PO: TYRE/{MONTH}-{SEQ}/{FINANCIAL_YEAR}     e.g. TYRE/AUG-01/26-27
+async function generateNextTyreNumbers(dateInput) {
+  const d = dateInput ? new Date(dateInput) : new Date();
+  const monthShort = d.toLocaleString("en-US", { month: "short" }).toUpperCase();
+  const m = d.getMonth();
+
+  let startYear, endYear;
+  if (m >= 3) {
+    // April (3) to Dec (11)
+    startYear = d.getFullYear();
+    endYear = d.getFullYear() + 1;
+  } else {
+    // Jan (0) to Mar (2)
+    startYear = d.getFullYear() - 1;
+    endYear = d.getFullYear();
+  }
+  const fyCode = `${String(startYear).slice(-2)}-${String(endYear).slice(-2)}`;
+
+  const regex = new RegExp(`^TT/TYRE/${monthShort}/(\\d+)/${fyCode}$`, "i");
+  const records = await TyreProcurementSop.find({ prNumber: { $regex: regex } }).select("prNumber").lean();
+
+  let maxSeq = 0;
+  records.forEach((rec) => {
+    if (rec.prNumber) {
+      const match = rec.prNumber.match(new RegExp(`^TT/TYRE/${monthShort}/(\\d+)/${fyCode}$`, "i"));
+      if (match && match[1]) {
+        const seq = parseInt(match[1], 10);
+        if (seq > maxSeq) maxSeq = seq;
+      }
+    }
+  });
+
+  const nextSeq = String(maxSeq + 1).padStart(2, "0");
+  const prNumber = `TT/TYRE/${monthShort}/${nextSeq}/${fyCode}`;
+  const poNumber = `TYRE/${monthShort}-${nextSeq}/${fyCode}`;
+
+  return { prNumber, poNumber, seq: nextSeq, monthShort, fyCode };
+}
+
+// Helper to generate next GRN Number
+// Format: GRN/TYRE/{SEQ}/{MONTH}/{FINANCIAL_YEAR} e.g. GRN/TYRE/01/AUG/26-27
+async function generateNextGrnNumber(dateInput) {
+  const d = dateInput ? new Date(dateInput) : new Date();
+  const monthShort = d.toLocaleString("en-US", { month: "short" }).toUpperCase();
+  const m = d.getMonth();
+
+  let startYear, endYear;
+  if (m >= 3) {
+    startYear = d.getFullYear();
+    endYear = d.getFullYear() + 1;
+  } else {
+    startYear = d.getFullYear() - 1;
+    endYear = d.getFullYear();
+  }
+  const fyCode = `${String(startYear).slice(-2)}-${String(endYear).slice(-2)}`;
+
+  const regex = new RegExp(`^GRN/TYRE/(\\d+)/${monthShort}/${fyCode}$`, "i");
+  const records = await TyreProcurementSop.find({ "stage6.grnSeriesNo": { $regex: regex } }).select("stage6.grnSeriesNo").lean();
+
+  let maxSeq = 0;
+  records.forEach((rec) => {
+    const grnNo = rec.stage6?.grnSeriesNo;
+    if (grnNo) {
+      const match = grnNo.match(new RegExp(`^GRN/TYRE/(\\d+)/${monthShort}/${fyCode}$`, "i"));
+      if (match && match[1]) {
+        const seq = parseInt(match[1], 10);
+        if (seq > maxSeq) maxSeq = seq;
+      }
+    }
+  });
+
+  const nextSeq = String(maxSeq + 1).padStart(2, "0");
+  return `GRN/TYRE/${nextSeq}/${monthShort}/${fyCode}`;
+}
+
 // ─── CRUD Routes ───
+
+// Endpoint to fetch next PR and PO numbers
+router.get("/tyre-procurement/next-numbers", authMiddleware, async (req, res) => {
+  try {
+    const { date } = req.query;
+    const result = await generateNextTyreNumbers(date);
+    res.status(200).json({ success: true, ...result });
+  } catch (error) {
+    logger.error("Error generating Tyre PR/PO numbers:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Endpoint to fetch next GRN number
+router.get("/tyre-procurement/next-grn-number", authMiddleware, async (req, res) => {
+  try {
+    const { date } = req.query;
+    const grnSeriesNo = await generateNextGrnNumber(date);
+    res.status(200).json({ success: true, grnSeriesNo });
+  } catch (error) {
+    logger.error("Error generating Tyre GRN number:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 
 // List Tyre PRs
 router.get("/tyre-procurement", authMiddleware, async (req, res) => {
   try {
-    const { search, page = 1, limit = 50 } = req.query;
+    const { search, stageTab, page = 1, limit = 50 } = req.query;
     const query = {};
+
+    if (stageTab && stageTab !== "0") {
+      switch (stageTab) {
+        case "1":
+          query.status = "Draft";
+          break;
+        case "2":
+          query.status = { $in: ["PR Raised", "Preparing for Quotation"] };
+          break;
+        case "3":
+          query.status = "Quotation Received";
+          break;
+        case "4":
+          query.status = "Finance Approved";
+          break;
+        case "5":
+          query.status = { $in: ["Payment Done", "Order Placed"] };
+          break;
+        case "6":
+          query.status = { $in: ["GRN Done", "Closed"] };
+          break;
+        default:
+          break;
+      }
+    }
+
     if (search) {
       const regex = new RegExp(search, "i");
       query.$or = [
@@ -85,10 +349,44 @@ router.get("/tyre-procurement/:id", authMiddleware, async (req, res) => {
   }
 });
 
+// ─── Tyre Supplier Master Endpoints ───
+
+// Fetch all saved tyre suppliers
+router.get("/tyre-suppliers", authMiddleware, async (req, res) => {
+  try {
+    const suppliers = await TyreSupplierModel.find().sort({ supplierName: 1 }).lean();
+    res.status(200).json({ success: true, suppliers });
+  } catch (err) {
+    logger.error("Error fetching tyre suppliers:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// Save or update a tyre supplier
+router.post("/tyre-suppliers", authMiddleware, async (req, res) => {
+  try {
+    const data = uppercaseDeep(req.body);
+    if (!data.supplierName || !data.supplierName.trim()) {
+      return res.status(400).json({ success: false, message: "Supplier Name is required" });
+    }
+    const name = data.supplierName.trim().toUpperCase();
+    const supplier = await TyreSupplierModel.findOneAndUpdate(
+      { supplierName: name },
+      { $set: { ...data, supplierName: name } },
+      { upsert: true, new: true }
+    );
+    res.status(200).json({ success: true, supplier });
+  } catch (err) {
+    logger.error("Error saving tyre supplier:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // Create Tyre PR
 router.post("/tyre-procurement", authMiddleware, async (req, res) => {
   try {
-    const { prNumber } = req.body;
+    let payload = uppercaseDeep(req.body);
+    const { prNumber } = payload;
     if (!prNumber?.trim()) {
       return res.status(400).json({ success: false, message: "PR Number is required" });
     }
@@ -96,8 +394,10 @@ router.post("/tyre-procurement", authMiddleware, async (req, res) => {
     if (existing) {
       return res.status(400).json({ success: false, message: "PR Number already exists" });
     }
-    const doc = new TyreProcurementSop(req.body);
+    payload.status = deriveStatus(payload);
+    const doc = new TyreProcurementSop(payload);
     await doc.save();
+    await saveSuppliersFromDoc(doc);
     res.status(201).json({ success: true, data: computeDoc(doc.toObject()) });
   } catch (error) {
     logger.error("Error creating Tyre Procurement SOP:", error);
@@ -108,7 +408,8 @@ router.post("/tyre-procurement", authMiddleware, async (req, res) => {
 // Update Tyre PR
 router.put("/tyre-procurement/:id", authMiddleware, async (req, res) => {
   try {
-    const { prNumber } = req.body;
+    let payload = uppercaseDeep(req.body);
+    const { prNumber } = payload;
     const existing = await TyreProcurementSop.findById(req.params.id);
     if (!existing) {
       return res.status(404).json({ success: false, message: "Tyre PR not found" });
@@ -119,11 +420,13 @@ router.put("/tyre-procurement/:id", authMiddleware, async (req, res) => {
         return res.status(400).json({ success: false, message: "PR Number already exists" });
       }
     }
+    payload.status = deriveStatus(payload);
     const doc = await TyreProcurementSop.findByIdAndUpdate(
       req.params.id,
-      { $set: req.body },
+      { $set: payload },
       { new: true, runValidators: true }
     ).lean();
+    await saveSuppliersFromDoc(doc);
     res.json({ success: true, data: computeDoc(doc) });
   } catch (error) {
     logger.error("Error updating Tyre Procurement SOP:", error);
@@ -252,6 +555,11 @@ function buildStage2Sheet(d) {
   rows.push(["Phone Number", sup(0).phoneNumber || "", sup(1).phoneNumber || "", sup(2).phoneNumber || "", "", "", "", ""]);
   rows.push(["Email / WhatsApp", sup(0).emailWhatsApp || "", sup(1).emailWhatsApp || "", sup(2).emailWhatsApp || "", "", "", "", ""]);
   rows.push(["GST Number", sup(0).gstNumber || "", sup(1).gstNumber || "", sup(2).gstNumber || "", "", "", "", ""]);
+  rows.push(["Bank Account No", sup(0).bankAccountNo || "", sup(1).bankAccountNo || "", sup(2).bankAccountNo || "", "", "", "", ""]);
+  rows.push(["Bank Name", sup(0).bankName || "", sup(1).bankName || "", sup(2).bankName || "", "", "", "", ""]);
+  rows.push(["Bank IFSC Code", sup(0).bankIfscCode || "", sup(1).bankIfscCode || "", sup(2).bankIfscCode || "", "", "", "", ""]);
+  rows.push(["Bank Branch Code", sup(0).bankBranchCode || "", sup(1).bankBranchCode || "", sup(2).bankBranchCode || "", "", "", "", ""]);
+  rows.push(["Supplier Name in Bank", sup(0).supplierNameInBank || "", sup(1).supplierNameInBank || "", sup(2).supplierNameInBank || "", "", "", "", ""]);
   rows.push(["Tyre Brand", sup(0).tyreBrand || "", sup(1).tyreBrand || "", sup(2).tyreBrand || "", "", "", "", ""]);
   rows.push(["Size & Specification", sup(0).sizeSpecification || "", sup(1).sizeSpecification || "", sup(2).sizeSpecification || "", "", "", "", ""]);
   rows.push(["Unit Price – New Tyre (₹)", safeNumber(sup(0).unitPriceNew), safeNumber(sup(1).unitPriceNew), safeNumber(sup(2).unitPriceNew), "", "", "", ""]);

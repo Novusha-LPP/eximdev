@@ -16,8 +16,21 @@ import {
   TablePagination,
   CircularProgress,
   Stack,
+  Tabs,
+  Tab,
+  Chip,
 } from "@mui/material";
 import { Edit, Delete, GetApp, Add, FileDownload, Visibility } from "@mui/icons-material";
+
+const stageTabsList = [
+  { label: "All PRs", value: "0" },
+  { label: "1. Purchase Request", value: "1" },
+  { label: "2. Supplier Quotation", value: "2" },
+  { label: "3. Finance Approval", value: "3" },
+  { label: "4. Payment & UTR", value: "4" },
+  { label: "5. Order & Dispatch", value: "5" },
+  { label: "6. Site GRN", value: "6" },
+];
 
 function TyreProcurementList({ onEdit, onView, onCreate }) {
   const [data, setData] = useState([]);
@@ -25,6 +38,7 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [search, setSearch] = useState("");
+  const [stageTab, setStageTab] = useState("0");
   const [loading, setLoading] = useState(false);
 
   const fetchRecords = async () => {
@@ -33,6 +47,7 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
       const res = await axios.get(`${process.env.REACT_APP_API_STRING}/tyre-procurement`, {
         params: {
           search,
+          stageTab,
           page: page + 1,
           limit: rowsPerPage,
         },
@@ -48,7 +63,7 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
 
   useEffect(() => {
     fetchRecords();
-  }, [page, rowsPerPage, search]);
+  }, [page, rowsPerPage, search, stageTab]);
 
   const handleDelete = async (id) => {
     if (!window.confirm("Are you sure you want to delete this PR?")) return;
@@ -122,6 +137,24 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
             </Button>
           </Stack>
         </Stack>
+
+        {/* ─── Stage Filter Tabs ─── */}
+        <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
+          <Tabs
+            value={stageTab}
+            onChange={(e, val) => {
+              setStageTab(val);
+              setPage(0);
+            }}
+            variant="scrollable"
+            scrollButtons="auto"
+          >
+            {stageTabsList.map((tab) => (
+              <Tab key={tab.value} label={tab.label} value={tab.value} sx={{ fontWeight: "bold" }} />
+            ))}
+          </Tabs>
+        </Box>
+
         <TextField
           label="Search PR Number, PO, Prepared By, Supplier..."
           value={search}
@@ -153,12 +186,27 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
             <TableBody>
               {data.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center">No records found</TableCell>
+                  <TableCell colSpan={8} align="center" sx={{ py: 3, color: "text.secondary" }}>
+                    No records found in this stage tab.
+                  </TableCell>
                 </TableRow>
               ) : (
                 data.map((row) => (
                   <TableRow key={row._id} hover>
-                    <TableCell sx={{ fontWeight: "bold" }}>{row.prNumber}</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>
+                      <Box
+                        component="span"
+                        onClick={() => onEdit(row)}
+                        sx={{
+                          cursor: "pointer",
+                          color: "#1976d2",
+                          textDecoration: "underline",
+                          "&:hover": { color: "#115293" },
+                        }}
+                      >
+                        {row.prNumber}
+                      </Box>
+                    </TableCell>
                     <TableCell>{row.poNumber || "-"}</TableCell>
                     <TableCell>{row.stage1?.preparedBy || "-"}</TableCell>
                     <TableCell>{row.stage2?.selectedSupplierL1 || "-"}</TableCell>
@@ -167,7 +215,19 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                         ? Number(row.stage2.totalOrderValue).toLocaleString("en-IN", { style: "currency", currency: "INR" })
                         : "-"}
                     </TableCell>
-                    <TableCell>{row.status}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={row.status || "Draft"}
+                        size="small"
+                        color={
+                          row.status === "Closed" || row.status === "GRN Done"
+                            ? "success"
+                            : row.status === "PR Raised" || row.status === "Preparing for Quotation"
+                            ? "primary"
+                            : "info"
+                        }
+                      />
+                    </TableCell>
                     <TableCell>{new Date(row.createdAt).toLocaleDateString("en-GB")}</TableCell>
                     <TableCell align="center">
                       <IconButton size="small" color="info" onClick={() => onView(row)} title="View">

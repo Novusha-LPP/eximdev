@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Box, Tab, Tabs } from "@mui/material";
 import RmProcurementSop from "./rmProcurementSop/RmProcurementSop";
 import TyreProcurementSop from "./tyreProcurementSop/TyreProcurementSop";
@@ -29,10 +30,56 @@ function a11yProps(index) {
 }
 
 export default function ProcurementInsuranceSopsContainer() {
-  const [value, setValue] = useState(0);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const getInitialTab = () => {
+    const path = window.location.pathname;
+    if (path.includes("tyre")) return 2;
+    if (path.includes("rm")) return 1;
+    if (path.includes("fleet")) return 0;
+    const savedTab = localStorage.getItem("procurement_sop_active_tab");
+    if (savedTab !== null) {
+      const tabNum = parseInt(savedTab, 10);
+      if (!isNaN(tabNum) && tabNum >= 0 && tabNum <= 2) return tabNum;
+    }
+    return 0;
+  };
+
+  const [value, setValue] = useState(getInitialTab);
+
+  useEffect(() => {
+    const path = location.pathname;
+    if (path.includes("tyre")) {
+      setValue(2);
+      localStorage.setItem("procurement_sop_active_tab", "2");
+    } else if (path.includes("rm")) {
+      setValue(1);
+      localStorage.setItem("procurement_sop_active_tab", "1");
+    } else if (path.includes("fleet")) {
+      setValue(0);
+      localStorage.setItem("procurement_sop_active_tab", "0");
+    } else {
+      const savedTab = localStorage.getItem("procurement_sop_active_tab");
+      if (savedTab !== null) {
+        const tabNum = parseInt(savedTab, 10);
+        if (!isNaN(tabNum) && tabNum >= 0 && tabNum <= 2) {
+          setValue(tabNum);
+        }
+      }
+    }
+  }, [location.pathname]);
 
   const handleChange = (event, newValue) => {
     setValue(newValue);
+    localStorage.setItem("procurement_sop_active_tab", String(newValue));
+    if (newValue === 2) {
+      navigate("/procurement-insurance-sops/tyre");
+    } else if (newValue === 1) {
+      navigate("/procurement-insurance-sops/rm");
+    } else {
+      navigate("/procurement-insurance-sops/fleet");
+    }
   };
 
   return (

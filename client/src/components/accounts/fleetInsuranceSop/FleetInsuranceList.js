@@ -57,7 +57,7 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
     size: "",
     modelType: "",
     premiumAmount: "",
-    premiumQuote: "",
+    newTotalPolicyPremium: "",
     expiryDate: "",
     renewed: ""
   });
@@ -255,11 +255,36 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
     return "green";
   };
 
+  // Determine which stage a record is currently at
+  const getStageStatus = (row) => {
+    if (String(row.renewed).toUpperCase() === "YES" || row.renewalStatus === "Renewed") {
+      return { label: "Renewed", color: "success" };
+    }
+    if (row.paymentUtr) {
+      return { label: "Payment Done", color: "success" };
+    }
+    if (row.financialApprovalStatus === "Approved") {
+      return { label: "Payment & UTR", color: "info" };
+    }
+    if (row.financialApprovalStatus === "Rejected") {
+      return { label: "Approval Rejected", color: "error" };
+    }
+    if (row.prNumber) {
+      return { label: "Finance Approval", color: "warning" };
+    }
+    if (row.readyForPr === "Yes") {
+      return { label: "PR Generation", color: "primary" };
+    }
+    return { label: "Policy Proposal", color: "default" };
+  };
+
   // Identify expiring records (within 7 days of today's date and not yet renewed)
   const expiringRecords = data.filter((row) => {
-    if (!row.policyToDate) return false;
-    if (String(row.renewed).toUpperCase() === "YES" || row.renewalStatus === "Renewed") return false;
-    const expiry = new Date(row.policyToDate);
+    const isRenewed = String(row.renewed).toUpperCase() === "YES" || row.renewalStatus === "Renewed" || Boolean(row.newPolicyToDate) || Boolean(row.paymentUtr);
+    if (isRenewed) return false;
+    const targetDate = row.newPolicyToDate || row.policyToDate;
+    if (!targetDate) return false;
+    const expiry = new Date(targetDate);
     const now = new Date();
     expiry.setHours(0, 0, 0, 0);
     now.setHours(0, 0, 0, 0);
@@ -386,9 +411,10 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
                   <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>Size</TableCell>
                   <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>Model</TableCell>
                   <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>Previous Premium (₹)</TableCell>
-                  <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>New Premium Quote (₹)</TableCell>
+                  <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>Renewed Policy Premium (₹)</TableCell>
                   <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>Expiry Date</TableCell>
                   <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>Renewed?</TableCell>
+                  <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>Stage Status</TableCell>
                   <TableCell sx={{ color: "#fff", fontWeight: "bold" }} align="center">Actions</TableCell>
                 </TableRow>
                 <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
@@ -417,7 +443,7 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
                     <TextField size="small" placeholder="Filter..." value={filters.premiumAmount} onChange={(e) => handleFilterChange("premiumAmount", e.target.value)} variant="standard" fullWidth />
                   </TableCell>
                   <TableCell padding="none" sx={{ px: 1 }}>
-                    <TextField size="small" placeholder="Filter..." value={filters.premiumQuote} onChange={(e) => handleFilterChange("premiumQuote", e.target.value)} variant="standard" fullWidth />
+                    <TextField size="small" placeholder="Filter..." value={filters.newTotalPolicyPremium} onChange={(e) => handleFilterChange("newTotalPolicyPremium", e.target.value)} variant="standard" fullWidth />
                   </TableCell>
                   <TableCell padding="none" sx={{ px: 1 }}>
                     <TextField size="small" placeholder="Filter date..." value={filters.expiryDate} onChange={(e) => handleFilterChange("expiryDate", e.target.value)} variant="standard" fullWidth />
@@ -430,45 +456,77 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
                     </TextField>
                   </TableCell>
                   <TableCell></TableCell>
+                  <TableCell></TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
                 {data.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} align="center">No records found</TableCell>
+                    <TableCell colSpan={10} align="center">No records found</TableCell>
                   </TableRow>
                 ) : (
                   data.map((row) => (
                     <TableRow key={row._id} hover>
-                      <TableCell sx={{ fontWeight: "bold" }}>{row.registrationNo}</TableCell>
+                      <TableCell
+                        sx={{ fontWeight: "bold", color: "#1a237e", cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
+                        onClick={() => onEdit(row)}
+                        title="Click to Edit Current Details"
+                      >
+                        {row.registrationNo}
+                      </TableCell>
                       <TableCell>{row.owner || "-"}</TableCell>
                       <TableCell>{row.size || "-"}</TableCell>
                       <TableCell>{row.modelType || "-"}</TableCell>
                       <TableCell>
-                        {row.premiumAmount
-                          ? Number(row.premiumAmount).toLocaleString("en-IN", { style: "currency", currency: "INR" })
+                        {(row.totalPolicyPremium || row.premiumAmount)
+                          ? Number(row.totalPolicyPremium || row.premiumAmount).toLocaleString("en-IN", { style: "currency", currency: "INR" })
                           : "-"}
                       </TableCell>
-                      <TableCell sx={{
-                        color: row.premiumQuote && row.premiumAmount
-                          ? (Number(row.premiumQuote) > Number(row.premiumAmount) ? "red" : Number(row.premiumQuote) < Number(row.premiumAmount) ? "green" : "inherit")
-                          : "inherit",
-                        fontWeight: row.premiumQuote && row.premiumAmount && Number(row.premiumQuote) !== Number(row.premiumAmount) ? "bold" : "normal"
-                      }}>
-                        {row.premiumQuote
-                          ? Number(row.premiumQuote).toLocaleString("en-IN", { style: "currency", currency: "INR" })
-                          : "-"}
+                      {(() => {
+                        const newPrem = row.newTotalPolicyPremium || row.newPremiumAmount || row.newPremium;
+                        const oldPrem = row.totalPolicyPremium || row.premiumAmount;
+                        return (
+                          <TableCell sx={{
+                            color: newPrem && oldPrem
+                              ? (Number(newPrem) > Number(oldPrem) ? "red" : Number(newPrem) < Number(oldPrem) ? "green" : "inherit")
+                              : "inherit",
+                            fontWeight: newPrem && oldPrem && Number(newPrem) !== Number(oldPrem) ? "bold" : "normal"
+                          }}>
+                            {newPrem
+                              ? Number(newPrem).toLocaleString("en-IN", { style: "currency", currency: "INR" })
+                              : "-"}
+                          </TableCell>
+                        );
+                      })()}
+                      {(() => {
+                        const displayExpiry = row.newPolicyToDate || row.newExpiryDate || row.policyToDate;
+                        const isRenewed = String(row.renewed).toUpperCase() === "YES" || row.renewalStatus === "Renewed" || Boolean(row.newPolicyToDate) || Boolean(row.paymentUtr);
+                        return (
+                          <>
+                            <TableCell sx={{ color: getExpiryDateColor(displayExpiry), fontWeight: "bold" }}>
+                              {displayExpiry ? new Date(displayExpiry).toLocaleDateString("en-IN") : "-"}
+                            </TableCell>
+                            <TableCell sx={{ fontWeight: "bold", color: isRenewed ? "green" : "inherit" }}>
+                              {isRenewed ? "YES" : "NO"}
+                            </TableCell>
+                          </>
+                        );
+                      })()}
+                      <TableCell>
+                        {(() => {
+                          const stage = getStageStatus(row);
+                          return <Chip label={stage.label} size="small" color={stage.color} variant="outlined" />;
+                        })()}
                       </TableCell>
-                      <TableCell sx={{ color: getExpiryDateColor(row.policyToDate), fontWeight: "bold" }}>
-                        {row.policyToDate ? new Date(row.policyToDate).toLocaleDateString("en-IN") : "-"}
-                      </TableCell>
-                      <TableCell>{row.renewed || "NO"}</TableCell>
                       <TableCell align="center">
-                        <IconButton size="small" color="primary" onClick={() => { setSelectedHistoryRegNo(row.registrationNo); setMainTab(1); }} title="View Multi-Year History Dashboard">
-                          <History fontSize="small" />
+                        <IconButton size="small" color="primary" onClick={() => onEdit(row)} title="Edit Current Details">
+                          <Edit fontSize="small" />
                         </IconButton>
                         <IconButton size="small" color="success" onClick={() => onRenew(row)} title="Renew Policy">
                           <Autorenew fontSize="small" />
+                        </IconButton>
+                        <IconButton size="small" color="info" onClick={() => { setSelectedHistoryRegNo(row.registrationNo); setMainTab(1); }} title="View Multi-Year History Dashboard">
+                          <History fontSize="small" />
                         </IconButton>
                         <IconButton size="small" color="secondary" onClick={() => handleExport(row._id, row.registrationNo)} title="Export Record">
                           <GetApp fontSize="small" />
@@ -550,8 +608,8 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
                       <TableCell>{row.owner || "-"}</TableCell>
                       <TableCell sx={{ fontWeight: "bold" }}>{row.prNumber || "N/A"}</TableCell>
                       <TableCell>{row.prDate ? new Date(row.prDate).toLocaleDateString("en-IN") : "-"}</TableCell>
-                      <TableCell sx={{ fontWeight: "bold" }}>
-                        ₹ {row.totalPolicyPremium || row.premiumQuote || row.premiumAmount || 0}
+                      <TableCell sx={{ fontWeight: "bold", color: "primary.main" }}>
+                        ₹ {Number(row.newTotalPolicyPremium || row.newPremiumAmount || row.newPremium || row.totalPolicyPremium || row.premiumQuote || row.premiumAmount || 0).toLocaleString("en-IN")}
                       </TableCell>
                       <TableCell>
                         <Chip label="3. Finance Approval" size="small" color="primary" variant="outlined" />

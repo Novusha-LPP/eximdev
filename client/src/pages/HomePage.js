@@ -1026,7 +1026,7 @@ function HomePageContent() {
                 />
 
                 <Route
-                  path="/tyre-procurement"
+                  path="/tyre-procurement/*"
                   element={
                     <ProtectedRoute requiredModule="Tyre Procurement SOP">
                       <TyreProcurementSop />

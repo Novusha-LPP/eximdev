@@ -48,6 +48,19 @@ axios.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Prevent mouse wheel scrolling from changing number input values globally
+if (typeof window !== "undefined") {
+  window.addEventListener(
+    "wheel",
+    (e) => {
+      if (document.activeElement && document.activeElement.type === "number") {
+        document.activeElement.blur();
+      }
+    },
+    { passive: false }
+  );
+}
+
 const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(
   <BrowserRouter>

@@ -2095,6 +2095,8 @@ export const getPayrollData = async (req, res) => {
                         present: result.stats.present,
                         absent: result.stats.absent,
                         leave: result.stats.leave,
+                        paidLeave: result.stats.paidLeave || 0,
+                        unpaidLeave: result.stats.unpaidLeave || 0,
                         halfDay: result.stats.halfDay,
                         weeklyOffs: result.summary.weeklyOffs,
                         holidays: result.summary.holidays,

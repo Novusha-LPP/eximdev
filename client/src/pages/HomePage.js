@@ -48,6 +48,12 @@ import ShiftManagement from "../components/attendance/admin/ShiftManagement.jsx"
 import LeavePolicyManagement from "../components/attendance/admin/LeavePolicyManagement.jsx";
 import LockAttendance from "../components/attendance/admin/LockAttendance.jsx";
 import PayrollExport from "../components/attendance/admin/PayrollExport.jsx";
+import PayrollDashboard from "../components/attendance/admin/PayrollDashboard.jsx";
+import PayrollEntryScreen from "../components/attendance/admin/PayrollEntryScreen.jsx";
+import PayrollMaster from "../components/attendance/admin/PayrollMaster.jsx";
+import PayrollReports from "../components/attendance/admin/PayrollReports.jsx";
+import PayslipGenerator from "../components/attendance/admin/PayslipGenerator.jsx";
+import BankTransferFile from "../components/attendance/admin/BankTransferFile.jsx";
 import AttendanceSettings from "../components/attendance/admin/Settings.jsx";
 import CompanyManagement from "../components/attendance/admin/CompanyManagement.jsx";
 import AttendanceReports from "../components/attendance/admin/AttendanceReports.jsx";
@@ -1329,6 +1335,12 @@ function HomePageContent() {
                   <Route path="admin/companies" element={<CompanyManagement />} />
                   <Route path="admin/lock" element={<LockAttendance />} />
                   <Route path="admin/payroll" element={<PayrollExport />} />
+                  <Route path="admin/payroll-dashboard" element={<PayrollDashboard />} />
+                  <Route path="admin/payroll-entries" element={<PayrollEntryScreen />} />
+                  <Route path="admin/payroll-master" element={<PayrollMaster />} />
+                  <Route path="admin/payslip-generator" element={<PayslipGenerator />} />
+                  <Route path="admin/bank-transfer" element={<BankTransferFile />} />
+                  <Route path="admin/payroll-reports" element={<PayrollReports />} />
                   <Route path="admin/reports" element={<AttendanceReports />} />
                   <Route path="admin/settings" element={<AttendanceSettings />} />
                   <Route path="hod/report" element={<AttendanceReport />} />

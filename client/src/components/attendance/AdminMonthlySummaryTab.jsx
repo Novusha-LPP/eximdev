@@ -90,9 +90,9 @@ const AdminMonthlySummaryTab = ({ currentMonth, onMonthChange, companies = [], s
 
   const handleExport = () => {
       // Basic CSV export logic
-      const headers = ['Name', 'Code', 'Department', 'Present', 'Absent', 'Leave', 'Weekly Off', 'Payable Days'];
+      const headers = ['Name', 'Code', 'Department', 'Present', 'Absent', 'Paid Leave', 'Unpaid Leave', 'Weekly Off', 'Payable Days'];
       const rows = filteredData.map(e => [
-          e.name, e.code, e.department, e.stats.present, e.stats.absent, e.stats.leave, e.stats.weeklyOffs, e.stats.payableDays
+          e.name, e.code, e.department, e.stats.present, e.stats.absent, e.stats.paidLeave || 0, e.stats.unpaidLeave || 0, e.stats.weeklyOffs, e.stats.payableDays
       ]);
       const csvContent = "data:text/csv;charset=utf-8," + [headers, ...rows].map(r => r.join(",")).join("\n");
       const encodedUri = encodeURI(csvContent);
@@ -229,7 +229,8 @@ const AdminMonthlySummaryTab = ({ currentMonth, onMonthChange, companies = [], s
                 <th>Department</th>
                 <th>Present</th>
                 <th>Absent</th>
-                <th>Leave</th>
+                <th>Paid Leave</th>
+                <th>Unpaid Leave</th>
                 <th>Payable Days</th>
               </tr>
             </thead>
@@ -263,7 +264,8 @@ const AdminMonthlySummaryTab = ({ currentMonth, onMonthChange, companies = [], s
                   <td>{emp.department}</td>
                   <td><span className="adb-mon-stat-pill present">{emp.stats.present}</span></td>
                   <td><span className="adb-mon-stat-pill absent">{emp.stats.absent}</span></td>
-                  <td><span className="adb-mon-stat-pill leave">{emp.stats.leave}</span></td>
+                  <td><span className="adb-mon-stat-pill leave">{emp.stats.paidLeave || 0}</span></td>
+                  <td><span className="adb-mon-stat-pill absent">{emp.stats.unpaidLeave || 0}</span></td>
                   <td style={{ fontWeight: 700, color: '#111827' }}>{emp.stats.payableDays}</td>
                 </tr>
               ))}

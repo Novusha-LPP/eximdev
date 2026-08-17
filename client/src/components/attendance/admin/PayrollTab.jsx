@@ -1,3 +1,8 @@
+
+
+
+
+
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import {
@@ -112,6 +117,11 @@ const PayrollTab = ({ employeeId, companyId, employeeName }) => {
     overtime_rate_per_hour: 0,
     overtime_eligible: false,
     overtime_grace_minutes: 20,
+    grade: '',
+    band: '',
+    pf_applicable: true,
+    esi_applicable: true,
+    pt_applicable: true,
     effective_from: moment().startOf('month').format('YYYY-MM-DD'),
     revision_reason: ''
   });
@@ -440,6 +450,64 @@ const PayrollTab = ({ employeeId, companyId, employeeName }) => {
                     />
                   </div>
                 )}
+
+                <div>
+                  <label style={S.label}>Grade</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. L1, L2, M1"
+                    value={config.grade || ''}
+                    onChange={e => setConfig(prev => ({ ...prev, grade: e.target.value }))}
+                    style={S.input}
+                  />
+                </div>
+
+                <div>
+                  <label style={S.label}>Band</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Executive, Manager"
+                    value={config.band || ''}
+                    onChange={e => setConfig(prev => ({ ...prev, band: e.target.value }))}
+                    style={S.input}
+                  />
+                </div>
+              </div>
+
+              <div style={{ borderTop: `1px solid ${THEME.border}`, margin: '20px 0', paddingTop: '16px' }}>
+                <label style={{ ...S.label, marginBottom: '12px' }}>Statutory Applicability</label>
+                <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input
+                      type="checkbox"
+                      id="pf_app"
+                      checked={config.pf_applicable !== false}
+                      onChange={e => setConfig(prev => ({ ...prev, pf_applicable: e.target.checked }))}
+                      style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                    />
+                    <label htmlFor="pf_app" style={{ ...S.label, margin: 0, cursor: 'pointer' }}>PF Applicable</label>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input
+                      type="checkbox"
+                      id="esi_app"
+                      checked={config.esi_applicable !== false}
+                      onChange={e => setConfig(prev => ({ ...prev, esi_applicable: e.target.checked }))}
+                      style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                    />
+                    <label htmlFor="esi_app" style={{ ...S.label, margin: 0, cursor: 'pointer' }}>ESI Applicable</label>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input
+                      type="checkbox"
+                      id="pt_app"
+                      checked={config.pt_applicable !== false}
+                      onChange={e => setConfig(prev => ({ ...prev, pt_applicable: e.target.checked }))}
+                      style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                    />
+                    <label htmlFor="pt_app" style={{ ...S.label, margin: 0, cursor: 'pointer' }}>PT Applicable</label>
+                  </div>
+                </div>
               </div>
 
               <div style={{ borderTop: `1px solid ${THEME.border}`, margin: '20px 0', paddingTop: '16px' }}>

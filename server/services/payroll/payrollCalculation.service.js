@@ -14,6 +14,8 @@ import AttendanceRecord from '../../model/attendance/AttendanceRecord.js';
 import EmployeePayrollConfig from '../../model/attendance/EmployeePayrollConfig.js';
 import PayrollRun from '../../model/attendance/PayrollRun.js';
 import PayrollSummary from '../../model/attendance/PayrollSummary.js';
+import SalaryStructure from '../../model/attendance/SalaryStructure.js';
+import StatutoryConfig from '../../model/attendance/StatutoryConfig.js';
 import Shift from '../../model/attendance/Shift.js';
 import UserModel from '../../model/userModel.mjs';
 
@@ -154,7 +156,7 @@ const OvertimeCalculator = {
 // ─────────────────────────────────────────────────────────────────────────────
 const WageCalculator = {
   /**
-   * Calculates financial amounts based on payroll type.
+   * Calculates financial amounts including statutory deductions.
    *
    * DAILY_WAGE:
    *   basic = payable_days × daily_wage
@@ -164,10 +166,13 @@ const WageCalculator = {
    *   basic = (payable_days / total_days_in_month) × monthly_salary
    *   ot_amount = 0 (management typically not OT eligible)
    *
+   * Statutory deductions (PF, ESI, PT) are computed from StatutoryConfig
+   * and per-employee flags in EmployeePayrollConfig.
+   *
    * @param {Object} params
-   * @returns {Object} { basicAmount, overtimeAmount, grossAmount, deductionAmount, netPayable }
+   * @returns {Object} Full wage calculation result including breakups
    */
-   calculate({ payrollConfig, payableDays, totalDaysInMonth, totalOtHours }) {
+   calculate({ payrollConfig, payableDays, totalDaysInMonth, totalOtHours, salaryStructure, statutoryConfig, payrollMonth }) {
     let basicAmount = 0;
     let overtimeAmount = 0;
 
@@ -196,16 +201,97 @@ const WageCalculator = {
     overtimeAmount = Math.round(overtimeAmount * 100) / 100;
     const grossAmount = Math.round((basicAmount + overtimeAmount) * 100) / 100;
 
-    // Deductions deferred to future iteration
-    const deductionAmount = 0;
-    const netPayable = Math.round((grossAmount - deductionAmount) * 100) / 100;
+    // ─── Build earnings breakup from salary structure ─────────────────
+    const earningsBreakup = [];
+    if (salaryStructure && salaryStructure.components && salaryStructure.components.length > 0) {
+      // Pro-rate components based on payable days ratio
+      const ratio = totalDaysInMonth > 0 ? payableDays / totalDaysInMonth : 1;
+      for (const comp of salaryStructure.components) {
+        earningsBreakup.push({
+          payhead: comp.payhead,
+          amount: Math.round((comp.monthly_amount || 0) * ratio * 100) / 100
+        });
+      }
+    } else {
+      // No breakup — put everything as "Basic"
+      earningsBreakup.push({ payhead: 'Basic', amount: basicAmount });
+    }
+    if (overtimeAmount > 0) {
+      earningsBreakup.push({ payhead: 'Overtime', amount: overtimeAmount });
+    }
+
+    // ─── Identify "Basic" component for PF calculation ───────────────
+    const basicComponent = earningsBreakup.find(
+      e => /^basic$/i.test(e.payhead?.trim())
+    );
+    const basicForPF = basicComponent ? basicComponent.amount : basicAmount;
+
+    // ─── Statutory Deductions ────────────────────────────────────────
+    let pfEmployee = 0, pfEmployer = 0;
+    let esiEmployee = 0, esiEmployer = 0;
+    let professionalTax = 0;
+
+    const deductionsBreakup = [];
+
+    if (statutoryConfig) {
+      // PF Calculation
+      if (statutoryConfig.pf_enabled && payrollConfig.pf_applicable !== false) {
+        const pfBase = Math.min(basicForPF, statutoryConfig.pf_ceiling || 15000);
+        pfEmployee = Math.round(pfBase * (statutoryConfig.pf_rate_employee || 12) / 100);
+        pfEmployer = Math.round(pfBase * (statutoryConfig.pf_rate_employer || 12) / 100);
+        if (pfEmployee > 0) {
+          deductionsBreakup.push({ payhead: 'PF (Employee)', amount: pfEmployee });
+        }
+      }
+
+      // ESI Calculation (applicable only if gross <= ceiling)
+      if (statutoryConfig.esi_enabled && payrollConfig.esi_applicable !== false && grossAmount <= (statutoryConfig.esi_ceiling || 21000)) {
+        esiEmployee = Math.round(grossAmount * (statutoryConfig.esi_rate_employee || 0.75) / 100);
+        esiEmployer = Math.round(grossAmount * (statutoryConfig.esi_rate_employer || 3.25) / 100);
+        if (esiEmployee > 0) {
+          deductionsBreakup.push({ payhead: 'ESI (Employee)', amount: esiEmployee });
+        }
+      }
+
+      // PT Calculation (slab-based)
+      if (statutoryConfig.pt_enabled && payrollConfig.pt_applicable !== false) {
+        const slabs = statutoryConfig.pt_slabs || [];
+        for (const slab of slabs) {
+          if (grossAmount >= slab.from && grossAmount <= slab.to) {
+            professionalTax = slab.amount || 0;
+            // February exception for Maharashtra: last slab is 300 instead of 200
+            const monthNum = parseInt(payrollMonth, 10);
+            if (statutoryConfig.pt_state === 'Maharashtra' && monthNum === 2 && professionalTax === 200) {
+              professionalTax = 300;
+            }
+            break;
+          }
+        }
+        if (professionalTax > 0) {
+          deductionsBreakup.push({ payhead: 'Professional Tax', amount: professionalTax });
+        }
+      }
+    }
+
+    const totalDeductions = pfEmployee + esiEmployee + professionalTax;
+    const netPayable = Math.round((grossAmount - totalDeductions) * 100) / 100;
 
     return {
       basicAmount,
       overtimeAmount,
       grossAmount,
-      deductionAmount,
-      netPayable
+      deductionAmount: totalDeductions,
+      netPayable,
+      // Statutory breakdown
+      pfEmployee,
+      pfEmployer,
+      esiEmployee,
+      esiEmployer,
+      professionalTax,
+      tds: 0,
+      // Breakups
+      earningsBreakup,
+      deductionsBreakup
     };
   }
 };
@@ -263,7 +349,10 @@ const PayrollGenerator = {
       await payrollRun.save();
     }
 
-    // 2. Find all employees with ACTIVE payroll configs in this company
+    // 2. Fetch statutory config for this company (once per run)
+    const statutoryConfig = await StatutoryConfig.findOne({ company_id: companyId }).lean();
+
+    // 3. Find all employees with ACTIVE payroll configs in this company
     const payrollConfigs = await EmployeePayrollConfig.find({
       company_id: companyId,
       status: 'ACTIVE'
@@ -286,7 +375,8 @@ const PayrollGenerator = {
           config,
           year,
           monthStr,
-          yearMonth
+          yearMonth,
+          statutoryConfig
         });
         summaries.push(summary);
       } catch (err) {
@@ -308,7 +398,7 @@ const PayrollGenerator = {
   /**
    * Process a single employee's payroll for the month.
    */
-  async _processEmployee({ payrollRun, config, year, monthStr, yearMonth }) {
+  async _processEmployee({ payrollRun, config, year, monthStr, yearMonth, statutoryConfig }) {
     const employeeId = config.employee_id;
 
     // Aggregate attendance
@@ -317,6 +407,12 @@ const PayrollGenerator = {
     // Get default shift for the employee
     const employee = await UserModel.findById(employeeId).populate('shift_id').lean();
     const defaultShift = employee?.shift_id;
+
+    // Fetch active salary structure for breakup
+    const salaryStructure = await SalaryStructure.findOne({
+      employee_id: employeeId,
+      status: 'ACTIVE'
+    }).lean();
 
     // Derive shift counts and OT for each record
     let totalRegularHours = 0;
@@ -366,12 +462,15 @@ const PayrollGenerator = {
       + attendance.weeklyOff
       + attendance.holiday;
 
-    // Calculate wages
+    // Calculate wages with statutory deductions
     const wages = WageCalculator.calculate({
       payrollConfig: config,
       payableDays,
       totalDaysInMonth: attendance.totalDays,
-      totalOtHours
+      totalOtHours,
+      salaryStructure,
+      statutoryConfig,
+      payrollMonth: monthStr
     });
 
     // Create/update PayrollSummary
@@ -385,6 +484,7 @@ const PayrollGenerator = {
 
       // Config snapshot
       is_operator: config.is_operator,
+      category: config.category,
       payroll_type: config.payroll_type,
 
       // Attendance
@@ -409,10 +509,24 @@ const PayrollGenerator = {
       deduction_amount: wages.deductionAmount,
       net_payable_amount: wages.netPayable,
 
+      // Statutory breakdown
+      pf_employee: wages.pfEmployee,
+      pf_employer: wages.pfEmployer,
+      esi_employee: wages.esiEmployee,
+      esi_employer: wages.esiEmployer,
+      professional_tax: wages.professionalTax,
+      tds: wages.tds,
+
+      // Breakups
+      earnings_breakup: wages.earningsBreakup,
+      deductions_breakup: wages.deductionsBreakup,
+
       // Snapshots
       daily_wage_snapshot: config.daily_wage,
       monthly_salary_snapshot: config.monthly_salary,
-      ot_rate_snapshot: config.overtime_rate_per_hour
+      ot_rate_snapshot: config.overtime_rate_per_hour,
+      grade_snapshot: config.grade || '',
+      band_snapshot: config.band || ''
     };
 
     const summary = await PayrollSummary.findOneAndUpdate(

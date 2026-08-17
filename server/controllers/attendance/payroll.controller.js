@@ -92,7 +92,12 @@ export const updateEmployeePayrollConfig = async (req, res) => {
       overtime_eligible,
       overtime_grace_minutes,
       effective_from,
-      revision_reason
+      revision_reason,
+      grade,
+      band,
+      pf_applicable,
+      esi_applicable,
+      pt_applicable
     } = req.body;
 
     const isAuthorized = await checkPayrollAccess(req.user, employeeId, 'write');
@@ -139,6 +144,11 @@ export const updateEmployeePayrollConfig = async (req, res) => {
       overtime_rate_per_hour: overtime_rate_per_hour || 0,
       overtime_eligible: overtime_eligible !== undefined ? overtime_eligible : (is_operator || false),
       overtime_grace_minutes: overtime_grace_minutes ?? 20,
+      grade: grade || '',
+      band: band || '',
+      pf_applicable: pf_applicable !== undefined ? pf_applicable : true,
+      esi_applicable: esi_applicable !== undefined ? esi_applicable : true,
+      pt_applicable: pt_applicable !== undefined ? pt_applicable : true,
       effective_from: effectiveDate,
       effective_to: null,
       status: 'ACTIVE',

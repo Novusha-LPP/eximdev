@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { FiPlus, FiClock, FiTrash2, FiUsers, FiCalendar, FiSettings, FiCheckCircle, FiMinus, FiX, FiEdit2, FiList } from 'react-icons/fi';
 import masterAPI from '../../../api/attendance/master.api';
 import toast from 'react-hot-toast';
@@ -6,6 +6,7 @@ import { Modal } from 'antd';
 import EnterpriseTable from '../common/EnterpriseTable';
 import Button from '../common/Button';
 import Badge from '../common/Badge';
+import { UserContext } from '../../../contexts/UserContext';
 import './AdminSettings.css';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -30,10 +31,15 @@ const formatActor = (actor) => {
 };
 
 const ShiftManagement = () => {
+  const { user } = useContext(UserContext);
+  const isSuperAdmin = user?.role?.toUpperCase() === 'ADMIN';
+
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [companies, setCompanies] = useState([]);
-  const [companyId, setCompanyId] = useState('');
+  const [companyId, setCompanyId] = useState(() => {
+    return user?.company_id?._id || user?.company_id || '';
+  });
   const [formData, setFormData] = useState(emptyForm());
   const [tableKey, setTableKey] = useState(Date.now());
   const [logsOpen, setLogsOpen] = useState(false);
@@ -82,7 +88,10 @@ const ShiftManagement = () => {
     },
   ];
 
-  const fetchShifts = async (params) => masterAPI.getShifts({ ...params, company_id: companyId || undefined });
+  const fetchShifts = useCallback(
+    async (params) => masterAPI.getShifts({ ...params, company_id: companyId || undefined }),
+    [companyId]
+  );
 
   const fetchShiftLogs = useCallback(async (shiftId = '') => {
     try {
@@ -181,17 +190,32 @@ const ShiftManagement = () => {
   };
 
   useEffect(() => {
+    const userCompanyId = user?.company_id?._id || user?.company_id || '';
+    if (userCompanyId && !companyId) {
+      setCompanyId(userCompanyId);
+    }
+  }, [user, companyId]);
+
+  useEffect(() => {
     (async () => {
       try {
         const res = await masterAPI.getCompanies();
         const list = res?.data || [];
         setCompanies(list);
-        if (!companyId && list.length > 0) setCompanyId(list[0]._id);
+        
+        const userCompanyId = user?.company_id?._id || user?.company_id || '';
+        if (!companyId) {
+          if (userCompanyId) {
+            setCompanyId(userCompanyId);
+          } else if (list.length > 0) {
+            setCompanyId(list[0]._id);
+          }
+        }
       } catch {
         // ignore
       }
     })();
-  }, [companyId]);
+  }, [companyId, user]);
 
   return (
     <div className="settings-container">
@@ -202,6 +226,20 @@ const ShiftManagement = () => {
           <p>Define reference timings and work-hour thresholds for global shifts</p>
         </div>
         <div className="settings-header-actions">
+          {isSuperAdmin && companies.length > 1 && (
+            <select
+              className="form-select"
+              style={{ width: '220px', marginRight: '8px', padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+              value={companyId}
+              onChange={(e) => setCompanyId(e.target.value)}
+            >
+              {companies.map((c) => (
+                <option key={c._id} value={c._id}>
+                  {c.company_name}
+                </option>
+              ))}
+            </select>
+          )}
           <button className="btn btn-outline" onClick={() => { setLogsOpen(true); fetchShiftLogs(logsShiftId); }}>
             <FiList size={13} /> Logs
           </button>

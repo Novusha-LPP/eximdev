@@ -28,6 +28,15 @@ const employeePayrollConfigSchema = new mongoose.Schema({
   effective_from: { type: Date, required: true },
   effective_to: { type: Date, default: null },  // null = currently active
 
+  // ─── Grade & Band ──────────────────────────────────────────────────
+  grade: { type: String, default: '' },   // e.g., "L1", "L2", "M1", "M2", "S1"
+  band: { type: String, default: '' },    // e.g., "Junior", "Senior", "Manager", "Director"
+
+  // ─── Statutory Applicability (per-employee overrides) ─────────────
+  pf_applicable: { type: Boolean, default: true },
+  esi_applicable: { type: Boolean, default: true },
+  pt_applicable: { type: Boolean, default: true },
+
   // ─── Status & Audit ──────────────────────────────────────────────────
   status: { type: String, enum: ['ACTIVE', 'SUPERSEDED', 'INACTIVE'], default: 'ACTIVE' },
   created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

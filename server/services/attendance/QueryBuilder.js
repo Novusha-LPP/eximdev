@@ -41,6 +41,11 @@ class QueryBuilder {
 
         // 3. Add Dynamic Filters (Exact matches)
         Object.keys(filters).forEach(key => {
+            const cleanKey = key.replace('_min', '').replace('_max', '');
+            if (baseFilters[cleanKey] !== undefined) {
+                return; // Do not overwrite base filters (security/isolation constraints)
+            }
+
             // Handle special range filters if needed (e.g. salary_min, salary_max)
             if (key.endsWith('_min')) {
                 const actualKey = key.replace('_min', '');

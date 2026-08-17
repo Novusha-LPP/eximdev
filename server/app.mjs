@@ -377,6 +377,7 @@ import leaveRoutes from "./routes/attendance/leaveRoutes.mjs";
 import hodAttendanceRoutes from "./routes/attendance/hodRoutes.mjs";
 import masterAttendanceRoutes from "./routes/attendance/masterRoutes.mjs";
 import payrollRoutes from "./routes/attendance/payrollRoutes.mjs";
+import payrollDashboardRoutes from "./routes/attendance/payrollDashboardRoutes.mjs";
 import firstAidRoutes from "./routes/attendance/firstAidRoutes.mjs";
 // scmCube API
 import scmCubeRoutes from "./routes/scmCubeRoutes.mjs";
@@ -758,6 +759,7 @@ app.use('/api/leave', leaveRoutes);
 app.use('/api/hod-attendance', hodAttendanceRoutes);
 app.use('/api/master', masterAttendanceRoutes);
 app.use('/api/payroll', payrollRoutes);
+app.use('/api/payroll', payrollDashboardRoutes);
 app.use('/api/first-aid', firstAidRoutes);
 app.use('/uploads/leaves', express.static(
   path.join(path.dirname(fileURLToPath(import.meta.url)), 'uploads', 'leaves')

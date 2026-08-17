@@ -120,6 +120,51 @@ const AttendanceLayout = () => {
     let privilegedMenu = isAllowedAdmin
         ? ADMIN_PRIVILEGED_MENU.filter(item => item.label !== 'Team Report' && item.label !== 'Company Report')
         : ADMIN_PRIVILEGED_MENU;
+
+    if (isRabs) {
+        const configIndex = privilegedMenu.findIndex(item => item.section === 'Configuration');
+        if (configIndex !== -1) {
+            const firstPart = privilegedMenu.slice(0, configIndex);
+            const secondPart = privilegedMenu.slice(configIndex);
+
+            // 1. Insert Operations under 'Payroll' in the first part
+            const operationsMenu = [
+                { section: 'Payroll' },
+                { path: '/attendance/admin/payroll-dashboard', icon: FiHome, label: 'Payroll Dashboard', requiresAllowedAdmin: true },
+                { path: '/attendance/admin/payroll-entries', icon: FiCheckSquare, label: 'Payroll Entries', requiresAllowedAdmin: true },
+                { path: '/attendance/admin/payslip-generator', icon: FiFileText, label: 'Payslip Generator', requiresAllowedAdmin: true },
+                { path: '/attendance/admin/bank-transfer', icon: FiActivity, label: 'Bank Transfer', requiresAllowedAdmin: true },
+                { path: '/attendance/admin/payroll-reports', icon: FiBarChart2, label: 'Payroll Reports', requiresAllowedAdmin: true },
+            ];
+
+            // 2. Insert Employee Payroll Master right under 'Configuration' section in the second part
+            const configMenu = [
+                secondPart[0], // { section: 'Configuration' }
+                { path: '/attendance/admin/payroll-master', icon: FiUsers, label: 'Employee Payroll Master', requiresAllowedAdmin: true },
+                ...secondPart.slice(1)
+            ];
+
+            privilegedMenu = [
+                ...firstPart,
+                ...operationsMenu,
+                ...configMenu
+            ];
+        } else {
+            // Fallback flat-list if Configuration section is not found
+            privilegedMenu = [
+                privilegedMenu[0],
+                { section: 'Payroll' },
+                { path: '/attendance/admin/payroll-dashboard', icon: FiHome, label: 'Payroll Dashboard', requiresAllowedAdmin: true },
+                { path: '/attendance/admin/payroll-entries', icon: FiCheckSquare, label: 'Payroll Entries', requiresAllowedAdmin: true },
+                { path: '/attendance/admin/payroll-master', icon: FiUsers, label: 'Employee Payroll Master', requiresAllowedAdmin: true },
+                { path: '/attendance/admin/payslip-generator', icon: FiFileText, label: 'Payslip Generator', requiresAllowedAdmin: true },
+                { path: '/attendance/admin/bank-transfer', icon: FiActivity, label: 'Bank Transfer', requiresAllowedAdmin: true },
+                { path: '/attendance/admin/payroll-reports', icon: FiBarChart2, label: 'Payroll Reports', requiresAllowedAdmin: true },
+                ...privilegedMenu.slice(1)
+            ];
+        }
+    }
+
     let menu = isAdmin
         ? [...baseMenu, ...(isAllowedAdmin ? privilegedMenu : [])]
         : (isHOD ? [...HOD_MENU] : [...EMPLOYEE_MENU]);

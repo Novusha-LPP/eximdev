@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback, useContext } from "react";
 import { createPortal } from "react-dom";
+import axios from "axios";
 import audit5sAPI from "../../api/audit5s.api";
 import apiClient from "../../api/attendanceApiClient";
 import { UserContext } from "../../contexts/UserContext";
@@ -257,9 +258,9 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
             if (chkRes.success) {
                 const chk = chkRes.data;
                 setChecklist(chk);
-                setDocNo(chk.docNo || tplRes.data.docNo || "RI/QAD/R/04");
-                setRevNo(chk.revNo || tplRes.data.revNo || "00");
-                setRevDate(formatDateYYYYMMDD(chk.revDate || tplRes.data.revDate || "2024-12-10"));
+                setDocNo(chk.docNo || tplRes?.data?.docNo || "RI/QAD/R/04");
+                setRevNo(chk.revNo || tplRes?.data?.revNo || "00");
+                setRevDate(formatDateYYYYMMDD(chk.revDate || tplRes?.data?.revDate || "2024-12-10"));
                 setRespPersonId(chk.responsiblePerson?._id || chk.responsiblePerson || "");
             }
             if (prevChkRes && prevChkRes.success) {
@@ -269,7 +270,7 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
             }
 
             if (isAdminOrHR) {
-                const userRes = await apiClient.get("/get-all-users");
+                const userRes = await axios.get(`${process.env.REACT_APP_API_STRING}/get-all-users`);
                 if (Array.isArray(userRes.data)) {
                     const rabsUsers = userRes.data.filter(u => {
                         const compName = u.company || (u.company_id && u.company_id.company_name) || "";

@@ -36,10 +36,36 @@ const payrollSummarySchema = new mongoose.Schema({
   deduction_amount: { type: Number, default: 0 },
   net_payable_amount: { type: Number, default: 0 },
 
+  // ─── Statutory Deductions Breakdown ───────────────────────────────
+  pf_employee: { type: Number, default: 0 },
+  pf_employer: { type: Number, default: 0 },
+  esi_employee: { type: Number, default: 0 },
+  esi_employer: { type: Number, default: 0 },
+  professional_tax: { type: Number, default: 0 },
+  tds: { type: Number, default: 0 },
+  other_deductions: { type: Number, default: 0 },
+  other_deduction_remarks: { type: String, default: '' },
+
+  // ─── Adjustments (manual overrides) ──────────────────────────────
+  adjustment_amount: { type: Number, default: 0 },       // Positive = bonus, Negative = deduction
+  adjustment_remarks: { type: String, default: '' },
+
+  // ─── Earnings & Deductions Breakup (for payslip) ─────────────────
+  earnings_breakup: [{
+    payhead: { type: String },
+    amount: { type: Number, default: 0 }
+  }],
+  deductions_breakup: [{
+    payhead: { type: String },
+    amount: { type: Number, default: 0 }
+  }],
+
   // Snapshots for audit trail
   daily_wage_snapshot: { type: Number },
   monthly_salary_snapshot: { type: Number },
   ot_rate_snapshot: { type: Number },
+  grade_snapshot: { type: String },
+  band_snapshot: { type: String },
 
   remarks: { type: String }
 }, { timestamps: true });

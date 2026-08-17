@@ -35,7 +35,7 @@ class PayrollEngine {
         const allRecords = await AttendanceRecord.find({
             employee_id: employee._id,
             year_month: yearMonth
-        }).sort({ attendance_date: 1 });
+        }).populate('leave_application_id').sort({ attendance_date: 1 });
 
         // Ensure we only process one record per date (latest)
         const recordMap = new Map();
@@ -45,12 +45,24 @@ class PayrollEngine {
         const stats = records.reduce((acc, rec) => {
             if (rec.status === 'present') acc.present++;
             else if (rec.status === 'absent') acc.absent++;
-            else if (rec.status === 'leave') acc.leave++;
+            else if (rec.status === 'leave') {
+                const isLop = rec.leave_application_id?.is_lop === true;
+                if (isLop) {
+                    acc.unpaidLeave++;
+                } else {
+                    acc.paidLeave++;
+                }
+            }
             else if (rec.status === 'half_day') {
                 acc.halfDay++;
                 // If it's a half-day leave situation, also count 0.5 as leave for payroll
                 if (rec.is_on_leave) {
-                    acc.leave += 0.5;
+                    const isLop = rec.leave_application_id?.is_lop === true;
+                    if (isLop) {
+                        acc.unpaidLeave += 0.5;
+                    } else {
+                        acc.paidLeave += 0.5;
+                    }
                     acc.halfDay--; // Adjust halfDay so it doesn't double-count work credit in our base formula
                 }
             }
@@ -65,12 +77,12 @@ class PayrollEngine {
             acc.overtimeHours += rec.overtime_hours || 0;
 
             return acc;
-        }, { present: 0, absent: 0, leave: 0, halfDay: 0, weeklyOffWorked: 0, workHours: 0, overtimeHours: 0 });
+        }, { present: 0, absent: 0, paidLeave: 0, unpaidLeave: 0, halfDay: 0, weeklyOffWorked: 0, workHours: 0, overtimeHours: 0 });
 
         // 4. Payable Days Logic
         const config = company.payroll_config || {};
 
-        let payableDays = stats.present + stats.leave + (stats.halfDay * 0.5);
+        let payableDays = stats.present + stats.paidLeave + (stats.halfDay * 0.5);
 
         // Include Offs and Holidays only if configured and if employee worked enough
         if (config.include_holidays_in_payable) {
@@ -82,20 +94,14 @@ class PayrollEngine {
         }
 
         // 5. LOP Calculation
-        // LOP = Total Working Days in Period - (Present + Leave + HalfDay*0.5)
-        const lopDays = Math.max(0, summary.workingDaysCount - (stats.present + stats.leave + (stats.halfDay * 0.5)));
+        // LOP = Total Working Days in Period - (Present + PaidLeave + HalfDay*0.5)
+        const lopDays = Math.max(0, summary.workingDaysCount - (stats.present + stats.paidLeave + (stats.halfDay * 0.5)));
 
-        // 6. Salary Preview (Admin Only)
-        // Per Day Salary = Monthly Salary / Basis (Calendar or Working Days)
-        const salaryBaseBasis = config.lop_calculation === 'calendar_days' ? totalDaysInMonth : summary.workingDaysCount;
-        const perDaySalary = (employee.monthly_salary || 0) / (salaryBaseBasis || 30);
-        const lopDeduction = lopDays * perDaySalary;
-
-        const overtimeMultiplier = config.overtime_rate || 1.5;
-        const perHourSalary = perDaySalary / (company.settings?.standard_work_hours || 8);
-        const overtimePay = stats.overtimeHours * perHourSalary * overtimeMultiplier;
-
-        const finalSalary = (employee.monthly_salary || 0) - lopDeduction + overtimePay;
+        // 6. Salary Preview (Admin Only - calculations disabled)
+        const perDaySalary = 0;
+        const lopDeduction = 0;
+        const overtimePay = 0;
+        const finalSalary = 0;
 
         return {
             period: {
@@ -110,7 +116,9 @@ class PayrollEngine {
             stats: {
                 present: stats.present,
                 absent: stats.absent,
-                leave: stats.leave,
+                leave: stats.paidLeave + stats.unpaidLeave,
+                paidLeave: stats.paidLeave,
+                unpaidLeave: stats.unpaidLeave,
                 halfDay: stats.halfDay,
                 workHours: stats.workHours,
                 overtimeHours: stats.overtimeHours,
@@ -118,11 +126,11 @@ class PayrollEngine {
                 payableDays: parseFloat(Math.min(payableDays, totalDaysInMonth).toFixed(2))
             },
             salary: {
-                monthlyBase: employee.monthly_salary || 0,
-                perDay: parseFloat(perDaySalary.toFixed(2)),
-                lopDeduction: parseFloat(lopDeduction.toFixed(2)),
-                overtimePay: parseFloat(overtimePay.toFixed(2)),
-                final: parseFloat(finalSalary.toFixed(2))
+                monthlyBase: 0,
+                perDay: 0,
+                lopDeduction: 0,
+                overtimePay: 0,
+                final: 0
             }
         };
     }

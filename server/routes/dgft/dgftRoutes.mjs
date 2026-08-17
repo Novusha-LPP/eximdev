@@ -7,6 +7,7 @@ import RodtepModel from "../../model/rodtepModel.mjs";
 import JobModel from "../../model/jobModel.mjs";
 import LicenseUtilizationModel from "../../model/licenseUtilizationModel.mjs";
 import { recalculateLicenseUtilization } from "../../services/licenseUtilizationService.mjs";
+import authMiddleware from "../../middleware/authMiddleware.mjs";
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -27,7 +28,25 @@ router.get("/api/get-dgft-registers", async (req, res) => {
 // POST add DGFT register
 router.post("/api/add-dgft-register", async (req, res) => {
   try {
-    const record = await DgftRegisterModel.create(req.body);
+    const createData = { ...req.body };
+    // Quantity & Value Tracking can only be entered once payment is approved
+    if (createData.payment_status !== "Payment Approved") {
+      delete createData.export_details_array;
+      delete createData.import_details_array;
+      delete createData.qty_export;
+      delete createData.unit_export;
+      delete createData.export_value_fob_usd;
+      delete createData.export_value_rs;
+      delete createData.hs_code_export;
+      delete createData.item_description_export;
+      delete createData.qty_import;
+      delete createData.unit_import;
+      delete createData.import_value_fob_usd;
+      delete createData.import_value_rs;
+      delete createData.hs_code_import;
+      delete createData.item_description_import;
+    }
+    const record = await DgftRegisterModel.create(createData);
     res.status(201).json({ message: "Record added successfully", data: record });
   } catch (error) {
     console.error(error);
@@ -38,12 +57,35 @@ router.post("/api/add-dgft-register", async (req, res) => {
 // PUT update DGFT register
 router.put("/api/update-dgft-register/:id", async (req, res) => {
   try {
+    const existing = await DgftRegisterModel.findById(req.params.id);
+    if (!existing) return res.status(404).json({ message: "Record not found" });
+
+    const updateData = { ...req.body };
+    const isApproved = (updateData.payment_status || existing.payment_status) === "Payment Approved" || (updateData.job_status || existing.job_status) === "APPROVED";
+
+    // If payment is not approved, protect and do not allow saving export/import items
+    if (!isApproved) {
+      delete updateData.export_details_array;
+      delete updateData.import_details_array;
+      delete updateData.qty_export;
+      delete updateData.unit_export;
+      delete updateData.export_value_fob_usd;
+      delete updateData.export_value_rs;
+      delete updateData.hs_code_export;
+      delete updateData.item_description_export;
+      delete updateData.qty_import;
+      delete updateData.unit_import;
+      delete updateData.import_value_fob_usd;
+      delete updateData.import_value_rs;
+      delete updateData.hs_code_import;
+      delete updateData.item_description_import;
+    }
+
     const updated = await DgftRegisterModel.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       { new: true }
     );
-    if (!updated) return res.status(404).json({ message: "Record not found" });
     res.status(200).json({ message: "Record updated successfully", data: updated });
   } catch (error) {
     console.error(error);
@@ -958,6 +1000,102 @@ router.get("/api/get-rodteps-by-iec", async (req, res) => {
     }
     const data = await RodtepModel.find({ iec_code: iec_no }).sort({ createdAt: -1 }).lean();
     res.status(200).json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// ===================== DGFT Payment Approval Workflow =====================
+
+// GET all DGFT records with a payment status (for approval tab)
+router.get("/api/get-dgft-payment-requests", async (req, res) => {
+  try {
+    const data = await DgftRegisterModel.find({
+      payment_status: { $exists: true, $ne: "" },
+    }).sort({ payment_requested_at: -1 });
+    res.status(200).json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// PUT submit a payment request
+router.put("/api/dgft-request-payment/:id", authMiddleware, async (req, res) => {
+  try {
+    const record = await DgftRegisterModel.findById(req.params.id);
+    if (!record) return res.status(404).json({ message: "Record not found" });
+
+    const eftAmount = req.body.eft_amount || record.eft_amount;
+    if (!eftAmount || String(eftAmount).trim() === "") {
+      return res.status(400).json({ message: "EFT Amount is required to request payment" });
+    }
+
+    const requestedBy = req.user?.username || req.user?.first_name || req.body.requested_by || "Admin";
+
+    record.eft_amount = eftAmount;
+    record.payment_status = "Payment Requested";
+    record.job_status = "PAYMENT REQUESTED";
+    record.payment_requested_by = requestedBy;
+    record.payment_requested_at = new Date();
+    // Clear any previous rejection
+    record.payment_rejection_reason = "";
+    record.payment_approved_by = "";
+    record.payment_approved_at = null;
+
+    await record.save();
+    res.status(200).json({ message: "Payment request submitted", data: record });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// PUT approve a payment request
+router.put("/api/dgft-approve-payment/:id", authMiddleware, async (req, res) => {
+  try {
+    const record = await DgftRegisterModel.findById(req.params.id);
+    if (!record) return res.status(404).json({ message: "Record not found" });
+    if (record.payment_status !== "Payment Requested") {
+      return res.status(400).json({ message: "Only records with 'Payment Requested' status can be approved" });
+    }
+
+    const approvedBy = req.user?.username || req.user?.first_name || req.body.approved_by || "Admin";
+
+    record.payment_status = "Payment Approved";
+    record.job_status = "APPROVED";
+    record.payment_approved_by = approvedBy;
+    record.payment_approved_at = new Date();
+
+    await record.save();
+    res.status(200).json({ message: "Payment approved", data: record });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
+// PUT reject a payment request
+router.put("/api/dgft-reject-payment/:id", authMiddleware, async (req, res) => {
+  try {
+    const record = await DgftRegisterModel.findById(req.params.id);
+    if (!record) return res.status(404).json({ message: "Record not found" });
+    if (record.payment_status !== "Payment Requested") {
+      return res.status(400).json({ message: "Only records with 'Payment Requested' status can be rejected" });
+    }
+
+    const rejectedBy = req.user?.username || req.user?.first_name || req.body.rejected_by || "Admin";
+    const reason = req.body.reason || "";
+
+    record.payment_status = "Payment Rejected";
+    record.job_status = "DEFICIENT";
+    record.payment_approved_by = rejectedBy;
+    record.payment_approved_at = new Date();
+    record.payment_rejection_reason = reason;
+
+    await record.save();
+    res.status(200).json({ message: "Payment rejected", data: record });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Internal Server Error" });

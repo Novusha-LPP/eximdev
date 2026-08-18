@@ -47,12 +47,33 @@ import { generatePurchaseBookPDF } from "../../utils/purchaseBookPrint.js";
 function PaymentCompleted({ workMode = "Payment" }) {
   const { currentTab } = useContext(TabContext); // Access context
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter, currentPageTab0: currentPage, setCurrentPageTab0: setCurrentPage } = useSearchQuery();
+
+  const [searchQuery, setSearchQuery] = useState(
+    () => sessionStorage.getItem("ib_tab5_search") || ""
+  );
+  const [selectedImporter, setSelectedImporter] = useState(
+    () => sessionStorage.getItem("ib_tab5_importer") || ""
+  );
+  const [selectedTransactionType, setSelectedTransactionType] = useState(
+    () => sessionStorage.getItem("ib_tab5_txType") || "All"
+  );
+  const [dateFilterType, setDateFilterType] = useState(
+    () => sessionStorage.getItem("ib_tab5_dateFilterType") || "single"
+  );
+  const [completionStartDate, setCompletionStartDate] = useState(
+    () => sessionStorage.getItem("ib_tab5_startDate") || ""
+  );
+  const [completionEndDate, setCompletionEndDate] = useState(
+    () => sessionStorage.getItem("ib_tab5_endDate") || ""
+  );
+  const [page, setPage] = useState(
+    () => Number(sessionStorage.getItem("ib_tab5_page")) || 1
+  );
+
   const { user } = useContext(UserContext);
   const { selectedBranch, selectedCategory } = useContext(BranchContext);
   const [years, setYears] = useState([]);
   const [rows, setRows] = useState([]);
-  const [page, setPage] = useState(1); // Current page number
   const [totalPages, setTotalPages] = useState(1); // Total number of pages
   const [loading, setLoading] = useState(false); // Loading state
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery); // Debounced search query
@@ -63,12 +84,37 @@ function PaymentCompleted({ workMode = "Payment" }) {
   const [openDetailModal, setOpenDetailModal] = useState(false);
   const [selectedPaymentRequest, setSelectedPaymentRequest] = useState(null);
   const [isModalLoading, setIsModalLoading] = useState(false);
-  const [completionStartDate, setCompletionStartDate] = useState("");
-  const [completionEndDate, setCompletionEndDate] = useState("");
-  const [dateFilterType, setDateFilterType] = useState("single"); // 'single', 'range', 'today', 'week', 'month', 'year'
   const [anchorEl, setAnchorEl] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
-  const [selectedTransactionType, setSelectedTransactionType] = useState("All");
+
+  // Persist filter states to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab5_search", searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab5_importer", selectedImporter || "");
+  }, [selectedImporter]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab5_txType", selectedTransactionType || "All");
+  }, [selectedTransactionType]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab5_dateFilterType", dateFilterType);
+  }, [dateFilterType]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab5_startDate", completionStartDate || "");
+  }, [completionStartDate]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab5_endDate", completionEndDate || "");
+  }, [completionEndDate]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab5_page", page.toString());
+  }, [page]);
 
   const handleAdvancedClick = (event) => setAnchorEl(event.currentTarget);
   const handleAdvancedClose = () => setAnchorEl(null);
@@ -416,7 +462,6 @@ function PaymentCompleted({ workMode = "Payment" }) {
 
         setRows(jobs);
         setTotalPages(totalPages);
-        setPage(returnedPage);
         setTotalJobs(totalJobs);
       } catch (error) {
         console.error("Error fetching billing ready jobs:", error);
@@ -461,7 +506,12 @@ function PaymentCompleted({ workMode = "Payment" }) {
   ]);
 
   // Debounce search input to avoid excessive API calls
+  const isFirstSearch = React.useRef(true);
   useEffect(() => {
+    if (isFirstSearch.current) {
+      isFirstSearch.current = false;
+      return;
+    }
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
       setPage(1); // Reset to first page on new search
@@ -974,7 +1024,10 @@ function PaymentCompleted({ workMode = "Payment" }) {
           freeSolo
           options={importerNames.map((option) => option.label)}
           value={selectedImporter || ""} // Controlled value
-          onInputChange={(event, newValue) => setSelectedImporter(newValue)} // Handles input change
+          onInputChange={(event, newValue) => {
+            setSelectedImporter(newValue);
+            setPage(1);
+          }}
           renderInput={(params) => (
             <TextField
               {...params}

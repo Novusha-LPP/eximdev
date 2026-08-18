@@ -28,11 +28,20 @@ import { UserContext } from "../../contexts/UserContext";
 
 function GeneralJobs() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } = useSearchQuery();
+
+  const [searchQuery, setSearchQuery] = useState(
+    () => sessionStorage.getItem("ib_tab2_search") || ""
+  );
+  const [selectedImporter, setSelectedImporter] = useState(
+    () => sessionStorage.getItem("ib_tab2_importer") || ""
+  );
+  const [page, setPage] = useState(
+    () => Number(sessionStorage.getItem("ib_tab2_page")) || 1
+  );
+
   const { user } = useContext(UserContext);
 
   const [rows, setRows] = useState([]);
-  const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalJobs, setTotalJobs] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -40,6 +49,19 @@ function GeneralJobs() {
   const limit = 100;
 
   const navigate = useNavigate();
+
+  // Persist filter states to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab2_search", searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab2_importer", selectedImporter || "");
+  }, [selectedImporter]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab2_page", page.toString());
+  }, [page]);
 
   // Create Job dialog states
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -123,7 +145,12 @@ function GeneralJobs() {
   }, [page, debouncedSearchQuery, selectedImporter, selectedYearState, fetchJobs]);
 
   // Debounce search input
+  const isFirstSearch = React.useRef(true);
   useEffect(() => {
+    if (isFirstSearch.current) {
+      isFirstSearch.current = false;
+      return;
+    }
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
       setPage(1);

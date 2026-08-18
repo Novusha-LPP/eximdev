@@ -41,6 +41,7 @@ const JOB_STATUS_OPTIONS = [
   "OPEN",
   "IN PROCESS",
   "PAYMENT REQUESTED",
+  "PAYMENT APPROVED",
   "DEFICIENT",
   "APPROVED",
   "REJECTED",
@@ -677,6 +678,26 @@ function DgftRegisterList({ onCountChange }) {
     }
   };
 
+  const handleInvoiceNoChange = async (id, newInvoiceNo) => {
+    try {
+      const currentRow = rows.find((r) => r._id === id);
+      const existingVal = currentRow?.accounts_inv_no || currentRow?.matter_closed_inv_no || "";
+      if (existingVal === newInvoiceNo.trim()) return;
+
+      await axios.put(
+        `${process.env.REACT_APP_API_STRING}/update-dgft-register/${id}`,
+        { accounts_inv_no: newInvoiceNo.trim() }
+      );
+      setRows((prev) =>
+        prev.map((r) => (r._id === id ? { ...r, accounts_inv_no: newInvoiceNo.trim() } : r))
+      );
+      showToast("Billing Invoice No. updated", "success");
+    } catch (err) {
+      console.error("Failed to update billing invoice no:", err);
+      showToast(err.response?.data?.message || "Failed to update invoice no", "error");
+    }
+  };
+
   const handleOpenApproveModal = (row) => {
     setSelectedApproveRow(row);
     setApproveModalOpen(true);
@@ -690,7 +711,7 @@ function DgftRegisterList({ onCountChange }) {
       });
       const raw = selectedApproveRow.job_no || "";
       const displayJobNo = String(raw).includes("/") ? raw : `DGFT/${raw}`;
-      showToast(`Payment approved for ${displayJobNo}. Moved to APPROVED.`, "success");
+      showToast(`Payment approved for ${displayJobNo}. Moved to PAYMENT APPROVED.`, "success");
       setApproveModalOpen(false);
       setSelectedApproveRow(null);
       getData();
@@ -738,14 +759,17 @@ function DgftRegisterList({ onCountChange }) {
       // Status filter
       if (statusFilter) {
         const filterNormalized = statusFilter.trim().toUpperCase();
+        const rowJobStatus = (row.job_status || "").trim().toUpperCase();
+
         if (filterNormalized === "PAYMENT REQUESTED") {
-          const isPR = (row.job_status || "").trim().toUpperCase() === "PAYMENT REQUESTED" || row.payment_status === "Payment Requested";
+          const isPR = rowJobStatus === "PAYMENT REQUESTED";
           if (!isPR) return false;
+        } else if (filterNormalized === "APPROVED PAYMENTS" || filterNormalized === "PAYMENT APPROVED") {
+          const isPaymentApproved = rowJobStatus === "PAYMENT APPROVED" || rowJobStatus === "APPROVED PAYMENTS" || rowJobStatus === "APPROVED PAYMENT";
+          if (!isPaymentApproved) return false;
         } else if (filterNormalized === "IN PROCESS") {
-          const isPR = (row.job_status || "").trim().toUpperCase() === "PAYMENT REQUESTED" || row.payment_status === "Payment Requested";
-          if (isPR) return false;
-          if ((row.job_status || "").trim().toUpperCase() !== "IN PROCESS") return false;
-        } else if (!(row.job_status || "").toLowerCase().includes(statusFilter.toLowerCase())) {
+          if (rowJobStatus !== "IN PROCESS") return false;
+        } else if (rowJobStatus !== filterNormalized) {
           return false;
         }
       }
@@ -779,7 +803,7 @@ function DgftRegisterList({ onCountChange }) {
 
   // Compute count of records in each stage
   const statusCounts = useMemo(() => {
-    const counts = { "": 0 };
+    const counts = { "": 0, "Approved payments": 0 };
     JOB_STATUS_OPTIONS.forEach((st) => {
       counts[st] = 0;
     });
@@ -797,14 +821,14 @@ function DgftRegisterList({ onCountChange }) {
         ) return;
       }
       counts[""] += 1;
-      const isPR = (row.job_status || "").trim().toUpperCase() === "PAYMENT REQUESTED" || row.payment_status === "Payment Requested";
-      if (isPR) {
-        counts["PAYMENT REQUESTED"] = (counts["PAYMENT REQUESTED"] || 0) + 1;
-      } else {
-        const st = (row.job_status || "").trim().toUpperCase();
-        if (st) {
-          counts[st] = (counts[st] || 0) + 1;
-        }
+
+      const st = (row.job_status || "").trim().toUpperCase();
+
+      if (st === "PAYMENT APPROVED" || st === "APPROVED PAYMENTS" || st === "APPROVED PAYMENT") {
+        counts["Approved payments"] += 1;
+        counts["PAYMENT APPROVED"] = (counts["PAYMENT APPROVED"] || 0) + 1;
+      } else if (st && counts[st] !== undefined) {
+        counts[st] += 1;
       }
     });
 
@@ -843,9 +867,19 @@ function DgftRegisterList({ onCountChange }) {
     page * rowsPerPage + rowsPerPage
   );
 
-  // Use flat columns with dynamic width for actions column
+  // Use flat columns with dynamic width for actions column and BILLING INVOICE NO column
   const flatCols = useMemo(() => {
-    return COLUMNS.map((col) => {
+    let cols = [...COLUMNS];
+    if (statusFilter === "BILLING") {
+      const jobStatusIdx = cols.findIndex((c) => c.key === "job_status");
+      const invCol = { key: "accounts_inv_no", label: "BILLING INVOICE NO", width: 170 };
+      if (jobStatusIdx !== -1) {
+        cols.splice(jobStatusIdx, 0, invCol);
+      } else {
+        cols.push(invCol);
+      }
+    }
+    return cols.map((col) => {
       if (col.key === "_actions") {
         return { ...col, width: statusFilter === "PAYMENT REQUESTED" ? 210 : 100 };
       }
@@ -890,6 +924,15 @@ function DgftRegisterList({ onCountChange }) {
         >
           <div className="ar-stage-name">PAYMENT REQUESTED</div>
           <div className="ar-stage-count">{statusCounts["PAYMENT REQUESTED"] || 0}</div>
+        </div>
+
+        {/* APPROVED PAYMENTS */}
+        <div
+          className={`ar-stage-card ${statusFilter === "Approved payments" ? "active" : ""}`}
+          onClick={() => updateStatusFilter(statusFilter === "Approved payments" ? "" : "Approved payments")}
+        >
+          <div className="ar-stage-name">Approved payments</div>
+          <div className="ar-stage-count" style={{ color: "#16a34a" }}>{statusCounts["Approved payments"] || 0}</div>
         </div>
 
         {/* DEFICIENT */}
@@ -967,11 +1010,15 @@ function DgftRegisterList({ onCountChange }) {
             onChange={(e) => updateStatusFilter(e.target.value)}
           >
             <option value="">All Statuses ({statusCounts[""] || 0})</option>
-            {JOB_STATUS_OPTIONS.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt} ({statusCounts[opt] || 0})
-              </option>
-            ))}
+            <option value="OPEN">OPEN ({statusCounts["OPEN"] || 0})</option>
+            <option value="IN PROCESS">IN PROCESS ({statusCounts["IN PROCESS"] || 0})</option>
+            <option value="PAYMENT REQUESTED">PAYMENT REQUESTED ({statusCounts["PAYMENT REQUESTED"] || 0})</option>
+            <option value="Approved payments">Approved payments ({statusCounts["Approved payments"] || 0})</option>
+            <option value="DEFICIENT">DEFICIENT ({statusCounts["DEFICIENT"] || 0})</option>
+            <option value="APPROVED">APPROVED ({statusCounts["APPROVED"] || 0})</option>
+            <option value="REJECTED">REJECTED ({statusCounts["REJECTED"] || 0})</option>
+            <option value="BILLING">BILLING ({statusCounts["BILLING"] || 0})</option>
+            <option value="CLOSED">CLOSED ({statusCounts["CLOSED"] || 0})</option>
           </select>
         </div>
         <div className="ar-toolbar-right">
@@ -1164,6 +1211,34 @@ function DgftRegisterList({ onCountChange }) {
                                 </td>
                               );
                             }
+                            if (col.key === "accounts_inv_no") {
+                              return (
+                                <td key={col.key} onClick={(e) => e.stopPropagation()}>
+                                  <input
+                                    type="text"
+                                    defaultValue={row.accounts_inv_no || row.matter_closed_inv_no || ""}
+                                    placeholder="Enter Invoice No"
+                                    onBlur={(e) => handleInvoiceNoChange(row._id, e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") {
+                                        e.target.blur();
+                                      }
+                                    }}
+                                    style={{
+                                      padding: "4px 8px",
+                                      borderRadius: "3px",
+                                      border: "1px solid #d0d7e2",
+                                      width: "100%",
+                                      fontSize: "11px",
+                                      outline: "none",
+                                      background: "#fff",
+                                      color: "#111827",
+                                      fontWeight: "500",
+                                    }}
+                                  />
+                                </td>
+                              );
+                            }
                             if (col.key === "job_status") {
                               return (
                                 <td key={col.key} onClick={(e) => e.stopPropagation()}>
@@ -1277,6 +1352,34 @@ function DgftRegisterList({ onCountChange }) {
                                   <span>📎</span> Doc
                                 </button>
                               )}
+                            </td>
+                          );
+                        }
+                        if (col.key === "accounts_inv_no") {
+                          return (
+                            <td key={col.key} onClick={(e) => e.stopPropagation()}>
+                              <input
+                                type="text"
+                                defaultValue={row.accounts_inv_no || row.matter_closed_inv_no || ""}
+                                placeholder="Enter Invoice No"
+                                onBlur={(e) => handleInvoiceNoChange(row._id, e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.target.blur();
+                                  }
+                                }}
+                                style={{
+                                  padding: "4px 8px",
+                                  borderRadius: "3px",
+                                  border: "1px solid #d0d7e2",
+                                  width: "100%",
+                                  fontSize: "11px",
+                                  outline: "none",
+                                  background: "#fff",
+                                  color: "#111827",
+                                  fontWeight: "500",
+                                }}
+                              />
                             </td>
                           );
                         }
@@ -2034,7 +2137,7 @@ function DgftRegisterList({ onCountChange }) {
                 </div>
               </div>
               <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: "6px", padding: "10px 14px", fontSize: "11px", color: "#1e40af" }}>
-                ℹ️ <strong>Note:</strong> Approving this payment will update the status to <strong>APPROVED</strong> and move the record to the <strong>APPROVED</strong> tab to fill in Quantity &amp; Value Tracking.
+                ℹ️ <strong>Note:</strong> Approving this payment will update the status to <strong>PAYMENT APPROVED</strong> to fill in Quantity &amp; Value Tracking.
               </div>
             </div>
           )}

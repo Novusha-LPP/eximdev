@@ -224,60 +224,178 @@ function TyreProcurementForm({ pr, isView, onSaved, onCancel }) {
         </Button>
       </Box>
 
-      <Paper sx={{ p: 2, mb: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <Typography variant="h6" color="primary" sx={{ fontWeight: "bold" }}>
-          {isView ? "View Tyre Purchase Request" : (prId ? "Edit Tyre Purchase Request" : "Create Tyre Purchase Request")}
-        </Typography>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <Typography variant="body2" color="textSecondary" sx={{ fontWeight: 500 }}>
-            Current Status:
-          </Typography>
-          <Chip
-            label={formData.status || "Draft"}
-            color={
-              formData.status === "Closed" || formData.status === "GRN Done"
-                ? "success"
-                : formData.status === "PR Raised" || formData.status === "Preparing for Quotation"
-                ? "primary"
-                : "info"
-            }
-            variant="outlined"
-            sx={{ fontWeight: "bold", fontSize: "0.85rem", px: 1 }}
-          />
+      <Paper
+        elevation={0}
+        sx={{
+          p: 2.5,
+          mb: 3,
+          borderRadius: "12px",
+          border: "1px solid",
+          borderColor: "divider",
+          background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+        }}
+      >
+        <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems="center" spacing={2}>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: "#0f172a", letterSpacing: "-0.3px" }}>
+              {isView ? "View Tyre Purchase Request" : prId ? "Edit Tyre Purchase Request" : "Create Tyre Purchase Request"}
+            </Typography>
+            {formData.prNumber && (
+              <Typography variant="body2" sx={{ color: "#64748b", mt: 0.5 }}>
+                PR Reference: <strong>{formData.prNumber}</strong> {formData.poNumber ? `| PO: ${formData.poNumber}` : ""}
+              </Typography>
+            )}
+          </Box>
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+              Stage Status:
+            </Typography>
+            <Chip
+              label={formData.status || "Draft"}
+              sx={{
+                fontWeight: 700,
+                fontSize: "0.8rem",
+                borderRadius: "8px",
+                px: 1,
+                bgcolor:
+                  formData.status === "Closed" || formData.status === "GRN Done"
+                    ? "#dcfce7"
+                    : formData.status === "PR Raised" || formData.status === "Preparing for Quotation"
+                    ? "#fef3c7"
+                    : "#e0f2fe",
+                color:
+                  formData.status === "Closed" || formData.status === "GRN Done"
+                    ? "#15803d"
+                    : formData.status === "PR Raised" || formData.status === "Preparing for Quotation"
+                    ? "#b45309"
+                    : "#0369a1",
+              }}
+            />
+          </Stack>
         </Stack>
       </Paper>
 
-      <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
-        <Tabs
-          value={value}
-          onChange={handleChangeTab}
-          variant="scrollable"
-          scrollButtons="auto"
-          aria-label="tyre procurement stage tabs"
-        >
-          {stageTabs.map((tab, idx) => (
-            <Tab key={idx} label={tab.label} {...a11yProps(idx)} value={idx} />
-          ))}
-        </Tabs>
-      </Box>
-
-      {stageTabs.map((tab, idx) => {
-        const Component = tab.component;
-        return (
-          <CustomTabPanel key={idx} value={value} index={idx}>
-            <fieldset disabled={isView} style={{ border: "none", padding: 0, margin: 0 }}>
-              <Component
-                data={formData[`stage${idx + 1}`] || {}}
-                globalData={formData}
-                onGlobalChange={handleChange}
-                onChange={(stageData) => handleStageChange(`stage${idx + 1}`, stageData)}
+      {/* Styled Stage Stepper Tabs */}
+      <Paper elevation={0} sx={{ borderRadius: "12px", border: "1px solid", borderColor: "divider", mb: 3, overflow: "hidden" }}>
+        <Box sx={{ borderBottom: 1, borderColor: "divider", bgcolor: "#f8fafc", px: 1 }}>
+          <Tabs
+            value={value}
+            onChange={handleChangeTab}
+            variant="scrollable"
+            scrollButtons="auto"
+            aria-label="tyre procurement stage tabs"
+            sx={{
+              minHeight: 48,
+              "& .MuiTabs-indicator": {
+                backgroundColor: "#2563eb",
+                height: 3,
+                borderRadius: "3px 3px 0 0",
+              },
+            }}
+          >
+            {stageTabs.map((tab, idx) => (
+              <Tab
+                key={idx}
+                label={tab.label}
+                {...a11yProps(idx)}
+                value={idx}
+                sx={{
+                  fontWeight: 600,
+                  fontSize: "0.875rem",
+                  textTransform: "none",
+                  color: value === idx ? "#2563eb" : "#64748b",
+                  py: 1.5,
+                  px: 2.5,
+                  "&.Mui-selected": {
+                    fontWeight: 700,
+                  },
+                }}
               />
-            </fieldset>
-          </CustomTabPanel>
-        );
-      })}
+            ))}
+          </Tabs>
+        </Box>
+
+        <Box sx={{ p: 3 }}>
+          {stageTabs.map((tab, idx) => {
+            const Component = tab.component;
+            return (
+              <CustomTabPanel key={idx} value={value} index={idx}>
+                <fieldset disabled={isView} style={{ border: "none", padding: 0, margin: 0 }}>
+                  <Component
+                    data={formData[`stage${idx + 1}`] || {}}
+                    globalData={formData}
+                    onGlobalChange={handleChange}
+                    onChange={(stageData) => handleStageChange(`stage${idx + 1}`, stageData)}
+                  />
+                </fieldset>
+              </CustomTabPanel>
+            );
+          })}
+        </Box>
+      </Paper>
+
+      {/* Floating Save/Cancel Action Toolbar */}
+      <Paper
+        elevation={6}
+        sx={{
+          position: "fixed",
+          bottom: 24,
+          right: 24,
+          p: 1.5,
+          borderRadius: "16px",
+          display: "flex",
+          gap: 1.5,
+          zIndex: 1200,
+          bgcolor: "#ffffff",
+          border: "1px solid",
+          borderColor: "divider",
+          boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)",
+        }}
+      >
+        {!isView && (
+          <Button
+            variant="contained"
+            startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
+            onClick={handleSave}
+            disabled={saving}
+            sx={{
+              borderRadius: "10px",
+              px: 3,
+              py: 1,
+              fontWeight: 600,
+              textTransform: "none",
+              background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+              boxShadow: "0 4px 12px rgba(37, 99, 235, 0.25)",
+              "&:hover": {
+                background: "linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%)",
+              },
+            }}
+          >
+            Save PR
+          </Button>
+        )}
+        <Button
+          variant="outlined"
+          startIcon={<Cancel />}
+          onClick={onCancel}
+          disabled={saving}
+          sx={{
+            borderRadius: "10px",
+            px: 3,
+            py: 1,
+            fontWeight: 600,
+            textTransform: "none",
+            borderColor: "#cbd5e1",
+            color: "#475569",
+            "&:hover": { borderColor: "#94a3b8", bgcolor: "#f8fafc" },
+          }}
+        >
+          {isView ? "Back to List" : "Cancel"}
+        </Button>
+      </Paper>
     </Box>
   );
 }
 
 export default React.memo(TyreProcurementForm);
+

@@ -53,10 +53,37 @@ function RmProcurementSop() {
 
   return (
     <Box sx={{ width: "100%" }}>
-      <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
-        <Tabs value={value} onChange={handleChange} aria-label="rm procurement tabs">
+      <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
+        <Tabs
+          value={value}
+          onChange={handleChange}
+          aria-label="rm procurement tabs"
+          sx={{
+            minHeight: 40,
+            "& .MuiTabs-indicator": {
+              backgroundColor: "#2563eb",
+              height: 2.5,
+              borderRadius: 2,
+            },
+          }}
+        >
           {tabs.map((tab) => (
-            <Tab key={tab.index} label={tab.label} {...a11yProps(tab.index)} value={tab.index} />
+            <Tab
+              key={tab.index}
+              label={tab.label}
+              {...a11yProps(tab.index)}
+              value={tab.index}
+              sx={{
+                fontWeight: 600,
+                fontSize: "0.875rem",
+                textTransform: "none",
+                color: "#64748b",
+                "&.Mui-selected": {
+                  color: "#2563eb",
+                  fontWeight: 700,
+                },
+              }}
+            />
           ))}
         </Tabs>
       </Box>
@@ -76,3 +103,4 @@ function RmProcurementSop() {
 }
 
 export default React.memo(RmProcurementSop);
+

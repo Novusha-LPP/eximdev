@@ -20,7 +20,9 @@ import {
     Layers,
     ListFilter,
     Calendar,
-    Truck
+    Truck,
+    ChevronDown,
+    FileSpreadsheet
 } from 'lucide-react';
 import { getTransportDates, TRANSPORT_BASE, TRANSPORT_HEADERS } from './reports-helper';
 
@@ -260,6 +262,8 @@ const TransportMonitoringReport = ({
     const [selectedDoStatus, setSelectedDoStatus] = useState('ALL'); // ALL, EXPIRED, EXPIRING_SOON, VALID, NO_DO
     const [showCustomerModal, setShowCustomerModal] = useState(false);
     const [viewMode, setViewMode] = useState('flat'); // 'flat' | 'by_customer' | 'grouped'
+    const [showExportMenu, setShowExportMenu] = useState(false);
+    const [isExportingExcel, setIsExportingExcel] = useState(false);
 
     // Pagination
     const [pageSize, setPageSize] = useState(25);
@@ -359,6 +363,14 @@ const TransportMonitoringReport = ({
     useEffect(() => {
         loadReportData();
     }, [loadReportData]);
+
+    // Close export dropdown when clicking outside
+    useEffect(() => {
+        if (!showExportMenu) return;
+        const handleDocClick = () => setShowExportMenu(false);
+        document.addEventListener('click', handleDocClick);
+        return () => document.removeEventListener('click', handleDocClick);
+    }, [showExportMenu]);
 
     // ─── Extract Unique Filter Options (Pending / Active / Closed) ─────────────
     const availableBranches = useMemo(() => {
@@ -725,9 +737,147 @@ const TransportMonitoringReport = ({
         return sortConfig.direction === 'asc' ? ' ▲' : ' ▼';
     };
 
-    // ─── Export to Excel (Styled & with AutoFilter) ────────────────────────────
-    const exportToExcel = async () => {
-        if (!sortedList.length) return;
+    // ─── Filter Descriptions Helper ───────────────────────────────────────────
+    const getFilterDescriptions = useCallback(() => {
+        const doStatusLabels = {
+            'ALL': 'All DO Statuses',
+            'EXPIRED': 'Expired DOs Only',
+            'EXPIRING_SOON': 'Expiring in ≤3 Days Only',
+            'VALID': 'Active & Valid DOs Only',
+            'NO_DO': 'No DO Date Available'
+        };
+
+        const containerTypeLabels = {
+            'ALL': 'All Sizes & Types',
+            'SIZE_20': "20' Containers (20ft / Dry / HC)",
+            'SIZE_40': "40' Containers (40ft / Dry / HC)"
+        };
+
+        return [
+            { label: 'Date Period / Range', value: periodLabel || 'All Time / Live Queue', status: dateQuery.startDate ? 'Active Period Filter' : 'Default' },
+            { label: 'Operating Branch Filter', value: selectedBranch === 'ALL' ? 'All Branches' : selectedBranch, status: selectedBranch === 'ALL' ? 'Unfiltered' : 'Active Filter' },
+            { label: 'Customer / Consignee Filter', value: selectedCustomer === 'ALL' ? 'All Customers' : selectedCustomer, status: selectedCustomer === 'ALL' ? 'Unfiltered' : 'Active Filter' },
+            { label: 'Trade Type (Import / Export)', value: selectedIe === 'ALL' ? 'All Trade Types' : (selectedIe.toLowerCase().includes('imp') ? 'Import Only' : 'Export Only'), status: selectedIe === 'ALL' ? 'Unfiltered' : 'Active Filter' },
+            { label: 'Container Size & Type', value: containerTypeLabels[selectedContainerType] || selectedContainerType, status: selectedContainerType === 'ALL' ? 'Unfiltered' : 'Active Filter' },
+            { label: 'DO Urgency Status Filter', value: doStatusLabels[selectedDoStatus] || selectedDoStatus, status: selectedDoStatus === 'ALL' ? 'Unfiltered' : 'Active Filter' },
+            { label: 'Live Search Keyword', value: searchTerm.trim() ? `"${searchTerm.trim()}"` : 'None', status: searchTerm.trim() ? 'Active Search Query' : 'Unfiltered' },
+            { label: 'Report Generated At', value: new Date().toLocaleString('en-GB'), status: 'System Timestamp' }
+        ];
+    }, [periodLabel, dateQuery, selectedBranch, selectedCustomer, selectedIe, selectedContainerType, selectedDoStatus, searchTerm]);
+
+    // ─── Detailed Breakdown Computations ──────────────────────────────────────
+    const filteredCustomerBreakdown = useMemo(() => {
+        const map = {};
+        filteredPendingList.forEach(item => {
+            const party = item.invoice_party || 'Unknown Customer';
+            if (!map[party]) {
+                map[party] = {
+                    customerName: party,
+                    prCount: 0,
+                    pendingContainers: 0,
+                    totalContainers: 0,
+                    createdLRs: 0,
+                    branches: new Set(),
+                    earliestDo: null
+                };
+            }
+            map[party].prCount += 1;
+            map[party].pendingContainers += Number(item.pendingCount || 0);
+            map[party].totalContainers += Number(item.totalContainers || 0);
+            map[party].createdLRs += Number(item.lrCreatedContainers || 0);
+            if (item.branch) map[party].branches.add(item.branch);
+            if (item.do_validity && item.do_validity !== '-') {
+                if (!map[party].earliestDo || item.do_validity < map[party].earliestDo) {
+                    map[party].earliestDo = item.do_validity;
+                }
+            }
+        });
+        return Object.values(map).sort((a, b) => b.pendingContainers - a.pendingContainers);
+    }, [filteredPendingList]);
+
+    const filteredContainerTypeBreakdown = useMemo(() => {
+        const map = {};
+        filteredPendingList.forEach(item => {
+            const key = item.container_type || 'Standard / Unspecified';
+            if (!map[key]) {
+                map[key] = {
+                    containerType: key,
+                    prCount: 0,
+                    pendingContainers: 0,
+                    totalContainers: 0,
+                    createdLRs: 0
+                };
+            }
+            map[key].prCount += 1;
+            map[key].pendingContainers += Number(item.pendingCount || 0);
+            map[key].totalContainers += Number(item.totalContainers || 0);
+            map[key].createdLRs += Number(item.lrCreatedContainers || 0);
+        });
+        return Object.values(map).sort((a, b) => b.pendingContainers - a.pendingContainers);
+    }, [filteredPendingList]);
+
+    const branchSummaryBreakdown = useMemo(() => {
+        const map = {};
+        const getB = (b) => b || 'Unassigned';
+
+        filteredPendingList.forEach(item => {
+            const br = getB(item.branch);
+            if (!map[br]) map[br] = { branch: br, pendingPRs: 0, pendingCont: 0, totalCont: 0, createdLRs: 0, activeLRs: 0, closedLRs: 0 };
+            map[br].pendingPRs += 1;
+            map[br].pendingCont += Number(item.pendingCount || 0);
+            map[br].totalCont += Number(item.totalContainers || 0);
+            map[br].createdLRs += Number(item.lrCreatedContainers || 0);
+        });
+
+        filteredActiveList.forEach(item => {
+            const br = getB(item.branch);
+            if (!map[br]) map[br] = { branch: br, pendingPRs: 0, pendingCont: 0, totalCont: 0, createdLRs: 0, activeLRs: 0, closedLRs: 0 };
+            map[br].activeLRs += 1;
+        });
+
+        filteredClosedList.forEach(item => {
+            const br = getB(item.branch);
+            if (!map[br]) map[br] = { branch: br, pendingPRs: 0, pendingCont: 0, totalCont: 0, createdLRs: 0, activeLRs: 0, closedLRs: 0 };
+            map[br].closedLRs += 1;
+        });
+
+        return Object.values(map).sort((a, b) => (b.pendingCont + b.activeLRs + b.closedLRs) - (a.pendingCont + a.activeLRs + a.closedLRs));
+    }, [filteredPendingList, filteredActiveList, filteredClosedList]);
+
+    const tradeTypeSummaryBreakdown = useMemo(() => {
+        const map = {
+            'Import': { tradeType: 'Import', pendingPRs: 0, pendingCont: 0, totalCont: 0, createdLRs: 0, activeLRs: 0, closedLRs: 0 },
+            'Export': { tradeType: 'Export', pendingPRs: 0, pendingCont: 0, totalCont: 0, createdLRs: 0, activeLRs: 0, closedLRs: 0 }
+        };
+
+        filteredPendingList.forEach(item => {
+            const isExp = String(item.import_export || '').toLowerCase().includes('export');
+            const key = isExp ? 'Export' : 'Import';
+            map[key].pendingPRs += 1;
+            map[key].pendingCont += Number(item.pendingCount || 0);
+            map[key].totalCont += Number(item.totalContainers || 0);
+            map[key].createdLRs += Number(item.lrCreatedContainers || 0);
+        });
+
+        filteredActiveList.forEach(item => {
+            const isExp = String(item.import_export || '').toLowerCase().includes('export');
+            const key = isExp ? 'Export' : 'Import';
+            map[key].activeLRs += 1;
+        });
+
+        filteredClosedList.forEach(item => {
+            const isExp = String(item.import_export || '').toLowerCase().includes('export');
+            const key = isExp ? 'Export' : 'Import';
+            map[key].closedLRs += 1;
+        });
+
+        return Object.values(map);
+    }, [filteredPendingList, filteredActiveList, filteredClosedList]);
+
+    // ─── Export to Excel Engine (Complete Multi-Tab or Current Tab) ───────────
+    const exportToExcel = async (exportMode = 'all') => {
+        setIsExportingExcel(true);
+        setShowExportMenu(false);
 
         try {
             const ExcelJS = await import('exceljs');
@@ -736,321 +886,832 @@ const TransportMonitoringReport = ({
             workbook.creator = 'AlVision Exim Operations';
             workbook.created = new Date();
 
-            const isPending = activeSection === 'pending';
-            const isActive = activeSection === 'active';
+            const filterDescList = getFilterDescriptions();
+            const filterSummaryText = filterDescList.map(f => `${f.label}: ${f.value}`).join(' | ');
+            const today = new Date();
 
-            const sheetName = isPending
-                ? 'Pending Pickup Queue'
-                : (isActive ? 'Active In-Transit LRs' : 'Completed Closed LRs');
-
-            const ws = workbook.addWorksheet(sheetName, {
-                views: [{ state: 'frozen', ySplit: 4 }]
-            });
-
-            // Theme colors
-            const primaryColor = isPending ? 'FF312E81' : (isActive ? 'FF92400E' : 'FF065F46');
-            const headerFill = isPending ? 'FF4F46E5' : (isActive ? 'FFD97706' : 'FF059669');
-
-            // 1. Report Title Banner (Row 1)
-            const titleText = isPending
-                ? 'ALVISION EXIM — TRANSPORT PICKUP QUEUE MONITORING'
-                : (isActive
-                    ? 'ALVISION EXIM — ACTIVE IN-TRANSIT DISPATCHES'
-                    : 'ALVISION EXIM — COMPLETED & CLOSED TRIPS REPORT');
-
-            const headers = isPending
-                ? [
-                    "Srl No.", "PR No", "Type (I/E)", "Branch", "Customer / Invoice Party",
-                    "Container Type", "Total Cont.", "Created LRs", "Pending Cont.",
-                    "Fulfillment %", "DO Validity", "DO Urgency Status"
-                ]
-                : [
-                    "Srl No.", "LR No", "Type (I/E)", "Branch", "Consignee", "Consignor",
-                    "Container Type", "Vehicle No", "Container No", "Own / Hired",
-                    isActive ? "LR Date / Status" : "Closed Date"
-                ];
-
-            const totalCols = headers.length;
-            const lastColLetter = String.fromCharCode(64 + totalCols);
-
-            // Row 1: Title
-            ws.addRow([titleText]);
-            ws.mergeCells(`A1:${lastColLetter}1`);
-            const titleRow = ws.getRow(1);
-            titleRow.height = 36;
-            titleRow.getCell(1).font = { name: 'Calibri', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
-            titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: primaryColor } };
-            titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
-
-            // Row 2: Metadata
-            const metaText = `Period: ${periodLabel} | Generated: ${new Date().toLocaleString('en-GB')} | Total Records: ${sortedList.length} | Branch Filter: ${selectedBranch} | Customer: ${selectedCustomer}`;
-            ws.addRow([metaText]);
-            ws.mergeCells(`A2:${lastColLetter}2`);
-            const metaRow = ws.getRow(2);
-            metaRow.height = 22;
-            metaRow.getCell(1).font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF1E293B' } };
-            metaRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
-            metaRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
-
-            // Row 3: Empty separator
-            ws.addRow([]);
-            ws.getRow(3).height = 8;
-
-            // Row 4: Column Headers
-            ws.addRow(headers);
-            const headerRow = ws.getRow(4);
-            headerRow.height = 28;
-            headerRow.eachCell((cell) => {
-                cell.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
-                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: headerFill } };
-                cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-                cell.border = {
-                    top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-                    left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-                    bottom: { style: 'medium', color: { argb: 'FF0F172A' } },
-                    right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
-                };
-            });
-
-            // Set Native Excel AutoFilter on row 4 across all columns
-            ws.autoFilter = {
-                from: { row: 4, column: 1 },
-                to: { row: 4 + sortedList.length, column: totalCols }
+            // Helper: Auto-fit column widths with bounds
+            const autoFitCols = (ws, minW = 13, maxW = 46) => {
+                ws.columns.forEach(col => {
+                    let max = 0;
+                    col.eachCell({ includeEmpty: true }, (cell, rn) => {
+                        if (rn > 2) {
+                            const valStr = cell.value ? String(cell.value) : '';
+                            if (valStr.length > max) max = valStr.length;
+                        }
+                    });
+                    col.width = Math.min(Math.max(max + 4, minW), maxW);
+                });
             };
 
-            // Data Rows
-            let sumTotalCont = 0;
-            let sumCreatedLRs = 0;
-            let sumPendingCont = 0;
+            // Helper: Add Standard Title & Metadata Banner
+            const addSheetBanner = (ws, title, lastColLetter, bannerFillColor) => {
+                ws.addRow([title]);
+                ws.mergeCells(`A1:${lastColLetter}1`);
+                const titleRow = ws.getRow(1);
+                titleRow.height = 36;
+                titleRow.getCell(1).font = { name: 'Calibri', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+                titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bannerFillColor } };
+                titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
 
-            sortedList.forEach((item, idx) => {
-                const rowNum = 5 + idx;
-                const bgArgb = idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
+                ws.addRow([filterSummaryText]);
+                ws.mergeCells(`A2:${lastColLetter}2`);
+                const metaRow = ws.getRow(2);
+                metaRow.height = 22;
+                metaRow.getCell(1).font = { name: 'Calibri', size: 9.5, italic: true, color: { argb: 'FF1E293B' } };
+                metaRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+                metaRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
 
-                if (isPending) {
-                    const tot = Number(item.totalContainers || 0);
-                    const crt = Number(item.lrCreatedContainers || 0);
-                    const pnd = Number(item.pendingCount || 0);
-                    const pct = tot > 0 ? (crt / tot) : 0;
-                    sumTotalCont += tot;
-                    sumCreatedLRs += crt;
-                    sumPendingCont += pnd;
+                ws.addRow([]);
+                ws.getRow(3).height = 8;
+            };
 
-                    let doStatusLabel = 'No DO Date';
-                    let doStatusArgb = 'FFF1F5F9';
-                    let doTextArgb = 'FF64748B';
+            // ═════════════════════════════════════════════════════════════════════
+            // SHEET 1: EXECUTIVE SUMMARY & FILTER MATRIX (Only in Full Report Mode)
+            // ═════════════════════════════════════════════════════════════════════
+            if (exportMode === 'all') {
+                const wsExec = workbook.addWorksheet('Executive Summary', {
+                    views: [{ showGridLines: true }]
+                });
+
+                // Title Banner
+                wsExec.addRow(['ALVISION EXIM — TRANSPORT PICKUP QUEUE & DISPATCH MONITORING REPORT']);
+                wsExec.mergeCells('A1:G1');
+                const execTitle = wsExec.getRow(1);
+                execTitle.height = 36;
+                execTitle.getCell(1).font = { name: 'Calibri', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
+                execTitle.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E1B4B' } };
+                execTitle.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+
+                wsExec.addRow(['EXECUTIVE OVERVIEW & APPLIED OPERATIONS FILTER MATRIX']);
+                wsExec.mergeCells('A2:G2');
+                const execSub = wsExec.getRow(2);
+                execSub.height = 20;
+                execSub.getCell(1).font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF475569' } };
+                execSub.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+                execSub.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+
+                wsExec.addRow([]);
+                wsExec.getRow(3).height = 10;
+
+                // 1. Applied Filters Table
+                wsExec.addRow(['APPLIED REPORT FILTERS & PARAMETERS']);
+                const fSectionRowNum = wsExec.rowCount;
+                wsExec.mergeCells(`A${fSectionRowNum}:C${fSectionRowNum}`);
+                const fSectionRow = wsExec.getRow(fSectionRowNum);
+                fSectionRow.height = 24;
+                fSectionRow.getCell(1).font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+                fSectionRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF312E81' } };
+                fSectionRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+
+                wsExec.addRow(['Filter Parameter', 'Selected Condition / Value', 'Filter Status']);
+                const fHeaderRow = wsExec.getRow(wsExec.rowCount);
+                fHeaderRow.height = 24;
+                fHeaderRow.eachCell(c => {
+                    c.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FFFFFFFF' } };
+                    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
+                    c.alignment = { horizontal: 'center', vertical: 'middle' };
+                    c.border = { top: { style: 'thin', color: { argb: 'FFCBD5E1' } }, bottom: { style: 'medium', color: { argb: 'FF1E1B4B' } } };
+                });
+
+                filterDescList.forEach((f, fIdx) => {
+                    const row = wsExec.addRow([f.label, f.value, f.status]);
+                    row.height = 20;
+                    const bgArgb = fIdx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
+                    row.eachCell((c, colNum) => {
+                        c.font = { name: 'Calibri', size: 10, color: { argb: 'FF1E293B' } };
+                        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
+                        c.border = { top: { style: 'thin', color: { argb: 'FFE2E8F0' } }, bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } } };
+                        if (colNum === 1) { c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF0F172A' } }; }
+                        if (colNum === 3) {
+                            c.alignment = { horizontal: 'center', vertical: 'middle' };
+                            if (f.status === 'Active Filter' || f.status === 'Active Search Query') {
+                                c.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: 'FF1D4ED8' } };
+                            }
+                        }
+                    });
+                });
+
+                wsExec.addRow([]);
+                wsExec.getRow(wsExec.rowCount).height = 12;
+
+                // 2. Operational KPIs Scorecard
+                let sumPendCont = 0;
+                let sumTotCont = 0;
+                let sumCrtLRs = 0;
+                let expDoCnt = 0;
+                let expSoonDoCnt = 0;
+                let valDoCnt = 0;
+
+                filteredPendingList.forEach(item => {
+                    sumPendCont += Number(item.pendingCount || 0);
+                    sumTotCont += Number(item.totalContainers || 0);
+                    sumCrtLRs += Number(item.lrCreatedContainers || 0);
+
                     if (item.do_validity && item.do_validity !== '-') {
                         try {
                             const d = item.do_validity.includes('T') ? parseISO(item.do_validity) : new Date(item.do_validity);
                             if (isValid(d)) {
-                                const diff = differenceInDays(d, new Date());
-                                if (diff < 0) {
-                                    doStatusLabel = `Expired (${Math.abs(diff)}d ago)`;
-                                    doStatusArgb = 'FFFEE2E2';
-                                    doTextArgb = 'FF991B1B';
-                                } else if (diff <= 3) {
-                                    doStatusLabel = `Expiring in ${diff}d`;
-                                    doStatusArgb = 'FFFEF3C7';
-                                    doTextArgb = 'FF92400E';
+                                const diff = differenceInDays(d, today);
+                                if (diff < 0) expDoCnt++;
+                                else if (diff <= 3) expSoonDoCnt++;
+                                else valDoCnt++;
+                            }
+                        } catch {
+                            // ignore
+                        }
+                    }
+                });
+
+                const overallFulfillmentRate = sumTotCont > 0 ? (sumCrtLRs / sumTotCont) : 0;
+
+                wsExec.addRow(['KEY OPERATIONAL PERFORMANCE INDICATORS (KPIs)']);
+                const kSectionRowNum = wsExec.rowCount;
+                wsExec.mergeCells(`A${kSectionRowNum}:D${kSectionRowNum}`);
+                const kSectionRow = wsExec.getRow(kSectionRowNum);
+                kSectionRow.height = 24;
+                kSectionRow.getCell(1).font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+                kSectionRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF312E81' } };
+                kSectionRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+
+                wsExec.addRow(['KPI Metric Description', 'Count / Value', 'Unit / Measurement', 'Operational Significance']);
+                const kHeaderRow = wsExec.getRow(wsExec.rowCount);
+                kHeaderRow.height = 24;
+                kHeaderRow.eachCell(c => {
+                    c.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FFFFFFFF' } };
+                    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
+                    c.alignment = { horizontal: 'center', vertical: 'middle' };
+                    c.border = { top: { style: 'thin', color: { argb: 'FFCBD5E1' } }, bottom: { style: 'medium', color: { argb: 'FF1E1B4B' } } };
+                });
+
+                const kpiRows = [
+                    ['Total Pending PRs Awaiting Dispatch', filteredPendingList.length, 'PRs', 'Live pickup backlog queue awaiting dispatch'],
+                    ['Total Pending Containers Backlog', sumPendCont, 'Containers', 'Containers awaiting trailer / vehicle allocation'],
+                    ['Total PR Containers Ordered', sumTotCont, 'Containers', 'Total demand volume across filtered PRs'],
+                    ['Total LRs Created / Allocated', sumCrtLRs, 'LRs Generated', 'Dispatches initialized and fulfilled from PRs'],
+                    ['Overall Dispatch Fulfillment Rate', overallFulfillmentRate, 'Percentage (%)', 'Ratio of LRs Created vs Total Containers Ordered'],
+                    ['Active Dispatches On Road (In-Transit)', filteredActiveList.length, 'Vehicles / LRs', 'Live vehicles moving towards consignee destination'],
+                    ['Completed & Closed Trips in Period', filteredClosedList.length, 'Completed Deliveries', 'Dispatches successfully closed & verified in period'],
+                    ['Critical Expired DOs Backlog', expDoCnt, 'PRs with Expired DO', 'High urgency: DO validity expired before dispatch'],
+                    ['DOs Expiring Soon (≤3 Days)', expSoonDoCnt, 'PRs Expiring in ≤3d', 'Urgent priority: Requires immediate vehicle placement'],
+                    ['Active & Valid DOs', valDoCnt, 'PRs with Valid DO', 'Normal operational queue with safe DO validity buffer'],
+                    ['Distinct Customers Waiting for Dispatch', filteredCustomerBreakdown.length, 'Client Accounts', 'Number of unique customer accounts waiting for delivery']
+                ];
+
+                kpiRows.forEach((k, kIdx) => {
+                    const row = wsExec.addRow(k);
+                    row.height = 20;
+                    const bgArgb = kIdx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
+                    row.eachCell((c, colNum) => {
+                        c.font = { name: 'Calibri', size: 10, color: { argb: 'FF1E293B' } };
+                        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
+                        c.border = { top: { style: 'thin', color: { argb: 'FFE2E8F0' } }, bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } } };
+                        if (colNum === 1) { c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF0F172A' } }; }
+                        if (colNum === 2) {
+                            c.alignment = { horizontal: 'right', vertical: 'middle' };
+                            if (typeof c.value === 'number') {
+                                if (k[0].includes('Rate')) {
+                                    c.numFmt = '0.0%';
+                                    c.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FF047857' } };
                                 } else {
-                                    doStatusLabel = 'Valid';
-                                    doStatusArgb = 'FFDCFCE7';
-                                    doTextArgb = 'FF166534';
+                                    c.numFmt = '#,##0';
+                                    c.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FF0F172A' } };
                                 }
+                            }
+                            if (k[0].includes('Expired DO') && expDoCnt > 0) {
+                                c.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FFB91C1C' } };
+                            }
+                        }
+                    });
+                });
+
+                wsExec.addRow([]);
+                wsExec.getRow(wsExec.rowCount).height = 12;
+
+                // 3. Branch Performance Breakdown Table
+                wsExec.addRow(['BRANCH-WISE OPERATIONAL PERFORMANCE SUMMARY']);
+                const bSectionRowNum = wsExec.rowCount;
+                wsExec.mergeCells(`A${bSectionRowNum}:H${bSectionRowNum}`);
+                const bSectionRow = wsExec.getRow(bSectionRowNum);
+                bSectionRow.height = 24;
+                bSectionRow.getCell(1).font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+                bSectionRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E1B4B' } };
+                bSectionRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+
+                const branchHeaders = ['#', 'Branch Location', 'Pending PRs', 'Pending Cont.', 'Total Cont.', 'Created LRs', 'Active On-Road', 'Closed Trips'];
+                wsExec.addRow(branchHeaders);
+                const bHeaderRow = wsExec.getRow(wsExec.rowCount);
+                bHeaderRow.height = 24;
+                bHeaderRow.eachCell(c => {
+                    c.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FFFFFFFF' } };
+                    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4338CA' } };
+                    c.alignment = { horizontal: 'center', vertical: 'middle' };
+                    c.border = { top: { style: 'thin', color: { argb: 'FFCBD5E1' } }, bottom: { style: 'medium', color: { argb: 'FF1E1B4B' } } };
+                });
+
+                let bSumPendPR = 0;
+                let bSumPendCont = 0;
+                let bSumTotCont = 0;
+                let bSumCrtLR = 0;
+                let bSumActLR = 0;
+                let bSumClsLR = 0;
+
+                branchSummaryBreakdown.forEach((b, bIdx) => {
+                    bSumPendPR += b.pendingPRs;
+                    bSumPendCont += b.pendingCont;
+                    bSumTotCont += b.totalCont;
+                    bSumCrtLR += b.createdLRs;
+                    bSumActLR += b.activeLRs;
+                    bSumClsLR += b.closedLRs;
+
+                    const row = wsExec.addRow([
+                        bIdx + 1,
+                        b.branch,
+                        b.pendingPRs,
+                        b.pendingCont,
+                        b.totalCont,
+                        b.createdLRs,
+                        b.activeLRs,
+                        b.closedLRs
+                    ]);
+                    row.height = 20;
+                    const bgArgb = bIdx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
+                    row.eachCell((c, colNum) => {
+                        c.font = { name: 'Calibri', size: 10, color: { argb: 'FF1E293B' } };
+                        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
+                        c.border = { top: { style: 'thin', color: { argb: 'FFE2E8F0' } }, bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } } };
+                        if (colNum === 1) c.alignment = { horizontal: 'center', vertical: 'middle' };
+                        else if (colNum === 2) {
+                            c.alignment = { horizontal: 'left', vertical: 'middle' };
+                            c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF0F172A' } };
+                        } else {
+                            c.alignment = { horizontal: 'right', vertical: 'middle' };
+                            c.numFmt = '#,##0';
+                            if (colNum === 4 && b.pendingCont > 0) {
+                                c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFB91C1C' } };
+                            }
+                        }
+                    });
+                });
+
+                // Branch Summary Total Row
+                const bTotRow = wsExec.addRow(['TOTAL', 'All Operating Branches', bSumPendPR, bSumPendCont, bSumTotCont, bSumCrtLR, bSumActLR, bSumClsLR]);
+                bTotRow.height = 22;
+                bTotRow.eachCell((c, colNum) => {
+                    c.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FF0F172A' } };
+                    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+                    c.border = { top: { style: 'medium', color: { argb: 'FF0F172A' } }, bottom: { style: 'double', color: { argb: 'FF0F172A' } } };
+                    if (colNum <= 2) c.alignment = { horizontal: colNum === 1 ? 'center' : 'left', vertical: 'middle' };
+                    else {
+                        c.alignment = { horizontal: 'right', vertical: 'middle' };
+                        c.numFmt = '#,##0';
+                    }
+                });
+
+                wsExec.addRow([]);
+                wsExec.getRow(wsExec.rowCount).height = 12;
+
+                // 4. Trade Type Breakdown Table (Import vs Export)
+                wsExec.addRow(['TRADE TYPE BREAKDOWN (IMPORT vs EXPORT)']);
+                const tSectionRowNum = wsExec.rowCount;
+                wsExec.mergeCells(`A${tSectionRowNum}:G${tSectionRowNum}`);
+                const tSectionRow = wsExec.getRow(tSectionRowNum);
+                tSectionRow.height = 24;
+                tSectionRow.getCell(1).font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+                tSectionRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E1B4B' } };
+                tSectionRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+
+                const tradeHeaders = ['#', 'Trade Type', 'Pending PRs', 'Pending Cont.', 'Total Cont.', 'Active Dispatches', 'Closed Trips'];
+                wsExec.addRow(tradeHeaders);
+                const tHeaderRow = wsExec.getRow(wsExec.rowCount);
+                tHeaderRow.height = 24;
+                tHeaderRow.eachCell(c => {
+                    c.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FFFFFFFF' } };
+                    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4338CA' } };
+                    c.alignment = { horizontal: 'center', vertical: 'middle' };
+                    c.border = { top: { style: 'thin', color: { argb: 'FFCBD5E1' } }, bottom: { style: 'medium', color: { argb: 'FF1E1B4B' } } };
+                });
+
+                tradeTypeSummaryBreakdown.forEach((t, tIdx) => {
+                    const row = wsExec.addRow([
+                        tIdx + 1,
+                        t.tradeType,
+                        t.pendingPRs,
+                        t.pendingCont,
+                        t.totalCont,
+                        t.activeLRs,
+                        t.closedLRs
+                    ]);
+                    row.height = 20;
+                    const bgArgb = tIdx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
+                    row.eachCell((c, colNum) => {
+                        c.font = { name: 'Calibri', size: 10, color: { argb: 'FF1E293B' } };
+                        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
+                        c.border = { top: { style: 'thin', color: { argb: 'FFE2E8F0' } }, bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } } };
+                        if (colNum === 1) c.alignment = { horizontal: 'center', vertical: 'middle' };
+                        else if (colNum === 2) {
+                            c.alignment = { horizontal: 'left', vertical: 'middle' };
+                            c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: t.tradeType === 'Import' ? 'FF0369A1' : 'FF047857' } };
+                        } else {
+                            c.alignment = { horizontal: 'right', vertical: 'middle' };
+                            c.numFmt = '#,##0';
+                        }
+                    });
+                });
+
+                autoFitCols(wsExec, 14, 48);
+            }
+
+            // ═════════════════════════════════════════════════════════════════════
+            // SHEET 2: PENDING PICKUP QUEUE (Detailed List)
+            // ═════════════════════════════════════════════════════════════════════
+            if (exportMode === 'all' || activeSection === 'pending') {
+                const targetPendingList = exportMode === 'all' ? filteredPendingList : sortedList;
+                const wsPending = workbook.addWorksheet('Pending Pickup Queue', {
+                    views: [{ state: 'frozen', ySplit: 4 }]
+                });
+
+                const pendingHeaders = [
+                    "Srl No.", "PR No", "Trade Type", "Branch", "Customer / Invoice Party",
+                    "Container Type", "Total Cont.", "Created LRs", "Pending Cont.",
+                    "Fulfillment %", "DO Validity Date", "DO Urgency Status", "Days Remaining / Overdue"
+                ];
+
+                addSheetBanner(wsPending, 'ALVISION EXIM — PENDING PICKUP REQUESTS (PR) QUEUE', 'M', 'FF312E81');
+
+                wsPending.addRow(pendingHeaders);
+                const pHeadRow = wsPending.getRow(4);
+                pHeadRow.height = 28;
+                pHeadRow.eachCell(c => {
+                    c.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+                    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
+                    c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+                    c.border = {
+                        top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                        left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                        bottom: { style: 'medium', color: { argb: 'FF1E1B4B' } },
+                        right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+                    };
+                });
+
+                wsPending.autoFilter = {
+                    from: { row: 4, column: 1 },
+                    to: { row: 4 + Math.max(targetPendingList.length, 1), column: pendingHeaders.length }
+                };
+
+                let pSumTotCont = 0;
+                let pSumCrtLR = 0;
+                let pSumPendCont = 0;
+
+                if (targetPendingList.length === 0) {
+                    const emptyRow = wsPending.addRow(['—', 'No pending pickup requests match the selected filters.', '—', '—', '—', '—', 0, 0, 0, 0, '—', '—', '—']);
+                    emptyRow.height = 24;
+                    emptyRow.eachCell(c => {
+                        c.font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF64748B' } };
+                        c.alignment = { horizontal: 'center', vertical: 'middle' };
+                    });
+                } else {
+                    targetPendingList.forEach((item, idx) => {
+                        const rowNum = 5 + idx;
+                        const bgArgb = idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
+
+                        const tot = Number(item.totalContainers || 0);
+                        const crt = Number(item.lrCreatedContainers || 0);
+                        const pnd = Number(item.pendingCount || 0);
+                        const pct = tot > 0 ? (crt / tot) : 0;
+                        pSumTotCont += tot;
+                        pSumCrtLR += crt;
+                        pSumPendCont += pnd;
+
+                        let doStatusLabel = 'No DO Date';
+                        let doStatusArgb = 'FFF1F5F9';
+                        let doTextArgb = 'FF64748B';
+                        let daysDiffStr = '—';
+
+                        if (item.do_validity && item.do_validity !== '-') {
+                            try {
+                                const d = item.do_validity.includes('T') ? parseISO(item.do_validity) : new Date(item.do_validity);
+                                if (isValid(d)) {
+                                    const diff = differenceInDays(d, today);
+                                    if (diff < 0) {
+                                        doStatusLabel = `Expired (${Math.abs(diff)}d ago)`;
+                                        doStatusArgb = 'FFFEE2E2';
+                                        doTextArgb = 'FF991B1B';
+                                        daysDiffStr = `${diff} days (Overdue)`;
+                                    } else if (diff <= 3) {
+                                        doStatusLabel = `Expiring in ${diff}d`;
+                                        doStatusArgb = 'FFFEF3C7';
+                                        doTextArgb = 'FF92400E';
+                                        daysDiffStr = `+${diff} days (Urgent)`;
+                                    } else {
+                                        doStatusLabel = 'Valid';
+                                        doStatusArgb = 'FFDCFCE7';
+                                        doTextArgb = 'FF166534';
+                                        daysDiffStr = `+${diff} days`;
+                                    }
+                                }
+                            } catch {
+                                // ignore
+                            }
+                        }
+
+                        wsPending.addRow([
+                            idx + 1,
+                            item.pr_no || '—',
+                            item.import_export || 'Import',
+                            item.branch || '—',
+                            item.invoice_party || '—',
+                            item.container_type || 'Standard',
+                            tot,
+                            crt,
+                            pnd,
+                            pct,
+                            item.do_validity ? formatDateDisplay(item.do_validity) : '—',
+                            doStatusLabel,
+                            daysDiffStr
+                        ]);
+
+                        const row = wsPending.getRow(rowNum);
+                        row.height = 21;
+                        row.eachCell((c, colNum) => {
+                            c.font = { name: 'Calibri', size: 10, color: { argb: 'FF1E293B' } };
+                            c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
+                            c.border = {
+                                top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                                left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                                bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                                right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+                            };
+
+                            if (colNum === 1 || colNum === 3 || colNum === 4 || colNum === 6 || colNum === 11 || colNum === 13) {
+                                c.alignment = { horizontal: 'center', vertical: 'middle' };
+                            } else if (colNum === 2) {
+                                c.alignment = { horizontal: 'center', vertical: 'middle' };
+                                c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF4338CA' } };
+                            } else if (colNum === 5) {
+                                c.alignment = { horizontal: 'left', vertical: 'middle' };
+                                c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF0F172A' } };
+                            } else if (colNum === 7 || colNum === 8 || colNum === 9) {
+                                c.alignment = { horizontal: 'right', vertical: 'middle' };
+                                c.numFmt = '#,##0';
+                                if (colNum === 9 && pnd > 0) {
+                                    c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFB91C1C' } };
+                                }
+                            } else if (colNum === 10) {
+                                c.alignment = { horizontal: 'right', vertical: 'middle' };
+                                c.numFmt = '0.0%';
+                            } else if (colNum === 12) {
+                                c.alignment = { horizontal: 'center', vertical: 'middle' };
+                                c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: doStatusArgb } };
+                                c.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: doTextArgb } };
+                            }
+                        });
+                    });
+
+                    // Summary Total Row for Pending Queue
+                    const totRowNum = 5 + targetPendingList.length;
+                    const avgPct = pSumTotCont > 0 ? (pSumCrtLR / pSumTotCont) : 0;
+                    wsPending.addRow([
+                        'TOTAL',
+                        `${targetPendingList.length} PRs`,
+                        '—',
+                        '—',
+                        'All Filtered Customers',
+                        '—',
+                        pSumTotCont,
+                        pSumCrtLR,
+                        pSumPendCont,
+                        avgPct,
+                        '—',
+                        '—',
+                        '—'
+                    ]);
+
+                    const totRow = wsPending.getRow(totRowNum);
+                    totRow.height = 25;
+                    totRow.eachCell((c, colNum) => {
+                        c.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FF0F172A' } };
+                        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+                        c.border = {
+                            top: { style: 'medium', color: { argb: 'FF0F172A' } },
+                            left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                            bottom: { style: 'double', color: { argb: 'FF0F172A' } },
+                            right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+                        };
+
+                        if (colNum <= 6 || colNum >= 11) {
+                            c.alignment = { horizontal: colNum === 5 ? 'left' : 'center', vertical: 'middle' };
+                        } else if (colNum === 7 || colNum === 8 || colNum === 9) {
+                            c.alignment = { horizontal: 'right', vertical: 'middle' };
+                            c.numFmt = '#,##0';
+                        } else if (colNum === 10) {
+                            c.alignment = { horizontal: 'right', vertical: 'middle' };
+                            c.numFmt = '0.0%';
+                        }
+                    });
+                }
+
+                autoFitCols(wsPending, 12, 45);
+            }
+
+            // ═════════════════════════════════════════════════════════════════════
+            // SHEET 3: ACTIVE IN-TRANSIT DISPATCHES (Detailed List)
+            // ═════════════════════════════════════════════════════════════════════
+            if (exportMode === 'all' || activeSection === 'active') {
+                const targetActiveList = exportMode === 'all' ? filteredActiveList : sortedList;
+                const wsActive = workbook.addWorksheet('Active In-Transit LRs', {
+                    views: [{ state: 'frozen', ySplit: 4 }]
+                });
+
+                const activeHeaders = [
+                    "Srl No.", "LR No", "Trade Type", "Branch", "Consignee (Customer)",
+                    "Consignor (Shipper)", "Container / Vehicle Type", "Vehicle No", "Container No",
+                    "Seal No", "Fleet Category", "LR Date", "Dispatch Status"
+                ];
+
+                addSheetBanner(wsActive, 'ALVISION EXIM — ACTIVE IN-TRANSIT DISPATCHES (ON ROAD)', 'M', 'FF92400E');
+
+                wsActive.addRow(activeHeaders);
+                const aHeadRow = wsActive.getRow(4);
+                aHeadRow.height = 28;
+                aHeadRow.eachCell(c => {
+                    c.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+                    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD97706' } };
+                    c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+                    c.border = {
+                        top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                        left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                        bottom: { style: 'medium', color: { argb: 'FF78350F' } },
+                        right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+                    };
+                });
+
+                wsActive.autoFilter = {
+                    from: { row: 4, column: 1 },
+                    to: { row: 4 + Math.max(targetActiveList.length, 1), column: activeHeaders.length }
+                };
+
+                if (targetActiveList.length === 0) {
+                    const emptyRow = wsActive.addRow(['—', 'No active dispatches on road matching the selected filters.', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—']);
+                    emptyRow.height = 24;
+                    emptyRow.eachCell(c => {
+                        c.font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF64748B' } };
+                        c.alignment = { horizontal: 'center', vertical: 'middle' };
+                    });
+                } else {
+                    targetActiveList.forEach((item, idx) => {
+                        const rowNum = 5 + idx;
+                        const bgArgb = idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
+
+                        wsActive.addRow([
+                            idx + 1,
+                            item.tr_no || '—',
+                            item.import_export || 'Import',
+                            item.branch || '—',
+                            item.consignee || '—',
+                            item.consignor || '—',
+                            item.type_of_vehicle || item.container_type || item.container_size || item.vehicle_type || item.type || 'Standard',
+                            item.vehicle_no || '—',
+                            item.container_number || '—',
+                            item.seal_no || '—',
+                            item.own_hired || 'Own',
+                            item.lr_date ? formatDateDisplay(item.lr_date) : '—',
+                            item.status || 'In Transit'
+                        ]);
+
+                        const row = wsActive.getRow(rowNum);
+                        row.height = 21;
+                        row.eachCell((c, colNum) => {
+                            c.font = { name: 'Calibri', size: 10, color: { argb: 'FF1E293B' } };
+                            c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
+                            c.border = {
+                                top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                                left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                                bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                                right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+                            };
+
+                            if (colNum === 1 || colNum === 3 || colNum === 4 || colNum === 7 || colNum === 10 || colNum === 11 || colNum === 12 || colNum === 13) {
+                                c.alignment = { horizontal: 'center', vertical: 'middle' };
+                            } else if (colNum === 2) {
+                                c.alignment = { horizontal: 'center', vertical: 'middle' };
+                                c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFD97706' } };
+                            } else if (colNum === 5) {
+                                c.alignment = { horizontal: 'left', vertical: 'middle' };
+                                c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF0F172A' } };
+                            } else if (colNum === 8 || colNum === 9) {
+                                c.alignment = { horizontal: 'center', vertical: 'middle' };
+                                c.font = { name: 'Consolas', size: 10, bold: true, color: { argb: 'FF1E293B' } };
+                            } else {
+                                c.alignment = { horizontal: 'left', vertical: 'middle' };
+                            }
+                        });
+                    });
+
+                    // Total Row
+                    const totRow = wsActive.addRow(['TOTAL', `${targetActiveList.length} Active Dispatches`, '—', '—', 'All Consignees', '—', '—', '—', '—', '—', '—', '—', 'Live On Road']);
+                    totRow.height = 25;
+                    totRow.eachCell((c, colNum) => {
+                        c.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FF0F172A' } };
+                        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+                        c.border = {
+                            top: { style: 'medium', color: { argb: 'FF0F172A' } },
+                            bottom: { style: 'double', color: { argb: 'FF0F172A' } }
+                        };
+                        c.alignment = { horizontal: colNum === 5 ? 'left' : 'center', vertical: 'middle' };
+                    });
+                }
+
+                autoFitCols(wsActive, 12, 45);
+            }
+
+            // ═════════════════════════════════════════════════════════════════════
+            // SHEET 4: COMPLETED & CLOSED TRIPS (Detailed List)
+            // ═════════════════════════════════════════════════════════════════════
+            if (exportMode === 'all' || activeSection === 'closed') {
+                const targetClosedList = exportMode === 'all' ? filteredClosedList : sortedList;
+                const wsClosed = workbook.addWorksheet('Completed Closed Trips', {
+                    views: [{ state: 'frozen', ySplit: 4 }]
+                });
+
+                const closedHeaders = [
+                    "Srl No.", "LR No", "Trade Type", "Branch", "Consignee (Customer)",
+                    "Consignor (Shipper)", "Container / Vehicle Type", "Vehicle No", "Container No",
+                    "Seal No", "Fleet Category", "Delivery / Closed Date", "Trip Status"
+                ];
+
+                addSheetBanner(wsClosed, 'ALVISION EXIM — COMPLETED & CLOSED DISPATCHES REPORT', 'M', 'FF065F46');
+
+                wsClosed.addRow(closedHeaders);
+                const cHeadRow = wsClosed.getRow(4);
+                cHeadRow.height = 28;
+                cHeadRow.eachCell(c => {
+                    c.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
+                    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF059669' } };
+                    c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+                    c.border = {
+                        top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                        left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                        bottom: { style: 'medium', color: { argb: 'FF064E3B' } },
+                        right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+                    };
+                });
+
+                wsClosed.autoFilter = {
+                    from: { row: 4, column: 1 },
+                    to: { row: 4 + Math.max(targetClosedList.length, 1), column: closedHeaders.length }
+                };
+
+                if (targetClosedList.length === 0) {
+                    const emptyRow = wsClosed.addRow(['—', 'No completed / closed trips found matching the selected filters.', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—']);
+                    emptyRow.height = 24;
+                    emptyRow.eachCell(c => {
+                        c.font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF64748B' } };
+                        c.alignment = { horizontal: 'center', vertical: 'middle' };
+                    });
+                } else {
+                    targetClosedList.forEach((item, idx) => {
+                        const rowNum = 5 + idx;
+                        const bgArgb = idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
+
+                        wsClosed.addRow([
+                            idx + 1,
+                            item.tr_no || '—',
+                            item.import_export || 'Import',
+                            item.branch || '—',
+                            item.consignee || '—',
+                            item.consignor || '—',
+                            item.type_of_vehicle || item.container_type || item.container_size || item.vehicle_type || item.type || 'Standard',
+                            item.vehicle_no || '—',
+                            item.container_number || '—',
+                            item.seal_no || '—',
+                            item.own_hired || 'Own',
+                            item.dispatchClosedDate ? formatDateDisplay(item.dispatchClosedDate) : (item.lr_date ? formatDateDisplay(item.lr_date) : 'Completed'),
+                            'Delivered & Closed'
+                        ]);
+
+                        const row = wsClosed.getRow(rowNum);
+                        row.height = 21;
+                        row.eachCell((c, colNum) => {
+                            c.font = { name: 'Calibri', size: 10, color: { argb: 'FF1E293B' } };
+                            c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
+                            c.border = {
+                                top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                                left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                                bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                                right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+                            };
+
+                            if (colNum === 1 || colNum === 3 || colNum === 4 || colNum === 7 || colNum === 10 || colNum === 11 || colNum === 12 || colNum === 13) {
+                                c.alignment = { horizontal: 'center', vertical: 'middle' };
+                            } else if (colNum === 2) {
+                                c.alignment = { horizontal: 'center', vertical: 'middle' };
+                                c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF059669' } };
+                            } else if (colNum === 5) {
+                                c.alignment = { horizontal: 'left', vertical: 'middle' };
+                                c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF0F172A' } };
+                            } else if (colNum === 8 || colNum === 9) {
+                                c.alignment = { horizontal: 'center', vertical: 'middle' };
+                                c.font = { name: 'Consolas', size: 10, bold: true, color: { argb: 'FF1E293B' } };
+                            } else {
+                                c.alignment = { horizontal: 'left', vertical: 'middle' };
+                            }
+                        });
+                    });
+
+                    // Total Row
+                    const totRow = wsClosed.addRow(['TOTAL', `${targetClosedList.length} Completed Trips`, '—', '—', 'All Consignees', '—', '—', '—', '—', '—', '—', '—', 'Delivered']);
+                    totRow.height = 25;
+                    totRow.eachCell((c, colNum) => {
+                        c.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FF0F172A' } };
+                        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+                        c.border = {
+                            top: { style: 'medium', color: { argb: 'FF0F172A' } },
+                            bottom: { style: 'double', color: { argb: 'FF0F172A' } }
+                        };
+                        c.alignment = { horizontal: colNum === 5 ? 'left' : 'center', vertical: 'middle' };
+                    });
+                }
+
+                autoFitCols(wsClosed, 12, 45);
+            }
+
+            // ═════════════════════════════════════════════════════════════════════
+            // SHEET 5: CUSTOMER BACKLOG BREAKDOWN
+            // ═════════════════════════════════════════════════════════════════════
+            if (exportMode === 'all' || (activeSection === 'pending' && filteredCustomerBreakdown.length > 0)) {
+                const wsCust = workbook.addWorksheet('Customer Backlog Summary', {
+                    views: [{ state: 'frozen', ySplit: 4 }]
+                });
+
+                const custHeaders = [
+                    '#', 'Customer / Invoice Party Name', 'Pending PRs Count',
+                    'Pending Containers', 'Total PR Containers', 'LRs Created',
+                    'Fulfillment %', 'Operating Branches', 'Earliest DO Date', 'DO Urgency Status'
+                ];
+
+                addSheetBanner(wsCust, 'ALVISION EXIM — CUSTOMER-WISE PICKUP BACKLOG BREAKDOWN', 'J', 'FF581C87');
+
+                wsCust.addRow(custHeaders);
+                const custHRow = wsCust.getRow(4);
+                custHRow.height = 28;
+                custHRow.eachCell(c => {
+                    c.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FFFFFFFF' } };
+                    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF7C3AED' } };
+                    c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+                    c.border = {
+                        top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                        left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                        bottom: { style: 'medium', color: { argb: 'FF4C1D95' } },
+                        right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+                    };
+                });
+
+                wsCust.autoFilter = {
+                    from: { row: 4, column: 1 },
+                    to: { row: 4 + Math.max(filteredCustomerBreakdown.length, 1), column: custHeaders.length }
+                };
+
+                let cSumPR = 0;
+                let cSumPend = 0;
+                let cSumTot = 0;
+                let cSumCrt = 0;
+
+                filteredCustomerBreakdown.forEach((c, cIdx) => {
+                    const cRowNum = 5 + cIdx;
+                    const cBg = cIdx % 2 === 0 ? 'FFFFFFFF' : 'FFFAF5FF';
+                    const pct = c.totalContainers > 0 ? (c.createdLRs / c.totalContainers) : 0;
+                    cSumPR += c.prCount;
+                    cSumPend += c.pendingContainers;
+                    cSumTot += c.totalContainers;
+                    cSumCrt += c.createdLRs;
+
+                    let cDoLabel = 'No DO Date';
+                    if (c.earliestDo && c.earliestDo !== '-') {
+                        try {
+                            const d = c.earliestDo.includes('T') ? parseISO(c.earliestDo) : new Date(c.earliestDo);
+                            if (isValid(d)) {
+                                const diff = differenceInDays(d, today);
+                                if (diff < 0) cDoLabel = `Expired (${Math.abs(diff)}d ago)`;
+                                else if (diff <= 3) cDoLabel = `Expiring in ${diff}d`;
+                                else cDoLabel = 'Valid';
                             }
                         } catch {
                             // ignore
                         }
                     }
 
-                    ws.addRow([
-                        idx + 1,
-                        item.pr_no || '—',
-                        item.import_export || 'Import',
-                        item.branch || '—',
-                        item.invoice_party || '—',
-                        item.container_type || 'Standard',
-                        tot,
-                        crt,
-                        pnd,
-                        pct,
-                        item.do_validity ? formatDateDisplay(item.do_validity) : '—',
-                        doStatusLabel
-                    ]);
-
-                    const row = ws.getRow(rowNum);
-                    row.height = 22;
-                    row.eachCell((cell, colNum) => {
-                        cell.font = { name: 'Calibri', size: 10, color: { argb: 'FF1E293B' } };
-                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
-                        cell.border = {
-                            top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-                            left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-                            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-                            right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
-                        };
-
-                        // Column Alignments & Formats
-                        if (colNum === 1 || colNum === 3 || colNum === 4 || colNum === 6 || colNum === 11) {
-                            cell.alignment = { horizontal: 'center', vertical: 'middle' };
-                        } else if (colNum === 2) {
-                            cell.alignment = { horizontal: 'center', vertical: 'middle' };
-                            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF4338CA' } };
-                        } else if (colNum === 5) {
-                            cell.alignment = { horizontal: 'left', vertical: 'middle' };
-                            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF0F172A' } };
-                        } else if (colNum === 7 || colNum === 8 || colNum === 9) {
-                            cell.alignment = { horizontal: 'right', vertical: 'middle' };
-                            cell.numFmt = '#,##0';
-                            if (colNum === 9 && pnd > 0) {
-                                cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFB91C1C' } };
-                            }
-                        } else if (colNum === 10) {
-                            cell.alignment = { horizontal: 'right', vertical: 'middle' };
-                            cell.numFmt = '0.0%';
-                        } else if (colNum === 12) {
-                            cell.alignment = { horizontal: 'center', vertical: 'middle' };
-                            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: doStatusArgb } };
-                            cell.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: doTextArgb } };
-                        }
-                    });
-                } else {
-                    ws.addRow([
-                        idx + 1,
-                        item.tr_no || '—',
-                        item.import_export || 'Import',
-                        item.branch || '—',
-                        item.consignee || '—',
-                        item.consignor || '—',
-                        item.container_type || item.container_size || item.vehicle_type || item.type || 'Standard',
-                        item.vehicle_no || '—',
-                        item.container_number || '—',
-                        item.own_hired || 'Own',
-                        isActive
-                            ? (item.lr_date ? formatDateDisplay(item.lr_date) : (item.status || 'In Transit'))
-                            : (item.dispatchClosedDate ? formatDateDisplay(item.dispatchClosedDate) : 'Completed')
-                    ]);
-
-                    const row = ws.getRow(rowNum);
-                    row.height = 22;
-                    row.eachCell((cell, colNum) => {
-                        cell.font = { name: 'Calibri', size: 10, color: { argb: 'FF1E293B' } };
-                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
-                        cell.border = {
-                            top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-                            left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-                            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-                            right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
-                        };
-
-                        if (colNum === 1 || colNum === 3 || colNum === 4 || colNum === 7 || colNum === 8 || colNum === 9 || colNum === 10 || colNum === 11) {
-                            cell.alignment = { horizontal: 'center', vertical: 'middle' };
-                        } else if (colNum === 2) {
-                            cell.alignment = { horizontal: 'center', vertical: 'middle' };
-                            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF4338CA' } };
-                        } else {
-                            cell.alignment = { horizontal: 'left', vertical: 'middle' };
-                        }
-                    });
-                }
-            });
-
-            // Summary Total Row for Pending Queue
-            if (isPending && sortedList.length > 0) {
-                const totalRowNum = 5 + sortedList.length;
-                const avgPct = sumTotalCont > 0 ? (sumCreatedLRs / sumTotalCont) : 0;
-                ws.addRow([
-                    'TOTAL',
-                    `${sortedList.length} PRs`,
-                    '—',
-                    '—',
-                    'All Customers',
-                    '—',
-                    sumTotalCont,
-                    sumCreatedLRs,
-                    sumPendingCont,
-                    avgPct,
-                    '—',
-                    '—'
-                ]);
-
-                const totRow = ws.getRow(totalRowNum);
-                totRow.height = 25;
-                totRow.eachCell((cell, colNum) => {
-                    cell.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FF0F172A' } };
-                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
-                    cell.border = {
-                        top: { style: 'medium', color: { argb: 'FF0F172A' } },
-                        left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-                        bottom: { style: 'double', color: { argb: 'FF0F172A' } },
-                        right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
-                    };
-
-                    if (colNum === 1 || colNum === 2 || colNum === 3 || colNum === 4 || colNum === 6 || colNum === 11 || colNum === 12) {
-                        cell.alignment = { horizontal: 'center', vertical: 'middle' };
-                    } else if (colNum === 5) {
-                        cell.alignment = { horizontal: 'left', vertical: 'middle' };
-                    } else if (colNum === 7 || colNum === 8 || colNum === 9) {
-                        cell.alignment = { horizontal: 'right', vertical: 'middle' };
-                        cell.numFmt = '#,##0';
-                    } else if (colNum === 10) {
-                        cell.alignment = { horizontal: 'right', vertical: 'middle' };
-                        cell.numFmt = '0.0%';
-                    }
-                });
-            }
-
-            // Also add a Customer Backlog Breakdown tab if in Pending view
-            if (isPending && customerSummary.length > 0) {
-                const wsCust = workbook.addWorksheet('Customer Backlog Summary', {
-                    views: [{ state: 'frozen', ySplit: 4 }]
-                });
-
-                wsCust.addRow(['ALVISION EXIM — CUSTOMER-WISE PICKUP BACKLOG SUMMARY']);
-                wsCust.mergeCells('A1:G1');
-                const custTitle = wsCust.getRow(1);
-                custTitle.height = 32;
-                custTitle.getCell(1).font = { name: 'Calibri', size: 13, bold: true, color: { argb: 'FFFFFFFF' } };
-                custTitle.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF581C87' } };
-                custTitle.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
-
-                wsCust.addRow([`Period: ${periodLabel} | Total Customers Waiting: ${customerSummary.length}`]);
-                wsCust.mergeCells('A2:G2');
-                const custMeta = wsCust.getRow(2);
-                custMeta.height = 20;
-                custMeta.getCell(1).font = { name: 'Calibri', size: 9.5, italic: true, color: { argb: 'FF581C87' } };
-                custMeta.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF5F3FF' } };
-                custMeta.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
-
-                wsCust.addRow([]);
-                wsCust.getRow(3).height = 6;
-
-                const custHeaders = ['#', 'Customer / Invoice Party', 'Pending PRs', 'Pending Containers', 'Total Containers', 'Branches', 'Earliest DO'];
-                wsCust.addRow(custHeaders);
-                const custHRow = wsCust.getRow(4);
-                custHRow.height = 26;
-                custHRow.eachCell((cell) => {
-                    cell.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FFFFFFFF' } };
-                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF7C3AED' } };
-                    cell.alignment = { horizontal: 'center', vertical: 'middle' };
-                });
-
-                wsCust.autoFilter = {
-                    from: { row: 4, column: 1 },
-                    to: { row: 4 + customerSummary.length, column: 7 }
-                };
-
-                customerSummary.forEach((c, cIdx) => {
-                    const cRowNum = 5 + cIdx;
-                    const cBg = cIdx % 2 === 0 ? 'FFFFFFFF' : 'FFFAF5FF';
                     wsCust.addRow([
                         cIdx + 1,
                         c.customerName,
                         c.prCount,
                         c.pendingContainers,
                         c.totalContainers,
+                        c.createdLRs,
+                        pct,
                         Array.from(c.branches).join(', ') || '—',
-                        c.earliestDo ? formatDateDisplay(c.earliestDo) : '—'
+                        c.earliestDo ? formatDateDisplay(c.earliestDo) : '—',
+                        cDoLabel
                     ]);
 
                     const row = wsCust.getRow(cRowNum);
@@ -1064,57 +1725,178 @@ const TransportMonitoringReport = ({
                             bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
                             right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
                         };
-                        if (colNum === 1) cell.alignment = { horizontal: 'center', vertical: 'middle' };
-                        else if (colNum === 2) {
+
+                        if (colNum === 1 || colNum === 8 || colNum === 9 || colNum === 10) {
+                            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                        } else if (colNum === 2) {
                             cell.alignment = { horizontal: 'left', vertical: 'middle' };
                             cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF0F172A' } };
-                        } else if (colNum === 3 || colNum === 4 || colNum === 5) {
+                        } else if (colNum === 3 || colNum === 4 || colNum === 5 || colNum === 6) {
                             cell.alignment = { horizontal: 'right', vertical: 'middle' };
                             cell.numFmt = '#,##0';
-                            if (colNum === 4) cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFB91C1C' } };
-                        } else {
-                            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                            if (colNum === 4 && c.pendingContainers > 0) {
+                                cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFB91C1C' } };
+                            }
+                        } else if (colNum === 7) {
+                            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+                            cell.numFmt = '0.0%';
                         }
                     });
                 });
 
-                // Auto-fit column widths for customer sheet
-                wsCust.columns.forEach((col) => {
-                    let max = 0;
-                    col.eachCell({ includeEmpty: true }, (cell, rn) => {
-                        if (rn > 3) {
-                            const l = cell.value ? String(cell.value).length : 0;
-                            if (l > max) max = l;
-                        }
-                    });
-                    col.width = Math.max(max + 4, 14);
-                });
-            }
-
-            // Auto-fit column widths for main sheet
-            ws.columns.forEach((col) => {
-                let max = 0;
-                col.eachCell({ includeEmpty: true }, (cell, rn) => {
-                    if (rn > 3) {
-                        const l = cell.value ? String(cell.value).length : 0;
-                        if (l > max) max = l;
+                // Customer Summary Total Row
+                const cTotRowNum = 5 + filteredCustomerBreakdown.length;
+                const cAvgPct = cSumTot > 0 ? (cSumCrt / cSumTot) : 0;
+                const cTotRow = wsCust.addRow(['TOTAL', `${filteredCustomerBreakdown.length} Customers`, cSumPR, cSumPend, cSumTot, cSumCrt, cAvgPct, '—', '—', '—']);
+                cTotRow.height = 24;
+                cTotRow.eachCell((cell, colNum) => {
+                    cell.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FF0F172A' } };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+                    cell.border = {
+                        top: { style: 'medium', color: { argb: 'FF0F172A' } },
+                        bottom: { style: 'double', color: { argb: 'FF0F172A' } }
+                    };
+                    if (colNum <= 2 || colNum >= 8) cell.alignment = { horizontal: colNum === 2 ? 'left' : 'center', vertical: 'middle' };
+                    else if (colNum === 7) {
+                        cell.alignment = { horizontal: 'right', vertical: 'middle' };
+                        cell.numFmt = '0.0%';
+                    } else {
+                        cell.alignment = { horizontal: 'right', vertical: 'middle' };
+                        cell.numFmt = '#,##0';
                     }
                 });
-                col.width = Math.max(max + 4, 14);
-            });
 
-            // Generate buffer and trigger download
+                autoFitCols(wsCust, 13, 45);
+            }
+
+            // ═════════════════════════════════════════════════════════════════════
+            // SHEET 6: CONTAINER SIZE & TYPE BREAKDOWN (Only in Full Report Mode)
+            // ═════════════════════════════════════════════════════════════════════
+            if (exportMode === 'all') {
+                const wsType = workbook.addWorksheet('Container Type Breakdown', {
+                    views: [{ state: 'frozen', ySplit: 4 }]
+                });
+
+                const typeHeaders = ['#', 'Container Size & Type', 'Pending PRs Count', 'Pending Containers', 'Total PR Containers', 'Created LRs', 'Fulfillment %'];
+
+                addSheetBanner(wsType, 'ALVISION EXIM — CONTAINER TYPE & SIZE UTILIZATION SUMMARY', 'G', 'FF1E293B');
+
+                wsType.addRow(typeHeaders);
+                const typeHRow = wsType.getRow(4);
+                typeHRow.height = 28;
+                typeHRow.eachCell(c => {
+                    c.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FFFFFFFF' } };
+                    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF475569' } };
+                    c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+                    c.border = {
+                        top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                        left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                        bottom: { style: 'medium', color: { argb: 'FF0F172A' } },
+                        right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
+                    };
+                });
+
+                wsType.autoFilter = {
+                    from: { row: 4, column: 1 },
+                    to: { row: 4 + Math.max(filteredContainerTypeBreakdown.length, 1), column: typeHeaders.length }
+                };
+
+                let tSumPR = 0;
+                let tSumPend = 0;
+                let tSumTot = 0;
+                let tSumCrt = 0;
+
+                filteredContainerTypeBreakdown.forEach((t, tIdx) => {
+                    const rowNum = 5 + tIdx;
+                    const bgArgb = tIdx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
+                    const pct = t.totalContainers > 0 ? (t.createdLRs / t.totalContainers) : 0;
+                    tSumPR += t.prCount;
+                    tSumPend += t.pendingContainers;
+                    tSumTot += t.totalContainers;
+                    tSumCrt += t.createdLRs;
+
+                    wsType.addRow([
+                        tIdx + 1,
+                        t.containerType,
+                        t.prCount,
+                        t.pendingContainers,
+                        t.totalContainers,
+                        t.createdLRs,
+                        pct
+                    ]);
+
+                    const row = wsType.getRow(rowNum);
+                    row.height = 21;
+                    row.eachCell((cell, colNum) => {
+                        cell.font = { name: 'Calibri', size: 10, color: { argb: 'FF1E293B' } };
+                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
+                        cell.border = {
+                            top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                            left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+                            right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+                        };
+
+                        if (colNum === 1) {
+                            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                        } else if (colNum === 2) {
+                            cell.alignment = { horizontal: 'left', vertical: 'middle' };
+                            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF0F172A' } };
+                        } else if (colNum === 3 || colNum === 4 || colNum === 5 || colNum === 6) {
+                            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+                            cell.numFmt = '#,##0';
+                            if (colNum === 4 && t.pendingContainers > 0) {
+                                cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFB91C1C' } };
+                            }
+                        } else if (colNum === 7) {
+                            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+                            cell.numFmt = '0.0%';
+                        }
+                    });
+                });
+
+                // Total Row
+                const tTotRowNum = 5 + filteredContainerTypeBreakdown.length;
+                const tAvgPct = tSumTot > 0 ? (tSumCrt / tSumTot) : 0;
+                const tTotRow = wsType.addRow(['TOTAL', 'All Container Sizes & Types', tSumPR, tSumPend, tSumTot, tSumCrt, tAvgPct]);
+                tTotRow.height = 24;
+                tTotRow.eachCell((cell, colNum) => {
+                    cell.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FF0F172A' } };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+                    cell.border = {
+                        top: { style: 'medium', color: { argb: 'FF0F172A' } },
+                        bottom: { style: 'double', color: { argb: 'FF0F172A' } }
+                    };
+                    if (colNum <= 2) cell.alignment = { horizontal: colNum === 2 ? 'left' : 'center', vertical: 'middle' };
+                    else if (colNum === 7) {
+                        cell.alignment = { horizontal: 'right', vertical: 'middle' };
+                        cell.numFmt = '0.0%';
+                    } else {
+                        cell.alignment = { horizontal: 'right', vertical: 'middle' };
+                        cell.numFmt = '#,##0';
+                    }
+                });
+
+                autoFitCols(wsType, 13, 40);
+            }
+
+            // Generate buffer and trigger browser download
             const buffer = await workbook.xlsx.writeBuffer();
-            const fileName = isPending
-                ? `Transport_Pending_Pickup_Queue_${new Date().toISOString().slice(0, 10)}.xlsx`
-                : (isActive
-                    ? `Transport_Active_Dispatches_${new Date().toISOString().slice(0, 10)}.xlsx`
-                    : `Transport_Completed_Trips_${new Date().toISOString().slice(0, 10)}.xlsx`);
+            const dateSuffix = new Date().toISOString().slice(0, 10);
+            const fileName = exportMode === 'all'
+                ? `AlVision_Transport_Monitoring_Detailed_Report_${dateSuffix}.xlsx`
+                : (activeSection === 'pending'
+                    ? `AlVision_Transport_Pending_Pickup_Queue_${dateSuffix}.xlsx`
+                    : (activeSection === 'active'
+                        ? `AlVision_Transport_Active_Dispatches_${dateSuffix}.xlsx`
+                        : `AlVision_Transport_Completed_Trips_${dateSuffix}.xlsx`));
 
             saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), fileName);
         } catch (err) {
-            console.error("Excel export error:", err);
+            console.error("Detailed Excel export error:", err);
             alert("Failed to export Excel file. Please try again.");
+        } finally {
+            setIsExportingExcel(false);
         }
     };
 
@@ -1888,28 +2670,151 @@ const TransportMonitoringReport = ({
                         </div>
                     )}
 
-                    <button
-                        onClick={exportToExcel}
-                        disabled={sortedList.length === 0}
-                        style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '5px',
-                            background: '#10b981',
-                            color: '#ffffff',
-                            border: 'none',
-                            height: '36px',
-                            padding: '0 14px',
-                            borderRadius: '8px',
-                            fontWeight: 700,
-                            fontSize: '12.5px',
-                            cursor: sortedList.length === 0 ? 'not-allowed' : 'pointer',
-                            opacity: sortedList.length === 0 ? 0.6 : 1,
-                            boxShadow: '0 2px 6px rgba(16, 185, 129, 0.25)'
-                        }}
-                    >
-                        <Download size={13} /> Excel
-                    </button>
+                    {/* Enhanced Excel Export Dropdown & Action */}
+                    <div style={{ position: 'relative', display: 'inline-flex' }}>
+                        <button
+                            onClick={() => exportToExcel('all')}
+                            disabled={isExportingExcel || (filteredPendingList.length === 0 && filteredActiveList.length === 0 && filteredClosedList.length === 0)}
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                background: '#10b981',
+                                color: '#ffffff',
+                                border: 'none',
+                                height: '36px',
+                                padding: '0 12px 0 14px',
+                                borderTopLeftRadius: '8px',
+                                borderBottomLeftRadius: '8px',
+                                borderTopRightRadius: '0',
+                                borderBottomRightRadius: '0',
+                                fontWeight: 700,
+                                fontSize: '12.5px',
+                                cursor: isExportingExcel ? 'wait' : 'pointer',
+                                opacity: (filteredPendingList.length === 0 && filteredActiveList.length === 0 && filteredClosedList.length === 0) ? 0.6 : 1,
+                                boxShadow: '0 2px 6px rgba(16, 185, 129, 0.25)',
+                                transition: 'all 0.15s ease'
+                            }}
+                            title="Download Comprehensive Multi-Sheet Excel Report with all filters & executive summaries"
+                        >
+                            {isExportingExcel ? (
+                                <RefreshCw size={13} style={{ animation: 'spin 0.8s linear infinite' }} />
+                            ) : (
+                                <Download size={13} />
+                            )}
+                            <span>{isExportingExcel ? 'Exporting...' : 'Detailed Excel'}</span>
+                        </button>
+
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                setShowExportMenu(prev => !prev);
+                            }}
+                            disabled={isExportingExcel}
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                background: '#059669',
+                                color: '#ffffff',
+                                border: 'none',
+                                borderLeft: '1px solid rgba(255,255,255,0.25)',
+                                height: '36px',
+                                width: '26px',
+                                padding: 0,
+                                borderTopRightRadius: '8px',
+                                borderBottomRightRadius: '8px',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease'
+                            }}
+                            title="Export options"
+                        >
+                            <ChevronDown size={14} style={{ transform: showExportMenu ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
+                        </button>
+
+                        {/* Export Dropdown Menu */}
+                        {showExportMenu && (
+                            <div
+                                style={{
+                                    position: 'absolute',
+                                    top: '42px',
+                                    right: 0,
+                                    background: '#ffffff',
+                                    borderRadius: '12px',
+                                    border: '1px solid #e2e8f0',
+                                    boxShadow: '0 10px 25px rgba(0,0,0,0.12)',
+                                    zIndex: 100,
+                                    minWidth: '280px',
+                                    overflow: 'hidden',
+                                    padding: '6px'
+                                }}
+                            >
+                                <button
+                                    onClick={() => exportToExcel('all')}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'flex-start',
+                                        gap: '10px',
+                                        width: '100%',
+                                        padding: '10px 12px',
+                                        border: 'none',
+                                        background: 'transparent',
+                                        borderRadius: '8px',
+                                        textAlign: 'left',
+                                        cursor: 'pointer',
+                                        transition: 'background 0.15s ease'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = '#f0fdf4'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                >
+                                    <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: '#dcfce7', color: '#166534', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <Layers size={15} />
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>
+                                            Complete Detailed Report
+                                        </div>
+                                        <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', lineHeight: 1.3 }}>
+                                            All 6 Sheets (Summary, Pending PRs, Active LRs, Closed Trips, Customer & Type breakdown) with filters
+                                        </div>
+                                    </div>
+                                </button>
+
+                                <div style={{ height: '1px', background: '#f1f5f9', margin: '4px 0' }} />
+
+                                <button
+                                    onClick={() => exportToExcel('current')}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'flex-start',
+                                        gap: '10px',
+                                        width: '100%',
+                                        padding: '10px 12px',
+                                        border: 'none',
+                                        background: 'transparent',
+                                        borderRadius: '8px',
+                                        textAlign: 'left',
+                                        cursor: 'pointer',
+                                        transition: 'background 0.15s ease'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.background = '#eff6ff'}
+                                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                                >
+                                    <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: '#e0e7ff', color: '#3730a3', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <FileSpreadsheet size={15} />
+                                    </div>
+                                    <div>
+                                        <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>
+                                            Current Tab Only ({activeSection === 'pending' ? 'Pending Queue' : activeSection === 'active' ? 'Active LRs' : 'Closed Trips'})
+                                        </div>
+                                        <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', lineHeight: 1.3 }}>
+                                            Filtered records for {activeSection === 'pending' ? 'Pending PRs' : activeSection === 'active' ? 'Active In-Transit LRs' : 'Completed Trips'}
+                                        </div>
+                                    </div>
+                                </button>
+                            </div>
+                        )}
+                    </div>
 
                     <button
                         onClick={exportToPDF}

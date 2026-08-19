@@ -23,17 +23,43 @@ function ImportBillingTab() {
   const navigate = useNavigate();
   const { a11yProps, CustomTabPanel } = useTabs();
 
-  // Get initial tab value from URL state or default to 0
-  const initialTab = location.state?.tabIndex ?? 0;
-  const [value, setValue] = React.useState(initialTab);
-  const [workMode, setWorkMode] = React.useState("Payment");
+  // Get initial tab value from location state, sessionStorage, or default to 0
+  const initialTab =
+    location.state?.tabIndex !== undefined
+      ? location.state.tabIndex
+      : (sessionStorage.getItem("import_billing_tab") !== null
+          ? Number(sessionStorage.getItem("import_billing_tab"))
+          : 0);
 
-  // Sync tab state when the component mounts (to prevent mismatches)
+  const [value, setValue] = React.useState(initialTab);
+  const [workMode, setWorkMode] = React.useState(
+    () => location.state?.workMode || sessionStorage.getItem("import_billing_work_mode") || "Payment"
+  );
+
+  // Sync tab state when location.state changes
   React.useEffect(() => {
-    if (value !== initialTab) {
-      setValue(initialTab);
+    if (location.state?.tabIndex !== undefined && value !== location.state.tabIndex) {
+      setValue(location.state.tabIndex);
+      sessionStorage.setItem("import_billing_tab", location.state.tabIndex.toString());
     }
-  }, [initialTab]);
+  }, [location.state?.tabIndex]);
+
+  // Sync workMode when location.state changes
+  React.useEffect(() => {
+    if (location.state?.workMode && workMode !== location.state.workMode) {
+      setWorkMode(location.state.workMode);
+      sessionStorage.setItem("import_billing_work_mode", location.state.workMode);
+    }
+  }, [location.state?.workMode]);
+
+  // Persist tabIndex and workMode whenever they change
+  React.useEffect(() => {
+    sessionStorage.setItem("import_billing_tab", value.toString());
+  }, [value]);
+
+  React.useEffect(() => {
+    sessionStorage.setItem("import_billing_work_mode", workMode);
+  }, [workMode]);
 
   const handleWorkModeChange = (event, newMode) => {
     if (newMode !== null) {
@@ -45,6 +71,7 @@ function ImportBillingTab() {
   const handleChange = React.useCallback(
     (event, newValue) => {
       setValue(newValue);
+      sessionStorage.setItem("import_billing_tab", newValue.toString());
       navigate(".", { state: { tabIndex: newValue }, replace: true });
     },
     [navigate]

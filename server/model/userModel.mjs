@@ -96,6 +96,7 @@ const userSchema = new Schema({
     punch_allowed: { type: Boolean, default: true },
     punch_methods: [{ type: String, enum: ['web', 'mobile', 'biometric'] }],
     geo_fencing_required: { type: Boolean },
+    has_smartphone: { type: Boolean, default: true },
     allowed_locations: [{
       name: String,
       latitude: Number,

@@ -21,6 +21,7 @@ import VpnKeyIcon from "@mui/icons-material/VpnKey";
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import FactCheckIcon from "@mui/icons-material/FactCheck";
+import MedicalServicesIcon from "@mui/icons-material/MedicalServices";
 import { UserContext } from "../../contexts/UserContext";
 import CurrencyRateDialog from "./CurrencyRateDialog"; // Import the dialog
 
@@ -145,17 +146,41 @@ function Sidebar() {
             </ListItemButton>
           </Tooltip>
 
-          <Tooltip title="5S Audit" enterDelay={0} placement="right">
-            <ListItemButton
-              className="appbar-links"
-              aria-label="list-item"
-              onClick={() => navigate("/audit-5s")}
-            >
-              <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
-                <FactCheckIcon />
-              </IconButton>
-            </ListItemButton>
-          </Tooltip>
+          {(() => {
+            const isRabs = user?.company && /RABS/i.test(user.company);
+            const isAdminOrHod = user?.role === "Admin" || user?.role === "Head_of_Department" || user?.role === "HOD" || user?.isHOD;
+            return isRabs && isAdminOrHod;
+          })() && (
+            <Tooltip title="5S Audit" enterDelay={0} placement="right">
+              <ListItemButton
+                className="appbar-links"
+                aria-label="list-item"
+                onClick={() => navigate("/audit-5s")}
+              >
+                <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
+                  <FactCheckIcon />
+                </IconButton>
+              </ListItemButton>
+            </Tooltip>
+          )}
+
+          {(() => {
+            const isRabs = user?.company && /RABS/i.test(user.company);
+            const isAdminOrHod = user?.role === "Admin" || user?.role === "Head_of_Department" || user?.role === "HOD" || user?.isHOD;
+            return isRabs && isAdminOrHod;
+          })() && (
+            <Tooltip title="First Aid Kit" enterDelay={0} placement="right">
+              <ListItemButton
+                className="appbar-links"
+                aria-label="list-item"
+                onClick={() => navigate("/first-aid")}
+              >
+                <IconButton sx={{ color: "#ffffff9f" }} aria-label="icon">
+                  <MedicalServicesIcon />
+                </IconButton>
+              </ListItemButton>
+            </Tooltip>
+          )}
         </>
       )}
 

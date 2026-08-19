@@ -44,17 +44,38 @@ import logo from "../../assets/images/logo.webp";
 
 function PaymentPending({ workMode = "Payment" }) {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
-  const {
-    searchQuery,
-    setSearchQuery,
-    selectedImporter,
-    setSelectedImporter,
-  } = useSearchQuery();
+
+  const [searchQuery, setSearchQuery] = useState(
+    () => sessionStorage.getItem("ib_tab4_search") || ""
+  );
+  const [selectedImporter, setSelectedImporter] = useState(
+    () => sessionStorage.getItem("ib_tab4_importer") || ""
+  );
+  const [selectedRequestDate, setSelectedRequestDate] = useState(
+    () => sessionStorage.getItem("ib_tab4_requestDate") !== null
+      ? sessionStorage.getItem("ib_tab4_requestDate")
+      : new Date().toLocaleString("en-CA", { timeZone: "Asia/Kolkata" }).split(',')[0]
+  );
+  const [selectedTransactionType, setSelectedTransactionType] = useState(
+    () => sessionStorage.getItem("ib_tab4_txType") || "All"
+  );
+  const [dateFilterType, setDateFilterType] = useState(
+    () => sessionStorage.getItem("ib_tab4_dateFilterType") || "single"
+  );
+  const [startDate, setStartDate] = useState(
+    () => sessionStorage.getItem("ib_tab4_startDate") || ""
+  );
+  const [endDate, setEndDate] = useState(
+    () => sessionStorage.getItem("ib_tab4_endDate") || ""
+  );
+  const [page, setPage] = useState(
+    () => Number(sessionStorage.getItem("ib_tab4_page")) || 1
+  );
+
   const { user } = useContext(UserContext);
   const { selectedBranch, selectedCategory } = useContext(BranchContext);
   const [years, setYears] = useState([]);
   const [rows, setRows] = useState([]);
-  const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
@@ -72,15 +93,43 @@ function PaymentPending({ workMode = "Payment" }) {
   const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
   const [receiptUrl, setReceiptUrl] = useState("");
 
+  // Persist filter states to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab4_search", searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab4_importer", selectedImporter || "");
+  }, [selectedImporter]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab4_requestDate", selectedRequestDate || "");
+  }, [selectedRequestDate]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab4_txType", selectedTransactionType || "All");
+  }, [selectedTransactionType]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab4_dateFilterType", dateFilterType);
+  }, [dateFilterType]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab4_startDate", startDate || "");
+  }, [startDate]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab4_endDate", endDate || "");
+  }, [endDate]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab4_page", page.toString());
+  }, [page]);
+
   // New States for Rejection (Restored)
   const [openRejectPopup, setOpenRejectPopup] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
-  const [selectedRequestDate, setSelectedRequestDate] = useState(new Date().toLocaleString("en-CA", { timeZone: "Asia/Kolkata" }).split(',')[0]);
-  const [selectedTransactionType, setSelectedTransactionType] = useState("All");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [dateFilterType, setDateFilterType] = useState("single");
   const [anchorEl, setAnchorEl] = useState(null);
 
   const handleAdvancedClick = (event) => {
@@ -394,11 +443,12 @@ function PaymentPending({ workMode = "Payment" }) {
     workMode
   ]);
 
+  const isFirstSearch = React.useRef(true);
   useEffect(() => {
-    setPage(1);
-  }, [selectedRequestDate, selectedTransactionType, startDate, endDate, dateFilterType]);
-
-  useEffect(() => {
+    if (isFirstSearch.current) {
+      isFirstSearch.current = false;
+      return;
+    }
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
       setPage(1);
@@ -658,7 +708,7 @@ function PaymentPending({ workMode = "Payment" }) {
     renderTopToolbarCustomActions: () => (
       <div style={{ display: "flex", alignItems: "center", width: "100%", padding: '10px', gap: '20px' }}>
         <Typography variant="h6" sx={{ fontWeight: "bold" }}>{workMode === "Payment" ? "Payment Approved" : "Purchase Book Approved"}: {totalJobs}</Typography>
-        <Autocomplete sx={{ width: "300px" }} options={importerNames.map(o => o.label)} value={selectedImporter || ""} onInputChange={(e, v) => setSelectedImporter(v)} renderInput={(params) => <TextField {...params} size="small" label="Select Importer" />} />
+        <Autocomplete sx={{ width: "300px" }} options={importerNames.map(o => o.label)} value={selectedImporter || ""} onInputChange={(e, v) => { setSelectedImporter(v); setPage(1); }} renderInput={(params) => <TextField {...params} size="small" label="Select Importer" />} />
         <TextField select size="small" value={selectedYearState} onChange={(e) => setSelectedYearState(e.target.value)} sx={{ width: "150px" }}>{years.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}</TextField>
         {/* Date Filter */}
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
@@ -780,7 +830,10 @@ function PaymentPending({ workMode = "Payment" }) {
           size="small" 
           label="Transaction Type" 
           value={selectedTransactionType} 
-          onChange={(e) => setSelectedTransactionType(e.target.value)} 
+          onChange={(e) => {
+            setSelectedTransactionType(e.target.value);
+            setPage(1);
+          }} 
           sx={{ width: "180px" }}
         >
           {["All", "NEFT", "CHEQUE", "CASH", "IMPS", "RTGS", "ONLINE", "DEMAND DRAFT", "ODEX"].map(type => (

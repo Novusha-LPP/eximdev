@@ -566,7 +566,7 @@ const ImportCreateJob = () => {
   const currencyOptions = currencies.map(c => c.code);
 
   const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSTL", "TQ", "SIL"];
-  const beTypeOptions = ["Home", "In-Bond", "Ex-Bond"];
+  const beTypeOptions = ["Home", "In-Bond", "Ex-Bond", "SEZ"];
   const portReportingOptionsSet = [
     "(INMUN1) Mundra Sea",
     "(INNSA1) Nhava Sheva Sea",
@@ -784,6 +784,15 @@ const ImportCreateJob = () => {
     ],
     "In-Bond": [{ value: "In-Bond", label: "In-bond" }],
     "Ex-Bond": [{ value: "Ex-Bond", label: "Ex-Bond" }],
+    SEZ: [
+      { value: "SEZ", label: "SEZ" },
+      { value: "Full Duty", label: "Full Duty" },
+      { value: "DEEC", label: "DEEC" },
+      { value: "RODTEP", label: "RODTEP" },
+      { value: "ROSTL", label: "ROSTL" },
+      { value: "TQ", label: "TQ" },
+      { value: "SIL", label: "SIL" },
+    ],
   };
   const filteredClearanceOptions = clearanceOptionsMapping[type_of_b_e] || [];
 
@@ -2245,7 +2254,7 @@ const ImportCreateJob = () => {
                         <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: '#ffffff', minWidth: `${invoiceTableWidth}px` }}>
                           <thead>
                             <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                              {["Sr", "Inv No", "Inv Date", isPoMandatory ? "PO Details *" : "PO Details", "TOI", "Invoice Value", "Currency", "Ex. Rate", "Freight", "Insurance", "Others", "CIF", "Action"].map((h) => (
+                              {["Sr", "Inv No", "Inv Date", isPoMandatory ? "PO Details *" : "PO Details", "TOI", "Invoice Value", "Currency", "Ex. Rate", "Freight", "Insurance", "Others", "CIF Value", "Action"].map((h) => (
                                 <th
                                   key={h}
                                   style={{
@@ -2433,7 +2442,7 @@ const ImportCreateJob = () => {
                                           value={row.freight || ""}
                                           onChange={(e) => updateInvoiceRow(rowIndex, "freight", e.target.value)}
                                           sx={compactInput}
-                                          disabled={false}
+                                          disabled={row.toi !== "FOB"}
                                         />
                                         <Autocomplete
                                           freeSolo
@@ -2442,7 +2451,7 @@ const ImportCreateJob = () => {
                                           value={row.freight_currency || ""}
                                           onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "freight_currency", newValue)}
                                           onChange={(event, newValue) => updateInvoiceRow(rowIndex, "freight_currency", newValue || "")}
-                                          disabled={false}
+                                          disabled={row.toi !== "FOB"}
                                           renderInput={(params) => (
                                             <TextField
                                               {...params}
@@ -2461,7 +2470,7 @@ const ImportCreateJob = () => {
                                           placeholder="Fr. Ex Rate"
                                           value={row.freight_exchange_rate || ""}
                                           onChange={(e) => updateInvoiceRow(rowIndex, "freight_exchange_rate", e.target.value)}
-                                          disabled={false}
+                                          disabled={row.toi !== "FOB"}
                                           sx={compactInput}
                                         />
                                       )}
@@ -2477,7 +2486,7 @@ const ImportCreateJob = () => {
                                           value={row.insurance || ""}
                                           onChange={(e) => updateInvoiceRow(rowIndex, "insurance", e.target.value)}
                                           sx={compactInput}
-                                          disabled={false}
+                                          disabled={row.toi !== "FOB"}
                                         />
                                         <Autocomplete
                                           freeSolo
@@ -2486,7 +2495,7 @@ const ImportCreateJob = () => {
                                           value={row.insurance_currency || ""}
                                           onInputChange={(event, newValue) => updateInvoiceRow(rowIndex, "insurance_currency", newValue)}
                                           onChange={(event, newValue) => updateInvoiceRow(rowIndex, "insurance_currency", newValue || "")}
-                                          disabled={false}
+                                          disabled={row.toi !== "FOB"}
                                           renderInput={(params) => (
                                             <TextField
                                               {...params}
@@ -2505,7 +2514,7 @@ const ImportCreateJob = () => {
                                           placeholder="Ins. Ex Rate"
                                           value={row.insurance_exchange_rate || ""}
                                           onChange={(e) => updateInvoiceRow(rowIndex, "insurance_exchange_rate", e.target.value)}
-                                          disabled={false}
+                                          disabled={row.toi !== "FOB"}
                                           sx={compactInput}
                                         />
                                       )}
@@ -2556,7 +2565,7 @@ const ImportCreateJob = () => {
                                     <TextField
                                       size="small"
                                       fullWidth
-                                      placeholder="CIF"
+                                      placeholder="CIF Value"
                                       value={(() => {
                                         const pv = parseFloat(row.product_value) || 0;
                                         const pvEx = parseFloat(row.exchange_rate) || parseFloat(exrate) || 1;

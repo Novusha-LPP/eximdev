@@ -87,6 +87,12 @@ function DgftTabs() {
   const activeIdx = TABS.findIndex(t => t.key === activeTabKey);
   const validIdx = activeIdx === -1 ? 0 : activeIdx;
 
+  useEffect(() => {
+    if (!tab) {
+      navigate(`/dgft/${TABS[0].key}`, { replace: true });
+    }
+  }, [tab, navigate]);
+
   const [counts, setCounts] = useState({ "auth-reg": 0, "reg-format": 0, "rodtep": 0 });
 
   const fetchCounts = useCallback(async () => {

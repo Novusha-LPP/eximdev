@@ -212,7 +212,7 @@ function useFetchJobDetails(
   const [jobDetails, setJobDetails] = useState([]);
 
   const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSTL"];
-  const beTypeOptions = ["Home", "In-Bond", "Ex-Bond"];
+  const beTypeOptions = ["Home", "In-Bond", "Ex-Bond", "SEZ"];
   const clearanceOptionsMapping = {
     Home: [
       { value: "Full Duty", label: "Full Duty" },
@@ -225,6 +225,16 @@ function useFetchJobDetails(
     ],
     "In-Bond": [{ value: "In-Bond", label: "In-Bond" }],
     "Ex-Bond": [
+      { value: "Full Duty", label: "Full Duty" },
+      { value: "DEEC", label: "DEEC" },
+      { value: "EPCG", label: "EPCG" },
+      { value: "RODTEP", label: "RODTEP" },
+      { value: "ROSTL", label: "ROSTL" },
+      { value: "TQ", label: "TQ" },
+      { value: "SIL", label: "SIL" },
+    ],
+    SEZ: [
+      { value: "SEZ", label: "SEZ" },
       { value: "Full Duty", label: "Full Duty" },
       { value: "DEEC", label: "DEEC" },
       { value: "EPCG", label: "EPCG" },

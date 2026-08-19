@@ -31,10 +31,6 @@ const salesTeamSchema = new mongoose.Schema({
   
   performance: {
 
-
-
-
-    
     currentRevenue: { type: Number, default: 0 },
     currentDeals: { type: Number, default: 0 },
     winRate: { type: Number, default: 0 },

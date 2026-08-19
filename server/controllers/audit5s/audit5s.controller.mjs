@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Audit5sTemplateModel from "../../model/audit5s/Audit5sTemplate.mjs";
 import Audit5sZoneModel from "../../model/audit5s/Audit5sZone.mjs";
 import Audit5sChecklistModel from "../../model/audit5s/Audit5sChecklist.mjs";
@@ -101,16 +102,30 @@ async function seedDefaultZones() {
 
         const assignedUser = user ? user._id : defaultUser._id;
 
-        const newZone = new Audit5sZoneModel({
-            zoneNo: def.zoneNo,
-            zoneName: def.zoneName,
-            responsiblePerson: assignedUser,
-            categories: template.categories,
-            docNo: template.docNo,
-            revNo: template.revNo,
-            revDate: template.revDate
-        });
-        await newZone.save();
+        let existingZone = await Audit5sZoneModel.findOne({ zoneNo: def.zoneNo });
+        if (existingZone) {
+            existingZone.isActive = true;
+            existingZone.zoneName = def.zoneName;
+            existingZone.responsiblePerson = assignedUser;
+            if (!existingZone.categories || existingZone.categories.length === 0) {
+                existingZone.categories = template.categories;
+                existingZone.docNo = template.docNo;
+                existingZone.revNo = template.revNo;
+                existingZone.revDate = template.revDate;
+            }
+            await existingZone.save();
+        } else {
+            const newZone = new Audit5sZoneModel({
+                zoneNo: def.zoneNo,
+                zoneName: def.zoneName,
+                responsiblePerson: assignedUser,
+                categories: template.categories,
+                docNo: template.docNo,
+                revNo: template.revNo,
+                revDate: template.revDate
+            });
+            await newZone.save();
+        }
     }
 }
 
@@ -120,7 +135,7 @@ export const getTemplate = async (req, res) => {
     try {
         const { zoneId } = req.query;
 
-        if (!zoneId) {
+        if (!zoneId || zoneId === "undefined" || zoneId === "null" || !mongoose.Types.ObjectId.isValid(zoneId)) {
             // Default global template fallback
             const template = await getOrSeedTemplate();
             return res.status(200).json({ success: true, data: template });
@@ -229,6 +244,11 @@ export const saveZone = async (req, res) => {
 
         if (id) {
             // Edit existing
+            const duplicate = await Audit5sZoneModel.findOne({ zoneNo, _id: { $ne: id } });
+            if (duplicate) {
+                return res.status(400).json({ success: false, message: `Zone number "${zoneNo}" is already in use.` });
+            }
+
             const updated = await Audit5sZoneModel.findByIdAndUpdate(
                 id,
                 { zoneNo, zoneName, responsiblePerson },
@@ -237,7 +257,25 @@ export const saveZone = async (req, res) => {
 
             res.status(200).json({ success: true, data: updated, message: "Zone updated successfully" });
         } else {
-            // Create new, copy categories from default global template
+            // Create new, check if a zone with this zoneNo already exists (active or inactive)
+            let existing = await Audit5sZoneModel.findOne({ zoneNo });
+            if (existing) {
+                if (existing.isActive) {
+                    return res.status(400).json({ success: false, message: `Zone number "${zoneNo}" is already in use.` });
+                } else {
+                    // Reactivate and update the inactive zone
+                    existing.isActive = true;
+                    existing.zoneName = zoneName;
+                    existing.responsiblePerson = responsiblePerson;
+                    await existing.save();
+
+                    const populated = await Audit5sZoneModel.findById(existing._id)
+                        .populate("responsiblePerson", "username first_name last_name email");
+                    return res.status(200).json({ success: true, data: populated, message: "Zone reactivated and updated successfully" });
+                }
+            }
+
+            // Copy categories from default global template
             const template = await getOrSeedTemplate();
 
             const newZone = new Audit5sZoneModel({
@@ -272,6 +310,18 @@ export const deleteZone = async (req, res) => {
     }
 };
 
+export const getAllChecklists = async (req, res) => {
+    try {
+        const checklists = await Audit5sChecklistModel.find()
+            .populate("responsiblePerson", "username first_name last_name email")
+            .sort({ month: -1, zoneNo: 1 });
+        res.status(200).json({ success: true, data: checklists });
+    } catch (error) {
+        console.error("Error in getAllChecklists:", error);
+        res.status(500).json({ success: false, message: "Failed to fetch checklists list" });
+    }
+};
+
 // ─── Checklist Controllers ───
 
 export const getChecklist = async (req, res) => {
@@ -280,6 +330,10 @@ export const getChecklist = async (req, res) => {
 
         if (!month || !zoneId) {
             return res.status(400).json({ success: false, message: "Month and Zone ID are required" });
+        }
+
+        if (zoneId === "undefined" || zoneId === "null" || !mongoose.Types.ObjectId.isValid(zoneId)) {
+            return res.status(400).json({ success: false, message: "Invalid Zone ID format" });
         }
 
         // Find checklist

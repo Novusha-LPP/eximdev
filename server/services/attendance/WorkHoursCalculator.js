@@ -238,20 +238,23 @@ export class WorkHoursCalculator {
    * @returns {Object} Updated work data
    */
   static recalculateWithRegularization(punches, regularization, shift) {
-    if (!regularization.corrected_punch_in_time || !regularization.corrected_punch_out_time) {
+    const inTime = regularization.corrected_punch_in_time || regularization.requested_in_time;
+    const outTime = regularization.corrected_punch_out_time || regularization.requested_out_time;
+
+    if (!inTime || !outTime) {
       // No correction, use original calculation
       return this.calculateDailyWorkHours(punches, shift);
     }
 
-    // Create virtual punches from corrected times
+    // Create virtual punches from corrected/requested times
     const virtualPunches = [
       {
         punch_type: 'IN',
-        punch_time: regularization.corrected_punch_in_time,
+        punch_time: inTime,
       },
       {
         punch_type: 'OUT',
-        punch_time: regularization.corrected_punch_out_time,
+        punch_time: outTime,
       },
     ];
 

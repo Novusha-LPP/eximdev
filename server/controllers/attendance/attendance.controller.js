@@ -588,7 +588,7 @@ const markSessionAsMissedPunch = async ({ session, reason, source, at }) => {
 };
 
 // --- HELPER: Fetch Day Overrides (Leave/Holiday/Weekly Off) ---
-async function fetchDayOverrides(employeeId, date, companyId) {
+export async function fetchDayOverrides(employeeId, date, companyId) {
     const dateObj = moment.utc(date).startOf('day').toDate();
 
     const overrides = {
@@ -661,12 +661,17 @@ export const punch = async (req, res) => {
             if (!targetUser) return res.status(404).json({ message: 'Target employee not found' });
 
             // Security: Ensure the actor has access to this target user (same company)
-            if (targetUser.company_id.toString() !== req.user.company_id.toString()) {
+            const actorCompanyId = req.user.company_id;
+            if (!actorCompanyId) {
+                return res.status(403).json({ message: 'Forbidden: Actor company context missing' });
+            }
+            if (targetUser.company_id.toString() !== actorCompanyId.toString()) {
                 return res.status(403).json({ message: 'Forbidden: Access across companies denied' });
             }
 
             // Additional check for HOD: Employee must be in their team
-            if (req.user.role === 'HOD') {
+            const username = (req.user.username || '').toLowerCase();
+            if (req.user.role === 'HOD' && username !== 'ajith_sivadasan') {
                 const hodTeams = await getHodTeams(req.user._id);
 
                 let isInTeam = false;
@@ -727,6 +732,52 @@ export const punch = async (req, res) => {
             session_status: 'active'
         }).sort({ punch_in_time: -1 });
 
+        const isRabs = (user.company && /RABS/i.test(user.company)) || (company && /RABS/i.test(company.company_name));
+
+        // Enforce shift timing punch restrictions for non-RABS users
+        const isSelfPunch = req.user._id.toString() === user._id.toString();
+        if (!isRabs && isSelfPunch) {
+            const shiftDate = (type === 'OUT' && activeSession)
+                ? moment.utc(activeSession.session_date).format('YYYY-MM-DD')
+                : today;
+
+            const activeShift = await PolicyResolver.resolveShift(user, shiftDate, now.toDate());
+
+            if (!activeShift) {
+                return res.status(400).json({ message: 'Punch not allowed: No active shift is assigned to your account.' });
+            }
+
+            const shiftStart = moment.tz(`${shiftDate} ${activeShift.start_time}`, 'YYYY-MM-DD HH:mm', tz);
+            let shiftEnd = moment.tz(`${shiftDate} ${activeShift.end_time}`, 'YYYY-MM-DD HH:mm', tz);
+            if (shiftEnd.isSameOrBefore(shiftStart)) {
+                shiftEnd.add(1, 'days');
+            }
+
+            if (type === 'IN') {
+                const allowedInStart = moment(shiftStart).subtract(2, 'hours');
+                const allowedInEnd = moment(shiftEnd);
+
+                if (now.isBefore(allowedInStart)) {
+                    const formattedStart = allowedInStart.format('hh:mm A');
+                    return res.status(400).json({
+                        message: `Punch In not allowed: Your shift starts at ${shiftStart.format('hh:mm A')}. You can only punch in starting from ${formattedStart}.`
+                    });
+                }
+                if (now.isAfter(allowedInEnd)) {
+                    return res.status(400).json({
+                        message: `Punch In not allowed: Your shift ended at ${shiftEnd.format('hh:mm A')}.`
+                    });
+                }
+            } else if (type === 'OUT') {
+                const allowedOutEnd = moment(shiftEnd).add(4, 'hours');
+                if (now.isAfter(allowedOutEnd)) {
+                    return res.status(400).json({
+                        message: `Punch Out not allowed: Your shift ended at ${shiftEnd.format('hh:mm A')}. The punch-out window (4 hours past shift end) has expired.`
+                    });
+                }
+            }
+        }
+
         // Resolve shift-aware missed-punch limits (shift duration + 4h buffer)
         const userShift = user.shift_id ? await Shift.findById(user.shift_id) : null;
         const userMissedPunchLimit = getMissedPunchLimitHours(userShift);
@@ -740,8 +791,10 @@ export const punch = async (req, res) => {
         let warning = null;
         let autoClosedPreviousSession = false;
 
-        const isRabs = company && /RABS/i.test(company.company_name);
         const currentLimitHours = isRabs ? 24 : 18;
+        if (isRabs) {
+            sessionMissedPunchLimit = currentLimitHours;
+        }
 
         if (type === 'IN' && activeSession) {
             const elapsedHours = now.diff(moment(activeSession.punch_in_time), 'hours', true);
@@ -1026,12 +1079,18 @@ export const getDashboardData = async (req, res) => {
             // status/action already set above based on isInSession
             punchStatus.sessionStartTime = (punchStatus.status === 'Checked In') ? (lastPunch?.punch_time || firstInTime) : null;
 
-            let hours = todayRecord?.total_work_hours || 0;
+            // Send completed session hours so the frontend timer can continue
+            // from accumulated time instead of resetting to 0 on re-punch-in
+            const completedSessionHours = todayRecord?.total_work_hours || 0;
+            punchStatus.previousSessionsHours = completedSessionHours;
+
+            let hours = completedSessionHours;
             if (punchStatus.status === 'Checked In' && punchStatus.sessionStartTime) {
                 hours += (Date.now() - new Date(punchStatus.sessionStartTime)) / (1000 * 3600);
             }
-            const h = Math.floor(hours), m = Math.floor((hours % 1) * 60);
-            punchStatus.workHours = `${h}h ${m}m 0s`;
+            const totalSecs = Math.floor(hours * 3600);
+            const h = Math.floor(totalSecs / 3600), m = Math.floor((totalSecs % 3600) / 60), s = totalSecs % 60;
+            punchStatus.workHours = `${h}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
         }
 
         // 3. Shift Details
@@ -1907,7 +1966,7 @@ export const getAdminDashboardData = async (req, res) => {
 
 export const lockMonthAttendance = async (req, res) => {
     try {
-        if (req.user.role !== 'ADMIN') {
+        if (req.user.role !== 'ADMIN' && req.user.isAttendanceAllowedAdmin !== true) {
             return res.status(403).json({ message: 'Only admins can lock attendance' });
         }
         const { year_month } = req.body;
@@ -2245,7 +2304,7 @@ export const getMyTodayAttendance = async (req, res) => {
 
 export const getPayrollLocks = async (req, res) => {
     try {
-        if (req.user.role !== 'ADMIN') {
+        if (req.user.role !== 'ADMIN' && req.user.isAttendanceAllowedAdmin !== true) {
             return res.status(403).json({ message: 'Only admins can view payroll locks' });
         }
         const companyId = resolveCompanyId(req);
@@ -2264,7 +2323,7 @@ export const getPayrollLocks = async (req, res) => {
 
 export const togglePayrollLock = async (req, res) => {
     try {
-        if (req.user.role !== 'ADMIN') {
+        if (req.user.role !== 'ADMIN' && req.user.isAttendanceAllowedAdmin !== true) {
             return res.status(403).json({ message: 'Only admins can toggle payroll locks' });
         }
         const { year_month, is_locked } = req.body;
@@ -3697,13 +3756,8 @@ export const getEmployeeFullProfile = async (req, res) => {
                 .lean(),
 
             LeaveApplication.find({
-                employee_id: id,
-                approval_status: { $in: ['approved', 'pending'] },
-                $or: [
-                    { from_date: { $gte: start, $lte: end } },
-                    { to_date: { $gte: start, $lte: end } }
-                ]
-            }).lean(),
+                employee_id: id
+            }).populate('leave_policy_id', 'leave_type policy_name').lean(),
 
             LeaveApplication.find({
                 employee_id: id,
@@ -3757,7 +3811,8 @@ export const getEmployeeFullProfile = async (req, res) => {
             }
 
 
-            const leave = findLeaveForDateLocal(leaves, dayCursor) || findLeaveForDateLocal(pendingLeaves, dayCursor);
+            const activeLeaves = leaves.filter(l => ['approved', 'pending'].includes(String(l.approval_status || l.status || '').toLowerCase()));
+            const leave = findLeaveForDateLocal(activeLeaves, dayCursor) || findLeaveForDateLocal(pendingLeaves, dayCursor);
 
             if (leave) {
                 const isPending = (leave.approval_status || '').toLowerCase() === 'pending';
@@ -3883,7 +3938,13 @@ export const getEmployeeFullProfile = async (req, res) => {
             absent: normalizedAttendance.filter(a => a.status === 'absent').length,
             late: normalizedAttendance.filter(a => a.status === 'late').length,
             half_day: normalizedAttendance.filter(a => a.status === 'half_day').length,
-            leaves: leaves.length, // Already filtered for approved leaves in range
+            leaves: leaves.filter(l => {
+                const f = new Date(l.from_date);
+                const t = new Date(l.to_date);
+                const inRange = (f >= start && f <= end) || (t >= start && t <= end);
+                const isApproved = String(l.approval_status || l.status || '').toLowerCase() === 'approved';
+                return inRange && isApproved;
+            }).length,
             weeklyOff: normalizedAttendance.filter(a => a.status === 'weekly_off').length,
             holidays: normalizedAttendance.filter(a => a.status === 'holiday').length,
             pendingLeaves: (pendingLeaves || []).length
@@ -4110,6 +4171,22 @@ export const approveRegularization = async (req, res) => {
         record.regularization_applied = regularizationId;
         record.remarks = approval_remarks;
 
+        // Update first_in / last_out from recalculated data so hours display correctly
+        if (workData.primary_in_time) {
+            record.first_in = workData.primary_in_time;
+        }
+        if (workData.primary_out_time) {
+            record.last_out = workData.primary_out_time;
+        }
+
+        // Clear missed-punch flags since the correction has been approved
+        record.missed_punch = false;
+        record.missed_punch_reason = null;
+        record.missed_punch_source = null;
+        record.missed_punch_marked_at = null;
+        record.processed_by = 'regularization';
+        record.processed_at = new Date();
+
         await record.save();
 
         // Mark regularization as approved
@@ -4121,6 +4198,9 @@ export const approveRegularization = async (req, res) => {
         regularization.resolved_at = moment().toDate();
         regularization.resolved_by = req.user._id;
         regularization.resolution_source = 'request_approval';
+        regularization.corrected_punch_in_time = regularization.corrected_punch_in_time || regularization.requested_in_time;
+        regularization.corrected_punch_out_time = regularization.corrected_punch_out_time || regularization.requested_out_time;
+        regularization.corrected_total_hours = workData.total_work_hours;
         await regularization.save();
 
         await logActivity(req, 'ATTENDANCE', 'APPROVE_REGULARIZATION', `Approved regularization for ${employee.first_name}`, {

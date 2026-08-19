@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
     FiHome, FiClock, FiFileText, FiCalendar, FiUser,
     FiCheckSquare, FiUsers, FiActivity, FiLogIn, FiLogOut,
@@ -42,7 +42,7 @@ const ADMIN_BASE_MENU = [
     { section: 'My Attendance & Leave' },
     { path: '/attendance/my-attendance', icon: FiClock, label: 'My Attendance' },
     { path: '/attendance/leave', icon: FiFileText, label: 'Apply Leave' },
-    
+
 ];
 
 const ADMIN_PRIVILEGED_MENU = [
@@ -91,11 +91,14 @@ const removeEmptySections = (items) => {
 
 const AttendanceLayout = () => {
     const { user } = useContext(UserContext);
+    const location = useLocation();
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [punchStatus, setPunchStatus] = useState(null);
     const [punching, setPunching] = useState(false);
     const [pendingCorrectionCount, setPendingCorrectionCount] = useState(0);
     const [pendingLeavesCount, setPendingLeavesCount] = useState(0);
+    
+    const isOperatorDesk = location.pathname.includes('/operator-attendance');
 
     // Provide a fallback in case user is not loaded yet
     const role = user?.role || 'EMPLOYEE';
@@ -105,6 +108,9 @@ const AttendanceLayout = () => {
     const isHOD = isHodRole(role);
 
     const isAllowedAdmin = ALLOWED_USERNAMES.has(username) || isDynamicAdmin;
+    const isRabs = user?.company && /RABS/i.test(user.company);
+    const isAjith = username === 'ajith_sivadasan';
+    const showOperatorDesk = (isAdmin || isHOD) && (isRabs || isAjith);
 
     // Choose the right menu depending on the user's role mapped by EXIM/Auth middleware
     // Allowed admins manage holidays via 'Holiday Policies' — hide the user-facing calendar from them
@@ -131,7 +137,7 @@ const AttendanceLayout = () => {
     // IF ADMIN and NOT ALLOWED but isHOD (from API), Inject HOD menu items
     // This allows Admins with their own teams to see approvals and manage their members
     const shouldShowHODItems = (isAdmin && !isAllowedAdmin && punchStatus?.isHOD);
-    
+
     if (shouldShowHODItems) {
         menu.push(
             { section: 'Team' },
@@ -146,6 +152,13 @@ const AttendanceLayout = () => {
         menu.push(
             { section: 'Administration' },
             { path: '/attendance/admin/companies', icon: FiUsers, label: 'Manage Companies' }
+        );
+    }
+
+    if (showOperatorDesk) {
+        menu.push(
+            { section: 'RABS Operations' },
+            { path: '/attendance/admin/operator-attendance', icon: FiUsers, label: 'Operator Desk' }
         );
     }
 
@@ -181,19 +194,25 @@ const AttendanceLayout = () => {
     useEffect(() => {
         if (user) {
             fetchPendingCorrectionCount();
-            fetchPendingLeavesCount();
+            if (isAdmin || isHOD) {
+                fetchPendingLeavesCount();
+            }
             const interval = setInterval(() => {
                 fetchPendingCorrectionCount();
-                fetchPendingLeavesCount();
+                if (isAdmin || isHOD) {
+                    fetchPendingLeavesCount();
+                }
             }, 5 * 60 * 1000);
             return () => clearInterval(interval);
         }
-    }, [user, fetchPendingCorrectionCount, fetchPendingLeavesCount]);
+    }, [user, isAdmin, isHOD, fetchPendingCorrectionCount, fetchPendingLeavesCount]);
 
     useEffect(() => {
         const handler = () => {
             fetchPendingCorrectionCount();
-            fetchPendingLeavesCount();
+            if (isAdmin || isHOD) {
+                fetchPendingLeavesCount();
+            }
         };
         window.addEventListener('attendance-updated', handler);
         window.addEventListener('leave-balance-updated', handler);
@@ -201,7 +220,7 @@ const AttendanceLayout = () => {
             window.removeEventListener('attendance-updated', handler);
             window.removeEventListener('leave-balance-updated', handler);
         };
-    }, [fetchPendingCorrectionCount, fetchPendingLeavesCount]);
+    }, [isAdmin, isHOD, fetchPendingCorrectionCount, fetchPendingLeavesCount]);
 
     const handleQuickPunch = async () => {
         const isIn = punchStatus?.isInSession ?? (punchStatus?.first_in && !punchStatus?.last_out);
@@ -209,15 +228,15 @@ const AttendanceLayout = () => {
         try {
             let location = null;
             try {
-                const pos = await new Promise((res, rej) => 
+                const pos = await new Promise((res, rej) =>
                     navigator.geolocation.getCurrentPosition(res, rej, {
                         enableHighAccuracy: true,
                         timeout: 10000,
                         maximumAge: 0
                     })
                 );
-                location = { 
-                    latitude: pos.coords.latitude, 
+                location = {
+                    latitude: pos.coords.latitude,
                     longitude: pos.coords.longitude,
                     accuracy: pos.coords.accuracy,
                     altitude: pos.coords.altitude,
@@ -275,7 +294,7 @@ const AttendanceLayout = () => {
                             >
                                 <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <item.icon className="nav-icon" />
-                                   
+
                                 </div>
                                 {!isSidebarCollapsed && (
                                     <span className="nav-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -315,7 +334,7 @@ const AttendanceLayout = () => {
             </div>
 
             {/* Global Floating Punch Button */}
-            <FloatingPunchButton />
+            {!isOperatorDesk && <FloatingPunchButton />}
         </div>
     );
 };

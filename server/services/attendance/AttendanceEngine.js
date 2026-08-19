@@ -217,6 +217,8 @@ class AttendanceEngine {
                 // --- ADVANCED HALF-DAY INTEGRATION ---
                 // Query for approved half-day leaves on this date
                 leave = await LeaveApplication.findOne({
+
+                    
                     employee_id: user._id,
                     approval_status: 'approved',
                     from_date_str: { $lte: date },
@@ -309,8 +311,13 @@ class AttendanceEngine {
                 attendance_date_str: date
             });
 
-            if (existingRecordAdminCheck && existingRecordAdminCheck.processed_by === 'admin') {
-                return existingRecordAdminCheck; // Admin manually edited this, do not overwrite metrics
+            if (existingRecordAdminCheck && (
+                existingRecordAdminCheck.processed_by === 'admin' || 
+                existingRecordAdminCheck.processed_by === 'hod' || 
+                existingRecordAdminCheck.processed_by === 'regularization' || 
+                existingRecordAdminCheck.is_regularized
+            )) {
+                return existingRecordAdminCheck; // Admin/HOD/regularization-corrected record, do not overwrite metrics
             }
 
             return await AttendanceRecord.findOneAndUpdate(

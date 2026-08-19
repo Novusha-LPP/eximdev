@@ -151,7 +151,7 @@ export default function Dashboard() {
   const normalizeRole = (r) => String(r || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
   const nRole = normalizeRole(user?.role);
   const isAdmin = nRole === 'ADMIN';
-  const isHOD = nRole === 'HOD' || nRole === 'HEADOFDEPARTMENT' || !!user?.isHOD || !!user?.hodId;
+  const isHOD = nRole === 'HOD' || nRole === 'HEADOFDEPARTMENT' || !!user?.isHOD;
   const isManager = isAdmin || isHOD;
 
   const [loading, setLoading] = useState(true);
@@ -354,13 +354,13 @@ export default function Dashboard() {
       const response = await fetch(url);
       const blob = await response.blob();
       const blobUrl = window.URL.createObjectURL(blob);
-      
+
       const link = document.createElement('a');
       link.href = blobUrl;
       link.setAttribute('download', filename);
       document.body.appendChild(link);
       link.click();
-      
+
       // Clean up
       document.body.removeChild(link);
       window.URL.revokeObjectURL(blobUrl);
@@ -397,7 +397,7 @@ export default function Dashboard() {
           policy_handbook_name: file.name
         };
         await masterAPI.updateCompanySettings(updated);
-        
+
         load(month.getMonth() + 1, month.getFullYear());
         toast.success('Policy handbook uploaded and saved!');
       } else {
@@ -420,7 +420,7 @@ export default function Dashboard() {
         policy_handbook_name: null
       };
       await masterAPI.updateCompanySettings(updated);
-      
+
       load(month.getMonth() + 1, month.getFullYear());
       toast.success('Policy handbook removed!');
     } catch (err) {
@@ -1056,20 +1056,20 @@ export default function Dashboard() {
                       <FiBookOpen size={15} style={{ color: '#3b82f6' }} />
                       <span style={{ fontSize: '13px', fontWeight: '600', color: '#1e293b' }}>Policy Manual</span>
                     </div>
-                    
+
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: '600' }}>
                       {hasFile ? (
                         <>
-                          <a 
-                            href={dash.companySettings.policy_handbook_url} 
-                            target="_blank" 
-                            rel="noreferrer" 
+                          <a
+                            href={dash.companySettings.policy_handbook_url}
+                            target="_blank"
+                            rel="noreferrer"
                             style={{ color: '#3b82f6', textDecoration: 'none' }}
                           >
                             View
                           </a>
                           <span style={{ color: '#cbd5e1' }}>|</span>
-                          <button 
+                          <button
                             onClick={handlePolicyDownloadClick}
                             style={{ background: 'transparent', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: 0, fontWeight: '600', fontSize: '12px' }}
                           >
@@ -1078,7 +1078,7 @@ export default function Dashboard() {
                           {canManagePolicy && (
                             <>
                               <span style={{ color: '#cbd5e1' }}>|</span>
-                              <button 
+                              <button
                                 onClick={() => setShowPolicyModal(true)}
                                 style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', padding: 0, fontWeight: '600' }}
                               >
@@ -1093,7 +1093,7 @@ export default function Dashboard() {
                             <>
                               <span style={{ color: '#94a3b8', fontStyle: 'italic', fontWeight: 'normal' }}>Please upload manual</span>
                               <span style={{ color: '#cbd5e1' }}>|</span>
-                              <button 
+                              <button
                                 onClick={() => setShowPolicyModal(true)}
                                 style={{ background: 'transparent', border: 'none', color: '#3b82f6', cursor: 'pointer', padding: 0, fontWeight: '600' }}
                               >
@@ -1164,7 +1164,7 @@ export default function Dashboard() {
 
       {/* -- Manage Policy Modal -- */}
       {showPolicyModal && (
-        <div 
+        <div
           style={{
             position: 'fixed',
             top: 0,
@@ -1180,7 +1180,7 @@ export default function Dashboard() {
           }}
           onClick={() => setShowPolicyModal(false)}
         >
-          <div 
+          <div
             style={{
               background: '#ffffff',
               borderRadius: '12px',
@@ -1194,14 +1194,14 @@ export default function Dashboard() {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600', color: '#0f172a' }}>Manage Policy Handbook</h3>
-              <button 
+              <button
                 onClick={() => setShowPolicyModal(false)}
                 style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
               >
                 <FiX size={18} />
               </button>
             </div>
-            
+
             <p style={{ fontSize: '13px', color: '#64748b', margin: '0 0 20px 0', lineHeight: '1.5' }}>
               Upload a custom PDF policy manual to override the default system-generated RABS Handbook.
             </p>
@@ -1221,17 +1221,17 @@ export default function Dashboard() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '8px' }}>
-                    <a 
-                      href={dash.companySettings.policy_handbook_url} 
-                      target="_blank" 
-                      rel="noreferrer" 
-                      className="btn btn-secondary text-center" 
+                    <a
+                      href={dash.companySettings.policy_handbook_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn btn-secondary text-center"
                       style={{ flex: 1, padding: '6px 12px', fontSize: '12px', fontWeight: '600', textDecoration: 'none', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', color: '#0f172a', display: 'inline-block' }}
                     >
                       View Current
                     </a>
-                    <button 
-                      className="btn btn-danger" 
+                    <button
+                      className="btn btn-danger"
                       style={{ flex: 1, padding: '6px 12px', fontSize: '12px', fontWeight: '600', color: '#ef4444', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '6px', cursor: 'pointer' }}
                       onClick={async () => {
                         await handleRemovePolicy();
@@ -1247,27 +1247,27 @@ export default function Dashboard() {
                   <div style={{ fontSize: '13px', color: '#64748b', marginBottom: '12px' }}>
                     Using system-generated RABS Handbook.
                   </div>
-                  <input 
-                    type="file" 
-                    accept=".pdf" 
+                  <input
+                    type="file"
+                    accept=".pdf"
                     onChange={async (e) => {
                       await handlePolicyUpload(e);
                       setShowPolicyModal(false);
-                    }} 
-                    style={{ display: 'none' }} 
-                    id="modal-policy-file-input" 
+                    }}
+                    style={{ display: 'none' }}
+                    id="modal-policy-file-input"
                   />
-                  <label 
-                    htmlFor="modal-policy-file-input" 
-                    style={{ 
+                  <label
+                    htmlFor="modal-policy-file-input"
+                    style={{
                       display: 'inline-flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      padding: '8px 16px', 
-                      background: '#0f172a', 
-                      color: '#ffffff', 
-                      borderRadius: '6px', 
-                      fontWeight: '600', 
+                      padding: '8px 16px',
+                      background: '#0f172a',
+                      color: '#ffffff',
+                      borderRadius: '6px',
+                      fontWeight: '600',
                       fontSize: '12px',
                       cursor: 'pointer',
                     }}
@@ -1277,9 +1277,9 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
-            
+
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button 
+              <button
                 onClick={() => setShowPolicyModal(false)}
                 style={{ padding: '8px 16px', background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', color: '#475569' }}
               >

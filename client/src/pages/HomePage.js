@@ -40,6 +40,7 @@ import LeaveApproval from "../components/attendance/LeaveApproval.jsx";
 import AdminDashboard from "../components/attendance/AdminDashboard.jsx";
 import AttendanceReport from "../components/attendance/AttendanceReport.jsx";
 import EmployeeProfileWorkspace from "../components/attendance/admin/EmployeeProfileWorkspace.jsx";
+import OperatorAttendance from "../components/attendance/admin/OperatorAttendance.jsx";
 import HolidayManagement from "../components/attendance/admin/HolidayManagement.jsx";
 import HolidayPolicyManager from "../components/attendance/admin/HolidayPolicyManager.jsx";
 import WeekOffPolicyManager from "../components/attendance/admin/WeekOffPolicyManager.jsx";
@@ -118,8 +119,6 @@ import IndianPortDirectory from "../components/master-directory/IndianPortDirect
 
 // Document Collection
 import DocumentCollection from "../components/document-collection/DocumentCollection.js";
-
-
 
 //import Report
 import ReportTabs from "../components/Report/ReportTabs.js";
@@ -204,6 +203,7 @@ import ViewDgftRegisterDetails from "../components/dgft/ViewDgftRegisterDetails.
 import CRMModule from "../components/crm/CRMModule.jsx";
 import PricingRequestsList from "../components/crm/components/PricingRequestsList.jsx";
 import Audit5sDashboard from "../components/audit5s/Audit5sDashboard.jsx";
+import FirstAidDashboard from "../components/first-aid/FirstAidDashboard.jsx";
 
 import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
@@ -645,8 +645,7 @@ function HomePageContent() {
                   }
                 />
 
-              {/* DGFT Module */}
-              <Route path="/dgft" element={<DgftTabs />} />
+
 
               {/* CRM Module */}
               <Route
@@ -1269,15 +1268,37 @@ function HomePageContent() {
                 <Route path="/project-nucleus" element={<NucleusHome />} />
 
                 {/* DGFT Module */}
-                <Route path="/dgft" element={<DgftTabs />} />
-                <Route path="/dgft/:tab" element={<DgftTabs />} />
+                <Route
+                  path="/dgft"
+                  element={
+                    <ProtectedRoute requiredModule="DGFT">
+                      <DgftTabs />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/dgft/:tab"
+                  element={
+                    <ProtectedRoute requiredModule="DGFT">
+                      <DgftTabs />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route
                   path="/dgft/authorization-details/:id"
-                  element={<ViewAuthorizationDetails />}
+                  element={
+                    <ProtectedRoute requiredModule="DGFT">
+                      <ViewAuthorizationDetails />
+                    </ProtectedRoute>
+                  }
                 />
                 <Route
                   path="/dgft/register-details/:id"
-                  element={<ViewDgftRegisterDetails />}
+                  element={
+                    <ProtectedRoute requiredModule="DGFT">
+                      <ViewDgftRegisterDetails />
+                    </ProtectedRoute>
+                  }
                 />
 
                 {/* 5S Audit Checklist Module */}
@@ -1286,6 +1307,16 @@ function HomePageContent() {
                   element={
                     <ProtectedRoute requiredModule="5S Audit">
                       <Audit5sDashboard />
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* First Aid Kit Checklist Module */}
+                <Route
+                  path="/first-aid"
+                  element={
+                    <ProtectedRoute requiredModule="First Aid">
+                      <FirstAidDashboard />
                     </ProtectedRoute>
                   }
                 />
@@ -1310,6 +1341,7 @@ function HomePageContent() {
                   <Route path="admin/attendance" element={<AttendanceReport isAdmin />} />
                   <Route path="admin/leave-approval" element={<LeaveApproval />} />
                   <Route path="admin/employee/:id/:activeTab?" element={<EmployeeProfileWorkspace />} />
+                  <Route path="admin/operator-attendance" element={<OperatorAttendance />} />
                   <Route path="admin/holidays" element={<HolidayPolicyManager />} />
                   <Route path="admin/holiday-policies" element={<HolidayPolicyManager />} />
                   <Route path="admin/weekoff-policies" element={<WeekOffPolicyManager />} />

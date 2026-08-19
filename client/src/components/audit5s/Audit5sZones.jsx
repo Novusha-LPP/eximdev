@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import axios from "axios";
 import audit5sAPI from "../../api/audit5s.api";
 import apiClient from "../../api/attendanceApiClient";
 import { toast } from "react-hot-toast";
@@ -22,7 +23,7 @@ const Audit5sZones = ({ onZonesChanged }) => {
             setLoading(true);
             const [zonesRes, usersRes] = await Promise.all([
                 audit5sAPI.getZones(),
-                apiClient.get("/get-all-users")
+                axios.get(`${process.env.REACT_APP_API_STRING}/get-all-users`)
             ]);
 
             if (zonesRes.success) {

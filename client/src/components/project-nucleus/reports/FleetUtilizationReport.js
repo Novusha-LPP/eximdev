@@ -17,15 +17,15 @@ const MONTH_NAMES = [
 ];
 
 const STATUS_COLORS = {
-    'Breakdown':       { fill: '#ef4444', label: 'Breakdown' },
-    'Accident':        { fill: '#dc2626', label: 'Accident' },
-    'Maintenance':     { fill: '#0ea5e9', label: 'Maintenance' },
-    'Driver on Leave':  { fill: '#f59e0b', label: 'Driver on Leave' },
-    'No Driver':       { fill: '#d97706', label: 'No Driver' },
+    'Breakdown': { fill: '#ef4444', label: 'Breakdown' },
+    'Accident': { fill: '#dc2626', label: 'Accident' },
+    'Maintenance': { fill: '#0ea5e9', label: 'Maintenance' },
+    'Driver on Leave': { fill: '#f59e0b', label: 'Driver on Leave' },
+    'No Driver': { fill: '#d97706', label: 'No Driver' },
     'Under detention': { fill: '#8b5cf6', label: 'Under Detention' },
-    'Under trip':      { fill: '#10b981', label: 'Under Trip' },
-    'IDLE':            { fill: '#94a3b8', label: 'Idle' },
-    'Others':          { fill: '#64748b', label: 'Others' }
+    'Under trip': { fill: '#10b981', label: 'Under Trip' },
+    'IDLE': { fill: '#94a3b8', label: 'Idle' },
+    'Others': { fill: '#64748b', label: 'Others' }
 };
 
 const UTIL_COLOR = (pct) => pct >= 90 ? '#10b981' : pct >= 80 ? '#f59e0b' : '#ef4444';
@@ -335,6 +335,7 @@ const STYLES = `
 .fleet-export-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px; border-radius: 12px; font-family: 'Outfit', sans-serif; font-weight: 600; font-size: 13.5px; cursor: pointer; transition: all 0.3s cubic-bezier(0.4,0,0.2,1); border: 1px solid #10b981; background: transparent; color: #10b981; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
 .fleet-export-btn:hover { background: #10b981; color: #fff; transform: translateY(-2px); box-shadow: 0 8px 20px rgba(16,185,129,0.25); }
 .fleet-export-btn:active { transform: translateY(0); }
+
 `;
 
 // ─── Main Component ─────────────────────────────────────────────────────────────
@@ -355,6 +356,7 @@ const FleetUtilizationReport = ({
     const [fleetSummaryError, setFleetSummaryError] = useState(null);
     const [fleetSearchQuery, setFleetSearchQuery] = useState('');
     const [fleetSortConfig, setFleetSortConfig] = useState({ key: 'total', direction: 'desc' });
+
 
     // Previous month comparison data
     const [comparisonData, setComparisonData] = useState({
@@ -405,7 +407,7 @@ const FleetUtilizationReport = ({
                 try {
                     const dsStart = params.startDate ? new Date(params.startDate) : null;
                     const dsEnd = params.endDate ? new Date(params.endDate) : null;
-                    
+
                     if (dsStart && dsEnd && Math.round((dsEnd - dsStart) / (1000 * 60 * 60 * 24)) > 60) {
                         let currentStart = new Date(dsStart);
                         let combined = { fleetStatus: [], activeLRs: [], closedLRs: [], exceptions: [] };
@@ -413,7 +415,7 @@ const FleetUtilizationReport = ({
                             let currentEnd = new Date(currentStart);
                             currentEnd.setDate(currentStart.getDate() + 50); // 50 days chunk
                             if (currentEnd > dsEnd) currentEnd = new Date(dsEnd);
-                            
+
                             const chunkParams = {
                                 ...params,
                                 startDate: currentStart.toISOString().slice(0, 10),
@@ -429,7 +431,7 @@ const FleetUtilizationReport = ({
                                 if (d.closedLRs) combined.closedLRs.push(...d.closedLRs);
                                 if (d.exceptions) combined.exceptions.push(...d.exceptions);
                             }
-                            
+
                             currentStart = new Date(currentEnd);
                             currentStart.setDate(currentStart.getDate() + 1);
                         }
@@ -504,7 +506,7 @@ const FleetUtilizationReport = ({
                     const allTrips = [...rawActive, ...rawClosed];
 
                     dailyDispatches = datesList.map(ds => {
-                        const datesToApply = Object.keys(fleetUpdatesByDate).filter(d => 
+                        const datesToApply = Object.keys(fleetUpdatesByDate).filter(d =>
                             (ds === first && d <= ds) || (d === ds)
                         );
                         datesToApply.forEach(d => {
@@ -513,7 +515,7 @@ const FleetUtilizationReport = ({
                                 if (n) fleetMap[n] = v;
                             });
                         });
-                        
+
                         let dayFleet = Object.values(fleetMap);
 
                         let dayActive = allTrips.filter(lr => {
@@ -524,7 +526,7 @@ const FleetUtilizationReport = ({
                             return true;
                         });
                         dayActive = deduplicateArray(dayActive, getLRKey);
-                        
+
                         let dayClosed = rawClosed.filter(x => {
                             if (!x.dispatchClosedDate) return false;
                             const cd = x.dispatchClosedDate.slice(0, 10);
@@ -565,6 +567,8 @@ const FleetUtilizationReport = ({
         };
         fetchFleetSummary();
     }, [selectedYear, activeTab]);
+
+
 
     // ── Computed Data ────────────────────────────────────────────────────────────
 
@@ -771,17 +775,17 @@ const FleetUtilizationReport = ({
                 sUD += d.underDetention; sUT += d.underTrip;
                 if (d.customCategories) Object.entries(d.customCategories).forEach(([c, v]) => { rangeCC[c] = (rangeCC[c] || 0) + v; });
             });
-            
+
             const numDays = dailyData.length || 1;
             const sumFS = sFS; // keep for exact percentages if needed, but we'll calculate pct from averages
 
             // We keep Fleet Size (sFS) as an average so it remains correct, 
             // but we leave the others as totals as requested by the user.
             sFS = Math.round(sFS / numDays);
-            
+
             const sOthers = Object.values(rangeCC).reduce((a, b) => a + b, 0);
             const sOtherTotal = sUD + sOthers;
-            
+
             // Calculate percentages based on sumFS (total vehicle days) to keep percentages correct
             const pct = (val) => sumFS <= 0 ? '' : `(${((val / sumFS) * 100).toFixed(0)}%)`;
             const orPct = sumFS > 0 ? (sOR / sumFS) * 100 : 0;
@@ -1204,7 +1208,7 @@ const FleetUtilizationReport = ({
 
     const norParts = [];
     if (metrics.breakdown > 0) norParts.push(`Breakdown: ${metrics.breakdown} ${metrics.breakdownPct}`);
-    
+
     const notOnRoadSubtext = norParts.length > 0 ? (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
             {norParts.map((txt, i) => <SubBadge key={i} text={txt} />)}
@@ -1347,7 +1351,7 @@ const FleetUtilizationReport = ({
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '12px', borderTop: '1px solid rgba(226,232,240,0.4)' }}>
                                     {[{ label: 'OWN', val: branchSummary.cards.automove.own, pct: branchSummary.cards.automove.ownPct, bg: 'rgba(5,150,105,0.05)', lc: '#047857', vc: '#059669' },
-                                      { label: 'HIRED', val: branchSummary.cards.automove.hired, pct: branchSummary.cards.automove.hiredPct, bg: 'rgba(245,158,11,0.05)', lc: '#b45309', vc: '#f59e0b' }
+                                    { label: 'HIRED', val: branchSummary.cards.automove.hired, pct: branchSummary.cards.automove.hiredPct, bg: 'rgba(245,158,11,0.05)', lc: '#b45309', vc: '#f59e0b' }
                                     ].map((x, i) => (
                                         <div key={i} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: x.bg, padding: '10px 16px', borderRadius: '8px' }}>
                                             <span style={{ fontSize: '12px', color: x.lc, fontWeight: 700 }}>{x.label}</span>
@@ -1365,13 +1369,13 @@ const FleetUtilizationReport = ({
                                 </div>
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', paddingTop: '12px', borderTop: '1px solid rgba(226,232,240,0.4)' }}>
                                     {[{ label: '20 FEET', count: branchSummary.cards.srCarriers.c20, own: branchSummary.cards.srCarriers.own20, hired: branchSummary.cards.srCarriers.hired20, ownPct: branchSummary.cards.srCarriers.own20Pct, hiredPct: branchSummary.cards.srCarriers.hired20Pct },
-                                      { label: '40 FEET', count: branchSummary.cards.srCarriers.c40, own: branchSummary.cards.srCarriers.own40, hired: branchSummary.cards.srCarriers.hired40, ownPct: branchSummary.cards.srCarriers.own40Pct, hiredPct: branchSummary.cards.srCarriers.hired40Pct }
+                                    { label: '40 FEET', count: branchSummary.cards.srCarriers.c40, own: branchSummary.cards.srCarriers.own40, hired: branchSummary.cards.srCarriers.hired40, ownPct: branchSummary.cards.srCarriers.own40Pct, hiredPct: branchSummary.cards.srCarriers.hired40Pct }
                                     ].map((x, i) => (
                                         <div key={i}>
                                             <div style={{ fontSize: '13px', color: '#475569', fontWeight: 700, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.02em' }}>{x.label} ({x.count})</div>
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                                                 {[{ l: 'OWN', v: x.own, p: x.ownPct, bg: 'rgba(5,150,105,0.05)', lc: '#047857', vc: '#059669' },
-                                                  { l: 'HIRED', v: x.hired, p: x.hiredPct, bg: 'rgba(245,158,11,0.05)', lc: '#b45309', vc: '#f59e0b' }
+                                                { l: 'HIRED', v: x.hired, p: x.hiredPct, bg: 'rgba(245,158,11,0.05)', lc: '#b45309', vc: '#f59e0b' }
                                                 ].map((s, j) => (
                                                     <div key={j} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: s.bg, padding: '6px 10px', borderRadius: '8px' }}>
                                                         <span style={{ fontSize: '11px', color: s.lc, fontWeight: 700 }}>{s.l}</span>
@@ -1769,6 +1773,7 @@ const FleetUtilizationReport = ({
                     )}
                 </div>
             )}
+
         </div>
     );
 };

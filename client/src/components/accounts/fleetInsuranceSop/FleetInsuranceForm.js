@@ -729,14 +729,22 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
       </Box>
 
       {/* Floating Save/Cancel Buttons */}
-      <Box
+      {/* Floating Save/Cancel Action Toolbar */}
+      <Paper
+        elevation={6}
         sx={{
           position: "fixed",
           bottom: 24,
           right: 24,
+          p: 1.5,
+          borderRadius: "16px",
           display: "flex",
           gap: 1.5,
           zIndex: 1200,
+          bgcolor: "#ffffff",
+          border: "1px solid",
+          borderColor: "divider",
+          boxShadow: "0 10px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)",
         }}
       >
         {!isView && (
@@ -745,9 +753,20 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
             startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
             onClick={handleSave}
             disabled={saving}
-            sx={{ boxShadow: 4, borderRadius: 2, px: 3 }}
+            sx={{
+              borderRadius: "10px",
+              px: 3,
+              py: 1,
+              fontWeight: 600,
+              textTransform: "none",
+              background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+              boxShadow: "0 4px 12px rgba(37, 99, 235, 0.25)",
+              "&:hover": {
+                background: "linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%)",
+              },
+            }}
           >
-            Save
+            Save Record
           </Button>
         )}
         <Button
@@ -755,41 +774,72 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
           startIcon={<Cancel />}
           onClick={handleCancelClick}
           disabled={saving}
-          sx={{ boxShadow: 4, borderRadius: 2, px: 3, backgroundColor: "white" }}
+          sx={{
+            borderRadius: "10px",
+            px: 3,
+            py: 1,
+            fontWeight: 600,
+            textTransform: "none",
+            borderColor: "#cbd5e1",
+            color: "#475569",
+            "&:hover": { borderColor: "#94a3b8", bgcolor: "#f8fafc" },
+          }}
         >
-          {isView ? "Back" : "Cancel"}
+          {isView ? "Back to Tracker" : "Cancel"}
         </Button>
-      </Box>
+      </Paper>
 
-      {/* Vehicle Summary Context (Visible across all tabs EXCEPT the first one) */}
+      {/* Vehicle Summary Context Header Card */}
       {tabValue !== 0 && (
-        <Paper sx={{ p: 2, mb: 2, backgroundColor: "#f8f9fa" }}>
+        <Paper
+          elevation={0}
+          sx={{
+            p: 2.5,
+            mb: 3,
+            borderRadius: "12px",
+            border: "1px solid",
+            borderColor: "divider",
+            background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+          }}
+        >
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} sm={6} md={2.4}>
-              <Typography variant="body2" color="textSecondary">Registration No.</Typography>
-              <Typography variant="subtitle1" fontWeight="bold">{formData.registrationNo || "-"}</Typography>
+              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+                Registration No.
+              </Typography>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "#2563eb" }}>
+                {formData.registrationNo || "-"}
+              </Typography>
             </Grid>
             <Grid item xs={12} sm={6} md={2.4}>
-              <Typography variant="body2" color="textSecondary">Insurance Company</Typography>
-              <Typography variant="subtitle1" fontWeight="bold">
+              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+                Insurance Company
+              </Typography>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "#0f172a" }}>
                 {formData.newInsuranceCompany || formData.insuranceCompany || "-"}
               </Typography>
             </Grid>
             <Grid item xs={12} sm={6} md={2.4}>
-              <Typography variant="body2" color="textSecondary">Renewal Total IDV</Typography>
-              <Typography variant="subtitle1" fontWeight="bold">
+              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+                Renewal Total IDV
+              </Typography>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "#0f172a" }}>
                 ₹ {Number(formData.newTotalIdv || formData.totalIdv || 0).toLocaleString("en-IN")}
               </Typography>
             </Grid>
             <Grid item xs={12} sm={6} md={2.4}>
-              <Typography variant="body2" color="textSecondary">Expiry Date</Typography>
-              <Typography variant="subtitle1" fontWeight="bold" color='red'>
+              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+                Expiry Date
+              </Typography>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "#dc2626" }}>
                 {formData.policyToDate ? new Date(formData.policyToDate).toLocaleDateString("en-IN") : "-"}
               </Typography>
             </Grid>
             <Grid item xs={12} sm={6} md={2.4}>
-              <Typography variant="body2" color="textSecondary">Renewed Premium</Typography>
-              <Typography variant="subtitle1" fontWeight="bold" color="primary">
+              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+                Renewed Premium
+              </Typography>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, color: "#16a34a" }}>
                 ₹ {Number(formData.newTotalPolicyPremium || formData.totalPolicyPremium || 0).toLocaleString("en-IN")}
               </Typography>
             </Grid>
@@ -797,41 +847,68 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
         </Paper>
       )}
 
-      <Paper sx={{ width: '100%', mb: 2 }}>
-        <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
+      {/* Stage Stepper Tabs */}
+      <Paper elevation={0} sx={{ borderRadius: "12px", border: "1px solid", borderColor: "divider", mb: 3, overflow: "hidden" }}>
+        <Box sx={{ borderBottom: 1, borderColor: "divider", bgcolor: "#f8fafc", px: 1 }}>
           <Tabs
             value={tabValue}
             onChange={handleChangeTab}
             variant="scrollable"
             scrollButtons="auto"
             aria-label="fleet insurance stage tabs"
+            sx={{
+              minHeight: 48,
+              "& .MuiTabs-indicator": {
+                backgroundColor: "#2563eb",
+                height: 3,
+                borderRadius: "3px 3px 0 0",
+              },
+            }}
           >
             {stageTabs.map((tab, idx) => (
-              <Tab key={idx} label={tab.label} {...a11yProps(idx)} />
+              <Tab
+                key={idx}
+                label={tab.label}
+                {...a11yProps(idx)}
+                sx={{
+                  fontWeight: 600,
+                  fontSize: "0.875rem",
+                  textTransform: "none",
+                  color: tabValue === idx ? "#2563eb" : "#64748b",
+                  py: 1.5,
+                  px: 2.5,
+                  "&.Mui-selected": {
+                    fontWeight: 700,
+                  },
+                }}
+              />
             ))}
           </Tabs>
         </Box>
-      </Paper>
 
-      {stageTabs.map((tab, idx) => {
-        const Component = tab.component;
-        return (
-          <CustomTabPanel key={idx} value={tabValue} index={idx}>
-            <fieldset disabled={isView} style={{ border: "none", padding: 0, margin: 0 }}>
-              <Component
-                formData={formData}
-                handleChange={handleChange}
-                handleRegistrationBlur={handleRegistrationBlur}
-                formatDateValue={formatDateValue}
-                isView={isView}
-                isRenew={isRenew}
-              />
-            </fieldset>
-          </CustomTabPanel>
-        );
-      })}
+        <Box sx={{ p: 3 }}>
+          {stageTabs.map((tab, idx) => {
+            const Component = tab.component;
+            return (
+              <CustomTabPanel key={idx} value={tabValue} index={idx}>
+                <fieldset disabled={isView} style={{ border: "none", padding: 0, margin: 0 }}>
+                  <Component
+                    formData={formData}
+                    handleChange={handleChange}
+                    handleRegistrationBlur={handleRegistrationBlur}
+                    formatDateValue={formatDateValue}
+                    isView={isView}
+                    isRenew={isRenew}
+                  />
+                </fieldset>
+              </CustomTabPanel>
+            );
+          })}
+        </Box>
+      </Paper>
     </Box>
   );
 }
 
 export default React.memo(FleetInsuranceForm);
+

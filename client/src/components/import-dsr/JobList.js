@@ -1175,6 +1175,7 @@ function JobList(props) {
           <MenuItem value="Home">Home</MenuItem>
           <MenuItem value="In-Bond">In-Bond</MenuItem>
           <MenuItem value="Ex-Bond">Ex-Bond</MenuItem>
+          <MenuItem value="SEZ">SEZ</MenuItem>
         </TextField>
 
 

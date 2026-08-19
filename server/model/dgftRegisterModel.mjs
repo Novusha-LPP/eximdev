@@ -57,6 +57,15 @@ const dgftRegisterSchema = new mongoose.Schema(
     accounts_inv_date: { type: String },
     import_details_array: [{ type: mongoose.Schema.Types.Mixed }],
     export_details_array: [{ type: mongoose.Schema.Types.Mixed }],
+    // Payment approval workflow fields
+    payment_status: { type: String }, // "Payment Requested", "Payment Approved", "Payment Rejected"
+    payment_requested_by: { type: String },
+    payment_requested_at: { type: Date },
+    payment_approved_by: { type: String },
+    payment_approved_at: { type: Date },
+    payment_rejection_reason: { type: String },
+    payment_document: { type: String },
+    payment_document_name: { type: String },
   },
   { timestamps: true }
 );

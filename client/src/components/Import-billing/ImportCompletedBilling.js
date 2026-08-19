@@ -29,15 +29,25 @@ import ContainerTrackButton from '../ContainerTrackButton';
 function ImportCompletedBilling({ workMode = 'Payment' }) {
   const { currentTab } = useContext(TabContext); // Access context
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } =
-    useSearchQuery();
+
+  const [searchQuery, setSearchQuery] = useState(
+    () => sessionStorage.getItem("ib_tab6_search") || ""
+  );
+  const [selectedImporter, setSelectedImporter] = useState(
+    () => sessionStorage.getItem("ib_tab6_importer") || ""
+  );
+  const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(
+    () => sessionStorage.getItem("ib_tab6_unresolved") === "true"
+  );
+  const [page, setPage] = useState(
+    () => Number(sessionStorage.getItem("ib_tab6_page")) || 1
+  );
+
   const [years, setYears] = useState([]);
   const { user } = useContext(UserContext);
   const { selectedBranch, selectedCategory } = useContext(BranchContext);
-  const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
   const [unresolvedCount, setUnresolvedCount] = useState(0);
   const [rows, setRows] = useState([]);
-  const [page, setPage] = useState(1); // Current page number
   const [totalPages, setTotalPages] = useState(1); // Total number of pages
   const [loading, setLoading] = useState(false); // Loading state
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery); // Debounced search query
@@ -46,6 +56,23 @@ function ImportCompletedBilling({ workMode = 'Payment' }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [importers, setImporters] = useState("");
+
+  // Persist filter states to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab6_search", searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab6_importer", selectedImporter || "");
+  }, [selectedImporter]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab6_unresolved", showUnresolvedOnly.toString());
+  }, [showUnresolvedOnly]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab6_page", page.toString());
+  }, [page]);
 
   console.log(currentTab, "tab");
 
@@ -195,7 +222,12 @@ function ImportCompletedBilling({ workMode = 'Payment' }) {
   ]);
 
   // Debounce search input to avoid excessive API calls
+  const isFirstSearch = React.useRef(true);
   useEffect(() => {
+    if (isFirstSearch.current) {
+      isFirstSearch.current = false;
+      return;
+    }
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
       setPage(1); // Reset to first page on new search
@@ -705,7 +737,10 @@ function ImportCompletedBilling({ workMode = 'Payment' }) {
           freeSolo
           options={importerNames.map((option) => option.label)}
           value={selectedImporter || ""} // Controlled value
-          onInputChange={(event, newValue) => setSelectedImporter(newValue)} // Handles input change
+          onInputChange={(event, newValue) => {
+            setSelectedImporter(newValue);
+            setPage(1);
+          }}
           renderInput={(params) => (
             <TextField
               {...params}
@@ -758,7 +793,10 @@ function ImportCompletedBilling({ workMode = 'Payment' }) {
             <Button
               variant="contained"
               size="small"
-              onClick={() => setShowUnresolvedOnly((prev) => !prev)}
+              onClick={() => {
+                setShowUnresolvedOnly((prev) => !prev);
+                setPage(1);
+              }}
               sx={{
                 borderRadius: 3,
                 textTransform: "none",

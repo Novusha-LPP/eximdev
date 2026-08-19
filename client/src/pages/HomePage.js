@@ -645,8 +645,7 @@ function HomePageContent() {
                   }
                 />
 
-              {/* DGFT Module */}
-              <Route path="/dgft" element={<DgftTabs />} />
+
 
               {/* CRM Module */}
               <Route
@@ -1269,15 +1268,37 @@ function HomePageContent() {
                 <Route path="/project-nucleus" element={<NucleusHome />} />
 
                 {/* DGFT Module */}
-                <Route path="/dgft" element={<DgftTabs />} />
-                <Route path="/dgft/:tab" element={<DgftTabs />} />
+                <Route
+                  path="/dgft"
+                  element={
+                    <ProtectedRoute requiredModule="DGFT">
+                      <DgftTabs />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/dgft/:tab"
+                  element={
+                    <ProtectedRoute requiredModule="DGFT">
+                      <DgftTabs />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route
                   path="/dgft/authorization-details/:id"
-                  element={<ViewAuthorizationDetails />}
+                  element={
+                    <ProtectedRoute requiredModule="DGFT">
+                      <ViewAuthorizationDetails />
+                    </ProtectedRoute>
+                  }
                 />
                 <Route
                   path="/dgft/register-details/:id"
-                  element={<ViewDgftRegisterDetails />}
+                  element={
+                    <ProtectedRoute requiredModule="DGFT">
+                      <ViewDgftRegisterDetails />
+                    </ProtectedRoute>
+                  }
                 />
 
                 {/* 5S Audit Checklist Module */}

@@ -184,14 +184,22 @@ const ViewBillingJob = () => {
     }
   }, [routeLocation.state]);
   const handleBackClick = () => {
+    const tabIndex =
+      storedSearchParams?.currentTab !== undefined
+        ? storedSearchParams.currentTab
+        : (sessionStorage.getItem("import_billing_tab") !== null
+            ? Number(sessionStorage.getItem("import_billing_tab"))
+            : 0);
+
     navigate("/import-billing", {
       state: {
         fromJobDetails: true,
+        tabIndex,
         ...(storedSearchParams && {
           searchQuery: storedSearchParams.searchQuery || "",
           selectedImporter: storedSearchParams.selectedImporter || "",
           selectedJobId: storedSearchParams.selectedJobId || "",
-          currentTab: storedSearchParams.currentTab || 1,
+          currentTab: tabIndex,
         }),
       },
     });

@@ -49,19 +49,37 @@ import logo from "../../assets/images/logo.webp";
 function PaymentRequested({ workMode = "Payment" }) {
   const { currentTab } = useContext(TabContext);
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
-  const {
-    searchQuery,
-    setSearchQuery,
-    selectedImporter,
-    setSelectedImporter,
-  } = useSearchQuery();
-  const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
+
+  const [searchQuery, setSearchQuery] = useState(
+    () => sessionStorage.getItem("ib_tab3_search") || ""
+  );
+  const [selectedImporter, setSelectedImporter] = useState(
+    () => sessionStorage.getItem("ib_tab3_importer") || ""
+  );
+  const [selectedTransactionType, setSelectedTransactionType] = useState(
+    () => sessionStorage.getItem("ib_tab3_txType") || "All"
+  );
+  const [dateFilterType, setDateFilterType] = useState(
+    () => sessionStorage.getItem("ib_tab3_dateFilterType") || "single"
+  );
+  const [startDate, setStartDate] = useState(
+    () => sessionStorage.getItem("ib_tab3_startDate") || ""
+  );
+  const [endDate, setEndDate] = useState(
+    () => sessionStorage.getItem("ib_tab3_endDate") || ""
+  );
+  const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(
+    () => sessionStorage.getItem("ib_tab3_unresolved") === "true"
+  );
+  const [page, setPage] = useState(
+    () => Number(sessionStorage.getItem("ib_tab3_page")) || 1
+  );
+
   const [unresolvedCount, setUnresolvedCount] = useState(0);
   const { user } = useContext(UserContext);
   const { selectedBranch, selectedCategory } = useContext(BranchContext);
   const [years, setYears] = useState([]);
   const [rows, setRows] = useState([]);
-  const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
@@ -73,16 +91,45 @@ function PaymentRequested({ workMode = "Payment" }) {
   const [selectedPaymentRequest, setSelectedPaymentRequest] = useState(null);
   const [isModalLoading, setIsModalLoading] = useState(false);
 
+  // Persist filter states to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab3_search", searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab3_importer", selectedImporter || "");
+  }, [selectedImporter]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab3_txType", selectedTransactionType || "All");
+  }, [selectedTransactionType]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab3_dateFilterType", dateFilterType);
+  }, [dateFilterType]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab3_startDate", startDate || "");
+  }, [startDate]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab3_endDate", endDate || "");
+  }, [endDate]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab3_unresolved", showUnresolvedOnly.toString());
+  }, [showUnresolvedOnly]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab3_page", page.toString());
+  }, [page]);
+
   // New States for Approval Workflow
   const [openApprovalPopup, setOpenApprovalPopup] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [openRejectPopup, setOpenRejectPopup] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
-  const [selectedTransactionType, setSelectedTransactionType] = useState("All");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [dateFilterType, setDateFilterType] = useState("single");
   const [anchorEl, setAnchorEl] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -457,10 +504,6 @@ function PaymentRequested({ workMode = "Payment" }) {
   }, []);
 
   useEffect(() => {
-    setPage(1);
-  }, [startDate, endDate, dateFilterType]);
-
-  useEffect(() => {
     const { start, end } = calculateDates();
     fetchJobs(
       page,
@@ -490,7 +533,12 @@ function PaymentRequested({ workMode = "Payment" }) {
     workMode
   ]);
 
+  const isFirstSearch = React.useRef(true);
   useEffect(() => {
+    if (isFirstSearch.current) {
+      isFirstSearch.current = false;
+      return;
+    }
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
       setPage(1);
@@ -788,7 +836,7 @@ function PaymentRequested({ workMode = "Payment" }) {
     renderTopToolbarCustomActions: () => (
       <div style={{ display: "flex", alignItems: "center", width: "100%", padding: '10px', gap: '20px' }}>
         <Typography variant="h6" sx={{ fontWeight: "bold" }}>{workMode === "Payment" ? "Payment Requested" : "Purchase Book Requested"}: {totalJobs}</Typography>
-        <Autocomplete sx={{ width: "250px" }} options={importerNames.map(o => o.label)} value={selectedImporter || ""} onInputChange={(e, v) => setSelectedImporter(v)} renderInput={(params) => <TextField {...params} size="small" label="Select Importer" />} />
+        <Autocomplete sx={{ width: "250px" }} options={importerNames.map(o => o.label)} value={selectedImporter || ""} onInputChange={(e, v) => { setSelectedImporter(v); setPage(1); }} renderInput={(params) => <TextField {...params} size="small" label="Select Importer" />} />
         <TextField select size="small" value={selectedYearState} onChange={(e) => setSelectedYearState(e.target.value)} sx={{ width: "100px" }}>{years.map(y => <MenuItem key={y} value={y}>{y}</MenuItem>)}</TextField>
         
         {/* Date Filter */}
@@ -905,7 +953,10 @@ function PaymentRequested({ workMode = "Payment" }) {
           size="small" 
           label="Transaction Type" 
           value={selectedTransactionType} 
-          onChange={(e) => setSelectedTransactionType(e.target.value)} 
+          onChange={(e) => {
+            setSelectedTransactionType(e.target.value);
+            setPage(1);
+          }} 
           sx={{ width: "180px" }}
         >
           {["All", "NEFT", "CHEQUE", "CASH", "IMPS", "RTGS", "ONLINE", "DEMAND DRAFT", "ODEX"].map(type => (
@@ -913,7 +964,7 @@ function PaymentRequested({ workMode = "Payment" }) {
           ))}
         </TextField>
         <TextField placeholder="Search..." size="small" value={searchQuery} onChange={handleSearchInputChange} sx={{ width: "250px" }} />
-        <Button variant="contained" color="primary" onClick={() => setShowUnresolvedOnly(!showUnresolvedOnly)}>{showUnresolvedOnly ? "SHOW ALL" : "PENDING QUERIES"}</Button>
+        <Button variant="contained" color="primary" onClick={() => { setShowUnresolvedOnly(!showUnresolvedOnly); setPage(1); }}>{showUnresolvedOnly ? "SHOW ALL" : "PENDING QUERIES"}</Button>
         <Button
           size="small"
           variant="contained"

@@ -212,7 +212,7 @@ function useJobColumns(
           // Render compact row when shrunk
           if (isShrunk) {
             return (
-              <div style={{ textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+              <div style={{ textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
                 <IconButton
                   size="small"
                   onClick={(e) => {
@@ -243,6 +243,17 @@ function useJobColumns(
                 >
                   {job_number || job_no}
                 </a>
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCopy(e, job_number || job_no);
+                  }}
+                  sx={{ p: 0.2 }}
+                  title="Copy Job Number"
+                >
+                  <ContentCopyIcon sx={{ fontSize: "14px", color: "#64748b" }} />
+                </IconButton>
                 <span style={{ fontSize: "11px", color: "#64748b" }}>
                   ({type_of_b_e})
                 </span>
@@ -279,25 +290,38 @@ function useJobColumns(
                   </IconButton>
                 </div>
               )}
-              <a
-                href={`/import-dsr/job/${branch_code}/${trade_type}/${row.mode}/${job_no}/${year}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  cursor: "pointer",
-                  color: textColor,
-                  backgroundColor: bgColor || "transparent",
-                  padding: "10px",
-                  borderRadius: "5px",
-                  textAlign: "center",
-                  display: "inline-block",
-                  textDecoration: "none",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type}
-                <br /> {custom_house} <br /> {payment_method}
-              </a>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+                <a
+                  href={`/import-dsr/job/${branch_code}/${trade_type}/${row.mode}/${job_no}/${year}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    cursor: "pointer",
+                    color: textColor,
+                    backgroundColor: bgColor || "transparent",
+                    padding: "10px",
+                    borderRadius: "5px",
+                    textAlign: "center",
+                    display: "inline-block",
+                    textDecoration: "none",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type}
+                  <br /> {custom_house} <br /> {payment_method}
+                </a>
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCopy(e, job_number || job_no);
+                  }}
+                  sx={{ p: 0.2 }}
+                  title="Copy Job Number"
+                >
+                  <ContentCopyIcon sx={{ fontSize: "14px", color: "#64748b" }} />
+                </IconButton>
+              </div>
 
               {branch_code === "GIM" && row.cfs_name && (
                 <div style={{ marginTop: "4px", fontWeight: "bold", color: "#000", fontSize: "0.85rem" }}>

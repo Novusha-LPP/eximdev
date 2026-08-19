@@ -170,7 +170,66 @@ const descriptionDetailsSchema = new mongoose.Schema(
     igst_amount_inr: { type: String, trim: true },
     igst_amount_manual: { type: Boolean, default: false },
     comp_cess_percent: { type: String, trim: true },
-    comp_cess_amount: { type: String, trim: true }
+    comp_cess_amount: { type: String, trim: true },
+
+    // ── Notifications & Customs Duty Fields ──
+    bcd_notn: { type: String, trim: true },
+    bcd_sr_no: { type: String, trim: true },
+    bcd_rate: { type: String, trim: true },
+    bcd_specific_rate: { type: String, trim: true },
+    bcd_unit: { type: String, trim: true },
+    bcd_flag: { type: String, trim: true },
+    bcd_amount: { type: String, trim: true },
+
+    aidc_notn: { type: String, trim: true },
+    aidc_sr_no: { type: String, trim: true },
+    aidc_rate: { type: String, trim: true },
+    aidc_specific_rate: { type: String, trim: true },
+    aidc_unit: { type: String, trim: true },
+    aidc_amount: { type: String, trim: true },
+
+    sw_surcharge_notn: { type: String, trim: true },
+    sw_surcharge_sr_no: { type: String, trim: true },
+    sw_surcharge_rate: { type: String, trim: true },
+    sw_surcharge_foc: { type: String, trim: true, default: "No" },
+    sw_surcharge_amount: { type: String, trim: true },
+
+    igst_notn: { type: String, trim: true },
+    igst_sr_no: { type: String, trim: true },
+    igst_specific_rate: { type: String, trim: true },
+    igst_unit: { type: String, trim: true },
+    igst_type: { type: String, trim: true, default: "C - Customs" },
+
+    igst_exc_notn: { type: String, trim: true },
+    igst_exc_sr_no: { type: String, trim: true },
+    igst_exc_rate: { type: String, trim: true },
+    igst_exc_amount: { type: String, trim: true },
+
+    comp_cess_notn: { type: String, trim: true },
+    comp_cess_sr_no: { type: String, trim: true },
+    comp_cess_specific_rate: { type: String, trim: true },
+    comp_cess_unit: { type: String, trim: true },
+
+    comp_exc_notn: { type: String, trim: true },
+    comp_exc_sr_no: { type: String, trim: true },
+    comp_exc_rate: { type: String, trim: true },
+    comp_exc_specific_rate: { type: String, trim: true },
+    comp_exc_amount: { type: String, trim: true },
+
+    safeguard_notn: { type: String, trim: true },
+    safeguard_sr_no: { type: String, trim: true },
+    safeguard_rate: { type: String, trim: true },
+    safeguard_specific_rate: { type: String, trim: true },
+    safeguard_amount: { type: String, trim: true },
+
+    sapta_notn: { type: String, trim: true },
+    sapta_sr_no: { type: String, trim: true },
+    sapta_rate: { type: String, trim: true },
+    sapta_amount: { type: String, trim: true },
+
+    standard_uqc_qty: { type: String, trim: true },
+    standard_uqc_unit: { type: String, trim: true },
+    total_duty_amount: { type: String, trim: true }
   },
   { _id: false }
 );

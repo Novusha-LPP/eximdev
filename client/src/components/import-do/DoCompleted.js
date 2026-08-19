@@ -20,10 +20,15 @@ import {
   Badge,
   MenuItem,
   Autocomplete,
+  Tooltip,
   colors,
 } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import SearchIcon from "@mui/icons-material/Search";
+import TableRowsIcon from "@mui/icons-material/TableRows";
+import ViewHeadlineIcon from "@mui/icons-material/ViewHeadline";
+import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
@@ -35,10 +40,33 @@ import ContainerTrackButton from '../ContainerTrackButton';
 import FormControl from '@mui/material/FormControl';
 import Select from '@mui/material/Select';
 
-
-
-
 function DoCompleted() {
+  // View Mode: 'full' vs 'shrink'
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      return localStorage.getItem("exim_import_do_view_mode") || "full";
+    } catch (e) {
+      return "full";
+    }
+  });
+
+  const handleViewModeChange = useCallback((mode) => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem("exim_import_do_view_mode", mode);
+    } catch (e) {}
+  }, []);
+
+  const [expandedRowIds, setExpandedRowIds] = useState({});
+
+  const toggleRowExpanded = useCallback((rowId) => {
+    if (!rowId) return;
+    setExpandedRowIds((prev) => ({
+      ...prev,
+      [rowId]: !prev[rowId],
+    }));
+  }, []);
+
   const [selectedICD, setSelectedICD] = useState("");
   const [selectedYear, setSelectedYear] = useState("");
   const [years, setYears] = useState([]);
@@ -300,10 +328,14 @@ function DoCompleted() {
   const columns = [
     {
       accessorKey: "job_no",
-      header: "Job No", muiTableHeadCellProps: { align: "center" }, muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
+      header: "Job No",
+      muiTableHeadCellProps: { align: "center" },
+      muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
       enableSorting: false,
       size: 250,
       Cell: ({ cell }) => {
+        const row = cell.row.original;
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row._id];
         const {
           job_no,
           year,
@@ -315,37 +347,122 @@ function DoCompleted() {
           mode,
           branch_code,
           trade_type,
-        } = cell.row.original;
+        } = row;
         const textColor = "blue";
         const bgColor =
-          cell.row.original.priorityJob === "High Priority"
+          row.priorityJob === "High Priority"
             ? "orange"
-            : cell.row.original.priorityJob === "Priority"
+            : row.priorityJob === "Priority"
               ? "yellow"
               : "transparent";
         const isSelected = selectedJobId === _id;
-        // Get selectedImporter, currentPage, searchQuery from context
-        // ...existing code...
+
+        if (isShrunk) {
+          return (
+            <div style={{ textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleRowExpanded(row._id);
+                }}
+                sx={{ p: 0.2 }}
+                title="Click to expand row"
+              >
+                <KeyboardArrowRightIcon sx={{ fontSize: 18, color: "#64748b" }} />
+              </IconButton>
+              <Link
+                to={`/edit-do-completed/${branch_code}/${trade_type}/${mode}/${job_no}/${year}?jobId=${_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedJobId(_id);
+                }}
+                style={{
+                  backgroundColor: isSelected ? "#ffffcc" : bgColor,
+                  cursor: "pointer",
+                  color: textColor,
+                  padding: "3px 6px",
+                  borderRadius: "4px",
+                  fontWeight: "bold",
+                  display: "inline-block",
+                  textDecoration: "none",
+                  fontSize: "13px",
+                }}
+              >
+                {row.job_number || job_no}
+              </Link>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCopy(e, row.job_number || job_no);
+                }}
+                sx={{ p: 0.2 }}
+                title="Copy Job Number"
+              >
+                <ContentCopyIcon sx={{ fontSize: "14px", color: "#64748b" }} />
+              </IconButton>
+              {type_of_b_e && (
+                <span style={{ fontSize: "11px", color: "#64748b" }}>
+                  ({type_of_b_e})
+                </span>
+              )}
+            </div>
+          );
+        }
+
         return (
-          <Link
-            to={`/edit-do-completed/${branch_code}/${trade_type}/${mode}/${job_no}/${year}?jobId=${_id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => setSelectedJobId(_id)}
-            style={{
-              backgroundColor: isSelected ? "#ffffcc" : bgColor,
-              textAlign: "center",
-              cursor: "pointer",
-              color: textColor,
-              display: "inline-block",
-              width: "100%",
-              padding: "5px",
-              textDecoration: "none", whiteSpace: "nowrap",
-            }}
-          >
-            {cell.row.original.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />
-            {custom_house}
-          </Link>
+          <div style={{ textAlign: "center" }}>
+            {viewMode === "shrink" && (
+              <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: "4px" }}>
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleRowExpanded(row._id);
+                  }}
+                  sx={{ p: 0.2 }}
+                  title="Click to collapse row"
+                >
+                  <KeyboardArrowDownIcon sx={{ fontSize: 18, color: "#2563eb" }} />
+                </IconButton>
+              </div>
+            )}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+              <Link
+                to={`/edit-do-completed/${branch_code}/${trade_type}/${mode}/${job_no}/${year}?jobId=${_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setSelectedJobId(_id)}
+                style={{
+                  backgroundColor: isSelected ? "#ffffcc" : bgColor,
+                  textAlign: "center",
+                  cursor: "pointer",
+                  color: textColor,
+                  display: "inline-block",
+                  padding: "5px",
+                  textDecoration: "none",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {row.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />
+                {custom_house}
+              </Link>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCopy(e, row.job_number || job_no);
+                }}
+                sx={{ p: 0.2 }}
+                title="Copy Job Number"
+              >
+                <ContentCopyIcon sx={{ fontSize: "14px", color: "#64748b" }} />
+              </IconButton>
+            </div>
+          </div>
         );
       },
     },
@@ -355,12 +472,10 @@ function DoCompleted() {
       enableSorting: false,
       size: 250,
       Cell: ({ cell, row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
         const importerName = cell?.getValue()?.toString();
         const _id = row.original._id;
-        const isDoDocPrepared = row.original.is_do_doc_prepared || false;
-        const [checked, setChecked] = React.useState(isDoDocPrepared);
 
-        // Get payment_recipt_date and payment_request_date from do_shipping_line_invoice[0] if present
         const doShippingLineInvoice = row.original.do_shipping_line_invoice;
         let paymentReciptDate = "";
         let paymentRequestDate = "";
@@ -371,6 +486,20 @@ function DoCompleted() {
           paymentReciptDate = doShippingLineInvoice[0].payment_recipt_date;
           paymentRequestDate = doShippingLineInvoice[0].payment_request_date;
         }
+
+        if (isShrunk) {
+          return (
+            <div>
+              <span style={{ fontWeight: 600 }}>{importerName}</span>
+              {paymentRequestDate && (
+                <div style={{ fontSize: "11px", color: "#d32f2f", marginTop: "2px" }}>
+                  Payment Req Sent
+                </div>
+              )}
+            </div>
+          );
+        }
+
         return (
           <React.Fragment>
             {importerName}
@@ -385,7 +514,6 @@ function DoCompleted() {
                 <ContentCopyIcon fontSize="inherit" />
               </abbr>
             </IconButton>
-            {/* Show payment request info if available */}
             {paymentRequestDate && (
               <>
                 <div
@@ -413,7 +541,6 @@ function DoCompleted() {
                 </div>
               </>
             )}
-            {/* Show payment receipt links if available */}
             {Array.isArray(doShippingLineInvoice) &&
               doShippingLineInvoice.length > 0 &&
               doShippingLineInvoice.map((invoice, idx) =>
@@ -421,71 +548,46 @@ function DoCompleted() {
                   <div
                     key={idx}
                     style={{
-                      fontSize: "11px",
                       color: "#388e3c",
-                      marginTop: "2px",
+                      fontWeight: 500,
+                      fontSize: "12px",
+                      marginTop: 2,
                     }}
                   >
-                    {invoice.payment_recipt.map((url, i) => (
-                      <a
-                        key={i}
-                        href={url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          color: "#388e3c",
-                          textDecoration: "underline",
-                          marginRight: 8,
-                        }}
-                      >
-                        View Payment Receipt{" "}
-                        {doShippingLineInvoice.length > 1 ? `(${idx + 1})` : ""}
-                      </a>
-                    ))}
+                    <a
+                      href={invoice.payment_recipt[0]}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        color: "#388e3c",
+                        textDecoration: "underline",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Payment Receipt Uploaded
+                    </a>
                   </div>
                 ) : null
               )}
             {paymentReciptDate && (
               <div
-                style={{ fontSize: "11px", color: "#1976d2", marginTop: "2px" }}
+                style={{
+                  color: "#388e3c",
+                  fontWeight: 500,
+                  fontSize: "12px",
+                  marginBottom: 2,
+                }}
               >
-                Payment Receipt Uploaded:{" "}
+                Payment Receipt Date:{" "}
                 {new Date(paymentReciptDate).toLocaleString("en-IN", {
                   hour12: true,
                 })}
               </div>
             )}
-            <br />
           </React.Fragment>
         );
       },
     },
-    // {
-    //   accessorKey: "importer_address",
-    //   header: "Address",
-    //   enableSorting: false,
-    //   size: 250,
-    //   Cell: ({ cell }) => {
-    //     return (
-    //       <React.Fragment>
-    //         {cell?.getValue()?.toString()}
-
-    //         <IconButton
-    //           size="small"
-    //           onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-    //           onClick={(event) => {
-    //             handleCopy(event, cell?.getValue()?.toString());
-    //           }}
-    //         >
-    //           <abbr title="Copy Party Address">
-    //             <ContentCopyIcon fontSize="inherit" />
-    //           </abbr>
-    //         </IconButton>
-    //         <br />
-    //       </React.Fragment>
-    //     );
-    //   },
-    // },
 
     {
       accessorKey: "be_no_igm_details",
@@ -493,6 +595,7 @@ function DoCompleted() {
       enableSorting: false,
       size: 300,
       Cell: ({ cell }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[cell.row.original?._id];
         const {
           be_no,
           igm_date,
@@ -501,6 +604,22 @@ function DoCompleted() {
           gateway_igm_date,
           gateway_igm,
         } = cell.row.original;
+
+        if (isShrunk) {
+          return (
+            <div style={{ fontSize: "12px" }}>
+              <div>
+                <strong>BE: </strong>{be_no || "N/A"}
+                {be_date && <span style={{ color: "#64748b", marginLeft: "4px" }}>({be_date})</span>}
+              </div>
+              {igm_no && (
+                <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
+                  IGM: {igm_no}
+                </div>
+              )}
+            </div>
+          );
+        }
 
         return (
           <div>
@@ -630,9 +749,23 @@ function DoCompleted() {
       header: "BL Number",
       size: 200,
       Cell: ({ row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
         const vesselFlight = row.original.vessel_flight?.toString() || "N/A";
         const voyageNo = row.original.voyage_no?.toString() || "N/A";
         const line_no = row.original.line_no || "N/A";
+
+        if (isShrunk) {
+          return (
+            <div>
+              <span style={{ fontWeight: 600 }}>{row.original.awb_bl_no || "-"}</span>
+              {row.original.shipping_line_airline && (
+                <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
+                  {row.original.shipping_line_airline}
+                </div>
+              )}
+            </div>
+          );
+        }
 
         return (
           <React.Fragment>
@@ -648,7 +781,6 @@ function DoCompleted() {
               onCopy={handleCopy}
             />
 
-            {/* REST OF YOUR CUSTOM CONTENT */}
             <div>
               {vesselFlight}
               <IconButton
@@ -695,13 +827,36 @@ function DoCompleted() {
       accessorKey: "free_time",
       header: "Free Time",
       size: 100,
+      Cell: ({ cell, row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
+        const val = cell?.getValue()?.toString() || "-";
+        return <span style={{ fontWeight: isShrunk ? 600 : 400 }}>{val}</span>;
+      }
     },
     {
       accessorKey: "container_numbers",
       header: "Container Numbers and Size",
       size: 200,
       Cell: ({ cell }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[cell.row.original?._id];
         const containerNos = cell.row.original.container_nos;
+
+        if (isShrunk) {
+          const count = containerNos?.length || 0;
+          return (
+            <div>
+              <strong>
+                {count > 0 ? `${count} Container(s)` : `${cell.row.original?.no_of_pkgs || 0} Pkg(s)`}
+              </strong>
+              {containerNos?.[0]?.container_number && (
+                <span style={{ fontSize: "11px", color: "#64748b", marginLeft: "4px" }}>
+                  ({containerNos[0].container_number})
+                </span>
+              )}
+            </div>
+          );
+        }
+
         return (
           <React.Fragment>
             {containerNos?.map((container, id) => (
@@ -741,11 +896,21 @@ function DoCompleted() {
       enableSorting: false,
       size: 200,
       Cell: ({ cell, row }) => {
-        const displayDate = cell.getValue(); // "displayDate" from backend
-        const dayDifference = row.original.dayDifference; // "dayDifference" from backend
-        const typeOfDo = row.original.type_of_Do; // "dayDifference" from backend
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
+        const displayDate = cell.getValue();
+        const dayDifference = row.original.dayDifference;
+        const typeOfDo = row.original.type_of_Do;
+        const do_list = row.original.do_list;
 
-        const do_list = row.original.do_list; // "do_list" from backend
+        if (isShrunk) {
+          return (
+            <div style={{ fontSize: "12px" }}>
+              <span style={{ fontWeight: 600 }}>{displayDate || "-"}</span>
+              {typeOfDo && <div style={{ fontSize: "11px", color: "#64748b" }}>{typeOfDo}</div>}
+            </div>
+          );
+        }
+
         return (
           <div
             style={{
@@ -767,7 +932,17 @@ function DoCompleted() {
       header: "DO Revalidation Upto",
       size: 180,
       Cell: ({ cell }) => {
-        const containers = cell.row.original.container_nos; // Access all containers
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[cell.row.original?._id];
+        const containers = cell.row.original.container_nos || [];
+
+        if (isShrunk) {
+          const revalCount = containers.reduce((acc, c) => acc + (c.do_revalidation?.length || 0), 0);
+          return (
+            <span style={{ fontSize: "12px", color: revalCount > 0 ? "#2563eb" : "#64748b" }}>
+              {revalCount > 0 ? `${revalCount} Reval(s)` : "-"}
+            </span>
+          );
+        }
 
         return (
           <React.Fragment>
@@ -798,65 +973,29 @@ function DoCompleted() {
         );
       },
     },
-    // {
-    //   accessorKey: "vessel_and_voyage",
-    //   header: "Vessel & Voyage No",
-    //   enableSorting: false,
-    //   size: 200,
-    //   Cell: ({ row }) => {
-    //     const vesselFlight = row.original.vessel_flight?.toString() || "N/A";
-    //     const voyageNo = row.original.voyage_no?.toString() || "N/A";
-
-    //     return (
-    //       <React.Fragment>
-    //         <div>
-    //           {vesselFlight}
-    //           <IconButton
-    //             size="small"
-    //             onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-    //             onClick={(event) => handleCopy(event, vesselFlight)}
-    //           >
-    //             <abbr title="Copy Vessel">
-    //               <ContentCopyIcon fontSize="inherit" />
-    //             </abbr>
-    //           </IconButton>
-    //         </div>
-
-    //         <div>
-    //           {voyageNo}
-    //           <IconButton
-    //             size="small"
-    //             onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-    //             onClick={(event) => handleCopy(event, voyageNo)}
-    //           >
-    //             <abbr title="Copy Voyage Number">
-    //               <ContentCopyIcon fontSize="inherit" />
-    //             </abbr>
-    //           </IconButton>
-    //         </div>
-    //       </React.Fragment>
-    //     );
-    //   },
-    // },
-    // {
-    //   accessorKey: "type_of_Do",
-    //   header: "Type of Do",
-    //   enableSorting: false,
-    //   size: 120,
-    // },
     {
       accessorKey: "Doc",
       header: "Do Completed  & Validity Date",
       enableSorting: false,
       size: 200,
       Cell: ({ cell, row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[cell.row.original?._id];
         const { do_completed, do_validity, do_copies, cth_documents } =
           cell.row.original;
 
         const doCopies = do_copies;
         const doCompleted = formatDate(do_completed);
         const doValidity = formatDate(do_validity);
-        const branchCode = row.original.branch_code;
+
+        if (isShrunk) {
+          return (
+            <div style={{ fontSize: "12px" }}>
+              {doCompleted && <div><strong>Completed:</strong> {doCompleted}</div>}
+              {doValidity && <div style={{ color: "#64748b" }}><strong>Val:</strong> {doValidity}</div>}
+              {!doCompleted && !doValidity && <span style={{ color: "gray" }}>-</span>}
+            </div>
+          );
+        }
 
         return (
           <div style={{ textAlign: "left" }}>
@@ -961,12 +1100,38 @@ function DoCompleted() {
     muiTableContainerProps: {
       sx: { maxHeight: "650px", overflowY: "auto" },
     },
-    muiTableBodyRowProps: ({ row }) => ({
-      className: getTableRowsClassname(row),
-      style: getTableRowInlineStyle(row),
-      // onClick: () => navigate(`/edit-do-planning/${row.original._id}`), // Navigate on row click
-      // style: { cursor: "pointer" }, // Change cursor to pointer on hover
-    }),
+    muiTableBodyRowProps: ({ row }) => {
+      const baseProps = {
+        className: getTableRowsClassname(row),
+        style: getTableRowInlineStyle(row),
+      };
+
+      if (viewMode === "shrink") {
+        return {
+          ...baseProps,
+          style: {
+            ...(baseProps.style || {}),
+            cursor: "pointer",
+          },
+          onClick: (event) => {
+            const targetTagName = event.target?.tagName?.toLowerCase() || "";
+            if (["a", "button", "input", "textarea", "select"].includes(targetTagName)) {
+              return;
+            }
+            if (
+              event.target?.closest?.(
+                "a, button, input, textarea, select, .MuiIconButton-root, .MuiChip-root"
+              )
+            ) {
+              return;
+            }
+            toggleRowExpanded(row.original._id);
+          },
+        };
+      }
+
+      return baseProps;
+    },
     // renderDetailPanel: ({ row }) => {
     //   return (
     //     <div style={{ padding: "0 !important" }}>
@@ -988,139 +1153,234 @@ function DoCompleted() {
       <div
         style={{
           display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
+          flexDirection: "column",
+          gap: "16px",
           width: "100%",
+          padding: "8px 0",
         }}
       >
-        {/* Job Count Display */}
-        <Typography
-          variant="body1"
-          sx={{ fontWeight: "bold", fontSize: "1.5rem", marginRight: "auto" }}
-        >
-          Job Count: {totalJobs}
-        </Typography>{" "}
-        <Autocomplete
-          sx={{ width: "300px", marginRight: "20px" }}
-          freeSolo
-          options={importerNames.map((option) => option.label)}
-          value={selectedImporter || ""} // Controlled value
-          onInputChange={(event, newValue) => {
-            setSelectedImporter(newValue);
-            setCurrentPage(1); // Reset to first page when importer changes
-          }} // Handles input change
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              variant="outlined"
-              size="small"
-              fullWidth
-              label="Select Importer" // Placeholder text
-            />
-          )}
-        />
-        <TextField
-          select
-          size="small"
-          value={selectedYearState}
-          onChange={(e) => setSelectedYearState(e.target.value)}
-          sx={{ width: "200px", marginRight: "20px" }}
-        >
-          {years.map((year, index) => (
-            <MenuItem key={`year-${year}-${index}`} value={year}>
-              {year}
-            </MenuItem>
-          ))}
-        </TextField>
-        {/* ICD Code Filter */}
-        <TextField
-          select
-          size="small"
-          variant="outlined"
-          label="ICD Code"
-          value={selectedICD}
-          onChange={(e) => {
-            setSelectedICD(e.target.value); // Update the selected ICD code
-            setCurrentPage(1); // Reset to the first page when the filter changes
+        {/* Row 1 - Counts and Actions */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: "16px",
           }}
-          sx={{ width: "200px", marginRight: "20px" }}
         >
-          <MenuItem value="">All ICDs</MenuItem>
-          {dynamicICDs.map((icd, index) => (
-            <MenuItem key={index} value={icd}>{icd}</MenuItem>
-          ))}
-        </TextField>{" "}
-        <TextField
-          placeholder="Search by Job No, Importer, or AWB/BL Number"
-          size="small"
-          variant="outlined"
-          value={searchQuery}
-          onChange={handleSearchInputChange}
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <IconButton
-                  onClick={() => {
-                    setDebouncedSearchQuery(searchQuery);
-                    setCurrentPage(1);
-                  }}
-                >
-                  <SearchIcon />
-                </IconButton>
-              </InputAdornment>
-            ),
-          }}
-          sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
-        />
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <Box sx={{ position: "relative" }}>
-            <Button
-              variant="contained"
-              size="small"
-              onClick={() => setShowUnresolvedOnly((prev) => !prev)}
+          <Typography
+            variant="body1"
+            sx={{ fontWeight: "bold", fontSize: "1.5rem" }}
+          >
+            Job Count: {totalJobs}
+          </Typography>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+            {/* View Mode Toggle Switch */}
+            <Box
               sx={{
-                borderRadius: 3,
-                textTransform: "none",
-                fontWeight: 500,
-                fontSize: "0.875rem",
-                padding: "8px 20px",
-                background: "linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)",
-                color: "#ffffff",
-                border: "none",
-                boxShadow: "0 4px 12px rgba(25, 118, 210, 0.3)",
-                transition: "all 0.3s ease",
-                "&:hover": {
-                  background:
-                    "linear-gradient(135deg, #1565c0 0%, #1976d2 100%)",
-                  boxShadow: "0 6px 16px rgba(25, 118, 210, 0.4)",
-                  transform: "translateY(-1px)",
-                },
-                "&:active": {
-                  transform: "translateY(0px)",
-                },
+                display: "flex",
+                alignItems: "center",
+                gap: 0.5,
+                bgcolor: "#f1f5f9",
+                p: "2px",
+                borderRadius: "8px",
+                border: "1px solid #cbd5e1",
               }}
             >
-              {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
-            </Button>
-            <Badge
-              badgeContent={unresolvedCount}
-              color="error"
-              overlap="circular"
-              anchorOrigin={{ vertical: "top", horizontal: "right" }}
+              <Tooltip title="Full Table View" arrow>
+                <button
+                  type="button"
+                  className={`toggle-btn ${viewMode === "full" ? "active" : ""}`}
+                  onClick={() => handleViewModeChange("full")}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    padding: "5px 9px",
+                    border: "none",
+                    borderRadius: "6px",
+                    backgroundColor: viewMode === "full" ? "#ffffff" : "transparent",
+                    color: viewMode === "full" ? "#2563eb" : "#64748b",
+                    fontWeight: "700",
+                    fontSize: "12px",
+                    cursor: "pointer",
+                    boxShadow: viewMode === "full" ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
+                  }}
+                >
+                  <TableRowsIcon sx={{ fontSize: 16 }} />
+                  Full
+                </button>
+              </Tooltip>
+              <Tooltip title="Shrink List View" arrow>
+                <button
+                  type="button"
+                  className={`toggle-btn ${viewMode === "shrink" ? "active" : ""}`}
+                  onClick={() => handleViewModeChange("shrink")}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    padding: "5px 9px",
+                    border: "none",
+                    borderRadius: "6px",
+                    backgroundColor: viewMode === "shrink" ? "#ffffff" : "transparent",
+                    color: viewMode === "shrink" ? "#2563eb" : "#64748b",
+                    fontWeight: "700",
+                    fontSize: "12px",
+                    cursor: "pointer",
+                    boxShadow: viewMode === "shrink" ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
+                  }}
+                >
+                  <ViewHeadlineIcon sx={{ fontSize: 16 }} />
+                  Shrink
+                </button>
+              </Tooltip>
+            </Box>
+
+            <Box sx={{ position: "relative" }}>
+              <Button
+                variant={showUnresolvedOnly ? "contained" : "outlined"}
+                color="primary"
+                size="small"
+                onClick={() => setShowUnresolvedOnly((prev) => !prev)}
+                sx={{
+                  borderRadius: 3,
+                  textTransform: "none",
+                  fontWeight: 500,
+                  fontSize: "0.875rem",
+                  padding: "8px 20px",
+                }}
+              >
+                {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
+              </Button>
+              <Badge
+                badgeContent={unresolvedCount}
+                color="error"
+                overlap="circular"
+                anchorOrigin={{ vertical: "top", horizontal: "right" }}
+                sx={{
+                  position: "absolute",
+                  top: 4,
+                  right: 4,
+                  "& .MuiBadge-badge": {
+                    fontSize: "0.75rem",
+                    minWidth: "18px",
+                    height: "18px",
+                    boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                  },
+                }}
+              />
+            </Box>
+          </div>
+        </div>
+
+        {/* Row 2 - Filters */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+            gap: "16px",
+            alignItems: "end",
+          }}
+        >
+          <Autocomplete
+            size="small"
+            options={importerNames.map((option) => option.label)}
+            value={selectedImporter || ""}
+            onInputChange={(event, newValue) => {
+              setSelectedImporter(newValue);
+              setCurrentPage(1);
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                variant="outlined"
+                label="Select Importer"
+                fullWidth
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    backgroundColor: "white",
+                  },
+                }}
+              />
+            )}
+          />
+          <TextField
+            select
+            size="small"
+            value={selectedYearState}
+            onChange={(e) => setSelectedYearState(e.target.value)}
+            label="Financial Year"
+            fullWidth
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                backgroundColor: "white",
+              },
+            }}
+          >
+            {years.map((year, index) => (
+              <MenuItem key={`year-${year}-${index}`} value={year}>
+                {year}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
+            size="small"
+            variant="outlined"
+            label="ICD Code"
+            value={selectedICD}
+            onChange={(e) => {
+              setSelectedICD(e.target.value);
+              setCurrentPage(1);
+            }}
+            fullWidth
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                backgroundColor: "white",
+              },
+            }}
+          >
+            <MenuItem value="">All ICDs</MenuItem>
+            {dynamicICDs.map((icd, index) => (
+              <MenuItem key={index} value={icd}>{icd}</MenuItem>
+            ))}
+          </TextField>
+
+          <div style={{ minWidth: "220px" }}>
+            <TextField
+              placeholder="Search by Job No, Importer, or AWB/BL Number"
+              size="small"
+              variant="outlined"
+              fullWidth
+              value={searchQuery}
+              onChange={handleSearchInputChange}
+              label="Search"
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => {
+                        setDebouncedSearchQuery(searchQuery);
+                        setCurrentPage(1);
+                      }}
+                      size="small"
+                    >
+                      <SearchIcon />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
               sx={{
-                position: "absolute",
-                top: 4,
-                right: 4,
-                "& .MuiBadge-badge": {
-                  fontSize: "0.75rem",
-                  minWidth: "18px",
-                  height: "18px",
-                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                "& .MuiOutlinedInput-root": {
+                  backgroundColor: "white",
                 },
               }}
             />
-          </Box>
-        </Box>
+          </div>
+        </div>
       </div>
     ),
   });

@@ -34,6 +34,10 @@ import { useParams } from "react-router-dom";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import SearchIcon from "@mui/icons-material/Search";
 import NotificationsIcon from "@mui/icons-material/Notifications";
+import TableRowsIcon from "@mui/icons-material/TableRows";
+import ViewHeadlineIcon from "@mui/icons-material/ViewHeadline";
+import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
@@ -50,6 +54,32 @@ function DoPlanning() {
     prepared: 0,
     notPrepared: 0,
   });
+
+  // View Mode: 'full' vs 'shrink'
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      return localStorage.getItem("exim_import_do_view_mode") || "full";
+    } catch (e) {
+      return "full";
+    }
+  });
+
+  const handleViewModeChange = useCallback((mode) => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem("exim_import_do_view_mode", mode);
+    } catch (e) {}
+  }, []);
+
+  const [expandedRowIds, setExpandedRowIds] = useState({});
+
+  const toggleRowExpanded = useCallback((rowId) => {
+    if (!rowId) return;
+    setExpandedRowIds((prev) => ({
+      ...prev,
+      [rowId]: !prev[rowId],
+    }));
+  }, []);
 
   // ✅ State for status filter counts
   const [statusFilterCounts, setStatusFilterCounts] = useState({});
@@ -789,13 +819,17 @@ function DoPlanning() {
     </div>
   );
 
-  // Table columns (your existing columns remain the same)
+  // Table columns
   const columns = [
     {
       accessorKey: "job_no",
-      header: "Job No", muiTableHeadCellProps: { align: "center" }, muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
+      header: "Job No",
+      muiTableHeadCellProps: { align: "center" },
+      muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
       size: 250,
       Cell: ({ cell }) => {
+        const row = cell.row.original;
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row._id];
         const {
           job_no,
           custom_house,
@@ -806,30 +840,116 @@ function DoPlanning() {
           mode,
           branch_code,
           trade_type,
-        } = cell.row.original;
+        } = row;
 
         const isSelected = selectedJobId === _id;
 
+        if (isShrunk) {
+          return (
+            <div style={{ textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleRowExpanded(row._id);
+                }}
+                sx={{ p: 0.2 }}
+                title="Click to expand row"
+              >
+                <KeyboardArrowRightIcon sx={{ fontSize: 18, color: "#64748b" }} />
+              </IconButton>
+              <Link
+                to={`/edit-do-planning/${branch_code}/${trade_type}/${mode}/${job_no}/${year}?jobId=${_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setSelectedJobId(_id);
+                }}
+                style={{
+                  backgroundColor: isSelected ? "#ffffcc" : "transparent",
+                  cursor: "pointer",
+                  color: "blue",
+                  padding: "3px 6px",
+                  borderRadius: "4px",
+                  fontWeight: "bold",
+                  display: "inline-block",
+                  textDecoration: "none",
+                  fontSize: "13px",
+                }}
+              >
+                {row.job_number || job_no}
+              </Link>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCopy(e, row.job_number || job_no);
+                }}
+                sx={{ p: 0.2 }}
+                title="Copy Job Number"
+              >
+                <ContentCopyIcon sx={{ fontSize: "14px", color: "#64748b" }} />
+              </IconButton>
+              {type_of_b_e && (
+                <span style={{ fontSize: "11px", color: "#64748b" }}>
+                  ({type_of_b_e})
+                </span>
+              )}
+            </div>
+          );
+        }
+
         return (
-          <Link
-            to={`/edit-do-planning/${branch_code}/${trade_type}/${mode}/${job_no}/${year}?jobId=${_id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={() => setSelectedJobId(_id)}
-            style={{
-              backgroundColor: isSelected ? "#ffffcc" : "transparent",
-              textAlign: "center",
-              cursor: "pointer",
-              color: "blue",
-              display: "inline-block",
-              width: "100%",
-              padding: "5px",
-              textDecoration: "none", whiteSpace: "nowrap",
-            }}
-          >
-            {cell.row.original.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />
-            {custom_house}
-          </Link>
+          <div style={{ textAlign: "center" }}>
+            {viewMode === "shrink" && (
+              <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: "4px" }}>
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleRowExpanded(row._id);
+                  }}
+                  sx={{ p: 0.2 }}
+                  title="Click to collapse row"
+                >
+                  <KeyboardArrowDownIcon sx={{ fontSize: 18, color: "#2563eb" }} />
+                </IconButton>
+              </div>
+            )}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+              <Link
+                to={`/edit-do-planning/${branch_code}/${trade_type}/${mode}/${job_no}/${year}?jobId=${_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setSelectedJobId(_id)}
+                style={{
+                  backgroundColor: isSelected ? "#ffffcc" : "transparent",
+                  textAlign: "center",
+                  cursor: "pointer",
+                  color: "blue",
+                  display: "inline-block",
+                  padding: "5px",
+                  textDecoration: "none",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {row.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />
+                {custom_house}
+              </Link>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCopy(e, row.job_number || job_no);
+                }}
+                sx={{ p: 0.2 }}
+                title="Copy Job Number"
+              >
+                <ContentCopyIcon sx={{ fontSize: "14px", color: "#64748b" }} />
+              </IconButton>
+            </div>
+          </div>
         );
       },
     },
@@ -839,6 +959,7 @@ function DoPlanning() {
       enableSorting: false,
       size: 250,
       Cell: ({ cell, row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
         const importerName = cell?.getValue()?.toString();
         const _id = row.original._id;
         const [isDoDocPrepared, setIsDoDocPrepared] = React.useState(
@@ -863,10 +984,7 @@ function DoPlanning() {
           const newValue = event.target.checked;
           const previousValue = isDoDocPrepared;
 
-          // Update local state immediately
           setIsDoDocPrepared(newValue);
-
-          // Update the row data directly
           row.original.is_do_doc_prepared = newValue;
 
           try {
@@ -888,24 +1006,15 @@ function DoPlanning() {
               { headers }
             );
 
-            // Update the main state
             setRows((prevRows) =>
               prevRows.map((r) =>
                 r._id === _id ? { ...r, is_do_doc_prepared: newValue } : r
               )
             );
           } catch (error) {
-            // Revert the changes on error
             setIsDoDocPrepared(previousValue);
             row.original.is_do_doc_prepared = previousValue;
             console.error("Error updating DO doc prepared status:", error);
-
-            // Revert the state as well
-            setRows((prevRows) =>
-              prevRows.map((r) =>
-                r._id === _id ? { ...r, is_do_doc_prepared: previousValue } : r
-              )
-            );
           }
         };
 
@@ -913,10 +1022,7 @@ function DoPlanning() {
           const newValue = event.target.checked;
           const previousValue = isOgDocRecieved;
 
-          // Update local state immediately
           setIsOgDocRecieved(newValue);
-
-          // Update the row data directly
           row.original.is_og_doc_recieved = newValue;
 
           try {
@@ -938,44 +1044,41 @@ function DoPlanning() {
               { headers }
             );
 
-            // Update the main state
             setRows((prevRows) =>
               prevRows.map((r) =>
                 r._id === _id ? { ...r, is_og_doc_recieved: newValue } : r
               )
             );
           } catch (error) {
-            // Revert the changes on error
             setIsOgDocRecieved(previousValue);
             row.original.is_og_doc_recieved = previousValue;
             console.error("Error updating OG doc received status:", error);
-
-            // Revert the state as well
-            setRows((prevRows) =>
-              prevRows.map((r) =>
-                r._id === _id ? { ...r, is_og_doc_recieved: previousValue } : r
-              )
-            );
           }
         };
 
+        if (isShrunk) {
+          return (
+            <div>
+              <span style={{ fontWeight: 600 }}>{importerName}</span>
+              <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "2px" }}>
+                {isDoDocPrepared && (
+                  <Chip size="small" label="Doc Prep" sx={{ bgcolor: "#dcfce7", color: "#15803d", fontSize: "10px", height: "18px" }} />
+                )}
+                {isOgDocRecieved && (
+                  <Chip size="small" label="OG Recv" sx={{ bgcolor: "#e0f2fe", color: "#0369a1", fontSize: "10px", height: "18px" }} />
+                )}
+              </div>
+            </div>
+          );
+        }
+
         return (
           <React.Fragment>
-            {importerName}
-            <IconButton
-              size="small"
-              onPointerOver={(e) => (e.target.style.cursor = "pointer")}
-              onClick={(event) => {
-                handleCopy(event, importerName);
-              }}
-            >
-              <abbr title="Copy Party Name">
-                <ContentCopyIcon fontSize="inherit" />
-              </abbr>
-            </IconButton>
-            {/* Show payment request info if available from charges */}
+            <div>{importerName}</div>
+            
+            {/* Show payment request tags if available from charges */}
             {paymentRequests.length > 0 && (
-              <div style={{ marginTop: 4 }}>
+              <div style={{ marginTop: "4px" }}>
                 <div
                   style={{
                     color: "#d32f2f",
@@ -1082,6 +1185,7 @@ function DoPlanning() {
       enableSorting: false,
       size: 300,
       Cell: ({ cell }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[cell.row.original?._id];
         const {
           be_no,
           igm_date,
@@ -1090,6 +1194,22 @@ function DoPlanning() {
           gateway_igm_date,
           gateway_igm,
         } = cell.row.original;
+
+        if (isShrunk) {
+          return (
+            <div style={{ fontSize: "12px" }}>
+              <div>
+                <strong>BE: </strong>{be_no || "N/A"}
+                {be_date && <span style={{ color: "#64748b", marginLeft: "4px" }}>({be_date})</span>}
+              </div>
+              {igm_no && (
+                <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
+                  IGM: {igm_no}
+                </div>
+              )}
+            </div>
+          );
+        }
 
         return (
           <div>
@@ -1219,6 +1339,7 @@ function DoPlanning() {
       header: "BL Number",
       size: 220,
       Cell: ({ row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
         const vesselFlight = row.original.vessel_flight?.toString() || "N/A";
         const voyageNo = row.original.voyage_no?.toString() || "N/A";
         const line_no = row.original.line_no || "N/A";
@@ -1237,10 +1358,7 @@ function DoPlanning() {
           const newValue = event.target.checked;
           const previousValue = isOblReceived;
 
-          // Update local state immediately
           setIsOblReceived(newValue);
-
-          // Update the row data directly
           row.original.is_obl_recieved = newValue;
 
           try {
@@ -1261,9 +1379,7 @@ function DoPlanning() {
               updateData,
               { headers }
             );
-            console.log("OBL status and date updated successfully");
 
-            // Update the main state
             setRows((prevRows) =>
               prevRows.map((r) =>
                 r._id === _id ? { ...r, is_obl_recieved: newValue } : r
@@ -1271,18 +1387,23 @@ function DoPlanning() {
             );
           } catch (error) {
             console.error("Error updating OBL status:", error);
-            // Revert the changes on error
             setIsOblReceived(previousValue);
             row.original.is_obl_recieved = previousValue;
-
-            // Revert the state as well
-            setRows((prevRows) =>
-              prevRows.map((r) =>
-                r._id === _id ? { ...r, is_obl_recieved: previousValue } : r
-              )
-            );
           }
         };
+
+        if (isShrunk) {
+          return (
+            <div>
+              <span style={{ fontWeight: 600 }}>{row.original.awb_bl_no || "-"}</span>
+              {shipping_line_airline && (
+                <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
+                  {shipping_line_airline}
+                </div>
+              )}
+            </div>
+          );
+        }
 
         return (
           <React.Fragment>
@@ -1373,7 +1494,25 @@ function DoPlanning() {
       header: "Container Numbers and Size",
       size: 200,
       Cell: ({ cell }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[cell.row.original?._id];
         const containerNos = cell.row.original.container_nos;
+
+        if (isShrunk) {
+          const count = containerNos?.length || 0;
+          return (
+            <div>
+              <strong>
+                {count > 0 ? `${count} Container(s)` : `${cell.row.original?.no_of_pkgs || 0} Pkg(s)`}
+              </strong>
+              {containerNos?.[0]?.container_number && (
+                <span style={{ fontSize: "11px", color: "#64748b", marginLeft: "4px" }}>
+                  ({containerNos[0].container_number})
+                </span>
+              )}
+            </div>
+          );
+        }
+
         return (
           <React.Fragment>
             {containerNos?.map((container, id) => (
@@ -1410,6 +1549,11 @@ function DoPlanning() {
       accessorKey: "free_time",
       header: "Free Time",
       size: 100,
+      Cell: ({ cell, row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
+        const val = cell?.getValue()?.toString() || "-";
+        return <span style={{ fontWeight: isShrunk ? 600 : 400 }}>{val}</span>;
+      }
     },
     {
       accessorKey: "displayDate",
@@ -1417,6 +1561,7 @@ function DoPlanning() {
       enableSorting: false,
       size: 200,
       Cell: ({ row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
         const displayDate = row.original.displayDate || "N/A";
         const do_list = row.original.do_list || "N/A";
         const typeOfDo = row.original.type_of_Do || "N/A";
@@ -1435,10 +1580,7 @@ function DoPlanning() {
           const newValue = event.target.checked;
           const previousValue = isDoDocRecieved;
 
-          // Update local state immediately
           setIsDoDocRecieved(newValue);
-
-          // Update the row data directly
           row.original.is_do_doc_recieved = newValue;
 
           try {
@@ -1460,26 +1602,28 @@ function DoPlanning() {
               { headers }
             );
 
-            // Update the main state
             setRows((prevRows) =>
               prevRows.map((r) =>
                 r._id === _id ? { ...r, is_do_doc_recieved: newValue } : r
               )
             );
           } catch (error) {
-            // Revert the changes on error
             setIsDoDocRecieved(previousValue);
             row.original.is_do_doc_recieved = previousValue;
             console.error("Error updating DO doc received status:", error);
-
-            // Revert the state as well
-            setRows((prevRows) =>
-              prevRows.map((r) =>
-                r._id === _id ? { ...r, is_do_doc_recieved: previousValue } : r
-              )
-            );
           }
         };
+
+        if (isShrunk) {
+          return (
+            <div style={{ fontSize: "12px" }}>
+              <span style={{ fontWeight: 600 }}>{displayDate}</span>
+              {typeOfDo && typeOfDo !== "N/A" && (
+                <div style={{ fontSize: "11px", color: "#64748b" }}>{typeOfDo}</div>
+              )}
+            </div>
+          );
+        }
 
         return (
           <div
@@ -1524,7 +1668,17 @@ function DoPlanning() {
       header: "DO Revalidation Upto",
       size: 180,
       Cell: ({ cell }) => {
-        const containers = cell.row.original.container_nos;
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[cell.row.original?._id];
+        const containers = cell.row.original.container_nos || [];
+
+        if (isShrunk) {
+          const revalCount = containers.reduce((acc, c) => acc + (c.do_revalidation?.length || 0), 0);
+          return (
+            <span style={{ fontSize: "12px", color: revalCount > 0 ? "#2563eb" : "#64748b" }}>
+              {revalCount > 0 ? `${revalCount} Reval(s)` : "-"}
+            </span>
+          );
+        }
 
         return (
           <React.Fragment>
@@ -1559,6 +1713,7 @@ function DoPlanning() {
       enableSorting: false,
       size: 300,
       Cell: ({ cell }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[cell.row.original?._id];
         const { processed_be_attachment, cth_documents, checklist } =
           cell.row.original;
 
@@ -1573,6 +1728,15 @@ function DoPlanning() {
         const processed_be_attachmentLink = getFirstLink(
           processed_be_attachment
         );
+
+        if (isShrunk) {
+          const docCount = (checklistLink ? 1 : 0) + (processed_be_attachmentLink ? 1 : 0) + (cth_documents?.length || 0);
+          return (
+            <span style={{ fontSize: "12px", color: docCount > 0 ? "#007bff" : "gray" }}>
+              {docCount > 0 ? `${docCount} Document(s)` : "No Documents"}
+            </span>
+          );
+        }
 
         return (
           <div style={{ textAlign: "left" }}>
@@ -1613,7 +1777,10 @@ function DoPlanning() {
               </div>
             ) : (
               <div style={{ marginBottom: "5px" }}>
-                <span style={{ color: "gray" }}>Processed Copy of BE no.</span>
+                <span style={{ color: "gray" }}>
+                  {" "}
+                  Processed Copy of BE no.{" "}
+                </span>
               </div>
             )}
 
@@ -1646,10 +1813,41 @@ function DoPlanning() {
     muiTableContainerProps: {
       sx: { maxHeight: "650px", overflowY: "auto" },
     },
-    muiTableBodyRowProps: ({ row }) => ({
-      className: getTableRowsClassname(row),
-      style: getTableRowInlineStyle(row),
-    }),
+    muiTableBodyRowProps: ({ row }) => {
+      const status = row.original.payment_made;
+      const rowClass = status !== "No" && status !== undefined ? "payment_made" : "";
+
+      const baseProps = {
+        className: rowClass,
+        style: getTableRowInlineStyle(row),
+      };
+
+      if (viewMode === "shrink") {
+        return {
+          ...baseProps,
+          style: {
+            ...(baseProps.style || {}),
+            cursor: "pointer",
+          },
+          onClick: (event) => {
+            const targetTagName = event.target?.tagName?.toLowerCase() || "";
+            if (["a", "button", "input", "textarea", "select"].includes(targetTagName)) {
+              return;
+            }
+            if (
+              event.target?.closest?.(
+                "a, button, input, textarea, select, .MuiIconButton-root, .MuiChip-root"
+              )
+            ) {
+              return;
+            }
+            toggleRowExpanded(row.original._id);
+          },
+        };
+      }
+
+      return baseProps;
+    },
     muiTableHeadCellProps: {
       sx: {
         position: "sticky",
@@ -1662,48 +1860,165 @@ function DoPlanning() {
         style={{
           display: "flex",
           flexDirection: "column",
-          width: "100%",
           gap: "16px",
-          padding: "16px",
-          backgroundColor: "#f8f9fa",
-          borderRadius: "8px",
-          marginBottom: "8px",
+          width: "100%",
+          padding: "8px 0",
         }}
       >
-        {/* First Row - Header and Counts */}
+        {/* First Row - Counts and Quick Filters */}
         <div
           style={{
             display: "flex",
-            alignItems: "center",
             justifyContent: "space-between",
-            borderBottom: "1px solid #e0e0e0",
-            paddingBottom: "12px",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: "16px",
           }}
         >
-          <DoDocCountsDisplay />
+          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+            <DoDocCountsDisplay />
+          </div>
 
-          <Tooltip title="Show Today's Planning Jobs">
-            <IconButton
-              onClick={() => setShowDoPlanningTodayOnly((prev) => !prev)}
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+            {/* View Mode Toggle Switch */}
+            <Box
               sx={{
-                backgroundColor: showDoPlanningTodayOnly ? '#e3f2fd' : 'transparent',
-                border: showDoPlanningTodayOnly ? '1px solid #1976d2' : '1px solid transparent',
-                borderRadius: '50%',
-                padding: '8px'
+                display: "flex",
+                alignItems: "center",
+                gap: 0.5,
+                bgcolor: "#f1f5f9",
+                p: "2px",
+                borderRadius: "8px",
+                border: "1px solid #cbd5e1",
               }}
             >
-              <Badge badgeContent={doPlanningTodayCount} color="error">
-                <NotificationsIcon color={showDoPlanningTodayOnly ? "primary" : "action"} />
-              </Badge>
-            </IconButton>
-          </Tooltip>
+              <Tooltip title="Full Table View" arrow>
+                <button
+                  type="button"
+                  className={`toggle-btn ${viewMode === "full" ? "active" : ""}`}
+                  onClick={() => handleViewModeChange("full")}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    padding: "5px 9px",
+                    border: "none",
+                    borderRadius: "6px",
+                    backgroundColor: viewMode === "full" ? "#ffffff" : "transparent",
+                    color: viewMode === "full" ? "#2563eb" : "#64748b",
+                    fontWeight: "700",
+                    fontSize: "12px",
+                    cursor: "pointer",
+                    boxShadow: viewMode === "full" ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
+                  }}
+                >
+                  <TableRowsIcon sx={{ fontSize: 16 }} />
+                  Full
+                </button>
+              </Tooltip>
+              <Tooltip title="Shrink List View" arrow>
+                <button
+                  type="button"
+                  className={`toggle-btn ${viewMode === "shrink" ? "active" : ""}`}
+                  onClick={() => handleViewModeChange("shrink")}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    padding: "5px 9px",
+                    border: "none",
+                    borderRadius: "6px",
+                    backgroundColor: viewMode === "shrink" ? "#ffffff" : "transparent",
+                    color: viewMode === "shrink" ? "#2563eb" : "#64748b",
+                    fontWeight: "700",
+                    fontSize: "12px",
+                    cursor: "pointer",
+                    boxShadow: viewMode === "shrink" ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
+                  }}
+                >
+                  <ViewHeadlineIcon sx={{ fontSize: 16 }} />
+                  Shrink
+                </button>
+              </Tooltip>
+            </Box>
+
+            <Box sx={{ position: "relative" }}>
+              <Button
+                variant={showUnresolvedOnly ? "contained" : "outlined"}
+                color="primary"
+                size="small"
+                onClick={() => setShowUnresolvedOnly((prev) => !prev)}
+                sx={{
+                  borderRadius: 3,
+                  textTransform: "none",
+                  fontWeight: 500,
+                  fontSize: "0.875rem",
+                  padding: "8px 20px",
+                }}
+              >
+                {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
+              </Button>
+              <Badge
+                badgeContent={unresolvedCount}
+                color="error"
+                overlap="circular"
+                anchorOrigin={{ vertical: "top", horizontal: "right" }}
+                sx={{
+                  position: "absolute",
+                  top: 4,
+                  right: 4,
+                  "& .MuiBadge-badge": {
+                    fontSize: "0.75rem",
+                    minWidth: "18px",
+                    height: "18px",
+                    boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                  },
+                }}
+              />
+            </Box>
+
+            <Box sx={{ position: "relative" }}>
+              <Button
+                variant={showDoPlanningTodayOnly ? "contained" : "outlined"}
+                color="secondary"
+                size="small"
+                onClick={() => setShowDoPlanningTodayOnly((prev) => !prev)}
+                sx={{
+                  borderRadius: 3,
+                  textTransform: "none",
+                  fontWeight: 500,
+                  fontSize: "0.875rem",
+                  padding: "8px 20px",
+                }}
+              >
+                DO Planned Today
+              </Button>
+              <Badge
+                badgeContent={doPlanningTodayCount}
+                color="secondary"
+                overlap="circular"
+                anchorOrigin={{ vertical: "top", horizontal: "right" }}
+                sx={{
+                  position: "absolute",
+                  top: 4,
+                  right: 4,
+                  "& .MuiBadge-badge": {
+                    fontSize: "0.75rem",
+                    minWidth: "18px",
+                    height: "18px",
+                    boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                  },
+                }}
+              />
+            </Box>
+          </div>
         </div>
 
         {/* Second Row - Filters */}
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
             gap: "16px",
             alignItems: "end",
           }}
@@ -1821,7 +2136,7 @@ function DoPlanning() {
             ))}
           </TextField>
 
-          <div style={{ gridColumn: "span 2", minWidth: "300px" }}>
+          <div style={{ minWidth: "220px" }}>
             <TextField
               placeholder="Search by Job No, Importer, AWB/BL Number..."
               size="small"
@@ -1852,61 +2167,6 @@ function DoPlanning() {
               }}
             />
           </div>
-
-
-
-
-
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <Box sx={{ position: "relative" }}>
-              <Button
-                variant="contained"
-                size="small"
-                onClick={() => setShowUnresolvedOnly((prev) => !prev)}
-                sx={{
-                  borderRadius: 3,
-                  textTransform: "none",
-                  fontWeight: 500,
-                  fontSize: "0.875rem",
-                  padding: "8px 20px",
-                  background:
-                    "linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)",
-                  color: "#ffffff",
-                  border: "none",
-                  boxShadow: "0 4px 12px rgba(25, 118, 210, 0.3)",
-                  transition: "all 0.3s ease",
-                  "&:hover": {
-                    background:
-                      "linear-gradient(135deg, #1565c0 0%, #1976d2 100%)",
-                    boxShadow: "0 6px 16px rgba(25, 118, 210, 0.4)",
-                    transform: "translateY(-1px)",
-                  },
-                  "&:active": {
-                    transform: "translateY(0px)",
-                  },
-                }}
-              >
-                {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
-              </Button>
-              <Badge
-                badgeContent={unresolvedCount}
-                color="error"
-                overlap="circular"
-                anchorOrigin={{ vertical: "top", horizontal: "right" }}
-                sx={{
-                  position: "absolute",
-                  top: 4,
-                  right: 4,
-                  "& .MuiBadge-badge": {
-                    fontSize: "0.75rem",
-                    minWidth: "18px",
-                    height: "18px",
-                    boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-                  },
-                }}
-              />
-            </Box>
-          </Box>
         </div>
       </div>
     ),

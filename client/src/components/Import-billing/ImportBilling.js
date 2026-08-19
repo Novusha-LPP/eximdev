@@ -948,211 +948,84 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
       <div
         style={{
           display: "flex",
-          justifyContent: "space-around",
-          alignItems: "center",
+          flexDirection: "column",
+          gap: "16px",
           width: "100%",
-          flexWrap: "wrap",
-          gap: "12px",
-          paddingBottom: "10px"
+          padding: "8px 0",
         }}
       >
-        {/* Job Count Display */}
-        <Typography
-          variant="body1"
-          sx={{ fontWeight: "bold", fontSize: "1.5rem", marginRight: "auto" }}
-        >
-          Job Count: {totalJobs}
-        </Typography>
-
-        <Autocomplete
-          sx={{ width: "300px", marginRight: "20px" }}
-          freeSolo
-          options={importerNames.map((option) => option.label)}
-          value={selectedImporter || ""} // Controlled value
-          onInputChange={(event, newValue) => {
-            setSelectedImporter(newValue);
-            setPage(1);
+        {/* Row 1 - Counts and Actions */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: "16px",
           }}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              variant="outlined"
-              size="small"
-              fullWidth
-              label="Select Importer" // Placeholder text
-            />
-          )}
-        />
-
-        <TextField
-          select
-          size="small"
-          value={selectedYearState}
-          onChange={(e) => setSelectedYearState(e.target.value)}
-          sx={{ width: "200px", marginRight: "20px" }}
         >
-          {years.map((year, index) => (
-            <MenuItem key={`year-${year}-${index}`} value={year}>
-              {year}
-            </MenuItem>
-          ))}
-        </TextField>
-
-        <TextField
-          placeholder="Search by Job No, Importer, or AWB/BL Number"
-          size="small"
-          variant="outlined"
-          value={searchQuery}
-          onChange={handleSearchInputChange}
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <IconButton
-                  onClick={() => {
-                    setDebouncedSearchQuery(searchQuery);
-                    setPage(1);
-                  }}
-                >
-                  <SearchIcon />
-                </IconButton>
-              </InputAdornment>
-            ),
-          }}
-          sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
-        />
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-          <Button
-            variant="contained"
-            color="success"
-            size="small"
-            onClick={(e) => setExcelPopoverAnchor(e.currentTarget)}
-            sx={{
-              borderRadius: 3,
-              textTransform: "none",
-              fontWeight: 500,
-              fontSize: "0.875rem",
-              padding: "8px 20px",
-              boxShadow: "0 4px 12px rgba(46, 125, 50, 0.3)",
-              transition: "all 0.3s ease",
-              "&:hover": {
-                background: "#2e7d32",
-                boxShadow: "0 6px 16px rgba(46, 125, 50, 0.4)",
-                transform: "translateY(-1px)",
-              },
-              "&:active": {
-                transform: "translateY(0px)",
-              },
-            }}
+          <Typography
+            variant="body1"
+            sx={{ fontWeight: "bold", fontSize: "1.5rem" }}
           >
-            Download Excel
-          </Button>
+            Job Count: {totalJobs}
+          </Typography>
 
-          <Popover
-            open={Boolean(excelPopoverAnchor)}
-            anchorEl={excelPopoverAnchor}
-            onClose={() => setExcelPopoverAnchor(null)}
-            anchorOrigin={{
-              vertical: 'bottom',
-              horizontal: 'left',
-            }}
-            transformOrigin={{
-              vertical: 'top',
-              horizontal: 'left',
-            }}
-            PaperProps={{
-              sx: {
-                p: 3,
-                width: '320px',
-                mt: 1,
-                borderRadius: 3,
-                boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 2
-              }
-            }}
-          >
-            <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: '#1a237e', mb: 1 }}>
-              SELECT SENT FOR BILLING DATE RANGE
-            </Typography>
-            <TextField
-              type="date"
-              label="From Date"
-              size="small"
-              value={fromDate}
-              onChange={(e) => setFromDate(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              fullWidth
-            />
-            <TextField
-              type="date"
-              label="To Date"
-              size="small"
-              value={toDate}
-              onChange={(e) => setToDate(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              fullWidth
-            />
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+            <Box sx={{ position: "relative" }}>
               <Button
+                variant={showUnresolvedOnly ? "contained" : "outlined"}
+                color="primary"
                 size="small"
-                color="error"
                 onClick={() => {
-                  setFromDate("");
-                  setToDate("");
+                  setShowUnresolvedOnly((prev) => !prev);
+                  setPage(1);
                 }}
-                sx={{ textTransform: "none" }}
+                sx={{
+                  borderRadius: 3,
+                  textTransform: "none",
+                  fontWeight: 500,
+                  fontSize: "0.875rem",
+                  padding: "8px 20px",
+                }}
               >
-                Clear
+                {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
               </Button>
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={() => setExcelPopoverAnchor(null)}
-                  sx={{ textTransform: "none" }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="small"
-                  variant="contained"
-                  color="success"
-                  onClick={() => {
-                    handleDownloadExcel();
-                    setExcelPopoverAnchor(null);
-                  }}
-                  sx={{ textTransform: "none" }}
-                >
-                  Download
-                </Button>
-              </Box>
+              <Badge
+                badgeContent={unresolvedCount}
+                color="error"
+                overlap="circular"
+                anchorOrigin={{ vertical: "top", horizontal: "right" }}
+                sx={{
+                  position: "absolute",
+                  top: 4,
+                  right: 4,
+                  "& .MuiBadge-badge": {
+                    fontSize: "0.75rem",
+                    minWidth: "18px",
+                    height: "18px",
+                    boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                  },
+                }}
+              />
             </Box>
-          </Popover>
 
-          <Box sx={{ position: "relative" }}>
             <Button
               variant="contained"
+              color="success"
               size="small"
-              onClick={() => {
-                setShowUnresolvedOnly((prev) => !prev);
-                setPage(1);
-              }}
+              onClick={(e) => setExcelPopoverAnchor(e.currentTarget)}
               sx={{
                 borderRadius: 3,
                 textTransform: "none",
                 fontWeight: 500,
                 fontSize: "0.875rem",
                 padding: "8px 20px",
-                background: "linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)",
-                color: "#ffffff",
-                border: "none",
-                boxShadow: "0 4px 12px rgba(25, 118, 210, 0.3)",
+                boxShadow: "0 4px 12px rgba(46, 125, 50, 0.3)",
                 transition: "all 0.3s ease",
                 "&:hover": {
-                  background:
-                    "linear-gradient(135deg, #1565c0 0%, #1976d2 100%)",
-                  boxShadow: "0 6px 16px rgba(25, 118, 210, 0.4)",
+                  background: "#2e7d32",
+                  boxShadow: "0 6px 16px rgba(46, 125, 50, 0.4)",
                   transform: "translateY(-1px)",
                 },
                 "&:active": {
@@ -1160,27 +1033,177 @@ function ImportBilling({ workMode = 'Payment', isDoView = false }) {
                 },
               }}
             >
-              {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
+              Download Excel
             </Button>
-            <Badge
-              badgeContent={unresolvedCount}
-              color="error"
-              overlap="circular"
-              anchorOrigin={{ vertical: "top", horizontal: "right" }}
+
+            <Popover
+              open={Boolean(excelPopoverAnchor)}
+              anchorEl={excelPopoverAnchor}
+              onClose={() => setExcelPopoverAnchor(null)}
+              anchorOrigin={{
+                vertical: 'bottom',
+                horizontal: 'left',
+              }}
+              transformOrigin={{
+                vertical: 'top',
+                horizontal: 'left',
+              }}
+              PaperProps={{
+                sx: {
+                  p: 3,
+                  width: '320px',
+                  mt: 1,
+                  borderRadius: 3,
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 2
+                }
+              }}
+            >
+              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: '#1a237e', mb: 1 }}>
+                SELECT SENT FOR BILLING DATE RANGE
+              </Typography>
+              <TextField
+                type="date"
+                label="From Date"
+                size="small"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                fullWidth
+              />
+              <TextField
+                type="date"
+                label="To Date"
+                size="small"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                fullWidth
+              />
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
+                <Button
+                  size="small"
+                  color="error"
+                  onClick={() => {
+                    setFromDate("");
+                    setToDate("");
+                  }}
+                  sx={{ textTransform: "none" }}
+                >
+                  Clear
+                </Button>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => setExcelPopoverAnchor(null)}
+                    sx={{ textTransform: "none" }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    color="success"
+                    onClick={() => {
+                      handleDownloadExcel();
+                      setExcelPopoverAnchor(null);
+                    }}
+                    sx={{ textTransform: "none" }}
+                  >
+                    Download
+                  </Button>
+                </Box>
+              </Box>
+            </Popover>
+          </div>
+        </div>
+
+        {/* Row 2 - Filters */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+            gap: "16px",
+            alignItems: "end",
+          }}
+        >
+          <Autocomplete
+            size="small"
+            options={importerNames.map((option) => option.label)}
+            value={selectedImporter || ""}
+            onInputChange={(event, newValue) => {
+              setSelectedImporter(newValue);
+              setPage(1);
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                variant="outlined"
+                label="Select Importer"
+                fullWidth
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    backgroundColor: "white",
+                  },
+                }}
+              />
+            )}
+          />
+          <TextField
+            select
+            size="small"
+            value={selectedYearState}
+            onChange={(e) => setSelectedYearState(e.target.value)}
+            label="Financial Year"
+            fullWidth
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                backgroundColor: "white",
+              },
+            }}
+          >
+            {years.map((year, index) => (
+              <MenuItem key={`year-${year}-${index}`} value={year}>
+                {year}
+              </MenuItem>
+            ))}
+          </TextField>
+
+          <div style={{ minWidth: "220px" }}>
+            <TextField
+              placeholder="Search by Job No, Importer, or AWB/BL Number"
+              size="small"
+              variant="outlined"
+              fullWidth
+              value={searchQuery}
+              onChange={handleSearchInputChange}
+              label="Search"
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => {
+                        setDebouncedSearchQuery(searchQuery);
+                        setPage(1);
+                      }}
+                      size="small"
+                    >
+                      <SearchIcon />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
               sx={{
-                position: "absolute",
-                top: 4,
-                right: 4,
-                "& .MuiBadge-badge": {
-                  fontSize: "0.75rem",
-                  minWidth: "18px",
-                  height: "18px",
-                  boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                "& .MuiOutlinedInput-root": {
+                  backgroundColor: "white",
                 },
               }}
             />
-          </Box>
-        </Box>
+          </div>
+        </div>
       </div>
     ),
   };

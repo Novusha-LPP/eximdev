@@ -12,12 +12,18 @@ import {
   Typography,
   MenuItem,
   Autocomplete,
+  Tooltip,
+  Box,
 } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import SearchIcon from "@mui/icons-material/Search";
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
 import EditIcon from "@mui/icons-material/Edit";
+import TableRowsIcon from "@mui/icons-material/TableRows";
+import ViewHeadlineIcon from "@mui/icons-material/ViewHeadline";
+import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { useContext } from "react";
 import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
@@ -27,6 +33,7 @@ import ContainerTrackButton from '../ContainerTrackButton';
 import { BranchContext } from "../../contexts/BranchContext.js";
 import useDynamicICDs from "../../customHooks/useDynamicICDs";
 import InvoiceDisplay from "./InvoiceDisplay.js";
+import ContainerCellContent from "../ContainerCellContent";
 
 const FreeDaysConf = () => {
   const { user } = useContext(UserContext);
@@ -46,6 +53,32 @@ const FreeDaysConf = () => {
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(""); // Debounced query
   const limit = 100; // Items per page
 
+  // View Mode: 'full' vs 'shrink'
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      return localStorage.getItem("exim_import_do_view_mode") || "full";
+    } catch (e) {
+      return "full";
+    }
+  });
+
+  const handleViewModeChange = useCallback((mode) => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem("exim_import_do_view_mode", mode);
+    } catch (e) {}
+  }, []);
+
+  const [expandedRowIds, setExpandedRowIds] = useState({});
+
+  const toggleRowExpanded = useCallback((rowId) => {
+    if (!rowId) return;
+    setExpandedRowIds((prev) => ({
+      ...prev,
+      [rowId]: !prev[rowId],
+    }));
+  }, []);
+
   const [editingRowId, setEditingRowId] = useState(null); // Track the row being edited
   const [freeTimeValue, setFreeTimeValue] = useState(""); // Track the value being edited
   const [currentPageBeforeEdit, setCurrentPageBeforeEdit] = useState(1);
@@ -61,8 +94,6 @@ const FreeDaysConf = () => {
     }
     getImporterList();
   }, [selectedYearState]);
-  // Function to build the search query (not needed on client-side, handled by server)
-  // Keeping it in case you want to extend client-side filtering
 
   const getUniqueImporterNames = (importerData) => {
     if (!importerData || !Array.isArray(importerData)) return [];
@@ -153,26 +184,25 @@ const FreeDaysConf = () => {
 
         setRows(jobs);
         setTotalPages(totalPages);
-        setPage(returnedPage); // Ensure the page state stays in sync
+        setPage(returnedPage);
         setTotalJobs(totalJobs);
       } catch (error) {
         console.error("Error fetching data:", error);
-        setRows([]); // Reset data on failure
+        setRows([]);
         setTotalPages(1);
-      } finally {
       }
     },
-    [limit, user?.username, selectedYearState, selectedICD, selectedImporter, selectedBranch, selectedCategory, debouncedSearchQuery] 
+    [limit, user?.username]
   );
 
-  // Fetch jobs when dependencies change
+  // Fetch jobs with pagination
   useEffect(() => {
     if (selectedYearState && user?.username) {
       // Ensure year and username are available before calling API
       fetchJobs(
         page,
         debouncedSearchQuery,
-        selectedYearState,
+        selectedYearState, // ✅ Now using the persistent state
         selectedICD,
         selectedImporter,
         selectedBranch,
@@ -186,87 +216,66 @@ const FreeDaysConf = () => {
     selectedICD,
     selectedImporter,
     user?.username,
-    fetchJobs,
     selectedBranch,
     selectedCategory,
+    fetchJobs,
   ]);
 
-  // Debounce search input to avoid excessive API calls
+  // Debounce search query to reduce excessive API calls
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
-    }, 500); // 500ms delay
-
-    return () => clearTimeout(handler); // Cleanup on component unmount
+    }, 500); // 500ms debounce delay
+    return () => clearTimeout(handler); // Cleanup on unmount
   }, [searchQuery]);
 
   const handlePageChange = (event, newPage) => {
-    setPage(newPage); // Update the page number
+    setPage(newPage);
   };
-  const handleCopy = (event, text) => {
-    // Optimized handleCopy function using useCallback to avoid re-creation on each render
 
+  const handleCopy = useCallback((event, text) => {
     event.stopPropagation();
-
+    if (!text || text === "N/A") return; // Prevent copying empty values
     if (
       navigator.clipboard &&
       typeof navigator.clipboard.writeText === "function"
     ) {
       navigator.clipboard
         .writeText(text)
-        .then(() => {
-          console.log("Text copied to clipboard:", text);
-        })
-        .catch((err) => {
-          alert("Failed to copy text to clipboard.");
-          console.error("Failed to copy:", err);
-        });
+        .then(() => console.log("Copied:", text))
+        .catch((err) => console.error("Copy failed:", err));
     } else {
-      // Fallback approach for older browsers
       const textArea = document.createElement("textarea");
       textArea.value = text;
       document.body.appendChild(textArea);
-      textArea.focus();
       textArea.select();
       try {
         document.execCommand("copy");
-        console.log("Text copied to clipboard using fallback method:", text);
+        console.log("Copied (fallback):", text);
       } catch (err) {
-        alert("Failed to copy text to clipboard.");
-        console.error("Fallback copy failed:", err);
+        console.error("Fallback failed:", err);
       }
       document.body.removeChild(textArea);
     }
-  };
+  }, []);
 
   const handleEditClick = (row) => {
-    if (row.consignment_type !== "LCL") {
-      setEditingRowId(row._id); // Use the MongoDB `_id` field to identify the row
-      setFreeTimeValue(row.free_time); // Set the current value for editing
-      setCurrentPageBeforeEdit(page); // Remember the current page before editing
-    } else {
-      alert("Free Time cannot be edited for LCL consignment type.");
-    }
+    setCurrentPageBeforeEdit(page); // Save the current page before editing
+    setEditingRowId(row._id); // Compare using _id
+    setFreeTimeValue(row.free_time || ""); // Set initial value for input
   };
 
   const handleSave = async (id) => {
     try {
-      // API call to save the new value using PATCH
-      await axios.patch(
+      await axios.put(
         `${process.env.REACT_APP_API_STRING}/update-free-time/${id}`,
         {
           free_time: freeTimeValue,
         }
       );
 
-      // // Update the state to reflect the new value
-      // setRows((prevRows) =>
-      //   prevRows.map((row) =>
-      //     row._id === id ? { ...row, free_time: freeTimeValue } : row
-      //   )
-      // );
-      // Fetch the latest jobs with the original page preserved
-      await fetchJobs(
+      // Re-fetch jobs with the updated free time and retain the page
+      fetchJobs(
         currentPageBeforeEdit, 
         debouncedSearchQuery, 
         selectedYearState, 
@@ -292,34 +301,112 @@ const FreeDaysConf = () => {
       header: "Job No ",
       muiTableHeadCellProps: { align: "center" },
       muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
-      size: 120,
+      size: 150,
       Cell: ({ cell }) => {
+        const row = cell.row.original;
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row._id];
         const { job_no, year, custom_house, type_of_b_e, consignment_type, _id, mode, branch_code, trade_type } =
-          cell.row.original;
+          row;
 
-        // Debug log to check if year is available
-        if (!year) {
-          console.warn(`Year is undefined for job ${job_no}:`, cell.row.original);
+        if (isShrunk) {
+          return (
+            <div style={{ textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleRowExpanded(row._id);
+                }}
+                sx={{ p: 0.2 }}
+                title="Click to expand row"
+              >
+                <KeyboardArrowRightIcon sx={{ fontSize: 18, color: "#64748b" }} />
+              </IconButton>
+              <Link
+                to={`/edit-free-days-conf/${branch_code}/${trade_type}/${mode}/${job_no}/${year || 'unknown'}?jobId=${_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  cursor: "pointer",
+                  color: "blue",
+                  padding: "3px 6px",
+                  borderRadius: "4px",
+                  fontWeight: "bold",
+                  display: "inline-block",
+                  textDecoration: "none",
+                  fontSize: "13px",
+                }}
+              >
+                {row.job_number || job_no}
+              </Link>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCopy(e, row.job_number || job_no);
+                }}
+                sx={{ p: 0.2 }}
+                title="Copy Job Number"
+              >
+                <ContentCopyIcon sx={{ fontSize: "14px", color: "#64748b" }} />
+              </IconButton>
+              {type_of_b_e && (
+                <span style={{ fontSize: "11px", color: "#64748b" }}>
+                  ({type_of_b_e})
+                </span>
+              )}
+            </div>
+          );
         }
 
         return (
-          <Link
-            to={`/edit-free-days-conf/${branch_code}/${trade_type}/${mode}/${job_no}/${year || 'unknown'}?jobId=${_id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              textAlign: "center",
-              cursor: "pointer",
-              color: "blue",
-              display: "inline-block",
-              width: "100%",
-              padding: "5px",
-              textDecoration: "none",
-            }}
-          >
-            {job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
-            {custom_house}
-          </Link>
+          <div style={{ textAlign: "center" }}>
+            {viewMode === "shrink" && (
+              <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: "4px" }}>
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleRowExpanded(row._id);
+                  }}
+                  sx={{ p: 0.2 }}
+                  title="Click to collapse row"
+                >
+                  <KeyboardArrowDownIcon sx={{ fontSize: 18, color: "#2563eb" }} />
+                </IconButton>
+              </div>
+            )}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+              <Link
+                to={`/edit-free-days-conf/${branch_code}/${trade_type}/${mode}/${job_no}/${year || 'unknown'}?jobId=${_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  textAlign: "center",
+                  cursor: "pointer",
+                  color: "blue",
+                  display: "inline-block",
+                  padding: "5px",
+                  textDecoration: "none",
+                }}
+              >
+                {row.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+                {custom_house}
+              </Link>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCopy(e, row.job_number || job_no);
+                }}
+                sx={{ p: 0.2 }}
+                title="Copy Job Number"
+              >
+                <ContentCopyIcon sx={{ fontSize: "14px", color: "#64748b" }} />
+              </IconButton>
+            </div>
+          </div>
         );
       },
     },
@@ -327,19 +414,49 @@ const FreeDaysConf = () => {
       accessorKey: "importer",
       header: "Importer",
       size: 200,
+      Cell: ({ cell, row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
+        const importer = cell?.getValue()?.toString() || "";
+        if (isShrunk) {
+          return <span style={{ fontWeight: 600 }}>{importer}</span>;
+        }
+        return <span>{importer}</span>;
+      },
     },
 
     {
       accessorKey: "shipping_line_airline",
       header: "Shipping Line",
       size: 200,
+      Cell: ({ cell, row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
+        const shippingLine = cell?.getValue()?.toString() || "-";
+        if (isShrunk) {
+          return <span style={{ fontSize: "12px", fontWeight: 500 }}>{shippingLine}</span>;
+        }
+        return <span>{shippingLine}</span>;
+      },
     },
     {
       accessorKey: "awb_bl_no",
       header: "BL Number",
       size: 200,
       Cell: ({ row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
         const line_no = row.original.line_no || "N/A";
+
+        if (isShrunk) {
+          return (
+            <div>
+              <span style={{ fontWeight: 600 }}>{row.original.awb_bl_no || "-"}</span>
+              {line_no && line_no !== "N/A" && (
+                <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
+                  Line: {line_no}
+                </div>
+              )}
+            </div>
+          );
+        }
 
         return (
           <>
@@ -355,7 +472,6 @@ const FreeDaysConf = () => {
               onCopy={handleCopy}
             />
 
-            {/* REST OF YOUR CUSTOM CONTENT */}
             <div>
               {`Line No: ${line_no}`}
               <IconButton
@@ -376,7 +492,7 @@ const FreeDaysConf = () => {
       accessorKey: "free_time",
       header: "Free Time",
       enableSorting: false,
-      size: 200,
+      size: 150,
       Cell: ({ row }) =>
         editingRowId === row.original._id ? ( // Compare using _id
           <div style={{ display: "flex", alignItems: "center" }}>
@@ -385,23 +501,28 @@ const FreeDaysConf = () => {
               onChange={(e) => setFreeTimeValue(e.target.value)}
               size="small"
               variant="outlined"
-              style={{ marginRight: "8px" }}
+              style={{ marginRight: "8px", width: "60px" }}
+              type="number"
             />
-            <IconButton onClick={() => handleSave(row.original._id)}>
-              <CheckIcon />
+            <IconButton onClick={() => handleSave(row.original._id)} size="small">
+              <CheckIcon fontSize="small" />
             </IconButton>
-            <IconButton onClick={handleCancel}>
-              <CloseIcon />
+            <IconButton onClick={handleCancel} size="small">
+              <CloseIcon fontSize="small" />
             </IconButton>
           </div>
         ) : (
           <div style={{ display: "flex", alignItems: "center" }}>
-            {row.original.free_time}
+            <span style={{ fontWeight: 600 }}>{row.original.free_time || "-"}</span>
             <IconButton
-              onClick={() => handleEditClick(row.original)}
-              style={{ marginLeft: "8px" }}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEditClick(row.original);
+              }}
+              style={{ marginLeft: "6px" }}
+              size="small"
             >
-              <EditIcon />
+              <EditIcon fontSize="small" />
             </IconButton>
           </div>
         ),
@@ -410,8 +531,26 @@ const FreeDaysConf = () => {
       accessorKey: "container_numbers",
       header: "Container Numbers and Size",
       size: 200,
-      Cell: ({ cell }) => {
+      Cell: ({ cell, row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
         const containerNos = cell.row.original.container_nos;
+
+        if (isShrunk) {
+          const count = containerNos?.length || 0;
+          return (
+            <div>
+              <strong>
+                {count > 0 ? `${count} Container(s)` : `${row?.original?.no_of_pkgs || 0} Pkg(s)`}
+              </strong>
+              {containerNos?.[0]?.container_number && (
+                <span style={{ fontSize: "11px", color: "#64748b", marginLeft: "4px" }}>
+                  ({containerNos[0].container_number})
+                </span>
+              )}
+            </div>
+          );
+        }
+
         return (
           <React.Fragment>
             {containerNos?.map((container, id) => (
@@ -450,14 +589,20 @@ const FreeDaysConf = () => {
       enableSorting: false,
       size: 200,
       Cell: ({ row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
         const vesselFlight = row.original.vessel_flight?.toString() || "N/A";
         const voyageNo = row.original.voyage_no?.toString() || "N/A";
 
-        const handleCopy = (event, text) => {
-          event.stopPropagation();
-          navigator.clipboard.writeText(text);
-          alert(`${text} copied to clipboard!`);
-        };
+        if (isShrunk) {
+          return (
+            <div style={{ fontSize: "12px" }}>
+              <span>{vesselFlight}</span>
+              {voyageNo && voyageNo !== "N/A" && (
+                <span style={{ color: "#64748b", marginLeft: "4px" }}>({voyageNo})</span>
+              )}
+            </div>
+          );
+        }
 
         return (
           <React.Fragment>
@@ -495,11 +640,11 @@ const FreeDaysConf = () => {
       header: "Docs",
       enableSorting: false,
       size: 300,
-      Cell: ({ cell }) => {
+      Cell: ({ cell, row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
         const { processed_be_attachment, cth_documents, checklist } =
           cell.row.original;
 
-        // Helper function to safely get the first link if it's an array or a string
         const getFirstLink = (input) => {
           if (Array.isArray(input)) {
             return input.length > 0 ? input[0] : null;
@@ -508,9 +653,16 @@ const FreeDaysConf = () => {
         };
 
         const checklistLink = getFirstLink(checklist);
-        const processed_be_attachmentLink = getFirstLink(
-          processed_be_attachment
-        );
+        const processed_be_attachmentLink = getFirstLink(processed_be_attachment);
+
+        if (isShrunk) {
+          const docCount = (checklistLink ? 1 : 0) + (processed_be_attachmentLink ? 1 : 0) + ((cth_documents || []).length);
+          return (
+            <span style={{ fontSize: "12px", color: docCount > 0 ? "#007bff" : "gray" }}>
+              {docCount > 0 ? `${docCount} Document(s)` : "No Documents"}
+            </span>
+          );
+        }
 
         return (
           <div style={{ textAlign: "left" }}>
@@ -588,10 +740,38 @@ const FreeDaysConf = () => {
     muiTableContainerProps: {
       sx: { maxHeight: "650px", overflowY: "auto" },
     },
-    muiTableBodyRowProps: ({ row }) => ({
-      className: getTableRowsClassname(row),
-      style: getTableRowInlineStyle(row),
-    }),
+    muiTableBodyRowProps: ({ row }) => {
+      const baseProps = {
+        className: getTableRowsClassname(row),
+        style: getTableRowInlineStyle(row),
+      };
+
+      if (viewMode === "shrink") {
+        return {
+          ...baseProps,
+          style: {
+            ...(baseProps.style || {}),
+            cursor: "pointer",
+          },
+          onClick: (event) => {
+            const targetTagName = event.target?.tagName?.toLowerCase() || "";
+            if (["a", "button", "input", "textarea", "select"].includes(targetTagName)) {
+              return;
+            }
+            if (
+              event.target?.closest?.(
+                "a, button, input, textarea, select, .MuiIconButton-root, .MuiChip-root"
+              )
+            ) {
+              return;
+            }
+            toggleRowExpanded(row.original._id);
+          },
+        };
+      }
+
+      return baseProps;
+    },
     muiTableHeadCellProps: {
       sx: {
         position: "sticky",
@@ -603,85 +783,190 @@ const FreeDaysConf = () => {
       <div
         style={{
           display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
+          flexDirection: "column",
+          gap: "16px",
           width: "100%",
+          padding: "8px 0",
         }}
       >
-        {/* Job Count Display */}
-        <Typography
-          variant="body1"
-          sx={{ fontWeight: "bold", fontSize: "1.5rem", marginRight: "auto" }}
+        {/* Row 1 - Counts and Actions */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: "16px",
+          }}
         >
-          Job Count: {totalJobs}
-        </Typography>
+          <Typography
+            variant="body1"
+            sx={{ fontWeight: "bold", fontSize: "1.5rem" }}
+          >
+            Job Count: {totalJobs}
+          </Typography>
 
-        <Autocomplete
-          sx={{ width: "300px", marginRight: "20px" }}
-          freeSolo
-          options={importerNames.map((option) => option.label)}
-          value={selectedImporter || ""} // Controlled value
-          onInputChange={(event, newValue) => setSelectedImporter(newValue)} // Handles input change
-          renderInput={(params) => (
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+            {/* View Mode Toggle Switch */}
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 0.5,
+                bgcolor: "#f1f5f9",
+                p: "2px",
+                borderRadius: "8px",
+                border: "1px solid #cbd5e1",
+              }}
+            >
+              <Tooltip title="Full Table View" arrow>
+                <button
+                  type="button"
+                  className={`toggle-btn ${viewMode === "full" ? "active" : ""}`}
+                  onClick={() => handleViewModeChange("full")}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    padding: "5px 9px",
+                    border: "none",
+                    borderRadius: "6px",
+                    backgroundColor: viewMode === "full" ? "#ffffff" : "transparent",
+                    color: viewMode === "full" ? "#2563eb" : "#64748b",
+                    fontWeight: "700",
+                    fontSize: "12px",
+                    cursor: "pointer",
+                    boxShadow: viewMode === "full" ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
+                  }}
+                >
+                  <TableRowsIcon sx={{ fontSize: 16 }} />
+                  Full
+                </button>
+              </Tooltip>
+              <Tooltip title="Shrink List View" arrow>
+                <button
+                  type="button"
+                  className={`toggle-btn ${viewMode === "shrink" ? "active" : ""}`}
+                  onClick={() => handleViewModeChange("shrink")}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    padding: "5px 9px",
+                    border: "none",
+                    borderRadius: "6px",
+                    backgroundColor: viewMode === "shrink" ? "#ffffff" : "transparent",
+                    color: viewMode === "shrink" ? "#2563eb" : "#64748b",
+                    fontWeight: "700",
+                    fontSize: "12px",
+                    cursor: "pointer",
+                    boxShadow: viewMode === "shrink" ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
+                  }}
+                >
+                  <ViewHeadlineIcon sx={{ fontSize: 16 }} />
+                  Shrink
+                </button>
+              </Tooltip>
+            </Box>
+          </div>
+        </div>
+
+        {/* Row 2 - Filters */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+            gap: "16px",
+            alignItems: "end",
+          }}
+        >
+          <Autocomplete
+            size="small"
+            options={importerNames.map((option) => option.label)}
+            value={selectedImporter || ""}
+            onInputChange={(event, newValue) => setSelectedImporter(newValue)}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                variant="outlined"
+                label="Select Importer"
+                fullWidth
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    backgroundColor: "white",
+                  },
+                }}
+              />
+            )}
+          />
+          <TextField
+            select
+            size="small"
+            value={selectedYearState}
+            onChange={(e) => setSelectedYearState(e.target.value)}
+            label="Financial Year"
+            fullWidth
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                backgroundColor: "white",
+              },
+            }}
+          >
+            {years.map((year, index) => (
+              <MenuItem key={`year-${year}-${index}`} value={year}>
+                {year}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
+            size="small"
+            variant="outlined"
+            label="ICD Code"
+            value={selectedICD}
+            onChange={(e) => {
+              setSelectedICD(e.target.value);
+              setPage(1);
+            }}
+            fullWidth
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                backgroundColor: "white",
+              },
+            }}
+          >
+            <MenuItem value="">All ICDs</MenuItem>
+            {dynamicICDs.map((icd, index) => (
+              <MenuItem key={index} value={icd}>{icd}</MenuItem>
+            ))}
+          </TextField>
+
+          <div style={{ minWidth: "220px" }}>
             <TextField
-              {...params}
-              variant="outlined"
+              placeholder="Search by Job No, Importer, or AWB/BL Number"
               size="small"
+              variant="outlined"
               fullWidth
-              label="Select Importer" // Placeholder text
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              label="Search"
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => fetchJobs(1)} size="small">
+                      <SearchIcon />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  backgroundColor: "white",
+                },
+              }}
             />
-          )}
-        />
-
-        <TextField
-          select
-          size="small"
-          value={selectedYearState}
-          onChange={(e) => setSelectedYearState(e.target.value)}
-          sx={{ width: "200px", marginRight: "20px" }}
-        >
-          {years.map((year, index) => (
-            <MenuItem key={`year-${year}-${index}`} value={year}>
-              {year}
-            </MenuItem>
-          ))}
-        </TextField>
-
-        {/* ICD Code Filter */}
-        <TextField
-          select
-          size="small"
-          variant="outlined"
-          label="ICD Code"
-          value={selectedICD}
-          onChange={(e) => {
-            setSelectedICD(e.target.value); // Update the selected ICD code
-            setPage(1); // Reset to the first page when the filter changes
-          }}
-          sx={{ width: "200px", marginRight: "20px" }}
-        >
-          <MenuItem value="">All ICDs</MenuItem>
-          {dynamicICDs.map((icd, index) => (
-            <MenuItem key={index} value={icd}>{icd}</MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          placeholder="Search by Job No, Importer, or AWB/BL Number"
-          size="small"
-          variant="outlined"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <IconButton onClick={() => fetchJobs(1)}>
-                  <SearchIcon />
-                </IconButton>
-              </InputAdornment>
-            ),
-          }}
-          sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
-        />
+          </div>
+        </div>
       </div>
     ),
   };

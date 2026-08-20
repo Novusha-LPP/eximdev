@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { getEndpoint } from './reports-helper';
+import ImportDetailedSummaryTab from './ImportDetailedSummaryTab';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
     PieChart, Pie, Cell
@@ -61,9 +62,13 @@ const ImportOutOfChargeSummaryReport = ({
     const navigate = useNavigate();
     const [rawQueryData, setRawQueryData] = useState([]);
     const [rawCategoryData, setRawCategoryData] = useState([]);
+    const [detailedJobs, setDetailedJobs] = useState([]);
     const [totalJobsCreated, setTotalJobsCreated] = useState(0);
     const [loading, setLoading] = useState(true);
     
+    // Top-level View Tab: 'overview' | 'detailed'
+    const [activeViewTab, setActiveViewTab] = useState('overview');
+
     // Main UI Tabs (Data vs Visuals)
     const [mainTab, setMainTab] = useState('data'); // 'data' | 'visuals'
     
@@ -97,11 +102,13 @@ const ImportOutOfChargeSummaryReport = ({
                 if (res.data && res.data.data) {
                     setRawQueryData(res.data.data);
                     setRawCategoryData(res.data.categoryData || []);
+                    setDetailedJobs(res.data.detailedJobs || []);
                     setTotalJobsCreated(res.data.totalCreated || 0);
                 } else {
                     // Fallback in case backend returns old format (array)
                     setRawQueryData(Array.isArray(res.data) ? res.data : []);
                     setRawCategoryData([]);
+                    setDetailedJobs([]);
                     setTotalJobsCreated(0);
                 }
             } catch (error) {
@@ -329,136 +336,207 @@ const ImportOutOfChargeSummaryReport = ({
         <div style={{ padding: '0 8px' }}>
             <style>{STYLES}</style>
             
-            {/* ─── UNIFIED VIEW (CHART & DATA) ─────────────────────────── */}
-            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
-                
-                {/* Single Job Count Card requested by User */}
-                <div className="fleet-card" style={{ flex: '1 1 200px', maxWidth: '280px', height: '240px', padding: '24px', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', '--fc-accent': '#3b82f6' }}>
-                    <h3 style={{ marginTop: 0, color: '#1e293b', fontSize: '18px', fontWeight: 600, paddingBottom: '16px', marginBottom: '16px' }}>
-                        Total Out of Charge
-                    </h3>
-                    <div style={{ fontSize: '64px', fontWeight: 800, color: '#3b82f6', lineHeight: 1 }}>
-                        {totalOutOfCharge}
-                    </div>
-                </div>
+            {/* ─── TOP VIEW TAB SELECTOR ────────────────────────────────── */}
+            <div style={{
+                display: 'inline-flex',
+                background: '#e2e8f0',
+                padding: '4px',
+                borderRadius: '14px',
+                gap: '4px',
+                marginBottom: '20px'
+            }}>
+                <button
+                    onClick={() => setActiveViewTab('overview')}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 20px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        background: activeViewTab === 'overview' ? '#ffffff' : 'transparent',
+                        color: activeViewTab === 'overview' ? '#1e293b' : '#64748b',
+                        fontWeight: 700,
+                        fontSize: '13.5px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        boxShadow: activeViewTab === 'overview' ? '0 2px 8px rgba(0, 0, 0, 0.08)' : 'none'
+                    }}
+                >
+                    <span>📊</span> Summary Overview
+                </button>
 
-                <div className="fleet-card" style={{ flex: '1 1 320px', maxWidth: '380px', height: '240px', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', '--fc-accent': 'transparent' }}>
-                    <h3 style={{ marginTop: 0, color: '#1e293b', fontSize: '16px', fontWeight: 600, paddingBottom: '12px', borderBottom: '1px solid rgba(226, 232, 240, 0.6)', marginBottom: '8px', width: '100%', textAlign: 'left' }}>
-                        Branch Breakdown
-                    </h3>
-                    <div style={{ flex: 1, width: '100%', minHeight: 0 }}>
-                        {branchPieData.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart margin={{ top: 20, right: 40, bottom: 20, left: 40 }}>
-                                    <Pie
-                                        data={branchPieData}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={35}
-                                        outerRadius={55}
-                                        paddingAngle={2}
-                                        dataKey="value"
-                                        stroke="none"
-                                        labelLine={(props) => {
-                                            if (props.value === 0) return null;
-                                            const { cx, cy, midAngle, outerRadius, index } = props;
-                                            const RADIAN = Math.PI / 180;
-                                            // Stagger radius for overlapping prevention
-                                            const stagger = 1.2 + (index % 4) * 0.35;
-                                            const radius = outerRadius * stagger;
-                                            
-                                            const elbowX = cx + radius * Math.cos(-midAngle * RADIAN);
-                                            const elbowY = cy + radius * Math.sin(-midAngle * RADIAN);
-                                            
-                                            const horizontalLength = 15;
-                                            const textX = elbowX + (elbowX > cx ? horizontalLength : -horizontalLength);
-                                            
-                                            const startX = cx + outerRadius * Math.cos(-midAngle * RADIAN);
-                                            const startY = cy + outerRadius * Math.sin(-midAngle * RADIAN);
-                                            
-                                            return <polyline points={`${startX},${startY} ${elbowX},${elbowY} ${textX},${elbowY}`} stroke="#cbd5e1" strokeWidth={1} fill="none" />;
-                                        }}
-                                        label={(props) => {
-                                            if (props.value === 0) return null;
-                                            const { cx, cy, midAngle, outerRadius, name, value, index } = props;
-                                            const RADIAN = Math.PI / 180;
-                                            const stagger = 1.2 + (index % 4) * 0.35;
-                                            const radius = outerRadius * stagger;
-                                            
-                                            const elbowX = cx + radius * Math.cos(-midAngle * RADIAN);
-                                            const elbowY = cy + radius * Math.sin(-midAngle * RADIAN);
-                                            
-                                            const horizontalLength = 15;
-                                            const textX = elbowX + (elbowX > cx ? horizontalLength : -horizontalLength);
-                                            
-                                            return (
-                                                <text x={textX + (elbowX > cx ? 4 : -4)} y={elbowY} fill="#475569" textAnchor={elbowX > cx ? 'start' : 'end'} dominantBaseline="central" fontSize="10px" fontWeight="600">
-                                                    {name} ({value})
-                                                </text>
-                                            );
-                                        }}
-                                    >
-                                        {branchPieData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <RechartsTooltip 
-                                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', fontSize: '12px', fontWeight: 600 }}
-                                    />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        ) : (
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8' }}>
-                                No branch breakdown available
-                            </div>
-                        )}
-                    </div>
-                </div>
-
+                <button
+                    onClick={() => setActiveViewTab('detailed')}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        padding: '8px 20px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        background: activeViewTab === 'detailed' ? '#ffffff' : 'transparent',
+                        color: activeViewTab === 'detailed' ? '#1e293b' : '#64748b',
+                        fontWeight: 700,
+                        fontSize: '13.5px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        boxShadow: activeViewTab === 'detailed' ? '0 2px 8px rgba(0, 0, 0, 0.08)' : 'none'
+                    }}
+                >
+                    <span>📋</span> Detail Summary Report
+                    {detailedJobs.length > 0 && (
+                        <span style={{
+                            background: activeViewTab === 'detailed' ? '#eff6ff' : '#cbd5e1',
+                            color: activeViewTab === 'detailed' ? '#2563eb' : '#475569',
+                            padding: '2px 8px',
+                            borderRadius: '10px',
+                            fontSize: '11.5px',
+                            fontWeight: 800
+                        }}>
+                            {detailedJobs.length}
+                        </span>
+                    )}
+                </button>
             </div>
 
-            {/* ─── BRANCH WISE SUMMARY CARDS ─────────────────────────── */}
-            <div style={{ marginTop: '24px' }}>
-                <h3 style={{ marginTop: 0, color: '#1e293b', fontSize: '18px', fontWeight: 600, paddingBottom: '16px', borderBottom: '1px solid rgba(226, 232, 240, 0.6)', marginBottom: '16px' }}>
-                    Out of Charge Jobs by Branch
-                </h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
-                    {Object.values(groupedData).map((branchData, index) => (
-                        <div key={branchData.name} className="fleet-card" style={{
-                            padding: '24px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '16px',
-                            '--fc-accent': COLORS[index % COLORS.length]
-                        }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', zIndex: 1 }}>
-                                <div style={{ fontSize: '15px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
-                                    {branchData.name}
-                                </div>
-                                <div style={{ fontSize: '32px', fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>
-                                    {branchData.count}
-                                </div>
+            {/* ─── CONDITIONAL VIEW RENDERING ──────────────────────────── */}
+            {activeViewTab === 'detailed' ? (
+                <ImportDetailedSummaryTab detailedJobs={detailedJobs} loading={loading} />
+            ) : (
+                <>
+                    {/* ─── UNIFIED VIEW (CHART & DATA) ─────────────────────────── */}
+                    <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                        
+                        {/* Single Job Count Card requested by User */}
+                        <div className="fleet-card" style={{ flex: '1 1 200px', maxWidth: '280px', height: '240px', padding: '24px', textAlign: 'center', display: 'flex', flexDirection: 'column', justifyContent: 'center', '--fc-accent': '#3b82f6' }}>
+                            <h3 style={{ marginTop: 0, color: '#1e293b', fontSize: '18px', fontWeight: 600, paddingBottom: '16px', marginBottom: '16px' }}>
+                                Total Out of Charge
+                            </h3>
+                            <div style={{ fontSize: '64px', fontWeight: 800, color: '#3b82f6', lineHeight: 1 }}>
+                                {totalOutOfCharge}
                             </div>
-                            
-                            {Object.values(branchData.ports).length > 0 && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '16px', borderTop: '1px solid rgba(226,232,240,0.6)', zIndex: 1 }}>
-                                    {Object.values(branchData.ports).map((portData, i) => (
-                                        <div key={portData.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(241,245,249,0.5)', padding: '10px 14px', borderRadius: '8px' }}>
-                                            <span style={{ fontSize: '13px', color: '#475569', fontWeight: 600 }}>{portData.name}</span>
-                                            <span style={{ fontSize: '14px', color: '#0f172a', fontWeight: 800 }}>{portData.count}</span>
+                        </div>
+
+                        <div className="fleet-card" style={{ flex: '1 1 320px', maxWidth: '380px', height: '240px', padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', '--fc-accent': 'transparent' }}>
+                            <h3 style={{ marginTop: 0, color: '#1e293b', fontSize: '16px', fontWeight: 600, paddingBottom: '12px', borderBottom: '1px solid rgba(226, 232, 240, 0.6)', marginBottom: '8px', width: '100%', textAlign: 'left' }}>
+                                Branch Breakdown
+                            </h3>
+                            <div style={{ flex: 1, width: '100%', minHeight: 0 }}>
+                                {branchPieData.length > 0 ? (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart margin={{ top: 20, right: 40, bottom: 20, left: 40 }}>
+                                            <Pie
+                                                data={branchPieData}
+                                                cx="50%"
+                                                cy="50%"
+                                                innerRadius={35}
+                                                outerRadius={55}
+                                                paddingAngle={2}
+                                                dataKey="value"
+                                                stroke="none"
+                                                labelLine={(props) => {
+                                                    if (props.value === 0) return null;
+                                                    const { cx, cy, midAngle, outerRadius, index } = props;
+                                                    const RADIAN = Math.PI / 180;
+                                                    // Stagger radius for overlapping prevention
+                                                    const stagger = 1.2 + (index % 4) * 0.35;
+                                                    const radius = outerRadius * stagger;
+                                                    
+                                                    const elbowX = cx + radius * Math.cos(-midAngle * RADIAN);
+                                                    const elbowY = cy + radius * Math.sin(-midAngle * RADIAN);
+                                                    
+                                                    const horizontalLength = 15;
+                                                    const textX = elbowX + (elbowX > cx ? horizontalLength : -horizontalLength);
+                                                    
+                                                    const startX = cx + outerRadius * Math.cos(-midAngle * RADIAN);
+                                                    const startY = cy + outerRadius * Math.sin(-midAngle * RADIAN);
+                                                    
+                                                    return <polyline points={`${startX},${startY} ${elbowX},${elbowY} ${textX},${elbowY}`} stroke="#cbd5e1" strokeWidth={1} fill="none" />;
+                                                }}
+                                                label={(props) => {
+                                                    if (props.value === 0) return null;
+                                                    const { cx, cy, midAngle, outerRadius, name, value, index } = props;
+                                                    const RADIAN = Math.PI / 180;
+                                                    const stagger = 1.2 + (index % 4) * 0.35;
+                                                    const radius = outerRadius * stagger;
+                                                    
+                                                    const elbowX = cx + radius * Math.cos(-midAngle * RADIAN);
+                                                    const elbowY = cy + radius * Math.sin(-midAngle * RADIAN);
+                                                    
+                                                    const horizontalLength = 15;
+                                                    const textX = elbowX + (elbowX > cx ? horizontalLength : -horizontalLength);
+                                                    
+                                                    return (
+                                                        <text x={textX + (elbowX > cx ? 4 : -4)} y={elbowY} fill="#475569" textAnchor={elbowX > cx ? 'start' : 'end'} dominantBaseline="central" fontSize="10px" fontWeight="600">
+                                                            {name} ({value})
+                                                        </text>
+                                                    );
+                                                }}
+                                            >
+                                                {branchPieData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                ))}
+                                            </Pie>
+                                            <RechartsTooltip 
+                                                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', fontSize: '12px', fontWeight: 600 }}
+                                            />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                ) : (
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8' }}>
+                                        No branch breakdown available
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                    </div>
+
+                    {/* ─── BRANCH WISE SUMMARY CARDS ─────────────────────────── */}
+                    <div style={{ marginTop: '24px' }}>
+                        <h3 style={{ marginTop: 0, color: '#1e293b', fontSize: '18px', fontWeight: 600, paddingBottom: '16px', borderBottom: '1px solid rgba(226, 232, 240, 0.6)', marginBottom: '16px' }}>
+                            Out of Charge Jobs by Branch
+                        </h3>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+                            {Object.values(groupedData).map((branchData, index) => (
+                                <div key={branchData.name} className="fleet-card" style={{
+                                    padding: '24px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '16px',
+                                    '--fc-accent': COLORS[index % COLORS.length]
+                                }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', zIndex: 1 }}>
+                                        <div style={{ fontSize: '15px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 700 }}>
+                                            {branchData.name}
                                         </div>
-                                    ))}
+                                        <div style={{ fontSize: '32px', fontWeight: 900, color: '#0f172a', lineHeight: 1 }}>
+                                            {branchData.count}
+                                        </div>
+                                    </div>
+                                    
+                                    {Object.values(branchData.ports).length > 0 && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '16px', borderTop: '1px solid rgba(226,232,240,0.6)', zIndex: 1 }}>
+                                            {Object.values(branchData.ports).map((portData, i) => (
+                                                <div key={portData.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(241,245,249,0.5)', padding: '10px 14px', borderRadius: '8px' }}>
+                                                    <span style={{ fontSize: '13px', color: '#475569', fontWeight: 600 }}>{portData.name}</span>
+                                                    <span style={{ fontSize: '14px', color: '#0f172a', fontWeight: 800 }}>{portData.count}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                            {Object.keys(groupedData).length === 0 && (
+                                <div className="fleet-card" style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', gridColumn: '1 / -1' }}>
+                                    No data available
                                 </div>
                             )}
                         </div>
-                    ))}
-                    {Object.keys(groupedData).length === 0 && (
-                        <div className="fleet-card" style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', gridColumn: '1 / -1' }}>
-                            No data available
-                        </div>
-                    )}
-                </div>
-            </div>
+                    </div>
+                </>
+            )}
 
         </div>
     );

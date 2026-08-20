@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useContext } from "react";
 import axios from "axios";
 import {
   MaterialReactTable,
@@ -16,13 +16,18 @@ import {
   IconButton,
   MenuItem,
   Autocomplete,
+  Tooltip,
+  Chip,
 } from "@mui/material";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import SearchIcon from "@mui/icons-material/Search";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
-import { getTableRowsClassname, getTableRowInlineStyle } from "../../utils/getTableRowsClassname"; // Ensure this utility is correctly imported
-import { useContext } from "react";
+import TableRowsIcon from "@mui/icons-material/TableRows";
+import ViewHeadlineIcon from "@mui/icons-material/ViewHeadline";
+import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import { getTableRowsClassname, getTableRowInlineStyle } from "../../utils/getTableRowsClassname";
 import { YearContext } from "../../contexts/yearContext.js";
 import { useSearchQuery } from "../../contexts/SearchQueryContext";
 import { UserContext } from "../../contexts/UserContext";
@@ -31,7 +36,6 @@ import { BranchContext } from "../../contexts/BranchContext.js";
 import ContainerTrackButton from '../ContainerTrackButton';
 import BLTrackingCell from "../../customHooks/BLTrackingCell";
 import ContainerCellContent from "../ContainerCellContent";
-
 
 function SubmissionCompleted() {
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
@@ -45,7 +49,34 @@ function SubmissionCompleted() {
   const [rows, setRows] = React.useState([]);
   const [totalJobs, setTotalJobs] = React.useState(0);
   const [totalPages, setTotalPages] = React.useState(1);
-  // Use context for search functionality and pagination like E-Sanchit
+
+  // View Mode: 'full' vs 'shrink'
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      return localStorage.getItem("exim_submission_view_mode") || "full";
+    } catch (e) {
+      return "full";
+    }
+  });
+
+  const handleViewModeChange = useCallback((mode) => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem("exim_submission_view_mode", mode);
+    } catch (e) {}
+  }, []);
+
+  const [expandedRowIds, setExpandedRowIds] = useState({});
+
+  const toggleRowExpanded = useCallback((rowId) => {
+    if (!rowId) return;
+    setExpandedRowIds((prev) => ({
+      ...prev,
+      [rowId]: !prev[rowId],
+    }));
+  }, []);
+
+  // Use context for search functionality and pagination
   const {
     searchQuery, setSearchQuery,
     selectedImporter, setSelectedImporter,
@@ -84,6 +115,7 @@ function SubmissionCompleted() {
       setPage(1);
     }
   }, [setSearchQuery, setSelectedImporter, setPage, location.state]);
+
   React.useEffect(() => {
     async function getImporterList() {
       if (selectedYearState) {
@@ -95,8 +127,6 @@ function SubmissionCompleted() {
     }
     getImporterList();
   }, [selectedYearState]);
-  // Function to build the search query (not needed on client-side, handled by server)
-  // Keeping it in case you want to extend client-side filtering
 
   const getUniqueImporterNames = (importerData) => {
     if (!importerData || !Array.isArray(importerData)) return [];
@@ -114,12 +144,6 @@ function SubmissionCompleted() {
   };
 
   const importerNames = [...getUniqueImporterNames(importers)];
-
-  // useEffect(() => {
-  //   if (!selectedImporter) {
-  //     setSelectedImporter("Select Importer");
-  //   }
-  // }, [importerNames]);
 
   const handleCopy = (event, text) => {
     event.stopPropagation();
@@ -194,7 +218,7 @@ function SubmissionCompleted() {
       setPage(1); // Reset to first page on new search
     }, 500); // 500ms debounce delay
     return () => clearTimeout(handler); // Cleanup on unmount
-  }, [searchQuery]);
+  }, [searchQuery, setPage]);
 
   // Fetch jobs with pagination and search
   const fetchJobs = useCallback(
@@ -247,7 +271,7 @@ function SubmissionCompleted() {
         setLoading(false);
       }
     },
-    [limit, selectedImporter, selectedYearState, user?.username] // Dependency array remains the same
+    [limit, selectedImporter, selectedYearState, user?.username]
   );
 
   // Fetch jobs when page or debounced search query changes
@@ -267,15 +291,7 @@ function SubmissionCompleted() {
     selectedCategory,
     fetchJobs,
   ]);
-  // Debounce search input
-  React.useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-      setPage(1); // Reset to the first page on new search
-    }, 500);
 
-    return () => clearTimeout(handler);
-  }, [searchQuery]);
   const handlePageChange = (event, newPage) => {
     setPage(newPage);
   };
@@ -283,46 +299,135 @@ function SubmissionCompleted() {
   const columns = [
     {
       accessorKey: "job_no",
-      header: "Job No", muiTableHeadCellProps: { align: "center" }, muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
+      header: "Job No",
+      muiTableHeadCellProps: { align: "center" },
+      muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
       enableSorting: false,
       size: 250,
       Cell: ({ cell }) => {
+        const row = cell.row.original;
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row._id];
         const {
           job_no,
           year,
           type_of_b_e,
           consignment_type,
           custom_house,
-          priorityColor, // Add priorityColor from API response
           branch_code,
           trade_type,
           mode,
-        } = cell.row.original;
+          priorityJob,
+        } = row;
         const textColor = "blue";
-        const bgColor = cell.row.original.priorityJob === "High Priority"
+        const bgColor = priorityJob === "High Priority"
           ? "orange"
-          : cell.row.original.priorityJob === "Priority"
+          : priorityJob === "Priority"
             ? "yellow"
             : "transparent";
+
+        if (isShrunk) {
+          return (
+            <div style={{ textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleRowExpanded(row._id);
+                }}
+                sx={{ p: 0.2 }}
+                title="Click to expand row"
+              >
+                <KeyboardArrowRightIcon sx={{ fontSize: 18, color: "#64748b" }} />
+              </IconButton>
+              <a
+                href={`/submission-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  cursor: "pointer",
+                  color: textColor,
+                  backgroundColor: bgColor,
+                  padding: "3px 6px",
+                  borderRadius: "4px",
+                  fontWeight: "bold",
+                  display: "inline-block",
+                  textDecoration: "none",
+                  fontSize: "13px",
+                }}
+              >
+                {row.job_number || job_no}
+              </a>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCopy(e, row.job_number || job_no);
+                }}
+                sx={{ p: 0.2 }}
+                title="Copy Job Number"
+              >
+                <ContentCopyIcon sx={{ fontSize: "14px", color: "#64748b" }} />
+              </IconButton>
+              {type_of_b_e && (
+                <span style={{ fontSize: "11px", color: "#64748b" }}>
+                  ({type_of_b_e})
+                </span>
+              )}
+            </div>
+          );
+        }
+
         return (
-          <a
-            href={`/submission-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              cursor: "pointer",
-              color: textColor,
-              backgroundColor: bgColor,
-              padding: "10px",
-              borderRadius: "5px",
-              textAlign: "center",
-              display: "inline-block",
-              textDecoration: "none", whiteSpace: "nowrap",
-            }}
-          >
-            {cell.row.original.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
-            {custom_house}
-          </a>
+          <div style={{ textAlign: "center" }}>
+            {viewMode === "shrink" && (
+              <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: "4px" }}>
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleRowExpanded(row._id);
+                  }}
+                  sx={{ p: 0.2 }}
+                  title="Click to collapse row"
+                >
+                  <KeyboardArrowDownIcon sx={{ fontSize: 18, color: "#2563eb" }} />
+                </IconButton>
+              </div>
+            )}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+              <a
+                href={`/submission-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  cursor: "pointer",
+                  color: textColor,
+                  backgroundColor: bgColor,
+                  padding: "10px",
+                  borderRadius: "5px",
+                  textAlign: "center",
+                  display: "inline-block",
+                  textDecoration: "none",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {row.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+                {custom_house}
+              </a>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCopy(e, row.job_number || job_no);
+                }}
+                sx={{ p: 0.2 }}
+                title="Copy Job Number"
+              >
+                <ContentCopyIcon sx={{ fontSize: "14px", color: "#64748b" }} />
+              </IconButton>
+            </div>
+          </div>
         );
       },
     },
@@ -330,24 +435,47 @@ function SubmissionCompleted() {
       accessorKey: "importer",
       header: "Importer",
       size: 150,
+      Cell: ({ cell, row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
+        const importer = cell?.getValue()?.toString() || "";
+        if (isShrunk) {
+          return <span style={{ fontWeight: 600 }}>{importer}</span>;
+        }
+        return <span>{importer}</span>;
+      },
     },
     {
       accessorKey: "awb_bl_no",
       header: "BL Num & Date",
       size: 150,
-      Cell: ({ cell }) => {
-        const { awb_bl_no, awb_bl_date } = cell.row.original; // Destructure properties here
+      Cell: ({ cell, row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
+        const { awb_bl_no, shipping_line_airline } = row.original;
+
+        if (isShrunk) {
+          return (
+            <div>
+              <span style={{ fontWeight: 600 }}>{awb_bl_no || "-"}</span>
+              {shipping_line_airline && (
+                <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
+                  {shipping_line_airline}
+                </div>
+              )}
+            </div>
+          );
+        }
+
         return (
           <BLTrackingCell
             blNumber={awb_bl_no}
-            shippingLine={cell.row.original.shipping_line_airline}
-            customHouse={cell.row.original.custom_house}
-            container_nos={cell.row.original.container_nos}
-            jobId={cell.row.original._id}
-            branch_code={cell.row.original.branch_code}
-            mode={cell.row.original.mode}
-            portOfReporting={cell.row.original.port_of_reporting}
-            containerNos={cell.row.original.container_nos}
+            shippingLine={row.original.shipping_line_airline}
+            customHouse={row.original.custom_house}
+            container_nos={row.original.container_nos}
+            jobId={row.original._id}
+            branch_code={row.original.branch_code}
+            mode={row.original.mode}
+            portOfReporting={row.original.port_of_reporting}
+            containerNos={row.original.container_nos}
             onCopy={handleCopy}
             onUpdateSuccess={() => fetchJobs(page, debouncedSearchQuery, selectedImporter, selectedYearState, showUnresolvedOnly, selectedBranch, selectedCategory)}
             selectedYear={selectedYearState}
@@ -359,14 +487,33 @@ function SubmissionCompleted() {
       accessorKey: "container_numbers",
       header: "Container Numbers and Size",
       size: 200,
-      Cell: ({ cell }) => <ContainerCellContent cell={cell} handleCopy={handleCopy} />,
+      Cell: ({ cell, row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
+        if (isShrunk) {
+          const count = row?.original?.container_nos?.length || 0;
+          return (
+            <div>
+              <strong>
+                {count > 0 ? `${count} Container(s)` : `${row?.original?.no_of_pkgs || 0} Pkg(s)`}
+              </strong>
+              {row?.original?.container_nos?.[0]?.container_number && (
+                <span style={{ fontSize: "11px", color: "#64748b", marginLeft: "4px" }}>
+                  ({row.original.container_nos[0].container_number})
+                </span>
+              )}
+            </div>
+          );
+        }
+        return <ContainerCellContent cell={cell} handleCopy={handleCopy} />;
+      },
     },
     {
       accessorKey: "igm_details",
       header: "IGM Details",
       enableSorting: false,
       size: 250,
-      Cell: ({ cell }) => {
+      Cell: ({ cell, row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
         const {
           gateway_igm_date,
           gateway_igm,
@@ -376,7 +523,35 @@ function SubmissionCompleted() {
           gross_weight,
           line_no,
           no_of_pkgs,
-        } = cell.row.original;
+        } = row.original;
+
+        if (isShrunk) {
+          return (
+            <div style={{ fontSize: "12px" }}>
+              {igm_no ? (
+                <div>
+                  <strong>IGM: </strong>{igm_no}
+                  {igm_date && (
+                    <span style={{ color: "#64748b", marginLeft: "4px" }}>
+                      ({new Date(igm_date).toLocaleDateString()})
+                    </span>
+                  )}
+                </div>
+              ) : gateway_igm ? (
+                <div>
+                  <strong>G-IGM: </strong>{gateway_igm}
+                </div>
+              ) : (
+                <span style={{ color: "#94a3b8", fontSize: "12px" }}>N/A</span>
+              )}
+              {no_of_pkgs && (
+                <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
+                  Pkgs: {no_of_pkgs}
+                </div>
+              )}
+            </div>
+          );
+        }
 
         return (
           <div>
@@ -477,7 +652,20 @@ function SubmissionCompleted() {
       enableSorting: false,
       size: 130,
       Cell: ({ row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
         const { invoice_date = "N/A", invoice_number = "N/A" } = row.original;
+        if (isShrunk) {
+          return (
+            <div>
+              <span style={{ fontWeight: 600 }}>{invoice_number}</span>
+              {invoice_date && invoice_date !== "N/A" && (
+                <span style={{ fontSize: "11px", color: "#64748b", marginLeft: "4px" }}>
+                  ({invoice_date})
+                </span>
+              )}
+            </div>
+          );
+        }
         return (
           <div>
             <div>{`${invoice_number}`}</div>
@@ -492,12 +680,40 @@ function SubmissionCompleted() {
       enableSorting: false,
       size: 200,
       Cell: ({ row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
         const {
           be_filing_type,
           be_date,
           is_checklist_aprroved,
           is_checklist_aprroved_date,
         } = row.original;
+
+        if (isShrunk) {
+          return (
+            <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+              {is_checklist_aprroved ? (
+                <Chip
+                  size="small"
+                  label="Approved"
+                  icon={<CheckCircleIcon style={{ fontSize: 14 }} />}
+                  sx={{ bgcolor: "#dcfce7", color: "#15803d", fontWeight: 700, fontSize: "11px", height: "20px" }}
+                />
+              ) : (
+                <Chip
+                  size="small"
+                  label="Not Approved"
+                  icon={<CancelIcon style={{ fontSize: 14 }} />}
+                  sx={{ bgcolor: "#fee2e2", color: "#b91c1c", fontWeight: 700, fontSize: "11px", height: "20px" }}
+                />
+              )}
+              {be_filing_type && (
+                <span style={{ fontSize: "11px", color: "#475569" }}>
+                  ({be_filing_type})
+                </span>
+              )}
+            </div>
+          );
+        }
 
         return (
           <div style={{ textAlign: "left" }}>
@@ -539,7 +755,8 @@ function SubmissionCompleted() {
                   </span>
                 </>
               )}
-            </div>            {/* Checklist Approval Date */}
+            </div>
+            {/* Checklist Approval Date */}
             {is_checklist_aprroved_date && (
               <div
                 style={{ fontSize: "11px", color: "#666", marginBottom: "5px" }}
@@ -597,7 +814,19 @@ function SubmissionCompleted() {
       enableSorting: false,
       size: 200,
       Cell: ({ row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
         const { submission_completed_date_time } = row.original;
+
+        if (isShrunk) {
+          return (
+            <div style={{ fontSize: "12px", fontWeight: 600 }}>
+              {submission_completed_date_time
+                ? new Date(submission_completed_date_time).toLocaleDateString()
+                : "Not Submitted"}
+            </div>
+          );
+        }
+
         return (
           <div style={{ textAlign: "left" }}>
             {submission_completed_date_time
@@ -616,7 +845,16 @@ function SubmissionCompleted() {
       enableSorting: false,
       size: 300,
       Cell: ({ row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
         const { cth_documents = [] } = row.original;
+
+        if (isShrunk) {
+          return (
+            <span style={{ fontSize: "12px", color: cth_documents.length > 0 ? "#007bff" : "gray" }}>
+              {cth_documents.length > 0 ? `${cth_documents.length} Document(s)` : "No Documents"}
+            </span>
+          );
+        }
 
         return (
           <div style={{ textAlign: "left" }}>
@@ -632,23 +870,18 @@ function SubmissionCompleted() {
                   }}
                 >
                   <a
-                    href={doc.url[0]}
+                    href={doc.url?.[0]}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
-                      textDecoration: "none", whiteSpace: "nowrap",
+                      textDecoration: "none",
+                      whiteSpace: "nowrap",
                       color: "#007bff",
                       display: "block",
                     }}
                   >
-                    {`${doc.document_code} - ${doc.document_name}${doc.irn ? ` - ${doc.irn}` : ""
-                      }`}
+                    {`${doc.document_code || ""} - ${doc.document_name || ""}${doc.irn ? ` - ${doc.irn}` : ""}`}
                   </a>
-                  {/* Uncomment the following if you want to display the date */}
-                  {/* <div style={{ fontSize: "12px", color: "#555" }}>
-                    Checked Date:{" "}
-                    {new Date(doc.document_check_date).toLocaleDateString()}
-                  </div> */}
                 </div>
               ))
             ) : (
@@ -658,7 +891,6 @@ function SubmissionCompleted() {
         );
       },
     },
-
   ];
 
   const tableConfig = {
@@ -686,7 +918,8 @@ function SubmissionCompleted() {
       sx: {
         textAlign: "left", // Ensures all cells in the table body align to the left
       },
-    }, muiTableBodyRowProps: ({ row }) => {
+    },
+    muiTableBodyRowProps: ({ row }) => {
       const { be_filing_type, container_nos } = row.original;
 
       let backgroundColor = '';
@@ -710,7 +943,7 @@ function SubmissionCompleted() {
         }
       }
 
-      return {
+      const baseProps = {
         className: getTableRowsClassname(row),
         style: getTableRowInlineStyle(row),
         sx: {
@@ -720,6 +953,32 @@ function SubmissionCompleted() {
           }
         }
       };
+
+      if (viewMode === "shrink") {
+        return {
+          ...baseProps,
+          style: {
+            ...(baseProps.style || {}),
+            cursor: "pointer",
+          },
+          onClick: (event) => {
+            const targetTagName = event.target?.tagName?.toLowerCase() || "";
+            if (["a", "button", "input", "textarea", "select"].includes(targetTagName)) {
+              return;
+            }
+            if (
+              event.target?.closest?.(
+                "a, button, input, textarea, select, .MuiIconButton-root, .MuiChip-root"
+              )
+            ) {
+              return;
+            }
+            toggleRowExpanded(row.original._id);
+          },
+        };
+      }
+
+      return baseProps;
     },
     muiTableHeadCellProps: {
       sx: {
@@ -776,6 +1035,70 @@ function SubmissionCompleted() {
             </MenuItem>
           ))}
         </TextField>
+
+        {/* View Mode Toggle Switch */}
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 0.5,
+            bgcolor: "#f1f5f9",
+            p: "2px",
+            borderRadius: "8px",
+            border: "1px solid #cbd5e1",
+            marginRight: "20px",
+          }}
+        >
+          <Tooltip title="Full Table View" arrow>
+            <button
+              type="button"
+              className={`toggle-btn ${viewMode === "full" ? "active" : ""}`}
+              onClick={() => handleViewModeChange("full")}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                padding: "5px 9px",
+                border: "none",
+                borderRadius: "6px",
+                backgroundColor: viewMode === "full" ? "#ffffff" : "transparent",
+                color: viewMode === "full" ? "#2563eb" : "#64748b",
+                fontWeight: "700",
+                fontSize: "12px",
+                cursor: "pointer",
+                boxShadow: viewMode === "full" ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
+              }}
+            >
+              <TableRowsIcon sx={{ fontSize: 16 }} />
+              Full
+            </button>
+          </Tooltip>
+          <Tooltip title="Shrink List View" arrow>
+            <button
+              type="button"
+              className={`toggle-btn ${viewMode === "shrink" ? "active" : ""}`}
+              onClick={() => handleViewModeChange("shrink")}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                padding: "5px 9px",
+                border: "none",
+                borderRadius: "6px",
+                backgroundColor: viewMode === "shrink" ? "#ffffff" : "transparent",
+                color: viewMode === "shrink" ? "#2563eb" : "#64748b",
+                fontWeight: "700",
+                fontSize: "12px",
+                cursor: "pointer",
+                boxShadow: viewMode === "shrink" ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
+              }}
+            >
+              <ViewHeadlineIcon sx={{ fontSize: 16 }} />
+              Shrink
+            </button>
+          </Tooltip>
+        </Box>
+
         <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"
           size="small"
@@ -796,7 +1119,7 @@ function SubmissionCompleted() {
               </InputAdornment>
             ),
           }}
-          sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
+          sx={{ width: "300px", marginRight: "20px", marginLeft: "10px" }}
         />
 
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
@@ -847,6 +1170,7 @@ function SubmissionCompleted() {
             />
           </Box>
         </Box>
+
       </div>
     ),
   };

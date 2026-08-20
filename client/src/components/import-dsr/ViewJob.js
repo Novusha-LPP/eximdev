@@ -209,7 +209,7 @@ function JobDetails() {
   };
 
   const [activeProductIndex, setActiveProductIndex] = useState(0);
-  const [productSubTab, setProductSubTab] = useState("Main");
+  const [productSubTab, setProductSubTab] = useState(0);
 
   const [invoiceSubTab, setInvoiceSubTab] = useState(0);
   const handleInvoiceSubTabChange = (event, newValue) => {
@@ -1428,7 +1428,65 @@ function JobDetails() {
           igst_amount_inr: "",
           igst_amount_manual: false,
           comp_cess_percent: "",
-          comp_cess_amount: ""
+          comp_cess_amount: "",
+
+          bcd_notn: "",
+          bcd_sr_no: "",
+          bcd_rate: "",
+          bcd_specific_rate: "",
+          bcd_unit: "",
+          bcd_flag: "",
+          bcd_amount: "",
+
+          aidc_notn: "",
+          aidc_sr_no: "",
+          aidc_rate: "",
+          aidc_specific_rate: "",
+          aidc_unit: "",
+          aidc_amount: "",
+
+          sw_surcharge_notn: "",
+          sw_surcharge_sr_no: "",
+          sw_surcharge_rate: "10.00",
+          sw_surcharge_foc: "No",
+          sw_surcharge_amount: "",
+
+          igst_notn: "",
+          igst_sr_no: "",
+          igst_specific_rate: "",
+          igst_unit: "",
+          igst_type: "C - Customs",
+
+          igst_exc_notn: "",
+          igst_exc_sr_no: "",
+          igst_exc_rate: "",
+          igst_exc_amount: "",
+
+          comp_cess_notn: "",
+          comp_cess_sr_no: "",
+          comp_cess_specific_rate: "",
+          comp_cess_unit: "",
+
+          comp_exc_notn: "",
+          comp_exc_sr_no: "",
+          comp_exc_rate: "",
+          comp_exc_specific_rate: "",
+          comp_exc_amount: "",
+
+          safeguard_notn: "",
+          safeguard_sr_no: "",
+          safeguard_rate: "",
+          safeguard_specific_rate: "",
+          safeguard_amount: "",
+
+          sapta_notn: "",
+          sapta_sr_no: "",
+          sapta_rate: "",
+          sapta_amount: "",
+
+          standard_uqc_qty: "",
+          standard_uqc_unit: "",
+          total_duty_amount: ""
         },
       ];
   }, [formik.values.description_details, formik.values.clearanceValue]);
@@ -1672,7 +1730,65 @@ function JobDetails() {
         igst_amount_inr: "",
         igst_amount_manual: false,
         comp_cess_percent: "",
-        comp_cess_amount: ""
+        comp_cess_amount: "",
+
+        bcd_notn: "",
+        bcd_sr_no: "",
+        bcd_rate: "",
+        bcd_specific_rate: "",
+        bcd_unit: "",
+        bcd_flag: "",
+        bcd_amount: "",
+
+        aidc_notn: "",
+        aidc_sr_no: "",
+        aidc_rate: "",
+        aidc_specific_rate: "",
+        aidc_unit: "",
+        aidc_amount: "",
+
+        sw_surcharge_notn: "",
+        sw_surcharge_sr_no: "",
+        sw_surcharge_rate: "10.00",
+        sw_surcharge_foc: "No",
+        sw_surcharge_amount: "",
+
+        igst_notn: "",
+        igst_sr_no: "",
+        igst_specific_rate: "",
+        igst_unit: "",
+        igst_type: "C - Customs",
+
+        igst_exc_notn: "",
+        igst_exc_sr_no: "",
+        igst_exc_rate: "",
+        igst_exc_amount: "",
+
+        comp_cess_notn: "",
+        comp_cess_sr_no: "",
+        comp_cess_specific_rate: "",
+        comp_cess_unit: "",
+
+        comp_exc_notn: "",
+        comp_exc_sr_no: "",
+        comp_exc_rate: "",
+        comp_exc_specific_rate: "",
+        comp_exc_amount: "",
+
+        safeguard_notn: "",
+        safeguard_sr_no: "",
+        safeguard_rate: "",
+        safeguard_specific_rate: "",
+        safeguard_amount: "",
+
+        sapta_notn: "",
+        sapta_sr_no: "",
+        sapta_rate: "",
+        sapta_amount: "",
+
+        standard_uqc_qty: "",
+        standard_uqc_unit: "",
+        total_duty_amount: ""
       },
     ]);
   };
@@ -5135,242 +5251,123 @@ function JobDetails() {
                 </Box>
               </div>
 
-              {/* Tab Content */}
-              <div style={{ background: "#ffffff", border: "1px solid #dee2e6", borderRadius: "4px", padding: "16px", marginBottom: "20px" }}>
-                <div>
-                  {/* Selected Invoice box */}
-                  {(() => {
-                    const activeRow = descriptionRows[activeProductIndex] || {};
-                    const invIndex = Number(activeRow.sr_no_invoice) - 1;
-                    const activeInvoice = (formik.values.invoice_details || [])[invIndex] || {};
-                    const invoiceNo = activeInvoice.invoice_number || "None";
-                    const invoiceCurr = activeInvoice.inv_currency || "USD";
-                    return (
-                      <div style={{ background: "#f8f9fa", border: "1px solid #dee2e6", borderRadius: "4px", padding: "12px", marginBottom: "16px" }}>
-                        <div style={{ fontSize: "14px", fontWeight: "bold", color: "#333333" }}>
-                          Selected Invoice: {invoiceNo}
-                        </div>
-                        <div style={{ fontSize: "12px", color: "#666666", marginTop: "4px" }}>
-                          Active Currency: <strong>{invoiceCurr}</strong> (Used for unit and total price)
-                        </div>
-                      </div>
-                    );
-                  })()}
+              {/* Product Sub Tabs */}
+              <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
+                <Tabs
+                  value={productSubTab}
+                  onChange={(e, val) => setProductSubTab(val)}
+                  sx={{ minHeight: "40px" }}
+                >
+                  <Tab label="General Details" sx={{ textTransform: "none", fontWeight: "600", fontSize: "0.95rem" }} />
+                  <Tab label="Notifications & Duties" sx={{ textTransform: "none", fontWeight: "600", fontSize: "0.95rem" }} />
+                </Tabs>
+              </Box>
 
-                  {/* Product Items Table */}
-                  <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: "8px", boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.05)" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", minWidth: `${productTableWidth}px`, backgroundColor: "#ffffff" }}>
-                      <thead>
-                        <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                          {[
-                            { label: "Sr No", width: "45px", align: "center" },
-                            { label: "Inv SR", width: "80px", align: "left" },
-                            { label: "Description", minWidth: "280px", align: "left" },
-                            { label: "RITC (HS Code)", width: "150px", align: "left" },
-                            { label: "Quantity", width: "240px", align: "left" },
-                            { label: "Unit Price", width: "100px", align: "left" },
-                            { label: "Currency", width: "90px", align: "left" },
-                            { label: "Amount", width: "115px", align: "left" },
-                            ...((invoiceRows.length > 0 && invoiceRows.every(r => r.toi === "CIF")) ? [] : [
-                              { label: "CIF Value (INR)", width: "130px", align: "right" }
-                            ]),
-                            { label: "Clearance Under", width: "140px", align: "left" },
-                            ...((formik.values.clearanceValue !== "Full Duty" && formik.values.clearanceValue !== "RODTEP") ? [
-                              { label: "License No", width: "180px", align: "left" },
-                              { label: "License Date", width: "120px", align: "left" },
-                              { label: "License SR", width: "90px", align: "left" }
-                            ] : []),
-                            ...((formik.values.clearanceValue === "RODTEP") ? [
-                              { label: "RODTEP", width: "180px", align: "left" }
-                            ] : []),
-                            { label: "Action", width: "50px", align: "center" }
-                          ].map((col) => (
-                            <th
-                              key={col.label}
+              {/* Sub Tab 0: General Details */}
+              {productSubTab === 0 && (
+                <div style={{ background: "#ffffff", border: "1px solid #dee2e6", borderRadius: "4px", padding: "16px", marginBottom: "20px" }}>
+                  <div>
+                    {/* Selected Invoice box */}
+                    {(() => {
+                      const activeRow = descriptionRows[activeProductIndex] || {};
+                      const invIndex = Number(activeRow.sr_no_invoice) - 1;
+                      const activeInvoice = (formik.values.invoice_details || [])[invIndex] || {};
+                      const invoiceNo = activeInvoice.invoice_number || "None";
+                      const invoiceCurr = activeInvoice.inv_currency || "USD";
+                      return (
+                        <div style={{ background: "#f8f9fa", border: "1px solid #dee2e6", borderRadius: "4px", padding: "12px", marginBottom: "16px" }}>
+                          <div style={{ fontSize: "14px", fontWeight: "bold", color: "#333333" }}>
+                            Selected Invoice: {invoiceNo}
+                          </div>
+                          <div style={{ fontSize: "12px", color: "#666666", marginTop: "4px" }}>
+                            Active Currency: <strong>{invoiceCurr}</strong> (Used for unit and total price)
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Product Items Table */}
+                    <div style={{ overflowX: "auto", border: "1px solid #e2e8f0", borderRadius: "8px", boxShadow: "0 1px 3px 0 rgba(0, 0, 0, 0.05)" }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", minWidth: `${productTableWidth}px`, backgroundColor: "#ffffff" }}>
+                        <thead>
+                          <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+                            {[
+                              { label: "Sr No", width: "45px", align: "center" },
+                              { label: "Inv SR", width: "80px", align: "left" },
+                              { label: "Description", minWidth: "280px", align: "left" },
+                              { label: "RITC (HS Code)", width: "150px", align: "left" },
+                              { label: "Quantity", width: "240px", align: "left" },
+                              { label: "Unit Price", width: "100px", align: "left" },
+                              { label: "Currency", width: "90px", align: "left" },
+                              { label: "Amount", width: "115px", align: "left" },
+                              ...((invoiceRows.length > 0 && invoiceRows.every(r => r.toi === "CIF")) ? [] : [
+                                { label: "CIF Value (INR)", width: "130px", align: "right" }
+                              ]),
+                              { label: "Clearance Under", width: "140px", align: "left" },
+                              ...((formik.values.clearanceValue !== "Full Duty" && formik.values.clearanceValue !== "RODTEP") ? [
+                                { label: "License No", width: "180px", align: "left" },
+                                { label: "License Date", width: "120px", align: "left" },
+                                { label: "License SR", width: "90px", align: "left" }
+                              ] : []),
+                              ...((formik.values.clearanceValue === "RODTEP") ? [
+                                { label: "RODTEP", width: "180px", align: "left" }
+                              ] : []),
+                              { label: "Action", width: "50px", align: "center" }
+                            ].map((col) => (
+                              <th
+                                key={col.label}
+                                style={{
+                                  padding: "10px 8px",
+                                  fontSize: "0.8rem",
+                                  fontWeight: "600",
+                                  textAlign: col.align || "left",
+                                  whiteSpace: "nowrap",
+                                  color: "#475569",
+                                  width: col.width || "auto",
+                                  minWidth: col.minWidth || "auto",
+                                  textTransform: "uppercase",
+                                  letterSpacing: "0.05em"
+                                }}
+                              >
+                                {col.label}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {descriptionRows.map((row, rowIndex) => (
+                            <tr
+                              key={`main-desc-row-${rowIndex}`}
                               style={{
-                                padding: "10px 8px",
-                                fontSize: "0.8rem",
-                                fontWeight: "600",
-                                textAlign: col.align || "left",
-                                whiteSpace: "nowrap",
-                                color: "#475569",
-                                width: col.width || "auto",
-                                minWidth: col.minWidth || "auto",
-                                textTransform: "uppercase",
-                                letterSpacing: "0.05em"
+                                borderBottom: "1px solid #e2e8f0",
+                                background: activeProductIndex === rowIndex ? "#f8fafc" : "transparent",
+                                transition: "background-color 0.2s"
                               }}
                             >
-                              {col.label}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {descriptionRows.map((row, rowIndex) => (
-                          <tr
-                            key={`main-desc-row-${rowIndex}`}
-                            style={{
-                              borderBottom: "1px solid #e2e8f0",
-                              background: activeProductIndex === rowIndex ? "#f8fafc" : "transparent",
-                              transition: "background-color 0.2s"
-                            }}
-                          >
-                            {/* Sr No */}
-                            <td style={{ padding: "8px 6px", textAlign: "center", width: "45px", fontSize: "12px", fontWeight: "bold", color: "#64748b", verticalAlign: "middle" }}>
-                              {rowIndex + 1}
-                            </td>
-                            {/* Inv SR */}
-                            <td style={{ padding: "8px 6px", width: "80px", verticalAlign: "middle" }}>
-                              <TextField
-                                select
-                                size="small"
-                                fullWidth
-                                value={row.sr_no_invoice || ""}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  const invIdx = Number(val) - 1;
-                                  const activeInvoice = (formik.values.invoice_details || [])[invIdx] || {};
-                                  const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
-                                  const qty = parseFloat(row.quantity) || 0;
-                                  const price = parseFloat(row.unit_price) || 0;
-                                  const amount = qty * price;
-
-                                  const taxVal = calculateProductTaxableValue(amount, invIdx);
-
-                                  updateDescriptionRowMultiple(rowIndex, {
-                                    sr_no_invoice: val,
-                                    ...(!row.taxable_value_manual && {
-                                      taxable_value_inr: taxVal,
-                                      ...(!row.igst_amount_manual && {
-                                        igst_amount_inr: ((parseFloat(taxVal) * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
-                                      })
-                                    })
-                                  });
-                                }}
-                                disabled={isDescriptionTableReadOnly}
-                                sx={compactInputSx}
-                              >
-                                <MenuItem value="">Select</MenuItem>
-                                {invoiceRows.map((_, idx) => (
-                                  <MenuItem key={idx + 1} value={String(idx + 1)}>
-                                    {idx + 1}
-                                  </MenuItem>
-                                ))}
-                              </TextField>
-                            </td>
-                            {/* Description */}
-                            <td style={{ padding: "8px 6px", minWidth: "280px", verticalAlign: "middle" }}>
-                              <TextField
-                                size="small"
-                                fullWidth
-                                multiline
-                                minRows={2}
-                                value={row.description || ""}
-                                onChange={(e) => updateDescriptionRow(rowIndex, "description", e.target.value)}
-                                disabled={isDescriptionTableReadOnly}
-                                sx={{
-                                  ...compactInputSx,
-                                  "& .MuiOutlinedInput-root": {
-                                    ...compactInputSx["& .MuiOutlinedInput-root"],
-                                    height: "auto",
-                                    minHeight: "58px"
-                                  },
-                                  "& .MuiOutlinedInput-input": {
-                                    ...compactInputSx["& .MuiOutlinedInput-input"],
-                                    padding: "4px 8px",
-                                    lineHeight: "1.3"
-                                  }
-                                }}
-                              />
-                            </td>
-                            {/* RITC (HS Code) */}
-                            <td style={{ padding: "8px 6px", width: "150px", verticalAlign: "middle" }}>
-                              <Autocomplete
-                                size="small"
-                                freeSolo
-                                fullWidth
-                                disableClearable
-                                disabled={isDescriptionTableReadOnly}
-                                options={cthOptions[rowIndex] || []}
-                                getOptionLabel={(option) => typeof option === 'string' ? option : option}
-                                loading={cthLoading[rowIndex]}
-                                inputValue={row.cth_no || ""}
-                                onInputChange={(event, newInputValue) => {
-                                  updateDescriptionRow(rowIndex, "cth_no", newInputValue);
-                                  if (cthTimeoutRef.current[rowIndex]) {
-                                    clearTimeout(cthTimeoutRef.current[rowIndex]);
-                                  }
-                                  if (newInputValue && newInputValue.length >= 4) {
-                                    cthTimeoutRef.current[rowIndex] = setTimeout(() => {
-                                      fetchCthOptions(newInputValue, rowIndex);
-                                    }, 500);
-                                  } else {
-                                    setCthOptions(prev => ({ ...prev, [rowIndex]: [] }));
-                                  }
-                                }}
-                                onChange={(event, newValue) => {
-                                  const selectedCode = typeof newValue === 'string' ? newValue : newValue || "";
-                                  updateDescriptionRow(rowIndex, "cth_no", selectedCode);
-                                }}
-                                renderInput={(params) => (
-                                  <TextField
-                                    {...params}
-                                    fullWidth
-                                    sx={compactInputSx}
-                                    InputProps={{
-                                      ...params.InputProps,
-                                      endAdornment: (
-                                        <React.Fragment>
-                                          {cthLoading[rowIndex] ? <CircularProgress color="inherit" size={12} /> : null}
-                                          {params.InputProps.endAdornment}
-                                        </React.Fragment>
-                                      ),
-                                    }}
-                                  />
-                                )}
-                                renderOption={(props, option) => (
-                                  <li {...props} key={option}>
-                                    {option}
-                                  </li>
-                                )}
-                              />
-                              {row.cth_no && (row.cth_no.length < 8 || !/^\d+$/.test(row.cth_no)) && (
-                                <div style={{ color: '#ef4444', fontSize: '10px', marginTop: '2px', fontWeight: '500' }}>
-                                  Invalid CTH
-                                </div>
-                              )}
-                            </td>
-                            {/* Quantity */}
-                            <td style={{ padding: "8px 6px", width: "240px", verticalAlign: "middle" }}>
-                              <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                              {/* Sr No */}
+                              <td style={{ padding: "8px 6px", textAlign: "center", width: "45px", fontSize: "12px", fontWeight: "bold", color: "#64748b", verticalAlign: "middle" }}>
+                                {rowIndex + 1}
+                              </td>
+                              {/* Inv SR */}
+                              <td style={{ padding: "8px 6px", width: "80px", verticalAlign: "middle" }}>
                                 <TextField
+                                  select
                                   size="small"
-                                  value={row.quantity || ""}
+                                  fullWidth
+                                  value={row.sr_no_invoice || ""}
                                   onChange={(e) => {
-                                    const qty = e.target.value;
-                                    const qtyNum = parseFloat(qty) || 0;
-                                    const existingAmt = parseFloat(row.amount) || 0;
-                                    const price = parseFloat(row.unit_price) || 0;
-
-                                    let calculatedPrice = price;
-                                    let calculatedAmount = existingAmt;
-
-                                    if (qtyNum > 0 && existingAmt > 0) {
-                                      calculatedPrice = existingAmt / qtyNum;
-                                    } else if (qtyNum > 0 && price > 0) {
-                                      calculatedAmount = qtyNum * price;
-                                    }
-
-                                    const invIndex = Number(row.sr_no_invoice) - 1;
-                                    const activeInvoice = (formik.values.invoice_details || [])[invIndex] || {};
+                                    const val = e.target.value;
+                                    const invIdx = Number(val) - 1;
+                                    const activeInvoice = (formik.values.invoice_details || [])[invIdx] || {};
                                     const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
+                                    const qty = parseFloat(row.quantity) || 0;
+                                    const price = parseFloat(row.unit_price) || 0;
+                                    const amount = qty * price;
 
-                                    const taxVal = calculateProductTaxableValue(calculatedAmount, invIndex);
+                                    const taxVal = calculateProductTaxableValue(amount, invIdx);
 
                                     updateDescriptionRowMultiple(rowIndex, {
-                                      quantity: qty,
-                                      unit_price: calculatedPrice > 0 ? calculatedPrice.toFixed(4) : "",
-                                      amount: calculatedAmount > 0 ? calculatedAmount.toFixed(2) : "",
+                                      sr_no_invoice: val,
                                       ...(!row.taxable_value_manual && {
                                         taxable_value_inr: taxVal,
                                         ...(!row.igst_amount_manual && {
@@ -5380,410 +5377,1314 @@ function JobDetails() {
                                     });
                                   }}
                                   disabled={isDescriptionTableReadOnly}
-                                  sx={{ flex: 1.5, ...compactInputSx }}
+                                  sx={compactInputSx}
+                                >
+                                  <MenuItem value="">Select</MenuItem>
+                                  {invoiceRows.map((_, idx) => (
+                                    <MenuItem key={idx + 1} value={String(idx + 1)}>
+                                      {idx + 1}
+                                    </MenuItem>
+                                  ))}
+                                </TextField>
+                              </td>
+                              {/* Description */}
+                              <td style={{ padding: "8px 6px", minWidth: "280px", verticalAlign: "middle" }}>
+                                <TextField
+                                  size="small"
+                                  fullWidth
+                                  multiline
+                                  minRows={2}
+                                  value={row.description || ""}
+                                  onChange={(e) => updateDescriptionRow(rowIndex, "description", e.target.value)}
+                                  disabled={isDescriptionTableReadOnly}
+                                  sx={{
+                                    ...compactInputSx,
+                                    "& .MuiOutlinedInput-root": {
+                                      ...compactInputSx["& .MuiOutlinedInput-root"],
+                                      height: "auto",
+                                      minHeight: "58px"
+                                    },
+                                    "& .MuiOutlinedInput-input": {
+                                      ...compactInputSx["& .MuiOutlinedInput-input"],
+                                      padding: "4px 8px",
+                                      lineHeight: "1.3"
+                                    }
+                                  }}
                                 />
-                                <div style={{ flex: 1 }}>
+                              </td>
+                              {/* RITC (HS Code) */}
+                              <td style={{ padding: "8px 6px", width: "150px", verticalAlign: "middle" }}>
+                                <Autocomplete
+                                  size="small"
+                                  freeSolo
+                                  fullWidth
+                                  disableClearable
+                                  disabled={isDescriptionTableReadOnly}
+                                  options={cthOptions[rowIndex] || []}
+                                  getOptionLabel={(option) => typeof option === 'string' ? option : option}
+                                  loading={cthLoading[rowIndex]}
+                                  inputValue={row.cth_no || ""}
+                                  onInputChange={(event, newInputValue) => {
+                                    updateDescriptionRow(rowIndex, "cth_no", newInputValue);
+                                    if (cthTimeoutRef.current[rowIndex]) {
+                                      clearTimeout(cthTimeoutRef.current[rowIndex]);
+                                    }
+                                    if (newInputValue && newInputValue.length >= 4) {
+                                      cthTimeoutRef.current[rowIndex] = setTimeout(() => {
+                                        fetchCthOptions(newInputValue, rowIndex);
+                                      }, 500);
+                                    } else {
+                                      setCthOptions(prev => ({ ...prev, [rowIndex]: [] }));
+                                    }
+                                  }}
+                                  onChange={(event, newValue) => {
+                                    const selectedCode = typeof newValue === 'string' ? newValue : newValue || "";
+                                    updateDescriptionRow(rowIndex, "cth_no", selectedCode);
+                                  }}
+                                  renderInput={(params) => (
+                                    <TextField
+                                      {...params}
+                                      fullWidth
+                                      sx={compactInputSx}
+                                      InputProps={{
+                                        ...params.InputProps,
+                                        endAdornment: (
+                                          <React.Fragment>
+                                            {cthLoading[rowIndex] ? <CircularProgress color="inherit" size={12} /> : null}
+                                            {params.InputProps.endAdornment}
+                                          </React.Fragment>
+                                        ),
+                                      }}
+                                    />
+                                  )}
+                                  renderOption={(props, option) => (
+                                    <li {...props} key={option}>
+                                      {option}
+                                    </li>
+                                  )}
+                                />
+                                {row.cth_no && (row.cth_no.length < 8 || !/^\d+$/.test(row.cth_no)) && (
+                                  <div style={{ color: '#ef4444', fontSize: '10px', marginTop: '2px', fontWeight: '500' }}>
+                                    Invalid CTH
+                                  </div>
+                                )}
+                              </td>
+                              {/* Quantity */}
+                              <td style={{ padding: "8px 6px", width: "240px", verticalAlign: "middle" }}>
+                                <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
+                                  <TextField
+                                    size="small"
+                                    value={row.quantity || ""}
+                                    onChange={(e) => {
+                                      const qty = e.target.value;
+                                      const qtyNum = parseFloat(qty) || 0;
+                                      const existingAmt = parseFloat(row.amount) || 0;
+                                      const price = parseFloat(row.unit_price) || 0;
+
+                                      let calculatedPrice = price;
+                                      let calculatedAmount = existingAmt;
+
+                                      if (qtyNum > 0 && existingAmt > 0) {
+                                        calculatedPrice = existingAmt / qtyNum;
+                                      } else if (qtyNum > 0 && price > 0) {
+                                        calculatedAmount = qtyNum * price;
+                                      }
+
+                                      const invIndex = Number(row.sr_no_invoice) - 1;
+                                      const activeInvoice = (formik.values.invoice_details || [])[invIndex] || {};
+                                      const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
+
+                                      const taxVal = calculateProductTaxableValue(calculatedAmount, invIndex);
+
+                                      updateDescriptionRowMultiple(rowIndex, {
+                                        quantity: qty,
+                                        unit_price: calculatedPrice > 0 ? calculatedPrice.toFixed(4) : "",
+                                        amount: calculatedAmount > 0 ? calculatedAmount.toFixed(2) : "",
+                                        ...(!row.taxable_value_manual && {
+                                          taxable_value_inr: taxVal,
+                                          ...(!row.igst_amount_manual && {
+                                            igst_amount_inr: ((parseFloat(taxVal) * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
+                                          })
+                                        })
+                                      });
+                                    }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={{ flex: 1.5, ...compactInputSx }}
+                                  />
+                                  <div style={{ flex: 1 }}>
+                                    <Autocomplete
+                                      size="small"
+                                      freeSolo
+                                      options={unitOptions.map(u => u.code)}
+                                      value={row.unit || ""}
+                                      onChange={(e, newValue) => updateDescriptionRow(rowIndex, "unit", newValue || "")}
+                                      onInputChange={(e, newInputValue, reason) => {
+                                        if (reason === "input") updateDescriptionRow(rowIndex, "unit", newInputValue);
+                                      }}
+                                      disabled={isDescriptionTableReadOnly}
+                                      renderInput={(params) => (
+                                        <TextField
+                                          {...params}
+                                          size="small"
+                                          placeholder="Unit"
+                                          sx={compactInputSx}
+                                        />
+                                      )}
+                                    />
+                                  </div>
+                                </div>
+                              </td>
+
+                              {/* Unit Price */}
+                              <td style={{ padding: "8px 6px", width: "100px", verticalAlign: "middle" }}>
+                                <TextField
+                                  size="small"
+                                  fullWidth
+                                  value={row.unit_price || ""}
+                                  onChange={(e) => {
+                                    const price = e.target.value;
+                                    const priceNum = parseFloat(price) || 0;
+                                    const qty = parseFloat(row.quantity) || 0;
+                                    const amount = qty * priceNum;
+                                    const invIndex = Number(row.sr_no_invoice) - 1;
+                                    const activeInvoice = (formik.values.invoice_details || [])[invIndex] || {};
+                                    const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
+
+                                    const taxVal = calculateProductTaxableValue(amount, invIndex);
+
+                                    updateDescriptionRowMultiple(rowIndex, {
+                                      unit_price: price,
+                                      amount: amount.toFixed(2),
+                                      ...(!row.taxable_value_manual && {
+                                        taxable_value_inr: taxVal,
+                                        ...(!row.igst_amount_manual && {
+                                          igst_amount_inr: ((parseFloat(taxVal) * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
+                                        })
+                                      })
+                                    });
+                                  }}
+                                  disabled={isDescriptionTableReadOnly}
+                                  sx={compactInputSx}
+                                />
+                              </td>
+                              {/* Currency */}
+                              <td style={{ padding: "8px 6px", width: "90px", verticalAlign: "middle" }}>
+                                <Autocomplete
+                                  freeSolo
+                                  size="small"
+                                  options={currencies.map(c => c.code)}
+                                  value={row.amount_currency || "USD"}
+                                  onInputChange={(event, newValue) => updateDescriptionRow(rowIndex, "amount_currency", newValue)}
+                                  onChange={(event, newValue) => updateDescriptionRow(rowIndex, "amount_currency", newValue || "USD")}
+                                  disabled={isDescriptionTableReadOnly}
+                                  renderInput={(params) => (
+                                    <TextField
+                                      {...params}
+                                      variant="outlined"
+                                      size="small"
+                                      placeholder="Currency"
+                                      sx={compactInputSx}
+                                    />
+                                  )}
+                                />
+                              </td>
+
+                              {/* Amount */}
+                              <td style={{ padding: "8px 6px", width: "115px", verticalAlign: "middle" }}>
+                                <TextField
+                                  size="small"
+                                  fullWidth
+                                  value={row.amount || ""}
+                                  onChange={(e) => {
+                                    const amt = e.target.value;
+                                    const amtNum = parseFloat(amt) || 0;
+                                    const qty = parseFloat(row.quantity) || 0;
+
+                                    let calculatedPrice = parseFloat(row.unit_price) || 0;
+                                    if (qty > 0 && amtNum > 0) {
+                                      calculatedPrice = amtNum / qty;
+                                    }
+
+                                    const invIndex = Number(row.sr_no_invoice) - 1;
+                                    const activeInvoice = (formik.values.invoice_details || [])[invIndex] || {};
+                                    const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
+
+                                    const taxVal = calculateProductTaxableValue(amtNum, invIndex);
+
+                                    updateDescriptionRowMultiple(rowIndex, {
+                                      amount: amt,
+                                      unit_price: calculatedPrice > 0 ? calculatedPrice.toFixed(4) : "",
+                                      ...(!row.taxable_value_manual && {
+                                        taxable_value_inr: taxVal,
+                                        ...(!row.igst_amount_manual && {
+                                          igst_amount_inr: ((parseFloat(taxVal) * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
+                                        })
+                                      })
+                                    });
+                                  }}
+                                  disabled={isDescriptionTableReadOnly}
+                                  sx={compactInputSx}
+                                />
+                              </td>
+                              {/* CIF Value */}
+                              {!(invoiceRows.length > 0 && invoiceRows.every(r => r.toi === "CIF")) && (
+                                <td style={{ padding: "8px 6px", width: "130px", verticalAlign: "middle", textAlign: "right" }}>
+                                  {(() => {
+                                    const activeInvoice = (formik.values.invoice_details || [])[Number(row.sr_no_invoice) - 1] || {};
+                                    const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
+                                    let taxVal = parseFloat(row.taxable_value_inr);
+                                    if (isNaN(taxVal) || taxVal === 0) {
+                                      taxVal = parseFloat(calculateProductTaxableValue(row.amount, Number(row.sr_no_invoice) - 1)) || 0;
+                                    }
+                                    const cifVal = taxVal > 0 ? taxVal.toFixed(2) : "";
+                                    return (
+                                      <TextField
+                                        size="small"
+                                        fullWidth
+                                        value={cifVal}
+                                        disabled
+                                        inputProps={{ style: { textAlign: 'right', fontWeight: 'bold', color: '#0f172a', backgroundColor: '#f8fafc' } }}
+                                        sx={compactInputSx}
+                                      />
+                                    );
+                                  })()}
+                                </td>
+                              )}
+                              {/* Clearance Under */}
+                              <td style={{ padding: "8px 6px", width: "140px", verticalAlign: "middle" }}>
+                                <TextField
+                                  select
+                                  size="small"
+                                  fullWidth
+                                  variant="outlined"
+                                  value={row.clearance_under || formik.values.clearanceValue || ""}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (canChangeClearance && canChangeClearance()) {
+                                      formik.setFieldValue("clearanceValue", val);
+                                      const updatedRows = descriptionRows.map(r => ({ ...r, clearance_under: val }));
+                                      formik.setFieldValue("description_details", updatedRows);
+                                    } else {
+                                      alert("Please clear Ex-Bond details before changing Clearance Under.");
+                                    }
+                                  }}
+                                  disabled={isDescriptionTableReadOnly}
+                                  sx={compactInputSx}
+                                >
+                                  <MenuItem value="" disabled>Select</MenuItem>
+                                  {filteredClearanceOptions.map((option, index) => (
+                                    <MenuItem key={index} value={option.value || ""}>
+                                      {option.label}
+                                    </MenuItem>
+                                  ))}
+                                </TextField>
+                              </td>
+                              {/* License No */}
+                              {formik.values.clearanceValue !== "Full Duty" && formik.values.clearanceValue !== "RODTEP" && (
+                                <td style={{ padding: "8px 6px", width: "180px", verticalAlign: "middle" }}>
                                   <Autocomplete
                                     size="small"
+                                    fullWidth
                                     freeSolo
-                                    options={unitOptions.map(u => u.code)}
-                                    value={row.unit || ""}
-                                    onChange={(e, newValue) => updateDescriptionRow(rowIndex, "unit", newValue || "")}
+                                    options={authorizationsList.map((auth) => auth.authorization_no)}
+                                    value={row.sr_no_lic || row.license_no || ""}
+                                    onChange={async (e, newValue) => {
+                                      if (newValue) {
+                                        const selectedAuth = authorizationsList.find(a => a.authorization_no === newValue);
+                                        let licenseDate = "";
+                                        let importItems = [];
+                                        if (selectedAuth) {
+                                          licenseDate = selectedAuth.authorization_date || "";
+                                          importItems = selectedAuth.import_details_array || [];
+                                        } else {
+                                          try {
+                                            const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-authorization-by-no?authorization_no=${newValue}`);
+                                            if (res.data) {
+                                              licenseDate = res.data.licence_date || res.data.auth_date || "";
+                                              importItems = res.data.import_details_array || [];
+                                            }
+                                          } catch (err) {
+                                            console.error("Error fetching license:", err);
+                                          }
+                                        }
+
+                                        const rowNormalizedHs = row.cth_no ? String(row.cth_no).replace(/[^a-zA-Z0-9]/g, "") : "";
+                                        let autoSr = "";
+                                        if (rowNormalizedHs && importItems.length > 0) {
+                                          const matchingItems = importItems.filter(item => {
+                                            const itemNormalizedHs = item.hs_code ? String(item.hs_code).replace(/[^a-zA-Z0-9]/g, "") : "";
+                                            return itemNormalizedHs === rowNormalizedHs;
+                                          });
+                                          if (matchingItems.length === 1) {
+                                            autoSr = Number(matchingItems[0].sr_no) || 1;
+                                          }
+                                        }
+
+                                        updateDescriptionRowMultiple(rowIndex, {
+                                          sr_no_lic: newValue,
+                                          license_no: newValue,
+                                          license_date: licenseDate,
+                                          license_sr: autoSr
+                                        });
+                                      } else {
+                                        updateDescriptionRowMultiple(rowIndex, {
+                                          sr_no_lic: "",
+                                          license_no: "",
+                                          license_date: "",
+                                          license_sr: ""
+                                        });
+                                      }
+                                    }}
                                     onInputChange={(e, newInputValue, reason) => {
-                                      if (reason === "input") updateDescriptionRow(rowIndex, "unit", newInputValue);
+                                      if (reason === "input") {
+                                        updateDescriptionRowMultiple(rowIndex, {
+                                          sr_no_lic: newInputValue,
+                                          license_no: newInputValue
+                                        });
+                                      }
                                     }}
                                     disabled={isDescriptionTableReadOnly}
                                     renderInput={(params) => (
                                       <TextField
                                         {...params}
                                         size="small"
-                                        placeholder="Unit"
                                         sx={compactInputSx}
                                       />
                                     )}
                                   />
-                                </div>
-                              </div>
-                            </td>
-
-                            {/* Unit Price */}
-                            <td style={{ padding: "8px 6px", width: "100px", verticalAlign: "middle" }}>
-                              <TextField
-                                size="small"
-                                fullWidth
-                                value={row.unit_price || ""}
-                                onChange={(e) => {
-                                  const price = e.target.value;
-                                  const priceNum = parseFloat(price) || 0;
-                                  const qty = parseFloat(row.quantity) || 0;
-                                  const amount = qty * priceNum;
-                                  const invIndex = Number(row.sr_no_invoice) - 1;
-                                  const activeInvoice = (formik.values.invoice_details || [])[invIndex] || {};
-                                  const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
-
-                                  const taxVal = calculateProductTaxableValue(amount, invIndex);
-
-                                  updateDescriptionRowMultiple(rowIndex, {
-                                    unit_price: price,
-                                    amount: amount.toFixed(2),
-                                    ...(!row.taxable_value_manual && {
-                                      taxable_value_inr: taxVal,
-                                      ...(!row.igst_amount_manual && {
-                                        igst_amount_inr: ((parseFloat(taxVal) * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
-                                      })
-                                    })
-                                  });
-                                }}
-                                disabled={isDescriptionTableReadOnly}
-                                sx={compactInputSx}
-                              />
-                            </td>
-                            {/* Currency */}
-                            <td style={{ padding: "8px 6px", width: "90px", verticalAlign: "middle" }}>
-                              <Autocomplete
-                                freeSolo
-                                size="small"
-                                options={currencies.map(c => c.code)}
-                                value={row.amount_currency || "USD"}
-                                onInputChange={(event, newValue) => updateDescriptionRow(rowIndex, "amount_currency", newValue)}
-                                onChange={(event, newValue) => updateDescriptionRow(rowIndex, "amount_currency", newValue || "USD")}
-                                disabled={isDescriptionTableReadOnly}
-                                renderInput={(params) => (
+                                </td>
+                              )}
+                              {/* License Date */}
+                              {formik.values.clearanceValue !== "Full Duty" && formik.values.clearanceValue !== "RODTEP" && (
+                                <td style={{ padding: "8px 6px", width: "120px", verticalAlign: "middle" }}>
                                   <TextField
-                                    {...params}
-                                    variant="outlined"
                                     size="small"
-                                    placeholder="Currency"
+                                    fullWidth
+                                    value={row.license_date || ""}
+                                    onChange={(e) => updateDescriptionRow(rowIndex, "license_date", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
                                     sx={compactInputSx}
                                   />
-                                )}
-                              />
-                            </td>
+                                </td>
+                              )}
+                              {/* License SR */}
+                              {formik.values.clearanceValue !== "Full Duty" && formik.values.clearanceValue !== "RODTEP" && (
+                                <td style={{ padding: "8px 6px", width: "90px", verticalAlign: "middle" }}>
+                                  {(() => {
+                                    const licNum = row.sr_no_lic || row.license_no;
+                                    const selectedAuth = authorizationsList.find(a => a.authorization_no === licNum);
+                                    const importItems = selectedAuth?.import_details_array || [];
 
-                            {/* Amount */}
-                            <td style={{ padding: "8px 6px", width: "115px", verticalAlign: "middle" }}>
-                              <TextField
-                                size="small"
-                                fullWidth
-                                value={row.amount || ""}
-                                onChange={(e) => {
-                                  const amt = e.target.value;
-                                  const amtNum = parseFloat(amt) || 0;
-                                  const qty = parseFloat(row.quantity) || 0;
-
-                                  let calculatedPrice = parseFloat(row.unit_price) || 0;
-                                  if (qty > 0 && amtNum > 0) {
-                                    calculatedPrice = amtNum / qty;
-                                  }
-
-                                  const invIndex = Number(row.sr_no_invoice) - 1;
-                                  const activeInvoice = (formik.values.invoice_details || [])[invIndex] || {};
-                                  const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
-
-                                  const taxVal = calculateProductTaxableValue(amtNum, invIndex);
-
-                                  updateDescriptionRowMultiple(rowIndex, {
-                                    amount: amt,
-                                    unit_price: calculatedPrice > 0 ? calculatedPrice.toFixed(4) : "",
-                                    ...(!row.taxable_value_manual && {
-                                      taxable_value_inr: taxVal,
-                                      ...(!row.igst_amount_manual && {
-                                        igst_amount_inr: ((parseFloat(taxVal) * (parseFloat(row.igst_rate) || 0)) / 100).toFixed(2)
+                                    const rowNormalizedHs = row.cth_no ? String(row.cth_no).replace(/[^a-zA-Z0-9]/g, "") : "";
+                                    const filteredItems = rowNormalizedHs
+                                      ? importItems.filter(item => {
+                                        const itemNormalizedHs = item.hs_code ? String(item.hs_code).replace(/[^a-zA-Z0-9]/g, "") : "";
+                                        return itemNormalizedHs === rowNormalizedHs;
                                       })
-                                    })
-                                  });
-                                }}
-                                disabled={isDescriptionTableReadOnly}
-                                sx={compactInputSx}
-                              />
-                            </td>
-                            {/* CIF Value */}
-                            {!(invoiceRows.length > 0 && invoiceRows.every(r => r.toi === "CIF")) && (
-                              <td style={{ padding: "8px 6px", width: "130px", verticalAlign: "middle", textAlign: "right" }}>
-                                {(() => {
-                                  const activeInvoice = (formik.values.invoice_details || [])[Number(row.sr_no_invoice) - 1] || {};
-                                  const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
-                                  let taxVal = parseFloat(row.taxable_value_inr);
-                                  if (isNaN(taxVal) || taxVal === 0) {
-                                    taxVal = parseFloat(calculateProductTaxableValue(row.amount, Number(row.sr_no_invoice) - 1)) || 0;
-                                  }
-                                  const cifVal = taxVal > 0 ? taxVal.toFixed(2) : "";
-                                  return (
-                                    <TextField
-                                      size="small"
-                                      fullWidth
-                                      value={cifVal}
-                                      disabled
-                                      inputProps={{ style: { textAlign: 'right', fontWeight: 'bold', color: '#0f172a', backgroundColor: '#f8fafc' } }}
-                                      sx={compactInputSx}
-                                    />
-                                  );
-                                })()}
-                              </td>
-                            )}
-                            {/* Clearance Under */}
-                            <td style={{ padding: "8px 6px", width: "140px", verticalAlign: "middle" }}>
-                              <TextField
-                                select
-                                size="small"
-                                fullWidth
-                                variant="outlined"
-                                value={row.clearance_under || formik.values.clearanceValue || ""}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  if (canChangeClearance && canChangeClearance()) {
-                                    formik.setFieldValue("clearanceValue", val);
-                                    const updatedRows = descriptionRows.map(r => ({ ...r, clearance_under: val }));
-                                    formik.setFieldValue("description_details", updatedRows);
-                                  } else {
-                                    alert("Please clear Ex-Bond details before changing Clearance Under.");
-                                  }
-                                }}
-                                disabled={isDescriptionTableReadOnly}
-                                sx={compactInputSx}
-                              >
-                                <MenuItem value="" disabled>Select</MenuItem>
-                                {filteredClearanceOptions.map((option, index) => (
-                                  <MenuItem key={index} value={option.value || ""}>
-                                    {option.label}
-                                  </MenuItem>
-                                ))}
-                              </TextField>
-                            </td>
-                            {/* License No */}
-                            {formik.values.clearanceValue !== "Full Duty" && formik.values.clearanceValue !== "RODTEP" && (
-                              <td style={{ padding: "8px 6px", width: "180px", verticalAlign: "middle" }}>
-                                <Autocomplete
-                                  size="small"
-                                  fullWidth
-                                  freeSolo
-                                  options={authorizationsList.map((auth) => auth.authorization_no)}
-                                  value={row.sr_no_lic || row.license_no || ""}
-                                  onChange={async (e, newValue) => {
-                                    if (newValue) {
-                                      const selectedAuth = authorizationsList.find(a => a.authorization_no === newValue);
-                                      let licenseDate = "";
-                                      let importItems = [];
-                                      if (selectedAuth) {
-                                        licenseDate = selectedAuth.authorization_date || "";
-                                        importItems = selectedAuth.import_details_array || [];
-                                      } else {
-                                        try {
-                                          const res = await axios.get(`${process.env.REACT_APP_API_STRING}/get-authorization-by-no?authorization_no=${newValue}`);
-                                          if (res.data) {
-                                            licenseDate = res.data.licence_date || res.data.auth_date || "";
-                                            importItems = res.data.import_details_array || [];
-                                          }
-                                        } catch (err) {
-                                          console.error("Error fetching license:", err);
-                                        }
-                                      }
+                                      : importItems;
 
-                                      const rowNormalizedHs = row.cth_no ? String(row.cth_no).replace(/[^a-zA-Z0-9]/g, "") : "";
-                                      let autoSr = "";
-                                      if (rowNormalizedHs && importItems.length > 0) {
-                                        const matchingItems = importItems.filter(item => {
-                                          const itemNormalizedHs = item.hs_code ? String(item.hs_code).replace(/[^a-zA-Z0-9]/g, "") : "";
-                                          return itemNormalizedHs === rowNormalizedHs;
-                                        });
-                                        if (matchingItems.length === 1) {
-                                          autoSr = Number(matchingItems[0].sr_no) || 1;
-                                        }
-                                      }
-
-                                      updateDescriptionRowMultiple(rowIndex, {
-                                        sr_no_lic: newValue,
-                                        license_no: newValue,
-                                        license_date: licenseDate,
-                                        license_sr: autoSr
-                                      });
+                                    if (filteredItems.length > 0) {
+                                      return (
+                                        <TextField
+                                          select
+                                          size="small"
+                                          fullWidth
+                                          value={String(row.license_sr || "")}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            updateDescriptionRow(rowIndex, "license_sr", val ? Number(val) : "");
+                                          }}
+                                          disabled={isDescriptionTableReadOnly}
+                                          sx={compactInputSx}
+                                        >
+                                          <MenuItem value="">Select</MenuItem>
+                                          {filteredItems.map((item) => (
+                                            <MenuItem key={item.sr_no || item.value_usd} value={String(item.sr_no)}>
+                                              {item.sr_no}
+                                            </MenuItem>
+                                          ))}
+                                        </TextField>
+                                      );
                                     } else {
-                                      updateDescriptionRowMultiple(rowIndex, {
-                                        sr_no_lic: "",
-                                        license_no: "",
-                                        license_date: "",
-                                        license_sr: ""
-                                      });
+                                      return (
+                                        <TextField
+                                          size="small"
+                                          fullWidth
+                                          value={row.license_sr || ""}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            updateDescriptionRow(rowIndex, "license_sr", val ? Number(val) : "");
+                                          }}
+                                          disabled={isDescriptionTableReadOnly}
+                                          sx={compactInputSx}
+                                        />
+                                      );
                                     }
-                                  }}
-                                  onInputChange={(e, newInputValue, reason) => {
-                                    if (reason === "input") {
-                                      updateDescriptionRowMultiple(rowIndex, {
-                                        sr_no_lic: newInputValue,
-                                        license_no: newInputValue
-                                      });
-                                    }
-                                  }}
-                                  disabled={isDescriptionTableReadOnly}
-                                  renderInput={(params) => (
-                                    <TextField
-                                      {...params}
-                                      size="small"
-                                      sx={compactInputSx}
-                                    />
-                                  )}
-                                />
-                              </td>
-                            )}
-                            {/* License Date */}
-                            {formik.values.clearanceValue !== "Full Duty" && formik.values.clearanceValue !== "RODTEP" && (
-                              <td style={{ padding: "8px 6px", width: "120px", verticalAlign: "middle" }}>
-                                <TextField
-                                  size="small"
-                                  fullWidth
-                                  value={row.license_date || ""}
-                                  onChange={(e) => updateDescriptionRow(rowIndex, "license_date", e.target.value)}
-                                  disabled={isDescriptionTableReadOnly}
-                                  sx={compactInputSx}
-                                />
-                              </td>
-                            )}
-                            {/* License SR */}
-                            {formik.values.clearanceValue !== "Full Duty" && formik.values.clearanceValue !== "RODTEP" && (
-                              <td style={{ padding: "8px 6px", width: "90px", verticalAlign: "middle" }}>
-                                {(() => {
-                                  const licNum = row.sr_no_lic || row.license_no;
-                                  const selectedAuth = authorizationsList.find(a => a.authorization_no === licNum);
-                                  const importItems = selectedAuth?.import_details_array || [];
-
-                                  const rowNormalizedHs = row.cth_no ? String(row.cth_no).replace(/[^a-zA-Z0-9]/g, "") : "";
-                                  const filteredItems = rowNormalizedHs
-                                    ? importItems.filter(item => {
-                                      const itemNormalizedHs = item.hs_code ? String(item.hs_code).replace(/[^a-zA-Z0-9]/g, "") : "";
-                                      return itemNormalizedHs === rowNormalizedHs;
-                                    })
-                                    : importItems;
-
-                                  if (filteredItems.length > 0) {
-                                    return (
+                                  })()}
+                                </td>
+                              )}
+                              {/* RODTEP */}
+                              {formik.values.clearanceValue === "RODTEP" && (
+                                <td style={{ padding: "8px 6px", width: "180px", verticalAlign: "middle" }}>
+                                  <Autocomplete
+                                    size="small"
+                                    fullWidth
+                                    freeSolo
+                                    options={rodtepsList.map((r) => r.rodtep)}
+                                    value={row.rodtep || ""}
+                                    onChange={(e, newValue) => {
+                                      updateDescriptionRow(rowIndex, "rodtep", newValue || "");
+                                    }}
+                                    onInputChange={(e, newInputValue, reason) => {
+                                      if (reason === "input") {
+                                        updateDescriptionRow(rowIndex, "rodtep", newInputValue);
+                                      }
+                                    }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    renderInput={(params) => (
                                       <TextField
-                                        select
+                                        {...params}
                                         size="small"
-                                        fullWidth
-                                        value={String(row.license_sr || "")}
-                                        onChange={(e) => {
-                                          const val = e.target.value;
-                                          updateDescriptionRow(rowIndex, "license_sr", val ? Number(val) : "");
-                                        }}
-                                        disabled={isDescriptionTableReadOnly}
-                                        sx={compactInputSx}
-                                      >
-                                        <MenuItem value="">Select</MenuItem>
-                                        {filteredItems.map((item) => (
-                                          <MenuItem key={item.sr_no || item.value_usd} value={String(item.sr_no)}>
-                                            {item.sr_no}
-                                          </MenuItem>
-                                        ))}
-                                      </TextField>
-                                    );
-                                  } else {
-                                    return (
-                                      <TextField
-                                        size="small"
-                                        fullWidth
-                                        value={row.license_sr || ""}
-                                        onChange={(e) => {
-                                          const val = e.target.value;
-                                          updateDescriptionRow(rowIndex, "license_sr", val ? Number(val) : "");
-                                        }}
-                                        disabled={isDescriptionTableReadOnly}
                                         sx={compactInputSx}
                                       />
-                                    );
-                                  }
-                                })()}
-                              </td>
-                            )}
-                            {/* RODTEP */}
-                            {formik.values.clearanceValue === "RODTEP" && (
-                              <td style={{ padding: "8px 6px", width: "180px", verticalAlign: "middle" }}>
-                                <Autocomplete
-                                  size="small"
-                                  fullWidth
-                                  freeSolo
-                                  options={rodtepsList.map((r) => r.rodtep)}
-                                  value={row.rodtep || ""}
-                                  onChange={(e, newValue) => {
-                                    updateDescriptionRow(rowIndex, "rodtep", newValue || "");
-                                  }}
-                                  onInputChange={(e, newInputValue, reason) => {
-                                    if (reason === "input") {
-                                      updateDescriptionRow(rowIndex, "rodtep", newInputValue);
-                                    }
-                                  }}
-                                  disabled={isDescriptionTableReadOnly}
-                                  renderInput={(params) => (
-                                    <TextField
-                                      {...params}
-                                      size="small"
-                                      sx={compactInputSx}
-                                    />
-                                  )}
-                                />
-                              </td>
-                            )}
-                            {/* Action */}
-                            <td style={{ padding: "8px 6px", textAlign: "center", width: "50px", verticalAlign: "middle" }}>
-                              {!isDescriptionTableReadOnly && (
-                                <IconButton
-                                  size="small"
-                                  disabled={descriptionRows.length <= 1}
-                                  onClick={() => removeDescriptionRow(rowIndex)}
-                                  sx={{
-                                    border: "1px solid #e2e8f0",
-                                    borderRadius: "6px",
-                                    color: "#94a3b8",
-                                    padding: "6px",
-                                    transition: "all 0.2s",
-                                    "&:hover": {
-                                      color: "#ef4444",
-                                      borderColor: "#fecaca",
-                                      backgroundColor: "#fef2f2"
-                                    },
-                                    "&.Mui-disabled": {
-                                      color: "#cbd5e1",
-                                      borderColor: "#f1f5f9"
-                                    }
-                                  }}
-                                >
-                                  <DeleteIcon fontSize="small" />
-                                </IconButton>
+                                    )}
+                                  />
+                                </td>
                               )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  {!isDescriptionTableReadOnly && (
-                    <div style={{ marginTop: "12px", display: "flex", justifyContent: "flex-start" }}>
-                      <Button
-                        variant="contained"
-                        type="button"
-                        onClick={() => {
-                          addDescriptionRow();
-                          setActiveProductIndex(descriptionRows.length);
-                        }}
-                        sx={{
-                          backgroundColor: "#1e293b",
-                          color: "#ffffff",
-                          "&:hover": {
-                            backgroundColor: "#0f172a"
-                          },
-                          textTransform: "none",
-                          fontWeight: "600",
-                          fontSize: "0.85rem",
-                          padding: "7px 16px",
-                          borderRadius: "6px",
-                          boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)"
-                        }}
-                      >
-                        + Add New Product
-                      </Button>
+                              {/* Action */}
+                              <td style={{ padding: "8px 6px", textAlign: "center", width: "50px", verticalAlign: "middle" }}>
+                                {!isDescriptionTableReadOnly && (
+                                  <IconButton
+                                    size="small"
+                                    disabled={descriptionRows.length <= 1}
+                                    onClick={() => removeDescriptionRow(rowIndex)}
+                                    sx={{
+                                      border: "1px solid #e2e8f0",
+                                      borderRadius: "6px",
+                                      color: "#94a3b8",
+                                      padding: "6px",
+                                      transition: "all 0.2s",
+                                      "&:hover": {
+                                        color: "#ef4444",
+                                        borderColor: "#fecaca",
+                                        backgroundColor: "#fef2f2"
+                                      },
+                                      "&.Mui-disabled": {
+                                        color: "#cbd5e1",
+                                        borderColor: "#f1f5f9"
+                                      }
+                                    }}
+                                  >
+                                    <DeleteIcon fontSize="small" />
+                                  </IconButton>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
-                  )}
+                    {!isDescriptionTableReadOnly && (
+                      <div style={{ marginTop: "12px", display: "flex", justifyContent: "flex-start" }}>
+                        <Button
+                          variant="contained"
+                          type="button"
+                          onClick={() => {
+                            addDescriptionRow();
+                            setActiveProductIndex(descriptionRows.length);
+                          }}
+                          sx={{
+                            backgroundColor: "#1e293b",
+                            color: "#ffffff",
+                            "&:hover": {
+                              backgroundColor: "#0f172a"
+                            },
+                            textTransform: "none",
+                            fontWeight: "600",
+                            fontSize: "0.85rem",
+                            padding: "7px 16px",
+                            borderRadius: "6px",
+                            boxShadow: "0 1px 2px 0 rgba(0, 0, 0, 0.05)"
+                          }}
+                        >
+                          + Add New Product
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* Sub Tab 1: Notifications & Duties */}
+              {productSubTab === 1 && (
+                <div style={{ background: "#ffffff", border: "1px solid #dee2e6", borderRadius: "4px", padding: "20px", marginBottom: "20px" }}>
+                  {(() => {
+                    const activeRow = descriptionRows[activeProductIndex] || {};
+                    const invIndex = Number(activeRow.sr_no_invoice) - 1;
+                    const activeInvoice = (formik.values.invoice_details || [])[invIndex] || {};
+                    const invoiceNo = activeInvoice.invoice_number || "None";
+                    let cifInr = parseFloat(activeRow.taxable_value_inr);
+                    if (isNaN(cifInr) || cifInr === 0) {
+                      cifInr = parseFloat(calculateProductTaxableValue(activeRow.amount, invIndex)) || 0;
+                    }
+                    const qty = parseFloat(activeRow.quantity) || 0;
+
+                    // Duty Calculation helpers
+                    const bcdRate = parseFloat(activeRow.bcd_rate) || 0;
+                    const bcdSpec = parseFloat(activeRow.bcd_specific_rate) || 0;
+                    const calcBcd = (cifInr * bcdRate / 100) + (qty * bcdSpec);
+                    const bcdAmt = activeRow.bcd_amount !== "" && activeRow.bcd_amount !== undefined ? parseFloat(activeRow.bcd_amount) || calcBcd : calcBcd;
+
+                    const aidcRate = parseFloat(activeRow.aidc_rate) || 0;
+                    const aidcSpec = parseFloat(activeRow.aidc_specific_rate) || 0;
+                    const calcAidc = (cifInr * aidcRate / 100) + (qty * aidcSpec);
+                    const aidcAmt = activeRow.aidc_amount !== "" && activeRow.aidc_amount !== undefined ? parseFloat(activeRow.aidc_amount) || calcAidc : calcAidc;
+
+                    const swsRate = activeRow.sw_surcharge_rate !== undefined && activeRow.sw_surcharge_rate !== "" ? parseFloat(activeRow.sw_surcharge_rate) : 10.00;
+                    const isSwsFoc = activeRow.sw_surcharge_foc === "Yes";
+                    const calcSws = isSwsFoc ? 0 : ((bcdAmt + aidcAmt) * swsRate / 100);
+                    const swsAmt = activeRow.sw_surcharge_amount !== "" && activeRow.sw_surcharge_amount !== undefined ? (isSwsFoc ? 0 : (parseFloat(activeRow.sw_surcharge_amount) || calcSws)) : calcSws;
+
+                    const safeguardRate = parseFloat(activeRow.safeguard_rate) || 0;
+                    const safeguardSpec = parseFloat(activeRow.safeguard_specific_rate) || 0;
+                    const calcSafeguard = (cifInr * safeguardRate / 100) + (qty * safeguardSpec);
+                    const safeguardAmt = activeRow.safeguard_amount !== "" && activeRow.safeguard_amount !== undefined ? parseFloat(activeRow.safeguard_amount) || calcSafeguard : calcSafeguard;
+
+                    const igstBase = cifInr + bcdAmt + aidcAmt + swsAmt + safeguardAmt;
+                    const igstRate = parseFloat(activeRow.igst_rate) || 0;
+                    const igstSpec = parseFloat(activeRow.igst_specific_rate) || 0;
+                    const calcIgst = (igstBase * igstRate / 100) + (qty * igstSpec);
+                    const igstAmt = activeRow.igst_amount_inr !== "" && activeRow.igst_amount_inr !== undefined ? parseFloat(activeRow.igst_amount_inr) || calcIgst : calcIgst;
+
+                    const igstExcRate = parseFloat(activeRow.igst_exc_rate) || 0;
+                    const igstExcAmt = parseFloat(activeRow.igst_exc_amount) || 0;
+
+                    const compCessPercent = parseFloat(activeRow.comp_cess_percent) || 0;
+                    const compCessSpec = parseFloat(activeRow.comp_cess_specific_rate) || 0;
+                    const calcCompCess = (igstBase * compCessPercent / 100) + (qty * compCessSpec);
+                    const compCessAmt = activeRow.comp_cess_amount !== "" && activeRow.comp_cess_amount !== undefined ? parseFloat(activeRow.comp_cess_amount) || calcCompCess : calcCompCess;
+
+                    const compExcAmt = parseFloat(activeRow.comp_exc_amount) || 0;
+                    const saptaAmt = parseFloat(activeRow.sapta_amount) || 0;
+
+                    const totalDuty = bcdAmt + aidcAmt + swsAmt + igstAmt + compCessAmt + safeguardAmt + saptaAmt;
+
+                    const notnInputStyle = {
+                      height: "30px",
+                      borderRadius: "3px",
+                      fontSize: "0.85rem",
+                      backgroundColor: "#ffffff",
+                      "& .MuiOutlinedInput-input": {
+                        padding: "4px 8px",
+                      },
+                      "& fieldset": {
+                        borderColor: "#90b4ce",
+                        borderWidth: "1px",
+                      },
+                      "&:hover fieldset": {
+                        borderColor: "#4b86b4 !important",
+                      },
+                      "&.Mui-focused fieldset": {
+                        borderColor: "#1e293b !important",
+                      }
+                    };
+
+                    return (
+                      <div>
+                        {/* Summary Header */}
+                        <div style={{
+                          background: "#f8fafc",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: "6px",
+                          padding: "12px 18px",
+                          marginBottom: "20px",
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                          gap: "12px"
+                        }}>
+                          <div>
+                            <div style={{ fontSize: "14px", fontWeight: "700", color: "#1e293b" }}>
+                              Product #{activeProductIndex + 1}: {activeRow.description || "No description specified"}
+                            </div>
+                            <div style={{ fontSize: "12px", color: "#64748b", marginTop: "2px" }}>
+                              Invoice: <strong>{invoiceNo}</strong> | RITC/HS Code: <strong>{activeRow.cth_no || "N/A"}</strong> | Quantity: <strong>{activeRow.quantity || 0} {activeRow.unit || ""}</strong>
+                            </div>
+                          </div>
+                          <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
+                            <div style={{ textAlign: "right" }}>
+                              <div style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", fontWeight: "600" }}>Assessable Value (CIF INR)</div>
+                              <div style={{ fontSize: "15px", fontWeight: "700", color: "#0f172a" }}>
+                                ₹{cifInr.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
+                            </div>
+                            <div style={{ textAlign: "right", borderLeft: "2px solid #cbd5e1", paddingLeft: "18px" }}>
+                              <div style={{ fontSize: "11px", color: "#2563eb", textTransform: "uppercase", fontWeight: "600" }}>Total Product Duty (INR)</div>
+                              <div style={{ fontSize: "16px", fontWeight: "800", color: "#2563eb" }}>
+                                ₹{totalDuty.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Notifications Form Table */}
+                        <div style={{ overflowX: "auto", borderTop: "2px solid #cbd5e1", paddingTop: "14px" }}>
+                          <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: "0 8px" }}>
+                            <tbody>
+                              {/* 1. BCD/Notn */}
+                              <tr>
+                                <td style={{ width: "180px", fontWeight: "600", fontSize: "0.9rem", color: "#000000", verticalAlign: "middle" }}>
+                                  BCD/Notn <span style={{ color: "#dc2626", fontWeight: "700", marginLeft: "6px" }}>({(parseFloat(activeRow.bcd_rate) || 10).toFixed(2)}%)</span>
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder=""
+                                    value={activeRow.bcd_notn || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "bcd_notn", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder=""
+                                    value={activeRow.bcd_sr_no || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "bcd_sr_no", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="10.00"
+                                    value={activeRow.bcd_rate || ""}
+                                    onChange={(e) => {
+                                      const rate = e.target.value;
+                                      const newCalc = (cifInr * (parseFloat(rate) || 0) / 100) + (qty * (parseFloat(activeRow.bcd_specific_rate) || 0));
+                                      updateDescriptionRowMultiple(activeProductIndex, {
+                                        bcd_rate: rate,
+                                        bcd_amount: newCalc.toFixed(2)
+                                      });
+                                    }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    inputProps={{ style: { textAlign: "right" } }}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="0.00"
+                                    value={activeRow.bcd_specific_rate || ""}
+                                    onChange={(e) => {
+                                      const spec = e.target.value;
+                                      const newCalc = (cifInr * (parseFloat(activeRow.bcd_rate) || 0) / 100) + (qty * (parseFloat(spec) || 0));
+                                      updateDescriptionRowMultiple(activeProductIndex, {
+                                        bcd_specific_rate: spec,
+                                        bcd_amount: newCalc.toFixed(2)
+                                      });
+                                    }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    inputProps={{ style: { textAlign: "right" } }}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "80px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="KGS"
+                                    value={activeRow.bcd_unit || activeRow.unit || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "bcd_unit", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "70px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.bcd_flag || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "bcd_flag", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ textAlign: "right", paddingRight: "16px", fontWeight: "700", fontSize: "0.95rem", color: "#1e293b", verticalAlign: "middle" }}>
+                                  {bcdAmt.toFixed(2)}
+                                </td>
+                              </tr>
+
+                              {/* 2. AIDC/Notn * */}
+                              <tr>
+                                <td style={{ width: "180px", fontWeight: "600", fontSize: "0.9rem", color: "#000000", verticalAlign: "middle" }}>
+                                  AIDC/Notn <span style={{ color: "#dc2626", fontWeight: "700" }}>*</span>
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="011/2021"
+                                    value={activeRow.aidc_notn || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "aidc_notn", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="17"
+                                    value={activeRow.aidc_sr_no || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "aidc_sr_no", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="0.00"
+                                    value={activeRow.aidc_rate || ""}
+                                    onChange={(e) => {
+                                      const rate = e.target.value;
+                                      const newCalc = (cifInr * (parseFloat(rate) || 0) / 100) + (qty * (parseFloat(activeRow.aidc_specific_rate) || 0));
+                                      updateDescriptionRowMultiple(activeProductIndex, {
+                                        aidc_rate: rate,
+                                        aidc_amount: newCalc.toFixed(2)
+                                      });
+                                    }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    inputProps={{ style: { textAlign: "right" } }}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="0.00"
+                                    value={activeRow.aidc_specific_rate || ""}
+                                    onChange={(e) => {
+                                      const spec = e.target.value;
+                                      const newCalc = (cifInr * (parseFloat(activeRow.aidc_rate) || 0) / 100) + (qty * (parseFloat(spec) || 0));
+                                      updateDescriptionRowMultiple(activeProductIndex, {
+                                        aidc_specific_rate: spec,
+                                        aidc_amount: newCalc.toFixed(2)
+                                      });
+                                    }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    inputProps={{ style: { textAlign: "right" } }}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "80px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.aidc_unit || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "aidc_unit", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "70px", padding: "0 6px" }}></td>
+                                <td style={{ textAlign: "right", paddingRight: "16px", fontWeight: "700", fontSize: "0.95rem", color: "#1e293b", verticalAlign: "middle" }}>
+                                  {aidcAmt.toFixed(2)}
+                                </td>
+                              </tr>
+
+                              {/* 3. SW Surcharge */}
+                              <tr>
+                                <td style={{ width: "180px", fontWeight: "600", fontSize: "0.9rem", color: "#000000", verticalAlign: "middle" }}>
+                                  SW Surcharge
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.sw_surcharge_notn || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "sw_surcharge_notn", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.sw_surcharge_sr_no || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "sw_surcharge_sr_no", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="10.00"
+                                    value={activeRow.sw_surcharge_rate !== undefined ? activeRow.sw_surcharge_rate : "10.00"}
+                                    onChange={(e) => {
+                                      const rate = e.target.value;
+                                      const newCalc = isSwsFoc ? 0 : ((bcdAmt + aidcAmt) * (parseFloat(rate) || 0) / 100);
+                                      updateDescriptionRowMultiple(activeProductIndex, {
+                                        sw_surcharge_rate: rate,
+                                        sw_surcharge_amount: newCalc.toFixed(2)
+                                      });
+                                    }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    inputProps={{ style: { textAlign: "right" } }}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td colSpan={3} style={{ padding: "0 6px", verticalAlign: "middle" }}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                    <span style={{ fontWeight: "700", color: "#1d4ed8", fontSize: "0.9rem" }}>FOC</span>
+                                    <TextField
+                                      select
+                                      size="small"
+                                      value={activeRow.sw_surcharge_foc || "No"}
+                                      onChange={(e) => {
+                                        const focVal = e.target.value;
+                                        const newCalc = focVal === "Yes" ? 0 : ((bcdAmt + aidcAmt) * swsRate / 100);
+                                        updateDescriptionRowMultiple(activeProductIndex, {
+                                          sw_surcharge_foc: focVal,
+                                          sw_surcharge_amount: newCalc.toFixed(2)
+                                        });
+                                      }}
+                                      disabled={isDescriptionTableReadOnly}
+                                      sx={{ ...notnInputStyle, width: "90px" }}
+                                    >
+                                      <MenuItem value="No">No</MenuItem>
+                                      <MenuItem value="Yes">Yes</MenuItem>
+                                    </TextField>
+                                  </div>
+                                </td>
+                                <td style={{ textAlign: "right", paddingRight: "16px", fontWeight: "700", fontSize: "0.95rem", color: "#1e293b", verticalAlign: "middle" }}>
+                                  {swsAmt.toFixed(2)}
+                                </td>
+                              </tr>
+
+                              {/* 4. IGST(Levy) * */}
+                              <tr>
+                                <td style={{ width: "180px", fontWeight: "600", fontSize: "0.9rem", color: "#000000", verticalAlign: "middle" }}>
+                                  IGST(Levy) <span style={{ color: "#dc2626", fontWeight: "700" }}>*</span>
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="009/2025"
+                                    value={activeRow.igst_notn || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "igst_notn", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="II162"
+                                    value={activeRow.igst_sr_no || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "igst_sr_no", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="18.00"
+                                    value={activeRow.igst_rate || ""}
+                                    onChange={(e) => {
+                                      const rate = e.target.value;
+                                      const newCalc = (igstBase * (parseFloat(rate) || 0) / 100) + (qty * (parseFloat(activeRow.igst_specific_rate) || 0));
+                                      updateDescriptionRowMultiple(activeProductIndex, {
+                                        igst_rate: rate,
+                                        igst_amount_inr: newCalc.toFixed(2)
+                                      });
+                                    }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    inputProps={{ style: { textAlign: "right" } }}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="0.00"
+                                    value={activeRow.igst_specific_rate || ""}
+                                    onChange={(e) => {
+                                      const spec = e.target.value;
+                                      const newCalc = (igstBase * (parseFloat(activeRow.igst_rate) || 0) / 100) + (qty * (parseFloat(spec) || 0));
+                                      updateDescriptionRowMultiple(activeProductIndex, {
+                                        igst_specific_rate: spec,
+                                        igst_amount_inr: newCalc.toFixed(2)
+                                      });
+                                    }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    inputProps={{ style: { textAlign: "right" } }}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "80px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.igst_unit || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "igst_unit", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    select
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.igst_type || "C - Customs"}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "igst_type", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  >
+                                    <MenuItem value="C - Customs">C - Customs</MenuItem>
+                                    <MenuItem value="G - GST">G - GST</MenuItem>
+                                    <MenuItem value="E - Exempt">E - Exempt</MenuItem>
+                                  </TextField>
+                                </td>
+                                <td style={{ textAlign: "right", paddingRight: "16px", fontWeight: "700", fontSize: "0.95rem", color: "#1e293b", verticalAlign: "middle" }}>
+                                  {igstAmt.toFixed(2)}
+                                </td>
+                              </tr>
+
+                              {/* 5. IGST Exc. */}
+                              <tr>
+                                <td style={{ width: "180px", fontWeight: "600", fontSize: "0.9rem", color: "#000000", verticalAlign: "middle" }}>
+                                  IGST Exc.
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.igst_exc_notn || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "igst_exc_notn", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.igst_exc_sr_no || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "igst_exc_sr_no", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="0.00"
+                                    value={activeRow.igst_exc_rate || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "igst_exc_rate", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    inputProps={{ style: { textAlign: "right" } }}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td colSpan={3} style={{ padding: "0 6px" }}></td>
+                                <td style={{ textAlign: "right", paddingRight: "16px", fontWeight: "700", fontSize: "0.95rem", color: "#1e293b", verticalAlign: "middle" }}>
+                                  {igstExcAmt.toFixed(2)}
+                                </td>
+                              </tr>
+
+                              {/* 6. Comp. Cess * */}
+                              <tr>
+                                <td style={{ width: "180px", fontWeight: "600", fontSize: "0.9rem", color: "#000000", verticalAlign: "middle" }}>
+                                  Comp. Cess <span style={{ color: "#dc2626", fontWeight: "700" }}>*</span>
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="001/2017"
+                                    value={activeRow.comp_cess_notn || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "comp_cess_notn", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="56"
+                                    value={activeRow.comp_cess_sr_no || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "comp_cess_sr_no", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="0.00"
+                                    value={activeRow.comp_cess_percent || ""}
+                                    onChange={(e) => {
+                                      const rate = e.target.value;
+                                      const newCalc = (igstBase * (parseFloat(rate) || 0) / 100) + (qty * (parseFloat(activeRow.comp_cess_specific_rate) || 0));
+                                      updateDescriptionRowMultiple(activeProductIndex, {
+                                        comp_cess_percent: rate,
+                                        comp_cess_amount: newCalc.toFixed(2)
+                                      });
+                                    }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    inputProps={{ style: { textAlign: "right" } }}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="0.00"
+                                    value={activeRow.comp_cess_specific_rate || ""}
+                                    onChange={(e) => {
+                                      const spec = e.target.value;
+                                      const newCalc = (igstBase * (parseFloat(activeRow.comp_cess_percent) || 0) / 100) + (qty * (parseFloat(spec) || 0));
+                                      updateDescriptionRowMultiple(activeProductIndex, {
+                                        comp_cess_specific_rate: spec,
+                                        comp_cess_amount: newCalc.toFixed(2)
+                                      });
+                                    }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    inputProps={{ style: { textAlign: "right" } }}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "80px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.comp_cess_unit || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "comp_cess_unit", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "70px", padding: "0 6px" }}></td>
+                                <td style={{ textAlign: "right", paddingRight: "16px", fontWeight: "700", fontSize: "0.95rem", color: "#1e293b", verticalAlign: "middle" }}>
+                                  {compCessAmt.toFixed(2)}
+                                </td>
+                              </tr>
+
+                              {/* 7. Comp. Exc. */}
+                              <tr>
+                                <td style={{ width: "180px", fontWeight: "600", fontSize: "0.9rem", color: "#000000", verticalAlign: "middle" }}>
+                                  Comp. Exc.
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.comp_exc_notn || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "comp_exc_notn", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.comp_exc_sr_no || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "comp_exc_sr_no", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="0.00"
+                                    value={activeRow.comp_exc_rate || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "comp_exc_rate", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    inputProps={{ style: { textAlign: "right" } }}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="0"
+                                    value={activeRow.comp_exc_specific_rate || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "comp_exc_specific_rate", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    inputProps={{ style: { textAlign: "right" } }}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td colSpan={2} style={{ padding: "0 6px" }}></td>
+                                <td style={{ textAlign: "right", paddingRight: "16px", fontWeight: "700", fontSize: "0.95rem", color: "#1e293b", verticalAlign: "middle" }}>
+                                  {compExcAmt.toFixed(2)}
+                                </td>
+                              </tr>
+
+                              {/* 8. Safeguard */}
+                              <tr>
+                                <td style={{ width: "180px", fontWeight: "600", fontSize: "0.9rem", color: "#000000", verticalAlign: "middle" }}>
+                                  Safeguard
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.safeguard_notn || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "safeguard_notn", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.safeguard_sr_no || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "safeguard_sr_no", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="0.00"
+                                    value={activeRow.safeguard_rate || ""}
+                                    onChange={(e) => {
+                                      const rate = e.target.value;
+                                      const newCalc = (cifInr * (parseFloat(rate) || 0) / 100) + (qty * (parseFloat(activeRow.safeguard_specific_rate) || 0));
+                                      updateDescriptionRowMultiple(activeProductIndex, {
+                                        safeguard_rate: rate,
+                                        safeguard_amount: newCalc.toFixed(2)
+                                      });
+                                    }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    inputProps={{ style: { textAlign: "right" } }}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    placeholder="0.00"
+                                    value={activeRow.safeguard_specific_rate || ""}
+                                    onChange={(e) => {
+                                      const spec = e.target.value;
+                                      const newCalc = (cifInr * (parseFloat(activeRow.safeguard_rate) || 0) / 100) + (qty * (parseFloat(spec) || 0));
+                                      updateDescriptionRowMultiple(activeProductIndex, {
+                                        safeguard_specific_rate: spec,
+                                        safeguard_amount: newCalc.toFixed(2)
+                                      });
+                                    }}
+                                    disabled={isDescriptionTableReadOnly}
+                                    inputProps={{ style: { textAlign: "right" } }}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td colSpan={2} style={{ padding: "0 6px" }}></td>
+                                <td style={{ textAlign: "right", paddingRight: "16px", fontWeight: "700", fontSize: "0.95rem", color: "#1e293b", verticalAlign: "middle" }}>
+                                  {safeguardAmt.toFixed(2)}
+                                </td>
+                              </tr>
+
+                              {/* 9. SAPTA Notn */}
+                              <tr>
+                                <td style={{ width: "180px", fontWeight: "600", fontSize: "0.9rem", color: "#000000", verticalAlign: "middle" }}>
+                                  SAPTA Notn
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.sapta_notn || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "sapta_notn", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "130px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.sapta_sr_no || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "sapta_sr_no", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td style={{ width: "100px", padding: "0 6px" }}>
+                                  <TextField
+                                    size="small"
+                                    fullWidth
+                                    value={activeRow.sapta_rate || ""}
+                                    onChange={(e) => updateDescriptionRow(activeProductIndex, "sapta_rate", e.target.value)}
+                                    disabled={isDescriptionTableReadOnly}
+                                    sx={notnInputStyle}
+                                  />
+                                </td>
+                                <td colSpan={3} style={{ padding: "0 6px" }}></td>
+                                <td style={{ textAlign: "right", paddingRight: "16px", fontWeight: "700", fontSize: "0.95rem", color: "#1e293b", verticalAlign: "middle" }}>
+                                  {saptaAmt.toFixed(2)}
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* Standard UQC Row */}
+                        <div style={{ marginTop: "24px", paddingTop: "16px", borderTop: "1px solid #e2e8f0", display: "flex", alignItems: "center", gap: "16px" }}>
+                          <span style={{ fontWeight: "700", fontSize: "0.9rem", color: "#000000", minWidth: "160px" }}>
+                            Standard UQC <span style={{ color: "#dc2626", fontWeight: "700" }}>*</span>
+                          </span>
+                          <TextField
+                            size="small"
+                            placeholder="7928.201193"
+                            value={activeRow.standard_uqc_qty || ""}
+                            onChange={(e) => updateDescriptionRow(activeProductIndex, "standard_uqc_qty", e.target.value)}
+                            disabled={isDescriptionTableReadOnly}
+                            sx={{ ...notnInputStyle, width: "180px" }}
+                          />
+                          <span style={{ fontWeight: "800", color: "#dc2626", fontSize: "0.95rem", letterSpacing: "0.05em" }}>
+                            {activeRow.standard_uqc_unit || activeRow.unit || "KGS"}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
             </div>
           )}
 

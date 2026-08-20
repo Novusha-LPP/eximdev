@@ -243,7 +243,17 @@ const NucleusHome = () => {
                     />
                 );
             case 'transport_monitoring':
-                return <TransportMonitoringReport selectedDay={selectedDay} />;
+                return (
+                    <TransportMonitoringReport
+                        filterType={filterType}
+                        selectedMonth={selectedMonth}
+                        selectedYear={selectedYear}
+                        selectedQuarter={selectedQuarter}
+                        dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
+                        selectedDay={selectedDay}
+                    />
+                );
             case 'fleet_utilization':
                 return (
                     <FleetUtilizationReport
@@ -362,7 +372,7 @@ const NucleusHome = () => {
     };
 
     // Determine if date controls are needed (udyam, training, client login analytics, new_customers don't need them)
-    const showDateControls = !['udyam', 'training', 'client_login_analytics', 'new_customers', 'export_pulse', 'import_pending_summary', 'transport_monitoring'].includes(activeReport);
+    const showDateControls = !['udyam', 'training', 'client_login_analytics', 'new_customers', 'export_pulse', 'import_pending_summary'].includes(activeReport);
 
     return (
         <div className="nucleus-layout">

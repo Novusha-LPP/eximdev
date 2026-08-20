@@ -957,6 +957,136 @@ router.get("/out-of-charge-summaries", authMiddleware, applyUserBranchFilter, as
                             count: 1,
                         }
                     }
+                ],
+                detailedJobs: [
+                    {
+                        $addFields: {
+                            containerNumbers: {
+                                $map: {
+                                    input: { $ifNull: ["$container_nos", []] },
+                                    as: "c",
+                                    in: "$$c.container_number",
+                                },
+                            },
+                            sizeCounts: {
+                                $reduce: {
+                                    input: { $ifNull: ["$container_nos", []] },
+                                    initialValue: { ft20: 0, ft40: 0 },
+                                    in: {
+                                        ft20: {
+                                            $add: [
+                                                "$$value.ft20",
+                                                { $cond: [{ $eq: ["$$this.size", "20"] }, 1, 0] },
+                                            ],
+                                        },
+                                        ft40: {
+                                            $add: [
+                                                "$$value.ft40",
+                                                { $cond: [{ $eq: ["$$this.size", "40"] }, 1, 0] },
+                                            ],
+                                        },
+                                    },
+                                },
+                            },
+                            teus: {
+                                $sum: {
+                                    $map: {
+                                        input: { $ifNull: ["$container_nos", []] },
+                                        as: "c",
+                                        in: {
+                                            $cond: [
+                                                { $eq: ["$$c.size", "20"] },
+                                                1,
+                                                { $cond: [{ $eq: ["$$c.size", "40"] }, 2, 0] },
+                                            ],
+                                        },
+                                    },
+                                },
+                            },
+                        }
+                    },
+                    {
+                        $addFields: {
+                            noOfContrSize: {
+                                $trim: {
+                                    input: {
+                                        $concat: [
+                                            {
+                                                $cond: [
+                                                    { $gt: ["$sizeCounts.ft20", 0] },
+                                                    { $concat: [{ $toString: "$sizeCounts.ft20" }, "x20"] },
+                                                    "",
+                                                ],
+                                            },
+                                            {
+                                                $cond: [
+                                                    {
+                                                        $and: [
+                                                            { $gt: ["$sizeCounts.ft20", 0] },
+                                                            { $gt: ["$sizeCounts.ft40", 0] },
+                                                        ],
+                                                    },
+                                                    " + ",
+                                                    "",
+                                                ],
+                                            },
+                                            {
+                                                $cond: [
+                                                    { $gt: ["$sizeCounts.ft40", 0] },
+                                                    { $concat: [{ $toString: "$sizeCounts.ft40" }, "x40"] },
+                                                    "",
+                                                ],
+                                            },
+                                        ],
+                                    },
+                                },
+                            },
+                        }
+                    },
+                    {
+                        $project: {
+                            _id: 1,
+                            job_number: 1,
+                            job_no: 1,
+                            branch: { $ifNull: ["$branch_code", "Unassigned"] },
+                            branch_code: 1,
+                            location: { $ifNull: ["$custom_house", "$port_of_reporting", "Unassigned"] },
+                            port_of_reporting: 1,
+                            custom_house: 1,
+                            importer: 1,
+                            commodity: { $ifNull: ["$description", "$description_of_goods", ""] },
+                            inv_currency: 1,
+                            cif_amount: 1,
+                            cif_amount_inr: 1,
+                            be_no: 1,
+                            be_date: 1,
+                            containerNumbers: 1,
+                            totalContainers: {
+                                $cond: [
+                                    { $eq: ["$consignment_type", "LCL"] },
+                                    "LCL",
+                                    { $size: { $ifNull: ["$container_nos", []] } }
+                                ]
+                            },
+                            noOfContrSize: 1,
+                            sizeCounts: 1,
+                            teus: 1,
+                            out_of_charge: 1,
+                            detailed_status: 1,
+                            job_owner: 1,
+                            status: 1,
+                            consignment_type: 1,
+                            type_of_b_e: 1,
+                            RMS: 1,
+                            cth_no: 1,
+                            year: 1,
+                            financial_year: 1,
+                            selected_year: 1,
+                            mode: 1,
+                            trade_type: 1,
+                        }
+                    },
+                    { $sort: { out_of_charge: -1, be_date: -1, job_no: -1 } }
                 ]
             }
         });
@@ -966,12 +1096,14 @@ router.get("/out-of-charge-summaries", authMiddleware, applyUserBranchFilter, as
         const totalCreated = result[0]?.totalJobsCreated[0]?.count || 0;
         const outOfChargeData = result[0]?.outOfChargeData || [];
         const categoryData = result[0]?.categoryData || [];
+        const detailedJobs = result[0]?.detailedJobs || [];
 
         res.json({
             success: true,
             totalCreated,
             data: outOfChargeData,
-            categoryData
+            categoryData,
+            detailedJobs
         });
     } catch (error) {
         console.error("Error in /out-of-charge-summaries:", error);

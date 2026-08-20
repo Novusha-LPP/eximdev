@@ -4,7 +4,8 @@ import { getTableRowsClassname, getTableRowInlineStyle } from "../../utils/getTa
 import useFetchDSR from "../../customHooks/useFetchDSR";
 import { detailedStatusOptions } from "../../assets/data/detailedStatusOptions";
 import { YearContext } from "../../contexts/yearContext";
-import { MenuItem, TextField } from "@mui/material";
+import { MenuItem, TextField, IconButton } from "@mui/material";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import {
   MaterialReactTable,
   useMaterialReactTable,
@@ -16,6 +17,24 @@ function ViewDSR() {
   const [detailedStatus, setDetailedStatus] = useState("all");
   const { rows } = useFetchDSR(detailedStatus, selectedYearState);
 
+  const handleCopy = (event, text) => {
+    event.stopPropagation();
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+      navigator.clipboard.writeText(text).catch((err) => console.error("Copy failed:", err));
+    } else {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand("copy");
+      } catch (err) {
+        console.error("Fallback copy failed:", err);
+      }
+      document.body.removeChild(textArea);
+    }
+  };
+
   const columns = [
     {
       accessorKey: "job_no",
@@ -23,7 +42,24 @@ function ViewDSR() {
       muiTableHeadCellProps: { align: "center" },
       muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
       enableSorting: false,
-      size: 100,
+      size: 140,
+      Cell: ({ cell, row }) => {
+        const jobNo = cell.getValue();
+        const jobNumber = row.original.job_number || jobNo;
+        return (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+            <span>{jobNumber}</span>
+            <IconButton
+              size="small"
+              onClick={(e) => handleCopy(e, jobNumber)}
+              sx={{ p: 0.2 }}
+              title="Copy Job Number"
+            >
+              <ContentCopyIcon sx={{ fontSize: "14px", color: "#64748b" }} />
+            </IconButton>
+          </div>
+        );
+      },
     },
     {
       accessorKey: "job_date",

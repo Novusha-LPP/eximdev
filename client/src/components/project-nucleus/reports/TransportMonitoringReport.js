@@ -1,10 +1,23 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, useContext } from 'react';
 import axios from 'axios';
 import { format, parseISO, isValid, differenceInDays } from 'date-fns';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { BranchContext } from '../../../contexts/BranchContext';
 import {
-    Package,
+    ResponsiveContainer,
+    BarChart,
+    Bar,
+    PieChart,
+    Pie,
+    Cell,
+    XAxis,
+    YAxis,
+    Tooltip as RechartsTooltip,
+    Legend,
+    CartesianGrid
+} from 'recharts';
+import {
     Clock,
     AlertTriangle,
     RefreshCw,
@@ -13,18 +26,354 @@ import {
     FileText,
     Copy,
     Check,
-    Building2,
-    X,
     CheckCircle2,
     Users,
     Layers,
     ListFilter,
-    Calendar,
-    Truck,
     ChevronDown,
-    FileSpreadsheet
+    ChevronRight
 } from 'lucide-react';
 import { getTransportDates, TRANSPORT_BASE, TRANSPORT_HEADERS } from './reports-helper';
+
+// ─── Custom CSS Styling ─────────────────────────────────────────────────────────
+
+const CUSTOM_CSS = `
+.nucleus-transport-root {
+    animation: fadeIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    color: #1e293b;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.report-header-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05);
+}
+
+.stat-hero-card {
+    border-radius: 16px;
+    background: linear-gradient(135deg, #172554 0%, #1e3a8a 60%, #1d4ed8 100%);
+    color: #ffffff;
+    box-shadow: 0 10px 25px -5px rgba(23, 37, 84, 0.35);
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-hero-card::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -20%;
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, rgba(255, 255, 255, 0.25) 0%, transparent 70%);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.stat-hero-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 28px -5px rgba(37, 99, 235, 0.45);
+}
+
+.stat-white-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-white-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.08);
+}
+
+.stat-number-hero {
+    font-size: 2.25rem;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.5px;
+    font-variant-numeric: tabular-nums;
+}
+
+.report-tab-pill {
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 13px;
+    color: #475569;
+    background: transparent;
+    border: none;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.report-tab-pill:hover {
+    color: #1e293b;
+    background: #f1f5f9;
+}
+
+.report-tab-pill.active {
+    color: #ffffff;
+    background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+}
+
+.table-modern {
+    border-collapse: separate;
+    border-spacing: 0;
+    width: 100%;
+}
+
+.table-modern thead th {
+    background: #f8fafc;
+    color: #475569;
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 12px 14px;
+    border-bottom: 1px solid #e2e8f0;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.table-modern tbody td {
+    padding: 11px 14px;
+    font-size: 13px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+}
+
+.table-modern tbody tr:hover td {
+    background: rgba(241, 245, 249, 0.8);
+}
+
+.modern-download-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: linear-gradient(135deg, #059669 0%, #10b981 100%);
+    color: #ffffff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(16, 185, 129, 0.25);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    letter-spacing: 0.2px;
+}
+
+.modern-download-btn:hover:not(:disabled) {
+    transform: translateY(-1.5px);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.35);
+    filter: brightness(1.05);
+    color: #ffffff;
+}
+
+.modern-download-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.modern-download-btn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.modern-download-badge {
+    background: rgba(255, 255, 255, 0.22);
+    padding: 2px 6px;
+    border-radius: 5px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.recharts-custom-tooltip {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: #0f172a;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    font-size: 12px;
+}
+
+.radar-chip {
+    padding: 10px 14px;
+    border-radius: 12px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+
+.radar-chip:hover {
+    transform: translateY(-2px);
+    filter: brightness(0.96);
+}
+
+.nucleus-report-root select,
+.stat-white-card select,
+.form-select {
+    padding-right: 34px !important;
+    background-position: right 10px center !important;
+}
+
+/* Neutralize legacy global .btn styles from App.scss */
+.nucleus-report-root .btn,
+.stat-white-card .btn,
+.stat-hero-card .btn {
+    box-shadow: none !important;
+    margin-top: 0 !important;
+    padding: 0.25rem 0.75rem;
+    border-radius: 8px;
+    transition: all 0.15s ease-in-out;
+}
+
+.nucleus-report-root .btn-outline-primary,
+.stat-white-card .btn-outline-primary {
+    background-color: #eff6ff !important;
+    color: #2563eb !important;
+    border: 1px solid #bfdbfe !important;
+    box-shadow: 0 1px 2px rgba(37, 99, 235, 0.05) !important;
+    font-weight: 600;
+}
+
+.nucleus-report-root .btn-outline-primary:hover,
+.stat-white-card .btn-outline-primary:hover {
+    background-color: #2563eb !important;
+    color: #ffffff !important;
+    border-color: #2563eb !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25) !important;
+}
+
+.nucleus-report-root .btn-outline-danger,
+.stat-white-card .btn-outline-danger {
+    background-color: #fef2f2 !important;
+    color: #dc2626 !important;
+    border: 1px solid #fecaca !important;
+    box-shadow: 0 1px 2px rgba(220, 38, 38, 0.05) !important;
+    font-weight: 600;
+}
+
+.nucleus-report-root .btn-outline-danger:hover,
+.stat-white-card .btn-outline-danger:hover {
+    background-color: #dc2626 !important;
+    color: #ffffff !important;
+    border-color: #dc2626 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25) !important;
+}
+
+.nucleus-report-root .btn-link,
+.stat-white-card .btn-link {
+    background-color: transparent !important;
+    color: #2563eb !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    border: none !important;
+}
+
+.nucleus-report-root .btn-light,
+.stat-white-card .btn-light {
+    background-color: #eff6ff !important;
+    color: #1d4ed8 !important;
+    border: 1px solid #bfdbfe !important;
+    font-weight: 600;
+}
+
+.nucleus-report-root .btn-white,
+.stat-white-card .btn-white {
+    background-color: #ffffff !important;
+    color: #1e293b !important;
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+    font-weight: 600;
+}
+
+.modern-pdf-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%) !important;
+    color: #ffffff !important;
+    border: none !important;
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(239, 68, 68, 0.25) !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    letter-spacing: 0.2px;
+}
+
+.modern-pdf-btn:hover:not(:disabled) {
+    transform: translateY(-1.5px);
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.35) !important;
+    filter: brightness(1.05);
+    color: #ffffff !important;
+}
+
+.modern-pdf-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.modern-refresh-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: #eff6ff !important;
+    color: #1d4ed8 !important;
+    border: 1px solid #bfdbfe !important;
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08) !important;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    letter-spacing: 0.2px;
+}
+
+.modern-refresh-btn:hover {
+    background: #dbeafe !important;
+    color: #1e40af !important;
+    border-color: #93c5fd !important;
+    transform: translateY(-1.5px);
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.18) !important;
+}
+
+.modern-refresh-btn:active {
+    transform: translateY(0);
+}
+
+.modern-pdf-badge {
+    background: rgba(255, 255, 255, 0.22);
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+`;
+
+const PIE_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#64748b', '#ef4444'];
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -40,95 +389,24 @@ const formatDateDisplay = (dateStr) => {
 };
 
 const getIeBadge = (ieStr) => {
-    if (!ieStr) return <span style={{ color: '#94a3b8' }}>—</span>;
+    if (!ieStr) return <span className="text-muted small">—</span>;
     const s = String(ieStr).toLowerCase().trim();
     if (s.includes('import')) {
-        return (
-            <span style={{
-                background: '#e0f2fe',
-                color: '#0369a1',
-                padding: '3px 8px',
-                borderRadius: '6px',
-                fontSize: '11px',
-                fontWeight: 700,
-                whiteSpace: 'nowrap'
-            }}>
-                Import
-            </span>
-        );
+        return <span className="badge bg-primary-subtle text-primary fw-semibold px-2 py-1 rounded-pill">Import</span>;
     }
     if (s.includes('export')) {
-        return (
-            <span style={{
-                background: '#ecfdf5',
-                color: '#047857',
-                padding: '3px 8px',
-                borderRadius: '6px',
-                fontSize: '11px',
-                fontWeight: 700,
-                whiteSpace: 'nowrap'
-            }}>
-                Export
-            </span>
-        );
+        return <span className="badge bg-success-subtle text-success fw-semibold px-2 py-1 rounded-pill">Export</span>;
     }
-    return (
-        <span style={{
-            background: '#fef3c7',
-            color: '#b45309',
-            padding: '3px 8px',
-            borderRadius: '6px',
-            fontSize: '11px',
-            fontWeight: 700,
-            whiteSpace: 'nowrap'
-        }}>
-            {ieStr}
-        </span>
-    );
-};
-
-const getOwnHiredBadge = (ownHired) => {
-    const s = String(ownHired || '').toLowerCase().trim();
-    if (s === 'own') {
-        return (
-            <span style={{
-                background: '#f0fdf4',
-                color: '#15803d',
-                border: '1px solid #bbf7d0',
-                padding: '2px 7px',
-                borderRadius: '5px',
-                fontSize: '11px',
-                fontWeight: 700
-            }}>
-                Own
-            </span>
-        );
-    }
-    if (s === 'hired' || s === 'market') {
-        return (
-            <span style={{
-                background: '#fef3c7',
-                color: '#b45309',
-                border: '1px solid #fde68a',
-                padding: '2px 7px',
-                borderRadius: '5px',
-                fontSize: '11px',
-                fontWeight: 700
-            }}>
-                Hired
-            </span>
-        );
-    }
-    return <span style={{ color: '#64748b', fontSize: '11px' }}>{ownHired || '—'}</span>;
+    return <span className="badge bg-warning-subtle text-warning fw-semibold px-2 py-1 rounded-pill">{ieStr}</span>;
 };
 
 const getDoValidityBadge = (validityStr) => {
     if (!validityStr || validityStr === '-') {
-        return <span style={{ color: '#94a3b8', fontSize: '12px' }}>—</span>;
+        return <span className="text-muted small">—</span>;
     }
     try {
         const d = validityStr.includes('T') ? parseISO(validityStr) : new Date(validityStr);
-        if (!isValid(d)) return <span style={{ color: '#64748b', fontSize: '12px' }}>{validityStr}</span>;
+        if (!isValid(d)) return <span className="text-muted small">{validityStr}</span>;
 
         const refDate = new Date();
         const diff = differenceInDays(d, refDate);
@@ -136,70 +414,25 @@ const getDoValidityBadge = (validityStr) => {
 
         if (diff < 0) {
             return (
-                <span
-                    style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        background: '#fef2f2',
-                        color: '#dc2626',
-                        border: '1px solid #fecaca',
-                        padding: '3px 8px',
-                        borderRadius: '6px',
-                        fontSize: '11.5px',
-                        fontWeight: 700,
-                        whiteSpace: 'nowrap'
-                    }}
-                    title={`Expired ${Math.abs(diff)} day(s) ago`}
-                >
-                    <AlertTriangle size={12} /> {formatted} ({Math.abs(diff)}d ago)
+                <span className="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1 rounded-pill d-inline-flex align-items-center gap-1" title={`Expired ${Math.abs(diff)} day(s) ago`}>
+                    <AlertTriangle size={11} /> {formatted} ({Math.abs(diff)}d ago)
                 </span>
             );
         }
         if (diff <= 3) {
             return (
-                <span
-                    style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px',
-                        background: '#fffbeb',
-                        color: '#b45309',
-                        border: '1px solid #fde68a',
-                        padding: '3px 8px',
-                        borderRadius: '6px',
-                        fontSize: '11.5px',
-                        fontWeight: 700,
-                        whiteSpace: 'nowrap'
-                    }}
-                    title={`Expires in ${diff} day(s)`}
-                >
-                    <Clock size={12} /> {formatted} ({diff === 0 ? 'Today' : `${diff}d left`})
+                <span className="badge bg-warning-subtle text-warning border border-warning-subtle px-2 py-1 rounded-pill d-inline-flex align-items-center gap-1" title={`Expires in ${diff} day(s)`}>
+                    <Clock size={11} /> {formatted} ({diff === 0 ? 'Today' : `${diff}d left`})
                 </span>
             );
         }
         return (
-            <span
-                style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    background: '#f0fdf4',
-                    color: '#15803d',
-                    border: '1px solid #bbf7d0',
-                    padding: '3px 8px',
-                    borderRadius: '6px',
-                    fontSize: '11.5px',
-                    fontWeight: 600,
-                    whiteSpace: 'nowrap'
-                }}
-                title="DO is active"
-            >
-                <CheckCircle2 size={12} /> {formatted}
+            <span className="badge bg-success-subtle text-success border border-success-subtle px-2 py-1 rounded-pill d-inline-flex align-items-center gap-1" title="DO is active">
+                <CheckCircle2 size={11} /> {formatted}
             </span>
         );
     } catch {
-        return <span style={{ color: '#64748b', fontSize: '12px' }}>{validityStr}</span>;
+        return <span className="text-muted small">{validityStr}</span>;
     }
 };
 
@@ -216,23 +449,16 @@ const CopyButton = ({ text }) => {
     return (
         <button
             onClick={handleCopy}
-            title="Copy Number"
-            style={{
-                border: 'none',
-                background: 'transparent',
-                cursor: 'pointer',
-                padding: '2px 4px',
-                color: copied ? '#10b981' : '#94a3b8',
-                display: 'inline-flex',
-                alignItems: 'center'
-            }}
+            title="Copy"
+            className="btn btn-link btn-sm p-0 ms-1 text-muted"
+            style={{ border: 'none', background: 'transparent', verticalAlign: 'middle' }}
         >
-            {copied ? <Check size={11} /> : <Copy size={11} />}
+            {copied ? <Check size={12} className="text-success" /> : <Copy size={12} />}
         </button>
     );
 };
 
-// ─── Main Component: Transport Pending Queue & Closed LRs Summary ──────────────
+// ─── Main Component: Transport Pending Queue & Dispatch Monitoring ────────────
 
 const TransportMonitoringReport = ({
     filterType,
@@ -243,15 +469,17 @@ const TransportMonitoringReport = ({
     selectedFinancialYear,
     selectedDay
 }) => {
+    const { branches: contextBranches = [] } = useContext(BranchContext) || {};
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [retryCount, setRetryCount] = useState(0);
     const [pendingList, setPendingList] = useState([]);
     const [activeList, setActiveList] = useState([]);
     const [closedList, setClosedList] = useState([]);
     const [lastUpdated, setLastUpdated] = useState(null);
 
-    // Active Section Tab: 'pending' | 'active' | 'closed'
-    const [activeSection, setActiveSection] = useState('pending');
+    // Active Tab: 'dashboard' | 'pending' | 'active' | 'closed' | 'analytics'
+    const [activeTab, setActiveTab] = useState('dashboard');
 
     // Filters & Searches
     const [searchTerm, setSearchTerm] = useState('');
@@ -262,8 +490,10 @@ const TransportMonitoringReport = ({
     const [selectedDoStatus, setSelectedDoStatus] = useState('ALL'); // ALL, EXPIRED, EXPIRING_SOON, VALID, NO_DO
     const [showCustomerModal, setShowCustomerModal] = useState(false);
     const [viewMode, setViewMode] = useState('flat'); // 'flat' | 'by_customer' | 'grouped'
-    const [showExportMenu, setShowExportMenu] = useState(false);
+    const [expandedGroups, setExpandedGroups] = useState({});
     const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+    const toggleGroup = (key) => setExpandedGroups(prev => ({ ...prev, [key]: !prev[key] }));
 
     // Pagination
     const [pageSize, setPageSize] = useState(25);
@@ -293,7 +523,7 @@ const TransportMonitoringReport = ({
             }
         }
         try {
-            return `${format(parseISO(dateQuery.startDate), 'dd MMM yyyy')} - ${format(parseISO(dateQuery.endDate), 'dd MMM yyyy')}`;
+            return `${format(parseISO(dateQuery.startDate), 'dd MMM yyyy')} – ${format(parseISO(dateQuery.endDate), 'dd MMM yyyy')}`;
         } catch {
             return `${dateQuery.startDate} to ${dateQuery.endDate}`;
         }
@@ -354,7 +584,7 @@ const TransportMonitoringReport = ({
             setLastUpdated(new Date());
         } catch (err) {
             console.error("Error fetching transport queue & dispatch data:", err);
-            setError(err.message || "Failed to load transport queue data.");
+            setError(err.response?.data?.message || err.message || "Failed to load transport queue data.");
         } finally {
             setLoading(false);
         }
@@ -362,47 +592,63 @@ const TransportMonitoringReport = ({
 
     useEffect(() => {
         loadReportData();
-    }, [loadReportData]);
+    }, [loadReportData, retryCount]);
 
-    // Close export dropdown when clicking outside
+    // ─── Extract Unique Filter Options ─────────────────────────────────────────
+
+    const currentSourceList = useMemo(() => {
+        if (activeTab === 'pending') return pendingList;
+        if (activeTab === 'active') return activeList;
+        if (activeTab === 'closed') return closedList;
+        return [...pendingList, ...activeList, ...closedList];
+    }, [activeTab, pendingList, activeList, closedList]);
+
+    const allDiscoveredBranchesRef = useRef(new Set());
+
     useEffect(() => {
-        if (!showExportMenu) return;
-        const handleDocClick = () => setShowExportMenu(false);
-        document.addEventListener('click', handleDocClick);
-        return () => document.removeEventListener('click', handleDocClick);
-    }, [showExportMenu]);
+        [...pendingList, ...activeList, ...closedList].forEach(item => {
+            const b = item.branch || item.branch_name || item.branch_code;
+            if (b && String(b).trim()) {
+                allDiscoveredBranchesRef.current.add(String(b).trim());
+            }
+        });
+    }, [pendingList, activeList, closedList]);
 
-    // ─── Extract Unique Filter Options (Pending / Active / Closed) ─────────────
     const availableBranches = useMemo(() => {
-        const set = new Set();
-        const src = activeSection === 'pending' ? pendingList : (activeSection === 'active' ? activeList : closedList);
-        src.forEach(item => {
-            if (item.branch) set.add(item.branch);
+        const set = new Set(allDiscoveredBranchesRef.current);
+        (contextBranches || []).forEach(b => {
+            const code = b.branch_code || b.branch_name || b.name;
+            if (code && String(code).trim()) set.add(String(code).trim());
+        });
+        [...pendingList, ...activeList, ...closedList].forEach(item => {
+            const b = item.branch || item.branch_name || item.branch_code;
+            if (b && String(b).trim()) {
+                set.add(String(b).trim());
+            }
         });
         return Array.from(set).sort();
-    }, [pendingList, activeList, closedList, activeSection]);
+    }, [contextBranches, pendingList, activeList, closedList]);
 
     const availableContainerTypes = useMemo(() => {
         const set = new Set();
-        const src = activeSection === 'pending' ? pendingList : (activeSection === 'active' ? activeList : closedList);
-        src.forEach(item => {
+        currentSourceList.forEach(item => {
             const t = item.container_type || item.container_size || item.vehicle_type || item.type;
             if (t) set.add(t);
         });
         return Array.from(set).sort();
-    }, [pendingList, activeList, closedList, activeSection]);
+    }, [currentSourceList]);
 
     const availableCustomers = useMemo(() => {
         const set = new Set();
-        const src = activeSection === 'pending' ? pendingList : (activeSection === 'active' ? activeList : closedList);
-        src.forEach(item => {
+        currentSourceList.forEach(item => {
             const c = item.invoice_party || item.consignee;
             if (c) set.add(c);
         });
         return Array.from(set).sort();
-    }, [pendingList, activeList, closedList, activeSection]);
+    }, [currentSourceList]);
 
     // ─── Customer Summary Breakdown ───────────────────────────────────────────
+
     const customerSummary = useMemo(() => {
         const map = {};
         pendingList.forEach(item => {
@@ -435,11 +681,12 @@ const TransportMonitoringReport = ({
     }, [pendingList]);
 
     // ─── Size / Type Matcher Helper ───────────────────────────────────────────
+
     const matchesContainerTypeOrSize = (item, filterVal) => {
         if (filterVal === 'ALL') return true;
         const typeStr = String(item.container_type || item.container_size || item.vehicle_type || item.type || '').toLowerCase();
         const cntrsStr = Array.isArray(item.containers) ? item.containers.join(' ').toLowerCase() : '';
-        
+
         if (filterVal === 'SIZE_20' || filterVal === '20') {
             return typeStr.includes('20') || cntrsStr.includes('20');
         }
@@ -449,16 +696,27 @@ const TransportMonitoringReport = ({
         if (filterVal === 'SIZE_45' || filterVal === '45') {
             return typeStr.includes('45') || cntrsStr.includes('45');
         }
-        
+
         return typeStr === String(filterVal).toLowerCase() || typeStr.includes(String(filterVal).toLowerCase());
     };
 
+    const matchesBranch = (item, filterBranch) => {
+        if (!filterBranch || filterBranch === 'ALL' || filterBranch === 'all') return true;
+        const q = String(filterBranch).trim().toLowerCase();
+        const b1 = String(item.branch || '').trim().toLowerCase();
+        const b2 = String(item.branch_code || '').trim().toLowerCase();
+        const b3 = String(item.branch_name || '').trim().toLowerCase();
+        const b4 = String(item.branchId || '').trim().toLowerCase();
+        return b1 === q || b2 === q || b3 === q || b4 === q || b1.includes(q) || q.includes(b1);
+    };
+
     // ─── Filter Pending List ───────────────────────────────────────────────────
+
     const filteredPendingList = useMemo(() => {
         let list = pendingList || [];
 
         if (selectedBranch !== 'ALL') {
-            list = list.filter(item => item.branch === selectedBranch);
+            list = list.filter(item => matchesBranch(item, selectedBranch));
         }
 
         if (selectedIe !== 'ALL') {
@@ -510,11 +768,12 @@ const TransportMonitoringReport = ({
     }, [pendingList, selectedBranch, selectedIe, selectedContainerType, selectedCustomer, selectedDoStatus, searchTerm]);
 
     // ─── Filter Active List ────────────────────────────────────────────────────
+
     const filteredActiveList = useMemo(() => {
         let list = activeList || [];
 
         if (selectedBranch !== 'ALL') {
-            list = list.filter(item => item.branch === selectedBranch);
+            list = list.filter(item => matchesBranch(item, selectedBranch));
         }
 
         if (selectedIe !== 'ALL') {
@@ -550,11 +809,12 @@ const TransportMonitoringReport = ({
     }, [activeList, selectedBranch, selectedIe, selectedContainerType, selectedCustomer, searchTerm]);
 
     // ─── Filter Closed List ────────────────────────────────────────────────────
+
     const filteredClosedList = useMemo(() => {
         let list = closedList || [];
 
         if (selectedBranch !== 'ALL') {
-            list = list.filter(item => item.branch === selectedBranch);
+            list = list.filter(item => matchesBranch(item, selectedBranch));
         }
 
         if (selectedIe !== 'ALL') {
@@ -590,10 +850,11 @@ const TransportMonitoringReport = ({
     }, [closedList, selectedBranch, selectedIe, selectedContainerType, selectedCustomer, searchTerm]);
 
     // ─── Sorted List ───────────────────────────────────────────────────────────
+
     const sortedList = useMemo(() => {
-        const src = activeSection === 'pending'
+        const src = activeTab === 'pending'
             ? filteredPendingList
-            : (activeSection === 'active' ? filteredActiveList : filteredClosedList);
+            : (activeTab === 'active' ? filteredActiveList : filteredClosedList);
 
         if (!sortConfig.key) return src;
         return [...src].sort((a, b) => {
@@ -619,55 +880,12 @@ const TransportMonitoringReport = ({
             if (strA > strB) return sortConfig.direction === 'asc' ? 1 : -1;
             return 0;
         });
-    }, [activeSection, filteredPendingList, filteredActiveList, filteredClosedList, sortConfig]);
-
-    // ─── Grouped View for Pending (By Type) ────────────────────────────────────
-    const groupedData = useMemo(() => {
-        const groups = {};
-        filteredPendingList.forEach(item => {
-            const key = item.container_type || 'Standard Containers';
-            if (!groups[key]) {
-                groups[key] = {
-                    containerType: key,
-                    totalPending: 0,
-                    totalContainers: 0,
-                    totalCreated: 0,
-                    items: []
-                };
-            }
-            groups[key].totalPending += Number(item.pendingCount || 0);
-            groups[key].totalContainers += Number(item.totalContainers || 0);
-            groups[key].totalCreated += Number(item.lrCreatedContainers || 0);
-            groups[key].items.push(item);
-        });
-        return groups;
-    }, [filteredPendingList]);
-
-    // ─── Grouped View for Pending (By Customer) ────────────────────────────────
-    const customerGroupedData = useMemo(() => {
-        const groups = {};
-        filteredPendingList.forEach(item => {
-            const key = item.invoice_party || 'Unknown Customer';
-            if (!groups[key]) {
-                groups[key] = {
-                    customerName: key,
-                    totalPending: 0,
-                    totalContainers: 0,
-                    totalCreated: 0,
-                    items: []
-                };
-            }
-            groups[key].totalPending += Number(item.pendingCount || 0);
-            groups[key].totalContainers += Number(item.totalContainers || 0);
-            groups[key].totalCreated += Number(item.lrCreatedContainers || 0);
-            groups[key].items.push(item);
-        });
-        return groups;
-    }, [filteredPendingList]);
+    }, [activeTab, filteredPendingList, filteredActiveList, filteredClosedList, sortConfig]);
 
     // ─── Overall Stats ─────────────────────────────────────────────────────────
+
     const overallStats = useMemo(() => {
-        let totalPRs = pendingList.length;
+        let totalPRs = filteredPendingList.length;
         let totalPendingContainers = 0;
         let totalAllContainers = 0;
         let totalCreatedLRs = 0;
@@ -677,7 +895,7 @@ const TransportMonitoringReport = ({
         const uniqueParties = new Set();
         const today = new Date();
 
-        pendingList.forEach(item => {
+        filteredPendingList.forEach(item => {
             if (item.invoice_party) uniqueParties.add(item.invoice_party);
             totalPendingContainers += Number(item.pendingCount || 0);
             totalAllContainers += Number(item.totalContainers || 0);
@@ -705,97 +923,19 @@ const TransportMonitoringReport = ({
             totalPendingContainers,
             totalAllContainers,
             totalCreatedLRs,
-            totalActiveLRs: activeList.length,
-            totalClosedLRs: closedList.length,
+            totalActiveLRs: filteredActiveList.length,
+            totalClosedLRs: filteredClosedList.length,
             fulfillmentRate,
             expiredDoCount,
             expiringSoonDoCount,
             validDoCount,
             uniquePartiesCount: uniqueParties.size
         };
-    }, [pendingList, activeList, closedList]);
+    }, [filteredPendingList, filteredActiveList, filteredClosedList]);
 
-    // ─── Pagination Logic ──────────────────────────────────────────────────────
-    const totalPages = pageSize === 'ALL' ? 1 : Math.ceil(sortedList.length / (parseInt(pageSize, 10) || 25));
-    const paginatedList = useMemo(() => {
-        if (pageSize === 'ALL') return sortedList;
-        const size = parseInt(pageSize, 10) || 25;
-        const start = (currentPage - 1) * size;
-        return sortedList.slice(start, start + size);
-    }, [sortedList, currentPage, pageSize]);
+    // ─── Breakdown Summaries ───────────────────────────────────────────────────
 
-    const handleSort = (key) => {
-        let direction = 'asc';
-        if (sortConfig.key === key && sortConfig.direction === 'asc') {
-            direction = 'desc';
-        }
-        setSortConfig({ key, direction });
-    };
-
-    const getSortIcon = (key) => {
-        if (sortConfig.key !== key) return ' ⇅';
-        return sortConfig.direction === 'asc' ? ' ▲' : ' ▼';
-    };
-
-    // ─── Filter Descriptions Helper ───────────────────────────────────────────
-    const getFilterDescriptions = useCallback(() => {
-        const doStatusLabels = {
-            'ALL': 'All DO Statuses',
-            'EXPIRED': 'Expired DOs Only',
-            'EXPIRING_SOON': 'Expiring in ≤3 Days Only',
-            'VALID': 'Active & Valid DOs Only',
-            'NO_DO': 'No DO Date Available'
-        };
-
-        const containerTypeLabels = {
-            'ALL': 'All Sizes & Types',
-            'SIZE_20': "20' Containers (20ft / Dry / HC)",
-            'SIZE_40': "40' Containers (40ft / Dry / HC)"
-        };
-
-        return [
-            { label: 'Date Period / Range', value: periodLabel || 'All Time / Live Queue', status: dateQuery.startDate ? 'Active Period Filter' : 'Default' },
-            { label: 'Operating Branch Filter', value: selectedBranch === 'ALL' ? 'All Branches' : selectedBranch, status: selectedBranch === 'ALL' ? 'Unfiltered' : 'Active Filter' },
-            { label: 'Customer / Consignee Filter', value: selectedCustomer === 'ALL' ? 'All Customers' : selectedCustomer, status: selectedCustomer === 'ALL' ? 'Unfiltered' : 'Active Filter' },
-            { label: 'Trade Type (Import / Export)', value: selectedIe === 'ALL' ? 'All Trade Types' : (selectedIe.toLowerCase().includes('imp') ? 'Import Only' : 'Export Only'), status: selectedIe === 'ALL' ? 'Unfiltered' : 'Active Filter' },
-            { label: 'Container Size & Type', value: containerTypeLabels[selectedContainerType] || selectedContainerType, status: selectedContainerType === 'ALL' ? 'Unfiltered' : 'Active Filter' },
-            { label: 'DO Urgency Status Filter', value: doStatusLabels[selectedDoStatus] || selectedDoStatus, status: selectedDoStatus === 'ALL' ? 'Unfiltered' : 'Active Filter' },
-            { label: 'Live Search Keyword', value: searchTerm.trim() ? `"${searchTerm.trim()}"` : 'None', status: searchTerm.trim() ? 'Active Search Query' : 'Unfiltered' },
-            { label: 'Report Generated At', value: new Date().toLocaleString('en-GB'), status: 'System Timestamp' }
-        ];
-    }, [periodLabel, dateQuery, selectedBranch, selectedCustomer, selectedIe, selectedContainerType, selectedDoStatus, searchTerm]);
-
-    // ─── Detailed Breakdown Computations ──────────────────────────────────────
-    const filteredCustomerBreakdown = useMemo(() => {
-        const map = {};
-        filteredPendingList.forEach(item => {
-            const party = item.invoice_party || 'Unknown Customer';
-            if (!map[party]) {
-                map[party] = {
-                    customerName: party,
-                    prCount: 0,
-                    pendingContainers: 0,
-                    totalContainers: 0,
-                    createdLRs: 0,
-                    branches: new Set(),
-                    earliestDo: null
-                };
-            }
-            map[party].prCount += 1;
-            map[party].pendingContainers += Number(item.pendingCount || 0);
-            map[party].totalContainers += Number(item.totalContainers || 0);
-            map[party].createdLRs += Number(item.lrCreatedContainers || 0);
-            if (item.branch) map[party].branches.add(item.branch);
-            if (item.do_validity && item.do_validity !== '-') {
-                if (!map[party].earliestDo || item.do_validity < map[party].earliestDo) {
-                    map[party].earliestDo = item.do_validity;
-                }
-            }
-        });
-        return Object.values(map).sort((a, b) => b.pendingContainers - a.pendingContainers);
-    }, [filteredPendingList]);
-
-    const filteredContainerTypeBreakdown = useMemo(() => {
+    const containerSizeSummaryBreakdown = useMemo(() => {
         const map = {};
         filteredPendingList.forEach(item => {
             const key = item.container_type || 'Standard / Unspecified';
@@ -874,2836 +1014,1559 @@ const TransportMonitoringReport = ({
         return Object.values(map);
     }, [filteredPendingList, filteredActiveList, filteredClosedList]);
 
-    // ─── Export to Excel Engine (Complete Multi-Tab or Current Tab) ───────────
-    const exportToExcel = async (exportMode = 'all') => {
-        setIsExportingExcel(true);
-        setShowExportMenu(false);
+    // ─── Grouped Breakdown Views for Pending Tab ──────────────────────────────
 
+    const customerGroupedList = useMemo(() => {
+        if (activeTab !== 'pending') return [];
+        const map = new Map();
+        for (const item of sortedList) {
+            const cust = item.invoice_party || 'Direct / Unassigned';
+            if (!map.has(cust)) {
+                map.set(cust, {
+                    customerName: cust,
+                    totalPending: 0,
+                    totalContainers: 0,
+                    createdLRs: 0,
+                    prs: [],
+                    branches: new Set(),
+                    types: new Set()
+                });
+            }
+            const entry = map.get(cust);
+            entry.totalPending += Number(item.pendingCount || 0);
+            entry.totalContainers += Number(item.totalContainers || 0);
+            entry.createdLRs += Number(item.lrCreatedContainers || 0);
+            entry.prs.push(item);
+            if (item.branch) entry.branches.add(item.branch);
+            if (item.container_type) entry.types.add(item.container_type);
+        }
+        return Array.from(map.values())
+            .map(e => ({
+                ...e,
+                branches: Array.from(e.branches),
+                types: Array.from(e.types)
+            }))
+            .sort((a, b) => b.totalPending - a.totalPending);
+    }, [sortedList, activeTab]);
+
+    const typeGroupedList = useMemo(() => {
+        if (activeTab !== 'pending') return [];
+        const map = new Map();
+        for (const item of sortedList) {
+            const type = item.container_type || 'Standard / Unspecified';
+            if (!map.has(type)) {
+                map.set(type, {
+                    typeName: type,
+                    totalPending: 0,
+                    totalContainers: 0,
+                    createdLRs: 0,
+                    prs: [],
+                    customers: new Set(),
+                    branches: new Set()
+                });
+            }
+            const entry = map.get(type);
+            entry.totalPending += Number(item.pendingCount || 0);
+            entry.totalContainers += Number(item.totalContainers || 0);
+            entry.createdLRs += Number(item.lrCreatedContainers || 0);
+            entry.prs.push(item);
+            if (item.invoice_party) entry.customers.add(item.invoice_party);
+            if (item.branch) entry.branches.add(item.branch);
+        }
+        return Array.from(map.values())
+            .map(e => ({
+                ...e,
+                customers: Array.from(e.customers),
+                branches: Array.from(e.branches)
+            }))
+            .sort((a, b) => b.totalPending - a.totalPending);
+    }, [sortedList, activeTab]);
+
+    // ─── Active Display List & Pagination ──────────────────────────────────────
+
+    const activeDisplayList = useMemo(() => {
+        if (activeTab === 'pending') {
+            if (viewMode === 'by_customer') return customerGroupedList;
+            if (viewMode === 'grouped') return typeGroupedList;
+        }
+        return sortedList;
+    }, [activeTab, viewMode, customerGroupedList, typeGroupedList, sortedList]);
+
+    const totalPages = pageSize === 'ALL' ? 1 : Math.ceil(activeDisplayList.length / (parseInt(pageSize, 10) || 25));
+    const paginatedList = useMemo(() => {
+        if (pageSize === 'ALL') return activeDisplayList;
+        const size = parseInt(pageSize, 10) || 25;
+        const start = (currentPage - 1) * size;
+        return activeDisplayList.slice(start, start + size);
+    }, [activeDisplayList, currentPage, pageSize]);
+
+    const handleSort = (key) => {
+        let direction = 'asc';
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    // ─── Export to Excel ───────────────────────────────────────────────────────
+
+    const handleExportFullExcel = async () => {
+        setIsExportingExcel(true);
         try {
-            const ExcelJS = await import('exceljs');
-            const { saveAs } = await import('file-saver');
+            const ExcelJS = (await import('exceljs')).default;
             const workbook = new ExcelJS.Workbook();
-            workbook.creator = 'AlVision Exim Operations';
+            workbook.creator = 'AlVision Exim Project Nucleus';
             workbook.created = new Date();
 
-            const filterDescList = getFilterDescriptions();
-            const filterSummaryText = filterDescList.map(f => `${f.label}: ${f.value}`).join(' | ');
-            const today = new Date();
+            // SHEET 1: PENDING PRs QUEUE
+            const wsPending = workbook.addWorksheet('Pending PRs Queue', { views: [{ state: 'frozen', ySplit: 5 }] });
+            wsPending.addRow(['ALVISION EXIM — TRANSPORT PICKUP QUEUE & PENDING PRs']);
+            wsPending.addRow([`Period: ${periodLabel} | Total Pending PRs: ${filteredPendingList.length} | Pending Containers: ${overallStats.totalPendingContainers}`]);
+            wsPending.addRow([]);
+            wsPending.addRow(['Srl', 'PR No', 'Branch', 'Invoice Party / Customer', 'Trade', 'Container Type', 'Pending', 'Total Cont.', 'Created LRs', 'DO Validity', 'Pickup Port', 'Delivery Destination']);
 
-            // Helper: Auto-fit column widths with bounds
-            const autoFitCols = (ws, minW = 13, maxW = 46) => {
-                ws.columns.forEach(col => {
-                    let max = 0;
-                    col.eachCell({ includeEmpty: true }, (cell, rn) => {
-                        if (rn > 2) {
-                            const valStr = cell.value ? String(cell.value) : '';
-                            if (valStr.length > max) max = valStr.length;
-                        }
-                    });
-                    col.width = Math.min(Math.max(max + 4, minW), maxW);
-                });
-            };
+            // Header styling
+            const pHeader = wsPending.getRow(4);
+            pHeader.height = 24;
+            pHeader.eachCell(c => {
+                c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
+                c.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+                c.alignment = { horizontal: 'center', vertical: 'middle' };
+            });
 
-            // Helper: Add Standard Title & Metadata Banner
-            const addSheetBanner = (ws, title, lastColLetter, bannerFillColor) => {
-                ws.addRow([title]);
-                ws.mergeCells(`A1:${lastColLetter}1`);
-                const titleRow = ws.getRow(1);
-                titleRow.height = 36;
-                titleRow.getCell(1).font = { name: 'Calibri', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
-                titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bannerFillColor } };
-                titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+            wsPending.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4 + Math.max(filteredPendingList.length, 1), column: 12 } };
 
-                ws.addRow([filterSummaryText]);
-                ws.mergeCells(`A2:${lastColLetter}2`);
-                const metaRow = ws.getRow(2);
-                metaRow.height = 22;
-                metaRow.getCell(1).font = { name: 'Calibri', size: 9.5, italic: true, color: { argb: 'FF1E293B' } };
-                metaRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
-                metaRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+            filteredPendingList.forEach((item, idx) => {
+                wsPending.addRow([
+                    idx + 1,
+                    item.pr_no || '—',
+                    item.branch || '—',
+                    item.invoice_party || '—',
+                    item.import_export || '—',
+                    item.container_type || '—',
+                    Number(item.pendingCount || 0),
+                    Number(item.totalContainers || 0),
+                    Number(item.lrCreatedContainers || 0),
+                    item.do_validity || '—',
+                    item.pickup_point || item.port || '—',
+                    item.delivery_point || item.destination || '—'
+                ]);
+            });
 
-                ws.addRow([]);
-                ws.getRow(3).height = 8;
-            };
-
-            // ═════════════════════════════════════════════════════════════════════
-            // SHEET 1: EXECUTIVE SUMMARY & FILTER MATRIX (Only in Full Report Mode)
-            // ═════════════════════════════════════════════════════════════════════
-            if (exportMode === 'all') {
-                const wsExec = workbook.addWorksheet('Executive Summary', {
-                    views: [{ showGridLines: true }]
-                });
-
-                // Title Banner
-                wsExec.addRow(['ALVISION EXIM — TRANSPORT PICKUP QUEUE & DISPATCH MONITORING REPORT']);
-                wsExec.mergeCells('A1:G1');
-                const execTitle = wsExec.getRow(1);
-                execTitle.height = 36;
-                execTitle.getCell(1).font = { name: 'Calibri', size: 14, bold: true, color: { argb: 'FFFFFFFF' } };
-                execTitle.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E1B4B' } };
-                execTitle.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
-
-                wsExec.addRow(['EXECUTIVE OVERVIEW & APPLIED OPERATIONS FILTER MATRIX']);
-                wsExec.mergeCells('A2:G2');
-                const execSub = wsExec.getRow(2);
-                execSub.height = 20;
-                execSub.getCell(1).font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF475569' } };
-                execSub.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
-                execSub.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
-
-                wsExec.addRow([]);
-                wsExec.getRow(3).height = 10;
-
-                // 1. Applied Filters Table
-                wsExec.addRow(['APPLIED REPORT FILTERS & PARAMETERS']);
-                const fSectionRowNum = wsExec.rowCount;
-                wsExec.mergeCells(`A${fSectionRowNum}:C${fSectionRowNum}`);
-                const fSectionRow = wsExec.getRow(fSectionRowNum);
-                fSectionRow.height = 24;
-                fSectionRow.getCell(1).font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
-                fSectionRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF312E81' } };
-                fSectionRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
-
-                wsExec.addRow(['Filter Parameter', 'Selected Condition / Value', 'Filter Status']);
-                const fHeaderRow = wsExec.getRow(wsExec.rowCount);
-                fHeaderRow.height = 24;
-                fHeaderRow.eachCell(c => {
-                    c.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FFFFFFFF' } };
-                    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
-                    c.alignment = { horizontal: 'center', vertical: 'middle' };
-                    c.border = { top: { style: 'thin', color: { argb: 'FFCBD5E1' } }, bottom: { style: 'medium', color: { argb: 'FF1E1B4B' } } };
-                });
-
-                filterDescList.forEach((f, fIdx) => {
-                    const row = wsExec.addRow([f.label, f.value, f.status]);
-                    row.height = 20;
-                    const bgArgb = fIdx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
-                    row.eachCell((c, colNum) => {
-                        c.font = { name: 'Calibri', size: 10, color: { argb: 'FF1E293B' } };
-                        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
-                        c.border = { top: { style: 'thin', color: { argb: 'FFE2E8F0' } }, bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } } };
-                        if (colNum === 1) { c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF0F172A' } }; }
-                        if (colNum === 3) {
-                            c.alignment = { horizontal: 'center', vertical: 'middle' };
-                            if (f.status === 'Active Filter' || f.status === 'Active Search Query') {
-                                c.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: 'FF1D4ED8' } };
-                            }
-                        }
-                    });
-                });
-
-                wsExec.addRow([]);
-                wsExec.getRow(wsExec.rowCount).height = 12;
-
-                // 2. Operational KPIs Scorecard
-                let sumPendCont = 0;
-                let sumTotCont = 0;
-                let sumCrtLRs = 0;
-                let expDoCnt = 0;
-                let expSoonDoCnt = 0;
-                let valDoCnt = 0;
-
-                filteredPendingList.forEach(item => {
-                    sumPendCont += Number(item.pendingCount || 0);
-                    sumTotCont += Number(item.totalContainers || 0);
-                    sumCrtLRs += Number(item.lrCreatedContainers || 0);
-
-                    if (item.do_validity && item.do_validity !== '-') {
-                        try {
-                            const d = item.do_validity.includes('T') ? parseISO(item.do_validity) : new Date(item.do_validity);
-                            if (isValid(d)) {
-                                const diff = differenceInDays(d, today);
-                                if (diff < 0) expDoCnt++;
-                                else if (diff <= 3) expSoonDoCnt++;
-                                else valDoCnt++;
-                            }
-                        } catch {
-                            // ignore
-                        }
+            // Auto-fit columns
+            wsPending.columns.forEach(col => {
+                let max = 0;
+                col.eachCell({ includeEmpty: true }, (cell, rn) => {
+                    if (rn > 3) {
+                        const s = cell.value ? String(cell.value) : '';
+                        if (s.length > max) max = s.length;
                     }
                 });
+                col.width = Math.min(Math.max(max + 4, 12), 40);
+            });
 
-                const overallFulfillmentRate = sumTotCont > 0 ? (sumCrtLRs / sumTotCont) : 0;
+            // SHEET 2: ACTIVE IN-TRANSIT LRs
+            const wsActive = workbook.addWorksheet('Active In-Transit LRs', { views: [{ state: 'frozen', ySplit: 5 }] });
+            wsActive.addRow(['ALVISION EXIM — ACTIVE IN-TRANSIT TRIPS (ON ROAD)']);
+            wsActive.addRow([`Period: ${periodLabel} | Total Active In-Transit Vehicles: ${filteredActiveList.length}`]);
+            wsActive.addRow([]);
+            wsActive.addRow(['Srl', 'LR / TR No', 'Vehicle No', 'Branch', 'Consignee', 'Consignor', 'Container No', 'Type/Size', 'LR Date', 'Status']);
 
-                wsExec.addRow(['KEY OPERATIONAL PERFORMANCE INDICATORS (KPIs)']);
-                const kSectionRowNum = wsExec.rowCount;
-                wsExec.mergeCells(`A${kSectionRowNum}:D${kSectionRowNum}`);
-                const kSectionRow = wsExec.getRow(kSectionRowNum);
-                kSectionRow.height = 24;
-                kSectionRow.getCell(1).font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
-                kSectionRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF312E81' } };
-                kSectionRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+            const aHeader = wsActive.getRow(4);
+            aHeader.height = 24;
+            aHeader.eachCell(c => {
+                c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD97706' } };
+                c.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+                c.alignment = { horizontal: 'center', vertical: 'middle' };
+            });
 
-                wsExec.addRow(['KPI Metric Description', 'Count / Value', 'Unit / Measurement', 'Operational Significance']);
-                const kHeaderRow = wsExec.getRow(wsExec.rowCount);
-                kHeaderRow.height = 24;
-                kHeaderRow.eachCell(c => {
-                    c.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FFFFFFFF' } };
-                    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
-                    c.alignment = { horizontal: 'center', vertical: 'middle' };
-                    c.border = { top: { style: 'thin', color: { argb: 'FFCBD5E1' } }, bottom: { style: 'medium', color: { argb: 'FF1E1B4B' } } };
-                });
+            wsActive.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4 + Math.max(filteredActiveList.length, 1), column: 10 } };
 
-                const kpiRows = [
-                    ['Total Pending PRs Awaiting Dispatch', filteredPendingList.length, 'PRs', 'Live pickup backlog queue awaiting dispatch'],
-                    ['Total Pending Containers Backlog', sumPendCont, 'Containers', 'Containers awaiting trailer / vehicle allocation'],
-                    ['Total PR Containers Ordered', sumTotCont, 'Containers', 'Total demand volume across filtered PRs'],
-                    ['Total LRs Created / Allocated', sumCrtLRs, 'LRs Generated', 'Dispatches initialized and fulfilled from PRs'],
-                    ['Overall Dispatch Fulfillment Rate', overallFulfillmentRate, 'Percentage (%)', 'Ratio of LRs Created vs Total Containers Ordered'],
-                    ['Active Dispatches On Road (In-Transit)', filteredActiveList.length, 'Vehicles / LRs', 'Live vehicles moving towards consignee destination'],
-                    ['Completed & Closed Trips in Period', filteredClosedList.length, 'Completed Deliveries', 'Dispatches successfully closed & verified in period'],
-                    ['Critical Expired DOs Backlog', expDoCnt, 'PRs with Expired DO', 'High urgency: DO validity expired before dispatch'],
-                    ['DOs Expiring Soon (≤3 Days)', expSoonDoCnt, 'PRs Expiring in ≤3d', 'Urgent priority: Requires immediate vehicle placement'],
-                    ['Active & Valid DOs', valDoCnt, 'PRs with Valid DO', 'Normal operational queue with safe DO validity buffer'],
-                    ['Distinct Customers Waiting for Dispatch', filteredCustomerBreakdown.length, 'Client Accounts', 'Number of unique customer accounts waiting for delivery']
-                ];
+            filteredActiveList.forEach((item, idx) => {
+                wsActive.addRow([
+                    idx + 1,
+                    item.tr_no || '—',
+                    item.vehicle_no || '—',
+                    item.branch || '—',
+                    item.consignee || item.invoice_party || '—',
+                    item.consignor || '—',
+                    item.container_number || '—',
+                    item.container_type || item.container_size || '—',
+                    formatDateDisplay(item.lr_date || item.date),
+                    item.status || 'In-Transit'
+                ]);
+            });
 
-                kpiRows.forEach((k, kIdx) => {
-                    const row = wsExec.addRow(k);
-                    row.height = 20;
-                    const bgArgb = kIdx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
-                    row.eachCell((c, colNum) => {
-                        c.font = { name: 'Calibri', size: 10, color: { argb: 'FF1E293B' } };
-                        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
-                        c.border = { top: { style: 'thin', color: { argb: 'FFE2E8F0' } }, bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } } };
-                        if (colNum === 1) { c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF0F172A' } }; }
-                        if (colNum === 2) {
-                            c.alignment = { horizontal: 'right', vertical: 'middle' };
-                            if (typeof c.value === 'number') {
-                                if (k[0].includes('Rate')) {
-                                    c.numFmt = '0.0%';
-                                    c.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FF047857' } };
-                                } else {
-                                    c.numFmt = '#,##0';
-                                    c.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FF0F172A' } };
-                                }
-                            }
-                            if (k[0].includes('Expired DO') && expDoCnt > 0) {
-                                c.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FFB91C1C' } };
-                            }
-                        }
-                    });
-                });
-
-                wsExec.addRow([]);
-                wsExec.getRow(wsExec.rowCount).height = 12;
-
-                // 3. Branch Performance Breakdown Table
-                wsExec.addRow(['BRANCH-WISE OPERATIONAL PERFORMANCE SUMMARY']);
-                const bSectionRowNum = wsExec.rowCount;
-                wsExec.mergeCells(`A${bSectionRowNum}:H${bSectionRowNum}`);
-                const bSectionRow = wsExec.getRow(bSectionRowNum);
-                bSectionRow.height = 24;
-                bSectionRow.getCell(1).font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
-                bSectionRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E1B4B' } };
-                bSectionRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
-
-                const branchHeaders = ['#', 'Branch Location', 'Pending PRs', 'Pending Cont.', 'Total Cont.', 'Created LRs', 'Active On-Road', 'Closed Trips'];
-                wsExec.addRow(branchHeaders);
-                const bHeaderRow = wsExec.getRow(wsExec.rowCount);
-                bHeaderRow.height = 24;
-                bHeaderRow.eachCell(c => {
-                    c.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FFFFFFFF' } };
-                    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4338CA' } };
-                    c.alignment = { horizontal: 'center', vertical: 'middle' };
-                    c.border = { top: { style: 'thin', color: { argb: 'FFCBD5E1' } }, bottom: { style: 'medium', color: { argb: 'FF1E1B4B' } } };
-                });
-
-                let bSumPendPR = 0;
-                let bSumPendCont = 0;
-                let bSumTotCont = 0;
-                let bSumCrtLR = 0;
-                let bSumActLR = 0;
-                let bSumClsLR = 0;
-
-                branchSummaryBreakdown.forEach((b, bIdx) => {
-                    bSumPendPR += b.pendingPRs;
-                    bSumPendCont += b.pendingCont;
-                    bSumTotCont += b.totalCont;
-                    bSumCrtLR += b.createdLRs;
-                    bSumActLR += b.activeLRs;
-                    bSumClsLR += b.closedLRs;
-
-                    const row = wsExec.addRow([
-                        bIdx + 1,
-                        b.branch,
-                        b.pendingPRs,
-                        b.pendingCont,
-                        b.totalCont,
-                        b.createdLRs,
-                        b.activeLRs,
-                        b.closedLRs
-                    ]);
-                    row.height = 20;
-                    const bgArgb = bIdx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
-                    row.eachCell((c, colNum) => {
-                        c.font = { name: 'Calibri', size: 10, color: { argb: 'FF1E293B' } };
-                        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
-                        c.border = { top: { style: 'thin', color: { argb: 'FFE2E8F0' } }, bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } } };
-                        if (colNum === 1) c.alignment = { horizontal: 'center', vertical: 'middle' };
-                        else if (colNum === 2) {
-                            c.alignment = { horizontal: 'left', vertical: 'middle' };
-                            c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF0F172A' } };
-                        } else {
-                            c.alignment = { horizontal: 'right', vertical: 'middle' };
-                            c.numFmt = '#,##0';
-                            if (colNum === 4 && b.pendingCont > 0) {
-                                c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFB91C1C' } };
-                            }
-                        }
-                    });
-                });
-
-                // Branch Summary Total Row
-                const bTotRow = wsExec.addRow(['TOTAL', 'All Operating Branches', bSumPendPR, bSumPendCont, bSumTotCont, bSumCrtLR, bSumActLR, bSumClsLR]);
-                bTotRow.height = 22;
-                bTotRow.eachCell((c, colNum) => {
-                    c.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FF0F172A' } };
-                    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
-                    c.border = { top: { style: 'medium', color: { argb: 'FF0F172A' } }, bottom: { style: 'double', color: { argb: 'FF0F172A' } } };
-                    if (colNum <= 2) c.alignment = { horizontal: colNum === 1 ? 'center' : 'left', vertical: 'middle' };
-                    else {
-                        c.alignment = { horizontal: 'right', vertical: 'middle' };
-                        c.numFmt = '#,##0';
+            wsActive.columns.forEach(col => {
+                let max = 0;
+                col.eachCell({ includeEmpty: true }, (cell, rn) => {
+                    if (rn > 3) {
+                        const s = cell.value ? String(cell.value) : '';
+                        if (s.length > max) max = s.length;
                     }
                 });
+                col.width = Math.min(Math.max(max + 4, 12), 40);
+            });
 
-                wsExec.addRow([]);
-                wsExec.getRow(wsExec.rowCount).height = 12;
+            // SHEET 3: COMPLETED / CLOSED TRIPS
+            const wsClosed = workbook.addWorksheet('Completed Trips', { views: [{ state: 'frozen', ySplit: 5 }] });
+            wsClosed.addRow(['ALVISION EXIM — COMPLETED & CLOSED DELIVERIES']);
+            wsClosed.addRow([`Period: ${periodLabel} | Total Closed Trips: ${filteredClosedList.length}`]);
+            wsClosed.addRow([]);
+            wsClosed.addRow(['Srl', 'LR / TR No', 'Vehicle No', 'Branch', 'Consignee', 'Container No', 'Completion Date', 'Status']);
 
-                // 4. Trade Type Breakdown Table (Import vs Export)
-                wsExec.addRow(['TRADE TYPE BREAKDOWN (IMPORT vs EXPORT)']);
-                const tSectionRowNum = wsExec.rowCount;
-                wsExec.mergeCells(`A${tSectionRowNum}:G${tSectionRowNum}`);
-                const tSectionRow = wsExec.getRow(tSectionRowNum);
-                tSectionRow.height = 24;
-                tSectionRow.getCell(1).font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
-                tSectionRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E1B4B' } };
-                tSectionRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+            const cHeader = wsClosed.getRow(4);
+            cHeader.height = 24;
+            cHeader.eachCell(c => {
+                c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF059669' } };
+                c.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+                c.alignment = { horizontal: 'center', vertical: 'middle' };
+            });
 
-                const tradeHeaders = ['#', 'Trade Type', 'Pending PRs', 'Pending Cont.', 'Total Cont.', 'Active Dispatches', 'Closed Trips'];
-                wsExec.addRow(tradeHeaders);
-                const tHeaderRow = wsExec.getRow(wsExec.rowCount);
-                tHeaderRow.height = 24;
-                tHeaderRow.eachCell(c => {
-                    c.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FFFFFFFF' } };
-                    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4338CA' } };
-                    c.alignment = { horizontal: 'center', vertical: 'middle' };
-                    c.border = { top: { style: 'thin', color: { argb: 'FFCBD5E1' } }, bottom: { style: 'medium', color: { argb: 'FF1E1B4B' } } };
-                });
+            wsClosed.autoFilter = { from: { row: 4, column: 1 }, to: { row: 4 + Math.max(filteredClosedList.length, 1), column: 8 } };
 
-                tradeTypeSummaryBreakdown.forEach((t, tIdx) => {
-                    const row = wsExec.addRow([
-                        tIdx + 1,
-                        t.tradeType,
-                        t.pendingPRs,
-                        t.pendingCont,
-                        t.totalCont,
-                        t.activeLRs,
-                        t.closedLRs
-                    ]);
-                    row.height = 20;
-                    const bgArgb = tIdx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
-                    row.eachCell((c, colNum) => {
-                        c.font = { name: 'Calibri', size: 10, color: { argb: 'FF1E293B' } };
-                        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
-                        c.border = { top: { style: 'thin', color: { argb: 'FFE2E8F0' } }, bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } } };
-                        if (colNum === 1) c.alignment = { horizontal: 'center', vertical: 'middle' };
-                        else if (colNum === 2) {
-                            c.alignment = { horizontal: 'left', vertical: 'middle' };
-                            c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: t.tradeType === 'Import' ? 'FF0369A1' : 'FF047857' } };
-                        } else {
-                            c.alignment = { horizontal: 'right', vertical: 'middle' };
-                            c.numFmt = '#,##0';
-                        }
-                    });
-                });
+            filteredClosedList.forEach((item, idx) => {
+                wsClosed.addRow([
+                    idx + 1,
+                    item.tr_no || '—',
+                    item.vehicle_no || '—',
+                    item.branch || '—',
+                    item.consignee || item.invoice_party || '—',
+                    item.container_number || '—',
+                    formatDateDisplay(item.dispatchClosedDate || item.date),
+                    'Completed / Closed'
+                ]);
+            });
 
-                autoFitCols(wsExec, 14, 48);
-            }
-
-            // ═════════════════════════════════════════════════════════════════════
-            // SHEET 2: PENDING PICKUP QUEUE (Detailed List)
-            // ═════════════════════════════════════════════════════════════════════
-            if (exportMode === 'all' || activeSection === 'pending') {
-                const targetPendingList = exportMode === 'all' ? filteredPendingList : sortedList;
-                const wsPending = workbook.addWorksheet('Pending Pickup Queue', {
-                    views: [{ state: 'frozen', ySplit: 4 }]
-                });
-
-                const pendingHeaders = [
-                    "Srl No.", "PR No", "Trade Type", "Branch", "Customer / Invoice Party",
-                    "Container Type", "Total Cont.", "Created LRs", "Pending Cont.",
-                    "Fulfillment %", "DO Validity Date", "DO Urgency Status", "Days Remaining / Overdue"
-                ];
-
-                addSheetBanner(wsPending, 'ALVISION EXIM — PENDING PICKUP REQUESTS (PR) QUEUE', 'M', 'FF312E81');
-
-                wsPending.addRow(pendingHeaders);
-                const pHeadRow = wsPending.getRow(4);
-                pHeadRow.height = 28;
-                pHeadRow.eachCell(c => {
-                    c.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
-                    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF4F46E5' } };
-                    c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-                    c.border = {
-                        top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-                        left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-                        bottom: { style: 'medium', color: { argb: 'FF1E1B4B' } },
-                        right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
-                    };
-                });
-
-                wsPending.autoFilter = {
-                    from: { row: 4, column: 1 },
-                    to: { row: 4 + Math.max(targetPendingList.length, 1), column: pendingHeaders.length }
-                };
-
-                let pSumTotCont = 0;
-                let pSumCrtLR = 0;
-                let pSumPendCont = 0;
-
-                if (targetPendingList.length === 0) {
-                    const emptyRow = wsPending.addRow(['—', 'No pending pickup requests match the selected filters.', '—', '—', '—', '—', 0, 0, 0, 0, '—', '—', '—']);
-                    emptyRow.height = 24;
-                    emptyRow.eachCell(c => {
-                        c.font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF64748B' } };
-                        c.alignment = { horizontal: 'center', vertical: 'middle' };
-                    });
-                } else {
-                    targetPendingList.forEach((item, idx) => {
-                        const rowNum = 5 + idx;
-                        const bgArgb = idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
-
-                        const tot = Number(item.totalContainers || 0);
-                        const crt = Number(item.lrCreatedContainers || 0);
-                        const pnd = Number(item.pendingCount || 0);
-                        const pct = tot > 0 ? (crt / tot) : 0;
-                        pSumTotCont += tot;
-                        pSumCrtLR += crt;
-                        pSumPendCont += pnd;
-
-                        let doStatusLabel = 'No DO Date';
-                        let doStatusArgb = 'FFF1F5F9';
-                        let doTextArgb = 'FF64748B';
-                        let daysDiffStr = '—';
-
-                        if (item.do_validity && item.do_validity !== '-') {
-                            try {
-                                const d = item.do_validity.includes('T') ? parseISO(item.do_validity) : new Date(item.do_validity);
-                                if (isValid(d)) {
-                                    const diff = differenceInDays(d, today);
-                                    if (diff < 0) {
-                                        doStatusLabel = `Expired (${Math.abs(diff)}d ago)`;
-                                        doStatusArgb = 'FFFEE2E2';
-                                        doTextArgb = 'FF991B1B';
-                                        daysDiffStr = `${diff} days (Overdue)`;
-                                    } else if (diff <= 3) {
-                                        doStatusLabel = `Expiring in ${diff}d`;
-                                        doStatusArgb = 'FFFEF3C7';
-                                        doTextArgb = 'FF92400E';
-                                        daysDiffStr = `+${diff} days (Urgent)`;
-                                    } else {
-                                        doStatusLabel = 'Valid';
-                                        doStatusArgb = 'FFDCFCE7';
-                                        doTextArgb = 'FF166534';
-                                        daysDiffStr = `+${diff} days`;
-                                    }
-                                }
-                            } catch {
-                                // ignore
-                            }
-                        }
-
-                        wsPending.addRow([
-                            idx + 1,
-                            item.pr_no || '—',
-                            item.import_export || 'Import',
-                            item.branch || '—',
-                            item.invoice_party || '—',
-                            item.container_type || 'Standard',
-                            tot,
-                            crt,
-                            pnd,
-                            pct,
-                            item.do_validity ? formatDateDisplay(item.do_validity) : '—',
-                            doStatusLabel,
-                            daysDiffStr
-                        ]);
-
-                        const row = wsPending.getRow(rowNum);
-                        row.height = 21;
-                        row.eachCell((c, colNum) => {
-                            c.font = { name: 'Calibri', size: 10, color: { argb: 'FF1E293B' } };
-                            c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
-                            c.border = {
-                                top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-                                left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-                                bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-                                right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
-                            };
-
-                            if (colNum === 1 || colNum === 3 || colNum === 4 || colNum === 6 || colNum === 11 || colNum === 13) {
-                                c.alignment = { horizontal: 'center', vertical: 'middle' };
-                            } else if (colNum === 2) {
-                                c.alignment = { horizontal: 'center', vertical: 'middle' };
-                                c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF4338CA' } };
-                            } else if (colNum === 5) {
-                                c.alignment = { horizontal: 'left', vertical: 'middle' };
-                                c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF0F172A' } };
-                            } else if (colNum === 7 || colNum === 8 || colNum === 9) {
-                                c.alignment = { horizontal: 'right', vertical: 'middle' };
-                                c.numFmt = '#,##0';
-                                if (colNum === 9 && pnd > 0) {
-                                    c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFB91C1C' } };
-                                }
-                            } else if (colNum === 10) {
-                                c.alignment = { horizontal: 'right', vertical: 'middle' };
-                                c.numFmt = '0.0%';
-                            } else if (colNum === 12) {
-                                c.alignment = { horizontal: 'center', vertical: 'middle' };
-                                c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: doStatusArgb } };
-                                c.font = { name: 'Calibri', size: 9.5, bold: true, color: { argb: doTextArgb } };
-                            }
-                        });
-                    });
-
-                    // Summary Total Row for Pending Queue
-                    const totRowNum = 5 + targetPendingList.length;
-                    const avgPct = pSumTotCont > 0 ? (pSumCrtLR / pSumTotCont) : 0;
-                    wsPending.addRow([
-                        'TOTAL',
-                        `${targetPendingList.length} PRs`,
-                        '—',
-                        '—',
-                        'All Filtered Customers',
-                        '—',
-                        pSumTotCont,
-                        pSumCrtLR,
-                        pSumPendCont,
-                        avgPct,
-                        '—',
-                        '—',
-                        '—'
-                    ]);
-
-                    const totRow = wsPending.getRow(totRowNum);
-                    totRow.height = 25;
-                    totRow.eachCell((c, colNum) => {
-                        c.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FF0F172A' } };
-                        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
-                        c.border = {
-                            top: { style: 'medium', color: { argb: 'FF0F172A' } },
-                            left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-                            bottom: { style: 'double', color: { argb: 'FF0F172A' } },
-                            right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
-                        };
-
-                        if (colNum <= 6 || colNum >= 11) {
-                            c.alignment = { horizontal: colNum === 5 ? 'left' : 'center', vertical: 'middle' };
-                        } else if (colNum === 7 || colNum === 8 || colNum === 9) {
-                            c.alignment = { horizontal: 'right', vertical: 'middle' };
-                            c.numFmt = '#,##0';
-                        } else if (colNum === 10) {
-                            c.alignment = { horizontal: 'right', vertical: 'middle' };
-                            c.numFmt = '0.0%';
-                        }
-                    });
-                }
-
-                autoFitCols(wsPending, 12, 45);
-            }
-
-            // ═════════════════════════════════════════════════════════════════════
-            // SHEET 3: ACTIVE IN-TRANSIT DISPATCHES (Detailed List)
-            // ═════════════════════════════════════════════════════════════════════
-            if (exportMode === 'all' || activeSection === 'active') {
-                const targetActiveList = exportMode === 'all' ? filteredActiveList : sortedList;
-                const wsActive = workbook.addWorksheet('Active In-Transit LRs', {
-                    views: [{ state: 'frozen', ySplit: 4 }]
-                });
-
-                const activeHeaders = [
-                    "Srl No.", "LR No", "Trade Type", "Branch", "Consignee (Customer)",
-                    "Consignor (Shipper)", "Container / Vehicle Type", "Vehicle No", "Container No",
-                    "Seal No", "Fleet Category", "LR Date", "Dispatch Status"
-                ];
-
-                addSheetBanner(wsActive, 'ALVISION EXIM — ACTIVE IN-TRANSIT DISPATCHES (ON ROAD)', 'M', 'FF92400E');
-
-                wsActive.addRow(activeHeaders);
-                const aHeadRow = wsActive.getRow(4);
-                aHeadRow.height = 28;
-                aHeadRow.eachCell(c => {
-                    c.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
-                    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD97706' } };
-                    c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-                    c.border = {
-                        top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-                        left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-                        bottom: { style: 'medium', color: { argb: 'FF78350F' } },
-                        right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
-                    };
-                });
-
-                wsActive.autoFilter = {
-                    from: { row: 4, column: 1 },
-                    to: { row: 4 + Math.max(targetActiveList.length, 1), column: activeHeaders.length }
-                };
-
-                if (targetActiveList.length === 0) {
-                    const emptyRow = wsActive.addRow(['—', 'No active dispatches on road matching the selected filters.', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—']);
-                    emptyRow.height = 24;
-                    emptyRow.eachCell(c => {
-                        c.font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF64748B' } };
-                        c.alignment = { horizontal: 'center', vertical: 'middle' };
-                    });
-                } else {
-                    targetActiveList.forEach((item, idx) => {
-                        const rowNum = 5 + idx;
-                        const bgArgb = idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
-
-                        wsActive.addRow([
-                            idx + 1,
-                            item.tr_no || '—',
-                            item.import_export || 'Import',
-                            item.branch || '—',
-                            item.consignee || '—',
-                            item.consignor || '—',
-                            item.type_of_vehicle || item.container_type || item.container_size || item.vehicle_type || item.type || 'Standard',
-                            item.vehicle_no || '—',
-                            item.container_number || '—',
-                            item.seal_no || '—',
-                            item.own_hired || 'Own',
-                            item.lr_date ? formatDateDisplay(item.lr_date) : '—',
-                            item.status || 'In Transit'
-                        ]);
-
-                        const row = wsActive.getRow(rowNum);
-                        row.height = 21;
-                        row.eachCell((c, colNum) => {
-                            c.font = { name: 'Calibri', size: 10, color: { argb: 'FF1E293B' } };
-                            c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
-                            c.border = {
-                                top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-                                left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-                                bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-                                right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
-                            };
-
-                            if (colNum === 1 || colNum === 3 || colNum === 4 || colNum === 7 || colNum === 10 || colNum === 11 || colNum === 12 || colNum === 13) {
-                                c.alignment = { horizontal: 'center', vertical: 'middle' };
-                            } else if (colNum === 2) {
-                                c.alignment = { horizontal: 'center', vertical: 'middle' };
-                                c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFD97706' } };
-                            } else if (colNum === 5) {
-                                c.alignment = { horizontal: 'left', vertical: 'middle' };
-                                c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF0F172A' } };
-                            } else if (colNum === 8 || colNum === 9) {
-                                c.alignment = { horizontal: 'center', vertical: 'middle' };
-                                c.font = { name: 'Consolas', size: 10, bold: true, color: { argb: 'FF1E293B' } };
-                            } else {
-                                c.alignment = { horizontal: 'left', vertical: 'middle' };
-                            }
-                        });
-                    });
-
-                    // Total Row
-                    const totRow = wsActive.addRow(['TOTAL', `${targetActiveList.length} Active Dispatches`, '—', '—', 'All Consignees', '—', '—', '—', '—', '—', '—', '—', 'Live On Road']);
-                    totRow.height = 25;
-                    totRow.eachCell((c, colNum) => {
-                        c.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FF0F172A' } };
-                        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
-                        c.border = {
-                            top: { style: 'medium', color: { argb: 'FF0F172A' } },
-                            bottom: { style: 'double', color: { argb: 'FF0F172A' } }
-                        };
-                        c.alignment = { horizontal: colNum === 5 ? 'left' : 'center', vertical: 'middle' };
-                    });
-                }
-
-                autoFitCols(wsActive, 12, 45);
-            }
-
-            // ═════════════════════════════════════════════════════════════════════
-            // SHEET 4: COMPLETED & CLOSED TRIPS (Detailed List)
-            // ═════════════════════════════════════════════════════════════════════
-            if (exportMode === 'all' || activeSection === 'closed') {
-                const targetClosedList = exportMode === 'all' ? filteredClosedList : sortedList;
-                const wsClosed = workbook.addWorksheet('Completed Closed Trips', {
-                    views: [{ state: 'frozen', ySplit: 4 }]
-                });
-
-                const closedHeaders = [
-                    "Srl No.", "LR No", "Trade Type", "Branch", "Consignee (Customer)",
-                    "Consignor (Shipper)", "Container / Vehicle Type", "Vehicle No", "Container No",
-                    "Seal No", "Fleet Category", "Delivery / Closed Date", "Trip Status"
-                ];
-
-                addSheetBanner(wsClosed, 'ALVISION EXIM — COMPLETED & CLOSED DISPATCHES REPORT', 'M', 'FF065F46');
-
-                wsClosed.addRow(closedHeaders);
-                const cHeadRow = wsClosed.getRow(4);
-                cHeadRow.height = 28;
-                cHeadRow.eachCell(c => {
-                    c.font = { name: 'Calibri', size: 11, bold: true, color: { argb: 'FFFFFFFF' } };
-                    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF059669' } };
-                    c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-                    c.border = {
-                        top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-                        left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-                        bottom: { style: 'medium', color: { argb: 'FF064E3B' } },
-                        right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
-                    };
-                });
-
-                wsClosed.autoFilter = {
-                    from: { row: 4, column: 1 },
-                    to: { row: 4 + Math.max(targetClosedList.length, 1), column: closedHeaders.length }
-                };
-
-                if (targetClosedList.length === 0) {
-                    const emptyRow = wsClosed.addRow(['—', 'No completed / closed trips found matching the selected filters.', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—', '—']);
-                    emptyRow.height = 24;
-                    emptyRow.eachCell(c => {
-                        c.font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF64748B' } };
-                        c.alignment = { horizontal: 'center', vertical: 'middle' };
-                    });
-                } else {
-                    targetClosedList.forEach((item, idx) => {
-                        const rowNum = 5 + idx;
-                        const bgArgb = idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
-
-                        wsClosed.addRow([
-                            idx + 1,
-                            item.tr_no || '—',
-                            item.import_export || 'Import',
-                            item.branch || '—',
-                            item.consignee || '—',
-                            item.consignor || '—',
-                            item.type_of_vehicle || item.container_type || item.container_size || item.vehicle_type || item.type || 'Standard',
-                            item.vehicle_no || '—',
-                            item.container_number || '—',
-                            item.seal_no || '—',
-                            item.own_hired || 'Own',
-                            item.dispatchClosedDate ? formatDateDisplay(item.dispatchClosedDate) : (item.lr_date ? formatDateDisplay(item.lr_date) : 'Completed'),
-                            'Delivered & Closed'
-                        ]);
-
-                        const row = wsClosed.getRow(rowNum);
-                        row.height = 21;
-                        row.eachCell((c, colNum) => {
-                            c.font = { name: 'Calibri', size: 10, color: { argb: 'FF1E293B' } };
-                            c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
-                            c.border = {
-                                top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-                                left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-                                bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-                                right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
-                            };
-
-                            if (colNum === 1 || colNum === 3 || colNum === 4 || colNum === 7 || colNum === 10 || colNum === 11 || colNum === 12 || colNum === 13) {
-                                c.alignment = { horizontal: 'center', vertical: 'middle' };
-                            } else if (colNum === 2) {
-                                c.alignment = { horizontal: 'center', vertical: 'middle' };
-                                c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF059669' } };
-                            } else if (colNum === 5) {
-                                c.alignment = { horizontal: 'left', vertical: 'middle' };
-                                c.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF0F172A' } };
-                            } else if (colNum === 8 || colNum === 9) {
-                                c.alignment = { horizontal: 'center', vertical: 'middle' };
-                                c.font = { name: 'Consolas', size: 10, bold: true, color: { argb: 'FF1E293B' } };
-                            } else {
-                                c.alignment = { horizontal: 'left', vertical: 'middle' };
-                            }
-                        });
-                    });
-
-                    // Total Row
-                    const totRow = wsClosed.addRow(['TOTAL', `${targetClosedList.length} Completed Trips`, '—', '—', 'All Consignees', '—', '—', '—', '—', '—', '—', '—', 'Delivered']);
-                    totRow.height = 25;
-                    totRow.eachCell((c, colNum) => {
-                        c.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FF0F172A' } };
-                        c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
-                        c.border = {
-                            top: { style: 'medium', color: { argb: 'FF0F172A' } },
-                            bottom: { style: 'double', color: { argb: 'FF0F172A' } }
-                        };
-                        c.alignment = { horizontal: colNum === 5 ? 'left' : 'center', vertical: 'middle' };
-                    });
-                }
-
-                autoFitCols(wsClosed, 12, 45);
-            }
-
-            // ═════════════════════════════════════════════════════════════════════
-            // SHEET 5: CUSTOMER BACKLOG BREAKDOWN
-            // ═════════════════════════════════════════════════════════════════════
-            if (exportMode === 'all' || (activeSection === 'pending' && filteredCustomerBreakdown.length > 0)) {
-                const wsCust = workbook.addWorksheet('Customer Backlog Summary', {
-                    views: [{ state: 'frozen', ySplit: 4 }]
-                });
-
-                const custHeaders = [
-                    '#', 'Customer / Invoice Party Name', 'Pending PRs Count',
-                    'Pending Containers', 'Total PR Containers', 'LRs Created',
-                    'Fulfillment %', 'Operating Branches', 'Earliest DO Date', 'DO Urgency Status'
-                ];
-
-                addSheetBanner(wsCust, 'ALVISION EXIM — CUSTOMER-WISE PICKUP BACKLOG BREAKDOWN', 'J', 'FF581C87');
-
-                wsCust.addRow(custHeaders);
-                const custHRow = wsCust.getRow(4);
-                custHRow.height = 28;
-                custHRow.eachCell(c => {
-                    c.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FFFFFFFF' } };
-                    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF7C3AED' } };
-                    c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-                    c.border = {
-                        top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-                        left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-                        bottom: { style: 'medium', color: { argb: 'FF4C1D95' } },
-                        right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
-                    };
-                });
-
-                wsCust.autoFilter = {
-                    from: { row: 4, column: 1 },
-                    to: { row: 4 + Math.max(filteredCustomerBreakdown.length, 1), column: custHeaders.length }
-                };
-
-                let cSumPR = 0;
-                let cSumPend = 0;
-                let cSumTot = 0;
-                let cSumCrt = 0;
-
-                filteredCustomerBreakdown.forEach((c, cIdx) => {
-                    const cRowNum = 5 + cIdx;
-                    const cBg = cIdx % 2 === 0 ? 'FFFFFFFF' : 'FFFAF5FF';
-                    const pct = c.totalContainers > 0 ? (c.createdLRs / c.totalContainers) : 0;
-                    cSumPR += c.prCount;
-                    cSumPend += c.pendingContainers;
-                    cSumTot += c.totalContainers;
-                    cSumCrt += c.createdLRs;
-
-                    let cDoLabel = 'No DO Date';
-                    if (c.earliestDo && c.earliestDo !== '-') {
-                        try {
-                            const d = c.earliestDo.includes('T') ? parseISO(c.earliestDo) : new Date(c.earliestDo);
-                            if (isValid(d)) {
-                                const diff = differenceInDays(d, today);
-                                if (diff < 0) cDoLabel = `Expired (${Math.abs(diff)}d ago)`;
-                                else if (diff <= 3) cDoLabel = `Expiring in ${diff}d`;
-                                else cDoLabel = 'Valid';
-                            }
-                        } catch {
-                            // ignore
-                        }
-                    }
-
-                    wsCust.addRow([
-                        cIdx + 1,
-                        c.customerName,
-                        c.prCount,
-                        c.pendingContainers,
-                        c.totalContainers,
-                        c.createdLRs,
-                        pct,
-                        Array.from(c.branches).join(', ') || '—',
-                        c.earliestDo ? formatDateDisplay(c.earliestDo) : '—',
-                        cDoLabel
-                    ]);
-
-                    const row = wsCust.getRow(cRowNum);
-                    row.height = 21;
-                    row.eachCell((cell, colNum) => {
-                        cell.font = { name: 'Calibri', size: 10, color: { argb: 'FF1E293B' } };
-                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: cBg } };
-                        cell.border = {
-                            top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-                            left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-                            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-                            right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
-                        };
-
-                        if (colNum === 1 || colNum === 8 || colNum === 9 || colNum === 10) {
-                            cell.alignment = { horizontal: 'center', vertical: 'middle' };
-                        } else if (colNum === 2) {
-                            cell.alignment = { horizontal: 'left', vertical: 'middle' };
-                            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF0F172A' } };
-                        } else if (colNum === 3 || colNum === 4 || colNum === 5 || colNum === 6) {
-                            cell.alignment = { horizontal: 'right', vertical: 'middle' };
-                            cell.numFmt = '#,##0';
-                            if (colNum === 4 && c.pendingContainers > 0) {
-                                cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFB91C1C' } };
-                            }
-                        } else if (colNum === 7) {
-                            cell.alignment = { horizontal: 'right', vertical: 'middle' };
-                            cell.numFmt = '0.0%';
-                        }
-                    });
-                });
-
-                // Customer Summary Total Row
-                const cTotRowNum = 5 + filteredCustomerBreakdown.length;
-                const cAvgPct = cSumTot > 0 ? (cSumCrt / cSumTot) : 0;
-                const cTotRow = wsCust.addRow(['TOTAL', `${filteredCustomerBreakdown.length} Customers`, cSumPR, cSumPend, cSumTot, cSumCrt, cAvgPct, '—', '—', '—']);
-                cTotRow.height = 24;
-                cTotRow.eachCell((cell, colNum) => {
-                    cell.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FF0F172A' } };
-                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
-                    cell.border = {
-                        top: { style: 'medium', color: { argb: 'FF0F172A' } },
-                        bottom: { style: 'double', color: { argb: 'FF0F172A' } }
-                    };
-                    if (colNum <= 2 || colNum >= 8) cell.alignment = { horizontal: colNum === 2 ? 'left' : 'center', vertical: 'middle' };
-                    else if (colNum === 7) {
-                        cell.alignment = { horizontal: 'right', vertical: 'middle' };
-                        cell.numFmt = '0.0%';
-                    } else {
-                        cell.alignment = { horizontal: 'right', vertical: 'middle' };
-                        cell.numFmt = '#,##0';
+            wsClosed.columns.forEach(col => {
+                let max = 0;
+                col.eachCell({ includeEmpty: true }, (cell, rn) => {
+                    if (rn > 3) {
+                        const s = cell.value ? String(cell.value) : '';
+                        if (s.length > max) max = s.length;
                     }
                 });
+                col.width = Math.min(Math.max(max + 4, 12), 40);
+            });
 
-                autoFitCols(wsCust, 13, 45);
-            }
-
-            // ═════════════════════════════════════════════════════════════════════
-            // SHEET 6: CONTAINER SIZE & TYPE BREAKDOWN (Only in Full Report Mode)
-            // ═════════════════════════════════════════════════════════════════════
-            if (exportMode === 'all') {
-                const wsType = workbook.addWorksheet('Container Type Breakdown', {
-                    views: [{ state: 'frozen', ySplit: 4 }]
-                });
-
-                const typeHeaders = ['#', 'Container Size & Type', 'Pending PRs Count', 'Pending Containers', 'Total PR Containers', 'Created LRs', 'Fulfillment %'];
-
-                addSheetBanner(wsType, 'ALVISION EXIM — CONTAINER TYPE & SIZE UTILIZATION SUMMARY', 'G', 'FF1E293B');
-
-                wsType.addRow(typeHeaders);
-                const typeHRow = wsType.getRow(4);
-                typeHRow.height = 28;
-                typeHRow.eachCell(c => {
-                    c.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FFFFFFFF' } };
-                    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF475569' } };
-                    c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-                    c.border = {
-                        top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-                        left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
-                        bottom: { style: 'medium', color: { argb: 'FF0F172A' } },
-                        right: { style: 'thin', color: { argb: 'FFCBD5E1' } }
-                    };
-                });
-
-                wsType.autoFilter = {
-                    from: { row: 4, column: 1 },
-                    to: { row: 4 + Math.max(filteredContainerTypeBreakdown.length, 1), column: typeHeaders.length }
-                };
-
-                let tSumPR = 0;
-                let tSumPend = 0;
-                let tSumTot = 0;
-                let tSumCrt = 0;
-
-                filteredContainerTypeBreakdown.forEach((t, tIdx) => {
-                    const rowNum = 5 + tIdx;
-                    const bgArgb = tIdx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
-                    const pct = t.totalContainers > 0 ? (t.createdLRs / t.totalContainers) : 0;
-                    tSumPR += t.prCount;
-                    tSumPend += t.pendingContainers;
-                    tSumTot += t.totalContainers;
-                    tSumCrt += t.createdLRs;
-
-                    wsType.addRow([
-                        tIdx + 1,
-                        t.containerType,
-                        t.prCount,
-                        t.pendingContainers,
-                        t.totalContainers,
-                        t.createdLRs,
-                        pct
-                    ]);
-
-                    const row = wsType.getRow(rowNum);
-                    row.height = 21;
-                    row.eachCell((cell, colNum) => {
-                        cell.font = { name: 'Calibri', size: 10, color: { argb: 'FF1E293B' } };
-                        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
-                        cell.border = {
-                            top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-                            left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-                            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-                            right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
-                        };
-
-                        if (colNum === 1) {
-                            cell.alignment = { horizontal: 'center', vertical: 'middle' };
-                        } else if (colNum === 2) {
-                            cell.alignment = { horizontal: 'left', vertical: 'middle' };
-                            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF0F172A' } };
-                        } else if (colNum === 3 || colNum === 4 || colNum === 5 || colNum === 6) {
-                            cell.alignment = { horizontal: 'right', vertical: 'middle' };
-                            cell.numFmt = '#,##0';
-                            if (colNum === 4 && t.pendingContainers > 0) {
-                                cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFB91C1C' } };
-                            }
-                        } else if (colNum === 7) {
-                            cell.alignment = { horizontal: 'right', vertical: 'middle' };
-                            cell.numFmt = '0.0%';
-                        }
-                    });
-                });
-
-                // Total Row
-                const tTotRowNum = 5 + filteredContainerTypeBreakdown.length;
-                const tAvgPct = tSumTot > 0 ? (tSumCrt / tSumTot) : 0;
-                const tTotRow = wsType.addRow(['TOTAL', 'All Container Sizes & Types', tSumPR, tSumPend, tSumTot, tSumCrt, tAvgPct]);
-                tTotRow.height = 24;
-                tTotRow.eachCell((cell, colNum) => {
-                    cell.font = { name: 'Calibri', size: 10.5, bold: true, color: { argb: 'FF0F172A' } };
-                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
-                    cell.border = {
-                        top: { style: 'medium', color: { argb: 'FF0F172A' } },
-                        bottom: { style: 'double', color: { argb: 'FF0F172A' } }
-                    };
-                    if (colNum <= 2) cell.alignment = { horizontal: colNum === 2 ? 'left' : 'center', vertical: 'middle' };
-                    else if (colNum === 7) {
-                        cell.alignment = { horizontal: 'right', vertical: 'middle' };
-                        cell.numFmt = '0.0%';
-                    } else {
-                        cell.alignment = { horizontal: 'right', vertical: 'middle' };
-                        cell.numFmt = '#,##0';
-                    }
-                });
-
-                autoFitCols(wsType, 13, 40);
-            }
-
-            // Generate buffer and trigger browser download
             const buffer = await workbook.xlsx.writeBuffer();
-            const dateSuffix = new Date().toISOString().slice(0, 10);
-            const fileName = exportMode === 'all'
-                ? `AlVision_Transport_Monitoring_Detailed_Report_${dateSuffix}.xlsx`
-                : (activeSection === 'pending'
-                    ? `AlVision_Transport_Pending_Pickup_Queue_${dateSuffix}.xlsx`
-                    : (activeSection === 'active'
-                        ? `AlVision_Transport_Active_Dispatches_${dateSuffix}.xlsx`
-                        : `AlVision_Transport_Completed_Trips_${dateSuffix}.xlsx`));
-
-            saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), fileName);
+            const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Transport_Monitoring_Report_${selectedDay || format(new Date(), 'yyyyMMdd')}.xlsx`;
+            a.click();
+            window.URL.revokeObjectURL(url);
         } catch (err) {
-            console.error("Detailed Excel export error:", err);
-            alert("Failed to export Excel file. Please try again.");
+            console.error("Failed to export Excel report:", err);
+            alert("Failed to export Excel workbook. Please try again.");
         } finally {
             setIsExportingExcel(false);
         }
     };
 
     // ─── Export to PDF ─────────────────────────────────────────────────────────
-    const exportToPDF = () => {
-        if (!sortedList.length) return;
 
-        const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-        doc.setFontSize(14);
-        doc.text(
-            activeSection === 'pending'
-                ? "Transport Dispatch - Pending Pickup Queue Summary"
-                : (activeSection === 'active'
-                    ? "Transport Dispatch - Active / In-Transit LRs Summary"
-                    : "Transport Dispatch - Completed & Closed LRs Summary"),
-            40, 35
-        );
-        doc.setFontSize(9);
-        doc.setTextColor(100);
-        doc.text(`Period: ${periodLabel} | Generated: ${new Date().toLocaleString('en-GB')} | Total Records: ${sortedList.length}`, 40, 50);
+    const handleExportPDF = () => {
+        try {
+            const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+            doc.setFontSize(14);
+            doc.text('ALVISION EXIM — TRANSPORT MONITORING REPORT', 40, 40);
+            doc.setFontSize(9);
+            doc.text(`Period: ${periodLabel} | Section: ${activeTab.toUpperCase()}`, 40, 58);
 
-        if (activeSection === 'pending') {
-            const tableColumn = [
-                "Srl", "PR No", "I/E", "Branch", "Customer / Party",
-                "Container Type", "Total", "Created", "Pending", "Progress", "DO Validity"
-            ];
-            const tableRows = sortedList.map((item, idx) => {
-                const tot = item.totalContainers || 0;
-                const crt = item.lrCreatedContainers || 0;
-                const pct = tot > 0 ? Math.round((crt / tot) * 100) : 0;
+            const tableHeaders = activeTab === 'pending'
+                ? [['#', 'PR No', 'Branch', 'Customer', 'Trade', 'Type', 'Pending', 'Total', 'DO Validity']]
+                : activeTab === 'active'
+                    ? [['#', 'LR No', 'Vehicle No', 'Branch', 'Consignee', 'Container No', 'LR Date']]
+                    : [['#', 'LR No', 'Vehicle No', 'Branch', 'Consignee', 'Container No', 'Closed Date']];
+
+            const tableData = sortedList.map((item, i) => {
+                if (activeTab === 'pending') {
+                    return [
+                        i + 1,
+                        item.pr_no || '—',
+                        item.branch || '—',
+                        item.invoice_party || '—',
+                        item.import_export || '—',
+                        item.container_type || '—',
+                        item.pendingCount || 0,
+                        item.totalContainers || 0,
+                        item.do_validity || '—'
+                    ];
+                }
+                if (activeTab === 'active') {
+                    return [
+                        i + 1,
+                        item.tr_no || '—',
+                        item.vehicle_no || '—',
+                        item.branch || '—',
+                        item.consignee || item.invoice_party || '—',
+                        item.container_number || '—',
+                        formatDateDisplay(item.lr_date || item.date)
+                    ];
+                }
                 return [
-                    idx + 1,
-                    item.pr_no || '',
-                    item.import_export || 'Import',
-                    item.branch || '',
-                    (item.invoice_party || '').slice(0, 24),
-                    item.container_type || 'Standard',
-                    tot,
-                    crt,
-                    item.pendingCount || 0,
-                    `${pct}%`,
-                    item.do_validity ? formatDateDisplay(item.do_validity) : '-'
+                    i + 1,
+                    item.tr_no || '—',
+                    item.vehicle_no || '—',
+                    item.branch || '—',
+                    item.consignee || item.invoice_party || '—',
+                    item.container_number || '—',
+                    formatDateDisplay(item.dispatchClosedDate || item.date)
                 ];
             });
 
             doc.autoTable({
-                head: [tableColumn],
-                body: tableRows,
-                startY: 65,
-                theme: 'grid',
+                head: tableHeaders,
+                body: tableData,
+                startY: 70,
                 styles: { fontSize: 8, cellPadding: 4 },
-                headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: 'bold' },
-                alternateRowStyles: { fillColor: [248, 250, 252] },
-                margin: { left: 30, right: 30 }
+                headStyles: { fillColor: [30, 58, 138], textColor: [255, 255, 255], fontStyle: 'bold' },
+                alternateRowStyles: { fillColor: [248, 250, 252] }
             });
 
-            doc.save(`Transport_Pending_Queue_${new Date().toISOString().slice(0, 10)}.pdf`);
-        } else {
-            const isAct = activeSection === 'active';
-            const tableColumn = [
-                "Srl", "LR No", "I/E", "Branch", "Consignee", "Consignor",
-                "Container Type", "Vehicle No", "Container No", "Own/Hired", isAct ? "LR Date / Status" : "Closed Date"
-            ];
-            const tableRows = sortedList.map((item, idx) => [
-                idx + 1,
-                item.tr_no || '',
-                item.import_export || 'Import',
-                item.branch || '',
-                (item.consignee || '').slice(0, 20),
-                (item.consignor || '').slice(0, 18),
-                item.container_type || item.container_size || item.vehicle_type || item.type || 'Standard',
-                item.vehicle_no || '',
-                item.container_number || '',
-                item.own_hired || 'Own',
-                item.dispatchClosedDate ? formatDateDisplay(item.dispatchClosedDate) : '-'
-            ]);
-
-            doc.autoTable({
-                head: [tableColumn],
-                body: tableRows,
-                startY: 65,
-                theme: 'grid',
-                styles: { fontSize: 8, cellPadding: 4 },
-                headStyles: { fillColor: [5, 150, 105], textColor: 255, fontStyle: 'bold' },
-                alternateRowStyles: { fillColor: [248, 250, 252] },
-                margin: { left: 30, right: 30 }
-            });
-
-            doc.save(`Transport_Completed_LRs_${new Date().toISOString().slice(0, 10)}.pdf`);
+            doc.save(`Transport_Report_${activeTab}_${format(new Date(), 'yyyyMMdd')}.pdf`);
+        } catch (err) {
+            console.error("Failed to export PDF:", err);
+            alert("Could not generate PDF.");
         }
     };
 
+    // ─── Render Loading & Error States ──────────────────────────────────────────
+
     if (loading) {
         return (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '340px', gap: '12px' }}>
-                <div style={{
-                    width: '38px',
-                    height: '38px',
-                    border: '3px solid #e2e8f0',
-                    borderTopColor: '#4f46e5',
-                    borderRadius: '50%',
-                    animation: 'spin 0.8s linear infinite'
-                }} />
-                <div style={{ fontSize: '14px', fontWeight: 600, color: '#64748b' }}>Loading Transport Dispatch & Queue Report...</div>
-                <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+            <div className="d-flex flex-column align-items-center justify-content-center py-5 nucleus-transport-root" style={{ minHeight: '400px' }}>
+                <style>{CUSTOM_CSS}</style>
+                <div className="spinner-border text-primary mb-3" style={{ width: '3rem', height: '3rem' }} role="status">
+                    <span className="visually-hidden">Loading...</span>
+                </div>
+                <h5 className="text-secondary fw-semibold">Loading Transport Queue & Dispatch Data...</h5>
+                <p className="text-muted small">Aggregating live PR backlog, in-transit vehicles, and delivery records</p>
             </div>
         );
     }
 
     if (error) {
         return (
-            <div style={{
-                background: '#fef2f2',
-                border: '1px solid #fecaca',
-                borderRadius: '14px',
-                padding: '24px',
-                textAlign: 'center',
-                color: '#b91c1c'
-            }}>
-                <AlertTriangle size={32} style={{ marginBottom: '8px' }} />
-                <div style={{ fontWeight: 700, fontSize: '16px' }}>Failed to Load Transport Data</div>
-                <div style={{ fontSize: '13px', marginTop: '4px', color: '#7f1d1d' }}>{error}</div>
-                <button
-                    onClick={loadReportData}
-                    style={{
-                        marginTop: '14px',
-                        background: '#dc2626',
-                        color: '#ffffff',
-                        border: 'none',
-                        padding: '8px 18px',
-                        borderRadius: '8px',
-                        fontWeight: 600,
-                        cursor: 'pointer'
-                    }}
-                >
-                    Retry Loading
-                </button>
+            <div className="alert alert-danger mx-3 my-4 p-4 shadow-sm rounded-4 nucleus-transport-root">
+                <style>{CUSTOM_CSS}</style>
+                <div className="d-flex align-items-center justify-content-between mb-2">
+                    <div className="d-flex align-items-center">
+                        <span className="fs-4 me-2">⚠️</span>
+                        <h5 className="alert-heading mb-0 fw-bold">Report Loading Error</h5>
+                    </div>
+                    <button
+                        onClick={() => setRetryCount(c => c + 1)}
+                        className="btn btn-outline-danger btn-sm px-3 py-1 fw-semibold rounded-pill"
+                    >
+                        🔄 Retry Loading
+                    </button>
+                </div>
+                <p className="mb-0">{error}</p>
             </div>
         );
     }
 
+    // ─── Main Render ────────────────────────────────────────────────────────────
+
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
-            
-            {/* ─── Header Strip (Single Clean Header with Period & Refresh) ───── */}
-            <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-                gap: '14px',
-                background: '#ffffff',
-                padding: '16px 20px',
-                borderRadius: '16px',
-                border: '1px solid #e2e8f0',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.02)',
-                boxSizing: 'border-box'
-            }}>
+        <div className="container-fluid p-3 p-md-4 nucleus-transport-root">
+            <style>{CUSTOM_CSS}</style>
+
+            {/* ─── Header Strip ─────────────────────────────────────────────────── */}
+            <div className="report-header-card p-3 p-md-4 mb-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
                 <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '20px' }}>📦</span>
-                        <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>
-                            Transport Pickup Queue & Dispatch Monitoring
-                        </h2>
+                    <div className="d-flex align-items-center gap-2 mb-1">
+                        <span className="fs-4">🚚</span>
+                        <h4 className="fw-bold text-dark mb-0" style={{ letterSpacing: '-0.3px' }}>
+                            Pending LRs & Dispatch Monitoring
+                        </h4>
                     </div>
-                    <div style={{ fontSize: '13px', color: '#64748b', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Calendar size={13} color="#4f46e5" />
-                        <span>Showing data for: <strong>{periodLabel}</strong></span>
+                    <div className="d-flex align-items-center gap-2 flex-wrap text-muted small mt-1">
+                        <span>Transport pickup queue for <strong className="text-primary">{periodLabel}</strong></span>
+                        <span>•</span>
+                        <div className="d-inline-flex align-items-center gap-1">
+                            <span className="fw-semibold text-dark">Branch:</span>
+                            <select
+                                value={selectedBranch}
+                                onChange={(e) => { setSelectedBranch(e.target.value); setCurrentPage(1); }}
+                                className="form-select form-select-sm rounded-pill w-auto ps-2 pe-4 py-0.5"
+                                style={{
+                                    fontSize: '12px',
+                                    fontWeight: selectedBranch !== 'ALL' ? 700 : 500,
+                                    borderColor: selectedBranch !== 'ALL' ? '#2563eb' : '#cbd5e1',
+                                    background: selectedBranch !== 'ALL' ? '#eff6ff' : '#ffffff',
+                                    color: selectedBranch !== 'ALL' ? '#1d4ed8' : '#1e293b',
+                                    height: '28px',
+                                    minHeight: '28px',
+                                    paddingRight: '32px'
+                                }}
+                            >
+                                <option value="ALL">ALL</option>
+                                {availableBranches.map(b => (
+                                    <option key={b} value={b}>{b}</option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
                 </div>
 
-                {/* Header Actions: Last Updated & Refresh */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    {lastUpdated && (
-                        <span style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 500 }}>
-                            Updated: {format(lastUpdated, 'HH:mm:ss')}
-                        </span>
-                    )}
-
+                {/* Header Action Buttons */}
+                <div className="d-flex align-items-center gap-2 flex-wrap">
                     <button
                         onClick={loadReportData}
-                        style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            background: '#f8fafc',
-                            color: '#334155',
-                            border: '1px solid #cbd5e1',
-                            padding: '7px 14px',
-                            borderRadius: '10px',
-                            fontSize: '12.5px',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            transition: 'all 0.15s ease',
-                            boxShadow: '0 1px 2px rgba(0,0,0,0.03)'
-                        }}
+                        className="modern-refresh-btn"
                         title="Refresh data"
                     >
-                        <RefreshCw size={13} /> Refresh
+                        <RefreshCw size={13} />
+                        <span>Refresh</span>
+                    </button>
+
+                    <button
+                        onClick={handleExportFullExcel}
+                        disabled={isExportingExcel}
+                        className="modern-download-btn"
+                        title="Download complete structured Excel workbook with active AutoFilters"
+                    >
+                        {isExportingExcel ? (
+                            <>
+                                <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true" style={{ width: '13px', height: '13px' }}></span>
+                                <span>Generating...</span>
+                            </>
+                        ) : (
+                            <>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                    <polyline points="7 10 12 15 17 10" />
+                                    <line x1="12" y1="15" x2="12" y2="3" />
+                                </svg>
+                                <span>Download Excel</span>
+                                <span className="modern-download-badge">XLSX</span>
+                            </>
+                        )}
                     </button>
                 </div>
             </div>
 
-            {/* ─── 5 Top KPI Metrics Cards ────────────────────────────────────── */}
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '16px',
-                width: '100%',
-                boxSizing: 'border-box'
-            }}>
-                {/* 1. Total Pending PRs */}
-                <div
-                    onClick={() => { setActiveSection('pending'); setCurrentPage(1); }}
-                    style={{
-                        background: '#ffffff',
-                        borderRadius: '16px',
-                        border: activeSection === 'pending' ? '2px solid #4f46e5' : '1px solid #e2e8f0',
-                        padding: '18px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '16px',
-                        boxShadow: activeSection === 'pending' ? '0 0 0 3px rgba(79, 70, 229, 0.15)' : '0 2px 8px rgba(0,0,0,0.03)',
-                        cursor: 'pointer',
-                        boxSizing: 'border-box'
-                    }}
-                >
-                    <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#eff6ff', color: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', flexShrink: 0 }}>
-                        <Package size={24} />
-                    </div>
-                    <div>
-                        <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                            Total Pending PRs
-                        </div>
-                        <div style={{ fontSize: '24px', fontWeight: 900, color: '#0f172a', lineHeight: 1.2 }}>
-                            {overallStats.totalPRs}
-                        </div>
-                        <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
-                            Awaiting Dispatch
-                        </div>
-                    </div>
-                </div>
+            {/* ─── Navigation Tabs Bar ──────────────────────────────────────────── */}
+            <div className="bg-white p-1 rounded-3 shadow-sm border mb-4 d-inline-flex flex-wrap gap-1">
+                {[
+                    { id: 'dashboard', label: '📊 Operations Dashboard' },
+                    { id: 'pending', label: `⏳ Pending PRs Queue (${overallStats.totalPRs})` },
+                    { id: 'active', label: `🚚 Active In-Transit (${overallStats.totalActiveLRs})` },
+                    { id: 'closed', label: `✅ Completed Deliveries (${overallStats.totalClosedLRs})` },
+                    { id: 'analytics', label: '📈 Analytics & Trends' }
+                ].map(tab => (
+                    <button
+                        key={tab.id}
+                        onClick={() => {
+                            setActiveTab(tab.id);
+                            setCurrentPage(1);
+                        }}
+                        className={`report-tab-pill ${activeTab === tab.id ? 'active' : ''}`}
+                    >
+                        {tab.label}
+                    </button>
+                ))}
+            </div>
 
-                {/* 2. Total Pending Containers */}
-                <div
-                    onClick={() => { setActiveSection('pending'); setCurrentPage(1); }}
-                    style={{
-                        background: '#ffffff',
-                        borderRadius: '16px',
-                        border: '1px solid #fde68a',
-                        padding: '18px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '16px',
-                        boxShadow: '0 2px 8px rgba(245, 158, 11, 0.08)',
-                        cursor: 'pointer',
-                        boxSizing: 'border-box'
-                    }}
-                >
-                    <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#fffbeb', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', flexShrink: 0 }}>
-                        <Layers size={24} />
-                    </div>
-                    <div>
-                        <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                            Pending Containers
+            {/* ══════════════════════════════════════════════════════════════════════════ */}
+            {/* TAB 1: OPERATIONS DASHBOARD                                               */}
+            {/* ══════════════════════════════════════════════════════════════════════════ */}
+            {activeTab === 'dashboard' && (
+                <div>
+                    {/* Row 1: Core 4 Hero KPI Cards */}
+                    <div className="row g-3 mb-4">
+                        {/* KPI 1: Total Pending Backlog (Royal Blue Hero Card) */}
+                        <div className="col-12 col-sm-6 col-xl-3">
+                            <div
+                                onClick={() => { setActiveTab('pending'); setCurrentPage(1); }}
+                                className="stat-hero-card p-3 p-md-4 h-100 d-flex flex-column justify-content-between cursor-pointer"
+                                style={{ cursor: 'pointer' }}
+                            >
+                                <div>
+                                    <div className="d-flex justify-content-between align-items-start mb-2">
+                                        <span className="text-uppercase fw-bold" style={{ fontSize: '11px', letterSpacing: '0.8px', opacity: 0.9 }}>
+                                            Pending Containers Backlog
+                                        </span>
+                                        <span
+                                            className="badge px-2 py-1 rounded-pill"
+                                            style={{
+                                                fontSize: '11px',
+                                                fontWeight: 700,
+                                                letterSpacing: '0.3px',
+                                                backgroundColor: '#ffffff',
+                                                color: '#1e3a8a',
+                                                boxShadow: '0 2px 6px rgba(0, 0, 0, 0.2)'
+                                            }}
+                                        >
+                                            📋 {overallStats.totalPRs} PRs
+                                        </span>
+                                    </div>
+                                    <div className="stat-number-hero mb-2">{overallStats.totalPendingContainers.toLocaleString()}</div>
+                                </div>
+                                <div className="d-flex align-items-center gap-2 pt-2 border-top border-white border-opacity-10 small" style={{ opacity: 0.9 }}>
+                                    <span>⏱️ Live Pickup Backlog</span>
+                                    <span>•</span>
+                                    <span>{overallStats.totalAllContainers} Total Ordered</span>
+                                </div>
+                            </div>
                         </div>
-                        <div style={{ fontSize: '24px', fontWeight: 900, color: '#b45309', lineHeight: 1.2 }}>
-                            {overallStats.totalPendingContainers}
-                        </div>
-                        <div style={{ fontSize: '11px', color: '#78350f', marginTop: '2px' }}>
-                            out of {overallStats.totalAllContainers} total cont.
-                        </div>
-                    </div>
-                </div>
 
-                {/* 3. Active / Dispatched LRs */}
-                <div
-                    onClick={() => { setActiveSection('active'); setCurrentPage(1); }}
-                    style={{
-                        background: '#ffffff',
-                        borderRadius: '16px',
-                        border: activeSection === 'active' ? '2px solid #d97706' : '1px solid #e2e8f0',
-                        padding: '18px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '16px',
-                        boxShadow: activeSection === 'active' ? '0 0 0 3px rgba(217, 119, 6, 0.15)' : '0 2px 8px rgba(0,0,0,0.03)',
-                        cursor: 'pointer',
-                        boxSizing: 'border-box'
-                    }}
-                >
-                    <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#fffbeb', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', flexShrink: 0 }}>
-                        <Truck size={24} />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                            Active In-Transit LRs
+                        {/* KPI 2: Active In-Transit Vehicles */}
+                        <div className="col-12 col-sm-6 col-xl-3">
+                            <div
+                                onClick={() => { setActiveTab('active'); setCurrentPage(1); }}
+                                className="stat-white-card p-3 p-md-4 h-100 d-flex flex-column justify-content-between cursor-pointer"
+                                style={{ cursor: 'pointer' }}
+                            >
+                                <div>
+                                    <div className="d-flex justify-content-between align-items-start mb-2">
+                                        <span className="card-title-sub text-muted">Active In-Transit LRs</span>
+                                        <span className="badge bg-warning-subtle text-warning fw-bold px-2 py-1 rounded-pill" style={{ fontSize: '11px' }}>
+                                            On Road
+                                        </span>
+                                    </div>
+                                    <div className="stat-number-hero text-dark mb-2">
+                                        {overallStats.totalActiveLRs.toLocaleString()}
+                                        <span className="text-muted fw-normal fs-6 ms-1">Trucks</span>
+                                    </div>
+                                </div>
+                                <div className="d-flex align-items-center gap-1 flex-wrap pt-2 border-top small text-muted">
+                                    <span>🚚 Live Dispatches Moving to Destination</span>
+                                </div>
+                            </div>
                         </div>
-                        <div style={{ fontSize: '24px', fontWeight: 900, color: '#0f172a', lineHeight: 1.2 }}>
-                            {overallStats.totalActiveLRs} <span style={{ fontSize: '12px', fontWeight: 600, color: '#d97706' }}>On Road</span>
-                        </div>
-                        <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
-                            Live Dispatches
-                        </div>
-                    </div>
-                </div>
 
-                {/* 4. Completed / Closed LRs */}
-                <div
-                    onClick={() => { setActiveSection('closed'); setCurrentPage(1); }}
-                    style={{
-                        background: '#ffffff',
-                        borderRadius: '16px',
-                        border: activeSection === 'closed' ? '2px solid #059669' : '1px solid #e2e8f0',
-                        padding: '18px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '16px',
-                        boxShadow: activeSection === 'closed' ? '0 0 0 3px rgba(5, 150, 105, 0.15)' : '0 2px 8px rgba(0,0,0,0.03)',
-                        cursor: 'pointer',
-                        boxSizing: 'border-box'
-                    }}
-                >
-                    <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#ecfdf5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', flexShrink: 0 }}>
-                        <CheckCircle2 size={24} />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#047857', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                            Completed / Closed Trips
+                        {/* KPI 3: Completed / Closed Trips */}
+                        <div className="col-12 col-sm-6 col-xl-3">
+                            <div
+                                onClick={() => { setActiveTab('closed'); setCurrentPage(1); }}
+                                className="stat-white-card p-3 p-md-4 h-100 d-flex flex-column justify-content-between cursor-pointer"
+                                style={{ cursor: 'pointer' }}
+                            >
+                                <div>
+                                    <div className="d-flex justify-content-between align-items-start mb-2">
+                                        <span className="card-title-sub text-muted">Completed Deliveries</span>
+                                        <span className="badge bg-success-subtle text-success fw-bold px-2 py-1 rounded-pill" style={{ fontSize: '11px' }}>
+                                            {overallStats.fulfillmentRate}% Fulfillment
+                                        </span>
+                                    </div>
+                                    <div className="stat-number-hero text-dark mb-2">
+                                        {overallStats.totalClosedLRs.toLocaleString()}
+                                        <span className="text-muted fw-normal fs-6 ms-1">Closed</span>
+                                    </div>
+                                </div>
+                                <div className="d-flex align-items-center gap-2 pt-2 border-top small text-muted">
+                                    <span>✅ Verified Deliveries in Period</span>
+                                </div>
+                            </div>
                         </div>
-                        <div style={{ fontSize: '24px', fontWeight: 900, color: '#0f172a', lineHeight: 1.2 }}>
-                            {overallStats.totalClosedLRs} <span style={{ fontSize: '12px', fontWeight: 600, color: '#059669' }}>LRs Closed</span>
-                        </div>
-                        <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
-                            in selected period
-                        </div>
-                    </div>
-                </div>
 
-                {/* 4. Interactive DO Urgency Radar Card */}
-                <div style={{
-                    background: '#ffffff',
-                    borderRadius: '16px',
-                    border: selectedDoStatus !== 'ALL' ? '2px solid #ef4444' : overallStats.expiredDoCount > 0 ? '1px solid #fecaca' : '1px solid #e2e8f0',
-                    padding: '16px 18px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '14px',
-                    boxShadow: selectedDoStatus !== 'ALL' ? '0 0 0 3px rgba(239, 68, 68, 0.15)' : '0 2px 8px rgba(0,0,0,0.03)',
-                    boxSizing: 'border-box',
-                    position: 'relative'
-                }}>
-                    <div style={{
-                        width: '48px',
-                        height: '48px',
-                        borderRadius: '14px',
-                        background: overallStats.expiredDoCount > 0 ? '#fef2f2' : '#fffbeb',
-                        color: overallStats.expiredDoCount > 0 ? '#dc2626' : '#d97706',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '22px',
-                        flexShrink: 0
-                    }}>
-                        <Clock size={24} />
+                        {/* KPI 4: Customers Waiting */}
+                        <div className="col-12 col-sm-6 col-xl-3">
+                            <div
+                                onClick={() => setShowCustomerModal(true)}
+                                className="stat-white-card p-3 p-md-4 h-100 d-flex flex-column justify-content-between cursor-pointer"
+                                style={{ cursor: 'pointer' }}
+                            >
+                                <div>
+                                    <div className="d-flex justify-content-between align-items-start mb-2">
+                                        <span className="card-title-sub text-muted">Client Accounts</span>
+                                        <span className="badge bg-primary-subtle text-primary fw-bold px-2 py-1 rounded-pill" style={{ fontSize: '11px' }}>
+                                            View List ↗
+                                        </span>
+                                    </div>
+                                    <div className="stat-number-hero text-dark mb-2">
+                                        {overallStats.uniquePartiesCount.toLocaleString()}
+                                        <span className="text-muted fw-normal fs-6 ms-1">Parties</span>
+                                    </div>
+                                </div>
+                                <div className="d-flex align-items-center gap-2 pt-2 border-top small text-primary fw-semibold">
+                                    <span>Click to view customer details ↗</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                DO Urgency Radar
+
+                    {/* Row 2: DO Urgency Radar Strip */}
+                    <div className="stat-white-card p-3 p-md-4 mb-4">
+                        <div className="d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <h6 className="fw-bold mb-0 text-dark">⏰ DO Urgency Radar & Bottleneck Flags</h6>
+                                <span className="text-muted small">Real-time customs delivery order validity status across active PR queue</span>
                             </div>
                             {selectedDoStatus !== 'ALL' && (
                                 <button
                                     onClick={() => setSelectedDoStatus('ALL')}
-                                    style={{
-                                        border: 'none',
-                                        background: 'rgba(239, 68, 68, 0.1)',
-                                        color: '#dc2626',
-                                        padding: '2px 6px',
-                                        borderRadius: '4px',
-                                        fontSize: '11px',
-                                        fontWeight: 700,
-                                        cursor: 'pointer'
+                                    className="btn btn-outline-danger btn-sm rounded-pill px-3 py-1 fw-bold"
+                                >
+                                    ✕ Reset Filter
+                                </button>
+                            )}
+                        </div>
+
+                        <div className="row g-2">
+                            {/* Chip 1: Expired DOs */}
+                            <div className="col-12 col-md-4">
+                                <div
+                                    onClick={() => {
+                                        setActiveTab('pending');
+                                        setSelectedDoStatus(prev => prev === 'EXPIRED' ? 'ALL' : 'EXPIRED');
+                                        setCurrentPage(1);
                                     }}
+                                    className="radar-chip p-3 h-100"
+                                    style={{
+                                        background: selectedDoStatus === 'EXPIRED' ? '#fee2e2' : '#fef2f2',
+                                        borderColor: selectedDoStatus === 'EXPIRED' ? '#ef4444' : '#fecaca'
+                                    }}
+                                >
+                                    <div className="d-flex justify-content-between align-items-center">
+                                        <span className="fw-bold text-danger d-flex align-items-center gap-2" style={{ fontSize: '13px' }}>
+                                            <AlertTriangle size={15} /> 🔴 Critical Expired DOs
+                                        </span>
+                                        <span className="badge bg-danger text-white fw-bold px-2 py-1 rounded-pill">
+                                            {overallStats.expiredDoCount} PRs
+                                        </span>
+                                    </div>
+                                    <p className="text-muted small mb-0 mt-2" style={{ fontSize: '11.5px' }}>
+                                        DO validity expired before dispatch. High detention risk.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Chip 2: Expiring Soon (≤3 Days) */}
+                            <div className="col-12 col-md-4">
+                                <div
+                                    onClick={() => {
+                                        setActiveTab('pending');
+                                        setSelectedDoStatus(prev => prev === 'EXPIRING_SOON' ? 'ALL' : 'EXPIRING_SOON');
+                                        setCurrentPage(1);
+                                    }}
+                                    className="radar-chip p-3 h-100"
+                                    style={{
+                                        background: selectedDoStatus === 'EXPIRING_SOON' ? '#fef3c7' : '#fffbeb',
+                                        borderColor: selectedDoStatus === 'EXPIRING_SOON' ? '#f59e0b' : '#fde68a'
+                                    }}
+                                >
+                                    <div className="d-flex justify-content-between align-items-center">
+                                        <span className="fw-bold text-warning d-flex align-items-center gap-2" style={{ fontSize: '13px', color: '#b45309' }}>
+                                            <Clock size={15} /> 🟡 Expiring Soon (≤3 Days)
+                                        </span>
+                                        <span className="badge bg-warning text-dark fw-bold px-2 py-1 rounded-pill">
+                                            {overallStats.expiringSoonDoCount} PRs
+                                        </span>
+                                    </div>
+                                    <p className="text-muted small mb-0 mt-2" style={{ fontSize: '11.5px' }}>
+                                        Immediate vehicle allocation required to avoid expiration.
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Chip 3: Active & Valid DOs */}
+                            <div className="col-12 col-md-4">
+                                <div
+                                    onClick={() => {
+                                        setActiveTab('pending');
+                                        setSelectedDoStatus(prev => prev === 'VALID' ? 'ALL' : 'VALID');
+                                        setCurrentPage(1);
+                                    }}
+                                    className="radar-chip p-3 h-100"
+                                    style={{
+                                        background: selectedDoStatus === 'VALID' ? '#dcfce7' : '#f0fdf4',
+                                        borderColor: selectedDoStatus === 'VALID' ? '#10b981' : '#bbf7d0'
+                                    }}
+                                >
+                                    <div className="d-flex justify-content-between align-items-center">
+                                        <span className="fw-bold text-success d-flex align-items-center gap-2" style={{ fontSize: '13px' }}>
+                                            <CheckCircle2 size={15} /> 🟢 Active & Valid DOs
+                                        </span>
+                                        <span className="badge bg-success text-white fw-bold px-2 py-1 rounded-pill">
+                                            {overallStats.validDoCount} PRs
+                                        </span>
+                                    </div>
+                                    <p className="text-muted small mb-0 mt-2" style={{ fontSize: '11.5px' }}>
+                                        Safe buffer available for normal dispatch scheduling.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Row 3: 50/50 Desktop Grid - Branch Performance & Mode Breakdown */}
+                    <div className="row g-4 mb-4">
+                        {/* Left: Branch Breakdown Table */}
+                        <div className="col-12 col-xl-6">
+                            <div className="stat-white-card p-3 p-md-4 h-100">
+                                <div className="d-flex justify-content-between align-items-center mb-3">
+                                    <div>
+                                        <h6 className="fw-bold mb-0 text-dark">🏢 Branch Operations Matrix</h6>
+                                        <span className="text-muted small">Pending PRs, In-transit trucks, and closed dispatches by station</span>
+                                    </div>
+                                </div>
+
+                                <div className="table-responsive" style={{ maxHeight: '320px' }}>
+                                    <table className="table table-modern align-middle mb-0">
+                                        <thead className="sticky-top">
+                                            <tr>
+                                                <th>Branch</th>
+                                                <th className="text-center">Pending PRs</th>
+                                                <th className="text-center">Pending Cont.</th>
+                                                <th className="text-center">In-Transit</th>
+                                                <th className="text-center">Closed</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {branchSummaryBreakdown.map((b, idx) => (
+                                                <tr key={idx}>
+                                                    <td className="fw-semibold text-dark">{b.branch}</td>
+                                                    <td className="text-center font-monospace fw-bold text-danger">{b.pendingPRs}</td>
+                                                    <td className="text-center font-monospace">{b.pendingCont}</td>
+                                                    <td className="text-center font-monospace text-warning fw-bold">{b.activeLRs}</td>
+                                                    <td className="text-center font-monospace text-success fw-bold">{b.closedLRs}</td>
+                                                </tr>
+                                            ))}
+                                            {branchSummaryBreakdown.length === 0 && (
+                                                <tr>
+                                                    <td colSpan={5} className="text-center text-muted py-4">No branch data available.</td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Right: Trade Mode Split & Container Sizes */}
+                        <div className="col-12 col-xl-6">
+                            <div className="stat-white-card p-3 p-md-4 h-100 d-flex flex-column justify-content-between">
+                                <div>
+                                    <h6 className="fw-bold mb-3 text-dark">📦 Trade Type & Container Distribution</h6>
+                                    
+                                    {/* Trade Mode Split Progress Bar */}
+                                    <div className="mb-4">
+                                        <div className="d-flex justify-content-between align-items-center mb-1 small">
+                                            <span className="fw-semibold text-primary">Import ({tradeTypeSummaryBreakdown.find(t => t.tradeType === 'Import')?.pendingCont || 0} Cont.)</span>
+                                            <span className="fw-semibold text-success">Export ({tradeTypeSummaryBreakdown.find(t => t.tradeType === 'Export')?.pendingCont || 0} Cont.)</span>
+                                        </div>
+                                        <div className="progress" style={{ height: '10px', borderRadius: '5px' }}>
+                                            <div
+                                                className="progress-bar bg-primary"
+                                                role="progressbar"
+                                                style={{
+                                                    width: `${overallStats.totalPendingContainers > 0
+                                                        ? ((tradeTypeSummaryBreakdown.find(t => t.tradeType === 'Import')?.pendingCont || 0) / overallStats.totalPendingContainers) * 100
+                                                        : 50}%`
+                                                }}
+                                            />
+                                            <div
+                                                className="progress-bar bg-success"
+                                                role="progressbar"
+                                                style={{
+                                                    width: `${overallStats.totalPendingContainers > 0
+                                                        ? ((tradeTypeSummaryBreakdown.find(t => t.tradeType === 'Export')?.pendingCont || 0) / overallStats.totalPendingContainers) * 100
+                                                        : 50}%`
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Container Sizes Grid */}
+                                    <div className="row g-2">
+                                        {containerSizeSummaryBreakdown.slice(0, 4).map((c, i) => (
+                                            <div key={i} className="col-6">
+                                                <div className="p-3 bg-light rounded-3 border">
+                                                    <span className="text-muted small d-block">{c.containerType}</span>
+                                                    <span className="fs-5 fw-bold text-dark font-monospace">{c.pendingContainers}</span>
+                                                    <span className="text-muted small ms-1">pending</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="pt-3 border-top d-flex justify-content-between align-items-center small text-muted mt-3">
+                                    <span>Overall Fulfillment: <strong>{overallStats.fulfillmentRate}%</strong></span>
+                                    <button
+                                        onClick={() => setActiveTab('analytics')}
+                                        className="btn btn-link btn-sm text-primary fw-semibold p-0 text-decoration-none"
+                                    >
+                                        View Complete Analytics →
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ══════════════════════════════════════════════════════════════════════════ */}
+            {/* TAB 2, 3, 4: LIST DATA VIEWS (Pending / Active / Closed)                  */}
+            {/* ══════════════════════════════════════════════════════════════════════════ */}
+            {['pending', 'active', 'closed'].includes(activeTab) && (
+                <div className="stat-white-card p-3 p-md-4">
+                    {/* 2-Tier Structured Toolbar */}
+                    <div className="d-flex flex-column gap-3 mb-4">
+                        {/* Row 1: Search + View Switcher + Export Buttons */}
+                        <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            {/* Search Box */}
+                            <div className="d-flex align-items-center gap-2 bg-light px-3 py-2 rounded-3 border flex-grow-1" style={{ maxWidth: '420px' }}>
+                                <Search size={14} className="text-muted flex-shrink-0" />
+                                <input
+                                    type="text"
+                                    className="border-0 bg-transparent w-100 text-dark small"
+                                    placeholder={activeTab === 'pending' ? "Search PR No, Customer, Port..." : "Search LR, Vehicle, Container..."}
+                                    value={searchTerm}
+                                    onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                                    style={{ outline: 'none' }}
+                                />
+                                {searchTerm && (
+                                    <button onClick={() => setSearchTerm('')} className="border-0 bg-transparent text-muted p-0">✕</button>
+                                )}
+                            </div>
+
+                            {/* View Switcher (Pending only) */}
+                            {activeTab === 'pending' && (
+                                <div className="bg-light p-1 rounded-3 border d-inline-flex gap-1">
+                                    <button
+                                        onClick={() => { setViewMode('flat'); setCurrentPage(1); }}
+                                        className={`btn btn-sm ${viewMode === 'flat' ? 'btn-white shadow-sm bg-white text-primary fw-bold' : 'text-muted'}`}
+                                    >
+                                        <ListFilter size={12} className="me-1" /> Table
+                                    </button>
+                                    <button
+                                        onClick={() => { setViewMode('by_customer'); setCurrentPage(1); }}
+                                        className={`btn btn-sm ${viewMode === 'by_customer' ? 'btn-white shadow-sm bg-white text-primary fw-bold' : 'text-muted'}`}
+                                    >
+                                        <Users size={12} className="me-1" /> By Customer
+                                    </button>
+                                    <button
+                                        onClick={() => { setViewMode('grouped'); setCurrentPage(1); }}
+                                        className={`btn btn-sm ${viewMode === 'grouped' ? 'btn-white shadow-sm bg-white text-primary fw-bold' : 'text-muted'}`}
+                                    >
+                                        <Layers size={12} className="me-1" /> By Type
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Action Buttons */}
+                            <div className="d-flex align-items-center gap-2">
+                                <button
+                                    onClick={handleExportFullExcel}
+                                    disabled={isExportingExcel || sortedList.length === 0}
+                                    className="modern-download-btn"
+                                >
+                                    <Download size={13} />
+                                    <span>Download Excel</span>
+                                    <span className="modern-download-badge">XLSX</span>
+                                </button>
+                                <button
+                                    onClick={handleExportPDF}
+                                    disabled={sortedList.length === 0}
+                                    className="modern-pdf-btn"
+                                >
+                                    <FileText size={13} />
+                                    <span>Download PDF</span>
+                                    <span className="modern-pdf-badge">PDF</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Row 2: Filter Pills Strip */}
+                        <div className="d-flex align-items-center gap-2 flex-wrap pt-2 border-top">
+                            <span className="text-muted small fw-bold text-uppercase me-1" style={{ fontSize: '11px' }}>
+                                Filters:
+                            </span>
+
+                            {/* DO Status Filter (Pending only) */}
+                            {activeTab === 'pending' && (
+                                <select
+                                    value={selectedDoStatus}
+                                    onChange={(e) => { setSelectedDoStatus(e.target.value); setCurrentPage(1); }}
+                                    className="form-select form-select-sm rounded-pill w-auto ps-3 pe-4"
+                                    style={{
+                                        borderColor: selectedDoStatus !== 'ALL' ? '#ef4444' : undefined,
+                                        background: selectedDoStatus !== 'ALL' ? '#fef2f2' : undefined,
+                                        fontWeight: selectedDoStatus !== 'ALL' ? 700 : 500,
+                                        fontSize: '12px',
+                                        paddingRight: '34px'
+                                    }}
+                                >
+                                    <option value="ALL">All DO Statuses</option>
+                                    <option value="EXPIRED">🔴 Expired ({overallStats.expiredDoCount})</option>
+                                    <option value="EXPIRING_SOON">🟡 Expiring ≤3d ({overallStats.expiringSoonDoCount})</option>
+                                    <option value="VALID">🟢 Active & Valid ({overallStats.validDoCount})</option>
+                                    <option value="NO_DO">— No DO Date</option>
+                                </select>
+                            )}
+
+                            {/* Branch Filter */}
+                            {availableBranches.length > 0 && (
+                                <select
+                                    value={selectedBranch}
+                                    onChange={(e) => { setSelectedBranch(e.target.value); setCurrentPage(1); }}
+                                    className="form-select form-select-sm rounded-pill w-auto ps-3 pe-4"
+                                    style={{
+                                        borderColor: selectedBranch !== 'ALL' ? '#2563eb' : undefined,
+                                        background: selectedBranch !== 'ALL' ? '#eff6ff' : undefined,
+                                        fontWeight: selectedBranch !== 'ALL' ? 700 : 500,
+                                        fontSize: '12px',
+                                        paddingRight: '34px'
+                                    }}
+                                >
+                                    <option value="ALL">All Branches ({availableBranches.length})</option>
+                                    {availableBranches.map(b => <option key={b} value={b}>{b}</option>)}
+                                </select>
+                            )}
+
+                            {/* Container Type Filter */}
+                            <select
+                                value={selectedContainerType}
+                                onChange={(e) => { setSelectedContainerType(e.target.value); setCurrentPage(1); }}
+                                className="form-select form-select-sm rounded-pill w-auto ps-3 pe-4"
+                                style={{
+                                    borderColor: selectedContainerType !== 'ALL' ? '#d97706' : undefined,
+                                    background: selectedContainerType !== 'ALL' ? '#fffbeb' : undefined,
+                                    fontWeight: selectedContainerType !== 'ALL' ? 700 : 500,
+                                    fontSize: '12px',
+                                    paddingRight: '34px'
+                                }}
+                            >
+                                <option value="ALL">All Sizes & Types</option>
+                                <option value="SIZE_20">20' Containers</option>
+                                <option value="SIZE_40">40' Containers</option>
+                                {availableContainerTypes.filter(ct => !['20', '40', '45', 'SIZE_20', 'SIZE_40', 'SIZE_45'].includes(ct)).map(ct => (
+                                    <option key={ct} value={ct}>{ct}</option>
+                                ))}
+                            </select>
+
+                            {/* Customer Filter */}
+                            {availableCustomers.length > 0 && (
+                                <select
+                                    value={selectedCustomer}
+                                    onChange={(e) => { setSelectedCustomer(e.target.value); setCurrentPage(1); }}
+                                    className="form-select form-select-sm rounded-pill w-auto ps-3 pe-4"
+                                    style={{
+                                        borderColor: selectedCustomer !== 'ALL' ? '#7c3aed' : undefined,
+                                        background: selectedCustomer !== 'ALL' ? '#f5f3ff' : undefined,
+                                        fontWeight: selectedCustomer !== 'ALL' ? 700 : 500,
+                                        fontSize: '12px',
+                                        maxWidth: '220px',
+                                        paddingRight: '34px'
+                                    }}
+                                >
+                                    <option value="ALL">All Customers ({availableCustomers.length})</option>
+                                    {availableCustomers.map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                            )}
+
+                            {/* Trade Type Filter */}
+                            <select
+                                value={selectedIe}
+                                onChange={(e) => { setSelectedIe(e.target.value); setCurrentPage(1); }}
+                                className="form-select form-select-sm rounded-pill w-auto ps-3 pe-4"
+                                style={{
+                                    borderColor: selectedIe !== 'ALL' ? '#059669' : undefined,
+                                    background: selectedIe !== 'ALL' ? '#ecfdf5' : undefined,
+                                    fontWeight: selectedIe !== 'ALL' ? 700 : 500,
+                                    fontSize: '12px',
+                                    paddingRight: '34px'
+                                }}
+                            >
+                                <option value="ALL">All Trade Types</option>
+                                <option value="import">Import</option>
+                                <option value="export">Export</option>
+                            </select>
+
+                            {/* Reset Button */}
+                            {(selectedDoStatus !== 'ALL' || selectedBranch !== 'ALL' || selectedContainerType !== 'ALL' || selectedIe !== 'ALL' || searchTerm) && (
+                                <button
+                                    onClick={() => {
+                                        setSelectedDoStatus('ALL');
+                                        setSelectedBranch('ALL');
+                                        setSelectedContainerType('ALL');
+                                        setSelectedIe('ALL');
+                                        setSelectedCustomer('ALL');
+                                        setSearchTerm('');
+                                        setCurrentPage(1);
+                                    }}
+                                    className="btn btn-outline-danger btn-sm rounded-pill px-3 py-1 fw-bold"
+                                    style={{ fontSize: '11px' }}
                                 >
                                     ✕ Reset
                                 </button>
                             )}
-                        </div>
-                        
-                        {/* Interactive Clickable Badges */}
-                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px' }}>
-                            <button
-                                onClick={() => {
-                                    setActiveSection('pending');
-                                    setSelectedDoStatus(prev => prev === 'EXPIRED' ? 'ALL' : 'EXPIRED');
-                                    setCurrentPage(1);
-                                }}
-                                style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    background: selectedDoStatus === 'EXPIRED' ? '#dc2626' : '#fef2f2',
-                                    color: selectedDoStatus === 'EXPIRED' ? '#ffffff' : '#b91c1c',
-                                    border: '1px solid #fca5a5',
-                                    padding: '3px 8px',
-                                    borderRadius: '6px',
-                                    fontSize: '12px',
-                                    fontWeight: 800,
-                                    cursor: 'pointer',
-                                    transition: 'all 0.15s ease'
-                                }}
-                                title="Click to filter Expired DOs"
-                            >
-                                <AlertTriangle size={11} /> {overallStats.expiredDoCount} Expired
-                            </button>
 
-                            <button
-                                onClick={() => {
-                                    setActiveSection('pending');
-                                    setSelectedDoStatus(prev => prev === 'EXPIRING_SOON' ? 'ALL' : 'EXPIRING_SOON');
-                                    setCurrentPage(1);
-                                }}
-                                style={{
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    background: selectedDoStatus === 'EXPIRING_SOON' ? '#d97706' : '#fffbeb',
-                                    color: selectedDoStatus === 'EXPIRING_SOON' ? '#ffffff' : '#b45309',
-                                    border: '1px solid #fcd34d',
-                                    padding: '3px 8px',
-                                    borderRadius: '6px',
-                                    fontSize: '12px',
-                                    fontWeight: 800,
-                                    cursor: 'pointer',
-                                    transition: 'all 0.15s ease'
-                                }}
-                                title="Click to filter DOs Expiring in ≤3 days"
-                            >
-                                <Clock size={11} /> {overallStats.expiringSoonDoCount} Expiring ≤3d
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* 5. Unique Parties / Customers */}
-                <div
-                    onClick={() => setShowCustomerModal(true)}
-                    style={{
-                        background: '#ffffff',
-                        borderRadius: '16px',
-                        border: selectedCustomer !== 'ALL' ? '2px solid #7c3aed' : '1px solid #e2e8f0',
-                        padding: '16px 18px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '14px',
-                        boxShadow: selectedCustomer !== 'ALL' ? '0 0 0 3px rgba(124, 58, 237, 0.15)' : '0 2px 8px rgba(0,0,0,0.03)',
-                        cursor: 'pointer',
-                        boxSizing: 'border-box',
-                        transition: 'all 0.15s ease'
-                    }}
-                    title="Click to view Customer breakdown details"
-                >
-                    <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#f5f3ff', color: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', flexShrink: 0 }}>
-                        <Users size={24} />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                                Customers Waiting
+                            {/* Live Result Counter */}
+                            <div className="ms-auto text-muted small">
+                                {activeTab === 'pending' && viewMode === 'by_customer' && (
+                                    <>Showing <strong>{customerGroupedList.length}</strong> customers (<strong>{sortedList.length}</strong> PRs)</>
+                                )}
+                                {activeTab === 'pending' && viewMode === 'grouped' && (
+                                    <>Showing <strong>{typeGroupedList.length}</strong> container types (<strong>{sortedList.length}</strong> PRs)</>
+                                )}
+                                {(activeTab !== 'pending' || viewMode === 'flat') && (
+                                    <>Showing <strong>{sortedList.length}</strong> records</>
+                                )}
                             </div>
-                            {selectedCustomer !== 'ALL' && (
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); setSelectedCustomer('ALL'); }}
-                                    style={{
-                                        border: 'none',
-                                        background: 'rgba(124, 58, 237, 0.1)',
-                                        color: '#7c3aed',
-                                        padding: '2px 6px',
-                                        borderRadius: '4px',
-                                        fontSize: '11px',
-                                        fontWeight: 700,
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    ✕ Reset
-                                </button>
-                            )}
-                        </div>
-                        <div style={{ fontSize: '24px', fontWeight: 900, color: '#0f172a', lineHeight: 1.2 }}>
-                            {overallStats.uniquePartiesCount} <span style={{ fontSize: '12px', fontWeight: 600, color: '#7c3aed' }}>Parties</span>
-                        </div>
-                        <div style={{ fontSize: '11px', color: '#7c3aed', marginTop: '2px', fontWeight: 600 }}>
-                            Click to view details ↗
                         </div>
                     </div>
-                </div>
-            </div>
 
-            {/* ─── Search & Quick Filter Toolbar ──────────────────────────────── */}
-            <div style={{
-                background: '#ffffff',
-                padding: '14px 18px',
-                borderRadius: '16px',
-                border: '1px solid #e2e8f0',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: '10px',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                width: '100%',
-                boxSizing: 'border-box'
-            }}>
-                {/* Left Filter Controls */}
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flex: '1 1 auto', flexWrap: 'wrap', minWidth: 0 }}>
-                    {/* Live Search Input */}
-                    <div style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        background: '#f8fafc',
-                        padding: '0 12px',
-                        height: '36px',
-                        borderRadius: '8px',
-                        border: '1px solid #cbd5e1',
-                        flex: '1 1 200px',
-                        minWidth: '160px',
-                        maxWidth: '260px',
-                        boxSizing: 'border-box'
-                    }}>
-                        <Search size={14} color="#94a3b8" style={{ flexShrink: 0 }} />
-                        <input
-                            type="text"
-                            placeholder={activeSection === 'pending' ? "Search PR No, Customer..." : "Search LR, Vehicle, Container..."}
-                            value={searchTerm}
-                            onChange={(e) => {
-                                setSearchTerm(e.target.value);
-                                setCurrentPage(1);
-                            }}
-                            style={{
-                                border: 'none',
-                                background: 'transparent',
-                                outline: 'none',
-                                width: '100%',
-                                minWidth: 0,
-                                fontSize: '12.5px',
-                                color: '#1e293b'
-                            }}
-                        />
-                        {searchTerm && (
-                            <button
-                                onClick={() => setSearchTerm('')}
-                                style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#94a3b8', fontSize: '12px', padding: 0 }}
-                            >
-                                <X size={13} />
-                            </button>
-                        )}
-                    </div>
-
-                    {/* DO Status Filter (Pending only) */}
-                    {activeSection === 'pending' && (
-                        <select
-                            value={selectedDoStatus}
-                            onChange={(e) => {
-                                setSelectedDoStatus(e.target.value);
-                                setCurrentPage(1);
-                            }}
-                            style={{
-                                height: '36px',
-                                padding: '0 10px',
-                                borderRadius: '8px',
-                                border: selectedDoStatus !== 'ALL' ? '1.5px solid #dc2626' : '1px solid #cbd5e1',
-                                background: selectedDoStatus !== 'ALL' ? '#fef2f2' : '#f8fafc',
-                                fontWeight: selectedDoStatus !== 'ALL' ? 700 : 500,
-                                fontSize: '12.5px',
-                                color: selectedDoStatus !== 'ALL' ? '#b91c1c' : '#334155',
-                                outline: 'none',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            <option value="ALL">All DO Statuses ({pendingList.length})</option>
-                            <option value="EXPIRED">🔴 Expired ({overallStats.expiredDoCount})</option>
-                            <option value="EXPIRING_SOON">🟡 Expiring ≤3d ({overallStats.expiringSoonDoCount})</option>
-                            <option value="VALID">🟢 Active & Valid ({overallStats.validDoCount})</option>
-                            <option value="NO_DO">— No DO Date</option>
-                        </select>
-                    )}
-
-                    {/* Customer Filter */}
-                    {availableCustomers.length > 0 && (
-                        <select
-                            value={selectedCustomer}
-                            onChange={(e) => {
-                                setSelectedCustomer(e.target.value);
-                                setCurrentPage(1);
-                            }}
-                            style={{
-                                height: '36px',
-                                padding: '0 10px',
-                                borderRadius: '8px',
-                                border: selectedCustomer !== 'ALL' ? '1.5px solid #7c3aed' : '1px solid #cbd5e1',
-                                background: selectedCustomer !== 'ALL' ? '#f5f3ff' : '#f8fafc',
-                                fontWeight: selectedCustomer !== 'ALL' ? 700 : 500,
-                                fontSize: '12.5px',
-                                color: selectedCustomer !== 'ALL' ? '#6d28d9' : '#334155',
-                                outline: 'none',
-                                cursor: 'pointer',
-                                maxWidth: '180px'
-                            }}
-                        >
-                            <option value="ALL">All Customers ({availableCustomers.length})</option>
-                            {availableCustomers.map(c => (
-                                <option key={c} value={c}>{c}</option>
-                            ))}
-                        </select>
-                    )}
-
-                    {/* Branch Filter */}
-                    {availableBranches.length > 0 && (
-                        <select
-                            value={selectedBranch}
-                            onChange={(e) => {
-                                setSelectedBranch(e.target.value);
-                                setCurrentPage(1);
-                            }}
-                            style={{
-                                height: '36px',
-                                padding: '0 10px',
-                                borderRadius: '8px',
-                                border: selectedBranch !== 'ALL' ? '1.5px solid #4f46e5' : '1px solid #cbd5e1',
-                                background: selectedBranch !== 'ALL' ? '#eff6ff' : '#f8fafc',
-                                fontWeight: selectedBranch !== 'ALL' ? 700 : 500,
-                                fontSize: '12.5px',
-                                color: selectedBranch !== 'ALL' ? '#1d4ed8' : '#334155',
-                                outline: 'none',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            <option value="ALL">All Branches ({availableBranches.length})</option>
-                            {availableBranches.map(b => (
-                                <option key={b} value={b}>{b}</option>
-                            ))}
-                        </select>
-                    )}
-
-                    {/* Container / Vehicle Size & Type Filter */}
-                    <select
-                        value={selectedContainerType}
-                        onChange={(e) => {
-                            setSelectedContainerType(e.target.value);
-                            setCurrentPage(1);
-                        }}
-                        style={{
-                            height: '36px',
-                            padding: '0 10px',
-                            borderRadius: '8px',
-                            border: selectedContainerType !== 'ALL' ? '1.5px solid #d97706' : '1px solid #cbd5e1',
-                            background: selectedContainerType !== 'ALL' ? '#fffbeb' : '#f8fafc',
-                            fontWeight: selectedContainerType !== 'ALL' ? 700 : 500,
-                            fontSize: '12.5px',
-                            color: selectedContainerType !== 'ALL' ? '#b45309' : '#334155',
-                            outline: 'none',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        <option value="ALL">All Sizes & Types</option>
-                        <option value="SIZE_20">20' Containers (20ft / 20 Dry / 20 HC)</option>
-                        <option value="SIZE_40">40' Containers (40ft / 40 HC / 40 Dry)</option>
-                        {availableContainerTypes.filter(ct => !['20', '40', '45', 'SIZE_20', 'SIZE_40', 'SIZE_45'].includes(ct)).map(ct => (
-                            <option key={ct} value={ct}>{ct}</option>
-                        ))}
-                    </select>
-
-                    {/* I/E Filter */}
-                    <select
-                        value={selectedIe}
-                        onChange={(e) => {
-                            setSelectedIe(e.target.value);
-                            setCurrentPage(1);
-                        }}
-                        style={{
-                            height: '36px',
-                            padding: '0 10px',
-                            borderRadius: '8px',
-                            border: selectedIe !== 'ALL' ? '1.5px solid #059669' : '1px solid #cbd5e1',
-                            background: selectedIe !== 'ALL' ? '#ecfdf5' : '#f8fafc',
-                            fontWeight: selectedIe !== 'ALL' ? 700 : 500,
-                            fontSize: '12.5px',
-                            color: selectedIe !== 'ALL' ? '#047857' : '#334155',
-                            outline: 'none',
-                            cursor: 'pointer'
-                        }}
-                    >
-                        <option value="ALL">All Trade Types</option>
-                        <option value="import">Import</option>
-                        <option value="export">Export</option>
-                    </select>
-                </div>
-
-                {/* Right Action Buttons */}
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
-                    {activeSection === 'pending' && (
-                        <div style={{
-                            display: 'inline-flex',
-                            background: '#f1f5f9',
-                            padding: '3px',
-                            borderRadius: '8px',
-                            border: '1px solid #e2e8f0',
-                            height: '36px',
-                            boxSizing: 'border-box',
-                            alignItems: 'center'
-                        }}>
-                            <button
-                                onClick={() => setViewMode('flat')}
-                                style={{
-                                    border: 'none',
-                                    background: viewMode === 'flat' ? '#ffffff' : 'transparent',
-                                    color: viewMode === 'flat' ? '#0f172a' : '#64748b',
-                                    fontWeight: 700,
-                                    fontSize: '12px',
-                                    padding: '4px 9px',
-                                    borderRadius: '6px',
-                                    cursor: 'pointer',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    boxShadow: viewMode === 'flat' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none'
-                                }}
-                            >
-                                <ListFilter size={12} /> Table
-                            </button>
-                            <button
-                                onClick={() => setViewMode('by_customer')}
-                                style={{
-                                    border: 'none',
-                                    background: viewMode === 'by_customer' ? '#ffffff' : 'transparent',
-                                    color: viewMode === 'by_customer' ? '#7c3aed' : '#64748b',
-                                    fontWeight: 700,
-                                    fontSize: '12px',
-                                    padding: '4px 9px',
-                                    borderRadius: '6px',
-                                    cursor: 'pointer',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    boxShadow: viewMode === 'by_customer' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none'
-                                }}
-                            >
-                                <Users size={12} /> By Customer
-                            </button>
-                            <button
-                                onClick={() => setViewMode('grouped')}
-                                style={{
-                                    border: 'none',
-                                    background: viewMode === 'grouped' ? '#ffffff' : 'transparent',
-                                    color: viewMode === 'grouped' ? '#0f172a' : '#64748b',
-                                    fontWeight: 700,
-                                    fontSize: '12px',
-                                    padding: '4px 9px',
-                                    borderRadius: '6px',
-                                    cursor: 'pointer',
-                                    display: 'inline-flex',
-                                    alignItems: 'center',
-                                    gap: '4px',
-                                    boxShadow: viewMode === 'grouped' ? '0 1px 3px rgba(0,0,0,0.08)' : 'none'
-                                }}
-                            >
-                                <Layers size={12} /> By Type
-                            </button>
-                        </div>
-                    )}
-
-                    {/* Enhanced Excel Export Dropdown & Action */}
-                    <div style={{ position: 'relative', display: 'inline-flex' }}>
-                        <button
-                            onClick={() => exportToExcel('all')}
-                            disabled={isExportingExcel || (filteredPendingList.length === 0 && filteredActiveList.length === 0 && filteredClosedList.length === 0)}
-                            style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                background: '#10b981',
-                                color: '#ffffff',
-                                border: 'none',
-                                height: '36px',
-                                padding: '0 12px 0 14px',
-                                borderTopLeftRadius: '8px',
-                                borderBottomLeftRadius: '8px',
-                                borderTopRightRadius: '0',
-                                borderBottomRightRadius: '0',
-                                fontWeight: 700,
-                                fontSize: '12.5px',
-                                cursor: isExportingExcel ? 'wait' : 'pointer',
-                                opacity: (filteredPendingList.length === 0 && filteredActiveList.length === 0 && filteredClosedList.length === 0) ? 0.6 : 1,
-                                boxShadow: '0 2px 6px rgba(16, 185, 129, 0.25)',
-                                transition: 'all 0.15s ease'
-                            }}
-                            title="Download Comprehensive Multi-Sheet Excel Report with all filters & executive summaries"
-                        >
-                            {isExportingExcel ? (
-                                <RefreshCw size={13} style={{ animation: 'spin 0.8s linear infinite' }} />
-                            ) : (
-                                <Download size={13} />
-                            )}
-                            <span>{isExportingExcel ? 'Exporting...' : 'Detailed Excel'}</span>
-                        </button>
-
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setShowExportMenu(prev => !prev);
-                            }}
-                            disabled={isExportingExcel}
-                            style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                background: '#059669',
-                                color: '#ffffff',
-                                border: 'none',
-                                borderLeft: '1px solid rgba(255,255,255,0.25)',
-                                height: '36px',
-                                width: '26px',
-                                padding: 0,
-                                borderTopRightRadius: '8px',
-                                borderBottomRightRadius: '8px',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s ease'
-                            }}
-                            title="Export options"
-                        >
-                            <ChevronDown size={14} style={{ transform: showExportMenu ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }} />
-                        </button>
-
-                        {/* Export Dropdown Menu */}
-                        {showExportMenu && (
-                            <div
-                                style={{
-                                    position: 'absolute',
-                                    top: '42px',
-                                    right: 0,
-                                    background: '#ffffff',
-                                    borderRadius: '12px',
-                                    border: '1px solid #e2e8f0',
-                                    boxShadow: '0 10px 25px rgba(0,0,0,0.12)',
-                                    zIndex: 100,
-                                    minWidth: '280px',
-                                    overflow: 'hidden',
-                                    padding: '6px'
-                                }}
-                            >
-                                <button
-                                    onClick={() => exportToExcel('all')}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'flex-start',
-                                        gap: '10px',
-                                        width: '100%',
-                                        padding: '10px 12px',
-                                        border: 'none',
-                                        background: 'transparent',
-                                        borderRadius: '8px',
-                                        textAlign: 'left',
-                                        cursor: 'pointer',
-                                        transition: 'background 0.15s ease'
-                                    }}
-                                    onMouseEnter={(e) => e.currentTarget.style.background = '#f0fdf4'}
-                                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                                >
-                                    <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: '#dcfce7', color: '#166534', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                        <Layers size={15} />
-                                    </div>
-                                    <div>
-                                        <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>
-                                            Complete Detailed Report
-                                        </div>
-                                        <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', lineHeight: 1.3 }}>
-                                            All 6 Sheets (Summary, Pending PRs, Active LRs, Closed Trips, Customer & Type breakdown) with filters
-                                        </div>
-                                    </div>
-                                </button>
-
-                                <div style={{ height: '1px', background: '#f1f5f9', margin: '4px 0' }} />
-
-                                <button
-                                    onClick={() => exportToExcel('current')}
-                                    style={{
-                                        display: 'flex',
-                                        alignItems: 'flex-start',
-                                        gap: '10px',
-                                        width: '100%',
-                                        padding: '10px 12px',
-                                        border: 'none',
-                                        background: 'transparent',
-                                        borderRadius: '8px',
-                                        textAlign: 'left',
-                                        cursor: 'pointer',
-                                        transition: 'background 0.15s ease'
-                                    }}
-                                    onMouseEnter={(e) => e.currentTarget.style.background = '#eff6ff'}
-                                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                                >
-                                    <div style={{ width: '28px', height: '28px', borderRadius: '6px', background: '#e0e7ff', color: '#3730a3', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                        <FileSpreadsheet size={15} />
-                                    </div>
-                                    <div>
-                                        <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a' }}>
-                                            Current Tab Only ({activeSection === 'pending' ? 'Pending Queue' : activeSection === 'active' ? 'Active LRs' : 'Closed Trips'})
-                                        </div>
-                                        <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', lineHeight: 1.3 }}>
-                                            Filtered records for {activeSection === 'pending' ? 'Pending PRs' : activeSection === 'active' ? 'Active In-Transit LRs' : 'Completed Trips'}
-                                        </div>
-                                    </div>
-                                </button>
-                            </div>
-                        )}
-                    </div>
-
-                    <button
-                        onClick={exportToPDF}
-                        disabled={sortedList.length === 0}
-                        style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '5px',
-                            background: '#ef4444',
-                            color: '#ffffff',
-                            border: 'none',
-                            height: '36px',
-                            padding: '0 14px',
-                            borderRadius: '8px',
-                            fontWeight: 700,
-                            fontSize: '12.5px',
-                            cursor: sortedList.length === 0 ? 'not-allowed' : 'pointer',
-                            opacity: sortedList.length === 0 ? 0.6 : 1,
-                            boxShadow: '0 2px 6px rgba(239, 68, 68, 0.25)'
-                        }}
-                    >
-                        <FileText size={13} /> PDF
-                    </button>
-                </div>
-            </div>
-
-            {/* ─── Main Content: Pending Queue vs Closed LRs ──────────────────── */}
-            {activeSection === 'pending' ? (
-                /* SECTION 1: PENDING QUEUE */
-                viewMode === 'by_customer' ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', boxSizing: 'border-box' }}>
-                        {Object.keys(customerGroupedData).length === 0 ? (
-                            <div style={{
-                                background: '#ffffff',
-                                borderRadius: '16px',
-                                border: '1px solid #e2e8f0',
-                                padding: '50px 20px',
-                                textAlign: 'center',
-                                color: '#64748b'
-                            }}>
-                                <Package size={32} style={{ marginBottom: '8px', color: '#cbd5e1' }} />
-                                <div style={{ fontSize: '15px', fontWeight: 600 }}>No pending pickup requests found.</div>
-                            </div>
-                        ) : (
-                            Object.entries(customerGroupedData).map(([custKey, group], gIdx) => (
-                                <div
-                                    key={gIdx}
-                                    style={{
-                                        background: '#ffffff',
-                                        borderRadius: '16px',
-                                        border: '1px solid #e2e8f0',
-                                        boxShadow: '0 2px 10px rgba(0, 0, 0, 0.03)',
-                                        overflow: 'hidden',
-                                        width: '100%',
-                                        maxWidth: '100%',
-                                        boxSizing: 'border-box'
-                                    }}
-                                >
-                                    <div style={{
-                                        background: '#faf5ff',
-                                        padding: '12px 18px',
-                                        borderBottom: '1px solid #f3e8ff',
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        flexWrap: 'wrap',
-                                        gap: '8px'
-                                    }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <Users size={16} color="#7c3aed" />
-                                            <span style={{ fontSize: '14px', fontWeight: 800, color: '#581c87' }}>{custKey}</span>
-                                            <span style={{ fontSize: '11.5px', color: '#7e22ce', fontWeight: 700 }}>({group.items.length} PRs)</span>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12.5px', fontWeight: 800 }}>
-                                            <span style={{ color: '#b91c1c' }}>{group.totalPending} Pending Containers</span>
-                                            <span style={{ color: '#cbd5e1' }}>/</span>
-                                            <span style={{ color: '#475569' }}>{group.totalContainers} Total Containers</span>
-                                        </div>
-                                    </div>
-
-                                    <div style={{ width: '100%', maxWidth: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', boxSizing: 'border-box' }}>
-                                        <table style={{ width: '100%', minWidth: '1000px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', background: '#ffffff' }}>
-                                            <thead style={{ background: '#f8fafc', borderBottom: '1px solid #cbd5e1' }}>
-                                                <tr>
-                                                    <th style={{ padding: '10px 14px', color: '#1e293b', fontWeight: 800, width: '45px' }}>#</th>
-                                                    <th style={{ padding: '10px 14px', color: '#1e293b', fontWeight: 800, width: '140px' }}>PR No</th>
-                                                    <th style={{ padding: '10px 14px', color: '#1e293b', fontWeight: 800, width: '80px' }}>I/E</th>
-                                                    <th style={{ padding: '10px 14px', color: '#1e293b', fontWeight: 800, width: '100px' }}>Branch</th>
-                                                    <th style={{ padding: '10px 14px', color: '#1e293b', fontWeight: 800, width: '140px' }}>Container Type</th>
-                                                    <th style={{ padding: '10px 14px', color: '#1e293b', fontWeight: 800, width: '140px' }}>LR Progress</th>
-                                                    <th style={{ padding: '10px 14px', color: '#1e293b', fontWeight: 800, width: '100px', textAlign: 'center' }}>Pending</th>
-                                                    <th style={{ padding: '10px 14px', color: '#1e293b', fontWeight: 800, width: '160px' }}>DO Validity</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {group.items.map((item, idx) => {
-                                                    const tot = item.totalContainers || 0;
-                                                    const crt = item.lrCreatedContainers || 0;
-                                                    const pct = tot > 0 ? Math.round((crt / tot) * 100) : 0;
-                                                    return (
-                                                        <tr
-                                                            key={idx}
-                                                            style={{
-                                                                borderBottom: '1px solid #e2e8f0',
-                                                                background: idx % 2 === 0 ? '#ffffff' : '#f8fafc',
-                                                                transition: 'background 0.15s ease'
-                                                            }}
-                                                            onMouseEnter={(e) => e.currentTarget.style.background = '#e2e8f0'}
-                                                            onMouseLeave={(e) => e.currentTarget.style.background = idx % 2 === 0 ? '#ffffff' : '#f8fafc'}
-                                                        >
-                                                            <td style={{ padding: '10px 14px', color: '#64748b', fontWeight: 600 }}>{idx + 1}</td>
-                                                            <td style={{ padding: '10px 14px', fontWeight: 800, color: '#0f172a' }}>
-                                                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                                                    <span style={{ fontFamily: 'monospace' }}>{item.pr_no}</span>
-                                                                    <CopyButton text={item.pr_no} />
-                                                                </div>
-                                                            </td>
-                                                            <td style={{ padding: '10px 14px' }}>{getIeBadge(item.import_export)}</td>
-                                                            <td style={{ padding: '10px 14px', color: '#334155', fontWeight: 600 }}>
-                                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                                                    <Building2 size={12} color="#64748b" /> {item.branch || '—'}
-                                                                </span>
-                                                            </td>
-                                                            <td style={{ padding: '10px 14px', color: '#334155', fontWeight: 600 }}>
-                                                                <span style={{
-                                                                    background: '#f1f5f9',
-                                                                    color: '#334155',
-                                                                    padding: '3px 8px',
-                                                                    borderRadius: '6px',
-                                                                    fontSize: '11.5px',
-                                                                    fontWeight: 600
-                                                                }}>
-                                                                    {item.container_type || 'Standard'}
-                                                                </span>
-                                                            </td>
-                                                            <td style={{ padding: '10px 14px' }}>
-                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                                                                    <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#475569' }}>
-                                                                        {crt}/{tot} ({pct}%)
-                                                                    </div>
-                                                                    <div style={{ width: '90px', height: '5px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                                                                        <div style={{ width: `${pct}%`, height: '100%', background: pct === 100 ? '#10b981' : pct > 0 ? '#3b82f6' : '#94a3b8' }} />
-                                                                    </div>
-                                                                </div>
-                                                            </td>
-                                                            <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                                                                <span style={{
-                                                                    background: '#fef3c7',
-                                                                    color: '#92400e',
-                                                                    padding: '3px 8px',
-                                                                    borderRadius: '6px',
-                                                                    fontSize: '12px',
-                                                                    fontWeight: 800
-                                                                }}>
-                                                                    {item.pendingCount || 0}
-                                                                </span>
-                                                            </td>
-                                                            <td style={{ padding: '10px 14px' }}>
-                                                                {getDoValidityBadge(item.do_validity)}
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                })}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                ) : viewMode === 'grouped' ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%', boxSizing: 'border-box' }}>
-                        {Object.keys(groupedData).length === 0 ? (
-                            <div style={{
-                                background: '#ffffff',
-                                borderRadius: '16px',
-                                border: '1px solid #e2e8f0',
-                                padding: '50px 20px',
-                                textAlign: 'center',
-                                color: '#64748b'
-                            }}>
-                                <Package size={32} style={{ marginBottom: '8px', color: '#cbd5e1' }} />
-                                <div style={{ fontSize: '15px', fontWeight: 600 }}>No pending pickup requests found.</div>
-                            </div>
-                        ) : (
-                            Object.entries(groupedData).map(([typeKey, group], gIdx) => (
-                                <div
-                                    key={gIdx}
-                                    style={{
-                                        background: '#ffffff',
-                                        borderRadius: '16px',
-                                        border: '1px solid #e2e8f0',
-                                        boxShadow: '0 2px 10px rgba(0, 0, 0, 0.03)',
-                                        overflow: 'hidden',
-                                        width: '100%',
-                                        maxWidth: '100%',
-                                        boxSizing: 'border-box'
-                                    }}
-                                >
-                                    <div style={{
-                                        background: '#f8fafc',
-                                        padding: '12px 18px',
-                                        borderBottom: '1px solid #e2e8f0',
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        flexWrap: 'wrap',
-                                        gap: '8px'
-                                    }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <Package size={16} color="#4f46e5" />
-                                            <span style={{ fontSize: '14px', fontWeight: 800, color: '#0f172a' }}>{typeKey}</span>
-                                            <span style={{ fontSize: '11.5px', color: '#64748b', fontWeight: 700 }}>({group.items.length} PRs)</span>
-                                        </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12.5px', fontWeight: 800 }}>
-                                            <span style={{ color: '#b45309' }}>{group.totalPending} Pending</span>
-                                            <span style={{ color: '#cbd5e1' }}>/</span>
-                                            <span style={{ color: '#475569' }}>{group.totalContainers} Total Containers</span>
-                                        </div>
-                                    </div>
-
-                                    <div style={{ width: '100%', maxWidth: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch', boxSizing: 'border-box' }}>
-                                        <table style={{ width: '100%', minWidth: '1000px', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px', background: '#ffffff' }}>
-                                            <thead style={{ background: '#f1f5f9', borderBottom: '1px solid #cbd5e1' }}>
-                                                <tr>
-                                                    <th style={{ padding: '10px 14px', color: '#1e293b', fontWeight: 800, width: '45px' }}>#</th>
-                                                    <th style={{ padding: '10px 14px', color: '#1e293b', fontWeight: 800, width: '140px' }}>PR No</th>
-                                                    <th style={{ padding: '10px 14px', color: '#1e293b', fontWeight: 800, width: '80px' }}>I/E</th>
-                                                    <th style={{ padding: '10px 14px', color: '#1e293b', fontWeight: 800, width: '100px' }}>Branch</th>
-                                                    <th style={{ padding: '10px 14px', color: '#1e293b', fontWeight: 800, minWidth: '180px' }}>Customer / Party</th>
-                                                    <th style={{ padding: '10px 14px', color: '#1e293b', fontWeight: 800, width: '140px' }}>LR Progress</th>
-                                                    <th style={{ padding: '10px 14px', color: '#1e293b', fontWeight: 800, width: '100px', textAlign: 'center' }}>Pending</th>
-                                                    <th style={{ padding: '10px 14px', color: '#1e293b', fontWeight: 800, width: '160px' }}>DO Validity</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {group.items.map((item, idx) => {
-                                                    const tot = item.totalContainers || 0;
-                                                    const crt = item.lrCreatedContainers || 0;
-                                                    const pct = tot > 0 ? Math.round((crt / tot) * 100) : 0;
-                                                    return (
-                                                        <tr
-                                                            key={idx}
-                                                            style={{
-                                                                borderBottom: '1px solid #e2e8f0',
-                                                                background: idx % 2 === 0 ? '#ffffff' : '#f8fafc',
-                                                                transition: 'background 0.15s ease'
-                                                            }}
-                                                            onMouseEnter={(e) => e.currentTarget.style.background = '#e2e8f0'}
-                                                            onMouseLeave={(e) => e.currentTarget.style.background = idx % 2 === 0 ? '#ffffff' : '#f8fafc'}
-                                                        >
-                                                            <td style={{ padding: '10px 14px', color: '#64748b', fontWeight: 600 }}>{idx + 1}</td>
-                                                            <td style={{ padding: '10px 14px', fontWeight: 800, color: '#0f172a' }}>
-                                                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                                                    <span style={{ fontFamily: 'monospace' }}>{item.pr_no}</span>
-                                                                    <CopyButton text={item.pr_no} />
-                                                                </div>
-                                                            </td>
-                                                            <td style={{ padding: '10px 14px' }}>{getIeBadge(item.import_export)}</td>
-                                                            <td style={{ padding: '10px 14px', color: '#334155', fontWeight: 600 }}>
-                                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                                                    <Building2 size={12} color="#64748b" /> {item.branch || '—'}
-                                                                </span>
-                                                            </td>
-                                                            <td style={{ padding: '10px 14px', color: '#0f172a', fontWeight: 700, maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.invoice_party}>
-                                                                {item.invoice_party || '—'}
-                                                            </td>
-                                                            <td style={{ padding: '10px 14px' }}>
-                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                                                                    <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#475569' }}>
-                                                                        {crt}/{tot} ({pct}%)
-                                                                    </div>
-                                                                    <div style={{ width: '90px', height: '5px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                                                                        <div style={{ width: `${pct}%`, height: '100%', background: pct === 100 ? '#10b981' : pct > 0 ? '#3b82f6' : '#94a3b8' }} />
-                                                                    </div>
-                                                                </div>
-                                                            </td>
-                                                            <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                                                                <span style={{
-                                                                    background: '#fef3c7',
-                                                                    color: '#92400e',
-                                                                    padding: '3px 8px',
-                                                                    borderRadius: '6px',
-                                                                    fontSize: '12px',
-                                                                    fontWeight: 800
-                                                                }}>
-                                                                    {item.pendingCount || 0}
-                                                                </span>
-                                                            </td>
-                                                            <td style={{ padding: '10px 14px' }}>
-                                                                {getDoValidityBadge(item.do_validity)}
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                })}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            ))
-                        )}
-                    </div>
-                ) : (
-                    <div style={{
-                        background: '#ffffff',
-                        borderRadius: '16px',
-                        border: '1px solid #e2e8f0',
-                        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.04)',
-                        overflow: 'hidden',
-                        width: '100%',
-                        maxWidth: '100%',
-                        boxSizing: 'border-box'
-                    }}>
-                        <div style={{
-                            width: '100%',
-                            maxWidth: '100%',
-                            overflowX: 'auto',
-                            maxHeight: '680px',
-                            WebkitOverflowScrolling: 'touch',
-                            boxSizing: 'border-box'
-                        }}>
-                            <table style={{
-                                width: '100%',
-                                minWidth: '1200px',
-                                borderCollapse: 'collapse',
-                                textAlign: 'left',
-                                fontSize: '13px',
-                                background: '#ffffff'
-                            }}>
-                                <thead style={{
-                                    background: '#f1f5f9',
-                                    borderBottom: '2px solid #cbd5e1',
-                                    position: 'sticky',
-                                    top: 0,
-                                    zIndex: 2
-                                }}>
+                    {/* Data Table */}
+                    <div className="table-responsive" style={{ minHeight: '320px' }}>
+                        <table className="table table-modern align-middle mb-0">
+                            <thead className="sticky-top">
+                                {activeTab === 'pending' && viewMode === 'flat' && (
                                     <tr>
-                                        <th style={{ padding: '12px 14px', color: '#1e293b', fontWeight: 800, width: '45px' }}>Srl</th>
-                                        <th onClick={() => handleSort('pr_no')} style={{ padding: '12px 14px', color: '#1e293b', fontWeight: 800, cursor: 'pointer', width: '130px' }}>
-                                            PR No {getSortIcon('pr_no')}
-                                        </th>
-                                        <th onClick={() => handleSort('import_export')} style={{ padding: '12px 14px', color: '#1e293b', fontWeight: 800, cursor: 'pointer', width: '85px' }}>
-                                            I/E {getSortIcon('import_export')}
-                                        </th>
-                                        <th onClick={() => handleSort('branch')} style={{ padding: '12px 14px', color: '#1e293b', fontWeight: 800, cursor: 'pointer', width: '100px' }}>
-                                            Branch {getSortIcon('branch')}
-                                        </th>
-                                        <th onClick={() => handleSort('invoice_party')} style={{ padding: '12px 14px', color: '#1e293b', fontWeight: 800, cursor: 'pointer', minWidth: '200px' }}>
-                                            Customer / Invoice Party {getSortIcon('invoice_party')}
-                                        </th>
-                                        <th onClick={() => handleSort('container_type')} style={{ padding: '12px 14px', color: '#1e293b', fontWeight: 800, cursor: 'pointer', width: '140px' }}>
-                                            Container Type {getSortIcon('container_type')}
-                                        </th>
-                                        <th onClick={() => handleSort('totalContainers')} style={{ padding: '12px 14px', color: '#1e293b', fontWeight: 800, cursor: 'pointer', width: '80px', textAlign: 'center' }}>
-                                            Total {getSortIcon('totalContainers')}
-                                        </th>
-                                        <th onClick={() => handleSort('lrCreatedContainers')} style={{ padding: '12px 14px', color: '#1e293b', fontWeight: 800, cursor: 'pointer', width: '80px', textAlign: 'center' }}>
-                                            Created {getSortIcon('lrCreatedContainers')}
-                                        </th>
-                                        <th onClick={() => handleSort('pendingCount')} style={{ padding: '12px 14px', color: '#1e293b', fontWeight: 800, cursor: 'pointer', width: '100px', textAlign: 'center' }}>
-                                            Pending {getSortIcon('pendingCount')}
-                                        </th>
-                                        <th style={{ padding: '12px 14px', color: '#1e293b', fontWeight: 800, width: '140px' }}>
-                                            Fulfillment %
-                                        </th>
-                                        <th onClick={() => handleSort('do_validity')} style={{ padding: '12px 14px', color: '#1e293b', fontWeight: 800, cursor: 'pointer', width: '160px' }}>
-                                            DO Validity {getSortIcon('do_validity')}
-                                        </th>
+                                        <th onClick={() => handleSort('pr_no')} style={{ cursor: 'pointer' }}>PR No</th>
+                                        <th onClick={() => handleSort('branch')} style={{ cursor: 'pointer' }}>Branch</th>
+                                        <th onClick={() => handleSort('invoice_party')} style={{ cursor: 'pointer' }}>Customer / Party</th>
+                                        <th className="text-center">Trade</th>
+                                        <th>Container Type</th>
+                                        <th className="text-center" onClick={() => handleSort('pendingCount')} style={{ cursor: 'pointer' }}>Pending</th>
+                                        <th className="text-center">Total</th>
+                                        <th className="text-center">Progress</th>
+                                        <th onClick={() => handleSort('do_validity')} style={{ cursor: 'pointer' }}>DO Validity</th>
+                                        <th>Pickup / Port</th>
                                     </tr>
-                                </thead>
-                                <tbody>
-                                    {paginatedList.length === 0 ? (
-                                        <tr>
-                                            <td colSpan={11} style={{ padding: '50px 20px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>
-                                                No pending pickup requests found matching your filter criteria.
-                                            </td>
-                                        </tr>
-                                    ) : (
-                                        paginatedList.map((item, idx) => {
-                                            const srl = pageSize === 'ALL' ? (idx + 1) : ((currentPage - 1) * (parseInt(pageSize, 10) || 25) + idx + 1);
-                                            const tot = item.totalContainers || 0;
-                                            const crt = item.lrCreatedContainers || 0;
-                                            const pct = tot > 0 ? Math.round((crt / tot) * 100) : 0;
-
-                                            return (
-                                                <tr
-                                                    key={item._id || idx}
-                                                    style={{
-                                                        borderBottom: '1px solid #e2e8f0',
-                                                        background: idx % 2 === 0 ? '#ffffff' : '#f8fafc',
-                                                        transition: 'background 0.15s ease'
-                                                    }}
-                                                    onMouseEnter={(e) => e.currentTarget.style.background = '#e2e8f0'}
-                                                    onMouseLeave={(e) => e.currentTarget.style.background = idx % 2 === 0 ? '#ffffff' : '#f8fafc'}
-                                                >
-                                                    <td style={{ padding: '10px 14px', color: '#475569', fontWeight: 700 }}>{srl}</td>
-                                                    <td style={{ padding: '10px 14px', fontWeight: 800, color: '#0f172a' }}>
-                                                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                                            <span style={{ fontFamily: 'monospace', fontSize: '13px' }}>{item.pr_no}</span>
-                                                            <CopyButton text={item.pr_no} />
-                                                        </div>
-                                                    </td>
-                                                    <td style={{ padding: '10px 14px' }}>
-                                                        {getIeBadge(item.import_export)}
-                                                    </td>
-                                                    <td style={{ padding: '10px 14px', color: '#1e293b' }}>
-                                                        <span style={{
-                                                            background: '#e0e7ff',
-                                                            color: '#312e81',
-                                                            padding: '3px 8px',
-                                                            borderRadius: '6px',
-                                                            fontSize: '11.5px',
-                                                            fontWeight: 700
-                                                        }}>
-                                                            {item.branch || '—'}
-                                                        </span>
-                                                    </td>
-                                                    <td style={{ padding: '10px 14px', color: '#0f172a', fontWeight: 700, maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.invoice_party}>
-                                                        {item.invoice_party || '—'}
-                                                    </td>
-                                                    <td style={{ padding: '10px 14px', color: '#334155', fontWeight: 600 }}>
-                                                        <span style={{
-                                                            background: '#f1f5f9',
-                                                            color: '#334155',
-                                                            padding: '3px 8px',
-                                                            borderRadius: '6px',
-                                                            fontSize: '11.5px',
-                                                            fontWeight: 600
-                                                        }}>
-                                                            {item.container_type || 'Standard'}
-                                                        </span>
-                                                    </td>
-                                                    <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 700, color: '#0f172a' }}>
-                                                        {tot}
-                                                    </td>
-                                                    <td style={{ padding: '10px 14px', textAlign: 'center', fontWeight: 700, color: '#059669' }}>
-                                                        {crt}
-                                                    </td>
-                                                    <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                                                        <span style={{
-                                                            background: '#fef3c7',
-                                                            color: '#92400e',
-                                                            padding: '3px 8px',
-                                                            borderRadius: '6px',
-                                                            fontSize: '12px',
-                                                            fontWeight: 800
-                                                        }}>
-                                                            {item.pendingCount || 0}
-                                                        </span>
-                                                    </td>
-                                                    <td style={{ padding: '10px 14px' }}>
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                                                            <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#475569' }}>
-                                                                {pct}%
-                                                            </div>
-                                                            <div style={{ width: '90px', height: '5px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
-                                                                <div style={{ width: `${pct}%`, height: '100%', background: pct === 100 ? '#10b981' : pct > 0 ? '#3b82f6' : '#94a3b8' }} />
-                                                            </div>
-                                                        </div>
-                                                    </td>
-                                                    <td style={{ padding: '10px 14px' }}>
-                                                        {getDoValidityBadge(item.do_validity)}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )
-            ) : (
-                /* SECTION 2 & 3: ACTIVE IN-TRANSIT LRS & COMPLETED CLOSED LRS TABLE */
-                <div style={{
-                    background: '#ffffff',
-                    borderRadius: '16px',
-                    border: '1px solid #e2e8f0',
-                    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.04)',
-                    overflow: 'hidden',
-                    width: '100%',
-                    maxWidth: '100%',
-                    boxSizing: 'border-box'
-                }}>
-                    <div style={{
-                        width: '100%',
-                        maxWidth: '100%',
-                        overflowX: 'auto',
-                        maxHeight: '680px',
-                        WebkitOverflowScrolling: 'touch',
-                        boxSizing: 'border-box'
-                    }}>
-                        <table style={{
-                            width: '100%',
-                            minWidth: '1200px',
-                            borderCollapse: 'collapse',
-                            textAlign: 'left',
-                            fontSize: '13px',
-                            background: '#ffffff'
-                        }}>
-                            <thead style={{
-                                background: '#f1f5f9',
-                                borderBottom: '2px solid #cbd5e1',
-                                position: 'sticky',
-                                top: 0,
-                                zIndex: 2
-                            }}>
-                                <tr>
-                                    <th style={{ padding: '12px 14px', color: '#1e293b', fontWeight: 800, width: '45px' }}>Srl</th>
-                                    <th onClick={() => handleSort('tr_no')} style={{ padding: '12px 14px', color: '#1e293b', fontWeight: 800, cursor: 'pointer', width: '130px' }}>
-                                        LR No {getSortIcon('tr_no')}
-                                    </th>
-                                    <th onClick={() => handleSort('import_export')} style={{ padding: '12px 14px', color: '#1e293b', fontWeight: 800, cursor: 'pointer', width: '85px' }}>
-                                        I/E {getSortIcon('import_export')}
-                                    </th>
-                                    <th onClick={() => handleSort('branch')} style={{ padding: '12px 14px', color: '#1e293b', fontWeight: 800, cursor: 'pointer', width: '100px' }}>
-                                        Branch {getSortIcon('branch')}
-                                    </th>
-                                    <th onClick={() => handleSort('consignee')} style={{ padding: '12px 14px', color: '#1e293b', fontWeight: 800, cursor: 'pointer', minWidth: '180px' }}>
-                                        Consignee {getSortIcon('consignee')}
-                                    </th>
-                                    <th onClick={() => handleSort('consignor')} style={{ padding: '12px 14px', color: '#1e293b', fontWeight: 800, cursor: 'pointer', minWidth: '160px' }}>
-                                        Consignor {getSortIcon('consignor')}
-                                    </th>
-                                    <th onClick={() => handleSort('container_type')} style={{ padding: '12px 14px', color: '#1e293b', fontWeight: 800, cursor: 'pointer', width: '130px' }}>
-                                        Container Type {getSortIcon('container_type')}
-                                    </th>
-                                    <th onClick={() => handleSort('vehicle_no')} style={{ padding: '12px 14px', color: '#1e293b', fontWeight: 800, cursor: 'pointer', width: '140px' }}>
-                                        Vehicle No {getSortIcon('vehicle_no')}
-                                    </th>
-                                    <th onClick={() => handleSort('container_number')} style={{ padding: '12px 14px', color: '#1e293b', fontWeight: 800, cursor: 'pointer', width: '140px' }}>
-                                        Container No {getSortIcon('container_number')}
-                                    </th>
-                                    <th onClick={() => handleSort('own_hired')} style={{ padding: '12px 14px', color: '#1e293b', fontWeight: 800, cursor: 'pointer', width: '90px' }}>
-                                        Own/Hired {getSortIcon('own_hired')}
-                                    </th>
-                                    <th onClick={() => handleSort(activeSection === 'active' ? 'lr_date' : 'dispatchClosedDate')} style={{ padding: '12px 14px', color: '#1e293b', fontWeight: 800, cursor: 'pointer', width: '140px' }}>
-                                        {activeSection === 'active' ? 'LR Date / Status' : 'Closed Date'} {getSortIcon(activeSection === 'active' ? 'lr_date' : 'dispatchClosedDate')}
-                                    </th>
-                                </tr>
+                                )}
+                                {activeTab === 'pending' && viewMode === 'by_customer' && (
+                                    <tr>
+                                        <th colSpan={3}>Customer / Invoice Party</th>
+                                        <th colSpan={2}>Branches & Sizes</th>
+                                        <th className="text-center">Pending Containers</th>
+                                        <th className="text-center">Total Ordered</th>
+                                        <th className="text-center">Fulfillment</th>
+                                        <th colSpan={2} className="text-end pe-3">Actions</th>
+                                    </tr>
+                                )}
+                                {activeTab === 'pending' && viewMode === 'grouped' && (
+                                    <tr>
+                                        <th colSpan={3}>Container Size & Type</th>
+                                        <th colSpan={2}>Customers & Branches</th>
+                                        <th className="text-center">Pending Containers</th>
+                                        <th className="text-center">Total Ordered</th>
+                                        <th className="text-center">Fulfillment</th>
+                                        <th colSpan={2} className="text-end pe-3">Actions</th>
+                                    </tr>
+                                )}
+                                {activeTab === 'active' && (
+                                    <tr>
+                                        <th onClick={() => handleSort('tr_no')} style={{ cursor: 'pointer' }}>LR / TR No</th>
+                                        <th onClick={() => handleSort('vehicle_no')} style={{ cursor: 'pointer' }}>Vehicle No</th>
+                                        <th onClick={() => handleSort('branch')} style={{ cursor: 'pointer' }}>Branch</th>
+                                        <th>Consignee / Party</th>
+                                        <th>Container No</th>
+                                        <th>Size / Type</th>
+                                        <th>LR Date</th>
+                                        <th className="text-center">Status</th>
+                                    </tr>
+                                )}
+                                {activeTab === 'closed' && (
+                                    <tr>
+                                        <th onClick={() => handleSort('tr_no')} style={{ cursor: 'pointer' }}>LR / TR No</th>
+                                        <th onClick={() => handleSort('vehicle_no')} style={{ cursor: 'pointer' }}>Vehicle No</th>
+                                        <th onClick={() => handleSort('branch')} style={{ cursor: 'pointer' }}>Branch</th>
+                                        <th>Consignee</th>
+                                        <th>Container No</th>
+                                        <th>Closed Date</th>
+                                        <th className="text-center">Status</th>
+                                    </tr>
+                                )}
                             </thead>
                             <tbody>
-                                {paginatedList.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={11} style={{ padding: '50px 20px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>
-                                            <Truck size={32} style={{ marginBottom: '8px', color: '#cbd5e1' }} />
-                                            <div>
-                                                {activeSection === 'active'
-                                                    ? 'No active / in-transit LRs found for this period.'
-                                                    : 'No completed / closed trips found for this period.'}
+                                {/* Pending Flat List */}
+                                {activeTab === 'pending' && viewMode === 'flat' && paginatedList.map((item, idx) => (
+                                    <tr key={idx}>
+                                        <td className="fw-bold text-primary font-monospace">
+                                            {item.pr_no || '—'}
+                                            <CopyButton text={item.pr_no} />
+                                        </td>
+                                        <td className="fw-semibold text-dark">{item.branch || '—'}</td>
+                                        <td className="fw-semibold text-dark text-truncate" style={{ maxWidth: '240px' }} title={item.invoice_party}>
+                                            {item.invoice_party || '—'}
+                                        </td>
+                                        <td className="text-center">{getIeBadge(item.import_export)}</td>
+                                        <td className="text-muted font-monospace">{item.container_type || '—'}</td>
+                                        <td className="text-center fw-bold text-danger font-monospace">{item.pendingCount || 0}</td>
+                                        <td className="text-center font-monospace text-muted">{item.totalContainers || 0}</td>
+                                        <td className="text-center" style={{ width: '100px' }}>
+                                            <div className="progress" style={{ height: '6px' }}>
+                                                <div
+                                                    className="progress-bar bg-success"
+                                                    style={{
+                                                        width: `${Number(item.totalContainers) > 0 ? (Number(item.lrCreatedContainers || 0) / Number(item.totalContainers)) * 100 : 0}%`
+                                                    }}
+                                                />
                                             </div>
                                         </td>
+                                        <td>{getDoValidityBadge(item.do_validity)}</td>
+                                        <td className="text-truncate text-muted small" style={{ maxWidth: '160px' }} title={item.pickup_point || item.port}>
+                                            {item.pickup_point || item.port || '—'}
+                                        </td>
                                     </tr>
-                                ) : (
-                                    paginatedList.map((item, idx) => {
-                                        const srl = pageSize === 'ALL' ? (idx + 1) : ((currentPage - 1) * (parseInt(pageSize, 10) || 25) + idx + 1);
-                                        const isAct = activeSection === 'active';
-                                        return (
-                                            <tr
-                                                key={item._id || idx}
-                                                style={{
-                                                    borderBottom: '1px solid #e2e8f0',
-                                                    background: idx % 2 === 0 ? '#ffffff' : '#f8fafc',
-                                                    transition: 'background 0.15s ease'
-                                                }}
-                                                onMouseEnter={(e) => e.currentTarget.style.background = '#e2e8f0'}
-                                                onMouseLeave={(e) => e.currentTarget.style.background = idx % 2 === 0 ? '#ffffff' : '#f8fafc'}
-                                            >
-                                                <td style={{ padding: '10px 14px', color: '#475569', fontWeight: 700 }}>{srl}</td>
-                                                <td style={{ padding: '10px 14px', fontWeight: 800, color: '#4f46e5' }}>
-                                                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                                        <span style={{ fontFamily: 'monospace', fontSize: '13px' }}>{item.tr_no}</span>
-                                                        <CopyButton text={item.tr_no} />
+                                ))}
+
+                                {/* Pending Grouped By Customer */}
+                                {activeTab === 'pending' && viewMode === 'by_customer' && paginatedList.map((custGroup, idx) => {
+                                    const isExpanded = !!expandedGroups[`cust_${idx}`];
+                                    const percent = custGroup.totalContainers > 0 ? Math.round((custGroup.createdLRs / custGroup.totalContainers) * 100) : 0;
+                                    return (
+                                        <React.Fragment key={idx}>
+                                            <tr style={{ background: isExpanded ? '#f8fafc' : undefined, cursor: 'pointer' }} onClick={() => toggleGroup(`cust_${idx}`)}>
+                                                <td colSpan={3} className="fw-bold text-dark">
+                                                    <div className="d-flex align-items-center gap-2">
+                                                        <span className="text-primary" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                                                            {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                                                        </span>
+                                                        <span className="fs-6">{custGroup.customerName}</span>
+                                                        <span className="badge bg-primary-subtle text-primary fw-bold rounded-pill px-2 py-1" style={{ fontSize: '11px' }}>
+                                                            {custGroup.prs.length} PR{custGroup.prs.length > 1 ? 's' : ''}
+                                                        </span>
                                                     </div>
                                                 </td>
-                                                <td style={{ padding: '10px 14px' }}>
-                                                    {getIeBadge(item.import_export)}
+                                                <td colSpan={2} className="text-muted small">
+                                                    {custGroup.branches.map(b => (
+                                                        <span key={b} className="badge bg-light text-dark border me-1">{b}</span>
+                                                    ))}
+                                                    {custGroup.types.slice(0, 2).map(t => (
+                                                        <span key={t} className="badge bg-light text-secondary border me-1 font-monospace">{t}</span>
+                                                    ))}
                                                 </td>
-                                                <td style={{ padding: '10px 14px', color: '#1e293b' }}>
-                                                    <span style={{
-                                                        background: '#e0e7ff',
-                                                        color: '#312e81',
-                                                        padding: '3px 8px',
-                                                        borderRadius: '6px',
-                                                        fontSize: '11.5px',
-                                                        fontWeight: 700
-                                                    }}>
-                                                        {item.branch || '—'}
-                                                    </span>
+                                                <td className="text-center fw-bold text-danger font-monospace fs-6">
+                                                    {custGroup.totalPending}
                                                 </td>
-                                                <td style={{ padding: '10px 14px', color: '#0f172a', fontWeight: 700, maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.consignee}>
-                                                    {item.consignee || '—'}
+                                                <td className="text-center font-monospace text-muted">
+                                                    {custGroup.totalContainers}
                                                 </td>
-                                                <td style={{ padding: '10px 14px', color: '#475569', fontWeight: 500, maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.consignor}>
-                                                    {item.consignor || '—'}
+                                                <td className="text-center" style={{ width: '120px' }}>
+                                                    <div className="progress" style={{ height: '6px' }}>
+                                                        <div className="progress-bar bg-success" style={{ width: `${percent}%` }} />
+                                                    </div>
+                                                    <div className="text-muted" style={{ fontSize: '10px' }}>{percent}% fulfilled</div>
                                                 </td>
-                                                <td style={{ padding: '10px 14px', color: '#334155', fontWeight: 600 }}>
-                                                    <span style={{
-                                                        background: '#f1f5f9',
-                                                        color: '#334155',
-                                                        padding: '3px 8px',
-                                                        borderRadius: '6px',
-                                                        fontSize: '11.5px',
-                                                        fontWeight: 600
-                                                    }}>
-                                                        {item.container_type || item.container_size || item.vehicle_type || item.type || 'Standard'}
-                                                    </span>
-                                                </td>
-                                                <td style={{ padding: '10px 14px', fontWeight: 700, color: '#0f172a', fontFamily: 'monospace' }}>
-                                                    {item.vehicle_no || '—'}
-                                                </td>
-                                                <td style={{ padding: '10px 14px', fontWeight: 600, color: '#334155', fontFamily: 'monospace' }}>
-                                                    {item.container_number || '—'}
-                                                </td>
-                                                <td style={{ padding: '10px 14px' }}>
-                                                    {getOwnHiredBadge(item.own_hired)}
-                                                </td>
-                                                <td style={{ padding: '10px 14px', color: isAct ? '#d97706' : '#059669', fontWeight: 600, fontSize: '12px' }}>
-                                                    {isAct
-                                                        ? (item.lr_date ? formatDateDisplay(item.lr_date) : (item.status || 'In Transit'))
-                                                        : (item.dispatchClosedDate ? formatDateDisplay(item.dispatchClosedDate) : 'Completed')}
+                                                <td colSpan={2} className="text-end pe-3" onClick={e => e.stopPropagation()}>
+                                                    <button
+                                                        onClick={() => {
+                                                            setSelectedCustomer(custGroup.customerName);
+                                                            setViewMode('flat');
+                                                            setCurrentPage(1);
+                                                        }}
+                                                        className="btn btn-outline-primary btn-sm rounded-pill px-3 py-1 fw-bold me-1"
+                                                        style={{ fontSize: '11px' }}
+                                                    >
+                                                        Filter PRs →
+                                                    </button>
                                                 </td>
                                             </tr>
-                                        );
-                                    })
+                                            {isExpanded && (
+                                                <tr>
+                                                    <td colSpan={10} className="p-0 border-0">
+                                                        <div className="p-3 bg-light rounded-3 my-2 mx-2 border shadow-sm">
+                                                            <div className="d-flex justify-content-between align-items-center mb-2">
+                                                                <div className="fw-bold text-primary small">
+                                                                    📋 Pending PR Breakdown for {custGroup.customerName} ({custGroup.prs.length} PRs)
+                                                                </div>
+                                                            </div>
+                                                            <table className="table table-sm table-bordered bg-white rounded-2 mb-0" style={{ fontSize: '12px' }}>
+                                                                <thead className="table-light">
+                                                                    <tr>
+                                                                        <th>PR No</th>
+                                                                        <th>Branch</th>
+                                                                        <th>Trade</th>
+                                                                        <th>Container Type</th>
+                                                                        <th className="text-center">Pending</th>
+                                                                        <th className="text-center">Total</th>
+                                                                        <th>DO Validity</th>
+                                                                        <th>Pickup / Port</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {custGroup.prs.map((p, pIdx) => (
+                                                                        <tr key={pIdx}>
+                                                                            <td className="fw-bold text-primary font-monospace">{p.pr_no || '—'}</td>
+                                                                            <td>{p.branch || '—'}</td>
+                                                                            <td>{getIeBadge(p.import_export)}</td>
+                                                                            <td className="font-monospace text-muted">{p.container_type || '—'}</td>
+                                                                            <td className="text-center fw-bold text-danger font-monospace">{p.pendingCount || 0}</td>
+                                                                            <td className="text-center font-monospace">{p.totalContainers || 0}</td>
+                                                                            <td>{getDoValidityBadge(p.do_validity)}</td>
+                                                                            <td className="text-muted text-truncate" style={{ maxWidth: '160px' }}>{p.pickup_point || p.port || '—'}</td>
+                                                                        </tr>
+                                                                    ))}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </React.Fragment>
+                                    );
+                                })}
+
+                                {/* Pending Grouped By Container Type */}
+                                {activeTab === 'pending' && viewMode === 'grouped' && paginatedList.map((typeGroup, idx) => {
+                                    const isExpanded = !!expandedGroups[`type_${idx}`];
+                                    const percent = typeGroup.totalContainers > 0 ? Math.round((typeGroup.createdLRs / typeGroup.totalContainers) * 100) : 0;
+                                    return (
+                                        <React.Fragment key={idx}>
+                                            <tr style={{ background: isExpanded ? '#f8fafc' : undefined, cursor: 'pointer' }} onClick={() => toggleGroup(`type_${idx}`)}>
+                                                <td colSpan={3} className="fw-bold text-dark">
+                                                    <div className="d-flex align-items-center gap-2">
+                                                        <span className="text-primary" style={{ display: 'inline-flex', alignItems: 'center' }}>
+                                                            {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                                                        </span>
+                                                        <span className="fs-6 font-monospace">📦 {typeGroup.typeName}</span>
+                                                        <span className="badge bg-warning-subtle text-warning fw-bold rounded-pill px-2 py-1" style={{ fontSize: '11px' }}>
+                                                            {typeGroup.prs.length} PR{typeGroup.prs.length > 1 ? 's' : ''}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td colSpan={2} className="text-muted small">
+                                                    <span className="badge bg-light text-dark border me-1">
+                                                        👥 {typeGroup.customers.length} Customer{typeGroup.customers.length > 1 ? 's' : ''}
+                                                    </span>
+                                                    {typeGroup.branches.map(b => (
+                                                        <span key={b} className="badge bg-light text-secondary border me-1">{b}</span>
+                                                    ))}
+                                                </td>
+                                                <td className="text-center fw-bold text-danger font-monospace fs-6">
+                                                    {typeGroup.totalPending}
+                                                </td>
+                                                <td className="text-center font-monospace text-muted">
+                                                    {typeGroup.totalContainers}
+                                                </td>
+                                                <td className="text-center" style={{ width: '120px' }}>
+                                                    <div className="progress" style={{ height: '6px' }}>
+                                                        <div className="progress-bar bg-success" style={{ width: `${percent}%` }} />
+                                                    </div>
+                                                    <div className="text-muted" style={{ fontSize: '10px' }}>{percent}% fulfilled</div>
+                                                </td>
+                                                <td colSpan={2} className="text-end pe-3" onClick={e => e.stopPropagation()}>
+                                                    <button
+                                                        onClick={() => {
+                                                            setSelectedContainerType(typeGroup.typeName);
+                                                            setViewMode('flat');
+                                                            setCurrentPage(1);
+                                                        }}
+                                                        className="btn btn-outline-primary btn-sm rounded-pill px-3 py-1 fw-bold me-1"
+                                                        style={{ fontSize: '11px' }}
+                                                    >
+                                                        Filter Type →
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            {isExpanded && (
+                                                <tr>
+                                                    <td colSpan={10} className="p-0 border-0">
+                                                        <div className="p-3 bg-light rounded-3 my-2 mx-2 border shadow-sm">
+                                                            <div className="d-flex justify-content-between align-items-center mb-2">
+                                                                <div className="fw-bold text-primary small">
+                                                                    📦 Pending PR Breakdown for {typeGroup.typeName} ({typeGroup.prs.length} PRs)
+                                                                </div>
+                                                            </div>
+                                                            <table className="table table-sm table-bordered bg-white rounded-2 mb-0" style={{ fontSize: '12px' }}>
+                                                                <thead className="table-light">
+                                                                    <tr>
+                                                                        <th>PR No</th>
+                                                                        <th>Branch</th>
+                                                                        <th>Customer / Party</th>
+                                                                        <th>Trade</th>
+                                                                        <th className="text-center">Pending</th>
+                                                                        <th className="text-center">Total</th>
+                                                                        <th>DO Validity</th>
+                                                                        <th>Pickup / Port</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {typeGroup.prs.map((p, pIdx) => (
+                                                                        <tr key={pIdx}>
+                                                                            <td className="fw-bold text-primary font-monospace">{p.pr_no || '—'}</td>
+                                                                            <td>{p.branch || '—'}</td>
+                                                                            <td className="fw-semibold text-truncate" style={{ maxWidth: '200px' }}>{p.invoice_party || '—'}</td>
+                                                                            <td>{getIeBadge(p.import_export)}</td>
+                                                                            <td className="text-center fw-bold text-danger font-monospace">{p.pendingCount || 0}</td>
+                                                                            <td className="text-center font-monospace">{p.totalContainers || 0}</td>
+                                                                            <td>{getDoValidityBadge(p.do_validity)}</td>
+                                                                            <td className="text-muted text-truncate" style={{ maxWidth: '160px' }}>{p.pickup_point || p.port || '—'}</td>
+                                                                        </tr>
+                                                                    ))}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </React.Fragment>
+                                    );
+                                })}
+
+                                {activeTab === 'active' && paginatedList.map((item, idx) => (
+                                    <tr key={idx}>
+                                        <td className="fw-bold text-primary font-monospace">
+                                            {item.tr_no || '—'}
+                                            <CopyButton text={item.tr_no} />
+                                        </td>
+                                        <td className="fw-bold text-dark font-monospace">{item.vehicle_no || '—'}</td>
+                                        <td>{item.branch || '—'}</td>
+                                        <td className="text-truncate" style={{ maxWidth: '240px' }} title={item.consignee || item.invoice_party}>
+                                            {item.consignee || item.invoice_party || '—'}
+                                        </td>
+                                        <td className="font-monospace text-muted">{item.container_number || '—'}</td>
+                                        <td>{item.container_type || item.container_size || '—'}</td>
+                                        <td className="font-monospace text-muted">{formatDateDisplay(item.lr_date || item.date)}</td>
+                                        <td className="text-center">
+                                            <span className="badge bg-warning-subtle text-warning fw-bold px-2 py-1 rounded-pill">In-Transit</span>
+                                        </td>
+                                    </tr>
+                                ))}
+
+                                {activeTab === 'closed' && paginatedList.map((item, idx) => (
+                                    <tr key={idx}>
+                                        <td className="fw-bold text-primary font-monospace">
+                                            {item.tr_no || '—'}
+                                            <CopyButton text={item.tr_no} />
+                                        </td>
+                                        <td className="fw-bold text-dark font-monospace">{item.vehicle_no || '—'}</td>
+                                        <td>{item.branch || '—'}</td>
+                                        <td className="text-truncate" style={{ maxWidth: '260px' }} title={item.consignee || item.invoice_party}>
+                                            {item.consignee || item.invoice_party || '—'}
+                                        </td>
+                                        <td className="font-monospace text-muted">{item.container_number || '—'}</td>
+                                        <td className="font-monospace text-muted">{formatDateDisplay(item.dispatchClosedDate || item.date)}</td>
+                                        <td className="text-center">
+                                            <span className="badge bg-success-subtle text-success fw-bold px-2 py-1 rounded-pill">Closed</span>
+                                        </td>
+                                    </tr>
+                                ))}
+
+                                {paginatedList.length === 0 && (
+                                    <tr>
+                                        <td colSpan={10} className="text-center text-muted py-5">
+                                            No transport records found matching the active filters.
+                                        </td>
+                                    </tr>
                                 )}
                             </tbody>
                         </table>
                     </div>
-                </div>
-            )}
 
-            {/* ─── Pagination Footer ──────────────────────────────────────────── */}
-            {sortedList.length > 0 && (
-                <div style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                    gap: '12px',
-                    padding: '12px 18px',
-                    background: '#ffffff',
-                    borderRadius: '12px',
-                    border: '1px solid #e2e8f0'
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ fontSize: '13px', color: '#64748b' }}>Rows per page:</span>
-                        <select
-                            value={pageSize}
-                            onChange={(e) => {
-                                setPageSize(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value));
-                                setCurrentPage(1);
-                            }}
-                            style={{
-                                padding: '4px 8px',
-                                borderRadius: '6px',
-                                border: '1px solid #cbd5e1',
-                                background: '#f8fafc',
-                                fontSize: '12.5px',
-                                outline: 'none',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            <option value={10}>10</option>
-                            <option value={20}>20</option>
-                            <option value={25}>25</option>
-                            <option value={30}>30</option>
-                            <option value={40}>40</option>
-                            <option value={50}>50</option>
-                            <option value={100}>100</option>
-                            <option value="ALL">All ({sortedList.length})</option>
-                        </select>
-                        <span style={{ fontSize: '13px', color: '#64748b' }}>
-                            Showing {pageSize === 'ALL' ? 1 : (currentPage - 1) * pageSize + 1} - {pageSize === 'ALL' ? sortedList.length : Math.min(currentPage * pageSize, sortedList.length)} of {sortedList.length} {activeSection === 'pending' ? 'PRs' : 'Closed LRs'}
-                        </span>
-                    </div>
-
-                    {pageSize !== 'ALL' && totalPages > 1 && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <button
-                                onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
-                                disabled={currentPage === 1}
-                                style={{
-                                    border: '1px solid #cbd5e1',
-                                    background: currentPage === 1 ? '#f8fafc' : '#ffffff',
-                                    color: currentPage === 1 ? '#94a3b8' : '#1e293b',
-                                    padding: '5px 10px',
-                                    borderRadius: '6px',
-                                    fontSize: '12.5px',
-                                    fontWeight: 600,
-                                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer'
-                                }}
+                    {/* Pagination Bar */}
+                    <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 pt-3 border-top mt-3">
+                        <div className="d-flex align-items-center gap-2">
+                            <span className="text-muted small">Show</span>
+                            <select
+                                value={pageSize}
+                                onChange={(e) => { setPageSize(e.target.value); setCurrentPage(1); }}
+                                className="form-select form-select-sm rounded-3 w-auto"
                             >
-                                Prev
-                            </button>
-                            <span style={{ fontSize: '13px', fontWeight: 600, color: '#334155', padding: '0 6px' }}>
-                                {currentPage} / {totalPages}
-                            </span>
-                            <button
-                                onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
-                                disabled={currentPage === totalPages}
-                                style={{
-                                    border: '1px solid #cbd5e1',
-                                    background: currentPage === totalPages ? '#f8fafc' : '#ffffff',
-                                    color: currentPage === totalPages ? '#94a3b8' : '#1e293b',
-                                    padding: '5px 10px',
-                                    borderRadius: '6px',
-                                    fontSize: '12.5px',
-                                    fontWeight: 600,
-                                    cursor: currentPage === totalPages ? 'not-allowed' : 'pointer'
-                                }}
-                            >
-                                Next
-                            </button>
+                                <option value={25}>25</option>
+                                <option value={50}>50</option>
+                                <option value={100}>100</option>
+                                <option value="ALL">All</option>
+                            </select>
+                            <span className="text-muted small">per page</span>
                         </div>
-                    )}
+
+                        <div className="d-flex align-items-center gap-2">
+                            <span className="text-muted small">
+                                Page <strong>{currentPage}</strong> of <strong>{totalPages || 1}</strong>
+                            </span>
+                            <div className="btn-group btn-group-sm">
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    disabled={currentPage <= 1}
+                                    className="btn btn-outline-primary px-3 fw-semibold"
+                                >
+                                    Previous
+                                </button>
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={currentPage >= totalPages}
+                                    className="btn btn-outline-primary px-3 fw-semibold"
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
-            {/* ─── Customer Breakdown Modal ────────────────────────────────────── */}
+
+            {/* ══════════════════════════════════════════════════════════════════════════ */}
+            {/* TAB 5: ANALYTICS & TRENDS                                                 */}
+            {/* ══════════════════════════════════════════════════════════════════════════ */}
+            {activeTab === 'analytics' && (
+                <div>
+                    <div className="row g-4 mb-4">
+                        {/* Branch Operations Bar Chart */}
+                        <div className="col-12 col-xl-8">
+                            <div className="stat-white-card p-3 p-md-4 h-100">
+                                <h6 className="fw-bold mb-3 text-dark">🏢 Branch Dispatches & Pending Backlog</h6>
+                                <div style={{ height: '320px', width: '100%' }}>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={branchSummaryBreakdown} margin={{ top: 10, right: 10, bottom: 20, left: 0 }}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                                            <XAxis dataKey="branch" tick={{ fill: '#64748b', fontSize: 11 }} />
+                                            <YAxis tick={{ fill: '#64748b', fontSize: 12 }} />
+                                            <RechartsTooltip content={({ active, payload, label }) => {
+                                                if (active && payload && payload.length) {
+                                                    return (
+                                                        <div className="recharts-custom-tooltip">
+                                                            <div className="fw-bold mb-1">{label}</div>
+                                                            {payload.map((p, i) => (
+                                                                <div key={i} style={{ color: p.color || '#fff' }}>
+                                                                    {p.name}: <strong>{p.value}</strong>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            }} />
+                                            <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+                                            <Bar dataKey="pendingCont" name="Pending Containers" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                                            <Bar dataKey="activeLRs" name="In-Transit Trucks" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                                            <Bar dataKey="closedLRs" name="Completed Dispatches" fill="#10b981" radius={[4, 4, 0, 0]} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Container Type Distribution Donut Chart */}
+                        <div className="col-12 col-xl-4">
+                            <div className="stat-white-card p-3 p-md-4 h-100">
+                                <h6 className="fw-bold mb-3 text-dark">📦 Container Type Distribution</h6>
+                                <div style={{ height: '320px', width: '100%', position: 'relative' }}>
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie
+                                                data={containerSizeSummaryBreakdown}
+                                                cx="50%"
+                                                cy="45%"
+                                                innerRadius={65}
+                                                outerRadius={100}
+                                                paddingAngle={4}
+                                                dataKey="pendingContainers"
+                                                nameKey="containerType"
+                                            >
+                                                {containerSizeSummaryBreakdown.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                                ))}
+                                            </Pie>
+                                            <RechartsTooltip content={({ active, payload }) => {
+                                                if (active && payload && payload.length) {
+                                                    const d = payload[0];
+                                                    return (
+                                                        <div className="recharts-custom-tooltip">
+                                                            <div className="fw-bold">{d.name}</div>
+                                                            <div>Pending: <strong>{d.value}</strong></div>
+                                                        </div>
+                                                    );
+                                                }
+                                                return null;
+                                            }} />
+                                            <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+
+                                    {/* Absolute Centered Donut Badge */}
+                                    <div
+                                        style={{
+                                            position: 'absolute',
+                                            top: '45%',
+                                            left: '50%',
+                                            transform: 'translate(-50%, -50%)',
+                                            textAlign: 'center',
+                                            pointerEvents: 'none',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            justifyContent: 'center'
+                                        }}
+                                    >
+                                        <span style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', lineHeight: 1.1 }}>
+                                            {overallStats.totalPendingContainers.toLocaleString()}
+                                        </span>
+                                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginTop: '2px' }}>
+                                            Total Cont.
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ─── Customer Details Modal ───────────────────────────────────────── */}
             {showCustomerModal && (
                 <div
-                    onClick={() => setShowCustomerModal(false)}
-                    style={{
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        background: 'rgba(15, 23, 42, 0.55)',
-                        backdropFilter: 'blur(4px)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        zIndex: 9999,
-                        padding: '20px',
-                        boxSizing: 'border-box'
-                    }}
+                    className="modal show d-block"
+                    tabIndex="-1"
+                    style={{ background: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', zIndex: 1050 }}
                 >
-                    <div
-                        onClick={(e) => e.stopPropagation()}
-                        style={{
-                            background: '#ffffff',
-                            borderRadius: '18px',
-                            boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
-                            width: '100%',
-                            maxWidth: '780px',
-                            maxHeight: '85vh',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            overflow: 'hidden'
-                        }}
-                    >
-                        {/* Modal Header */}
-                        <div style={{
-                            padding: '18px 24px',
-                            borderBottom: '1px solid #e2e8f0',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            background: '#f8fafc'
-                        }}>
-                            <div>
-                                <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <Users size={20} color="#7c3aed" /> Customers Waiting Breakdown ({customerSummary.length} Clients)
-                                </h3>
-                                <p style={{ margin: '3px 0 0 0', fontSize: '12.5px', color: '#64748b' }}>
-                                    Distinct clients with pending Pickup Requests (PRs) awaiting container dispatch
-                                </p>
+                    <div className="modal-dialog modal-dialog-centered modal-lg">
+                        <div className="modal-content rounded-4 border-0 shadow-lg">
+                            <div className="modal-header border-bottom p-4">
+                                <h5 className="modal-title fw-bold text-dark d-flex align-items-center gap-2">
+                                    <Users size={20} className="text-primary" />
+                                    Customers Waiting for Dispatch ({customerSummary.length})
+                                </h5>
+                                <button
+                                    type="button"
+                                    className="btn-close"
+                                    onClick={() => setShowCustomerModal(false)}
+                                />
                             </div>
-                            <button
-                                onClick={() => setShowCustomerModal(false)}
-                                style={{
-                                    border: 'none',
-                                    background: '#f1f5f9',
-                                    color: '#64748b',
-                                    width: '32px',
-                                    height: '32px',
-                                    borderRadius: '8px',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    fontSize: '16px',
-                                    fontWeight: 700
-                                }}
-                            >
-                                ✕
-                            </button>
-                        </div>
-
-                        {/* Modal Body Table */}
-                        <div style={{ padding: '16px 24px', overflowY: 'auto', flex: 1 }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
-                                <thead>
-                                    <tr style={{ borderBottom: '2px solid #e2e8f0', color: '#64748b', fontSize: '11.5px', textTransform: 'uppercase' }}>
-                                        <th style={{ padding: '10px 8px' }}>#</th>
-                                        <th style={{ padding: '10px 8px' }}>Customer / Party</th>
-                                        <th style={{ padding: '10px 8px', textAlign: 'center' }}>Pending PRs</th>
-                                        <th style={{ padding: '10px 8px', textAlign: 'center' }}>Pending Cont.</th>
-                                        <th style={{ padding: '10px 8px' }}>Branches</th>
-                                        <th style={{ padding: '10px 8px' }}>DO Status</th>
-                                        <th style={{ padding: '10px 8px', textAlign: 'right' }}>Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {customerSummary.map((cust, idx) => (
-                                        <tr
-                                            key={cust.customerName}
-                                            style={{
-                                                borderBottom: '1px solid #f1f5f9',
-                                                background: selectedCustomer === cust.customerName ? '#f5f3ff' : 'transparent'
-                                            }}
-                                        >
-                                            <td style={{ padding: '12px 8px', color: '#94a3b8', fontWeight: 600 }}>{idx + 1}</td>
-                                            <td style={{ padding: '12px 8px', fontWeight: 700, color: '#0f172a' }}>
-                                                {cust.customerName}
-                                            </td>
-                                            <td style={{ padding: '12px 8px', textAlign: 'center', fontWeight: 700, color: '#4f46e5' }}>
-                                                {cust.prCount}
-                                            </td>
-                                            <td style={{ padding: '12px 8px', textAlign: 'center' }}>
-                                                <span style={{ background: '#fee2e2', color: '#b91c1c', padding: '3px 8px', borderRadius: '6px', fontWeight: 800, fontSize: '12px' }}>
-                                                    {cust.pendingContainers}
-                                                </span>
-                                            </td>
-                                            <td style={{ padding: '12px 8px', color: '#64748b', fontSize: '12px' }}>
-                                                {Array.from(cust.branches).join(', ') || '—'}
-                                            </td>
-                                            <td style={{ padding: '12px 8px' }}>
-                                                {getDoValidityBadge(cust.earliestDo)}
-                                            </td>
-                                            <td style={{ padding: '12px 8px', textAlign: 'right' }}>
-                                                <button
-                                                    onClick={() => {
-                                                        setActiveSection('pending');
-                                                        setSelectedCustomer(cust.customerName);
-                                                        setShowCustomerModal(false);
-                                                        setCurrentPage(1);
-                                                    }}
-                                                    style={{
-                                                        border: 'none',
-                                                        background: '#4f46e5',
-                                                        color: '#ffffff',
-                                                        padding: '5px 12px',
-                                                        borderRadius: '6px',
-                                                        fontSize: '12px',
-                                                        fontWeight: 700,
-                                                        cursor: 'pointer'
-                                                    }}
-                                                >
-                                                    Filter Queue
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {/* Modal Footer */}
-                        <div style={{
-                            padding: '12px 24px',
-                            borderTop: '1px solid #e2e8f0',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            background: '#f8fafc'
-                        }}>
-                            <span style={{ fontSize: '12.5px', color: '#64748b' }}>
-                                Total: <strong>{customerSummary.length} Customers</strong> waiting for <strong>{overallStats.totalPendingContainers} containers</strong>
-                            </span>
-                            <button
-                                onClick={() => {
-                                    setSelectedCustomer('ALL');
-                                    setShowCustomerModal(false);
-                                }}
-                                style={{
-                                    border: '1px solid #cbd5e1',
-                                    background: '#ffffff',
-                                    color: '#334155',
-                                    padding: '6px 14px',
-                                    borderRadius: '8px',
-                                    fontSize: '12.5px',
-                                    fontWeight: 700,
-                                    cursor: 'pointer'
-                                }}
-                            >
-                                Close
-                            </button>
+                            <div className="modal-body p-4" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                                <div className="table-responsive">
+                                    <table className="table table-modern align-middle mb-0">
+                                        <thead>
+                                            <tr>
+                                                <th>Customer Name</th>
+                                                <th className="text-center">Pending PRs</th>
+                                                <th className="text-center">Pending Cont.</th>
+                                                <th className="text-center">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {customerSummary.map((c, i) => (
+                                                <tr key={i}>
+                                                    <td className="fw-bold text-dark">{c.customerName}</td>
+                                                    <td className="text-center font-monospace">{c.prCount}</td>
+                                                    <td className="text-center fw-bold text-danger font-monospace">{c.pendingContainers}</td>
+                                                    <td className="text-center">
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedCustomer(c.customerName);
+                                                                setActiveTab('pending');
+                                                                setShowCustomerModal(false);
+                                                                setCurrentPage(1);
+                                                            }}
+                                                            className="btn btn-outline-primary btn-sm rounded-pill px-3 py-1 fw-bold"
+                                                        >
+                                                            Filter Queue →
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div className="modal-footer border-top p-3">
+                                <button
+                                    type="button"
+                                    className="btn btn-light border btn-sm px-4 rounded-3 text-secondary"
+                                    onClick={() => setShowCustomerModal(false)}
+                                >
+                                    Close
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -372,7 +372,7 @@ const computeElapsedDays = (filterType, selectedYear, selectedMonth, selectedQua
 
 // ─── Main Component ─────────────────────────────────────────────────────────────
 
-const ImportOutOfChargeSummaryReport = ({
+const ExportLeoSummaryReport = ({
     branchId = '',
     selectedBranch = 'all',
     category = 'all',
@@ -414,12 +414,12 @@ const ImportOutOfChargeSummaryReport = ({
 
     // Fetch report data
     useEffect(() => {
-        const fetchOocData = async () => {
+        const fetchLeoData = async () => {
             setLoading(true);
             setError(null);
             try {
                 const apiBase = (process.env.REACT_APP_API_STRING || 'http://localhost:9006/api').replace(/\/$/, '');
-                const endpoint = `${apiBase}/project-nucleus/out-of-charge-summaries`;
+                const endpoint = `${apiBase}/project-nucleus/export-leo-summaries`;
 
                 const effectiveBranch = (localBranch && localBranch !== 'all' && localBranch !== 'ALL') ? localBranch : '';
                 const effectiveCategory = category !== 'all' ? category : selectedCategory;
@@ -445,17 +445,17 @@ const ImportOutOfChargeSummaryReport = ({
                 if (res.data?.success) {
                     setReportData(res.data);
                 } else {
-                    setError(res.data?.message || 'Failed to load Out of Charge report data.');
+                    setError(res.data?.message || 'Failed to load Export LEO report data.');
                 }
             } catch (err) {
-                console.error('Error fetching Out of Charge summaries:', err);
+                console.error('Error fetching Export LEO summaries:', err);
                 setError(err.response?.data?.message || err.message || 'Error connecting to server.');
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchOocData();
+        fetchLeoData();
     }, [localBranch, category, selectedCategory, filterType, selectedYear, selectedMonth, selectedQuarter, selectedFinancialYear, selectedDay, dateRange, retryCount]);
 
     // ─── Calculations ───────────────────────────────────────────────────────────
@@ -472,30 +472,30 @@ const ImportOutOfChargeSummaryReport = ({
         );
     }, [filterType, selectedYear, selectedMonth, selectedQuarter, dateRange, selectedDay, reportData]);
 
-    const totalOoc = reportData?.totalOoc || 0;
+    const totalLeo = reportData?.totalLeo || reportData?.totalOoc || 0;
     const totalTeus = reportData?.totalTeus || 0;
     const stats = reportData?.stats || {};
     const prevStats = reportData?.prevStats || {};
 
     const avgDaily = useMemo(() => {
         if (!elapsedDays || elapsedDays <= 0) return 0;
-        return Math.round((totalOoc / elapsedDays) * 10) / 10;
-    }, [totalOoc, elapsedDays]);
+        return Math.round((totalLeo / elapsedDays) * 10) / 10;
+    }, [totalLeo, elapsedDays]);
 
-    const prevTotal = prevStats.totalOoc || 0;
+    const prevTotal = prevStats.totalLeo || prevStats.totalOoc || 0;
     const totalGrowthPct = useMemo(() => {
-        if (!prevTotal) return totalOoc > 0 ? '+100%' : '0%';
-        const diff = totalOoc - prevTotal;
+        if (!prevTotal) return totalLeo > 0 ? '+100%' : '0%';
+        const diff = totalLeo - prevTotal;
         const pct = Math.round((diff / prevTotal) * 100);
         return `${pct >= 0 ? '+' : ''}${pct}%`;
-    }, [totalOoc, prevTotal]);
+    }, [totalLeo, prevTotal]);
 
     const projectedTotal = useMemo(() => {
-        if (filterType === 'day' || filterType === 'week') return totalOoc;
+        if (filterType === 'day' || filterType === 'week') return totalLeo;
         if (!elapsedDays || elapsedDays <= 0) return 0;
-        const rate = totalOoc / elapsedDays;
+        const rate = totalLeo / elapsedDays;
         return Math.round(rate * totalDays);
-    }, [filterType, totalOoc, elapsedDays, totalDays]);
+    }, [filterType, totalLeo, elapsedDays, totalDays]);
 
     // Branch table data with projections
     const branchTableData = useMemo(() => {
@@ -594,19 +594,19 @@ const ImportOutOfChargeSummaryReport = ({
     const filteredExceptions = useMemo(() => {
         const list = reportData?.exceptionsList || [];
         return list.filter(item => {
-            if (exceptionFilter === 'detention' && !item.isDetentionRisk) return false;
-            if (exceptionFilter === 'doExpired' && !item.isDoExpired) return false;
+            if (exceptionFilter === 'handover' && !item.isHandoverPending) return false;
+            if (exceptionFilter === 'railOut' && !item.isRailOutPending) return false;
             if (exceptionFilter === 'billing' && !item.isBillingPending) return false;
-            if (exceptionFilter === 'delivery' && !item.isDeliveryPending) return false;
+            if (exceptionFilter === 'drawback' && !item.isDrawbackPending) return false;
             if (exceptionFilter === 'fines' && !item.hasFineOrPenalty) return false;
 
             if (exceptionSearch) {
                 const q = exceptionSearch.toLowerCase();
                 const matchJob = item.job_no?.toLowerCase().includes(q);
-                const matchBe = item.be_no?.toLowerCase().includes(q);
-                const matchImp = item.importer?.toLowerCase().includes(q);
+                const matchSb = item.sb_no?.toLowerCase().includes(q);
+                const matchExp = item.exporter?.toLowerCase().includes(q);
                 const matchBr = item.branch_code?.toLowerCase().includes(q);
-                if (!matchJob && !matchBe && !matchImp && !matchBr) return false;
+                if (!matchJob && !matchSb && !matchExp && !matchBr) return false;
             }
             return true;
         });
@@ -621,7 +621,7 @@ const ImportOutOfChargeSummaryReport = ({
         setExportingExcel(true);
         try {
             await exportNucleusReportToExcel({
-                reportType: 'import_out_of_charge_summary',
+                reportType: 'export_leo_summary',
                 reportData,
                 filterMeta: {
                     filterType,
@@ -654,8 +654,8 @@ const ImportOutOfChargeSummaryReport = ({
                 <div className="spinner-border text-primary mb-3" style={{ width: '3rem', height: '3rem' }} role="status">
                     <span className="visually-hidden">Loading...</span>
                 </div>
-                <h5 className="text-secondary fw-semibold">Loading Import Out of Charge (OOC) Report...</h5>
-                <p className="text-muted small">Aggregating live customs clearance milestones and operational metrics</p>
+                <h5 className="text-secondary fw-semibold">Loading Export Let Export Order (LEO) Report...</h5>
+                <p className="text-muted small">Aggregating live export clearance milestones and operational metrics</p>
             </div>
         );
     }
@@ -691,13 +691,13 @@ const ImportOutOfChargeSummaryReport = ({
             <div className="report-header-card p-3 p-md-4 mb-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
                 <div>
                     <div className="d-flex align-items-center gap-2 mb-1">
-                        <span className="fs-4">🚢</span>
+                        <span className="fs-4">🛫</span>
                         <h4 className="fw-bold text-dark mb-0" style={{ letterSpacing: '-0.3px' }}>
-                            Out of Charge (OOC) Summary Report
+                            Let Export Order (LEO) Summary Report
                         </h4>
                     </div>
                     <div className="d-flex align-items-center gap-2 flex-wrap text-muted small mt-1">
-                        <span>Customs Out of Charge metrics for <strong className="text-primary">{selectedFinancialYear ? `FY ${selectedFinancialYear}` : `${selectedMonth}/${selectedYear}`}</strong></span>
+                        <span>Export LEO clearance metrics for <strong className="text-primary">{selectedFinancialYear ? `FY ${selectedFinancialYear}` : `${selectedMonth}/${selectedYear}`}</strong></span>
                         <span>•</span>
                         <div className="d-inline-flex align-items-center gap-1">
                             <span className="fw-semibold text-dark">Branch:</span>
@@ -784,13 +784,13 @@ const ImportOutOfChargeSummaryReport = ({
                 <div>
                     {/* Row 1: Core 4 Hero KPI Cards */}
                     <div className="row g-3 mb-4">
-                        {/* KPI 1: Total OOC Cleared (Royal Blue Hero Card) */}
+                        {/* KPI 1: Total LEO (Royal Blue Hero Card) */}
                         <div className="col-12 col-sm-6 col-xl-3">
                             <div className="stat-hero-card p-3 p-md-4 h-100 d-flex flex-column justify-content-between">
                                 <div>
                                     <div className="d-flex justify-content-between align-items-start mb-2">
                                         <span className="text-uppercase fw-bold" style={{ fontSize: '11px', letterSpacing: '0.8px', opacity: 0.9 }}>
-                                            Total OOC Cleared
+                                            Total LEO Cleared
                                         </span>
                                         <span
                                             className="badge px-2 py-1 rounded-pill"
@@ -806,9 +806,9 @@ const ImportOutOfChargeSummaryReport = ({
                                             {totalGrowthPct.startsWith('+') ? '▲ ' : totalGrowthPct.startsWith('-') ? '▼ ' : ''}{totalGrowthPct} vs Prev
                                         </span>
                                     </div>
-                                    <div className="stat-number-hero mb-2">{totalOoc.toLocaleString()}</div>
+                                    <div className="stat-number-hero mb-2">{totalLeo.toLocaleString()}</div>
                                 </div>
-                                <div className="d-flex align-items-center gap-2 pt-2 border-top border-white border-opacity-10 small" style={{ opacity: 0.85 }}>
+                                <div className="d-flex align-items-center gap-2 pt-2 border-top border-white border-opacity-10 small" style={{ opacity: 0.9 }}>
                                     <span>⏱️ {elapsedDays} days elapsed</span>
                                     <span>•</span>
                                     <span>Prev: {prevTotal.toLocaleString()}</span>
@@ -886,12 +886,12 @@ const ImportOutOfChargeSummaryReport = ({
                                     <div className="progress rounded-pill" style={{ height: '8px', background: '#e2e8f0' }}>
                                         <div
                                             className="progress-bar bg-primary"
-                                            style={{ width: `${totalOoc > 0 ? ((stats.seaJobs || 0) / totalOoc) * 100 : 50}%` }}
+                                            style={{ width: `${totalLeo > 0 ? ((stats.seaJobs || 0) / totalLeo) * 100 : 50}%` }}
                                             title={`Sea: ${stats.seaJobs || 0}`}
                                         />
                                         <div
                                             className="progress-bar bg-info"
-                                            style={{ width: `${totalOoc > 0 ? ((stats.airJobs || 0) / totalOoc) * 100 : 50}%` }}
+                                            style={{ width: `${totalLeo > 0 ? ((stats.airJobs || 0) / totalLeo) * 100 : 50}%` }}
                                             title={`Air: ${stats.airJobs || 0}`}
                                         />
                                     </div>
@@ -902,18 +902,18 @@ const ImportOutOfChargeSummaryReport = ({
 
                     {/* Row 2: Projections & Period Benchmark Cards */}
                     <div className="row g-3 mb-4">
-                        {/* Projected Monthly OOC */}
+                        {/* Projected Monthly LEO */}
                         <div className="col-12 col-md-4">
                             <div className="stat-white-card p-3 p-md-4 h-100">
                                 <div className="d-flex justify-content-between align-items-center mb-2">
-                                    <span className="card-title-sub">Projected Monthly OOC</span>
+                                    <span className="card-title-sub">Projected Monthly LEO</span>
                                     <span className={`badge px-2 py-1 rounded-pill ${projectedTotal >= prevTotal ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning-emphasis'}`}>
                                         {projectedTotal >= prevTotal ? 'Ahead of Target' : 'Behind Pace'}
                                     </span>
                                 </div>
                                 <h3 className="fw-bold text-dark mb-1 font-monospace">{projectedTotal.toLocaleString()}</h3>
                                 <p className="text-muted small mb-0">
-                                    Calculated at current run-rate of <strong>{avgDaily} OOC/day</strong> across full period ({totalDays} days).
+                                    Calculated at current run-rate of <strong>{avgDaily} LEO/day</strong> across full period ({totalDays} days).
                                 </p>
                             </div>
                         </div>
@@ -927,7 +927,7 @@ const ImportOutOfChargeSummaryReport = ({
                                 </div>
                                 <h3 className="fw-bold text-primary mb-1 font-monospace">{topBranch?.projection?.toLocaleString() || 0}</h3>
                                 <p className="text-muted small mb-0">
-                                    {topBranch?.name} has cleared <strong>{topBranch?.total || 0}</strong> OOC ({topBranch?.avgDaily || 0}/day) with projected volume of <strong>{topBranch?.projection || 0}</strong>.
+                                    {topBranch?.name} has cleared <strong>{topBranch?.total || 0}</strong> LEO ({topBranch?.avgDaily || 0}/day) with projected volume of <strong>{topBranch?.projection || 0}</strong>.
                                 </p>
                             </div>
                         </div>
@@ -941,8 +941,8 @@ const ImportOutOfChargeSummaryReport = ({
                                 </div>
                                 <h3 className="fw-bold text-secondary mb-1 font-monospace">{prevTotal.toLocaleString()}</h3>
                                 <p className="text-muted small mb-0">
-                                    Net Difference: <strong className={totalOoc >= prevTotal ? 'text-success' : 'text-danger'}>
-                                        {totalOoc >= prevTotal ? `+${(totalOoc - prevTotal).toLocaleString()}` : `-${(prevTotal - totalOoc).toLocaleString()}`}
+                                    Net Difference: <strong className={totalLeo >= prevTotal ? 'text-success' : 'text-danger'}>
+                                        {totalLeo >= prevTotal ? `+${(totalLeo - prevTotal).toLocaleString()}` : `-${(prevTotal - totalLeo).toLocaleString()}`}
                                     </strong> ({totalGrowthPct} growth).
                                 </p>
                             </div>
@@ -954,7 +954,7 @@ const ImportOutOfChargeSummaryReport = ({
                         <div className="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-3">
                             <div className="d-flex align-items-center gap-2">
                                 <span className="fs-5">⚠️</span>
-                                <h6 className="fw-bold mb-0 text-dark">Operational Exceptions & Clearance Bottlenecks</h6>
+                                <h6 className="fw-bold mb-0 text-dark">Export Operational Exceptions & Logistics Bottlenecks</h6>
                             </div>
                             <button
                                 onClick={() => setActiveTab('exceptions')}
@@ -971,16 +971,16 @@ const ImportOutOfChargeSummaryReport = ({
                                     <div className="text-muted small fw-semibold">Total Flagged</div>
                                 </div>
                             </div>
-                            <div className="col-6 col-md" onClick={() => { setActiveTab('exceptions'); setExceptionFilter('detention'); }}>
+                            <div className="col-6 col-md" onClick={() => { setActiveTab('exceptions'); setExceptionFilter('handover'); }}>
                                 <div className="exception-chip bg-danger-subtle border border-danger-subtle">
-                                    <div className="fw-bold fs-5 text-danger font-monospace">{reportData?.exceptionsSummary?.detentionRisk || 0}</div>
-                                    <div className="text-danger small fw-semibold">Detention Risk</div>
+                                    <div className="fw-bold fs-5 text-danger font-monospace">{reportData?.exceptionsSummary?.handoverPending || 0}</div>
+                                    <div className="text-danger small fw-semibold">Handover Pending</div>
                                 </div>
                             </div>
-                            <div className="col-6 col-md" onClick={() => { setActiveTab('exceptions'); setExceptionFilter('doExpired'); }}>
+                            <div className="col-6 col-md" onClick={() => { setActiveTab('exceptions'); setExceptionFilter('railOut'); }}>
                                 <div className="exception-chip bg-warning-subtle border border-warning-subtle">
-                                    <div className="fw-bold fs-5 text-warning-emphasis font-monospace">{reportData?.exceptionsSummary?.doExpired || 0}</div>
-                                    <div className="text-warning-emphasis small fw-semibold">DO Expired</div>
+                                    <div className="fw-bold fs-5 text-warning-emphasis font-monospace">{reportData?.exceptionsSummary?.railOutPending || 0}</div>
+                                    <div className="text-warning-emphasis small fw-semibold">Rail Out Pending</div>
                                 </div>
                             </div>
                             <div className="col-6 col-md" onClick={() => { setActiveTab('exceptions'); setExceptionFilter('billing'); }}>
@@ -989,10 +989,10 @@ const ImportOutOfChargeSummaryReport = ({
                                     <div className="text-info-emphasis small fw-semibold">Billing Pending</div>
                                 </div>
                             </div>
-                            <div className="col-6 col-md" onClick={() => { setActiveTab('exceptions'); setExceptionFilter('delivery'); }}>
+                            <div className="col-6 col-md" onClick={() => { setActiveTab('exceptions'); setExceptionFilter('drawback'); }}>
                                 <div className="exception-chip bg-secondary-subtle border">
-                                    <div className="fw-bold fs-5 text-secondary font-monospace">{reportData?.exceptionsSummary?.deliveryPending || 0}</div>
-                                    <div className="text-secondary small fw-semibold">Delivery Pending</div>
+                                    <div className="fw-bold fs-5 text-secondary font-monospace">{reportData?.exceptionsSummary?.drawbackPending || 0}</div>
+                                    <div className="text-secondary small fw-semibold">Drawback Pending</div>
                                 </div>
                             </div>
                             <div className="col-6 col-md" onClick={() => { setActiveTab('exceptions'); setExceptionFilter('fines'); }}>
@@ -1024,7 +1024,7 @@ const ImportOutOfChargeSummaryReport = ({
                                                 <th className="text-center">TEUs</th>
                                                 <th className="text-center">Daily Avg</th>
                                                 <th className="text-center">Projected</th>
-                                                <th className="text-center fw-bold text-dark">Total OOC</th>
+                                                <th className="text-center fw-bold text-dark">Total LEO</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -1052,7 +1052,7 @@ const ImportOutOfChargeSummaryReport = ({
                                                 <td className="text-center text-primary font-monospace">{totalTeus.toLocaleString()}</td>
                                                 <td className="text-center font-monospace">{avgDaily}</td>
                                                 <td className="text-center text-success font-monospace">{projectedTotal.toLocaleString()}</td>
-                                                <td className="text-center text-dark font-monospace">{totalOoc.toLocaleString()}</td>
+                                                <td className="text-center text-dark font-monospace">{totalLeo.toLocaleString()}</td>
                                             </tr>
                                         </tfoot>
                                     </table>
@@ -1090,8 +1090,8 @@ const ImportOutOfChargeSummaryReport = ({
                                                 return null;
                                             }} />
                                             <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-                                            <Bar yAxisId="left" dataKey="total" name="Total OOC" fill="#3b82f6" radius={[6, 6, 0, 0]} />
-                                            <Line yAxisId="right" type="monotone" dataKey="projection" name="Projected OOC" stroke="#10b981" strokeWidth={3} dot={{ r: 5, fill: '#10b981' }} />
+                                            <Bar yAxisId="left" dataKey="total" name="Total LEO" fill="#3b82f6" radius={[6, 6, 0, 0]} />
+                                            <Line yAxisId="right" type="monotone" dataKey="projection" name="Projected LEO" stroke="#10b981" strokeWidth={3} dot={{ r: 5, fill: '#10b981' }} />
                                         </ComposedChart>
                                     </ResponsiveContainer>
                                 </div>
@@ -1099,10 +1099,10 @@ const ImportOutOfChargeSummaryReport = ({
                         </div>
                     </div>
 
-                    {/* Row 5: Importer Clearance Dynamics (Ups & Downs) */}
+                    {/* Row 5: Exporter Clearance Dynamics (Ups & Downs) */}
                     <div className="stat-white-card p-3 p-md-4 mb-4">
                         <div className="d-flex justify-content-between align-items-center mb-3">
-                            <h6 className="fw-bold mb-0 text-dark">🚀 Importer Clearance Dynamics (Volume Movers)</h6>
+                            <h6 className="fw-bold mb-0 text-dark">🚀 Exporter Clearance Dynamics (Volume Movers)</h6>
                         </div>
 
                         {/* Gainers & Fallers Cards */}
@@ -1158,17 +1158,17 @@ const ImportOutOfChargeSummaryReport = ({
                             </div>
                         </div>
 
-                        {/* Interactive Importers Table */}
+                        {/* Interactive Exporters Table */}
                         <div className="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-3">
                             <input
                                 type="text"
                                 className="form-control form-control-sm rounded-pill px-3"
-                                placeholder="🔍 Search Importers..."
+                                placeholder="🔍 Search Exporters..."
                                 value={customerSearch}
                                 onChange={e => setCustomerSearch(e.target.value)}
                                 style={{ maxWidth: '320px' }}
                             />
-                            <span className="text-muted small">Showing <strong>{filteredCustomers.length}</strong> importers</span>
+                            <span className="text-muted small">Showing <strong>{filteredCustomers.length}</strong> exporters</span>
                         </div>
 
                         <div className="table-responsive" style={{ maxHeight: '380px' }}>
@@ -1176,13 +1176,13 @@ const ImportOutOfChargeSummaryReport = ({
                                 <thead className="sticky-top">
                                     <tr>
                                         <th onClick={() => { setCustomerSortField('customer'); setCustomerSortDir(customerSortDir === 'asc' ? 'desc' : 'asc'); }} style={{ cursor: 'pointer' }}>
-                                            Importer Name {customerSortField === 'customer' && (customerSortDir === 'asc' ? '↑' : '↓')}
+                                            Exporter Name {customerSortField === 'customer' && (customerSortDir === 'asc' ? '↑' : '↓')}
                                         </th>
                                         <th className="text-center" onClick={() => { setCustomerSortField('current'); setCustomerSortDir(customerSortDir === 'asc' ? 'desc' : 'asc'); }} style={{ cursor: 'pointer' }}>
-                                            Current OOC {customerSortField === 'current' && (customerSortDir === 'asc' ? '↑' : '↓')}
+                                            Current LEO {customerSortField === 'current' && (customerSortDir === 'asc' ? '↑' : '↓')}
                                         </th>
                                         <th className="text-center" onClick={() => { setCustomerSortField('prev'); setCustomerSortDir(customerSortDir === 'asc' ? 'desc' : 'asc'); }} style={{ cursor: 'pointer' }}>
-                                            Previous OOC {customerSortField === 'prev' && (customerSortDir === 'asc' ? '↑' : '↓')}
+                                            Previous LEO {customerSortField === 'prev' && (customerSortDir === 'asc' ? '↑' : '↓')}
                                         </th>
                                         <th className="text-center" onClick={() => { setCustomerSortField('diff'); setCustomerSortDir(customerSortDir === 'asc' ? 'desc' : 'asc'); }} style={{ cursor: 'pointer' }}>
                                             Delta {customerSortField === 'diff' && (customerSortDir === 'asc' ? '↑' : '↓')}
@@ -1220,7 +1220,7 @@ const ImportOutOfChargeSummaryReport = ({
                                     ))}
                                     {filteredCustomers.length === 0 && (
                                         <tr>
-                                            <td colSpan={9} className="text-center text-muted py-4">No importers found matching search.</td>
+                                            <td colSpan={9} className="text-center text-muted py-4">No exporters found matching search.</td>
                                         </tr>
                                     )}
                                 </tbody>
@@ -1241,14 +1241,14 @@ const ImportOutOfChargeSummaryReport = ({
                         <div className="col-12 col-xl-8">
                             <div className="stat-white-card p-3 p-md-4 h-100">
                                 <div className="d-flex justify-content-between align-items-center mb-3">
-                                    <h6 className="fw-bold mb-0 text-dark">📈 Daily OOC Trend & 7-Day Moving Average</h6>
+                                    <h6 className="fw-bold mb-0 text-dark">📈 Daily LEO Trend & 7-Day Moving Average</h6>
                                     <span className="badge bg-light text-dark border">Daily Clearance Rate</span>
                                 </div>
                                 <div style={{ height: '320px', width: '100%' }}>
                                     <ResponsiveContainer width="100%" height="100%">
                                         <ComposedChart data={dailyTrendData} margin={{ top: 10, right: 10, bottom: 20, left: 0 }}>
                                             <defs>
-                                                <linearGradient id="oocGradient" x1="0" y1="0" x2="0" y2="1">
+                                                <linearGradient id="leoGradient" x1="0" y1="0" x2="0" y2="1">
                                                     <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
                                                     <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0} />
                                                 </linearGradient>
@@ -1272,7 +1272,7 @@ const ImportOutOfChargeSummaryReport = ({
                                                 return null;
                                             }} />
                                             <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-                                            <Area type="monotone" dataKey="totalOoc" name="Daily OOC" stroke="#3b82f6" strokeWidth={2.5} fill="url(#oocGradient)" />
+                                            <Area type="monotone" dataKey="totalOoc" name="Daily LEO" stroke="#3b82f6" strokeWidth={2.5} fill="url(#leoGradient)" />
                                             <Line type="monotone" dataKey="movingAvg" name="7-Day Moving Avg" stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 4" dot={false} />
                                             <ReferenceLine y={avgDaily} stroke="#10b981" strokeDasharray="3 3" label={{ value: `Avg: ${avgDaily}`, fill: '#10b981', fontSize: 11 }} />
                                         </ComposedChart>
@@ -1304,7 +1304,7 @@ const ImportOutOfChargeSummaryReport = ({
                                             <Tooltip content={({ active, payload }) => {
                                                 if (active && payload && payload.length) {
                                                     const d = payload[0];
-                                                    const pct = totalOoc > 0 ? ((d.value / totalOoc) * 100).toFixed(1) : 0;
+                                                    const pct = totalLeo > 0 ? ((d.value / totalLeo) * 100).toFixed(1) : 0;
                                                     return (
                                                         <div className="recharts-custom-tooltip">
                                                             <div className="fw-bold">{d.name}</div>
@@ -1334,10 +1334,10 @@ const ImportOutOfChargeSummaryReport = ({
                                         }}
                                     >
                                         <span style={{ fontSize: '24px', fontWeight: 800, color: '#0f172a', lineHeight: 1.1 }}>
-                                            {(totalOoc || 0).toLocaleString()}
+                                            {(totalLeo || 0).toLocaleString()}
                                         </span>
                                         <span style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px', marginTop: '2px' }}>
-                                            Total OOC
+                                            Total LEO
                                         </span>
                                     </div>
                                 </div>
@@ -1345,14 +1345,14 @@ const ImportOutOfChargeSummaryReport = ({
                         </div>
                     </div>
 
-                    {/* Row 2: Importer Monthly Matrix (Apr to Mar) */}
+                    {/* Row 2: Exporter Monthly Matrix (Apr to Mar) */}
                     <div className="stat-white-card p-3 p-md-4">
-                        <h6 className="fw-bold mb-3 text-dark">📊 Importer Monthly Trends (Apr – Mar)</h6>
+                        <h6 className="fw-bold mb-3 text-dark">📊 Exporter Monthly Trends (Apr – Mar)</h6>
                         <div className="table-responsive" style={{ maxHeight: '420px' }}>
                             <table className="table table-modern align-middle mb-0">
                                 <thead className="sticky-top">
                                     <tr>
-                                        <th>Importer Name</th>
+                                        <th>Exporter Name</th>
                                         {MONTH_NAMES.map(m => (
                                             <th key={m.key} className="text-center" style={{ minWidth: '48px' }}>{m.name}</th>
                                         ))}
@@ -1396,8 +1396,8 @@ const ImportOutOfChargeSummaryReport = ({
                 <div className="stat-white-card p-3 p-md-4">
                     <div className="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-2 mb-3">
                         <div>
-                            <h6 className="fw-bold mb-0 text-dark">⚠️ Import Operational Exceptions Queue</h6>
-                            <span className="text-muted small">Cleared OOC import jobs requiring operational follow-up & billing clearance</span>
+                            <h6 className="fw-bold mb-0 text-dark">⚠️ Export Operational Exceptions Queue</h6>
+                            <span className="text-muted small">Cleared LEO export jobs requiring immediate operational follow-up</span>
                         </div>
                         <span className="badge bg-danger fs-6 rounded-pill px-3 py-2">{filteredExceptions.length} Flagged Jobs</span>
                     </div>
@@ -1406,10 +1406,10 @@ const ImportOutOfChargeSummaryReport = ({
                     <div className="d-flex flex-wrap gap-2 mb-3">
                         {[
                             { id: 'all', label: `All Exceptions (${reportData?.exceptionsSummary?.total || 0})` },
-                            { id: 'detention', label: `Detention Risk (${reportData?.exceptionsSummary?.detentionRisk || 0})` },
-                            { id: 'doExpired', label: `DO Expired (${reportData?.exceptionsSummary?.doExpired || 0})` },
+                            { id: 'handover', label: `Handover Pending (${reportData?.exceptionsSummary?.handoverPending || 0})` },
+                            { id: 'railOut', label: `Rail Out Pending (${reportData?.exceptionsSummary?.railOutPending || 0})` },
                             { id: 'billing', label: `Billing Pending (${reportData?.exceptionsSummary?.billingPending || 0})` },
-                            { id: 'delivery', label: `Delivery Pending (${reportData?.exceptionsSummary?.deliveryPending || 0})` },
+                            { id: 'drawback', label: `Drawback Pending (${reportData?.exceptionsSummary?.drawbackPending || 0})` },
                             { id: 'fines', label: `Fines / Penalties (${reportData?.exceptionsSummary?.finesOrPenalties || 0})` }
                         ].map(pill => (
                             <button
@@ -1432,7 +1432,7 @@ const ImportOutOfChargeSummaryReport = ({
                         <input
                             type="text"
                             className="form-control form-control-sm rounded-pill px-3"
-                            placeholder="🔍 Filter by Job No, BE No, Importer, or Branch..."
+                            placeholder="🔍 Filter by Job No, SB No, Exporter, or Branch..."
                             value={exceptionSearch}
                             onChange={e => setExceptionSearch(e.target.value)}
                             style={{ maxWidth: '360px' }}
@@ -1443,49 +1443,49 @@ const ImportOutOfChargeSummaryReport = ({
                     <div className="table-responsive">
                         <table className="table table-modern align-middle mb-0">
                             <thead>
-                                <tr>
-                                    <th>Job No</th>
-                                    <th>BE No & Date</th>
-                                    <th>OOC Date</th>
-                                    <th>Importer</th>
-                                    <th>Branch</th>
-                                    <th>Mode & Type</th>
-                                    <th>Detailed Status</th>
-                                    <th>Identified Issues</th>
-                                </tr>
+                                 <tr>
+                                     <th>Job No</th>
+                                     <th>SB No & Date</th>
+                                     <th>LEO Date</th>
+                                     <th>Exporter</th>
+                                     <th>Branch</th>
+                                     <th>Mode & Type</th>
+                                     <th>Detailed Status</th>
+                                     <th>Identified Issues</th>
+                                 </tr>
                             </thead>
                             <tbody>
                                 {filteredExceptions.map(item => (
                                     <tr key={item._id}>
                                         <td className="fw-bold text-primary font-monospace">
                                             <span
-                                                onClick={() => navigate(`/import-billing?search=${encodeURIComponent(item.job_no || item.job_number)}`)}
+                                                onClick={() => navigate(`/export-jobs`)}
                                                 style={{ cursor: 'pointer', textDecoration: 'underline' }}
-                                                title="Click to view job in Import Billing"
+                                                title="Click to view job in Export Jobs"
                                             >
-                                                {item.job_no || item.job_number}
+                                                {item.job_no || item.jobNumber}
                                             </span>
                                         </td>
                                         <td>
-                                            <div className="fw-semibold text-dark font-monospace">{item.be_no || '—'}</div>
-                                            <div className="text-muted small font-monospace">{item.be_date || ''}</div>
+                                            <div className="fw-semibold text-dark font-monospace">{item.sb_no || '—'}</div>
+                                            <div className="text-muted small font-monospace">{item.sb_date || ''}</div>
                                         </td>
-                                        <td className="fw-semibold text-success font-monospace">{item.out_of_charge || '—'}</td>
-                                        <td className="text-truncate text-dark" style={{ maxWidth: '240px' }} title={item.importer}>
-                                            {item.importer}
+                                        <td className="fw-semibold text-success font-monospace">{item.leoDate || '—'}</td>
+                                        <td className="text-truncate text-dark" style={{ maxWidth: '240px' }} title={item.exporter}>
+                                            {item.exporter}
                                         </td>
                                         <td><span className="badge bg-light text-dark border">{item.branch_code}</span></td>
                                         <td>
                                             <span className="badge bg-primary-subtle text-primary me-1">{item.mode}</span>
-                                            <span className="badge bg-secondary-subtle text-secondary">{item.consignment_type}</span>
+                                            <span className="badge bg-secondary-subtle text-secondary">{item.consignmentType}</span>
                                         </td>
-                                        <td><span className="badge bg-info-subtle text-info-emphasis">{item.detailed_status || item.status}</span></td>
+                                        <td><span className="badge bg-info-subtle text-info-emphasis">{item.detailedStatus || item.status}</span></td>
                                         <td>
                                             <div className="d-flex flex-wrap gap-1">
-                                                {item.isDetentionRisk && <span className="badge bg-danger rounded-pill">Detention Risk</span>}
-                                                {item.isDoExpired && <span className="badge bg-warning text-dark rounded-pill">DO Expired</span>}
+                                                {item.isHandoverPending && <span className="badge bg-danger rounded-pill">Handover Pending</span>}
+                                                {item.isRailOutPending && <span className="badge bg-warning text-dark rounded-pill">Rail Out Pending</span>}
                                                 {item.isBillingPending && <span className="badge bg-info text-dark rounded-pill">Billing Pending</span>}
-                                                {item.isDeliveryPending && <span className="badge bg-secondary rounded-pill">Delivery Pending</span>}
+                                                {item.isDrawbackPending && <span className="badge bg-secondary rounded-pill">Drawback Pending</span>}
                                                 {item.hasFineOrPenalty && <span className="badge bg-danger rounded-pill">Fine: ₹{item.fine_amount}</span>}
                                             </div>
                                         </td>
@@ -1509,7 +1509,7 @@ const ImportOutOfChargeSummaryReport = ({
                 <div className="stat-white-card p-3 p-md-4">
                     <ImportDetailedSummaryTab
                         detailedJobs={reportData?.detailedJobs || []}
-                        reportType="import_out_of_charge_summary"
+                        reportType="export_leo_summary"
                     />
                 </div>
             )}
@@ -1517,4 +1517,4 @@ const ImportOutOfChargeSummaryReport = ({
     );
 };
 
-export default ImportOutOfChargeSummaryReport;
+export default ExportLeoSummaryReport;

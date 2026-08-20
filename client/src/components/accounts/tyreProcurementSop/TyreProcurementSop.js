@@ -41,34 +41,51 @@ function TyreProcurementSop() {
 
   const handleEdit = useCallback((pr) => {
     const id = pr?._id || pr;
+    const isSopsRoute = location.pathname.includes("/procurement-insurance-sops");
     if (id) {
-      navigate(`/tyre-procurement/edit/${id}`);
+      navigate(isSopsRoute ? `/procurement-insurance-sops/tyre/edit/${id}` : `/tyre-procurement/edit/${id}`);
     } else {
-      navigate(`/tyre-procurement/create`);
+      setSelectedPr(null);
+      setIsView(false);
+      setView("form");
+      navigate(isSopsRoute ? `/procurement-insurance-sops/tyre/create` : `/tyre-procurement/create`);
     }
-  }, [navigate]);
+  }, [navigate, location.pathname]);
 
   const handleView = useCallback((pr) => {
     const id = pr?._id || pr;
+    const isSopsRoute = location.pathname.includes("/procurement-insurance-sops");
     if (id) {
-      navigate(`/tyre-procurement/view/${id}`);
+      navigate(isSopsRoute ? `/procurement-insurance-sops/tyre/view/${id}` : `/tyre-procurement/view/${id}`);
     }
-  }, [navigate]);
+  }, [navigate, location.pathname]);
 
   const handleCreate = useCallback(() => {
-    navigate("/tyre-procurement/create");
-  }, [navigate]);
+    setSelectedPr(null);
+    setIsView(false);
+    setView("form");
+    if (location.pathname.includes("/procurement-insurance-sops")) {
+      navigate("/procurement-insurance-sops/tyre/create");
+    } else {
+      navigate("/tyre-procurement/create");
+    }
+  }, [navigate, location.pathname]);
 
   const handleCancel = useCallback(() => {
-    navigate("/procurement-insurance-sops");
-  }, [navigate]);
+    if (location.pathname.includes("/procurement-insurance-sops")) {
+      navigate("/procurement-insurance-sops/tyre");
+    } else {
+      navigate("/tyre-procurement");
+    }
+  }, [navigate, location.pathname]);
 
   const handleSaved = useCallback((savedData) => {
     if (savedData && savedData._id) {
       setSelectedPr(savedData);
-      navigate(`/tyre-procurement/edit/${savedData._id}`, { replace: true });
+      const isSopsRoute = location.pathname.includes("/procurement-insurance-sops");
+      navigate(isSopsRoute ? `/procurement-insurance-sops/tyre/edit/${savedData._id}` : `/tyre-procurement/edit/${savedData._id}`, { replace: true });
     }
-  }, [navigate]);
+  }, [navigate, location.pathname]);
 
   return (
     <Box sx={{ p: 1 }}>

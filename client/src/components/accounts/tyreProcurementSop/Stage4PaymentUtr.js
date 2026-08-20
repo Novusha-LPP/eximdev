@@ -1,6 +1,7 @@
 import React from "react";
 import {
   Box,
+  Button,
   Grid,
   TextField,
   Typography,
@@ -200,10 +201,42 @@ function Stage4PaymentUtr({ data, onChange, globalData, onGlobalChange }) {
       ))}
 
       {/* ─── B. Supplier Bank Details & Payment Table ─── */}
-      <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: "bold" }}>
-        B. Supplier Bank & Payment Details
-      </Typography>
-      <TableContainer component={Paper} sx={{ mb: 3 }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+        <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
+          B. Supplier Bank & Payment Details
+        </Typography>
+        <Button
+          variant="contained"
+          color="success"
+          size="small"
+          onClick={() => {
+            const today = new Date().toISOString().split("T")[0];
+            const updated = bankSuppliers.map((sup, idx) => {
+              const existing = supplierPayments[idx] || {};
+              return {
+                supplierName: sup.supplierName || `Supplier ${idx + 1}`,
+                paymentTerms: sup.paymentTerms || "100% ADVANCE",
+                paymentMethod: existing.paymentMethod || "NEFT",
+                utrNumber: existing.utrNumber || `UTR${Date.now().toString().slice(-8)}`,
+                paymentDate: existing.paymentDate || today,
+                isPaid: true,
+              };
+            });
+            onChange({
+              ...data,
+              supplierPayments: updated,
+            });
+            if (onGlobalChange) {
+              onGlobalChange("status", "Payment Done");
+            }
+          }}
+          sx={{ fontWeight: "bold", textTransform: "none" }}
+        >
+          ✓ Mark All as Paid
+        </Button>
+      </Box>
+
+      <TableContainer component={Paper} sx={{ mb: 3, overflowX: "auto" }}>
         <Table size="small">
           <TableHead>
             <TableRow sx={{ backgroundColor: "#f5f5f5" }}>
@@ -215,10 +248,12 @@ function Stage4PaymentUtr({ data, onChange, globalData, onGlobalChange }) {
               <TableCell sx={{ fontWeight: "bold" }}>Branch Code</TableCell>
               <TableCell sx={{ fontWeight: "bold" }}>Payment Terms</TableCell>
               <TableCell sx={{ fontWeight: "bold", width: 130 }}>Payment Amount (₹)</TableCell>
+              <TableCell sx={{ fontWeight: "bold", width: 110, backgroundColor: "#e8f5e9" }} align="center">
+                Payment Done?
+              </TableCell>
               <TableCell sx={{ fontWeight: "bold", width: 140 }}>Payment Method</TableCell>
               <TableCell sx={{ fontWeight: "bold", width: 160 }}>UTR / Ref No.</TableCell>
               <TableCell sx={{ fontWeight: "bold", width: 150 }}>Payment Date</TableCell>
-              <TableCell sx={{ fontWeight: "bold", width: 80 }} align="center">Payment Done?</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -255,6 +290,13 @@ function Stage4PaymentUtr({ data, onChange, globalData, onGlobalChange }) {
                     <TableCell sx={{ fontWeight: "bold", color: "#2e7d32" }}>
                       {supplierOrderVal > 0 ? `₹${Number(supplierOrderVal).toLocaleString("en-IN")}` : "-"}
                     </TableCell>
+                    <TableCell align="center" sx={{ backgroundColor: "#f1f8e9" }}>
+                      <Checkbox
+                        checked={Boolean(sp.isPaid)}
+                        onChange={(e) => handleSupplierPaymentChange(idx, "isPaid", e.target.checked)}
+                        color="success"
+                      />
+                    </TableCell>
                     <TableCell>
                       <TextField
                         select
@@ -287,13 +329,6 @@ function Stage4PaymentUtr({ data, onChange, globalData, onGlobalChange }) {
                         onChange={(e) => handleSupplierPaymentChange(idx, "paymentDate", e.target.value)}
                         fullWidth
                         size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Checkbox
-                        checked={Boolean(sp.isPaid)}
-                        onChange={(e) => handleSupplierPaymentChange(idx, "isPaid", e.target.checked)}
-                        color="success"
                       />
                     </TableCell>
                   </TableRow>

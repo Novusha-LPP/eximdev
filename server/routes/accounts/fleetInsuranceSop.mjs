@@ -207,7 +207,7 @@ router.get("/fleet-insurance-sop", authMiddleware, async (req, res) => {
       },
     ];
 
-    // Apply date filter (matching policyToDate OR newPolicyToDate OR newExpiryDate falling in selected period)
+    // Apply date filter (matching policyToDate, newPolicyToDate, newExpiryDate, renewalDate, paymentDate, or renewedDate)
     if (year && month) {
       const startDate = new Date(parseInt(year), parseInt(month) - 1, 1);
       const endDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
@@ -216,7 +216,10 @@ router.get("/fleet-insurance-sop", authMiddleware, async (req, res) => {
           $or: [
             { policyToDate: { $gte: startDate, $lte: endDate } },
             { newPolicyToDate: { $gte: startDate, $lte: endDate } },
-            { newExpiryDate: { $gte: startDate, $lte: endDate } }
+            { newExpiryDate: { $gte: startDate, $lte: endDate } },
+            { renewalDate: { $gte: startDate, $lte: endDate } },
+            { paymentDate: { $gte: startDate, $lte: endDate } },
+            { renewedDate: { $gte: startDate, $lte: endDate } }
           ]
         }
       });
@@ -228,7 +231,10 @@ router.get("/fleet-insurance-sop", authMiddleware, async (req, res) => {
           $or: [
             { policyToDate: { $gte: startDate, $lte: endDate } },
             { newPolicyToDate: { $gte: startDate, $lte: endDate } },
-            { newExpiryDate: { $gte: startDate, $lte: endDate } }
+            { newExpiryDate: { $gte: startDate, $lte: endDate } },
+            { renewalDate: { $gte: startDate, $lte: endDate } },
+            { paymentDate: { $gte: startDate, $lte: endDate } },
+            { renewedDate: { $gte: startDate, $lte: endDate } }
           ]
         }
       });
@@ -240,7 +246,10 @@ router.get("/fleet-insurance-sop", authMiddleware, async (req, res) => {
             $or: [
               { $eq: [{ $month: "$policyToDate" }, mVal] },
               { $eq: [{ $month: "$newPolicyToDate" }, mVal] },
-              { $eq: [{ $month: "$newExpiryDate" }, mVal] }
+              { $eq: [{ $month: "$newExpiryDate" }, mVal] },
+              { $eq: [{ $month: "$renewalDate" }, mVal] },
+              { $eq: [{ $month: "$paymentDate" }, mVal] },
+              { $eq: [{ $month: "$renewedDate" }, mVal] }
             ]
           }
         }
@@ -327,13 +336,38 @@ router.get("/fleet-insurance-sop/history/:registrationNo", authMiddleware, async
       return res.status(400).json({ message: "Registration number required" });
     }
 
-    const records = await FleetInsuranceSopModel.find({
+    const rawRecords = await FleetInsuranceSopModel.find({
       registrationNo: new RegExp(`^${registrationNo}$`, "i")
-    }).sort({ policyFromDate: -1, createdAt: -1 });
+    }).sort({ policyFromDate: -1, createdAt: -1 }).lean();
 
-    if (!records || records.length === 0) {
+    if (!rawRecords || rawRecords.length === 0) {
       return res.status(404).json({ message: "No history found for this vehicle" });
     }
+
+    // Deduplicate records for the same policy year / expiry period
+    const deduplicatedMap = new Map();
+    rawRecords.forEach((rec) => {
+      const expDate = rec.newPolicyToDate || rec.policyToDate;
+      const yr = expDate ? new Date(expDate).getFullYear() : (rec.policyFromDate ? new Date(rec.policyFromDate).getFullYear() : "unknown");
+      const key = `${yr}_${(rec.policyNo || rec.newPolicyNo || "").trim().toUpperCase()}`;
+
+      if (!deduplicatedMap.has(key)) {
+        deduplicatedMap.set(key, rec);
+      } else {
+        const existing = deduplicatedMap.get(key);
+        const existingScore = (existing.paymentUtr ? 4 : 0) + (existing.financialApprovalStatus === "Approved" ? 2 : 0) + (existing.prNumber ? 1 : 0);
+        const currentScore = (rec.paymentUtr ? 4 : 0) + (rec.financialApprovalStatus === "Approved" ? 2 : 0) + (rec.prNumber ? 1 : 0);
+        if (currentScore > existingScore) {
+          deduplicatedMap.set(key, rec);
+        }
+      }
+    });
+
+    const records = Array.from(deduplicatedMap.values()).sort((a, b) => {
+      const dateA = new Date(a.policyFromDate || a.createdAt || 0);
+      const dateB = new Date(b.policyFromDate || b.createdAt || 0);
+      return dateB - dateA;
+    });
 
     res.status(200).json(records);
   } catch (error) {
@@ -583,18 +617,10 @@ router.get("/fleet-insurance-sop/export/bulk", authMiddleware, async (req, res) 
       return {
         $or: [
           { newPolicyToDate: { $gte: startDate, $lte: endDate } },
-          {
-            $and: [
-              { policyToDate: { $gte: startDate, $lte: endDate } },
-              {
-                $or: [
-                  { newPolicyToDate: null },
-                  { newPolicyToDate: { $exists: false } },
-                  { newPolicyToDate: "" }
-                ]
-              }
-            ]
-          }
+          { policyToDate: { $gte: startDate, $lte: endDate } },
+          { renewalDate: { $gte: startDate, $lte: endDate } },
+          { paymentDate: { $gte: startDate, $lte: endDate } },
+          { renewedDate: { $gte: startDate, $lte: endDate } }
         ]
       };
     };

@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import axios from "axios";
+import { UserContext } from "../../../contexts/UserContext";
 import {
   Box,
   Button,
@@ -47,9 +48,14 @@ const stageTabsList = [
   { label: "4. Payment & UTR", value: "4" },
   { label: "5. Order & Dispatch", value: "5" },
   { label: "6. Site GRN", value: "6" },
+  { label: "7. Completed", value: "7" },
 ];
 
 function TyreProcurementList({ onEdit, onView, onCreate }) {
+  const { user } = useContext(UserContext);
+  const userRole = (user?.role || "").toLowerCase();
+  const isAdmin = userRole === "admin" || userRole === "superadmin";
+
   const [data, setData] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -57,6 +63,52 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
   const [search, setSearch] = useState("");
   const [stageTab, setStageTab] = useState("0");
   const [loading, setLoading] = useState(false);
+  const [allowedUserTabs, setAllowedUserTabs] = useState([]);
+
+  useEffect(() => {
+    async function fetchUserTabs() {
+      if (user?.username && !isAdmin) {
+        try {
+          const res = await axios.get(
+            `/api/tyre-procurement/user-tabs/${user.username}`
+          );
+          if (res.data?.success && res.data.allowed_tabs?.length > 0) {
+            setAllowedUserTabs(res.data.allowed_tabs);
+          }
+        } catch (err) {
+          console.error("Error fetching allowed tabs:", err);
+        }
+      }
+    }
+    fetchUserTabs();
+  }, [user, isAdmin]);
+
+  const isTabVisible = (tabLabel, tabValue) => {
+    if (isAdmin || allowedUserTabs.length === 0 || tabValue === "0") return true;
+    return allowedUserTabs.includes(tabLabel);
+  };
+
+  const getTabCount = (value) => {
+    if (value === "0") return total;
+    switch (value) {
+      case "1":
+        return data.filter((d) => d.status === "PR Raised" || !d.status).length;
+      case "2":
+        return data.filter((d) => d.status === "HoD Validated" || d.status === "Preparing for Quotation").length;
+      case "3":
+        return data.filter((d) => d.status === "Quotation Received" || d.status === "Quotation Updated").length;
+      case "4":
+        return data.filter((d) => d.status === "Finance Approved").length;
+      case "5":
+        return data.filter((d) => d.status === "Payment Done" || d.status === "Order Placed").length;
+      case "6":
+        return data.filter((d) => d.status === "Dispatched / Site GRN Ready" || d.status === "GRN Ready").length;
+      case "7":
+        return data.filter((d) => d.status === "GRN Done" || d.status === "Closed" || d.status === "GRN Completed").length;
+      default:
+        return 0;
+    }
+  };
 
   const fetchRecords = async () => {
     setLoading(true);
@@ -348,10 +400,30 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
               },
             }}
           >
-            {stageTabsList.map((tab) => (
-              <Tab
-                key={tab.value}
-                label={tab.label}
+            {stageTabsList.map((tab) => {
+              if (!isTabVisible(tab.label, tab.value)) return null;
+              return (
+                <Tab
+                  key={tab.value}
+                label={
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <span>{tab.label}</span>
+                    <Box
+                      component="span"
+                      sx={{
+                        fontSize: "0.75rem",
+                        fontWeight: 700,
+                        px: 0.8,
+                        py: 0.2,
+                        borderRadius: "10px",
+                        backgroundColor: stageTab === tab.value ? "#eff6ff" : "#f1f5f9",
+                        color: stageTab === tab.value ? "#1d4ed8" : "#64748b",
+                      }}
+                    >
+                      {getTabCount(tab.value)}
+                    </Box>
+                  </Box>
+                }
                 value={tab.value}
                 sx={{
                   fontWeight: 600,
@@ -366,8 +438,9 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
                   },
                 }}
               />
-            ))}
-          </Tabs>
+            );
+          })}
+        </Tabs>
         </Box>
 
         {/* Search Bar */}

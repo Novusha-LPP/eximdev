@@ -272,7 +272,6 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
             }
           });
           if (!merged.prDate) merged.prDate = todayStr;
-          if (!merged.paymentDate) merged.paymentDate = todayStr;
           if (merged.readyForPr === "Yes" && !merged.prNumber) {
             loadPrNumber(merged);
           } else if (merged.readyForPr !== "Yes") {
@@ -289,7 +288,7 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
         })
         .finally(() => setLoading(false));
     } else {
-      const initial = { ...emptyRecord, prDate: todayStr, paymentDate: todayStr, financialApprovalStatus: "Pending" };
+      const initial = { ...emptyRecord, prDate: todayStr, paymentDate: "", renewalDate: "", financialApprovalStatus: "Pending" };
       if (initial.readyForPr === "Yes" && !initial.prNumber) {
         loadPrNumber(initial);
       } else {
@@ -299,20 +298,17 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
     }
   }, [proposal, isRenew]);
 
-  // Auto-calc: TAT days counting from PR generation date to Payment Date (defaults to current date)
+  // Auto-calc: TAT days counting from PR generation date to Payment Date
   useEffect(() => {
-    const todayStr = new Date().toISOString().split("T")[0];
-    const targetPayDate = formData.paymentDate || todayStr;
-    if (formData.prDate && targetPayDate) {
+    if (formData.prDate && formData.paymentDate) {
       const pr = new Date(formData.prDate);
-      const pay = new Date(targetPayDate);
-      if (!isNaN(pr) && !isNaN(pay)) {
+      const pay = new Date(formData.paymentDate);
+      if (!isNaN(pr.getTime()) && !isNaN(pay.getTime())) {
         const diffTime = Math.max(0, pay - pr);
         const calcTat = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-        if (formData.tat !== calcTat || !formData.paymentDate) {
+        if (formData.tat !== calcTat) {
           setFormData((prev) => ({
             ...prev,
-            paymentDate: prev.paymentDate || todayStr,
             tat: calcTat
           }));
         }
@@ -441,13 +437,23 @@ function FleetInsuranceForm({ proposal, isView, isRenew, initialTab = 0, onSaved
       dataToSave.newPolicyFromDate
     );
 
-    // If new policy details are entered OR payment UTR is completed, mark renewed status as YES
-    if (hasRenewedFields || (dataToSave.paymentUtr && dataToSave.paymentUtr.trim().length > 0)) {
+    const hasCompletedUtr = Boolean(
+      dataToSave.paymentUtr && String(dataToSave.paymentUtr).trim().length > 0
+    );
+
+    // Only set renewed = YES and sync paymentDate to renewalDate when actively renewing or when payment UTR is completed
+    if (hasRenewedFields || hasCompletedUtr || isRenew) {
       dataToSave.renewed = "YES";
       dataToSave.renewalStatus = "Renewed";
+      if (dataToSave.paymentDate) {
+        dataToSave.renewalDate = dataToSave.paymentDate;
+        dataToSave.renewedDate = dataToSave.paymentDate;
+      }
     } else {
       dataToSave.renewed = "NO";
       dataToSave.renewalStatus = "Pending";
+      dataToSave.renewalDate = formData.renewalDate || "";
+      dataToSave.renewedDate = formData.renewalDate || "";
     }
 
     // ONCE THE PAYMENT UTR STAGE IS COMPLETED (paymentUtr entered), RENEW THE OLD POLICY WITH THE NEW POLICY

@@ -63,6 +63,7 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
     premiumAmount: "",
     newTotalPolicyPremium: "",
     expiryDate: "",
+    renewalDate: "",
     renewed: ""
   });
 
@@ -287,41 +288,65 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
   const getContextualRowDetails = (row, filterMonth, filterYear) => {
     const pDateStr = row.policyToDate;
     const nDateStr = row.newPolicyToDate || row.newExpiryDate;
+    const rDateStr = row.renewalDate || row.renewedDate || row.paymentDate;
 
     const pDate = pDateStr ? new Date(pDateStr) : null;
     const nDate = nDateStr ? new Date(nDateStr) : null;
+    const rDate = rDateStr ? new Date(rDateStr) : null;
 
     const reqMonth = filterMonth ? parseInt(filterMonth, 10) : null;
     const reqYear = filterYear ? parseInt(filterYear, 10) : null;
 
     let isMatchingNewPolicy = false;
     let isMatchingOldPolicy = false;
+    let isMatchingRenewalDate = false;
 
     if (reqYear && reqMonth) {
       if (nDate && !isNaN(nDate.getTime()) && nDate.getFullYear() === reqYear && (nDate.getMonth() + 1) === reqMonth) {
         isMatchingNewPolicy = true;
-      } else if (pDate && !isNaN(pDate.getTime()) && pDate.getFullYear() === reqYear && (pDate.getMonth() + 1) === reqMonth) {
+      }
+      if (pDate && !isNaN(pDate.getTime()) && pDate.getFullYear() === reqYear && (pDate.getMonth() + 1) === reqMonth) {
         isMatchingOldPolicy = true;
+      }
+      if (rDate && !isNaN(rDate.getTime()) && rDate.getFullYear() === reqYear && (rDate.getMonth() + 1) === reqMonth) {
+        isMatchingRenewalDate = true;
       }
     } else if (reqYear) {
       if (nDate && !isNaN(nDate.getTime()) && nDate.getFullYear() === reqYear) {
         isMatchingNewPolicy = true;
-      } else if (pDate && !isNaN(pDate.getTime()) && pDate.getFullYear() === reqYear) {
+      }
+      if (pDate && !isNaN(pDate.getTime()) && pDate.getFullYear() === reqYear) {
         isMatchingOldPolicy = true;
+      }
+      if (rDate && !isNaN(rDate.getTime()) && rDate.getFullYear() === reqYear) {
+        isMatchingRenewalDate = true;
       }
     } else if (reqMonth) {
       if (nDate && !isNaN(nDate.getTime()) && (nDate.getMonth() + 1) === reqMonth) {
         isMatchingNewPolicy = true;
-      } else if (pDate && !isNaN(pDate.getTime()) && (pDate.getMonth() + 1) === reqMonth) {
+      }
+      if (pDate && !isNaN(pDate.getTime()) && (pDate.getMonth() + 1) === reqMonth) {
         isMatchingOldPolicy = true;
+      }
+      if (rDate && !isNaN(rDate.getTime()) && (rDate.getMonth() + 1) === reqMonth) {
+        isMatchingRenewalDate = true;
       }
     }
 
-    if (isMatchingNewPolicy) {
+    const isOldRenewed = String(row.renewed).toUpperCase() === "YES" ||
+      row.renewalStatus === "Renewed" ||
+      Boolean(nDate) ||
+      Boolean(row.paymentUtr) ||
+      Boolean(row.paymentDate) ||
+      Boolean(row.renewalDate) ||
+      Boolean(row.renewedDate);
+
+    if (isMatchingNewPolicy && !isMatchingOldPolicy && !isMatchingRenewalDate) {
       // In the renewed policy cycle (e.g. August 2027), the policy expiring is nDate.
       // Has it been renewed AGAIN for the next year? Not yet!
       return {
         displayExpiry: nDate,
+        displayRenewalDate: null,
         isRenewed: false,
         stageStatus: { label: "Policy Proposal", color: "default" },
         previousPremium: row.newTotalPolicyPremium || row.newPremiumAmount || row.newPremium || row.totalPolicyPremium || row.premiumAmount,
@@ -330,13 +355,13 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
     }
 
     // Default or matching old policy cycle (e.g. August 2026):
-    const isOldRenewed = String(row.renewed).toUpperCase() === "YES" || row.renewalStatus === "Renewed" || Boolean(nDate) || Boolean(row.paymentUtr);
     return {
-      displayExpiry: nDate || pDate,
+      displayExpiry: pDate || nDate,
+      displayRenewalDate: isOldRenewed ? rDate : null,
       isRenewed: isOldRenewed,
       stageStatus: isOldRenewed ? { label: "Renewed", color: "success" } : getStageStatus(row),
       previousPremium: row.totalPolicyPremium || row.premiumAmount,
-      renewedPremium: isOldRenewed ? (row.newTotalPolicyPremium || row.newPremiumAmount || row.newPremium) : null,
+      renewedPremium: isOldRenewed ? (row.newTotalPolicyPremium || row.newPremiumAmount || row.newPremium || row.totalPolicyPremium || row.premiumAmount) : null,
     };
   };
 
@@ -695,6 +720,7 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
                     <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>Previous Premium (₹)</TableCell>
                     <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>Renewed Premium (₹)</TableCell>
                     <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>Expiry Date</TableCell>
+                    <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>Renewal Date</TableCell>
                     <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>Renewed?</TableCell>
                     <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>Stage Status</TableCell>
                     <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }} align="center">
@@ -733,6 +759,9 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
                       <TextField size="small" placeholder="Filter date..." value={filters.expiryDate} onChange={(e) => handleFilterChange("expiryDate", e.target.value)} variant="standard" fullWidth />
                     </TableCell>
                     <TableCell padding="none" sx={{ px: 1, py: 0.5 }}>
+                      <TextField size="small" placeholder="Filter date..." value={filters.renewalDate} onChange={(e) => handleFilterChange("renewalDate", e.target.value)} variant="standard" fullWidth />
+                    </TableCell>
+                    <TableCell padding="none" sx={{ px: 1, py: 0.5 }}>
                       <TextField select size="small" value={filters.renewed} onChange={(e) => handleFilterChange("renewed", e.target.value)} variant="standard" fullWidth SelectProps={{ displayEmpty: true }}>
                         <MenuItem value="">All</MenuItem>
                         <MenuItem value="YES">Yes</MenuItem>
@@ -746,7 +775,7 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
                 <TableBody>
                   {data.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={10} align="center" sx={{ py: 6, color: "#64748b" }}>
+                      <TableCell colSpan={11} align="center" sx={{ py: 6, color: "#64748b" }}>
                         No fleet insurance records found
                       </TableCell>
                     </TableRow>
@@ -780,6 +809,9 @@ function FleetInsuranceList({ onViewHistory, onRenew, onCreate, onOpenApproval, 
                           </TableCell>
                           <TableCell sx={{ color: getExpiryDateColor(ctx.displayExpiry), fontWeight: 700 }}>
                             {ctx.displayExpiry ? new Date(ctx.displayExpiry).toLocaleDateString("en-IN") : "-"}
+                          </TableCell>
+                          <TableCell sx={{ color: "#16a34a", fontWeight: 700 }}>
+                            {ctx.displayRenewalDate ? new Date(ctx.displayRenewalDate).toLocaleDateString("en-IN") : "-"}
                           </TableCell>
                           <TableCell sx={{ fontWeight: 700, color: ctx.isRenewed ? "#16a34a" : "#64748b" }}>
                             <Chip

@@ -32,6 +32,7 @@ import {
 } from "@ant-design/icons";
 import { UserContext } from "../../contexts/UserContext";
 import AssignModule from "./AssignModule";
+import AssignProcurementTabs from "./AssignProcurementTabs";
 import AssignRole from "./AssignRole/AssignRole";
 import ChangePasswordByAdmin from "./AssignRole/ChangePasswordByAdmin";
 import SelectIcdCode from "./AssignRole/SelectIcdCode";
@@ -232,6 +233,11 @@ function Assign() {
       key: "Assign Module",
       label: "Admin Module",
       children: <AssignModule selectedUser={selectedUser} allowInactive={statusFilter === "Inactive"} />,
+    },
+    {
+      key: "Procurement Permissions",
+      label: "Procurement Permissions",
+      children: <AssignProcurementTabs selectedUser={selectedUser} />,
     },
     {
       key: "Assign Role",

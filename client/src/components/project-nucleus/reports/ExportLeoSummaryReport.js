@@ -2376,7 +2376,6 @@ const ExportLeoSummaryReport = ({
                                     <th>Exporter</th>
                                     <th>Branch</th>
                                     <th>Mode & Type</th>
-                                    <th>Detailed Status</th>
                                     <th>Identified Issues</th>
                                 </tr>
                             </thead>
@@ -2399,7 +2398,6 @@ const ExportLeoSummaryReport = ({
                                             <span className="status-pill-v2" data-variant="info" style={{ marginRight: '4px' }}>{item.mode}</span>
                                             <span className="status-pill-v2" data-variant="neutral">{item.consignment_type}</span>
                                         </td>
-                                        <td><span className="status-pill-v2" data-variant="warning">{item.detailed_status || item.status}</span></td>
                                         <td>
                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                                                 {item.isDetentionRisk && <span className="status-pill-v2" data-variant="error">Detention Risk</span>}
@@ -2413,7 +2411,7 @@ const ExportLeoSummaryReport = ({
                                 ))}
                                 {filteredExceptions.length === 0 && (
                                     <tr>
-                                        <td colSpan={8} style={{ textAlign: 'center', color: '#64748b', padding: '32px' }}>No exceptions found under selected filter.</td>
+                                        <td colSpan={7} style={{ textAlign: 'center', color: '#64748b', padding: '32px' }}>No exceptions found under selected filter.</td>
                                     </tr>
                                 )}
                             </tbody>

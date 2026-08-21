@@ -14,8 +14,14 @@ import {
   InputAdornment,
   MenuItem,
   Autocomplete,
+  Tooltip,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import TableRowsIcon from "@mui/icons-material/TableRows";
+import ViewHeadlineIcon from "@mui/icons-material/ViewHeadline";
+import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { useNavigate, useLocation } from "react-router-dom";
 import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
@@ -26,7 +32,7 @@ import ContainerTrackButton from '../ContainerTrackButton';
 import BLTrackingCell from "../../customHooks/BLTrackingCell";
 import ContainerCellContent from "../ContainerCellContent";
 
-function DocumentationCompletedd() {
+function DocumentationCompleted() {
   const { currentTab } = useContext(TabContext); // Access context
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
   const { user } = useContext(UserContext);
@@ -37,7 +43,35 @@ function DocumentationCompletedd() {
   const [importers, setImporters] = useState("");
   const [rows, setRows] = React.useState([]);
   const [totalJobs, setTotalJobs] = React.useState(0);
-  const [totalPages, setTotalPages] = React.useState(1); // Use context for searchQuery, selectedImporter, and currentPage for documentation completed tab
+  const [totalPages, setTotalPages] = React.useState(1);
+
+  // View Mode: 'full' vs 'shrink'
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      return localStorage.getItem("exim_documentation_view_mode") || "full";
+    } catch (e) {
+      return "full";
+    }
+  });
+
+  const handleViewModeChange = useCallback((mode) => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem("exim_documentation_view_mode", mode);
+    } catch (e) {}
+  }, []);
+
+  const [expandedRowIds, setExpandedRowIds] = useState({});
+
+  const toggleRowExpanded = useCallback((rowId) => {
+    if (!rowId) return;
+    setExpandedRowIds((prev) => ({
+      ...prev,
+      [rowId]: !prev[rowId],
+    }));
+  }, []);
+
+  // Use context for searchQuery, selectedImporter, and currentPage for documentation completed tab
   const {
     searchQuery,
     setSearchQuery,
@@ -117,7 +151,7 @@ function DocumentationCompletedd() {
     getYears();
   }, [selectedYearState, setSelectedYearState]);
 
-  // Fetch jobs with pagination and se
+  // Fetch jobs with pagination and search
   const fetchJobs = useCallback(
     async ({
       page,
@@ -212,7 +246,7 @@ function DocumentationCompletedd() {
     }, 500); // 500ms delay
 
     return () => clearTimeout(handler);
-  }, [searchQuery]); // Remove the automatic clearing - we'll handle this from the tab component instead
+  }, [searchQuery]);
 
   const handlePageChange = (event, newPage) => {
     setCurrentPage(newPage);
@@ -256,48 +290,137 @@ function DocumentationCompletedd() {
   const columns = [
     {
       accessorKey: "job_no",
-      header: "Job No", muiTableHeadCellProps: { align: "center" }, muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
+      header: "Job No",
+      muiTableHeadCellProps: { align: "center" },
+      muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
       enableSorting: false,
       size: 250,
       Cell: ({ cell }) => {
+        const row = cell.row.original;
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row._id];
         const {
           job_no,
           year,
           type_of_b_e,
           consignment_type,
           custom_house,
-          priorityColor, // Add priorityColor from API response
-        } = cell.row.original;
-        const branch_code = cell.row.original.branch_code;
-        const trade_type = cell.row.original.trade_type;
-        const mode = cell.row.original.mode;
+          branch_code,
+          trade_type,
+          mode,
+          priorityJob,
+        } = row;
 
         const textColor = "blue";
         const bgColor =
-          cell.row.original.priorityJob === "High Priority"
+          priorityJob === "High Priority"
             ? "orange"
-            : cell.row.original.priorityJob === "Priority"
+            : priorityJob === "Priority"
               ? "yellow"
               : "transparent";
+
+        if (isShrunk) {
+          return (
+            <div style={{ textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleRowExpanded(row._id);
+                }}
+                sx={{ p: 0.2 }}
+                title="Click to expand row"
+              >
+                <KeyboardArrowRightIcon sx={{ fontSize: 18, color: "#64748b" }} />
+              </IconButton>
+              <a
+                href={`/documentationJob/view-job/${branch_code || "all"}/${trade_type || "all"}/${mode || "all"}/${job_no}/${year}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  cursor: "pointer",
+                  color: textColor,
+                  backgroundColor: bgColor,
+                  padding: "3px 6px",
+                  borderRadius: "4px",
+                  fontWeight: "bold",
+                  display: "inline-block",
+                  textDecoration: "none",
+                  fontSize: "13px",
+                }}
+              >
+                {cell.row.original.job_number || job_no}
+              </a>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCopy(e, cell.row.original.job_number || job_no);
+                }}
+                sx={{ p: 0.2 }}
+                title="Copy Job Number"
+              >
+                <ContentCopyIcon sx={{ fontSize: "14px", color: "#64748b" }} />
+              </IconButton>
+              {type_of_b_e && (
+                <span style={{ fontSize: "11px", color: "#64748b" }}>
+                  ({type_of_b_e})
+                </span>
+              )}
+            </div>
+          );
+        }
+
         return (
-          <a
-            href={`/documentationJob/view-job/${branch_code || "all"}/${trade_type || "all"}/${mode || "all"}/${job_no}/${year}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              cursor: "pointer",
-              color: textColor,
-              backgroundColor: bgColor,
-              padding: "10px",
-              borderRadius: "5px",
-              textAlign: "center",
-              display: "inline-block",
-              textDecoration: "none", whiteSpace: "nowrap",
-            }}
-          >
-            {cell.row.original.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
-            {custom_house}
-          </a>
+          <div style={{ textAlign: "center" }}>
+            {viewMode === "shrink" && (
+              <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: "4px" }}>
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleRowExpanded(row._id);
+                  }}
+                  sx={{ p: 0.2 }}
+                  title="Click to collapse row"
+                >
+                  <KeyboardArrowDownIcon sx={{ fontSize: 18, color: "#2563eb" }} />
+                </IconButton>
+              </div>
+            )}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+              <a
+                href={`/documentationJob/view-job/${branch_code || "all"}/${trade_type || "all"}/${mode || "all"}/${job_no}/${year}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  cursor: "pointer",
+                  color: textColor,
+                  backgroundColor: bgColor,
+                  padding: "10px",
+                  borderRadius: "5px",
+                  textAlign: "center",
+                  display: "inline-block",
+                  textDecoration: "none",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {cell.row.original.job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+                {custom_house}
+              </a>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCopy(e, cell.row.original.job_number || job_no);
+                }}
+                sx={{ p: 0.2 }}
+                title="Copy Job Number"
+              >
+                <ContentCopyIcon sx={{ fontSize: "14px", color: "#64748b" }} />
+              </IconButton>
+            </div>
+          </div>
         );
       },
     },
@@ -306,25 +429,48 @@ function DocumentationCompletedd() {
       header: "Importer",
       enableSorting: false,
       size: 150,
+      Cell: ({ cell, row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
+        const importer = cell?.getValue()?.toString() || "";
+        if (isShrunk) {
+          return <span style={{ fontWeight: 600 }}>{importer}</span>;
+        }
+        return <span>{importer}</span>;
+      },
     },
     {
       accessorKey: "awb_bl_no",
       header: "BL Num & Date",
       enableSorting: false,
       size: 150,
-      Cell: ({ cell }) => {
-        const { awb_bl_no, awb_bl_date } = cell.row.original; // Destructure properties here
+      Cell: ({ cell, row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
+        const { awb_bl_no, shipping_line_airline } = row.original;
+
+        if (isShrunk) {
+          return (
+            <div>
+              <span style={{ fontWeight: 600 }}>{awb_bl_no || "-"}</span>
+              {shipping_line_airline && (
+                <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
+                  {shipping_line_airline}
+                </div>
+              )}
+            </div>
+          );
+        }
+
         return (
           <BLTrackingCell
             blNumber={awb_bl_no}
-            shippingLine={cell.row.original.shipping_line_airline}
-            customHouse={cell.row.original.custom_house}
-            container_nos={cell.row.original.container_nos}
-            jobId={cell.row.original._id}
-            branch_code={cell.row.original.branch_code}
-            mode={cell.row.original.mode}
-            portOfReporting={cell.row.original.port_of_reporting}
-            containerNos={cell.row.original.container_nos}
+            shippingLine={row.original.shipping_line_airline}
+            customHouse={row.original.custom_house}
+            container_nos={row.original.container_nos}
+            jobId={row.original._id}
+            branch_code={row.original.branch_code}
+            mode={row.original.mode}
+            portOfReporting={row.original.port_of_reporting}
+            containerNos={row.original.container_nos}
             onCopy={handleCopy}
             onUpdateSuccess={() => fetchJobs({
                 page: currentPage,
@@ -345,39 +491,64 @@ function DocumentationCompletedd() {
       accessorKey: "container_numbers",
       header: "Container Numbers and Size",
       size: 200,
-      Cell: ({ cell }) => <ContainerCellContent cell={cell} handleCopy={handleCopy} />,
+      Cell: ({ cell, row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
+        if (isShrunk) {
+          const count = row?.original?.container_nos?.length || 0;
+          return (
+            <div>
+              <strong>
+                {count > 0 ? `${count} Container(s)` : `${row?.original?.no_of_pkgs || 0} Pkg(s)`}
+              </strong>
+              {row?.original?.container_nos?.[0]?.container_number && (
+                <span style={{ fontSize: "11px", color: "#64748b", marginLeft: "4px" }}>
+                  ({row.original.container_nos[0].container_number})
+                </span>
+              )}
+            </div>
+          );
+        }
+        return <ContainerCellContent cell={cell} handleCopy={handleCopy} />;
+      },
     },
     {
       accessorKey: "Doc",
       header: "Docs",
       enableSorting: false,
       size: 150,
-      Cell: ({ cell }) => {
-        const { cth_documents, all_documents } = cell.row.original;
+      Cell: ({ cell, row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
+        const { cth_documents, all_documents } = row.original;
+        const validCthDocs = (cth_documents || []).filter((doc) => doc.url && doc.url.length > 0);
+        const totalDocsCount = (validCthDocs.length || 0) + (all_documents?.length || 0);
+
+        if (isShrunk) {
+          return (
+            <span style={{ fontSize: "12px", color: totalDocsCount > 0 ? "#007bff" : "gray" }}>
+              {totalDocsCount > 0 ? `${totalDocsCount} Document(s)` : "No Documents"}
+            </span>
+          );
+        }
 
         return (
           <div style={{ textAlign: "left" }}>
-            {" "}
-            {/* Ensure all content aligns to the left */}
             {/* Render CTH Documents with URLs */}
-            {cth_documents
-              ?.filter((doc) => doc.url && doc.url.length > 0) // Only include documents with a URL
-              .map((doc) => (
-                <div key={doc._id} style={{ marginBottom: "5px" }}>
-                  <a
-                    href={doc.url[0]} // Use the first URL in the array
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      color: "blue",
-                      textDecoration: "underline",
-                      cursor: "pointer",
-                    }}
-                  >
-                    {doc.document_name}
-                  </a>
-                </div>
-              ))}
+            {validCthDocs.map((doc) => (
+              <div key={doc._id} style={{ marginBottom: "5px" }}>
+                <a
+                  href={doc.url[0]} // Use the first URL in the array
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: "blue",
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                  }}
+                >
+                  {doc.document_name}
+                </a>
+              </div>
+            ))}
             {/* Render All Documents */}
             {all_documents?.map((docUrl, index) => (
               <div key={`doc-${index}`} style={{ marginBottom: "5px" }}>
@@ -422,7 +593,28 @@ function DocumentationCompletedd() {
     muiTableContainerProps: {
       sx: { maxHeight: "650px", overflowY: "auto" },
     },
-
+    muiTableBodyRowProps: ({ row }) => {
+      if (viewMode === "shrink") {
+        return {
+          style: { cursor: "pointer" },
+          onClick: (event) => {
+            const targetTagName = event.target?.tagName?.toLowerCase() || "";
+            if (["a", "button", "input", "textarea", "select"].includes(targetTagName)) {
+              return;
+            }
+            if (
+              event.target?.closest?.(
+                "a, button, input, textarea, select, .MuiIconButton-root, .MuiChip-root"
+              )
+            ) {
+              return;
+            }
+            toggleRowExpanded(row.original._id);
+          },
+        };
+      }
+      return {};
+    },
     muiTableHeadCellProps: {
       sx: {
         position: "sticky",
@@ -478,6 +670,69 @@ function DocumentationCompletedd() {
           ))}
         </TextField>
 
+        {/* View Mode Toggle Switch */}
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 0.5,
+            bgcolor: "#f1f5f9",
+            p: "2px",
+            borderRadius: "8px",
+            border: "1px solid #cbd5e1",
+            marginRight: "20px",
+          }}
+        >
+          <Tooltip title="Full Table View" arrow>
+            <button
+              type="button"
+              className={`toggle-btn ${viewMode === "full" ? "active" : ""}`}
+              onClick={() => handleViewModeChange("full")}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                padding: "5px 9px",
+                border: "none",
+                borderRadius: "6px",
+                backgroundColor: viewMode === "full" ? "#ffffff" : "transparent",
+                color: viewMode === "full" ? "#2563eb" : "#64748b",
+                fontWeight: "700",
+                fontSize: "12px",
+                cursor: "pointer",
+                boxShadow: viewMode === "full" ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
+              }}
+            >
+              <TableRowsIcon sx={{ fontSize: 16 }} />
+              Full
+            </button>
+          </Tooltip>
+          <Tooltip title="Shrink List View" arrow>
+            <button
+              type="button"
+              className={`toggle-btn ${viewMode === "shrink" ? "active" : ""}`}
+              onClick={() => handleViewModeChange("shrink")}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                padding: "5px 9px",
+                border: "none",
+                borderRadius: "6px",
+                backgroundColor: viewMode === "shrink" ? "#ffffff" : "transparent",
+                color: viewMode === "shrink" ? "#2563eb" : "#64748b",
+                fontWeight: "700",
+                fontSize: "12px",
+                cursor: "pointer",
+                boxShadow: viewMode === "shrink" ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
+              }}
+            >
+              <ViewHeadlineIcon sx={{ fontSize: 16 }} />
+              Shrink
+            </button>
+          </Tooltip>
+        </Box>
+
         <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"
           size="small"
@@ -487,7 +742,6 @@ function DocumentationCompletedd() {
           InputProps={{
             endAdornment: (
               <InputAdornment position="end">
-                {" "}
                 <IconButton
                   onClick={() => {
                     setDebouncedSearchQuery(searchQuery);
@@ -499,7 +753,7 @@ function DocumentationCompletedd() {
               </InputAdornment>
             ),
           }}
-          sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
+          sx={{ width: "300px", marginRight: "20px", marginLeft: "10px" }}
         />
 
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
@@ -557,7 +811,7 @@ function DocumentationCompletedd() {
 
   return (
     <div style={{ height: "80%" }}>
-      <MaterialReactTable {...tableConfig} />{" "}
+      <MaterialReactTable {...tableConfig} />
       <Box display="flex" justifyContent="center" alignItems="center" mt={2}>
         <Pagination
           count={totalPages}
@@ -572,4 +826,4 @@ function DocumentationCompletedd() {
   );
 }
 
-export default React.memo(DocumentationCompletedd);
+export default React.memo(DocumentationCompleted);

@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Box, Tab, Tabs } from "@mui/material";
+import { Box, Tab, Tabs, Typography, Container, Paper } from "@mui/material";
+import DirectionsCarIcon from "@mui/icons-material/DirectionsCar";
+import Inventory2Icon from "@mui/icons-material/Inventory2";
+import TireRepairIcon from "@mui/icons-material/TireRepair";
 import RmProcurementSop from "./rmProcurementSop/RmProcurementSop";
 import TyreProcurementSop from "./tyreProcurementSop/TyreProcurementSop";
 import FleetInsuranceSop from "./fleetInsuranceSop/FleetInsuranceSop";
@@ -83,21 +86,115 @@ export default function ProcurementInsuranceSopsContainer() {
   };
 
   return (
-    <Box sx={{ width: "100%", height: "100%", display: "flex", flexDirection: "column" }}>
-      <Box sx={{ borderBottom: 1, borderColor: "divider", backgroundColor: "white", px: 2 }}>
-        <Tabs 
-          value={value} 
-          onChange={handleChange} 
-          aria-label="sops tabs"
+    <Box sx={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", bgcolor: "#f8fafc" }}>
+      {/* Executive Main Navigation Bar */}
+      <Paper
+        elevation={0}
+        sx={{
+          borderBottom: "1px solid",
+          borderColor: "divider",
+          backgroundColor: "#ffffff",
+          px: { xs: 2, md: 3 },
+          pt: 1.5,
+          pb: 0,
+          boxShadow: "0 2px 10px rgba(0,0,0,0.03)",
+        }}
+      >
+        <Tabs
+          value={value}
+          onChange={handleChange}
+          aria-label="Procurement SOPs tabs"
           variant="scrollable"
           scrollButtons="auto"
+          sx={{
+            minHeight: 48,
+            "& .MuiTabs-indicator": {
+              height: 3,
+              borderRadius: "3px 3px 0 0",
+              backgroundColor: "#2563eb",
+            },
+          }}
         >
-          <Tab label="Fleet Insurance" {...a11yProps(0)} />
-          <Tab label="RM Procurement" {...a11yProps(1)} />
-          <Tab label="Tyre Procurement" {...a11yProps(2)} />
+          <Tab
+            icon={<DirectionsCarIcon sx={{ fontSize: 20 }} />}
+            iconPosition="start"
+            label="Fleet Insurance"
+            {...a11yProps(0)}
+            sx={{
+              fontWeight: 600,
+              fontSize: "0.95rem",
+              textTransform: "none",
+              letterSpacing: "0.2px",
+              color: "#64748b",
+              px: 3,
+              py: 1,
+              borderRadius: "8px 8px 0 0",
+              transition: "all 0.2s ease",
+              "&.Mui-selected": {
+                color: "#1e40af",
+                fontWeight: 700,
+                backgroundColor: "rgba(37, 99, 235, 0.04)",
+              },
+              "&:hover": {
+                color: "#1e293b",
+              },
+            }}
+          />
+          <Tab
+            icon={<Inventory2Icon sx={{ fontSize: 20 }} />}
+            iconPosition="start"
+            label="RM Procurement"
+            {...a11yProps(1)}
+            sx={{
+              fontWeight: 600,
+              fontSize: "0.95rem",
+              textTransform: "none",
+              letterSpacing: "0.2px",
+              color: "#64748b",
+              px: 3,
+              py: 1,
+              borderRadius: "8px 8px 0 0",
+              transition: "all 0.2s ease",
+              "&.Mui-selected": {
+                color: "#1e40af",
+                fontWeight: 700,
+                backgroundColor: "rgba(37, 99, 235, 0.04)",
+              },
+              "&:hover": {
+                color: "#1e293b",
+              },
+            }}
+          />
+          <Tab
+            icon={<TireRepairIcon sx={{ fontSize: 20 }} />}
+            iconPosition="start"
+            label="Tyre Procurement"
+            {...a11yProps(2)}
+            sx={{
+              fontWeight: 600,
+              fontSize: "0.95rem",
+              textTransform: "none",
+              letterSpacing: "0.2px",
+              color: "#64748b",
+              px: 3,
+              py: 1,
+              borderRadius: "8px 8px 0 0",
+              transition: "all 0.2s ease",
+              "&.Mui-selected": {
+                color: "#1e40af",
+                fontWeight: 700,
+                backgroundColor: "rgba(37, 99, 235, 0.04)",
+              },
+              "&:hover": {
+                color: "#1e293b",
+              },
+            }}
+          />
         </Tabs>
-      </Box>
-      <Box sx={{ flexGrow: 1, backgroundColor: "#f8f9fa" }}>
+      </Paper>
+
+      {/* Main Tab Content Area */}
+      <Box sx={{ flexGrow: 1, backgroundColor: "#f8fafc", p: { xs: 1.5, md: 2.5 } }}>
         <TabPanel value={value} index={0}>
           <FleetInsuranceSop />
         </TabPanel>
@@ -111,3 +208,4 @@ export default function ProcurementInsuranceSopsContainer() {
     </Box>
   );
 }
+

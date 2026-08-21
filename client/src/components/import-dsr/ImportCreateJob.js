@@ -566,7 +566,7 @@ const ImportCreateJob = () => {
   const currencyOptions = currencies.map(c => c.code);
 
   const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSTL", "TQ", "SIL"];
-  const beTypeOptions = ["Home", "In-Bond", "Ex-Bond"];
+  const beTypeOptions = ["Home", "In-Bond", "Ex-Bond", "SEZ"];
   const portReportingOptionsSet = [
     "(INMUN1) Mundra Sea",
     "(INNSA1) Nhava Sheva Sea",
@@ -784,6 +784,15 @@ const ImportCreateJob = () => {
     ],
     "In-Bond": [{ value: "In-Bond", label: "In-bond" }],
     "Ex-Bond": [{ value: "Ex-Bond", label: "Ex-Bond" }],
+    SEZ: [
+      { value: "SEZ", label: "SEZ" },
+      { value: "Full Duty", label: "Full Duty" },
+      { value: "DEEC", label: "DEEC" },
+      { value: "RODTEP", label: "RODTEP" },
+      { value: "ROSTL", label: "ROSTL" },
+      { value: "TQ", label: "TQ" },
+      { value: "SIL", label: "SIL" },
+    ],
   };
   const filteredClearanceOptions = clearanceOptionsMapping[type_of_b_e] || [];
 

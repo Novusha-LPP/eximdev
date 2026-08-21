@@ -61,7 +61,15 @@ router.put("/api/update-dgft-register/:id", async (req, res) => {
     if (!existing) return res.status(404).json({ message: "Record not found" });
 
     const updateData = { ...req.body };
-    const isApproved = (updateData.payment_status || existing.payment_status) === "Payment Approved" || (updateData.job_status || existing.job_status) === "APPROVED";
+    const isApproved = (updateData.payment_status || existing.payment_status) === "Payment Approved" || (updateData.job_status || existing.job_status) === "PAYMENT APPROVED" || (updateData.job_status || existing.job_status) === "APPROVED";
+
+    // If job_status is updated to PAYMENT APPROVED and payment_status is not explicitly set, sync payment_status
+    if (updateData.job_status === "PAYMENT APPROVED" && !updateData.payment_status && existing.payment_status !== "Payment Approved") {
+      updateData.payment_status = "Payment Approved";
+      if (!existing.payment_approved_at) {
+        updateData.payment_approved_at = new Date();
+      }
+    }
 
     // If payment is not approved, protect and do not allow saving export/import items
     if (!isApproved) {
@@ -1021,6 +1029,22 @@ router.get("/api/get-dgft-payment-requests", async (req, res) => {
   }
 });
 
+// GET all DGFT records where payment is approved
+router.get("/api/get-dgft-payment-approved", async (req, res) => {
+  try {
+    const data = await DgftRegisterModel.find({
+      $or: [
+        { payment_status: "Payment Approved" },
+        { job_status: "APPROVED" }
+      ]
+    }).sort({ createdAt: -1 });
+    res.status(200).json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
+
 // PUT submit a payment request
 router.put("/api/dgft-request-payment/:id", authMiddleware, async (req, res) => {
   try {
@@ -1064,7 +1088,7 @@ router.put("/api/dgft-approve-payment/:id", authMiddleware, async (req, res) => 
     const approvedBy = req.user?.username || req.user?.first_name || req.body.approved_by || "Admin";
 
     record.payment_status = "Payment Approved";
-    record.job_status = "APPROVED";
+    record.job_status = "PAYMENT APPROVED";
     record.payment_approved_by = approvedBy;
     record.payment_approved_at = new Date();
 

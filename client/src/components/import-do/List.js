@@ -20,6 +20,7 @@ import {
   Box,
   Badge,
   Checkbox,
+  Tooltip,
 } from "@mui/material";
 import { useParams } from "react-router-dom";
 import JobDetailsStaticData from "../import-dsr/JobDetailsStaticData";
@@ -27,8 +28,13 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import EditIcon from "@mui/icons-material/Edit";
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
+import TableRowsIcon from "@mui/icons-material/TableRows";
+import ViewHeadlineIcon from "@mui/icons-material/ViewHeadline";
+import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import {
   getTableRowsClassname,
+  getTableRowInlineStyle,
 } from "../../utils/getTableRowsClassname";
 import SearchIcon from "@mui/icons-material/Search";
 import { useContext } from "react";
@@ -41,6 +47,7 @@ import useDynamicICDs from "../../customHooks/useDynamicICDs";
 
 import ContainerTrackButton from '../ContainerTrackButton';
 import InvoiceDisplay from "./InvoiceDisplay.js";
+import ContainerCellContent from "../ContainerCellContent";
 
 function List() {
   const { job_no, year } = useParams();
@@ -79,15 +86,40 @@ function List() {
   } = useSearchQuery();
   const [importers, setImporters] = useState("");
   const [selectedICD, setSelectedICD] = useState("");
-  const [beNoFilter, setBeNoFilter] = useState(""); // Add this state
-  const [freeTimeFilter, setFreeTimeFilter] = useState(""); // Add this state
+  const [beNoFilter, setBeNoFilter] = useState(""); 
+  const [freeTimeFilter, setFreeTimeFilter] = useState(""); 
 
-  const [editingRowId, setEditingRowId] = useState(null); // Track the row being edited
-  const [freeTimeValue, setFreeTimeValue] = useState(""); // Track the value being edited
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      return localStorage.getItem("exim_import_do_view_mode") || "full";
+    } catch (e) {
+      return "full";
+    }
+  });
+
+  const handleViewModeChange = useCallback((mode) => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem("exim_import_do_view_mode", mode);
+    } catch (e) {}
+  }, []);
+
+  const [expandedRowIds, setExpandedRowIds] = useState({});
+
+  const toggleRowExpanded = useCallback((rowId) => {
+    if (!rowId) return;
+    setExpandedRowIds((prev) => ({
+      ...prev,
+      [rowId]: !prev[rowId],
+    }));
+  }, []);
+
+  const [editingRowId, setEditingRowId] = useState(null); 
+  const [freeTimeValue, setFreeTimeValue] = useState(""); 
 
   const handleCopy = (event, text) => {
     event.stopPropagation();
-    if (!text || text === "N/A") return; // Prevent copying empty values
+    if (!text || text === "N/A") return; 
     if (
       navigator.clipboard &&
       typeof navigator.clipboard.writeText === "function"
@@ -103,6 +135,7 @@ function List() {
       textArea.select();
       try {
         document.execCommand("copy");
+        console.log("Copied (fallback):", text);
       } catch (err) {
         console.error("Fallback failed:", err);
       }
@@ -121,8 +154,6 @@ function List() {
     }
     getImporterList();
   }, [selectedYearState]);
-  // Function to build the search query (not needed on client-side, handled by server)
-  // Keeping it in case you want to extend client-side filtering
 
   const getUniqueImporterNames = (importerData) => {
     if (!importerData || !Array.isArray(importerData)) return [];
@@ -166,7 +197,7 @@ function List() {
             ? defaultYearPair
             : filteredYears[0];
 
-          setSelectedYearState(newYear); // ✅ Persist the selected year
+          setSelectedYearState(newYear); 
         }
       } catch (error) {
         console.error("Error fetching years:", error);
@@ -176,7 +207,6 @@ function List() {
     getYears();
   }, [selectedYearState, setSelectedYearState]);
 
-  // Fetch jobs with pagination
   const fetchJobs = useCallback(
     async (
       currentPage,
@@ -202,14 +232,14 @@ function List() {
               search: currentSearchQuery,
               year: currentYear,
               selectedICD: currentICD,
-              importer: selectedImporter?.trim() || "", // ✅ Ensure parameter name matches backend
-              username: user?.username || "", // ✅ Send username for ICD filtering
-              unresolvedOnly: unresolvedOnly.toString(), // ✅ Add unresolvedOnly parameter
-              emergency: emergencyOnly.toString(), // ✅ Add emergency parameter
-              freeTimeFilter, // ✅ Add freeTimeFilter
-              branchId: selectedBranch || "all", // ✅ Add branchId parameter
-              category: selectedCategory || "all", // ✅ Add category parameter
-              beNoFilter, // ✅ Add beNoFilter parameter
+              importer: selectedImporter?.trim() || "", 
+              username: user?.username || "", 
+              unresolvedOnly: unresolvedOnly.toString(), 
+              emergency: emergencyOnly.toString(), 
+              freeTimeFilter, 
+              branchId: selectedBranch || "all", 
+              category: selectedCategory || "all", 
+              beNoFilter, 
             },
           }
         );
@@ -217,16 +247,15 @@ function List() {
         const {
           totalJobs,
           totalPages,
-          currentPage: returnedPage,
           jobs,
-          unresolvedCount, // ✅ Get unresolved count from response
-          emergencyCount, // ✅ Get emergency count from response
+          unresolvedCount, 
+          emergencyCount, 
         } = res.data;
         setRows(jobs);
         setTotalPages(totalPages);
         setTotalJobs(totalJobs);
-        setUnresolvedCount(unresolvedCount || 0); // ✅ Update unresolved count
-        setEmergencyCount(emergencyCount || 0); // ✅ Update emergency count
+        setUnresolvedCount(unresolvedCount || 0); 
+        setEmergencyCount(emergencyCount || 0); 
       } catch (error) {
         console.error("Error fetching data:", error);
         setRows([]);
@@ -237,17 +266,15 @@ function List() {
         setLoading(false);
       }
     },
-    [limit, user?.username, selectedYearState, selectedICD, selectedImporter, showUnresolvedOnly, showEmergencyOnly, freeTimeFilter, selectedBranch, selectedCategory, beNoFilter] 
+    [limit, user?.username]
   );
 
-  // Fetch jobs with pagination
   useEffect(() => {
     if (selectedYearState && user?.username) {
-      // Ensure year and username are available before calling API
       fetchJobs(
         currentPage,
         debouncedSearchQuery,
-        selectedYearState, // ✅ Now using the persistent state
+        selectedYearState,
         selectedICD,
         selectedImporter,
         showUnresolvedOnly,
@@ -274,20 +301,49 @@ function List() {
     fetchJobs,
   ]);
 
-  // Remove the automatic clearing - we'll handle this from the tab component instead
-  // Debounce search query to reduce excessive API calls
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
-    }, 300); // 300ms delay
+    }, 500); 
 
     return () => clearTimeout(handler);
   }, [searchQuery]);
 
-  // Handle search input change
+  const handlePageChange = (event, newPage) => {
+    setCurrentPage(newPage);
+  };
+
   const handleSearchInputChange = (event) => {
     setSearchQuery(event.target.value);
-    setCurrentPage(1); // Reset to first page when user types
+    setCurrentPage(1); 
+  };
+
+  const handleAdvancedPaymentUpdate = async (id, currentStatus) => {
+    try {
+      const updatedStatus = !currentStatus; 
+      await axios.patch(
+        `${process.env.REACT_APP_API_STRING}/update-advanced-payment/${id}`,
+        {
+          advanced_payment_done: updatedStatus,
+          username: user?.username
+        },
+        {
+          headers: {
+            "user-role": user?.role || "unknown",
+            username: user?.username || "unknown",
+            "user-id": user?._id || "unknown",
+          },
+        }
+      );
+
+      setRows((prevRows) =>
+        prevRows.map((row) =>
+          row._id === id ? { ...row, advanced_payment_done: updatedStatus } : row
+        )
+      );
+    } catch (error) {
+      console.error("Error updating advanced payment status:", error);
+    }
   };
 
   const handleDownloadExcel = async () => {
@@ -320,11 +376,9 @@ function List() {
         return;
       }
 
-      // Create new workbook
       const workbook = new ExcelJS.Workbook();
       const worksheet = workbook.addWorksheet("Jobs");
 
-      // Define header structure
       worksheet.columns = [
         { header: "IMPORTER", key: "importer", width: 40 },
         { header: "BOE NO", key: "be_no", width: 25 },
@@ -335,34 +389,12 @@ function List() {
         { header: "JOB NO", key: "job_no", width: 25 },
       ];
 
-      // Format header row
-      const headerRow = worksheet.getRow(1);
-      headerRow.font = { bold: true, color: { argb: "000000" } };
-      headerRow.fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: "FFE89A74" }, // Orange/salmon color
-      };
-      headerRow.alignment = { horizontal: "center", vertical: "middle" };
-      headerRow.height = 25;
-
-      // Add borders to the header cells
-      headerRow.eachCell({ includeEmpty: true }, (cell) => {
-        cell.border = {
-          top: { style: "thin", color: { argb: "FF000000" } },
-          left: { style: "thin", color: { argb: "FF000000" } },
-          bottom: { style: "thin", color: { argb: "FF000000" } },
-          right: { style: "thin", color: { argb: "FF000000" } },
-        };
-      });
-
-      // Add data rows
       allJobs.forEach((job) => {
         const containers = job.container_nos && job.container_nos.length > 0
           ? job.container_nos.map(c => c.container_number).filter(Boolean).join(", ")
           : "";
 
-        const row = worksheet.addRow({
+        worksheet.addRow({
           importer: job.importer || "",
           be_no: job.be_no || "",
           igm_no: job.igm_no || "",
@@ -371,33 +403,8 @@ function List() {
           container_no: containers,
           job_no: job.job_number || job.job_no || "",
         });
-
-        // Set row height and cell formatting
-        row.height = 22;
-        row.eachCell({ includeEmpty: true }, (cell) => {
-          cell.border = {
-            top: { style: "thin", color: { argb: "FF000000" } },
-            left: { style: "thin", color: { argb: "FF000000" } },
-            bottom: { style: "thin", color: { argb: "FF000000" } },
-            right: { style: "thin", color: { argb: "FF000000" } },
-          };
-          cell.alignment = { vertical: "middle", horizontal: "center" };
-        });
       });
 
-      // Adjust column width based on content size
-      worksheet.columns.forEach((column) => {
-        let maxLen = column.header.length;
-        column.eachCell({ includeEmpty: false }, (cell, rowNumber) => {
-          if (rowNumber > 1) {
-            const valLen = cell.value ? String(cell.value).length : 0;
-            if (valLen > maxLen) maxLen = valLen;
-          }
-        });
-        column.width = Math.min(Math.max(maxLen + 4, 15), 50);
-      });
-
-      // Generate Excel download
       const buffer = await workbook.xlsx.writeBuffer();
       const blob = new Blob([buffer], {
         type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -410,7 +417,6 @@ function List() {
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
-
     } catch (error) {
       console.error("Error exporting to Excel:", error);
       alert("Failed to export jobs to Excel.");
@@ -419,69 +425,10 @@ function List() {
     }
   };
 
-  const handlePageChange = (event, newPage) => {
-    setCurrentPage(newPage);
-  };
-  // const getCustomHouseLocation = useMemo(
-  //   () => (customHouse) => {
-  //     const houseMap = {
-  //       "ICD SACHANA": "SACHANA ICD (INJKA6)",
-  //       "ICD SANAND": "THAR DRY PORT ICD/AHMEDABAD GUJARAT ICD (INSAU6)",
-  //       "ICD KHODIYAR": "AHEMDABAD ICD (INSBI6)",
-  //     };
-  //     return houseMap[customHouse] || customHouse;
-  //   },
-  //   []
-  // );
-  // Handle Advanced Payment Update
-  const handleAdvancedPaymentUpdate = async (jobId, currentValue) => {
-    const newValue = !currentValue;
-    try {
-      // Optimistic update: Update local state immediately
-      setRows((prevRows) => {
-        // If we are in Emergency mode and we just marked it as done (true),
-        // it should disappear from the list.
-        if (showEmergencyOnly && newValue) {
-          return prevRows.filter((row) => row._id !== jobId);
-        }
-        // Otherwise, update the row with new value
-        return prevRows.map((row) =>
-          row._id === jobId
-            ? {
-              ...row,
-              advanced_payment_done: newValue,
-              advanced_payment_date: newValue ? new Date().toISOString() : null,
-            }
-            : row
-        );
-      });
-
-      // Also update emergency count locally if we removed an item
-      if (showEmergencyOnly && newValue) {
-        setEmergencyCount((prev) => Math.max(0, prev - 1));
-      }
-
-      await axios.patch(
-        `${process.env.REACT_APP_API_STRING}/update-advanced-payment/${jobId}`,
-        { advanced_payment_done: newValue, username: user?.username },
-        {
-          headers: {
-            "user-role": user?.role || "unknown",
-            username: user?.username || "unknown",
-            "user-id": user?._id || "unknown",
-          },
-        }
-      );
-    } catch (error) {
-      console.error("Error updating advanced payment:", error);
-      // Ideally show error toast and revert state
-    }
-  };
-
   const handleEditClick = (row) => {
     if (row.consignment_type !== "LCL") {
       setEditingRowId(row._id);
-      setFreeTimeValue(row.free_time);
+      setFreeTimeValue(row.free_time || "");
     } else {
       alert("Free Time cannot be edited for LCL consignment type.");
     }
@@ -520,7 +467,6 @@ function List() {
   };
 
   const columns = [
-
     {
       accessorKey: "job_no",
       header: "Job No ",
@@ -528,6 +474,8 @@ function List() {
       muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
       size: 250,
       Cell: ({ cell }) => {
+        const row = cell.row.original;
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row._id];
         const {
           job_no,
           job_number,
@@ -539,29 +487,113 @@ function List() {
           mode,
           branch_code,
           trade_type,
-        } = cell.row.original;
+        } = row;
         const textColor = "blue";
         const bgColor = selectedJobId === _id ? "#ffffcc" : "transparent";
+
+        if (isShrunk) {
+          return (
+            <div style={{ textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleRowExpanded(row._id);
+                }}
+                sx={{ p: 0.2 }}
+                title="Click to expand row"
+              >
+                <KeyboardArrowRightIcon sx={{ fontSize: 18, color: "#64748b" }} />
+              </IconButton>
+              <a
+                href={`/edit-do-list/${branch_code}/${trade_type}/${mode}/${job_no}/${year}?jobId=${_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                style={{
+                  backgroundColor: bgColor,
+                  cursor: "pointer",
+                  color: textColor,
+                  padding: "3px 6px",
+                  borderRadius: "4px",
+                  fontWeight: "bold",
+                  display: "inline-block",
+                  textDecoration: "none",
+                  fontSize: "13px",
+                }}
+              >
+                {job_number || job_no}
+              </a>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCopy(e, job_number || job_no);
+                }}
+                sx={{ p: 0.2 }}
+                title="Copy Job Number"
+              >
+                <ContentCopyIcon sx={{ fontSize: "14px", color: "#64748b" }} />
+              </IconButton>
+              {type_of_b_e && (
+                <span style={{ fontSize: "11px", color: "#64748b" }}>
+                  ({type_of_b_e})
+                </span>
+              )}
+            </div>
+          );
+        }
+
         return (
-          <a
-            href={`/edit-do-list/${branch_code}/${trade_type}/${mode}/${job_no}/${year}?jobId=${_id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              backgroundColor: bgColor,
-              textAlign: "center",
-              cursor: "pointer",
-              color: textColor,
-              padding: "10px",
-              borderRadius: "5px",
-              display: "inline-block",
-              textDecoration: "none",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
-            {custom_house}
-          </a>
+          <div style={{ textAlign: "center" }}>
+            {viewMode === "shrink" && (
+              <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: "4px" }}>
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleRowExpanded(row._id);
+                  }}
+                  sx={{ p: 0.2 }}
+                  title="Click to collapse row"
+                >
+                  <KeyboardArrowDownIcon sx={{ fontSize: 18, color: "#2563eb" }} />
+                </IconButton>
+              </div>
+            )}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+              <a
+                href={`/edit-do-list/${branch_code}/${trade_type}/${mode}/${job_no}/${year}?jobId=${_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  backgroundColor: bgColor,
+                  textAlign: "center",
+                  cursor: "pointer",
+                  color: textColor,
+                  padding: "10px",
+                  borderRadius: "5px",
+                  display: "inline-block",
+                  textDecoration: "none",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br />{" "}
+                {custom_house}
+              </a>
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCopy(e, job_number || job_no);
+                }}
+                sx={{ p: 0.2 }}
+                title="Copy Job Number"
+              >
+                <ContentCopyIcon sx={{ fontSize: "14px", color: "#64748b" }} />
+              </IconButton>
+            </div>
+          </div>
         );
       },
     },
@@ -570,14 +602,27 @@ function List() {
       header: "Importer",
       enableSorting: false,
       size: 270,
-      Cell: ({ cell }) => {
+      Cell: ({ cell, row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
         const importer = cell?.getValue()?.toString() || "";
         const shipping_line_airline =
           cell.row.original.shipping_line_airline || "";
 
+        if (isShrunk) {
+          return (
+            <div>
+              <span style={{ fontWeight: 600 }}>{importer}</span>
+              {shipping_line_airline && (
+                <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
+                  {shipping_line_airline}
+                </div>
+              )}
+            </div>
+          );
+        }
+
         return (
           <>
-            {/* Importer row */}
             <div
               style={{
                 display: "flex",
@@ -597,7 +642,6 @@ function List() {
               </IconButton>
             </div>
 
-            {/* Shipping line / airline row */}
             {shipping_line_airline && (
               <div
                 style={{
@@ -622,15 +666,14 @@ function List() {
           </>
         );
       },
-    }
-    ,
-
+    },
     {
       accessorKey: "be_no_igm_details",
       header: "Bill Of Entry & IGM Details",
       enableSorting: false,
       size: 300,
-      Cell: ({ cell }) => {
+      Cell: ({ cell, row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
         const {
           be_no,
           igm_date,
@@ -639,6 +682,22 @@ function List() {
           gateway_igm_date,
           gateway_igm,
         } = cell.row.original;
+
+        if (isShrunk) {
+          return (
+            <div style={{ fontSize: "12px" }}>
+              <div>
+                <strong>BE: </strong>{be_no || "N/A"}
+                {be_date && <span style={{ color: "#64748b", marginLeft: "4px" }}>({be_date})</span>}
+              </div>
+              {igm_no && (
+                <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
+                  IGM: {igm_no}
+                </div>
+              )}
+            </div>
+          );
+        }
 
         return (
           <div>
@@ -763,15 +822,28 @@ function List() {
         );
       },
     },
-
     {
       accessorKey: "awb_bl_no",
       header: "BL Number",
       size: 200,
       Cell: ({ row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
         const vesselFlight = row.original.vessel_flight?.toString() || "N/A";
         const voyageNo = row.original.voyage_no?.toString() || "N/A";
         const line_no = row.original.line_no || "N/A";
+
+        if (isShrunk) {
+          return (
+            <div>
+              <span style={{ fontWeight: 600 }}>{row.original.awb_bl_no || "-"}</span>
+              {vesselFlight && vesselFlight !== "N/A" && (
+                <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
+                  {vesselFlight} {voyageNo !== "N/A" ? `(${voyageNo})` : ""}
+                </div>
+              )}
+            </div>
+          );
+        }
 
         return (
           <React.Fragment>
@@ -787,7 +859,6 @@ function List() {
               onCopy={handleCopy}
             />
 
-            {/* REST OF YOUR CUSTOM CONTENT */}
             <div>
               {vesselFlight}
               <IconButton
@@ -830,50 +901,73 @@ function List() {
         );
       },
     },
-
     {
       accessorKey: "free_time",
       header: "Free Time",
-      
       size: 150,
-      Cell: ({ row }) =>
-        editingRowId === row.original._id ? (
+      Cell: ({ row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
+        if (editingRowId === row.original._id) {
+          return (
+            <div style={{ display: "flex", alignItems: "center" }}>
+              <TextField
+                value={freeTimeValue}
+                onChange={(e) => setFreeTimeValue(e.target.value)}
+                size="small"
+                variant="outlined"
+                style={{ width: "60px", marginRight: "8px" }}
+                type="number"
+              />
+              <IconButton onClick={() => handleSave(row.original._id)} size="small">
+                <CheckIcon fontSize="small" />
+              </IconButton>
+              <IconButton onClick={handleCancel} size="small">
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </div>
+          );
+        }
+        return (
           <div style={{ display: "flex", alignItems: "center" }}>
-            <TextField
-              value={freeTimeValue}
-              onChange={(e) => setFreeTimeValue(e.target.value)}
-              size="small"
-              variant="outlined"
-              style={{ width: "60px", marginRight: "8px" }}
-              type="number"
-            />
-            <IconButton onClick={() => handleSave(row.original._id)} size="small">
-              <CheckIcon fontSize="small" />
-            </IconButton>
-            <IconButton onClick={handleCancel} size="small">
-              <CloseIcon fontSize="small" />
-            </IconButton>
-          </div>
-        ) : (
-          <div style={{ display: "flex", alignItems: "center" }}>
-            {row.original.free_time}
+            <span style={{ fontWeight: isShrunk ? 600 : 400 }}>{row.original.free_time || "-"}</span>
             <IconButton
-              onClick={() => handleEditClick(row.original)}
-              style={{ marginLeft: "8px" }}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleEditClick(row.original);
+              }}
+              style={{ marginLeft: "6px" }}
               size="small"
             >
               <EditIcon fontSize="small" />
             </IconButton>
           </div>
-        ),
+        );
+      },
     },
-
     {
       accessorKey: "container_numbers",
       header: "Container Numbers and Size",
       size: 200,
-      Cell: ({ cell }) => {
+      Cell: ({ cell, row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
         const containerNos = cell.row.original.container_nos;
+
+        if (isShrunk) {
+          const count = containerNos?.length || 0;
+          return (
+            <div>
+              <strong>
+                {count > 0 ? `${count} Container(s)` : `${cell.row.original?.no_of_pkgs || 0} Pkg(s)`}
+              </strong>
+              {containerNos?.[0]?.container_number && (
+                <span style={{ fontSize: "11px", color: "#64748b", marginLeft: "4px" }}>
+                  ({containerNos[0].container_number})
+                </span>
+              )}
+            </div>
+          );
+        }
+
         return (
           <React.Fragment>
             {containerNos?.map((container, id) => (
@@ -906,20 +1000,19 @@ function List() {
         );
       },
     },
-
     {
       accessorKey: "Doc",
       header: "Docs",
       enableSorting: false,
       size: 300,
-      Cell: ({ cell }) => {
+      Cell: ({ cell, row }) => {
+        const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
         const {
           processed_be_attachment,
           cth_documents = [],
           checklist,
         } = cell.row.original;
 
-        // Helper function to safely get the first link if it's an array or a string
         const getFirstLink = (input) => {
           if (Array.isArray(input)) {
             return input.length > 0 ? input[0] : null;
@@ -932,9 +1025,17 @@ function List() {
           processed_be_attachment
         );
 
+        if (isShrunk) {
+          const docCount = (checklistLink ? 1 : 0) + (processed_be_attachmentLink ? 1 : 0) + (cth_documents?.length || 0);
+          return (
+            <span style={{ fontSize: "12px", color: docCount > 0 ? "#007bff" : "gray" }}>
+              {docCount > 0 ? `${docCount} Document(s)` : "No Documents"}
+            </span>
+          );
+        }
+
         return (
           <div style={{ textAlign: "left" }}>
-            {/* Render the "Checklist" link or fallback text */}
             {checklistLink ? (
               <div style={{ marginBottom: "5px" }}>
                 <a
@@ -978,8 +1079,6 @@ function List() {
                 </span>
               </div>
             )}
-
-            {/* Standarized CTH and Invoice Display */}
             <InvoiceDisplay row={cell.row.original} />
           </div>
         );
@@ -1015,14 +1114,14 @@ function List() {
     data: rows,
     enableColumnResizing: true,
     enableColumnOrdering: true,
-    enableDensityToggle: false, // Disable density toggle
+    enableDensityToggle: false,
     initialState: {
       density: "compact",
       columnPinning: { left: ["job_no"] },
-    }, // Set initial table density to compact
+    },
     enableGlobalFilter: false,
-    enableGrouping: true, // Enable row grouping
-    enableColumnFilters: false, // Disable column filters
+    enableGrouping: true,
+    enableColumnFilters: false,
     enableColumnActions: false,
     enablePagination: false,
     enableStickyHeader: true,
@@ -1039,257 +1138,372 @@ function List() {
         zIndex: 1,
       },
     },
+    muiTableBodyRowProps: ({ row }) => {
+      const baseProps = {
+        className: getTableRowsClassname(row),
+        style: getTableRowInlineStyle(row),
+      };
+
+      if (viewMode === "shrink") {
+        return {
+          ...baseProps,
+          style: {
+            ...(baseProps.style || {}),
+            cursor: "pointer",
+          },
+          onClick: (event) => {
+            const targetTagName = event.target?.tagName?.toLowerCase() || "";
+            if (["a", "button", "input", "textarea", "select"].includes(targetTagName)) {
+              return;
+            }
+            if (
+              event.target?.closest?.(
+                "a, button, input, textarea, select, .MuiIconButton-root, .MuiChip-root"
+              )
+            ) {
+              return;
+            }
+            toggleRowExpanded(row.original._id);
+          },
+        };
+      }
+
+      return baseProps;
+    },
     renderTopToolbarCustomActions: () => (
       <div
         style={{
           display: "flex",
-          flexWrap: "wrap",
-          alignItems: "center",
-          gap: "12px",
+          flexDirection: "column",
+          gap: "16px",
           width: "100%",
           padding: "8px 0",
         }}
       >
-        {/* Job Count Display */}
-        <Typography
-          variant="body1"
-          sx={{ fontWeight: "bold", fontSize: "1.5rem", marginRight: "10px" }}
-        >
-          Job Count: {totalJobs}
-        </Typography>
-        {/* Importer Filter */}
-        <Autocomplete
-          sx={{ width: "240px" }}
-          freeSolo
-          options={importerNames.map((option) => option.label)}
-          value={selectedImporter || ""} // Controlled value
-          onInputChange={(event, newValue) => setSelectedImporter(newValue)} // Handles input change
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              variant="outlined"
-              size="small"
-              fullWidth
-              label="Select Importer" // Placeholder text
-            />
-          )}
-        />
-        {/* Year Filter */}
-        <TextField
-          select
-          size="small"
-          value={selectedYearState}
-          onChange={(e) => setSelectedYearState(e.target.value)}
-          sx={{ width: "100px" }}
-        >
-          {years.map((year, index) => (
-            <MenuItem key={`year-${year}-${index}`} value={year}>
-              {year}
-            </MenuItem>
-          ))}
-        </TextField>
-        <TextField
-          select
-          size="small"
-          variant="outlined"
-          label="Free Time Filter"
-          value={freeTimeFilter}
-          onChange={(e) => {
-            setFreeTimeFilter(e.target.value);
-            setCurrentPage(1);
+        {/* Row 1 - Counts and Actions */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            flexWrap: "wrap",
+            gap: "16px",
           }}
-          sx={{ width: "150px" }}
         >
-          <MenuItem value="">All</MenuItem>
-          <MenuItem value="zero">Free Time = 0</MenuItem>
-          <MenuItem value="moreThanZero">Free Time &gt; 0</MenuItem>
-        </TextField>
-        <TextField
-          select
-          size="small"
-          variant="outlined"
-          label="BE No Filter"
-          value={beNoFilter}
-          onChange={(e) => {
-            setBeNoFilter(e.target.value);
-            setCurrentPage(1);
-          }}
-          sx={{ width: "140px" }}
-        >
-          <MenuItem value="">All</MenuItem>
-          <MenuItem value="withBeNo">With BE No</MenuItem>
-          <MenuItem value="withoutBeNo">Without BE No</MenuItem>
-        </TextField>
-        {/* ICD Code Filter */}
-        <TextField
-          select
-          size="small"
-          variant="outlined"
-          label="ICD Code"
-          value={selectedICD}
-          onChange={(e) => {
-            setSelectedICD(e.target.value); // Update the selected ICD code
-            setCurrentPage(1); // Reset to the first page when the filter changes
-          }}
-          sx={{ width: "150px" }}
-        >
-          <MenuItem value="">All ICDs</MenuItem>
-          {dynamicICDs.map((icd, index) => (
-            <MenuItem key={index} value={icd}>{icd}</MenuItem>
-          ))}
-        </TextField>{" "}
-        {/* Search Field */}
-        <TextField
-          placeholder="Search by Job No, Importer, or AWB/BL Number"
-          size="small"
-          variant="outlined"
-          value={searchQuery}
-          onChange={handleSearchInputChange}
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                {" "}
-                <IconButton
-                  onClick={() => {
-                    setDebouncedSearchQuery(searchQuery);
-                    setCurrentPage(1);
+          <Typography
+            variant="body1"
+            sx={{ fontWeight: "bold", fontSize: "1.5rem" }}
+          >
+            Job Count: {totalJobs}
+          </Typography>
+
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+            {/* View Mode Toggle Switch */}
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 0.5,
+                bgcolor: "#f1f5f9",
+                p: "2px",
+                borderRadius: "8px",
+                border: "1px solid #cbd5e1",
+              }}
+            >
+              <Tooltip title="Full Table View" arrow>
+                <button
+                  type="button"
+                  className={`toggle-btn ${viewMode === "full" ? "active" : ""}`}
+                  onClick={() => handleViewModeChange("full")}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    padding: "5px 9px",
+                    border: "none",
+                    borderRadius: "6px",
+                    backgroundColor: viewMode === "full" ? "#ffffff" : "transparent",
+                    color: viewMode === "full" ? "#2563eb" : "#64748b",
+                    fontWeight: "700",
+                    fontSize: "12px",
+                    cursor: "pointer",
+                    boxShadow: viewMode === "full" ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
                   }}
                 >
-                  <SearchIcon />
-                </IconButton>
-              </InputAdornment>
-            ),
+                  <TableRowsIcon sx={{ fontSize: 16 }} />
+                  Full
+                </button>
+              </Tooltip>
+              <Tooltip title="Shrink List View" arrow>
+                <button
+                  type="button"
+                  className={`toggle-btn ${viewMode === "shrink" ? "active" : ""}`}
+                  onClick={() => handleViewModeChange("shrink")}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "4px",
+                    padding: "5px 9px",
+                    border: "none",
+                    borderRadius: "6px",
+                    backgroundColor: viewMode === "shrink" ? "#ffffff" : "transparent",
+                    color: viewMode === "shrink" ? "#2563eb" : "#64748b",
+                    fontWeight: "700",
+                    fontSize: "12px",
+                    cursor: "pointer",
+                    boxShadow: viewMode === "shrink" ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
+                  }}
+                >
+                  <ViewHeadlineIcon sx={{ fontSize: 16 }} />
+                  Shrink
+                </button>
+              </Tooltip>
+            </Box>
+
+            <Box sx={{ position: "relative" }}>
+              <Button
+                variant={showUnresolvedOnly ? "contained" : "outlined"}
+                color="primary"
+                size="small"
+                onClick={() => setShowUnresolvedOnly((prev) => !prev)}
+                sx={{
+                  borderRadius: 3,
+                  textTransform: "none",
+                  fontWeight: 500,
+                  fontSize: "0.875rem",
+                  padding: "8px 20px",
+                }}
+              >
+                {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
+              </Button>
+              <Badge
+                badgeContent={unresolvedCount}
+                color="error"
+                overlap="circular"
+                anchorOrigin={{ vertical: "top", horizontal: "right" }}
+                sx={{
+                  position: "absolute",
+                  top: 4,
+                  right: 4,
+                  "& .MuiBadge-badge": {
+                    fontSize: "0.75rem",
+                    minWidth: "18px",
+                    height: "18px",
+                    boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                  },
+                }}
+              />
+            </Box>
+
+            <Box sx={{ position: "relative" }}>
+              <Button
+                variant={showEmergencyOnly ? "contained" : "outlined"}
+                color="error"
+                size="small"
+                onClick={() => setShowEmergencyOnly((prev) => !prev)}
+                sx={{
+                  borderRadius: 3,
+                  textTransform: "none",
+                  fontWeight: 500,
+                  fontSize: "0.875rem",
+                  padding: "8px 20px",
+                }}
+              >
+                {showEmergencyOnly ? "Show All Jobs" : "Emergency"}
+              </Button>
+              <Badge
+                badgeContent={emergencyCount}
+                color="error"
+                overlap="circular"
+                anchorOrigin={{ vertical: "top", horizontal: "right" }}
+                sx={{
+                  position: "absolute",
+                  top: 4,
+                  right: 4,
+                  "& .MuiBadge-badge": {
+                    fontSize: "0.75rem",
+                    minWidth: "18px",
+                    height: "18px",
+                    boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+                  },
+                }}
+              />
+            </Box>
+
+            <Button
+              variant="contained"
+              size="small"
+              onClick={handleDownloadExcel}
+              sx={{
+                borderRadius: 3,
+                textTransform: "none",
+                fontWeight: 500,
+                fontSize: "0.875rem",
+                padding: "8px 20px",
+                background: "linear-gradient(135deg, #2e7d32 0%, #4caf50 100%)",
+                color: "#ffffff",
+                border: "none",
+                boxShadow: "0 4px 12px rgba(46, 125, 50, 0.3)",
+                transition: "all 0.3s ease",
+                "&:hover": {
+                  background: "linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%)",
+                  boxShadow: "0 6px 16px rgba(46, 125, 50, 0.4)",
+                  transform: "translateY(-1px)",
+                },
+                "&:active": {
+                  transform: "translateY(0px)",
+                },
+              }}
+            >
+              Download Excel
+            </Button>
+          </div>
+        </div>
+
+        {/* Row 2 - Filters */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+            gap: "16px",
+            alignItems: "end",
           }}
-          sx={{ width: "260px" }}
-        />
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap", marginLeft: "auto" }}>
-          <Button
-            variant="contained"
+        >
+          <Autocomplete
             size="small"
-            onClick={handleDownloadExcel}
+            options={importerNames.map((option) => option.label)}
+            value={selectedImporter || ""}
+            onInputChange={(event, newValue) => setSelectedImporter(newValue)}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                variant="outlined"
+                label="Select Importer"
+                fullWidth
+                sx={{
+                  "& .MuiOutlinedInput-root": {
+                    backgroundColor: "white",
+                  },
+                }}
+              />
+            )}
+          />
+          <TextField
+            select
+            size="small"
+            value={selectedYearState}
+            onChange={(e) => setSelectedYearState(e.target.value)}
+            label="Financial Year"
+            fullWidth
             sx={{
-              borderRadius: 2,
-              textTransform: "none",
-              fontWeight: 500,
-              fontSize: "0.78rem",
-              padding: "6px 14px",
-              background: "linear-gradient(135deg, #2e7d32 0%, #4caf50 100%)",
-              color: "#ffffff",
-              border: "none",
-              boxShadow: "0 3px 8px rgba(46, 125, 50, 0.2)",
-              transition: "all 0.3s ease",
-              "&:hover": {
-                background:
-                  "linear-gradient(135deg, #1b5e20 0%, #2e7d32 100%)",
-                boxShadow: "0 5px 12px rgba(46, 125, 50, 0.3)",
-                transform: "translateY(-1px)",
-              },
-              "&:active": {
-                transform: "translateY(0px)",
+              "& .MuiOutlinedInput-root": {
+                backgroundColor: "white",
               },
             }}
           >
-            Download Excel
-          </Button>
-          <Box sx={{ position: "relative" }}>
-            <Button
-              variant="contained"
-              size="small"
-              onClick={() => setShowUnresolvedOnly((prev) => !prev)}
-              sx={{
-                borderRadius: 2,
-                textTransform: "none",
-                fontWeight: 500,
-                fontSize: "0.78rem",
-                padding: "6px 14px",
-                background: "linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)",
-                color: "#ffffff",
-                border: "none",
-                boxShadow: "0 3px 8px rgba(25, 118, 210, 0.2)",
-                transition: "all 0.3s ease",
-                "&:hover": {
-                  background:
-                    "linear-gradient(135deg, #1565c0 0%, #1976d2 100%)",
-                  boxShadow: "0 5px 12px rgba(25, 118, 210, 0.3)",
-                  transform: "translateY(-1px)",
-                },
-                "&:active": {
-                  transform: "translateY(0px)",
-                },
-              }}
-            >
-              {showUnresolvedOnly ? "Show All Jobs" : "Pending Queries"}
-            </Button>
-            <Badge
-              badgeContent={unresolvedCount}
-              color="error"
-              overlap="circular"
-              anchorOrigin={{ vertical: "top", horizontal: "right" }}
-              sx={{
-                position: "absolute",
-                top: 2,
-                right: 2,
-                "& .MuiBadge-badge": {
-                  fontSize: "0.7rem",
-                  minWidth: "16px",
-                  height: "16px",
-                  boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
-                },
-              }}
-            />
-          </Box>
+            {years.map((year, index) => (
+              <MenuItem key={`year-${year}-${index}`} value={year}>
+                {year}
+              </MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
+            size="small"
+            variant="outlined"
+            label="Free Time Filter"
+            value={freeTimeFilter}
+            onChange={(e) => {
+              setFreeTimeFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+            fullWidth
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                backgroundColor: "white",
+              },
+            }}
+          >
+            <MenuItem value="">All</MenuItem>
+            <MenuItem value="zero">Free Time = 0</MenuItem>
+            <MenuItem value="moreThanZero">Free Time &gt; 0</MenuItem>
+          </TextField>
+          <TextField
+            select
+            size="small"
+            variant="outlined"
+            label="BE No Filter"
+            value={beNoFilter}
+            onChange={(e) => {
+              setBeNoFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+            fullWidth
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                backgroundColor: "white",
+              },
+            }}
+          >
+            <MenuItem value="">All</MenuItem>
+            <MenuItem value="withBeNo">With BE No</MenuItem>
+            <MenuItem value="withoutBeNo">Without BE No</MenuItem>
+          </TextField>
+          <TextField
+            select
+            size="small"
+            variant="outlined"
+            label="ICD Code"
+            value={selectedICD}
+            onChange={(e) => {
+              setSelectedICD(e.target.value);
+              setCurrentPage(1);
+            }}
+            fullWidth
+            sx={{
+              "& .MuiOutlinedInput-root": {
+                backgroundColor: "white",
+              },
+            }}
+          >
+            <MenuItem value="">All ICDs</MenuItem>
+            {dynamicICDs.map((icd, index) => (
+              <MenuItem key={index} value={icd}>{icd}</MenuItem>
+            ))}
+          </TextField>
 
-          <Box sx={{ position: "relative" }}>
-            <Button
-              variant="contained"
+          <div style={{ minWidth: "220px" }}>
+            <TextField
+              placeholder="Search by Job No, Importer, or AWB/BL Number"
               size="small"
-              onClick={() => setShowEmergencyOnly((prev) => !prev)}
-              sx={{
-                borderRadius: 2,
-                textTransform: "none",
-                fontWeight: 500,
-                fontSize: "0.78rem",
-                padding: "6px 14px",
-                background: "linear-gradient(135deg, #d32f2f 0%, #ff5252 100%)", // Red gradient
-                color: "#ffffff",
-                border: "none",
-                boxShadow: "0 3px 8px rgba(211, 47, 47, 0.2)",
-                transition: "all 0.3s ease",
-                "&:hover": {
-                  background:
-                    "linear-gradient(135deg, #c62828 0%, #d32f2f 100%)",
-                  boxShadow: "0 5px 12px rgba(211, 47, 47, 0.3)",
-                  transform: "translateY(-1px)",
-                },
-                "&:active": {
-                  transform: "translateY(0px)",
-                },
+              variant="outlined"
+              fullWidth
+              value={searchQuery}
+              onChange={handleSearchInputChange}
+              label="Search"
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => {
+                        setDebouncedSearchQuery(searchQuery);
+                        setCurrentPage(1);
+                      }}
+                      size="small"
+                    >
+                      <SearchIcon />
+                    </IconButton>
+                  </InputAdornment>
+                ),
               }}
-            >
-              {showEmergencyOnly ? "Show All Jobs" : "Emergency"}
-            </Button>
-            <Badge
-              badgeContent={emergencyCount}
-              color="error" // Or primary/warning to contrast with button? White might be better on red? 
-              // Wait, badge is outside button. 
-              overlap="circular"
-              anchorOrigin={{ vertical: "top", horizontal: "right" }}
               sx={{
-                position: "absolute",
-                top: 2,
-                right: 2,
-                "& .MuiBadge-badge": {
-                  fontSize: "0.7rem",
-                  minWidth: "16px",
-                  height: "16px",
-                  boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
-                  backgroundColor: "warning.main", // Removed # prefix
-                  color: "white"
+                "& .MuiOutlinedInput-root": {
+                  backgroundColor: "white",
                 },
               }}
             />
-          </Box>
-        </Box>
+          </div>
+        </div>
       </div>
     ),
   });
@@ -1297,7 +1511,7 @@ function List() {
   return (
     <>
       <div style={{ height: "80%" }}>
-        <MaterialReactTable table={table} /> {/* Pagination */}
+        <MaterialReactTable table={table} /> 
         <Pagination
           count={totalPages > 0 ? totalPages : 1}
           page={currentPage}

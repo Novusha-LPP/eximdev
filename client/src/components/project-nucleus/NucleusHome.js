@@ -22,8 +22,10 @@ import ElockBillingReport from './reports/ElockBillingReport';
 import TransportAccountsReport from './reports/TransportAccountsReport';
 import KarmaReport from './reports/KarmaReport';
 import ExportPulseReport from './reports/ExportPulseReport';
+import ExportLeoSummaryReport from './reports/ExportLeoSummaryReport';
 import ImportPendingSummaryReport from './reports/ImportPendingSummaryReport';
 import ImportOutOfChargeSummaryReport from './reports/ImportOutOfChargeSummaryReport';
+import TransportMonitoringReport from './reports/TransportMonitoringReport';
 
 const NucleusHome = () => {
     const { selectedCategory, selectedBranchGroup } = useContext(BranchContext);
@@ -41,22 +43,24 @@ const NucleusHome = () => {
                 { id: 'import_out_of_charge_summary', label: 'Out of Charge Summary' }
             ]
         },
-        { 
-            id: 'export', 
-            label: 'Export', 
-            icon: '🛫', 
+        {
+            id: 'export',
+            label: 'Export',
+            icon: '🛫',
             reports: [
-                { id: 'export_pulse', label: 'Export Pulse Dashboard' }
-            ] 
+                { id: 'export_pulse', label: 'Export Pulse Dashboard' },
+                { id: 'export_leo_summary', label: 'Let Export Order (LEO) Summary' }
+            ]
         },
         {
             id: 'transport',
             label: 'Transport',
             icon: '🚚',
             reports: [
-                { id: 'transport_table', label: 'Top 10 Transporters' },
                 { id: 'fleet_utilization', label: 'Fleet Utilization' },
-                { id: 'elock_lr_completed', label: 'LR Completed Count' }
+                { id: 'transport_table', label: 'Top 10 Transporters' },
+                { id: 'elock_lr_completed', label: 'LR Completed Count' },
+                { id: 'transport_monitoring', label: 'Pending LRs & Dispatch Monitoring' }
             ]
         },
         {
@@ -128,10 +132,12 @@ const NucleusHome = () => {
 
     // Auto-switch filter type based on report
     useEffect(() => {
-        if (['import_pending_summary', 'import_out_of_charge_summary'].includes(activeReport)) {
+        if (activeReport === 'transport_monitoring') {
+            setFilterType('day');
+        } else if (['import_pending_summary'].includes(activeReport)) {
             setFilterType('fin-year');
         } else {
-            if (filterType === 'fin-year') setFilterType('year');
+            if (filterType === 'fin-year' && activeReport !== 'import_out_of_charge_summary') setFilterType('year');
         }
     }, [activeReport]);
 
@@ -226,9 +232,35 @@ const NucleusHome = () => {
                 return <NewCustomersReport />;
             case 'export_pulse':
                 return <ExportPulseReport />;
+            case 'export_leo_summary':
+                return (
+                    <ExportLeoSummaryReport
+                        filterType={filterType}
+                        selectedMonth={selectedMonth}
+                        selectedYear={selectedYear}
+                        selectedQuarter={selectedQuarter}
+                        dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
+                        selectedDay={selectedDay}
+                        selectedCategory={selectedCategory}
+                        selectedBranch={selectedBranchGroup === 'all' ? '' : selectedBranchGroup}
+                    />
+                );
             case 'transport_table':
                 return (
                     <Top10TransportersReport
+                        filterType={filterType}
+                        selectedMonth={selectedMonth}
+                        selectedYear={selectedYear}
+                        selectedQuarter={selectedQuarter}
+                        dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
+                        selectedDay={selectedDay}
+                    />
+                );
+            case 'transport_monitoring':
+                return (
+                    <TransportMonitoringReport
                         filterType={filterType}
                         selectedMonth={selectedMonth}
                         selectedYear={selectedYear}
@@ -423,8 +455,12 @@ const NucleusHome = () => {
                                                     if (['fleet_utilization', 'elock_utilization', 'elock_billing', 'transport_accounts'].includes(report.id)) {
                                                         setFilterType('day');
                                                         setSelectedDay(format(new Date(), 'yyyy-MM-dd'));
-                                                    } else if (['import_pending_summary', 'import_out_of_charge_summary'].includes(report.id)) {
+                                                    } else if (report.id === 'import_pending_summary') {
                                                         setFilterType('fin-year');
+                                                    } else if (report.id === 'import_out_of_charge_summary') {
+                                                        if (filterType === 'fin-year') {
+                                                            setFilterType('month');
+                                                        }
                                                     } else {
                                                         if (filterType === 'day') {
                                                             setFilterType('month');
@@ -458,26 +494,26 @@ const NucleusHome = () => {
                     <div className="nucleus-controls-container">
                         <div className="nucleus-filter-section">
                             <div className="filter-row custom-filter-row" style={{ marginTop: 0, paddingLeft: 0, background: 'transparent' }}>
-                                {!["import_pending_summary", "import_out_of_charge_summary"].includes(activeReport) && (
-                                <div className="filter-type-selector">
-                                    <span className="filter-label" style={{ minWidth: 'auto', marginRight: '10px' }}>Filter Period:</span>
-                                    <select
-                                        value={filterType}
-                                        onChange={(e) => setFilterType(e.target.value)}
-                                        className="nucleus-select"
-                                    >
-                                        {['fleet_utilization', 'elock_utilization', 'elock_billing', 'transport_accounts', 'import_pending_summary'].includes(activeReport) && (
-                                            <option value="day">Day Wise</option>
-                                        )}
-                                        <option value="week">Week Wise</option>
-                                        <option value="month">Month Wise</option>
-                                        <option value="quarter">Quarter Wise</option>
-                                        <option value="year">Year Wise</option>
-                                        {["import_pending_summary", "import_out_of_charge_summary"].includes(activeReport) && <option value="fin-year">Financial Year</option>}
-                                        <option value="date-range">Date Range</option>
-                                        <option value="all">Unfiltered (All Time)</option>
-                                    </select>
-                                </div>
+                                {!["import_pending_summary"].includes(activeReport) && (
+                                    <div className="filter-type-selector">
+                                        <span className="filter-label" style={{ minWidth: 'auto', marginRight: '10px' }}>Filter Period:</span>
+                                        <select
+                                            value={filterType}
+                                            onChange={(e) => setFilterType(e.target.value)}
+                                            className="nucleus-select"
+                                        >
+                                            {['transport_monitoring', 'fleet_utilization', 'elock_utilization', 'elock_billing', 'transport_accounts', 'import_pending_summary', 'import_out_of_charge_summary', 'export_leo_summary'].includes(activeReport) && (
+                                                <option value="day">Day Wise</option>
+                                            )}
+                                            <option value="week">Week Wise</option>
+                                            <option value="month">Month Wise</option>
+                                            <option value="quarter">Quarter Wise</option>
+                                            <option value="year">Year Wise</option>
+                                            {["import_pending_summary", "import_out_of_charge_summary", "export_leo_summary"].includes(activeReport) && <option value="fin-year">Financial Year</option>}
+                                            <option value="date-range">Date Range</option>
+                                            <option value="all">Unfiltered (All Time)</option>
+                                        </select>
+                                    </div>
                                 )}
 
                                 {filterType === 'day' && (

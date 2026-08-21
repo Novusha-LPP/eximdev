@@ -80,15 +80,48 @@ export default function VirtualBalanceList({ isJobs = false }) {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
+
+  const [search, setSearch] = useState(
+    () => sessionStorage.getItem("ib_vb_search") || ""
+  );
+  const [statusFilter, setStatusFilter] = useState(
+    () => sessionStorage.getItem("ib_vb_status") || ""
+  );
+  const [startDate, setStartDate] = useState(
+    () => sessionStorage.getItem("ib_vb_startDate") || ""
+  );
+  const [endDate, setEndDate] = useState(
+    () => sessionStorage.getItem("ib_vb_endDate") || ""
+  );
+  const [page, setPage] = useState(
+    () => Number(sessionStorage.getItem("ib_vb_page")) || 1
+  );
+
   const [totalPages, setTotalPages] = useState(1);
-  const [search, setSearch] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
   const [uploadingRowId, setUploadingRowId] = useState(null);
   const limit = 15;
+
+  // Persist filter states to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("ib_vb_search", search);
+  }, [search]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_vb_status", statusFilter);
+  }, [statusFilter]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_vb_startDate", startDate || "");
+  }, [startDate]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_vb_endDate", endDate || "");
+  }, [endDate]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_vb_page", page.toString());
+  }, [page]);
 
   const [jobsList, setJobsList] = useState([]);
   const [selectedJobs, setSelectedJobs] = useState([]);
@@ -122,7 +155,12 @@ export default function VirtualBalanceList({ isJobs = false }) {
   const [compareLoading, setCompareLoading] = useState(false);
 
   // Debounce search
+  const isFirstSearch = React.useRef(true);
   useEffect(() => {
+    if (isFirstSearch.current) {
+      isFirstSearch.current = false;
+      return;
+    }
     const timer = setTimeout(() => {
       setDebouncedSearch(search);
       setPage(1);

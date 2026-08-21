@@ -212,7 +212,7 @@ function useFetchJobDetails(
   const [jobDetails, setJobDetails] = useState([]);
 
   const schemeOptions = ["Full Duty", "DEEC", "EPCG", "RODTEP", "ROSTL"];
-  const beTypeOptions = ["Home", "In-Bond", "Ex-Bond"];
+  const beTypeOptions = ["Home", "In-Bond", "Ex-Bond", "SEZ"];
   const clearanceOptionsMapping = {
     Home: [
       { value: "Full Duty", label: "Full Duty" },
@@ -225,6 +225,16 @@ function useFetchJobDetails(
     ],
     "In-Bond": [{ value: "In-Bond", label: "In-Bond" }],
     "Ex-Bond": [
+      { value: "Full Duty", label: "Full Duty" },
+      { value: "DEEC", label: "DEEC" },
+      { value: "EPCG", label: "EPCG" },
+      { value: "RODTEP", label: "RODTEP" },
+      { value: "ROSTL", label: "ROSTL" },
+      { value: "TQ", label: "TQ" },
+      { value: "SIL", label: "SIL" },
+    ],
+    SEZ: [
+      { value: "SEZ", label: "SEZ" },
       { value: "Full Duty", label: "Full Duty" },
       { value: "DEEC", label: "DEEC" },
       { value: "EPCG", label: "EPCG" },
@@ -1089,7 +1099,65 @@ function useFetchJobDetails(
                 igst_amount_inr: safeValue(row.igst_amount_inr, ""),
                 igst_amount_manual: Boolean(safeValue(row.igst_amount_manual, false)),
                 comp_cess_percent: safeValue(row.comp_cess_percent, ""),
-                comp_cess_amount: safeValue(row.comp_cess_amount, "")
+                comp_cess_amount: safeValue(row.comp_cess_amount, ""),
+
+                bcd_notn: safeValue(row.bcd_notn, ""),
+                bcd_sr_no: safeValue(row.bcd_sr_no, ""),
+                bcd_rate: safeValue(row.bcd_rate, ""),
+                bcd_specific_rate: safeValue(row.bcd_specific_rate, ""),
+                bcd_unit: safeValue(row.bcd_unit, ""),
+                bcd_flag: safeValue(row.bcd_flag, ""),
+                bcd_amount: safeValue(row.bcd_amount, ""),
+
+                aidc_notn: safeValue(row.aidc_notn, ""),
+                aidc_sr_no: safeValue(row.aidc_sr_no, ""),
+                aidc_rate: safeValue(row.aidc_rate, ""),
+                aidc_specific_rate: safeValue(row.aidc_specific_rate, ""),
+                aidc_unit: safeValue(row.aidc_unit, ""),
+                aidc_amount: safeValue(row.aidc_amount, ""),
+
+                sw_surcharge_notn: safeValue(row.sw_surcharge_notn, ""),
+                sw_surcharge_sr_no: safeValue(row.sw_surcharge_sr_no, ""),
+                sw_surcharge_rate: safeValue(row.sw_surcharge_rate, "10.00"),
+                sw_surcharge_foc: safeValue(row.sw_surcharge_foc, "No"),
+                sw_surcharge_amount: safeValue(row.sw_surcharge_amount, ""),
+
+                igst_notn: safeValue(row.igst_notn, ""),
+                igst_sr_no: safeValue(row.igst_sr_no, ""),
+                igst_specific_rate: safeValue(row.igst_specific_rate, ""),
+                igst_unit: safeValue(row.igst_unit, ""),
+                igst_type: safeValue(row.igst_type, "C - Customs"),
+
+                igst_exc_notn: safeValue(row.igst_exc_notn, ""),
+                igst_exc_sr_no: safeValue(row.igst_exc_sr_no, ""),
+                igst_exc_rate: safeValue(row.igst_exc_rate, ""),
+                igst_exc_amount: safeValue(row.igst_exc_amount, ""),
+
+                comp_cess_notn: safeValue(row.comp_cess_notn, ""),
+                comp_cess_sr_no: safeValue(row.comp_cess_sr_no, ""),
+                comp_cess_specific_rate: safeValue(row.comp_cess_specific_rate, ""),
+                comp_cess_unit: safeValue(row.comp_cess_unit, ""),
+
+                comp_exc_notn: safeValue(row.comp_exc_notn, ""),
+                comp_exc_sr_no: safeValue(row.comp_exc_sr_no, ""),
+                comp_exc_rate: safeValue(row.comp_exc_rate, ""),
+                comp_exc_specific_rate: safeValue(row.comp_exc_specific_rate, ""),
+                comp_exc_amount: safeValue(row.comp_exc_amount, ""),
+
+                safeguard_notn: safeValue(row.safeguard_notn, ""),
+                safeguard_sr_no: safeValue(row.safeguard_sr_no, ""),
+                safeguard_rate: safeValue(row.safeguard_rate, ""),
+                safeguard_specific_rate: safeValue(row.safeguard_specific_rate, ""),
+                safeguard_amount: safeValue(row.safeguard_amount, ""),
+
+                sapta_notn: safeValue(row.sapta_notn, ""),
+                sapta_sr_no: safeValue(row.sapta_sr_no, ""),
+                sapta_rate: safeValue(row.sapta_rate, ""),
+                sapta_amount: safeValue(row.sapta_amount, ""),
+
+                standard_uqc_qty: safeValue(row.standard_uqc_qty, ""),
+                standard_uqc_unit: safeValue(row.standard_uqc_unit, ""),
+                total_duty_amount: safeValue(row.total_duty_amount, "")
               }))
             : [
               {
@@ -1144,7 +1212,65 @@ function useFetchJobDetails(
                 igst_amount_inr: "",
                 igst_amount_manual: false,
                 comp_cess_percent: "",
-                comp_cess_amount: ""
+                comp_cess_amount: "",
+
+                bcd_notn: "",
+                bcd_sr_no: "",
+                bcd_rate: "",
+                bcd_specific_rate: "",
+                bcd_unit: "",
+                bcd_flag: "",
+                bcd_amount: "",
+
+                aidc_notn: "",
+                aidc_sr_no: "",
+                aidc_rate: "",
+                aidc_specific_rate: "",
+                aidc_unit: "",
+                aidc_amount: "",
+
+                sw_surcharge_notn: "",
+                sw_surcharge_sr_no: "",
+                sw_surcharge_rate: "10.00",
+                sw_surcharge_foc: "No",
+                sw_surcharge_amount: "",
+
+                igst_notn: "",
+                igst_sr_no: "",
+                igst_specific_rate: "",
+                igst_unit: "",
+                igst_type: "C - Customs",
+
+                igst_exc_notn: "",
+                igst_exc_sr_no: "",
+                igst_exc_rate: "",
+                igst_exc_amount: "",
+
+                comp_cess_notn: "",
+                comp_cess_sr_no: "",
+                comp_cess_specific_rate: "",
+                comp_cess_unit: "",
+
+                comp_exc_notn: "",
+                comp_exc_sr_no: "",
+                comp_exc_rate: "",
+                comp_exc_specific_rate: "",
+                comp_exc_amount: "",
+
+                safeguard_notn: "",
+                safeguard_sr_no: "",
+                safeguard_rate: "",
+                safeguard_specific_rate: "",
+                safeguard_amount: "",
+
+                sapta_notn: "",
+                sapta_sr_no: "",
+                sapta_rate: "",
+                sapta_amount: "",
+
+                standard_uqc_qty: "",
+                standard_uqc_unit: "",
+                total_duty_amount: ""
               },
             ],
         consignment_type: safeValue(data.consignment_type),

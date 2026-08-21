@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useContext } from "react";
 import axios from "axios";
+import { UserContext } from "../../../contexts/UserContext";
 import {
   Box,
   Button,
@@ -19,8 +20,25 @@ import {
   Tabs,
   Tab,
   Chip,
+  Grid,
+  Tooltip,
+  InputAdornment,
+  Avatar,
 } from "@mui/material";
-import { Edit, Delete, GetApp, Add, FileDownload, Visibility } from "@mui/icons-material";
+import {
+  Edit,
+  Delete,
+  GetApp,
+  Add,
+  FileDownload,
+  Visibility,
+  Search,
+  Clear,
+  Assignment,
+  MonetizationOn,
+  LocalShipping,
+  CheckCircle,
+} from "@mui/icons-material";
 
 const stageTabsList = [
   { label: "All PRs", value: "0" },
@@ -30,9 +48,14 @@ const stageTabsList = [
   { label: "4. Payment & UTR", value: "4" },
   { label: "5. Order & Dispatch", value: "5" },
   { label: "6. Site GRN", value: "6" },
+  { label: "7. Completed", value: "7" },
 ];
 
 function TyreProcurementList({ onEdit, onView, onCreate }) {
+  const { user } = useContext(UserContext);
+  const userRole = (user?.role || "").toLowerCase();
+  const isAdmin = userRole === "admin" || userRole === "superadmin";
+
   const [data, setData] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
@@ -40,6 +63,52 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
   const [search, setSearch] = useState("");
   const [stageTab, setStageTab] = useState("0");
   const [loading, setLoading] = useState(false);
+  const [allowedUserTabs, setAllowedUserTabs] = useState([]);
+
+  useEffect(() => {
+    async function fetchUserTabs() {
+      if (user?.username && !isAdmin) {
+        try {
+          const res = await axios.get(
+            `/api/tyre-procurement/user-tabs/${user.username}`
+          );
+          if (res.data?.success && res.data.allowed_tabs?.length > 0) {
+            setAllowedUserTabs(res.data.allowed_tabs);
+          }
+        } catch (err) {
+          console.error("Error fetching allowed tabs:", err);
+        }
+      }
+    }
+    fetchUserTabs();
+  }, [user, isAdmin]);
+
+  const isTabVisible = (tabLabel, tabValue) => {
+    if (isAdmin || allowedUserTabs.length === 0 || tabValue === "0") return true;
+    return allowedUserTabs.includes(tabLabel);
+  };
+
+  const getTabCount = (value) => {
+    if (value === "0") return total;
+    switch (value) {
+      case "1":
+        return data.filter((d) => d.status === "PR Raised" || !d.status).length;
+      case "2":
+        return data.filter((d) => d.status === "HoD Validated" || d.status === "Preparing for Quotation").length;
+      case "3":
+        return data.filter((d) => d.status === "Quotation Received" || d.status === "Quotation Updated").length;
+      case "4":
+        return data.filter((d) => d.status === "Finance Approved").length;
+      case "5":
+        return data.filter((d) => d.status === "Payment Done" || d.status === "Order Placed").length;
+      case "6":
+        return data.filter((d) => d.status === "Dispatched / Site GRN Ready" || d.status === "GRN Ready").length;
+      case "7":
+        return data.filter((d) => d.status === "GRN Done" || d.status === "Closed" || d.status === "GRN Completed").length;
+      default:
+        return 0;
+    }
+  };
 
   const fetchRecords = async () => {
     setLoading(true);
@@ -121,25 +190,199 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
     setPage(0);
   };
 
+  // Compute status metrics for visual KPI bar
+  const totalCount = total;
+  const pendingQuotationCount = data.filter((d) => d.status === "PR Raised" || d.status === "Preparing for Quotation").length;
+  const paymentDoneCount = data.filter((d) => d.status === "Payment Done" || d.status === "Order Placed").length;
+  const grnCompletedCount = data.filter((d) => d.status === "GRN Done" || d.status === "Closed").length;
+
+  const getStatusChipProps = (status) => {
+    switch (status) {
+      case "Closed":
+      case "GRN Done":
+        return { label: status || "GRN Done", bg: "#dcfce7", color: "#15803d" };
+      case "Payment Done":
+      case "Order Placed":
+        return { label: status, bg: "#e0f2fe", color: "#0369a1" };
+      case "Finance Approved":
+        return { label: status, bg: "#e0e7ff", color: "#4338ca" };
+      case "PR Raised":
+      case "Quotation Received":
+      case "Preparing for Quotation":
+        return { label: status, bg: "#fef3c7", color: "#b45309" };
+      default:
+        return { label: status || "Draft", bg: "#f1f5f9", color: "#475569" };
+    }
+  };
+
   return (
-    <Box>
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems="center" spacing={2} sx={{ mb: 2 }}>
-          <Typography variant="h5" sx={{ fontWeight: "bold", color: "#1a237e" }}>
-            Tyre Procurement SOP
-          </Typography>
-          <Stack direction="row" spacing={1}>
-            <Button variant="outlined" startIcon={<FileDownload />} onClick={handleDownloadTemplate}>
-              Template
+    <Box sx={{ width: "100%" }}>
+      {/* Top Operational Metrics Header Cards */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2,
+              borderRadius: "12px",
+              border: "1px solid",
+              borderColor: "divider",
+              background: "linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)",
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
+            }}
+          >
+            <Avatar sx={{ bgcolor: "rgba(37, 99, 235, 0.1)", color: "#2563eb", width: 48, height: 48 }}>
+              <Assignment />
+            </Avatar>
+            <Box>
+              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+                Total PRs
+              </Typography>
+              <Typography variant="h5" sx={{ fontWeight: 700, color: "#0f172a" }}>
+                {totalCount}
+              </Typography>
+            </Box>
+          </Paper>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2,
+              borderRadius: "12px",
+              border: "1px solid",
+              borderColor: "divider",
+              background: "linear-gradient(135deg, #ffffff 0%, #fffbe6 100%)",
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
+            }}
+          >
+            <Avatar sx={{ bgcolor: "rgba(217, 119, 6, 0.1)", color: "#d97706", width: 48, height: 48 }}>
+              <MonetizationOn />
+            </Avatar>
+            <Box>
+              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+                In Quotation / Review
+              </Typography>
+              <Typography variant="h5" sx={{ fontWeight: 700, color: "#0f172a" }}>
+                {pendingQuotationCount}
+              </Typography>
+            </Box>
+          </Paper>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2,
+              borderRadius: "12px",
+              border: "1px solid",
+              borderColor: "divider",
+              background: "linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%)",
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
+            }}
+          >
+            <Avatar sx={{ bgcolor: "rgba(2, 132, 199, 0.1)", color: "#0284c7", width: 48, height: 48 }}>
+              <LocalShipping />
+            </Avatar>
+            <Box>
+              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+                Payment & Order Active
+              </Typography>
+              <Typography variant="h5" sx={{ fontWeight: 700, color: "#0f172a" }}>
+                {paymentDoneCount}
+              </Typography>
+            </Box>
+          </Paper>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2,
+              borderRadius: "12px",
+              border: "1px solid",
+              borderColor: "divider",
+              background: "linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%)",
+              display: "flex",
+              alignItems: "center",
+              gap: 2,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.02)",
+            }}
+          >
+            <Avatar sx={{ bgcolor: "rgba(22, 163, 74, 0.1)", color: "#16a34a", width: 48, height: 48 }}>
+              <CheckCircle />
+            </Avatar>
+            <Box>
+              <Typography variant="caption" sx={{ color: "#64748b", fontWeight: 600, textTransform: "uppercase" }}>
+                GRN Completed
+              </Typography>
+              <Typography variant="h5" sx={{ fontWeight: 700, color: "#0f172a" }}>
+                {grnCompletedCount}
+              </Typography>
+            </Box>
+          </Paper>
+        </Grid>
+      </Grid>
+
+      {/* Main Surface Card */}
+      <Paper elevation={0} sx={{ p: 2.5, mb: 3, borderRadius: "12px", border: "1px solid", borderColor: "divider" }}>
+        <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems="center" spacing={2} sx={{ mb: 2.5 }}>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: "#0f172a", letterSpacing: "-0.3px" }}>
+              Tyre Procurement SOP
+            </Typography>
+            <Typography variant="body2" sx={{ color: "#64748b" }}>
+              Manage purchase requests, supplier quotations, finance approvals, and GRNs
+            </Typography>
+          </Box>
+
+          <Stack direction="row" spacing={1.5}>
+            <Button
+              variant="outlined"
+              startIcon={<FileDownload />}
+              onClick={handleDownloadTemplate}
+              sx={{
+                borderRadius: "8px",
+                textTransform: "none",
+                fontWeight: 600,
+                borderColor: "#cbd5e1",
+                color: "#475569",
+                "&:hover": { borderColor: "#94a3b8", bgcolor: "#f8fafc" },
+              }}
+            >
+              Excel Template
             </Button>
-            <Button variant="contained" startIcon={<Add />} onClick={onCreate}>
+            <Button
+              variant="contained"
+              startIcon={<Add />}
+              onClick={onCreate}
+              sx={{
+                borderRadius: "8px",
+                textTransform: "none",
+                fontWeight: 600,
+                background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                boxShadow: "0 4px 12px rgba(37, 99, 235, 0.25)",
+                "&:hover": {
+                  background: "linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%)",
+                },
+              }}
+            >
               Create Tyre PR
             </Button>
           </Stack>
         </Stack>
 
-        {/* ─── Stage Filter Tabs ─── */}
-        <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
+        {/* Stage Filter Tabs */}
+        <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2.5 }}>
           <Tabs
             value={stageTab}
             onChange={(e, val) => {
@@ -148,106 +391,203 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
             }}
             variant="scrollable"
             scrollButtons="auto"
+            sx={{
+              minHeight: 40,
+              "& .MuiTabs-indicator": {
+                backgroundColor: "#2563eb",
+                height: 2.5,
+                borderRadius: 2,
+              },
+            }}
           >
-            {stageTabsList.map((tab) => (
-              <Tab key={tab.value} label={tab.label} value={tab.value} sx={{ fontWeight: "bold" }} />
-            ))}
-          </Tabs>
+            {stageTabsList.map((tab) => {
+              if (!isTabVisible(tab.label, tab.value)) return null;
+              return (
+                <Tab
+                  key={tab.value}
+                label={
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <span>{tab.label}</span>
+                    <Box
+                      component="span"
+                      sx={{
+                        fontSize: "0.75rem",
+                        fontWeight: 700,
+                        px: 0.8,
+                        py: 0.2,
+                        borderRadius: "10px",
+                        backgroundColor: stageTab === tab.value ? "#eff6ff" : "#f1f5f9",
+                        color: stageTab === tab.value ? "#1d4ed8" : "#64748b",
+                      }}
+                    >
+                      {getTabCount(tab.value)}
+                    </Box>
+                  </Box>
+                }
+                value={tab.value}
+                sx={{
+                  fontWeight: 600,
+                  fontSize: "0.875rem",
+                  textTransform: "none",
+                  color: "#64748b",
+                  minHeight: 40,
+                  px: 2,
+                  "&.Mui-selected": {
+                    color: "#2563eb",
+                    fontWeight: 700,
+                  },
+                }}
+              />
+            );
+          })}
+        </Tabs>
         </Box>
 
+        {/* Search Bar */}
         <TextField
-          label="Search PR Number, PO, Prepared By, Supplier..."
+          placeholder="Search PR Number, PO, Prepared By, Supplier..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           fullWidth
           size="small"
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <Search sx={{ color: "#94a3b8" }} />
+              </InputAdornment>
+            ),
+            endAdornment: search ? (
+              <InputAdornment position="end">
+                <IconButton size="small" onClick={() => setSearch("")}>
+                  <Clear fontSize="small" sx={{ color: "#94a3b8" }} />
+                </IconButton>
+              </InputAdornment>
+            ) : null,
+          }}
+          sx={{
+            "& .MuiOutlinedInput-root": {
+              borderRadius: "8px",
+              bgcolor: "#f8fafc",
+              "&:hover": { bgcolor: "#ffffff" },
+              "&.Mui-focused": { bgcolor: "#ffffff" },
+            },
+          }}
         />
       </Paper>
 
-      <TableContainer component={Paper}>
+      {/* Table Container */}
+      <Paper elevation={0} sx={{ borderRadius: "12px", border: "1px solid", borderColor: "divider", overflow: "hidden" }}>
         {loading ? (
-          <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
-            <CircularProgress />
+          <Box sx={{ display: "flex", justifyContent: "center", p: 5 }}>
+            <CircularProgress size={32} sx={{ color: "#2563eb" }} />
           </Box>
         ) : (
-          <Table size="small">
-            <TableHead>
-              <TableRow sx={{ backgroundColor: "#1a237e" }}>
-                <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>PR Number</TableCell>
-                <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>PO Number</TableCell>
-                <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>Prepared By</TableCell>
-                <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>L1 Supplier</TableCell>
-                <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>Total Value (₹)</TableCell>
-                <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>Status</TableCell>
-                <TableCell sx={{ color: "#fff", fontWeight: "bold" }}>Created At</TableCell>
-                <TableCell sx={{ color: "#fff", fontWeight: "bold" }} align="center">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {data.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 3, color: "text.secondary" }}>
-                    No records found in this stage tab.
+          <TableContainer>
+            <Table size="medium">
+              <TableHead>
+                <TableRow sx={{ bgcolor: "#0f172a" }}>
+                  <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>PR Number</TableCell>
+                  <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>PO Number</TableCell>
+                  <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>Prepared By</TableCell>
+                  <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>L1 Supplier</TableCell>
+                  <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>Total Value (₹)</TableCell>
+                  <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>Status</TableCell>
+                  <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }}>Created At</TableCell>
+                  <TableCell sx={{ color: "#f8fafc", fontWeight: 700, fontSize: "0.85rem", py: 1.5 }} align="center">
+                    Actions
                   </TableCell>
                 </TableRow>
-              ) : (
-                data.map((row) => (
-                  <TableRow key={row._id} hover>
-                    <TableCell sx={{ fontWeight: "bold" }}>
-                      <Box
-                        component="span"
-                        onClick={() => onEdit(row)}
-                        sx={{
-                          cursor: "pointer",
-                          color: "#1976d2",
-                          textDecoration: "underline",
-                          "&:hover": { color: "#115293" },
-                        }}
-                      >
-                        {row.prNumber}
-                      </Box>
-                    </TableCell>
-                    <TableCell>{row.poNumber || "-"}</TableCell>
-                    <TableCell>{row.stage1?.preparedBy || "-"}</TableCell>
-                    <TableCell>{row.stage2?.selectedSupplierL1 || "-"}</TableCell>
-                    <TableCell>
-                      {row.stage2?.totalOrderValue 
-                        ? Number(row.stage2.totalOrderValue).toLocaleString("en-IN", { style: "currency", currency: "INR" })
-                        : "-"}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={row.status || "Draft"}
-                        size="small"
-                        color={
-                          row.status === "Closed" || row.status === "GRN Done"
-                            ? "success"
-                            : row.status === "PR Raised" || row.status === "Preparing for Quotation"
-                            ? "primary"
-                            : "info"
-                        }
-                      />
-                    </TableCell>
-                    <TableCell>{new Date(row.createdAt).toLocaleDateString("en-GB")}</TableCell>
-                    <TableCell align="center">
-                      <IconButton size="small" color="info" onClick={() => onView(row)} title="View">
-                        <Visibility fontSize="small" />
-                      </IconButton>
-                      <IconButton size="small" color="primary" onClick={() => onEdit(row)} title="Edit">
-                        <Edit fontSize="small" />
-                      </IconButton>
-                      <IconButton size="small" color="secondary" onClick={() => handleExport(row._id, row.prNumber)}>
-                        <GetApp fontSize="small" />
-                      </IconButton>
-                      <IconButton size="small" color="error" onClick={() => handleDelete(row._id)}>
-                        <Delete fontSize="small" />
-                      </IconButton>
+              </TableHead>
+              <TableBody>
+                {data.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center" sx={{ py: 6, color: "#64748b" }}>
+                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                        No procurement records found for this view.
+                      </Typography>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ) : (
+                  data.map((row) => {
+                    const chipStyle = getStatusChipProps(row.status);
+                    return (
+                      <TableRow
+                        key={row._id}
+                        hover
+                        sx={{
+                          transition: "background-color 0.15s ease",
+                          "&:hover": { bgcolor: "#f8fafc" },
+                        }}
+                      >
+                        <TableCell sx={{ fontWeight: 700, fontSize: "0.875rem" }}>
+                          <Box
+                            component="span"
+                            onClick={() => onEdit(row)}
+                            sx={{
+                              cursor: "pointer",
+                              color: "#2563eb",
+                              "&:hover": { color: "#1d4ed8", textDecoration: "underline" },
+                            }}
+                          >
+                            {row.prNumber}
+                          </Box>
+                        </TableCell>
+                        <TableCell sx={{ color: "#334155", fontWeight: 500 }}>{row.poNumber || "-"}</TableCell>
+                        <TableCell sx={{ color: "#334155" }}>{row.stage1?.preparedBy || "-"}</TableCell>
+                        <TableCell sx={{ color: "#334155", fontWeight: 500 }}>{row.stage2?.selectedSupplierL1 || "-"}</TableCell>
+                        <TableCell sx={{ color: "#0f172a", fontWeight: 600 }}>
+                          {row.stage2?.totalOrderValue
+                            ? Number(row.stage2.totalOrderValue).toLocaleString("en-IN", { style: "currency", currency: "INR" })
+                            : "-"}
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={chipStyle.label}
+                            size="small"
+                            sx={{
+                              bgcolor: chipStyle.bg,
+                              color: chipStyle.color,
+                              fontWeight: 700,
+                              fontSize: "0.75rem",
+                              borderRadius: "6px",
+                              px: 0.5,
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ color: "#64748b", fontSize: "0.85rem" }}>
+                          {new Date(row.createdAt).toLocaleDateString("en-GB")}
+                        </TableCell>
+                        <TableCell align="center">
+                          <Stack direction="row" spacing={0.5} justifyContent="center">
+                            <Tooltip title="View Details">
+                              <IconButton size="small" onClick={() => onView(row)} sx={{ color: "#0284c7", "&:hover": { bgcolor: "#e0f2fe" } }}>
+                                <Visibility fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Edit PR">
+                              <IconButton size="small" onClick={() => onEdit(row)} sx={{ color: "#2563eb", "&:hover": { bgcolor: "#eff6ff" } }}>
+                                <Edit fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Download Excel">
+                              <IconButton size="small" onClick={() => handleExport(row._id, row.prNumber)} sx={{ color: "#16a34a", "&:hover": { bgcolor: "#f0fdf4" } }}>
+                                <GetApp fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Delete PR">
+                              <IconButton size="small" onClick={() => handleDelete(row._id)} sx={{ color: "#dc2626", "&:hover": { bgcolor: "#fef2f2" } }}>
+                                <Delete fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Stack>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
         )}
         <TablePagination
           rowsPerPageOptions={[5, 10, 25, 50]}
@@ -257,10 +597,12 @@ function TyreProcurementList({ onEdit, onView, onCreate }) {
           page={page}
           onPageChange={handleChangePage}
           onRowsPerPageChange={handleChangeRowsPerPage}
+          sx={{ borderTop: "1px solid", borderColor: "divider" }}
         />
-      </TableContainer>
+      </Paper>
     </Box>
   );
 }
 
 export default React.memo(TyreProcurementList);
+

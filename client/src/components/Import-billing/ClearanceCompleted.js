@@ -27,13 +27,21 @@ import ContainerTrackButton from '../ContainerTrackButton';
 function ClearanceCompleted({ workMode = "Payment" }) {
   const { currentTab } = useContext(TabContext); // Access context
   const { selectedYearState, setSelectedYearState } = useContext(YearContext);
-  const { searchQuery, setSearchQuery, selectedImporter, setSelectedImporter } =
-    useSearchQuery();
+
+  const [searchQuery, setSearchQuery] = useState(
+    () => sessionStorage.getItem("ib_tab1_search") || ""
+  );
+  const [selectedImporter, setSelectedImporter] = useState(
+    () => sessionStorage.getItem("ib_tab1_importer") || ""
+  );
+  const [page, setPage] = useState(
+    () => Number(sessionStorage.getItem("ib_tab1_page")) || 1
+  );
+
   const { user } = useContext(UserContext);
   const { selectedBranch } = useContext(BranchContext);
   const [years, setYears] = useState([]);
   const [rows, setRows] = useState([]);
-  const [page, setPage] = useState(1); // Current page number
   const [totalPages, setTotalPages] = useState(1); // Total number of pages
   const [loading, setLoading] = useState(false); // Loading state
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery); // Debounced search query
@@ -41,6 +49,19 @@ function ClearanceCompleted({ workMode = "Payment" }) {
   const [totalJobs, setTotalJobs] = useState(0); // Total job count
   const navigate = useNavigate();
   const [importers, setImporters] = useState("");
+
+  // Persist filter states to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab1_search", searchQuery);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab1_importer", selectedImporter || "");
+  }, [selectedImporter]);
+
+  useEffect(() => {
+    sessionStorage.setItem("ib_tab1_page", page.toString());
+  }, [page]);
 
   // Get importer list for MUI autocomplete
   React.useEffect(() => {
@@ -142,7 +163,6 @@ function ClearanceCompleted({ workMode = "Payment" }) {
 
         setRows(jobs);
         setTotalPages(totalPages);
-        setPage(returnedPage);
         setTotalJobs(totalJobs);
       } catch (error) {
         console.error("Error fetching billing ready jobs:", error);
@@ -179,7 +199,12 @@ function ClearanceCompleted({ workMode = "Payment" }) {
   ]);
 
   // Debounce search input to avoid excessive API calls
+  const isFirstSearch = React.useRef(true);
   useEffect(() => {
+    if (isFirstSearch.current) {
+      isFirstSearch.current = false;
+      return;
+    }
     const handler = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
       setPage(1); // Reset to first page on new search
@@ -506,7 +531,10 @@ function ClearanceCompleted({ workMode = "Payment" }) {
           freeSolo
           options={importerNames.map((option) => option.label)}
           value={selectedImporter || ""} // Controlled value
-          onInputChange={(event, newValue) => setSelectedImporter(newValue)} // Handles input change
+          onInputChange={(event, newValue) => {
+            setSelectedImporter(newValue);
+            setPage(1);
+          }}
           renderInput={(params) => (
             <TextField
               {...params}

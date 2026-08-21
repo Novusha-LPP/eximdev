@@ -1,6 +1,7 @@
 import express from "express";
 import XLSX from "xlsx";
 import TyreProcurementSop from "../../model/accounts/tyreProcurementSop.mjs";
+import UserModel from "../../model/userModel.mjs";
 import authMiddleware from "../../middleware/authMiddleware.mjs";
 import logger from "../../logger.js";
 
@@ -27,6 +28,84 @@ function uppercaseDeep(obj) {
     return res;
   }
   return obj;
+}
+
+function normalizeTyreEnums(payload) {
+  if (!payload || typeof payload !== "object") return payload;
+
+  const approvalModeMap = {
+    WHATSAPP: "WhatsApp",
+    "PHONE CALL": "Phone Call",
+    EMAIL: "Email",
+    "IN-PERSON": "In-Person",
+  };
+
+  const yesNoMap = {
+    YES: "Yes",
+    NO: "No",
+  };
+
+  const acceptedRejectedMap = {
+    ACCEPTED: "Accepted",
+    REJECTED: "Rejected",
+  };
+
+  const typeMap = {
+    NEW: "New",
+    REMOULD: "Remould",
+  };
+
+  const statusMap = {
+    DONE: "Done",
+    PENDING: "Pending",
+    "IN PROGRESS": "In Progress",
+  };
+
+  ["stage1", "stage2", "stage3", "stage4", "stage5", "stage6"].forEach((stg) => {
+    if (payload[stg]?.routingChecklist && Array.isArray(payload[stg].routingChecklist)) {
+      payload[stg].routingChecklist.forEach((item) => {
+        if (item && item.status && statusMap[item.status]) {
+          item.status = statusMap[item.status];
+        }
+      });
+    }
+  });
+
+  if (payload.stage1?.hodValidation?.approvalMode) {
+    const val = payload.stage1.hodValidation.approvalMode;
+    if (approvalModeMap[val]) {
+      payload.stage1.hodValidation.approvalMode = approvalModeMap[val];
+    }
+  }
+
+  if (payload.stage3?.reviewChecklist) {
+    const cl = payload.stage3.reviewChecklist;
+    ["budgetAvailable", "priceReasonable", "gstVerified", "paymentTermsAccepted", "docsAttached"].forEach((key) => {
+      if (cl[key] && yesNoMap[cl[key]]) {
+        cl[key] = yesNoMap[cl[key]];
+      }
+    });
+  }
+
+  if (payload.stage6?.itemsReceived && Array.isArray(payload.stage6.itemsReceived)) {
+    payload.stage6.itemsReceived.forEach((item) => {
+      if (item.type && typeMap[item.type]) item.type = typeMap[item.type];
+      if (item.hotStampDone && yesNoMap[item.hotStampDone]) item.hotStampDone = yesNoMap[item.hotStampDone];
+      if (item.photoTaken && yesNoMap[item.photoTaken]) item.photoTaken = yesNoMap[item.photoTaken];
+      if (item.acceptedRejected && acceptedRejectedMap[item.acceptedRejected]) item.acceptedRejected = acceptedRejectedMap[item.acceptedRejected];
+    });
+  }
+
+  if (payload.stage6?.qualityConformanceCheck) {
+    const qcc = payload.stage6.qualityConformanceCheck;
+    ["tyresVerified", "tyreNumbersMatched", "hotStampingCompleted", "photosTaken", "invoiceVerified", "returnClauseReviewed"].forEach((key) => {
+      if (qcc[key] && yesNoMap[qcc[key]]) {
+        qcc[key] = yesNoMap[qcc[key]];
+      }
+    });
+  }
+
+  return payload;
 }
 
 async function saveSuppliersFromDoc(doc) {
@@ -87,56 +166,36 @@ function deriveStatus(doc) {
     return "GRN Received";
   }
 
-  if (s5.dispatchDone || s5.isDispatchDone || s6.grnSeriesNo || s5.orderPlacedDate || s5.dispatchDetails?.dispatchDate) {
-    return "Order Placed";
-  }
-
   const isFinanceApproved = s3.decision?.decision === "APPROVED" || Boolean(s3.signOff?.dateOfApproval);
 
+  const supplierPayments = s4.supplierPayments || [];
+  const allPaid =
+    supplierPayments.length > 0
+      ? supplierPayments.every((sp) => Boolean(sp.isPaid) && Boolean(sp.utrNumber?.trim()))
+      : Boolean(
+          s4.paymentDetails?.paymentReferenceUtr?.trim() &&
+          s4.paymentDetails?.paymentDate
+        );
+
   if (isFinanceApproved) {
-    const stage2Suppliers = s2.suppliers || [];
-    const selectedSuppliers = s2.selectedSuppliers || [];
-
-    const awardedQuoteSuppliers = stage2Suppliers.filter((s) =>
-      selectedSuppliers.some(
-        (sel) => sel.selectedSupplier === s.supplierName || sel.selectedSupplier === s._id
-      )
-    );
-    const targetSuppliers = awardedQuoteSuppliers.length > 0 ? awardedQuoteSuppliers : stage2Suppliers;
-
-    const hasCreditTerms = targetSuppliers.some((s) => parseCreditDays(s.paymentTerms) > 0);
-
-    if (hasCreditTerms) {
-      // Skips Stage 4 payment waiting tab and moves straight to Order & Dispatch!
-      return "Payment Done";
+    if (!allPaid) {
+      return "Finance Approved";
     }
-
-    const supplierPayments = s4.supplierPayments || [];
-    const allPaid =
-      supplierPayments.length > 0
-        ? supplierPayments.every((sp) => sp.isPaid && sp.utrNumber?.trim())
-        : Boolean(
-            s4.paymentDetails?.paymentReferenceUtr?.trim() ||
-            s4.paymentDetails?.paymentDate ||
-            doc.status === "Payment Done"
-          );
-
-    if (allPaid) {
-      return "Payment Done";
+    if (s5.dispatchDone || s5.isDispatchDone || s6.grnSeriesNo || s5.orderPlacedDate || s5.dispatchDetails?.dispatchDate) {
+      return "Order Placed";
     }
-
-    return "Finance Approved";
+    return "Payment Done";
   }
 
-  if (s2.routingChecklist?.[0]?.status === "Done" || s2.routingChecklist?.[0]?.date) {
+  if (s2.routingChecklist?.[0]?.status === "Done" || s2.routingChecklist?.[0]?.status === "DONE" || s2.routingChecklist?.[0]?.date) {
     return "Quotation Received";
   }
 
-  if (s1.routingChecklist?.[1]?.status === "Done" || s1.routingChecklist?.[1]?.date || s1.hodValidation?.dateTimeOfApproval) {
+  if (s1.routingChecklist?.[1]?.status === "Done" || s1.routingChecklist?.[1]?.status === "DONE" || s1.routingChecklist?.[1]?.date || s1.hodValidation?.dateTimeOfApproval) {
     return "Preparing for Quotation";
   }
 
-  if (s1.routingChecklist?.[0]?.status === "Done" || s1.routingChecklist?.[0]?.date) {
+  if (s1.routingChecklist?.[0]?.status === "Done" || s1.routingChecklist?.[0]?.status === "DONE" || s1.routingChecklist?.[0]?.date) {
     return "PR Raised";
   }
 
@@ -277,19 +336,28 @@ router.get("/tyre-procurement/next-grn-number", authMiddleware, async (req, res)
 // List Tyre PRs
 router.get("/tyre-procurement", authMiddleware, async (req, res) => {
   try {
+    // Sync status field in DB for records to reflect payment completeness
+    const docsToSync = await TyreProcurementSop.find({}).lean();
+    for (const d of docsToSync) {
+      const computed = deriveStatus(d);
+      if (d.status !== computed) {
+        await TyreProcurementSop.updateOne({ _id: d._id }, { $set: { status: computed } });
+      }
+    }
+
     const { search, stageTab, page = 1, limit = 50 } = req.query;
     const query = {};
 
     if (stageTab && stageTab !== "0") {
       switch (stageTab) {
         case "1":
-          query.status = "Draft";
+          query.status = { $in: ["Draft", "PR Raised"] };
           break;
         case "2":
-          query.status = { $in: ["PR Raised", "Preparing for Quotation"] };
+          query.status = { $in: ["Preparing for Quotation", "HoD Validated"] };
           break;
         case "3":
-          query.status = "Quotation Received";
+          query.status = { $in: ["Quotation Received", "Quotation Updated"] };
           break;
         case "4":
           query.status = "Finance Approved";
@@ -298,7 +366,10 @@ router.get("/tyre-procurement", authMiddleware, async (req, res) => {
           query.status = { $in: ["Payment Done", "Order Placed"] };
           break;
         case "6":
-          query.status = { $in: ["GRN Done", "Closed"] };
+          query.status = { $in: ["Dispatched / Site GRN Ready", "GRN Ready"] };
+          break;
+        case "7":
+          query.status = { $in: ["GRN Done", "Closed", "GRN Completed"] };
           break;
         default:
           break;
@@ -385,7 +456,7 @@ router.post("/tyre-suppliers", authMiddleware, async (req, res) => {
 // Create Tyre PR
 router.post("/tyre-procurement", authMiddleware, async (req, res) => {
   try {
-    let payload = uppercaseDeep(req.body);
+    let payload = normalizeTyreEnums(uppercaseDeep(req.body));
     const { prNumber } = payload;
     if (!prNumber?.trim()) {
       return res.status(400).json({ success: false, message: "PR Number is required" });
@@ -408,7 +479,7 @@ router.post("/tyre-procurement", authMiddleware, async (req, res) => {
 // Update Tyre PR
 router.put("/tyre-procurement/:id", authMiddleware, async (req, res) => {
   try {
-    let payload = uppercaseDeep(req.body);
+    let payload = normalizeTyreEnums(uppercaseDeep(req.body));
     const { prNumber } = payload;
     const existing = await TyreProcurementSop.findById(req.params.id);
     if (!existing) {
@@ -808,6 +879,44 @@ router.get("/tyre-procurement/template/download", authMiddleware, async (req, re
   } catch (error) {
     logger.error("Error downloading Tyre Procurement template:", error);
     res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ─── GET & ASSIGN TYRE PROCUREMENT TAB PERMISSIONS ───
+router.get("/tyre-procurement/user-tabs/:username", authMiddleware, async (req, res) => {
+  try {
+    const { username } = req.params;
+    const user = await UserModel.findOne({ username });
+    if (!user) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+    res.status(200).json({
+      success: true,
+      allowed_tabs: user.tyre_procurement_tabs || [],
+    });
+  } catch (error) {
+    logger.error("Error fetching user procurement tabs:", error);
+    res.status(500).json({ success: false, error: "Server error" });
+  }
+});
+
+router.post("/tyre-procurement/assign-user-tabs", authMiddleware, async (req, res) => {
+  try {
+    const { username, allowed_tabs } = req.body;
+    const user = await UserModel.findOne({ username });
+    if (!user) {
+      return res.status(404).json({ success: false, error: "User not found" });
+    }
+    user.tyre_procurement_tabs = allowed_tabs || [];
+    await user.save();
+    res.status(200).json({
+      success: true,
+      message: "Procurement tab permissions updated successfully",
+      allowed_tabs: user.tyre_procurement_tabs,
+    });
+  } catch (error) {
+    logger.error("Error assigning procurement tabs:", error);
+    res.status(500).json({ success: false, error: "Failed to assign tab permissions" });
   }
 });
 

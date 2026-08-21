@@ -14,9 +14,14 @@ import {
   Typography,
   MenuItem,
   Autocomplete,
+  Tooltip,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import TableRowsIcon from "@mui/icons-material/TableRows";
+import ViewHeadlineIcon from "@mui/icons-material/ViewHeadline";
+import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
+import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import { TabContext } from "../eSanchit/ESanchitTab.js";
 import { YearContext } from "../../contexts/yearContext.js";
 import { UserContext } from "../../contexts/UserContext";
@@ -46,6 +51,31 @@ function ESanchit() {
   const location = useLocation();
   const [importers, setImporters] = useState("");
 
+  // View Mode: 'full' vs 'shrink'
+  const [viewMode, setViewMode] = useState(() => {
+    try {
+      return localStorage.getItem("exim_esanchit_view_mode") || "full";
+    } catch (e) {
+      return "full";
+    }
+  });
+
+  const handleViewModeChange = useCallback((mode) => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem("exim_esanchit_view_mode", mode);
+    } catch (e) {}
+  }, []);
+
+  const [expandedRowIds, setExpandedRowIds] = useState({});
+
+  const toggleRowExpanded = useCallback((rowId) => {
+    if (!rowId) return;
+    setExpandedRowIds((prev) => ({
+      ...prev,
+      [rowId]: !prev[rowId],
+    }));
+  }, []);
 
   // Get importer list for MUI autocomplete
   React.useEffect(() => {
@@ -205,7 +235,6 @@ function ESanchit() {
   const handleSearchInputChange = (event) => {
     setSearchQuery(event.target.value);
     setCurrentPage(1); // Reset to first page when user types
-
   };
 
   // Handle page change
@@ -251,10 +280,14 @@ function ESanchit() {
     () => [
       {
         accessorKey: "job_no",
-        header: "Job No", muiTableHeadCellProps: { align: "center" }, muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
+        header: "Job No",
+        muiTableHeadCellProps: { align: "center" },
+        muiTableBodyCellProps: { sx: { verticalAlign: "top", textAlign: "center" } },
         enableSorting: false,
         size: 250,
         Cell: ({ cell }) => {
+          const row = cell.row.original;
+          const isShrunk = viewMode === "shrink" && !expandedRowIds[row._id];
           const {
             job_no,
             job_number,
@@ -262,32 +295,121 @@ function ESanchit() {
             type_of_b_e,
             consignment_type,
             custom_house,
-            priorityColor, // Add priorityColor from API response
-          branch_code,
-          trade_type,
-        } = cell.row.original;
+            branch_code,
+            trade_type,
+            mode,
+            priorityJob,
+          } = row;
+
+          const bgColor =
+            priorityJob === "High Priority"
+              ? "orange"
+              : priorityJob === "Priority"
+              ? "yellow"
+              : "transparent";
+
+          if (isShrunk) {
+            return (
+              <div style={{ textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleRowExpanded(row._id);
+                  }}
+                  sx={{ p: 0.2 }}
+                  title="Click to expand row"
+                >
+                  <KeyboardArrowRightIcon sx={{ fontSize: 18, color: "#64748b" }} />
+                </IconButton>
+                <a
+                  href={`/esanchit-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    cursor: "pointer",
+                    color: "blue",
+                    backgroundColor: bgColor,
+                    padding: "3px 6px",
+                    borderRadius: "4px",
+                    fontWeight: "bold",
+                    display: "inline-block",
+                    textDecoration: "none",
+                    fontSize: "13px",
+                  }}
+                >
+                  {job_number || job_no}
+                </a>
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCopy(e, job_number || job_no);
+                  }}
+                  sx={{ p: 0.2 }}
+                  title="Copy Job Number"
+                >
+                  <ContentCopyIcon sx={{ fontSize: "14px", color: "#64748b" }} />
+                </IconButton>
+                {type_of_b_e && (
+                  <span style={{ fontSize: "11px", color: "#64748b" }}>
+                    ({type_of_b_e})
+                  </span>
+                )}
+              </div>
+            );
+          }
+
           return (
-              <a
-                href={`/esanchit-job/${branch_code}/${trade_type}/${cell.row.original.mode}/${job_no}/${year}`}
-              style={{
-                cursor: "pointer",
-                color: "blue",
-                backgroundColor:
-                  cell.row.original.priorityJob === "High Priority"
-                    ? "orange"
-                    : cell.row.original.priorityJob === "Priority"
-                      ? "yellow"
-                      : "transparent", // Dynamically set the background color
-                padding: "10px", // Add padding for better visibility
-                borderRadius: "5px", // Optional: Add some styling for aesthetics
-                textDecoration: "none",
-                whiteSpace: "nowrap", textAlign: "center", display: "inline-block", width: "100%",
-              }}
-              target="_blank"
-            >
-              {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
-              <br />
-            </a>
+            <div style={{ textAlign: "center" }}>
+              {viewMode === "shrink" && (
+                <div style={{ display: "flex", justifyContent: "flex-start", marginBottom: "4px" }}>
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleRowExpanded(row._id);
+                    }}
+                    sx={{ p: 0.2 }}
+                    title="Click to collapse row"
+                  >
+                    <KeyboardArrowDownIcon sx={{ fontSize: 18, color: "#2563eb" }} />
+                  </IconButton>
+                </div>
+              )}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+                <a
+                  href={`/esanchit-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
+                  style={{
+                    cursor: "pointer",
+                    color: "blue",
+                    backgroundColor: bgColor,
+                    padding: "10px",
+                    borderRadius: "5px",
+                    textDecoration: "none",
+                    whiteSpace: "nowrap",
+                    textAlign: "center",
+                    display: "inline-block",
+                  }}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
+                </a>
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCopy(e, job_number || job_no);
+                  }}
+                  sx={{ p: 0.2 }}
+                  title="Copy Job Number"
+                >
+                  <ContentCopyIcon sx={{ fontSize: "14px", color: "#64748b" }} />
+                </IconButton>
+              </div>
+            </div>
           );
         },
       },
@@ -296,6 +418,14 @@ function ESanchit() {
         header: "Importer",
         enableSorting: false,
         size: 150,
+        Cell: ({ cell, row }) => {
+          const importer = cell?.getValue()?.toString() || "";
+          const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
+          if (isShrunk) {
+            return <span style={{ fontWeight: 600 }}>{importer}</span>;
+          }
+          return <span>{importer}</span>;
+        },
       },
 
       {
@@ -303,19 +433,34 @@ function ESanchit() {
         header: "BL Num & Date",
         enableSorting: false,
         size: 150,
-        Cell: ({ cell }) => {
-          const { awb_bl_no, awb_bl_date } = cell.row.original; // Destructure properties here
+        Cell: ({ cell, row }) => {
+          const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
+          const { awb_bl_no, shipping_line_airline } = row.original;
+
+          if (isShrunk) {
+            return (
+              <div>
+                <span style={{ fontWeight: 600 }}>{awb_bl_no || "-"}</span>
+                {shipping_line_airline && (
+                  <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>
+                    {shipping_line_airline}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
           return (
             <BLTrackingCell
               blNumber={awb_bl_no}
-              shippingLine={cell.row.original.shipping_line_airline}
-              customHouse={cell.row.original.custom_house}
-              container_nos={cell.row.original.container_nos}
-              jobId={cell.row.original._id}
-              branch_code={cell.row.original.branch_code}
-              mode={cell.row.original.mode}
-              portOfReporting={cell.row.original.port_of_reporting}
-              containerNos={cell.row.original.container_nos}
+              shippingLine={row.original.shipping_line_airline}
+              customHouse={row.original.custom_house}
+              container_nos={row.original.container_nos}
+              jobId={row.original._id}
+              branch_code={row.original.branch_code}
+              mode={row.original.mode}
+              portOfReporting={row.original.port_of_reporting}
+              containerNos={row.original.container_nos}
               onCopy={handleCopy}
               onUpdateSuccess={() => fetchJobs(currentPage, debouncedSearchQuery, selectedImporter, selectedYearState, showUnresolvedOnly, selectedBranch, selectedCategory)}
               selectedYear={selectedYearState}
@@ -327,7 +472,25 @@ function ESanchit() {
         accessorKey: "container_numbers",
         header: "Container Numbers and Size",
         size: 200,
-        Cell: ({ cell }) => <ContainerCellContent cell={cell} handleCopy={handleCopy} />,
+        Cell: ({ cell, row }) => {
+          const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
+          if (isShrunk) {
+            const count = row?.original?.container_nos?.length || 0;
+            return (
+              <div>
+                <strong>
+                  {count > 0 ? `${count} Container(s)` : `${row?.original?.no_of_pkgs || 0} Pkg(s)`}
+                </strong>
+                {row?.original?.container_nos?.[0]?.container_number && (
+                  <span style={{ fontSize: "11px", color: "#64748b", marginLeft: "4px" }}>
+                    ({row.original.container_nos[0].container_number})
+                  </span>
+                )}
+              </div>
+            );
+          }
+          return <ContainerCellContent cell={cell} handleCopy={handleCopy} />;
+        },
       },
 
       {
@@ -335,10 +498,20 @@ function ESanchit() {
         header: "Doc - IRN Details",
         enableSorting: false,
         size: 400,
-        Cell: ({ cell }) => {
-          const { cth_documents, all_documents } = cell.row.original;
+        Cell: ({ cell, row }) => {
+          const isShrunk = viewMode === "shrink" && !expandedRowIds[row?.original?._id];
+          const { cth_documents, all_documents } = row.original;
+          const validCthDocs = (cth_documents || []).filter((doc) => doc.url && doc.url.length > 0 && doc.is_sent_to_esanchit);
+          const totalDocsCount = (validCthDocs.length || 0) + (all_documents?.length || 0);
 
-          // Static number to start from 1
+          if (isShrunk) {
+            return (
+              <span style={{ fontSize: "12px", color: totalDocsCount > 0 ? "#007bff" : "gray" }}>
+                {totalDocsCount > 0 ? `${totalDocsCount} Document(s)` : "No Documents"}
+              </span>
+            );
+          }
+
           let serialNumber = 1;
 
           return (
@@ -353,24 +526,22 @@ function ESanchit() {
               }}
             >
               {/* Loop through CTH Documents and display document name with serial number */}
-              {cth_documents
-                ?.filter((doc) => doc.url && doc.url.length > 0 && doc.is_sent_to_esanchit)
-                .map((doc) => (
-                  <a
-                    key={doc._id}
-                    href={doc.url[0]}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      color: "blue",
-                      textDecoration: "underline",
-                      cursor: "pointer",
-                      marginBottom: "5px",
-                    }}
-                  >
-                    {serialNumber++}. {doc.document_name} - {doc.irn}
-                  </a>
-                ))}
+              {validCthDocs.map((doc) => (
+                <a
+                  key={doc._id}
+                  href={doc.url[0]}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: "blue",
+                    textDecoration: "underline",
+                    cursor: "pointer",
+                    marginBottom: "5px",
+                  }}
+                >
+                  {serialNumber++}. {doc.document_name} - {doc.irn}
+                </a>
+              ))}
 
               {/* Loop through All Documents with serial number */}
               {all_documents?.map((docUrl, index) => (
@@ -395,7 +566,7 @@ function ESanchit() {
       },
 
     ],
-    [navigate, handleCopy]
+    [navigate, handleCopy, viewMode, expandedRowIds, toggleRowExpanded, fetchJobs, currentPage, debouncedSearchQuery, selectedImporter, selectedYearState, showUnresolvedOnly, selectedBranch, selectedCategory]
   );
 
   // Table configuration
@@ -433,13 +604,35 @@ function ESanchit() {
         textAlign: "left", // Align all body cell content to the left
       },
     },
+    muiTableBodyRowProps: ({ row }) => {
+      if (viewMode === "shrink") {
+        return {
+          style: { cursor: "pointer" },
+          onClick: (event) => {
+            const targetTagName = event.target?.tagName?.toLowerCase() || "";
+            if (["a", "button", "input", "textarea", "select"].includes(targetTagName)) {
+              return;
+            }
+            if (
+              event.target?.closest?.(
+                "a, button, input, textarea, select, .MuiIconButton-root, .MuiChip-root"
+              )
+            ) {
+              return;
+            }
+            toggleRowExpanded(row.original._id);
+          },
+        };
+      }
+      return {};
+    },
 
     renderTopToolbarCustomActions: () => (
       <div
         style={{
           display: "flex",
           justifyContent: "space-around",
-          alignItems: "flex-start",
+          alignItems: "center",
           width: "100%",
         }}
       >
@@ -482,6 +675,69 @@ function ESanchit() {
           ))}
         </TextField>
 
+        {/* View Mode Toggle Switch */}
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: 0.5,
+            bgcolor: "#f1f5f9",
+            p: "2px",
+            borderRadius: "8px",
+            border: "1px solid #cbd5e1",
+            marginRight: "20px",
+          }}
+        >
+          <Tooltip title="Full Table View" arrow>
+            <button
+              type="button"
+              className={`toggle-btn ${viewMode === "full" ? "active" : ""}`}
+              onClick={() => handleViewModeChange("full")}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                padding: "5px 9px",
+                border: "none",
+                borderRadius: "6px",
+                backgroundColor: viewMode === "full" ? "#ffffff" : "transparent",
+                color: viewMode === "full" ? "#2563eb" : "#64748b",
+                fontWeight: "700",
+                fontSize: "12px",
+                cursor: "pointer",
+                boxShadow: viewMode === "full" ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
+              }}
+            >
+              <TableRowsIcon sx={{ fontSize: 16 }} />
+              Full
+            </button>
+          </Tooltip>
+          <Tooltip title="Shrink List View" arrow>
+            <button
+              type="button"
+              className={`toggle-btn ${viewMode === "shrink" ? "active" : ""}`}
+              onClick={() => handleViewModeChange("shrink")}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "4px",
+                padding: "5px 9px",
+                border: "none",
+                borderRadius: "6px",
+                backgroundColor: viewMode === "shrink" ? "#ffffff" : "transparent",
+                color: viewMode === "shrink" ? "#2563eb" : "#64748b",
+                fontWeight: "700",
+                fontSize: "12px",
+                cursor: "pointer",
+                boxShadow: viewMode === "shrink" ? "0 1px 2px rgba(0,0,0,0.1)" : "none",
+              }}
+            >
+              <ViewHeadlineIcon sx={{ fontSize: 16 }} />
+              Shrink
+            </button>
+          </Tooltip>
+        </Box>
+
         <TextField
           placeholder="Search by Job No, Importer, or AWB/BL Number"
           size="small"
@@ -501,7 +757,7 @@ function ESanchit() {
               </InputAdornment>
             ),
           }}
-          sx={{ width: "300px", marginRight: "20px", marginLeft: "20px" }}
+          sx={{ width: "300px", marginRight: "20px", marginLeft: "10px" }}
         />
 
         <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
@@ -577,3 +833,4 @@ function ESanchit() {
 }
 
 export default React.memo(ESanchit);
+

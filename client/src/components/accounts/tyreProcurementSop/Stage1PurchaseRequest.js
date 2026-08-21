@@ -26,11 +26,13 @@ const tyreTypeOptions = ["New Tyre", "Remould Tyre"];
 
 function Stage1PurchaseRequest({ data, onChange, globalData, onGlobalChange }) {
   const updateField = (field, value) => {
-    onChange({ [field]: typeof value === "string" ? value.toUpperCase() : value });
+    const val = typeof value === "string" && field !== "approvalMode" ? value.toUpperCase() : value;
+    onChange({ [field]: val });
   };
 
   const updateNested = (group, field, value) => {
-    onChange({ [group]: { ...data[group], [field]: typeof value === "string" ? value.toUpperCase() : value } });
+    const val = typeof value === "string" && field !== "approvalMode" ? value.toUpperCase() : value;
+    onChange({ [group]: { ...data[group], [field]: val } });
   };
 
   const itemsRequired = data.itemsRequired || [];

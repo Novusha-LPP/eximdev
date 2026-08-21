@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-08-20T08:32:41.691Z",
+  "query": {
+    "filterType": "fin-year",
+    "month": "7",
+    "year": "26-27",
+    "quarter": "3",
+    "day": "2026-08-20",
+    "branchId": "",
+    "category": "SEA"
+  },
+  "userRole": "Admin",
+  "username": "masood_raza",
+  "branchMatch": {
+    "mode": {
+      "$in": [
+        "SEA",
+        "sea",
+        "SEA"
+      ]
+    }
+  },
+  "icdFilterCondition": {},
+  "baseMatchStage": {
+    "be_no": {
+      "$not": {
+        "$regex": "^cancelled$",
+        "$options": "i"
+      }
+    },
+    "mode": {
+      "$in": [
+        "SEA",
+        "sea",
+        "SEA"
+      ]
+    },
+    "year": "26-27"
+  }
+}

@@ -43,6 +43,10 @@ const userSchema = new Schema({
     type: [String],
     default: ["Attendance"]
   },
+  tyre_procurement_tabs: {
+    type: [String],
+    default: [],
+  },
   assigned_importer_name: [
     {
       type: String,

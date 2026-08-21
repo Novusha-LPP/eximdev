@@ -3,8 +3,10 @@ import { getContext } from "./context.mjs";
 
 /**
  * Generates a MongoDB match object for branch filtering.
- * @param {string} branchId - The specific branch ID to filter by.
+ * Supports both branch ObjectIds and branch codes (e.g. 'AMD', 'GIM').
+ * @param {string|Array} branchId - The specific branch ID or branch code to filter by.
  * @param {string} category - The category (mode) to filter by (SEA/AIR).
+ * @param {Array} authorizedBranchIds - Optional array of authorized branch IDs for non-admin users.
  * @returns {object} - A match object (e.g., { branch_id: ObjectId(...) } or { mode: 'SEA' }).
  */
 export const getBranchMatch = (branchId, category, authorizedBranchIds = null) => {
@@ -14,11 +16,35 @@ export const getBranchMatch = (branchId, category, authorizedBranchIds = null) =
 
     if (!isAll) {
         if (Array.isArray(branchId)) {
-            match.branch_id = { $in: branchId.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : id) };
-        } else if (mongoose.Types.ObjectId.isValid(branchId)) {
-            match.branch_id = new mongoose.Types.ObjectId(branchId);
+            const objectIds = [];
+            const codes = [];
+            branchId.forEach(id => {
+                if (id) {
+                    const idStr = id.toString();
+                    if (mongoose.Types.ObjectId.isValid(idStr) && idStr.length === 24) {
+                        objectIds.push(new mongoose.Types.ObjectId(idStr));
+                    } else {
+                        codes.push(idStr);
+                    }
+                }
+            });
+            if (objectIds.length > 0 && codes.length > 0) {
+                match.$or = [
+                    { branch_id: { $in: objectIds } },
+                    { branch_code: { $in: codes.map(c => new RegExp(`^${c}$`, 'i')) } }
+                ];
+            } else if (objectIds.length > 0) {
+                match.branch_id = { $in: objectIds };
+            } else if (codes.length > 0) {
+                match.branch_code = { $in: codes.map(c => new RegExp(`^${c}$`, 'i')) };
+            }
+        } else if (mongoose.Types.ObjectId.isValid(branchId) && branchId.toString().length === 24) {
+            match.$or = [
+                { branch_id: new mongoose.Types.ObjectId(branchId) },
+                { branch_code: new RegExp(`^${branchId}$`, 'i') }
+            ];
         } else {
-            match.branch_id = branchId;
+            match.branch_code = new RegExp(`^${branchId}$`, 'i');
         }
     } else {
         // Handle 'all' branches with authorization check

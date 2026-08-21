@@ -129,17 +129,30 @@ function NfimsSimsJobs() {
             Cell: ({ cell }) => {
                 const { job_no, job_number, year, type_of_b_e, consignment_type, custom_house, branch_code, trade_type, mode } = cell.row.original;
                 return (
-                    <a
-                        href={`/esanchit-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
-                        style={{
-                            cursor: "pointer", color: "blue", textDecoration: "none", display: "inline-block", width: "100%", textAlign: "center",
-                            backgroundColor: cell.row.original.priorityJob === "High Priority" ? "orange" : cell.row.original.priorityJob === "Priority" ? "yellow" : "transparent",
-                            padding: "5px", borderRadius: "4px"
-                        }}
-                        target="_blank" rel="noreferrer"
-                    >
-                        {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
-                    </a>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px" }}>
+                        <a
+                            href={`/esanchit-job/${branch_code}/${trade_type}/${mode}/${job_no}/${year}`}
+                            style={{
+                                cursor: "pointer", color: "blue", textDecoration: "none", display: "inline-block", textAlign: "center",
+                                backgroundColor: cell.row.original.priorityJob === "High Priority" ? "orange" : cell.row.original.priorityJob === "Priority" ? "yellow" : "transparent",
+                                padding: "5px", borderRadius: "4px"
+                            }}
+                            target="_blank" rel="noreferrer"
+                        >
+                            {job_number || job_no} <br /> {type_of_b_e} <br /> {consignment_type} <br /> {custom_house}
+                        </a>
+                        <IconButton
+                            size="small"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopy(e, job_number || job_no);
+                            }}
+                            sx={{ p: 0.2 }}
+                            title="Copy Job Number"
+                        >
+                            <ContentCopyIcon sx={{ fontSize: "14px", color: "#64748b" }} />
+                        </IconButton>
+                    </div>
                 );
             }
         },

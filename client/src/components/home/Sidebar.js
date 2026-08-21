@@ -269,7 +269,7 @@ function Sidebar() {
 
 
       {
-        ['suraj_rajan', 'uday_zope', 'geethanjali_b', 'masood_raza'].includes(user.username) && (
+        ['suraj_rajan', 'geethanjali_b', 'masood_raza'].includes(user.username) && (
           <Tooltip title="Project Nucleus" enterDelay={0} placement="right">
             <ListItemButton
               className="appbar-links"

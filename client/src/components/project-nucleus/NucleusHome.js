@@ -160,7 +160,12 @@ const NucleusHome = () => {
                     ? `${apiUrl}/project-nucleus/reports`
                     : `${apiUrl}/api/project-nucleus/reports`;
 
-                const response = await axios.get(endpoint, { withCredentials: true });
+                const params = {
+                    branchId: selectedBranchGroup === 'all' ? '' : selectedBranchGroup,
+                    category: selectedCategory || 'all'
+                };
+
+                const response = await axios.get(endpoint, { params, withCredentials: true });
                 setData(response.data || []);
             } catch (error) {
                 console.error("Error fetching reports:", error);
@@ -170,7 +175,7 @@ const NucleusHome = () => {
         };
 
         fetchReports();
-    }, []);
+    }, [selectedBranchGroup, selectedCategory]);
 
 
 
@@ -220,6 +225,8 @@ const NucleusHome = () => {
                         selectedQuarter={selectedQuarter}
                         dateRange={dateRange}
                         selectedFinancialYear={selectedFinancialYear}
+                        category={selectedCategory}
+                        branchId={selectedBranchGroup === 'all' ? '' : selectedBranchGroup}
                     />
                 );
             case 'udyam':

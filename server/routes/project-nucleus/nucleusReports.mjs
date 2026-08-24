@@ -6,7 +6,7 @@ import authMiddleware from "../../middleware/authMiddleware.mjs";
 import { applyUserBranchFilter } from "../../middleware/branchMiddleware.mjs";
 import { icdFilter, applyUserImporterFilter } from "../../middleware/icdFilter.mjs";
 import UserModel from "../../model/userModel.mjs";
-import { getBranchMatch } from "../../utils/branchFilter.mjs";
+import { getBranchMatch, getExportBranchMatch } from "../../utils/branchFilter.mjs";
 import CustomerKycModel from "../../model/CustomerKyc/customerKycModel.mjs";
 import EximClientUserModel from "../../model/eximClientUserModel.mjs";
 import OpenPointModel from "../../model/openPoints/openPointModel.mjs";
@@ -599,8 +599,14 @@ router.get("/pending-job-summaries", authMiddleware, icdFilter, async (req, res)
             }
         }
         if (category && category.toString().toLowerCase() !== "all") {
-            const catStr = category.toString();
-            branchMatch.mode = { $in: [catStr, catStr.toLowerCase(), catStr.toUpperCase()] };
+            const catStr = category.toString().trim().toLowerCase();
+            if (catStr === 'sea' || catStr === 'ocean') {
+                branchMatch.mode = { $in: ["SEA", "sea", "Sea", "OCEAN", "ocean", "Ocean", "BY SEA", "by sea", "By Sea"] };
+            } else if (catStr === 'air') {
+                branchMatch.mode = { $in: ["AIR", "air", "Air", "BY AIR", "by air", "By Air"] };
+            } else {
+                branchMatch.mode = new RegExp(`^${category.toString().trim()}$`, 'i');
+            }
         }
 
         const baseMatchStage = {
@@ -1063,7 +1069,12 @@ router.get("/out-of-charge-summaries", authMiddleware, applyUserBranchFilter, as
                     customerWise: [
                         {
                             $group: {
-                                _id: { $ifNull: ["$importer", "Unknown"] },
+                                _id: {
+                                    importer: { $ifNull: ["$importer", "Unknown"] },
+                                    branch: { $ifNull: ["$branch_code", "Unassigned"] },
+                                    location: { $ifNull: ["$custom_house", "Unassigned"] },
+                                    port: { $ifNull: ["$port_of_reporting", "$custom_house", "Unassigned"] }
+                                },
                                 total: { $sum: 1 },
                                 c20: {
                                     $sum: {
@@ -1119,12 +1130,11 @@ router.get("/out-of-charge-summaries", authMiddleware, applyUserBranchFilter, as
                                         { $lte: ["$do_validity_upto_job_level", todayDateStr] }
                                     ]
                                 },
+                                // Only flag as billing pending when billing document has NOT been sent to accounts yet
                                 isBillingPending: {
                                     $or: [
                                         { $eq: ["$bill_document_sent_to_accounts", null] },
-                                        { $eq: ["$bill_document_sent_to_accounts", ""] },
-                                        { $eq: ["$billing_completed_date", null] },
-                                        { $eq: ["$billing_completed_date", ""] }
+                                        { $eq: ["$bill_document_sent_to_accounts", ""] }
                                     ]
                                 },
                                 hasFineOrPenalty: {
@@ -1347,7 +1357,12 @@ router.get("/out-of-charge-summaries", authMiddleware, applyUserBranchFilter, as
                     prevCustomers: [
                         {
                             $group: {
-                                _id: { $ifNull: ["$importer", "Unknown"] },
+                                _id: {
+                                    importer: { $ifNull: ["$importer", "Unknown"] },
+                                    branch: { $ifNull: ["$branch_code", "Unassigned"] },
+                                    location: { $ifNull: ["$custom_house", "Unassigned"] },
+                                    port: { $ifNull: ["$port_of_reporting", "$custom_house", "Unassigned"] }
+                                },
                                 total: { $sum: 1 }
                             }
                         }
@@ -1357,7 +1372,15 @@ router.get("/out-of-charge-summaries", authMiddleware, applyUserBranchFilter, as
         ];
 
         // 3. Pipeline for Customer Monthly Matrix (Apr to Mar)
-        const refYear = parseInt(year) || parseInt(fyStartYear) || currentYear;
+        let refYear = currentYear;
+        if (filterType === 'fin-year' || filterType === 'financial-year') {
+            const fy = selectedFinancialYear || '26-27';
+            refYear = 2000 + parseInt(fy.split('-')[0]);
+        } else if (year) {
+            refYear = parseInt(year);
+        } else if (fyStartYear) {
+            refYear = parseInt(fyStartYear);
+        }
         const fyStart = new Date(Date.UTC(refYear, 3, 1, 0, 0, 0, 0));
         const fyEnd = new Date(Date.UTC(refYear + 1, 2, 31, 23, 59, 59, 999));
 
@@ -1397,14 +1420,154 @@ router.get("/out-of-charge-summaries", authMiddleware, applyUserBranchFilter, as
             }
         ];
 
-        const [currentRes, prevRes, monthlyRes] = await Promise.all([
+        const oocMissingPipeline = [
+            {
+                $match: {
+                    out_of_charge: { $in: [null, "", false] },
+                    be_no: { $not: { $regex: "^cancelled", $options: "i" } },
+                    status: { $not: { $regex: "^cancelled", $options: "i" } },
+                    ...branchMatch
+                }
+            },
+            {
+                $addFields: {
+                    parsedRefDate: {
+                        $ifNull: [
+                            { $dateFromString: { dateString: "$be_date", onError: null, onNull: null } },
+                            {
+                                $ifNull: [
+                                    { $dateFromString: { dateString: "$job_date", onError: null, onNull: null } },
+                                    "$createdAt"
+                                ]
+                            }
+                        ]
+                    }
+                }
+            },
+            ...(start && end ? [
+                {
+                    $match: {
+                        parsedRefDate: { $gte: start, $lte: end }
+                    }
+                }
+            ] : []),
+            {
+                $project: {
+                    _id: 1,
+                    job_no: 1,
+                    job_number: 1,
+                    be_no: 1,
+                    be_date: 1,
+                    out_of_charge: 1,
+                    importer: 1,
+                    branch_code: 1,
+                    custom_house: 1,
+                    mode: 1,
+                    consignment_type: 1,
+                    fine_amount: 1,
+                    penalty_amount: 1,
+                    bill_document_sent_to_accounts: 1,
+                    billing_completed_date: 1,
+                    do_validity_upto_job_level: 1,
+                    isDoExpired: {
+                        $and: [
+                            { $ne: ["$do_validity_upto_job_level", null] },
+                            { $ne: ["$do_validity_upto_job_level", ""] },
+                            { $lte: ["$do_validity_upto_job_level", todayDateStr] }
+                        ]
+                    },
+                    // Only flag as billing pending when billing document has NOT been sent to accounts yet
+                    isBillingPending: {
+                        $or: [
+                            { $eq: ["$bill_document_sent_to_accounts", null] },
+                            { $eq: ["$bill_document_sent_to_accounts", ""] }
+                        ]
+                    },
+
+                    hasFineOrPenalty: {
+                        $or: [
+                            {
+                                $gt: [
+                                    { $convert: { input: "$fine_amount", to: "double", onError: 0, onNull: 0 } },
+                                    0
+                                ]
+                            },
+                            {
+                                $gt: [
+                                    { $convert: { input: "$penalty_amount", to: "double", onError: 0, onNull: 0 } },
+                                    0
+                                ]
+                            }
+                        ]
+                    },
+                    isDeliveryPending: {
+                        $cond: [
+                            { $eq: ["$consignment_type", "LCL"] },
+                            false,
+                            {
+                                $gt: [
+                                    {
+                                        $size: {
+                                            $filter: {
+                                                input: { $ifNull: ["$container_nos", []] },
+                                                as: "c",
+                                                cond: {
+                                                    $or: [
+                                                        { $eq: ["$$c.delivery_date", null] },
+                                                        { $eq: ["$$c.delivery_date", ""] },
+                                                        { $eq: ["$$c.emptyContainerOffLoadDate", null] },
+                                                        { $eq: ["$$c.emptyContainerOffLoadDate", ""] }
+                                                    ]
+                                                }
+                                            }
+                                        }
+                                    },
+                                    0
+                                ]
+                            }
+                        ]
+                    },
+                    isDetentionRisk: {
+                        $gt: [
+                            {
+                                $size: {
+                                    $filter: {
+                                        input: { $ifNull: ["$container_nos", []] },
+                                        as: "c",
+                                        cond: {
+                                            $and: [
+                                                { $ne: ["$$c.detention_from", null] },
+                                                { $ne: ["$$c.detention_from", ""] },
+                                                { $lte: ["$$c.detention_from", todayDateStr] },
+                                                {
+                                                    $or: [
+                                                        { $eq: ["$$c.emptyContainerOffLoadDate", null] },
+                                                        { $eq: ["$$c.emptyContainerOffLoadDate", ""] }
+                                                    ]
+                                                }
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                            0
+                        ]
+                    },
+                    isOocMissing: { $literal: true }
+                }
+            }
+        ];
+
+        const [currentRes, prevRes, monthlyRes, oocMissingRes] = await Promise.all([
             JobModel.aggregate(currentPipeline),
             JobModel.aggregate(prevPipeline),
-            JobModel.aggregate(customerMonthlyPipeline)
+            JobModel.aggregate(customerMonthlyPipeline),
+            JobModel.aggregate(oocMissingPipeline)
         ]);
 
         const currentData = currentRes[0] || {};
         const prevData = prevRes[0] || {};
+        const oocMissingList = oocMissingRes || [];
 
         const totalStats = currentData.summaryStats?.[0] || {
             totalJobs: 0,
@@ -1424,7 +1587,17 @@ router.get("/out-of-charge-summaries", authMiddleware, applyUserBranchFilter, as
         (prevData.prevBranches || []).forEach(b => { prevBranchMap[b._id] = b.total; });
 
         const prevCustomerMap = {};
-        (prevData.prevCustomers || []).forEach(c => { prevCustomerMap[c._id] = c.total; });
+        (prevData.prevCustomers || []).forEach(c => {
+            if (typeof c._id === 'object' && c._id !== null) {
+                const keyFull = `${c._id.importer}___${c._id.branch}___${c._id.location}___${c._id.port}`;
+                const keyBranch = `${c._id.importer}___${c._id.branch}`;
+                prevCustomerMap[keyFull] = c.total;
+                prevCustomerMap[keyBranch] = (prevCustomerMap[keyBranch] || 0) + c.total;
+                prevCustomerMap[c._id.importer] = (prevCustomerMap[c._id.importer] || 0) + c.total;
+            } else {
+                prevCustomerMap[c._id] = c.total;
+            }
+        });
 
         // Calculate elapsed days
         const diffDays = Math.max(1, Math.round((end - start) / (1000 * 60 * 60 * 24)));
@@ -1452,20 +1625,29 @@ router.get("/out-of-charge-summaries", authMiddleware, applyUserBranchFilter, as
 
         // Format Customer Wise Comparisons & Ups/Downs
         const customerList = (currentData.customerWise || []).map(c => {
-            const prev = prevCustomerMap[c._id] || 0;
+            const importerName = typeof c._id === 'object' && c._id !== null ? c._id.importer : c._id;
+            const branchName = typeof c._id === 'object' && c._id !== null ? c._id.branch : 'All';
+            const locationName = typeof c._id === 'object' && c._id !== null ? c._id.location : 'Unassigned';
+            const portName = typeof c._id === 'object' && c._id !== null ? c._id.port : 'Unassigned';
+            const keyFull = `${importerName}___${branchName}___${locationName}___${portName}`;
+            const keyBranch = `${importerName}___${branchName}`;
+            const prev = prevCustomerMap[keyFull] !== undefined ? prevCustomerMap[keyFull] : (prevCustomerMap[keyBranch] !== undefined ? prevCustomerMap[keyBranch] : (prevCustomerMap[importerName] || 0));
             const diff = c.total - prev;
             const pct = prev > 0 ? ((diff / prev) * 100).toFixed(1) : (c.total > 0 ? '100.0' : '0.0');
             const teus = (c.c20 || 0) + ((c.c40 || 0) * 2);
             return {
-                customer: c._id,
+                customer: importerName,
+                branch: branchName,
+                location: locationName,
+                port: portName,
                 current: c.total,
                 prev,
                 diff,
                 pct: parseFloat(pct),
-                c20: c.c20,
-                c40: c.c40,
-                lcl: c.lcl,
-                air: c.air,
+                c20: c.c20 || 0,
+                c40: c.c40 || 0,
+                lcl: c.lcl || 0,
+                air: c.air || 0,
                 teus
             };
         });
@@ -1542,14 +1724,16 @@ router.get("/out-of-charge-summaries", authMiddleware, applyUserBranchFilter, as
         const customerMonthlySummary = Object.values(monthlyCustomerMap).sort((a, b) => b.total - a.total);
 
         // Exceptions Breakdown
-        const exceptionsList = currentData.exceptionsData || [];
+        const currentExceptions = (currentData.exceptionsData || []).map(x => ({ ...x, isOocMissing: false }));
+        const exceptionsList = [...currentExceptions, ...oocMissingList];
         const exceptionsSummary = {
             total: exceptionsList.length,
             detentionRisk: exceptionsList.filter(x => x.isDetentionRisk).length,
             doExpired: exceptionsList.filter(x => x.isDoExpired).length,
             billingPending: exceptionsList.filter(x => x.isBillingPending).length,
             deliveryPending: exceptionsList.filter(x => x.isDeliveryPending).length,
-            finesOrPenalties: exceptionsList.filter(x => x.hasFineOrPenalty).length
+            finesOrPenalties: exceptionsList.filter(x => x.hasFineOrPenalty).length,
+            oocMissing: oocMissingList.length
         };
 
         res.json({
@@ -1603,8 +1787,6 @@ router.get("/export-leo-summaries", authMiddleware, applyUserBranchFilter, async
             selectedFinancialYear,
             fyStartYear
         } = req.query;
-
-        const branchMatch = getBranchMatch(branchId, category, req.authorizedBranchIds);
 
         // Date calculation helper
         const today = new Date();
@@ -1721,45 +1903,53 @@ router.get("/export-leo-summaries", authMiddleware, applyUserBranchFilter, async
         const exportDb = mongoose.connection.useDb('export');
         const exportjobs = exportDb.collection('exportjobs');
 
-        // Adjust mode match for export schema: exportjobs uses transportMode (or mode)
-        const exportBranchMatch = { ...branchMatch };
-        if (exportBranchMatch.mode) {
-            exportBranchMatch.$or = [
-                { transportMode: exportBranchMatch.mode },
-                { mode: exportBranchMatch.mode }
-            ];
-            delete exportBranchMatch.mode;
-        }
+        // Build accurate branch & mode match specifically for export schema
+        const exportBranchMatch = await getExportBranchMatch(branchId, category, req.authorizedBranchIds);
+
+        // Robust LEO Date Extraction: checks direct fields, statusDetails, and milestones (handling null & empty strings)
+        const robustLeoExpr = {
+            $let: {
+                vars: {
+                    d1: { $cond: [{ $and: [{ $ne: ["$leo_date", null] }, { $ne: ["$leo_date", ""] }] }, "$leo_date", null] },
+                    d2: { $cond: [{ $and: [{ $ne: ["$leoDate", null] }, { $ne: ["$leoDate", ""] }] }, "$leoDate", null] },
+                    d3: {
+                        $let: {
+                            vars: {
+                                sdLeo: { $arrayElemAt: [{ $arrayElemAt: ["$operations.statusDetails.leoDate", 0] }, 0] }
+                            },
+                            in: { $cond: [{ $and: [{ $ne: ["$$sdLeo", null] }, { $ne: ["$$sdLeo", ""] }] }, "$$sdLeo", null] }
+                        }
+                    },
+                    d4: {
+                        $let: {
+                            vars: {
+                                leoM: {
+                                    $filter: {
+                                        input: { $ifNull: ["$milestones", []] },
+                                        as: "m",
+                                        cond: {
+                                            $and: [
+                                                { $regexMatch: { input: { $ifNull: ["$$m.milestoneName", ""] }, regex: "l.?e.?o", options: "i" } },
+                                                { $ne: ["$$m.actualDate", null] },
+                                                { $ne: ["$$m.actualDate", ""] }
+                                            ]
+                                        }
+                                    }
+                                }
+                            },
+                            in: { $arrayElemAt: ["$$leoM.actualDate", 0] }
+                        }
+                    }
+                },
+                in: { $ifNull: ["$$d1", { $ifNull: ["$$d2", { $ifNull: ["$$d3", "$$d4"] }] }] }
+            }
+        };
 
         // 1. Pipeline for Current Period Data
         const currentPipeline = [
             {
                 $addFields: {
-                    rawLeoDate: {
-                        $ifNull: [
-                            { $arrayElemAt: [{ $arrayElemAt: ["$operations.statusDetails.leoDate", 0] }, 0] },
-                            {
-                                $let: {
-                                    vars: {
-                                        leoMilestone: {
-                                            $filter: {
-                                                input: { $ifNull: ["$milestones", []] },
-                                                as: "m",
-                                                cond: {
-                                                    $and: [
-                                                        { $regexMatch: { input: { $ifNull: ["$$m.milestoneName", ""] }, regex: "l.?e.?o", options: "i" } },
-                                                        { $ne: ["$$m.actualDate", null] },
-                                                        { $ne: ["$$m.actualDate", ""] }
-                                                    ]
-                                                }
-                                            }
-                                        }
-                                    },
-                                    in: { $arrayElemAt: ["$$leoMilestone.actualDate", 0] }
-                                }
-                            }
-                        ]
-                    },
+                    rawLeoDate: robustLeoExpr,
                     exporterName: { $ifNull: ["$exporter", "$shipper", "Unknown"] },
                     modeStr: { $ifNull: ["$transportMode", "$mode", "SEA"] }
                 }
@@ -1796,27 +1986,43 @@ router.get("/export-leo-summaries", authMiddleware, applyUserBranchFilter, async
                             $group: {
                                 _id: null,
                                 totalJobs: { $sum: 1 },
-                                seaJobs: { $sum: { $cond: [{ $in: ["$modeStr", ["SEA", "sea", "Sea"]] }, 1, 0] } },
-                                airJobs: { $sum: { $cond: [{ $in: ["$modeStr", ["AIR", "air", "Air"]] }, 1, 0] } },
-                                lclJobs: { $sum: { $cond: [{ $eq: ["$consignmentType", "LCL"] }, 1, 0] } },
+                                seaJobs: {
+                                    $sum: {
+                                        $cond: [{ $regexMatch: { input: { $ifNull: ["$modeStr", "SEA"] }, regex: "sea", options: "i" } }, 1, 0]
+                                    }
+                                },
+                                airJobs: {
+                                    $sum: {
+                                        $cond: [{ $regexMatch: { input: { $ifNull: ["$modeStr", ""] }, regex: "air", options: "i" } }, 1, 0]
+                                    }
+                                },
+                                lclJobs: {
+                                    $sum: {
+                                        $cond: [{ $eq: ["$consignmentType", "LCL"] }, 1, 0]
+                                    }
+                                },
                                 fcl20: {
                                     $sum: {
-                                        $size: {
-                                            $filter: {
+                                        $sum: {
+                                            $map: {
                                                 input: { $ifNull: ["$containers", []] },
                                                 as: "c",
-                                                cond: { $regexMatch: { input: { $ifNull: [{ $toString: "$$c.type" }, ""] }, regex: "^20" } }
+                                                in: {
+                                                    $cond: [{ $regexMatch: { input: { $ifNull: [{ $toString: "$$c.type" }, ""] }, regex: "^20" } }, 1, 0]
+                                                }
                                             }
                                         }
                                     }
                                 },
                                 fcl40: {
                                     $sum: {
-                                        $size: {
-                                            $filter: {
+                                        $sum: {
+                                            $map: {
                                                 input: { $ifNull: ["$containers", []] },
                                                 as: "c",
-                                                cond: { $regexMatch: { input: { $ifNull: [{ $toString: "$$c.type" }, ""] }, regex: "^40" } }
+                                                in: {
+                                                    $cond: [{ $regexMatch: { input: { $ifNull: [{ $toString: "$$c.type" }, ""] }, regex: "^40" } }, 1, 0]
+                                                }
                                             }
                                         }
                                     }
@@ -1831,28 +2037,40 @@ router.get("/export-leo-summaries", authMiddleware, applyUserBranchFilter, async
                                 total: { $sum: 1 },
                                 c20: {
                                     $sum: {
-                                        $size: {
-                                            $filter: {
+                                        $sum: {
+                                            $map: {
                                                 input: { $ifNull: ["$containers", []] },
                                                 as: "c",
-                                                cond: { $regexMatch: { input: { $ifNull: [{ $toString: "$$c.type" }, ""] }, regex: "^20" } }
+                                                in: {
+                                                    $cond: [{ $regexMatch: { input: { $ifNull: [{ $toString: "$$c.type" }, ""] }, regex: "^20" } }, 1, 0]
+                                                }
                                             }
                                         }
                                     }
                                 },
                                 c40: {
                                     $sum: {
-                                        $size: {
-                                            $filter: {
+                                        $sum: {
+                                            $map: {
                                                 input: { $ifNull: ["$containers", []] },
                                                 as: "c",
-                                                cond: { $regexMatch: { input: { $ifNull: [{ $toString: "$$c.type" }, ""] }, regex: "^40" } }
+                                                in: {
+                                                    $cond: [{ $regexMatch: { input: { $ifNull: [{ $toString: "$$c.type" }, ""] }, regex: "^40" } }, 1, 0]
+                                                }
                                             }
                                         }
                                     }
                                 },
-                                lcl: { $sum: { $cond: [{ $eq: ["$consignmentType", "LCL"] }, 1, 0] } },
-                                air: { $sum: { $cond: [{ $in: ["$modeStr", ["AIR", "air", "Air"]] }, 1, 0] } }
+                                lcl: {
+                                    $sum: {
+                                        $cond: [{ $eq: ["$consignmentType", "LCL"] }, 1, 0]
+                                    }
+                                },
+                                air: {
+                                    $sum: {
+                                        $cond: [{ $regexMatch: { input: { $ifNull: ["$modeStr", ""] }, regex: "air", options: "i" } }, 1, 0]
+                                    }
+                                }
                             }
                         },
                         { $sort: { total: -1 } }
@@ -1862,34 +2080,46 @@ router.get("/export-leo-summaries", authMiddleware, applyUserBranchFilter, async
                             $group: {
                                 _id: {
                                     date: { $dateToString: { format: "%Y-%m-%d", date: "$parsedLeoDate" } },
-                                    branch: { $ifNull: ["$branch_code", "Unassigned"] },
+                                    branch: "$branch_code",
                                     exporter: "$exporterName"
                                 },
                                 count: { $sum: 1 },
                                 c20: {
                                     $sum: {
-                                        $size: {
-                                            $filter: {
+                                        $sum: {
+                                            $map: {
                                                 input: { $ifNull: ["$containers", []] },
                                                 as: "c",
-                                                cond: { $regexMatch: { input: { $ifNull: [{ $toString: "$$c.type" }, ""] }, regex: "^20" } }
+                                                in: {
+                                                    $cond: [{ $regexMatch: { input: { $ifNull: [{ $toString: "$$c.type" }, ""] }, regex: "^20" } }, 1, 0]
+                                                }
                                             }
                                         }
                                     }
                                 },
                                 c40: {
                                     $sum: {
-                                        $size: {
-                                            $filter: {
+                                        $sum: {
+                                            $map: {
                                                 input: { $ifNull: ["$containers", []] },
                                                 as: "c",
-                                                cond: { $regexMatch: { input: { $ifNull: [{ $toString: "$$c.type" }, ""] }, regex: "^40" } }
+                                                in: {
+                                                    $cond: [{ $regexMatch: { input: { $ifNull: [{ $toString: "$$c.type" }, ""] }, regex: "^40" } }, 1, 0]
+                                                }
                                             }
                                         }
                                     }
                                 },
-                                lcl: { $sum: { $cond: [{ $eq: ["$consignmentType", "LCL"] }, 1, 0] } },
-                                air: { $sum: { $cond: [{ $in: ["$modeStr", ["AIR", "air", "Air"]] }, 1, 0] } }
+                                lcl: {
+                                    $sum: {
+                                        $cond: [{ $eq: ["$consignmentType", "LCL"] }, 1, 0]
+                                    }
+                                },
+                                air: {
+                                    $sum: {
+                                        $cond: [{ $regexMatch: { input: { $ifNull: ["$modeStr", ""] }, regex: "air", options: "i" } }, 1, 0]
+                                    }
+                                }
                             }
                         },
                         { $sort: { "_id.date": 1 } }
@@ -1897,128 +2127,109 @@ router.get("/export-leo-summaries", authMiddleware, applyUserBranchFilter, async
                     customerWise: [
                         {
                             $group: {
-                                _id: "$exporterName",
+                                _id: {
+                                    exporter: "$exporterName",
+                                    branch: { $ifNull: ["$branch_code", "Unassigned"] },
+                                    location: { $ifNull: ["$custom_house", "Unassigned"] },
+                                    port: { $ifNull: ["$port_of_loading", "$custom_house", "Unassigned"] }
+                                },
                                 total: { $sum: 1 },
                                 c20: {
                                     $sum: {
-                                        $size: {
-                                            $filter: {
+                                        $sum: {
+                                            $map: {
                                                 input: { $ifNull: ["$containers", []] },
                                                 as: "c",
-                                                cond: { $regexMatch: { input: { $ifNull: [{ $toString: "$$c.type" }, ""] }, regex: "^20" } }
+                                                in: {
+                                                    $cond: [{ $regexMatch: { input: { $ifNull: [{ $toString: "$$c.type" }, ""] }, regex: "^20" } }, 1, 0]
+                                                }
                                             }
                                         }
                                     }
                                 },
                                 c40: {
                                     $sum: {
-                                        $size: {
-                                            $filter: {
+                                        $sum: {
+                                            $map: {
                                                 input: { $ifNull: ["$containers", []] },
                                                 as: "c",
-                                                cond: { $regexMatch: { input: { $ifNull: [{ $toString: "$$c.type" }, ""] }, regex: "^40" } }
+                                                in: {
+                                                    $cond: [{ $regexMatch: { input: { $ifNull: [{ $toString: "$$c.type" }, ""] }, regex: "^40" } }, 1, 0]
+                                                }
                                             }
                                         }
                                     }
                                 },
-                                lcl: { $sum: { $cond: [{ $eq: ["$consignmentType", "LCL"] }, 1, 0] } },
-                                air: { $sum: { $cond: [{ $in: ["$modeStr", ["AIR", "air", "Air"]] }, 1, 0] } }
+                                lcl: {
+                                    $sum: {
+                                        $cond: [{ $eq: ["$consignmentType", "LCL"] }, 1, 0]
+                                    }
+                                },
+                                air: {
+                                    $sum: {
+                                        $cond: [{ $regexMatch: { input: { $ifNull: ["$modeStr", ""] }, regex: "air", options: "i" } }, 1, 0]
+                                    }
+                                }
                             }
                         },
                         { $sort: { total: -1 } }
                     ],
-                    exceptionsData: [
-                        {
-                            $project: {
-                                _id: 1,
-                                job_no: 1,
-                                jobNumber: 1,
-                                sb_no: 1,
-                                sb_date: 1,
-                                leoDate: "$rawLeoDate",
-                                exporter: "$exporterName",
-                                branch_code: 1,
-                                custom_house: 1,
-                                mode: "$modeStr",
-                                consignmentType: 1,
-                                fine_amount: 1,
-                                detailedStatus: 1,
-                                status: 1,
-                                isHandoverPending: {
-                                    $cond: [
-                                        { $eq: ["$consignmentType", "LCL"] },
-                                        false,
-                                        {
-                                            $and: [
-                                                { $ne: ["$detailedStatus", "Container HO"] },
-                                                { $ne: ["$detailedStatus", "Rail Out"] },
-                                                { $ne: ["$detailedStatus", "Billing Done"] }
-                                            ]
-                                        }
-                                    ]
-                                },
-                                isRailOutPending: {
-                                    $and: [
-                                        { $ne: ["$detailedStatus", "Rail Out"] },
-                                        { $ne: ["$detailedStatus", "Billing Done"] }
-                                    ]
-                                },
-                                isBillingPending: {
-                                    $ne: ["$detailedStatus", "Billing Done"]
-                                },
-                                isDrawbackPending: {
-                                    $or: [
-                                        { $eq: ["$drawback_scroll_no", null] },
-                                        { $eq: ["$drawback_scroll_no", ""] }
-                                    ]
-                                },
-                                hasFineOrPenalty: {
-                                    $gt: [
-                                        { $convert: { input: "$fine_amount", to: "double", onError: 0, onNull: 0 } },
-                                        0
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            $match: {
-                                $or: [
-                                    { isHandoverPending: true },
-                                    { isRailOutPending: true },
-                                    { isBillingPending: true },
-                                    { isDrawbackPending: true },
-                                    { hasFineOrPenalty: true }
-                                ]
-                            }
-                        }
-                    ],
                     detailedJobs: [
                         {
                             $addFields: {
+                                // Fix: use $map to extract sub-fields from containers array, then $reduce to join
                                 containerNumbers: {
-                                    $map: {
-                                        input: { $ifNull: ["$containers", []] },
-                                        as: "c",
-                                        in: "$$c.containerNo"
+                                    $reduce: {
+                                        input: {
+                                            $ifNull: [
+                                                {
+                                                    $map: {
+                                                        input: { $ifNull: ["$containers", []] },
+                                                        as: "c",
+                                                        in: { $ifNull: ["$$c.container_number", ""] }
+                                                    }
+                                                },
+                                                []
+                                            ]
+                                        },
+                                        initialValue: "",
+                                        in: {
+                                            $cond: [
+                                                { $eq: ["$$value", ""] },
+                                                "$$this",
+                                                {
+                                                    $cond: [
+                                                        { $eq: ["$$this", ""] },
+                                                        "$$value",
+                                                        { $concat: ["$$value", ", ", "$$this"] }
+                                                    ]
+                                                }
+                                            ]
+                                        }
                                     }
                                 },
-                                sizeCounts: {
+                                // Fix: split sizeCounts into two explicit top-level fields so MongoDB evaluates each $reduce independently
+                                sizeCounts_ft20: {
                                     $reduce: {
                                         input: { $ifNull: ["$containers", []] },
-                                        initialValue: { ft20: 0, ft40: 0 },
+                                        initialValue: 0,
                                         in: {
-                                            ft20: {
-                                                $add: [
-                                                    "$$value.ft20",
-                                                    { $cond: [{ $regexMatch: { input: { $ifNull: [{ $toString: "$$this.type" }, ""] }, regex: "^20" } }, 1, 0] }
-                                                ]
-                                            },
-                                            ft40: {
-                                                $add: [
-                                                    "$$value.ft40",
-                                                    { $cond: [{ $regexMatch: { input: { $ifNull: [{ $toString: "$$this.type" }, ""] }, regex: "^40" } }, 1, 0] }
-                                                ]
-                                            }
+                                            $add: [
+                                                "$$value",
+                                                { $cond: [{ $regexMatch: { input: { $ifNull: [{ $toString: "$$this.type" }, ""] }, regex: "^20" } }, 1, 0] }
+                                            ]
+                                        }
+                                    }
+                                },
+                                sizeCounts_ft40: {
+                                    $reduce: {
+                                        input: { $ifNull: ["$containers", []] },
+                                        initialValue: 0,
+                                        in: {
+                                            $add: [
+                                                "$$value",
+                                                { $cond: [{ $regexMatch: { input: { $ifNull: [{ $toString: "$$this.type" }, ""] }, regex: "^40" } }, 1, 0] }
+                                            ]
                                         }
                                     }
                                 },
@@ -2066,7 +2277,7 @@ router.get("/export-leo-summaries", authMiddleware, applyUserBranchFilter, async
                                         { $size: { $ifNull: ["$containers", []] } }
                                     ]
                                 },
-                                sizeCounts: 1,
+                                sizeCounts: { ft20: "$sizeCounts_ft20", ft40: "$sizeCounts_ft40" },
                                 teus: 1,
                                 out_of_charge: "$rawLeoDate",
                                 leo_date: "$rawLeoDate",
@@ -2088,31 +2299,7 @@ router.get("/export-leo-summaries", authMiddleware, applyUserBranchFilter, async
         const prevPipeline = [
             {
                 $addFields: {
-                    rawLeoDate: {
-                        $ifNull: [
-                            { $arrayElemAt: [{ $arrayElemAt: ["$operations.statusDetails.leoDate", 0] }, 0] },
-                            {
-                                $let: {
-                                    vars: {
-                                        leoMilestone: {
-                                            $filter: {
-                                                input: { $ifNull: ["$milestones", []] },
-                                                as: "m",
-                                                cond: {
-                                                    $and: [
-                                                        { $regexMatch: { input: { $ifNull: ["$$m.milestoneName", ""] }, regex: "l.?e.?o", options: "i" } },
-                                                        { $ne: ["$$m.actualDate", null] },
-                                                        { $ne: ["$$m.actualDate", ""] }
-                                                    ]
-                                                }
-                                            }
-                                        }
-                                    },
-                                    in: { $arrayElemAt: ["$$leoMilestone.actualDate", 0] }
-                                }
-                            }
-                        ]
-                    },
+                    rawLeoDate: robustLeoExpr,
                     exporterName: { $ifNull: ["$exporter", "$shipper", "Unknown"] }
                 }
             },
@@ -2155,7 +2342,12 @@ router.get("/export-leo-summaries", authMiddleware, applyUserBranchFilter, async
                     prevCustomers: [
                         {
                             $group: {
-                                _id: "$exporterName",
+                                _id: {
+                                    exporter: "$exporterName",
+                                    branch: { $ifNull: ["$branch_code", "Unassigned"] },
+                                    location: { $ifNull: ["$custom_house", "Unassigned"] },
+                                    port: { $ifNull: ["$port_of_loading", "$custom_house", "Unassigned"] }
+                                },
                                 total: { $sum: 1 }
                             }
                         }
@@ -2165,38 +2357,22 @@ router.get("/export-leo-summaries", authMiddleware, applyUserBranchFilter, async
         ];
 
         // 3. Exporter Monthly Matrix (Apr - Mar)
-        const refYear = parseInt(year) || parseInt(fyStartYear) || currentYear;
+        let refYear = currentYear;
+        if (filterType === 'fin-year' || filterType === 'financial-year') {
+            const fy = selectedFinancialYear || '26-27';
+            refYear = 2000 + parseInt(fy.split('-')[0]);
+        } else if (year) {
+            refYear = parseInt(year);
+        } else if (fyStartYear) {
+            refYear = parseInt(fyStartYear);
+        }
         const fyStart = new Date(Date.UTC(refYear, 3, 1, 0, 0, 0, 0));
         const fyEnd = new Date(Date.UTC(refYear + 1, 2, 31, 23, 59, 59, 999));
 
         const customerMonthlyPipeline = [
             {
                 $addFields: {
-                    rawLeoDate: {
-                        $ifNull: [
-                            { $arrayElemAt: [{ $arrayElemAt: ["$operations.statusDetails.leoDate", 0] }, 0] },
-                            {
-                                $let: {
-                                    vars: {
-                                        leoMilestone: {
-                                            $filter: {
-                                                input: { $ifNull: ["$milestones", []] },
-                                                as: "m",
-                                                cond: {
-                                                    $and: [
-                                                        { $regexMatch: { input: { $ifNull: ["$$m.milestoneName", ""] }, regex: "l.?e.?o", options: "i" } },
-                                                        { $ne: ["$$m.actualDate", null] },
-                                                        { $ne: ["$$m.actualDate", ""] }
-                                                    ]
-                                                }
-                                            }
-                                        }
-                                    },
-                                    in: { $arrayElemAt: ["$$leoMilestone.actualDate", 0] }
-                                }
-                            }
-                        ]
-                    },
+                    rawLeoDate: robustLeoExpr,
                     exporterName: { $ifNull: ["$exporter", "$shipper", "Unknown"] }
                 }
             },
@@ -2236,10 +2412,105 @@ router.get("/export-leo-summaries", authMiddleware, applyUserBranchFilter, async
             }
         ];
 
-        const [currentRes, prevRes, monthlyRes] = await Promise.all([
+        const leoMissingPipeline = [
+            {
+                $addFields: {
+                    rawLeoDate: robustLeoExpr,
+                    modeStr: { $ifNull: ["$transportMode", "$transport_mode", "$mode", "SEA"] },
+                    exporterName: { $ifNull: ["$exporter", "$shipper", "$exporter_name", "Unknown"] }
+                }
+            },
+            {
+                $match: {
+                    rawLeoDate: { $in: [null, "", false] },
+                    sb_no: { $not: { $regex: "^cancelled", $options: "i" } },
+                    status: { $not: { $regex: "^cancelled", $options: "i" } },
+                    isJobCanceled: { $ne: true },
+                    ...exportBranchMatch
+                }
+            },
+            {
+                $addFields: {
+                    parsedRefDate: {
+                        $ifNull: [
+                            { $dateFromString: { dateString: "$sb_date", onError: null, onNull: null } },
+                            {
+                                $ifNull: [
+                                    { $dateFromString: { dateString: "$job_date", onError: null, onNull: null } },
+                                    "$createdAt"
+                                ]
+                            }
+                        ]
+                    }
+                }
+            },
+            ...(start && end ? [
+                {
+                    $match: {
+                        parsedRefDate: { $gte: start, $lte: end }
+                    }
+                }
+            ] : []),
+            {
+                $project: {
+                    _id: 1,
+                    job_no: 1,
+                    jobNumber: 1,
+                    sb_no: 1,
+                    sb_date: 1,
+                    leoDate: "$rawLeoDate",
+                    exporter: "$exporterName",
+                    branch_code: 1,
+                    custom_house: 1,
+                    mode: "$modeStr",
+                    consignmentType: 1,
+                    fine_amount: 1,
+                    detailedStatus: 1,
+                    status: 1,
+                    isHandoverPending: {
+                        $cond: [
+                            { $eq: ["$consignmentType", "LCL"] },
+                            false,
+                            {
+                                $and: [
+                                    { $ne: ["$detailedStatus", "Container HO"] },
+                                    { $ne: ["$detailedStatus", "Rail Out"] },
+                                    { $ne: ["$detailedStatus", "Billing Done"] }
+                                ]
+                            }
+                        ]
+                    },
+                    isRailOutPending: {
+                        $and: [
+                            { $ne: ["$detailedStatus", "Rail Out"] },
+                            { $ne: ["$detailedStatus", "Billing Done"] }
+                        ]
+                    },
+                    isBillingPending: {
+                        $ne: ["$detailedStatus", "Billing Done"]
+                    },
+                    isDrawbackPending: {
+                        $or: [
+                            { $eq: ["$drawback_scroll_no", null] },
+                            { $eq: ["$drawback_scroll_no", ""] }
+                        ]
+                    },
+                    hasFineOrPenalty: {
+                        $gt: [
+                            { $convert: { input: "$fine_amount", to: "double", onError: 0, onNull: 0 } },
+                            0
+                        ]
+                    },
+                    isLeoMissing: { $literal: true }
+                }
+            }
+        ];
+
+        const [currentRes, prevRes, monthlyRes, leoMissingRes] = await Promise.all([
             exportjobs.aggregate(currentPipeline).toArray(),
             exportjobs.aggregate(prevPipeline).toArray(),
-            exportjobs.aggregate(customerMonthlyPipeline).toArray()
+            exportjobs.aggregate(customerMonthlyPipeline).toArray(),
+            exportjobs.aggregate(leoMissingPipeline).toArray()
         ]);
 
         const currentData = currentRes[0] || {};
@@ -2263,7 +2534,17 @@ router.get("/export-leo-summaries", authMiddleware, applyUserBranchFilter, async
         (prevData.prevBranches || []).forEach(b => { prevBranchMap[b._id] = b.total; });
 
         const prevCustomerMap = {};
-        (prevData.prevCustomers || []).forEach(c => { prevCustomerMap[c._id] = c.total; });
+        (prevData.prevCustomers || []).forEach(c => {
+            if (typeof c._id === 'object' && c._id !== null) {
+                const keyFull = `${c._id.exporter}___${c._id.branch}___${c._id.location}___${c._id.port}`;
+                const keyBranch = `${c._id.exporter}___${c._id.branch}`;
+                prevCustomerMap[keyFull] = c.total;
+                prevCustomerMap[keyBranch] = (prevCustomerMap[keyBranch] || 0) + c.total;
+                prevCustomerMap[c._id.exporter] = (prevCustomerMap[c._id.exporter] || 0) + c.total;
+            } else {
+                prevCustomerMap[c._id] = c.total;
+            }
+        });
 
         // Calculate elapsed days
         const diffDays = Math.max(1, Math.round((end - start) / (1000 * 60 * 60 * 24)));
@@ -2291,20 +2572,29 @@ router.get("/export-leo-summaries", authMiddleware, applyUserBranchFilter, async
 
         // Format Exporter Wise Comparisons & Ups/Downs
         const customerList = (currentData.customerWise || []).map(c => {
-            const prev = prevCustomerMap[c._id] || 0;
+            const exporterName = typeof c._id === 'object' && c._id !== null ? c._id.exporter : c._id;
+            const branchName = typeof c._id === 'object' && c._id !== null ? c._id.branch : 'All';
+            const locationName = typeof c._id === 'object' && c._id !== null ? c._id.location : 'Unassigned';
+            const portName = typeof c._id === 'object' && c._id !== null ? c._id.port : 'Unassigned';
+            const keyFull = `${exporterName}___${branchName}___${locationName}___${portName}`;
+            const keyBranch = `${exporterName}___${branchName}`;
+            const prev = prevCustomerMap[keyFull] !== undefined ? prevCustomerMap[keyFull] : (prevCustomerMap[keyBranch] !== undefined ? prevCustomerMap[keyBranch] : (prevCustomerMap[exporterName] || 0));
             const diff = c.total - prev;
             const pct = prev > 0 ? ((diff / prev) * 100).toFixed(1) : (c.total > 0 ? '100.0' : '0.0');
             const teus = (c.c20 || 0) + ((c.c40 || 0) * 2);
             return {
-                customer: c._id,
+                customer: exporterName,
+                branch: branchName,
+                location: locationName,
+                port: portName,
                 current: c.total,
                 prev,
                 diff,
                 pct: parseFloat(pct),
-                c20: c.c20,
-                c40: c.c40,
-                lcl: c.lcl,
-                air: c.air,
+                c20: c.c20 || 0,
+                c40: c.c40 || 0,
+                lcl: c.lcl || 0,
+                air: c.air || 0,
                 teus
             };
         });
@@ -2343,34 +2633,21 @@ router.get("/export-leo-summaries", authMiddleware, applyUserBranchFilter, async
             dailyMap[d].air += row.air;
             dailyMap[d].teus += (row.c20 + row.c40 * 2);
 
-            const br = row._id.branch;
-            dailyMap[d].branches[br] = (dailyMap[d].branches[br] || 0) + row.count;
-
-            const exp = row._id.exporter;
-            dailyMap[d].customers[exp] = (dailyMap[d].customers[exp] || 0) + row.count;
+            if (row._id.branch) {
+                dailyMap[d].branches[row._id.branch] = (dailyMap[d].branches[row._id.branch] || 0) + row.count;
+            }
+            if (row._id.exporter) {
+                dailyMap[d].customers[row._id.exporter] = (dailyMap[d].customers[row._id.exporter] || 0) + row.count;
+            }
         });
 
-        const dailyDataArray = Object.values(dailyMap).map(d => {
-            let topExp = '—';
-            let topExpCount = 0;
-            Object.entries(d.customers).forEach(([cust, cnt]) => {
-                if (cnt > topExpCount) {
-                    topExp = cust;
-                    topExpCount = cnt;
-                }
-            });
-            return {
-                ...d,
-                topCustomer: topExp,
-                topCustomerCount: topExpCount
-            };
-        }).sort((a, b) => a.date.localeCompare(b.date));
+        const dailyDataArray = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
 
-        // Format Exporter Monthly Apr-Mar Matrix
+        // Format Monthly Summary for Heatmap / Trend Matrix
         const monthlyCustomerMap = {};
         (monthlyRes || []).forEach(row => {
-            const exp = row._id.exporter;
-            const m = String(row._id.month);
+            const exp = row._id.exporter || 'Unknown';
+            const m = row._id.month;
             if (!monthlyCustomerMap[exp]) {
                 monthlyCustomerMap[exp] = { customer: exp, months: {}, total: 0 };
             }
@@ -2380,15 +2657,14 @@ router.get("/export-leo-summaries", authMiddleware, applyUserBranchFilter, async
 
         const customerMonthlySummary = Object.values(monthlyCustomerMap).sort((a, b) => b.total - a.total);
 
-        // Exceptions Breakdown for Export
-        const exceptionsList = currentData.exceptionsData || [];
+        // Exceptions Breakdown for Export: ONLY LEO Missing as requested
+        const exceptionsList = (leoMissingRes || []).map(x => ({
+            ...x,
+            isLeoMissing: true
+        }));
         const exceptionsSummary = {
             total: exceptionsList.length,
-            handoverPending: exceptionsList.filter(x => x.isHandoverPending).length,
-            railOutPending: exceptionsList.filter(x => x.isRailOutPending).length,
-            billingPending: exceptionsList.filter(x => x.isBillingPending).length,
-            drawbackPending: exceptionsList.filter(x => x.isDrawbackPending).length,
-            finesOrPenalties: exceptionsList.filter(x => x.hasFineOrPenalty).length
+            leoMissing: exceptionsList.length
         };
 
         res.json({

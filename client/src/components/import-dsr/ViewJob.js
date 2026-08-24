@@ -1495,7 +1495,7 @@ function JobDetails() {
     const amtNum = parseFloat(productAmount) || 0;
     const activeInvoice = (formik.values.invoice_details || [])[invoiceIndex] || {};
     const exrate = parseFloat(activeInvoice.exchange_rate) || parseFloat(formik.values.exrate) || 84;
-    
+
     if (activeInvoice.toi === "FOB") {
       const allInvoices = formik.values.invoice_details || [];
       const allFobInvoices = allInvoices.filter(inv => inv.toi === "FOB");
@@ -1509,33 +1509,33 @@ function JobDetails() {
         const invCurr = inv.inv_currency || "";
         const frCurr = inv.freight_currency || invCurr;
         const rowExRate = parseFloat(inv.exchange_rate) || parseFloat(formik.values.exrate) || 1;
-        
+
         let frInvCurr = frAmount;
         if (frCurr === "INR" && invCurr !== "INR") {
-           frInvCurr = (frAmount / rowExRate) * getUnitForCurrency(invCurr);
+          frInvCurr = (frAmount / rowExRate) * getUnitForCurrency(invCurr);
         }
         return sum + frInvCurr;
       }, 0);
-      
+
       const totalFobValue = allFobInvoices.reduce((sum, inv) => sum + (parseFloat(inv.product_value) || 0), 0);
-      
+
       const fRate = totalFobValue > 0 ? (totalFobFreight / totalFobValue) : 0;
       productFreight = amtNum * fRate;
-      
+
       // Calculate Total Insurance across all FOB invoices in Invoice Currency
       const totalFobInsurance = allFobInvoices.reduce((sum, inv) => {
         const insAmount = parseFloat(inv.insurance) || 0;
         const insCurr = inv.insurance_currency || "INR";
         const invCurr = inv.inv_currency || "";
         const rowExRate = parseFloat(inv.exchange_rate) || parseFloat(formik.values.exrate) || 1;
-        
+
         let insInvCurr = insAmount;
         if (insCurr === "INR" && invCurr !== "INR") {
-           insInvCurr = (insAmount / rowExRate) * getUnitForCurrency(invCurr);
+          insInvCurr = (insAmount / rowExRate) * getUnitForCurrency(invCurr);
         }
         return sum + insInvCurr;
       }, 0);
-      
+
       const iRateFromTotal = totalFobValue > 0 ? (totalFobInsurance / totalFobValue) : 0;
       productInsurance = amtNum * iRateFromTotal;
 
@@ -1546,20 +1546,20 @@ function JobDetails() {
       const allCfInvoices = allInvoices.filter(inv => inv.toi === "CF" || inv.toi === "C&F");
 
       const totalCfValue = allCfInvoices.reduce((sum, inv) => sum + (parseFloat(inv.product_value) || 0), 0);
-      
+
       const totalCfInsurance = allCfInvoices.reduce((sum, inv) => {
         const insAmount = parseFloat(inv.insurance) || 0;
         const insCurr = inv.insurance_currency || "INR";
         const invCurr = inv.inv_currency || "";
         const rowExRate = parseFloat(inv.exchange_rate) || parseFloat(formik.values.exrate) || 1;
-        
+
         let insInvCurr = insAmount;
         if (insCurr === "INR" && invCurr !== "INR") {
-           insInvCurr = (insAmount / rowExRate) * getUnitForCurrency(invCurr);
+          insInvCurr = (insAmount / rowExRate) * getUnitForCurrency(invCurr);
         }
         return sum + insInvCurr;
       }, 0);
-      
+
       const iRateFromTotal = totalCfValue > 0 ? (totalCfInsurance / totalCfValue) : 0;
       const productInsurance = amtNum * iRateFromTotal;
 
@@ -1575,21 +1575,21 @@ function JobDetails() {
         const invCurr = inv.inv_currency || "";
         const frCurr = inv.freight_currency || invCurr;
         const rowExRate = parseFloat(inv.exchange_rate) || parseFloat(formik.values.exrate) || 1;
-        
+
         let frInvCurr = frAmount;
         if (frCurr === "INR" && invCurr !== "INR") {
-           frInvCurr = (frAmount / rowExRate) * getUnitForCurrency(invCurr);
+          frInvCurr = (frAmount / rowExRate) * getUnitForCurrency(invCurr);
         }
         return sum + frInvCurr;
       }, 0);
-      
+
       const fRate = totalCiValue > 0 ? (totalCiFreight / totalCiValue) : 0;
       const productFreight = amtNum * fRate;
 
       const totalCifUSD = amtNum + productFreight;
       return (totalCifUSD * exrate).toFixed(2);
     }
-    
+
     // CIF or other
     return (amtNum * exrate).toFixed(2);
   };
@@ -4386,15 +4386,22 @@ function JobDetails() {
                                     select
                                     size="small"
                                     fullWidth
-                                    value={row.toi || "CIF"}
+                                    value={row.toi === "CF" ? "C&F" : (row.toi === "CI" ? "C&I" : (row.toi || "CIF"))}
                                     onChange={(e) => updateInvoiceRow(rowIndex, "toi", e.target.value)}
                                     disabled={isDescriptionTableReadOnly}
                                     sx={compactInputSx}
                                   >
                                     <MenuItem value="CIF">CIF</MenuItem>
                                     <MenuItem value="FOB">FOB</MenuItem>
-                                    <MenuItem value="CF">C&F</MenuItem>
-                                    <MenuItem value="CI">C&I</MenuItem>
+                                    <MenuItem value="C&F">C&F</MenuItem>
+                                    <MenuItem value="C&I">C&I</MenuItem>
+                                    <MenuItem value="EXW">EXW</MenuItem>
+                                    <MenuItem value="FCA">FCA</MenuItem>
+                                    <MenuItem value="CPT">CPT</MenuItem>
+                                    <MenuItem value="CIP">CIP</MenuItem>
+                                    <MenuItem value="DAT">DAT</MenuItem>
+                                    <MenuItem value="DAP">DAP</MenuItem>
+                                    <MenuItem value="DDP">DDP</MenuItem>
                                   </TextField>
                                 </td>
                                 <td style={{ padding: "8px 6px", width: "130px", verticalAlign: "middle" }}>

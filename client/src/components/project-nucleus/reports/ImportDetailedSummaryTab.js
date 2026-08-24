@@ -3,7 +3,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import {
     FiSearch, FiDownload, FiFileText, FiChevronLeft, FiChevronRight,
-    FiExternalLink, FiLayers, FiBox, FiUsers
+    FiLayers, FiBox, FiUsers
 } from 'react-icons/fi';
 
 const formatDate = (dateStr) => {
@@ -163,17 +163,6 @@ const ImportDetailedSummaryTab = ({ detailedJobs = [], loading = false, reportTy
     const getSortIcon = (key) => {
         if (sortConfig.key !== key) return ' ⇅';
         return sortConfig.direction === 'asc' ? ' ▲' : ' ▼';
-    };
-
-    // Helper to generate full direct URL for Job Details
-    const getJobUrl = (j) => {
-        const jobNum = j.job_no || j.job_number;
-        if (!jobNum) return '#';
-        const branchCode = j.branch_code || (j.branch && j.branch !== 'Unassigned' ? j.branch : 'MUM') || 'MUM';
-        const tradeType = j.trade_type || 'IMP';
-        const mode = j.mode || 'Sea';
-        const year = j.year || j.financial_year || j.selected_year || '2025-2026';
-        return `/import-dsr/job/${encodeURIComponent(branchCode)}/${encodeURIComponent(tradeType)}/${encodeURIComponent(mode)}/${encodeURIComponent(jobNum)}/${encodeURIComponent(year)}`;
     };
 
     // ─── Summary KPIs Calculation ───────────────────────────────────────
@@ -961,7 +950,6 @@ const ImportDetailedSummaryTab = ({ detailedJobs = [], loading = false, reportTy
                                 paginatedJobs.map((j, idx) => {
                                     const srl = pageSize === 'ALL' ? (idx + 1) : ((currentPage - 1) * (parseInt(pageSize, 10) || 25) + idx + 1);
                                     const jobNum = j.job_no || j.job_number;
-                                    const jobUrl = getJobUrl(j);
                                     return (
                                         <tr
                                             key={j._id || idx}
@@ -974,26 +962,8 @@ const ImportDetailedSummaryTab = ({ detailedJobs = [], loading = false, reportTy
                                             onMouseLeave={(e) => e.currentTarget.style.background = idx % 2 === 0 ? '#ffffff' : '#f8fafc'}
                                         >
                                             <td style={{ padding: '10px 14px', color: '#475569', fontWeight: 700 }}>{srl}</td>
-                                            <td style={{ padding: '10px 14px', fontWeight: 800, color: '#2563eb' }}>
-                                                <a
-                                                    href={jobUrl}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    style={{
-                                                        cursor: 'pointer',
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        gap: '4px',
-                                                        color: '#2563eb',
-                                                        fontWeight: 800,
-                                                        textDecoration: 'none'
-                                                    }}
-                                                    onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
-                                                    onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
-                                                    title="Open Job Details in New Tab"
-                                                >
-                                                    {jobNum} <FiExternalLink size={12} />
-                                                </a>
+                                            <td style={{ padding: '10px 14px', fontWeight: 800, color: '#1e293b' }}>
+                                                {jobNum}
                                             </td>
                                             <td style={{ padding: '10px 14px', color: '#1e293b' }}>
                                                 <span style={{

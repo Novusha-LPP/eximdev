@@ -160,16 +160,26 @@ const computeElapsedDays = (filterType, selectedYear, selectedMonth, selectedQua
         if (dateRange?.start && dateRange?.end) {
             const sDate = new Date(dateRange.start);
             const eDate = new Date(dateRange.end);
-            totalDays = Math.max(1, Math.round((eDate - sDate) / 86400000) + 1);
+
+            // Check if the range falls within a single month (e.g. Aug 1 to Aug 24)
+            const isSameMonth = sDate.getFullYear() === eDate.getFullYear() && sDate.getMonth() === eDate.getMonth();
+            const daysInSelectedMonth = new Date(sDate.getFullYear(), sDate.getMonth() + 1, 0).getDate();
+
+            // If the date range is within the same month, totalDays for monthly projection is the full month's days (e.g. 31)
+            // Otherwise, totalDays is the full date range span
+            totalDays = isSameMonth ? daysInSelectedMonth : Math.max(1, Math.round((eDate - sDate) / 86400000) + 1);
+
             if (today >= sDate && today <= eDate) {
                 elapsedDays = Math.max(1, Math.round((today - sDate) / 86400000) + 1);
             } else if (today < sDate) {
                 elapsedDays = 0;
             } else {
-                elapsedDays = totalDays;
+                elapsedDays = Math.max(1, Math.round((eDate - sDate) / 86400000) + 1);
             }
         } else if (dailyDataLen > 0) {
-            totalDays = dailyDataLen; elapsedDays = totalDays;
+            const daysInCurrentMonth = new Date(todayYear, todayMonth + 1, 0).getDate();
+            totalDays = daysInCurrentMonth;
+            elapsedDays = Math.min(todayDate, dailyDataLen);
         }
     }
     return { totalDays, elapsedDays };

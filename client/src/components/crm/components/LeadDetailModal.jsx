@@ -74,6 +74,16 @@ export default function LeadDetailModal({ isOpen, onClose, lead, onEdit, onRefre
         </div>
 
         <div style={{ padding: '24px' }}>
+          {/* Freight Forwarding Sync Indicator */}
+          {lead.freightEnquiryRef && (
+            <div style={{ marginBottom: '24px', background: '#eff6ff', padding: '12px 16px', borderRadius: '8px', borderLeft: '4px solid #3b82f6', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span>🚢</span>
+              <span style={{ fontSize: '0.85rem', color: '#1e40af', fontWeight: 600 }}>
+                This lead was auto-synced from Export Freight Forwarding (Enquiry No: {lead.freightEnquiryRef}).
+              </span>
+            </div>
+          )}
+
           {/* Contact Info */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
             <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', borderLeft: '4px solid #4f46e5' }}>

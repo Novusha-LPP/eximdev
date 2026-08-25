@@ -501,6 +501,95 @@ export default function OpportunityDetailModal({ isOpen, onClose, opportunity, o
             );
           })()}
 
+          {/* ── Freight Forwarding Info Section (Auto-synced from Export) ── */}
+          {formData.freightEnquiryRef && formData.freightData && (
+            <div style={{
+              marginBottom: '20px', padding: '16px', background: '#eff6ff',
+              borderRadius: '12px', border: '1px solid #bfdbfe'
+            }}>
+              <div style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px'
+              }}>
+                <h4 style={{ margin: 0, color: '#1e40af', fontWeight: 700, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  🚢 Freight Forwarding Status
+                </h4>
+                <span style={{
+                  fontSize: '0.7rem', background: '#dbeafe', color: '#1e40af',
+                  padding: '3px 10px', borderRadius: '12px', fontWeight: 700, border: '1px solid #93c5fd'
+                }}>
+                  {formData.freightData.pipelineStage || 'Synced'}
+                </span>
+              </div>
+
+              {/* Freight Pipeline Progress Bar */}
+              {(() => {
+                const stages = ['Enquiry', 'Draft BL', 'SOB', 'Billing', 'ETA Pending', 'Delivery', 'Completed'];
+                const currentIdx = stages.indexOf(formData.freightData.pipelineStage);
+                return (
+                  <div style={{ display: 'flex', gap: '2px', marginBottom: '14px' }}>
+                    {stages.map((s, i) => (
+                      <div key={s} style={{
+                        flex: 1, height: '6px', borderRadius: '3px',
+                        background: i <= currentIdx ? '#3b82f6' : '#e2e8f0',
+                        transition: 'background 0.3s'
+                      }} title={s} />
+                    ))}
+                  </div>
+                );
+              })()}
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.8rem' }}>
+                {formData.freightData.enquiryNo && (
+                  <div><span style={{ color: '#64748b' }}>Enquiry No: </span><strong style={{ color: '#1e293b' }}>{formData.freightData.enquiryNo}</strong></div>
+                )}
+                {formData.freightData.successNo && (
+                  <div><span style={{ color: '#64748b' }}>Job No: </span><strong style={{ color: '#1e293b' }}>{formData.freightData.successNo}</strong></div>
+                )}
+                {formData.freightData.portOfLoading && (
+                  <div><span style={{ color: '#64748b' }}>POL: </span><strong style={{ color: '#1e293b' }}>{formData.freightData.portOfLoading}</strong></div>
+                )}
+                {formData.freightData.portOfDestination && (
+                  <div><span style={{ color: '#64748b' }}>POD: </span><strong style={{ color: '#1e293b' }}>{formData.freightData.portOfDestination}</strong></div>
+                )}
+                {formData.freightData.consignmentType && (
+                  <div><span style={{ color: '#64748b' }}>Type: </span><strong style={{ color: '#1e293b' }}>{formData.freightData.consignmentType}</strong></div>
+                )}
+                {formData.freightData.containerSize && (
+                  <div><span style={{ color: '#64748b' }}>Container: </span><strong style={{ color: '#1e293b' }}>{formData.freightData.containerSize}</strong></div>
+                )}
+                {formData.freightData.shippingLine && (
+                  <div><span style={{ color: '#64748b' }}>S/Line: </span><strong style={{ color: '#1e293b' }}>{formData.freightData.shippingLine}</strong></div>
+                )}
+                {formData.freightData.vesselName && (
+                  <div><span style={{ color: '#64748b' }}>Vessel: </span><strong style={{ color: '#1e293b' }}>{formData.freightData.vesselName}</strong></div>
+                )}
+                {formData.freightData.bookingNo && (
+                  <div><span style={{ color: '#64748b' }}>Booking: </span><strong style={{ color: '#1e293b' }}>{formData.freightData.bookingNo}</strong></div>
+                )}
+                {formData.freightData.blNo && (
+                  <div><span style={{ color: '#64748b' }}>BL No: </span><strong style={{ color: '#1e293b' }}>{formData.freightData.blNo}</strong></div>
+                )}
+                {formData.freightData.sailingDate && (
+                  <div><span style={{ color: '#64748b' }}>Sailing: </span><strong style={{ color: '#1e293b' }}>{formData.freightData.sailingDate}</strong></div>
+                )}
+                {formData.freightData.etaDate && (
+                  <div><span style={{ color: '#64748b' }}>ETA: </span><strong style={{ color: '#1e293b' }}>{formData.freightData.etaDate}</strong></div>
+                )}
+                {formData.freightData.arrivalDate && (
+                  <div><span style={{ color: '#64748b' }}>Arrival: </span><strong style={{ color: '#1e293b' }}>{formData.freightData.arrivalDate}</strong></div>
+                )}
+                {formData.freightData.finalDeliveryDate && (
+                  <div><span style={{ color: '#64748b' }}>Delivery: </span><strong style={{ color: '#1e293b' }}>{formData.freightData.finalDeliveryDate}</strong></div>
+                )}
+              </div>
+
+              {formData.freightData.lastSyncedAt && (
+                <div style={{ marginTop: '10px', fontSize: '0.7rem', color: '#94a3b8', textAlign: 'right' }}>
+                  Last synced: {new Date(formData.freightData.lastSyncedAt).toLocaleString('en-IN')}
+                </div>
+              )}
+            </div>
+          )}
           {isEditMode ? (
             // Edit Form
             <div>

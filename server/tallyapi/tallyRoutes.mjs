@@ -832,15 +832,17 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
         if (isReimbursement && entry.supplierName && !itemDesc.startsWith('NEW - ')) {
           itemDesc = `NEW - ${entry.supplierName}`;
         }
-        if (isMargin && itemDesc && !itemDesc.endsWith(' - E')) {
-          itemDesc = `${itemDesc} - E`;
+        if (isMargin && itemHead) {
+          itemDesc = itemHead.endsWith(' - E') ? itemHead : `${itemHead} - E`;
+          itemRevLedger = `${itemHead} - I`;
+        } else {
+          let rawRevLedger = item.revenueLedger || item.revenue_ledger || item.revenueHead || item.revenueHeading || '';
+          if (!rawRevLedger) {
+            itemRevLedger = itemDesc || itemHead;
+          } else {
+            itemRevLedger = rawRevLedger;
+          }
         }
-
-        // Revenue Ledger: Fall back to revObj -> entry.revenueLedger -> itemHead -> matchedCharge -> entry.supplierName
-        let rawRevLedger = item.revenueLedger || item.revenue_ledger || item.revenueHead || item.revenueHeading || (revObj && (revObj.chargeHead || revObj.chargeHeading || revObj.particulars || revObj.name)) || entry.revenueLedger || itemHead || (matchedCharge && (matchedCharge.name || matchedCharge.chargeHead || matchedCharge.chargeHeading || matchedCharge.particulars)) || entry.chargeHeading || entry.supplierName || '';
-        let itemRevLedger = typeof rawRevLedger === 'string'
-          ? rawRevLedger.replace(/\s*-\s*[EI]$/i, '').replace(/^NEW\s*-\s*/i, '').replace(/^NEW\s+/i, '').trim()
-          : rawRevLedger;
 
         const itemTaxable = Number(item.taxableValue || item.costAmount || item.basicAmount || item.total || 0);
         const itemTds = Number(item.tdsAmount || item.tds || 0);
@@ -909,14 +911,14 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
         if (chargeCategory === 'Reimbursement' && entry.supplierName && !fallbackDesc.startsWith('NEW - ')) {
           fallbackDesc = `NEW - ${entry.supplierName}`;
         }
-        if (fallbackIsMargin && fallbackDesc && !fallbackDesc.endsWith(' - E')) {
-          fallbackDesc = `${fallbackDesc} - E`;
+        if (fallbackIsMargin && fallbackHead) {
+          fallbackDesc = fallbackHead.endsWith(' - E') ? fallbackHead : `${fallbackHead} - E`;
+          fallbackRevLedger = `${fallbackHead} - I`;
+        } else {
+          if (!fallbackRevLedger) {
+            fallbackRevLedger = fallbackDesc || fallbackHead;
+          }
         }
-
-        let rawFallbackRevLedger = entry.revenueLedger || (revObj && (revObj.chargeHead || revObj.chargeHeading || revObj.particulars || revObj.name)) || fallbackHead || (matchedCharge && (matchedCharge.name || matchedCharge.chargeHead || matchedCharge.chargeHeading || matchedCharge.particulars)) || entry.chargeHeading || entry.supplierName || '';
-        let fallbackRevLedger = typeof rawFallbackRevLedger === 'string'
-          ? rawFallbackRevLedger.replace(/\s*-\s*[EI]$/i, '').replace(/^NEW\s*-\s*/i, '').replace(/^NEW\s+/i, '').trim()
-          : rawFallbackRevLedger;
 
         return [{
           "Charge Heading": fallbackHead,

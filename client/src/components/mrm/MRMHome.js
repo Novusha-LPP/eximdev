@@ -271,8 +271,12 @@ const MRMHome = () => {
     const { user } = useContext(UserContext);
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+    const [selectedMonth, setSelectedMonth] = useState(
+        searchParams.get('month') ? Number(searchParams.get('month')) : (new Date().getMonth() + 1)
+    );
+    const [selectedYear, setSelectedYear] = useState(
+        searchParams.get('year') ? Number(searchParams.get('year')) : new Date().getFullYear()
+    );
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(false);
 
@@ -280,7 +284,7 @@ const MRMHome = () => {
     const [metadata, setMetadata] = useState({ meetingDate: '', reviewDate: '' });
 
     // Admin View: User Selection - Dynamic check based on role
-    const isAdmin = user?.role === 'Admin';
+    const isAdmin = String(user?.role || '').toLowerCase() === 'admin';
     const [mrmUsers, setMrmUsers] = useState([]);
     // Initialize selectedUserId from URL param if present (for admin navigation from dashboard)
     const [selectedUserId, setSelectedUserId] = useState(searchParams.get('userId') || '');
@@ -643,7 +647,7 @@ const MRMHome = () => {
                         >
                             <option value="" disabled>Select User</option>
                             {mrmUsers
-                                .filter(u => ['Head_of_Department', 'Admin'].includes(u.role))
+                                .filter(u => ['head_of_department', 'admin'].includes(String(u.role || '').toLowerCase()))
                                 .map(u => (
                                     <option key={u._id} value={u._id}>
                                         {u.first_name} {u.last_name}

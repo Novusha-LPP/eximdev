@@ -1008,6 +1008,10 @@ jobSchema.index({ year: 1, status: 1, "container_nos.detention_from": 1 });
 jobSchema.index({ year: 1, status_rank: 1, status_sort_date: 1 });
 jobSchema.index({ year: 1, detailed_status: 1 });
 
+// Indexes for Charge Lookups & Out of Charge Tracking (Atlas Query Profiler)
+jobSchema.index({ "charges._id": 1 });
+jobSchema.index({ mode: 1, be_no: 1, status: 1, out_of_charge: 1 });
+
 jobSchema.plugin(auditPlugin, { documentType: "Job" });
 
 const JobModel = new mongoose.model("Job", jobSchema);

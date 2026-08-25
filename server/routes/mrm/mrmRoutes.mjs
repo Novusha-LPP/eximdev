@@ -12,7 +12,7 @@ const router = express.Router();
 router.get('/api/mrm/users', authMiddleware, async (req, res) => {
     try {
         const users = await UserModel.find(
-            { status: 'active' },
+            { isActive: { $ne: false } },
             { first_name: 1, last_name: 1, username: 1, _id: 1, role: 1 }
         ).sort({ first_name: 1 });
         res.json(users);
@@ -25,10 +25,10 @@ router.get('/api/mrm/users', authMiddleware, async (req, res) => {
 router.get('/api/mrm/dashboard', authMiddleware, async (req, res) => {
     try {
         const { month, year } = req.query;
-        const requestingRole = req.user.role;
+        const requestingRole = String(req.user?.role || '').toLowerCase();
 
         // Only admins can access dashboard
-        if (requestingRole !== 'Admin') {
+        if (requestingRole !== 'admin') {
             return res.status(403).json({ error: "Not authorized" });
         }
 
@@ -36,11 +36,11 @@ router.get('/api/mrm/dashboard', authMiddleware, async (req, res) => {
             return res.status(400).json({ error: "Month and Year are required" });
         }
 
-        // Get all users with MRM module AND are either Head_of_Department or Admin
+        // Get all users with MRM module AND are either Head_of_Department (case-insensitive) or Admin
         const mrmUsers = await UserModel.find(
             {
                 modules: 'MRM',
-                role: { $in: ['Head_of_Department', 'Admin'] }
+                role: { $in: ['Head_of_Department', 'head_of_department', 'Admin', 'admin'] }
             },
             { first_name: 1, last_name: 1, username: 1, _id: 1, role: 1 }
         ).sort({ first_name: 1 });
@@ -144,10 +144,10 @@ router.post('/api/mrm/metadata', authMiddleware, auditMiddleware("MRM_Metadata")
 router.post('/api/mrm/metadata/toggle-meeting', authMiddleware, auditMiddleware("MRM_Metadata"), async (req, res) => {
     try {
         const { month, year, userId, meetingDone } = req.body;
-        const requestingRole = req.user.role;
+        const requestingRole = String(req.user?.role || '').toLowerCase();
 
         // Only admins can toggle meeting status
-        if (requestingRole !== 'Admin') {
+        if (requestingRole !== 'admin') {
             return res.status(403).json({ error: "Not authorized" });
         }
 
@@ -172,8 +172,8 @@ router.post('/api/mrm/metadata/toggle-meeting', authMiddleware, auditMiddleware(
 router.get('/api/mrm', authMiddleware, async (req, res) => {
     try {
         const { month, year, userId } = req.query;
-        const requestingRole = req.user.role;
-        const requestingUserId = req.user._id;
+        const requestingRole = String(req.user?.role || '').toLowerCase();
+        const requestingUserId = String(req.user?._id || '');
 
         if (!month || !year) {
             return res.status(400).json({ error: "Month and Year are required" });
@@ -185,8 +185,8 @@ router.get('/api/mrm', authMiddleware, async (req, res) => {
         // If userId is provided, filter by createdBy
         if (userId) {
             // Allow if: user is viewing their own data OR user is Admin
-            const isOwnData = userId === requestingUserId;
-            const isAdmin = requestingRole === 'Admin';
+            const isOwnData = String(userId) === requestingUserId;
+            const isAdmin = requestingRole === 'admin';
 
             if (!isOwnData && !isAdmin) {
                 return res.status(403).json({ error: "Not authorized to view other users' MRM" });
@@ -286,16 +286,16 @@ router.delete('/api/mrm/:id', authMiddleware, auditMiddleware("MRM_Item"), async
 router.delete('/api/mrm-bulk/delete', async (req, res) => {
     try {
         const { month, year, userId } = req.query;
-        const requestingRole = req.headers['user-role'];
-        const requestingUserId = req.headers['user-id'];
+        const requestingRole = String(req.headers['user-role'] || '').toLowerCase();
+        const requestingUserId = String(req.headers['user-id'] || '');
 
         if (!month || !year || !userId) {
             return res.status(400).json({ error: "Month, Year and UserId are required" });
         }
 
         // Authorization check
-        const isOwnData = userId === requestingUserId;
-        const isAdmin = requestingRole === 'Admin';
+        const isOwnData = String(userId) === requestingUserId;
+        const isAdmin = requestingRole === 'admin';
 
         if (!isOwnData && !isAdmin) {
             return res.status(403).json({ error: "Not authorized to delete this data" });

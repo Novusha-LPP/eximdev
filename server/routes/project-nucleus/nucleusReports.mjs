@@ -6,7 +6,7 @@ import authMiddleware from "../../middleware/authMiddleware.mjs";
 import { applyUserBranchFilter } from "../../middleware/branchMiddleware.mjs";
 import { icdFilter, applyUserImporterFilter } from "../../middleware/icdFilter.mjs";
 import UserModel from "../../model/userModel.mjs";
-import { getBranchMatch, getExportBranchMatch } from "../../utils/branchFilter.mjs";
+import { getBranchMatch } from "../../utils/branchFilter.mjs";
 import CustomerKycModel from "../../model/CustomerKyc/customerKycModel.mjs";
 import EximClientUserModel from "../../model/eximClientUserModel.mjs";
 import OpenPointModel from "../../model/openPoints/openPointModel.mjs";
@@ -1904,7 +1904,49 @@ router.get("/export-leo-summaries", authMiddleware, applyUserBranchFilter, async
         const exportjobs = exportDb.collection('exportjobs');
 
         // Build accurate branch & mode match specifically for export schema
-        const exportBranchMatch = await getExportBranchMatch(branchId, category, req.authorizedBranchIds);
+        const exportBranchMatch = {};
+        const isAllBranch = !branchId || branchId.toString().toLowerCase() === "all" || branchId === "";
+        let targetBranchCodes = [];
+
+        if (!isAllBranch) {
+            const ids = Array.isArray(branchId) ? branchId : [branchId];
+            const allBranches = await mongoose.connection.collection("branches").find({}).toArray().catch(() => []);
+            for (const id of ids) {
+                if (!id) continue;
+                const idStr = id.toString().trim();
+                if (mongoose.Types.ObjectId.isValid(idStr) && idStr.length === 24) {
+                    const found = allBranches.filter(b => b._id.toString() === idStr);
+                    found.forEach(b => {
+                        if (b.branch_code) targetBranchCodes.push(b.branch_code);
+                    });
+                } else {
+                    targetBranchCodes.push(idStr);
+                }
+            }
+        } else if (req.user && req.user.role !== "Admin" && Array.isArray(req.authorizedBranchIds) && req.authorizedBranchIds.length > 0) {
+            const allBranches = await mongoose.connection.collection("branches").find({}).toArray().catch(() => []);
+            const authIdStrs = req.authorizedBranchIds.map(i => i.toString());
+            const allowed = allBranches.filter(b => authIdStrs.includes(b._id.toString()));
+            targetBranchCodes = allowed.map(b => b.branch_code).filter(Boolean);
+        }
+
+        if (targetBranchCodes.length > 0) {
+            const uniqueCodes = Array.from(new Set(targetBranchCodes.map(c => c.toUpperCase())));
+            exportBranchMatch.branch_code = {
+                $in: uniqueCodes.map(c => new RegExp(`^${c}$`, "i"))
+            };
+        }
+
+        if (category && category.toString().toLowerCase() !== "all") {
+            const catStr = category.toString().trim().toLowerCase();
+            if (catStr === "sea" || catStr === "ocean") {
+                exportBranchMatch.transportMode = { $in: ["SEA", "sea", "Sea", "OCEAN", "ocean", "Ocean", "BY SEA", "by sea", "By Sea"] };
+            } else if (catStr === "air") {
+                exportBranchMatch.transportMode = { $in: ["AIR", "air", "Air", "BY AIR", "by air", "By Air"] };
+            } else {
+                exportBranchMatch.transportMode = new RegExp(`^${category.toString().trim()}$`, "i");
+            }
+        }
 
         // Robust LEO Date Extraction: checks direct fields, statusDetails, and milestones (handling null & empty strings)
         const robustLeoExpr = {

@@ -501,7 +501,20 @@ function JobDetailsStaticData(props) {
 
             <div style={{ display: "flex", flexDirection: "column" }}>
               <span style={{ fontSize: "0.75rem", color: "#6c757d", fontWeight: "600" }}>Importer</span>
-              <span style={{ fontSize: "0.9rem", color: "#212529" }}>{props.data?.importer}</span>
+              <span style={{ fontSize: "0.9rem", color: "#212529", display: "flex", alignItems: "center" }}>
+                {props.data?.importer}
+                {props.data?.importer && (
+                  <Tooltip title="Copy Importer">
+                    <IconButton
+                      size="small"
+                      onClick={(e) => { e.stopPropagation(); handleCopy(e, props.data?.importer); }}
+                      sx={{ ml: 0.5, p: 0.2 }}
+                    >
+                      <ContentCopyIcon sx={{ fontSize: "14px" }} />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </span>
             </div>
 
             <div style={{ width: "1px", height: "30px", background: "#e0e0e0" }}></div>
@@ -692,7 +705,20 @@ function JobDetailsStaticData(props) {
           <Row style={compactRowStyle}>
             <Col xs={12} md={6} lg={4}>
               <span style={labelStyle}>Importer: </span>
-              <span style={valueStyle}>{props.data.importer}</span>
+              <span style={valueStyle}>
+                {props.data.importer}
+                {props.data.importer && (
+                  <Tooltip title="Copy Importer">
+                    <IconButton
+                      size="small"
+                      onClick={(e) => { e.stopPropagation(); handleCopy(e, props.data.importer); }}
+                      sx={{ ml: 0.5, p: 0.2, verticalAlign: "middle" }}
+                    >
+                      <ContentCopyIcon sx={{ fontSize: "14px" }} />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </span>
             </Col>
             <Col xs={12} md={6} lg={3}>
               <span style={labelStyle}>Importer Ref No: </span>

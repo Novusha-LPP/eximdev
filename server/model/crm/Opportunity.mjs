@@ -80,7 +80,33 @@ const opportunitySchema = new mongoose.Schema({
     isCancelled: { type: Boolean, default: false },
     cancelledAt: { type: Date },
     createdAt: { type: Date, default: Date.now }
-  }]
+  }],
+  // Cross-reference to Export Freight Forwarding enquiry_no
+  freightEnquiryRef: { type: String, sparse: true, index: true },
+  // Freight Forwarding operational data synced from Export project
+  freightData: {
+    pipelineStage: { type: String },
+    enquiryNo: { type: String },
+    successNo: { type: String },
+    sourceJobNo: { type: String },
+    portOfLoading: { type: String },
+    portOfDestination: { type: String },
+    consignmentType: { type: String },
+    containerSize: { type: String },
+    grossWeight: { type: String },
+    netWeight: { type: String },
+    sailingDate: { type: String },
+    etaDate: { type: String },
+    arrivalDate: { type: String },
+    finalDeliveryDate: { type: String },
+    draftBlApproved: { type: Boolean },
+    billingCompleted: { type: Boolean },
+    shippingLine: { type: String },
+    vesselName: { type: String },
+    bookingNo: { type: String },
+    blNo: { type: String },
+    lastSyncedAt: { type: Date }
+  }
 }, { timestamps: true });
 
 export default mongoose.model('Opportunity', opportunitySchema);

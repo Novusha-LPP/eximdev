@@ -956,6 +956,11 @@ export default function CRMKanbanBoard() {
                                 🔄 Carried
                               </span>
                             )}
+                            {deal.freightEnquiryRef && (
+                              <span style={{ fontSize: '0.65rem', background: '#dbeafe', color: '#1e40af', padding: '2px 6px', borderRadius: '4px', fontWeight: 700, border: '1px solid #93c5fd' }}>
+                                🚢 FF: {deal.freightData?.pipelineStage || 'Synced'}
+                              </span>
+                            )}
                           </div>
                           {(() => {
                             const activePR = deal.pricingRequests && deal.pricingRequests.length > 0
@@ -1235,6 +1240,28 @@ export default function CRMKanbanBoard() {
                             ))}
                             {opp.services.length > 3 && (
                               <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>+{opp.services.length - 3}</span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Freight Forwarding Badge */}
+                        {opp.freightEnquiryRef && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '12px' }}>
+                            <span style={{
+                              fontSize: '0.65rem', background: '#dbeafe', color: '#1e40af',
+                              padding: '2px 8px', borderRadius: '12px', fontWeight: 700,
+                              border: '1px solid #93c5fd', display: 'inline-flex', alignItems: 'center', gap: '4px'
+                            }}>
+                              🚢 FF: {opp.freightData?.pipelineStage || 'Synced'}
+                            </span>
+                            {opp.freightData?.enquiryNo && (
+                              <span style={{
+                                fontSize: '0.65rem', background: '#f0fdf4', color: '#166534',
+                                padding: '2px 8px', borderRadius: '12px', fontWeight: 600,
+                                border: '1px solid #bbf7d0'
+                              }}>
+                                {opp.freightData.successNo || opp.freightData.enquiryNo}
+                              </span>
                             )}
                           </div>
                         )}

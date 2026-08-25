@@ -832,6 +832,7 @@ router.get("/purchase-entry", authApiKey, async (req, res) => {
         if (isReimbursement && entry.supplierName && !itemDesc.startsWith('NEW - ')) {
           itemDesc = `NEW - ${entry.supplierName}`;
         }
+        let itemRevLedger = '';
         if (isMargin && itemHead) {
           itemDesc = itemHead.endsWith(' - E') ? itemHead : `${itemHead} - E`;
           itemRevLedger = `${itemHead} - I`;

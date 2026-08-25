@@ -57,6 +57,8 @@ const leadSchema = new mongoose.Schema({
   monthlyRevenue: { type: String },
   period: { type: String, default: () => new Date().toISOString().substring(0, 7) },
   convertedAt: { type: Date },
+  // Cross-reference to Export Freight Forwarding enquiry_no
+  freightEnquiryRef: { type: String, sparse: true, index: true },
   convertedTo: {
     accountId: { type: mongoose.Schema.Types.ObjectId, ref: 'Account' },
     contactId: { type: mongoose.Schema.Types.ObjectId, ref: 'Contact' },

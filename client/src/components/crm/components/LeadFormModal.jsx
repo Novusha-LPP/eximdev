@@ -295,6 +295,16 @@ const getHeaders = () => {
             gridTemplateColumns: '1fr 1fr', 
             gap: '20px 24px' 
           }}>
+            {/* Freight Forwarding Sync Indicator */}
+            {leadToEdit?.freightEnquiryRef && (
+              <div style={{ gridColumn: 'span 2', background: '#eff6ff', padding: '12px 16px', borderRadius: '8px', borderLeft: '4px solid #3b82f6', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>🚢</span>
+                <span style={{ fontSize: '0.85rem', color: '#1e40af', fontWeight: 600 }}>
+                  This lead was auto-synced from Export Freight Forwarding (Enquiry No: {leadToEdit.freightEnquiryRef}). Basic details are managed in the Export system.
+                </span>
+              </div>
+            )}
+
             {/* Company */}
             <div style={{ gridColumn: 'span 2' }}>
               <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>Company Name *</label>

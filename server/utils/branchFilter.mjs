@@ -5,6 +5,7 @@ import { getContext } from "./context.mjs";
  * Generates a MongoDB match object for branch filtering.
  * @param {string} branchId - The specific branch ID to filter by.
  * @param {string} category - The category (mode) to filter by (SEA/AIR).
+ * @param {Array} authorizedBranchIds - Optional array of authorized branch IDs for non-admin users.
  * @returns {object} - A match object (e.g., { branch_id: ObjectId(...) } or { mode: 'SEA' }).
  */
 export const getBranchMatch = (branchId, category, authorizedBranchIds = null) => {

@@ -87,7 +87,7 @@ const getCategoriesForVehicle = (v) => {
 };
 
 /** Compute elapsed days for any filter type */
-const computeElapsedDays = (filterType, selectedYear, selectedMonth, selectedQuarter, dateRange, dailyDataLen) => {
+const computeElapsedDays = (filterType, selectedYear, selectedMonth, selectedQuarter, dateRange, dailyDataLen, selectedDay) => {
     const today = new Date();
     const todayYear = today.getFullYear();
     const todayMonth = today.getMonth();
@@ -96,7 +96,31 @@ const computeElapsedDays = (filterType, selectedYear, selectedMonth, selectedQua
 
     let totalDays = 30, elapsedDays = 30;
 
-    if (filterType === 'month') {
+    if (filterType === 'day') {
+        totalDays = 1; elapsedDays = 1;
+    } else if (filterType === 'week') {
+        totalDays = 7;
+        const refDate = selectedDay ? new Date(selectedDay) : today;
+        const dayOfWeek = refDate.getDay();
+        const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        const monday = new Date(refDate);
+        monday.setDate(refDate.getDate() + mondayOffset);
+        monday.setHours(0, 0, 0, 0);
+
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        sunday.setHours(23, 59, 59, 999);
+
+        if (today >= monday && today <= sunday) {
+            const todayDayOfWeek = today.getDay();
+            const daysFromMon = todayDayOfWeek === 0 ? 7 : todayDayOfWeek;
+            elapsedDays = Math.max(1, Math.min(7, daysFromMon));
+        } else if (today < monday) {
+            elapsedDays = 0;
+        } else {
+            elapsedDays = 7;
+        }
+    } else if (filterType === 'month') {
         const selMonth = parseInt(selectedMonth);
         totalDays = new Date(selYear, selMonth + 1, 0).getDate();
         if (selYear === todayYear && selMonth === todayMonth) elapsedDays = Math.max(1, todayDate);
@@ -121,14 +145,41 @@ const computeElapsedDays = (filterType, selectedYear, selectedMonth, selectedQua
         if (selYear === todayYear) elapsedDays = Math.max(1, Math.round((today - yStart) / 86400000) + 1);
         else if (selYear > todayYear) elapsedDays = 0;
         else elapsedDays = totalDays;
-    } else if (filterType === 'day') {
-        totalDays = 1; elapsedDays = 1;
+    } else if (filterType === 'fin-year' || filterType === 'financial-year') {
+        totalDays = 365;
+        const fyStart = new Date(selYear, 3, 1);
+        const fyEnd = new Date(selYear + 1, 2, 31);
+        if (today >= fyStart && today <= fyEnd) {
+            elapsedDays = Math.max(1, Math.round((today - fyStart) / 86400000) + 1);
+        } else if (today < fyStart) {
+            elapsedDays = 0;
+        } else {
+            elapsedDays = 365;
+        }
     } else {
         if (dateRange?.start && dateRange?.end) {
-            totalDays = Math.max(1, Math.round((new Date(dateRange.end) - new Date(dateRange.start)) / 86400000) + 1);
-            elapsedDays = totalDays;
+            const sDate = new Date(dateRange.start);
+            const eDate = new Date(dateRange.end);
+
+            // Check if the range falls within a single month (e.g. Aug 1 to Aug 24)
+            const isSameMonth = sDate.getFullYear() === eDate.getFullYear() && sDate.getMonth() === eDate.getMonth();
+            const daysInSelectedMonth = new Date(sDate.getFullYear(), sDate.getMonth() + 1, 0).getDate();
+
+            // If the date range is within the same month, totalDays for monthly projection is the full month's days (e.g. 31)
+            // Otherwise, totalDays is the full date range span
+            totalDays = isSameMonth ? daysInSelectedMonth : Math.max(1, Math.round((eDate - sDate) / 86400000) + 1);
+
+            if (today >= sDate && today <= eDate) {
+                elapsedDays = Math.max(1, Math.round((today - sDate) / 86400000) + 1);
+            } else if (today < sDate) {
+                elapsedDays = 0;
+            } else {
+                elapsedDays = Math.max(1, Math.round((eDate - sDate) / 86400000) + 1);
+            }
         } else if (dailyDataLen > 0) {
-            totalDays = dailyDataLen; elapsedDays = totalDays;
+            const daysInCurrentMonth = new Date(todayYear, todayMonth + 1, 0).getDate();
+            totalDays = daysInCurrentMonth;
+            elapsedDays = Math.min(todayDate, dailyDataLen);
         }
     }
     return { totalDays, elapsedDays };
@@ -815,15 +866,11 @@ const FleetUtilizationReport = ({
     // ── KPI Metrics (Avg Trips/Day, Projections) ────────────────────────────────
 
     const kpiMetricsObj = useMemo(() => {
-        const { elapsedDays, totalDays } = computeElapsedDays(filterType, selectedYear, selectedMonth, selectedQuarter, dateRange, dailyData.length);
+        const { elapsedDays, totalDays } = computeElapsedDays(filterType, selectedYear, selectedMonth, selectedQuarter, dateRange, dailyData.length, selectedDay);
         const totalTrips = closedLRsList.length;
         const mundraTrips = closedLRsList.filter(r => (r.branch || '').toLowerCase().includes('mundra')).length;
         const avgTripsPerDay = elapsedDays > 0 ? totalTrips / elapsedDays : 0;
-
-        const { startDate } = getTransportDates(filterType, selectedDay, selectedYear, selectedMonth, selectedQuarter, dateRange);
-        let daysInMonth = 30;
-        if (startDate) { const sd = new Date(startDate); daysInMonth = new Date(sd.getFullYear(), sd.getMonth() + 1, 0).getDate(); }
-        else { const t = new Date(); daysInMonth = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate(); }
+        const periodTotalDays = totalDays || 30;
 
         let projAll = 0, projMundra = 0;
         if (elapsedDays > 0) {
@@ -831,7 +878,7 @@ const FleetUtilizationReport = ({
             closedLRsList.forEach(r => { const br = r.branch || 'Unknown'; branchCounts[br] = (branchCounts[br] || 0) + 1; });
             let rawProjAll = 0, rawProjMundra = 0;
             Object.entries(branchCounts).forEach(([br, count]) => {
-                const proj = (count / elapsedDays) * daysInMonth;
+                const proj = (count / elapsedDays) * periodTotalDays;
                 rawProjAll += proj;
                 if (br.toLowerCase().includes('mundra')) rawProjMundra += proj;
             });
@@ -894,19 +941,15 @@ const FleetUtilizationReport = ({
         });
 
         const list = Object.values(branches);
-        const { elapsedDays, totalDays } = computeElapsedDays(filterType, selectedYear, selectedMonth, selectedQuarter, dateRange, dailyData.length);
-        const { startDate } = getTransportDates(filterType, selectedDay, selectedYear, selectedMonth, selectedQuarter, dateRange);
-        const today = new Date();
-        let daysInMonth = 30;
-        if (startDate) { const sd = new Date(startDate); daysInMonth = new Date(sd.getFullYear(), sd.getMonth() + 1, 0).getDate(); }
-        else daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+        const { elapsedDays, totalDays } = computeElapsedDays(filterType, selectedYear, selectedMonth, selectedQuarter, dateRange, dailyData.length, selectedDay);
+        const periodTotalDays = totalDays || 30;
 
         let g20 = 0, go20 = 0, gh20 = 0, g40 = 0, go40 = 0, gh40 = 0, gO = 0, goO = 0, ghO = 0, gT = 0, rawAvg = 0, rawProj = 0;
         list.forEach(b => {
             const avg = elapsedDays > 0 ? b.total / elapsedDays : 0;
             b.avgTripsPerDay = Math.round(avg);
-            b.projection = Math.round(avg * daysInMonth);
-            rawAvg += avg; rawProj += avg * daysInMonth;
+            b.projection = Math.round(avg * periodTotalDays);
+            rawAvg += avg; rawProj += avg * periodTotalDays;
             g20 += b.c20; go20 += b.own20; gh20 += b.hired20;
             g40 += b.c40; go40 += b.own40; gh40 += b.hired40;
             gO += b.other; goO += b.ownOther || 0; ghO += b.hiredOther || 0;

@@ -318,96 +318,9 @@ const getColorTheme = (perfVal) => {
     };
 };
 
-// ─── Sub-Components ─────────────────────────────────────────────────────────────
-
-const ProgressCircle = ({ pct, color }) => {
-    const radius = 18;
-    const strokeWidth = 3.5;
-    const circumference = 2 * Math.PI * radius;
-    const safePct = Math.min(Math.max(Number(pct) || 0, 0), 100);
-    const offset = circumference - (safePct / 100) * circumference;
-    return (
-        <div style={{ position: 'relative', width: '44px', height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="44" height="44" style={{ transform: 'rotate(-90deg)', position: 'absolute', top: 0, left: 0 }}>
-                <circle cx="22" cy="22" r={radius} fill="transparent" stroke="rgba(0,0,0,0.04)" strokeWidth={strokeWidth} />
-                <circle cx="22" cy="22" r={radius} fill="transparent" stroke={color} strokeWidth={strokeWidth}
-                    strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
-                    style={{ transition: 'stroke-dashoffset 0.8s ease-in-out' }} />
-            </svg>
-            <span style={{ fontSize: '10px', fontWeight: 800, color: color, fontFamily: "'Outfit', sans-serif" }}>{safePct}%</span>
-        </div>
-    );
-};
-
-const KpiCard = ({ label, subtext, value, extra, color, gradient, border, badgeBg, large, accentColor, hl, hlBlue, progressPct, onClick }) => {
-    const defaultAccent = accentColor || color || '#cbd5e1';
-    const textColor = hl ? '#991b1b' : hlBlue ? '#1e40af' : '#64748b';
-    const valColor = hl ? '#991b1b' : hlBlue ? '#1e40af' : '#0f172a';
-
-    let pct = progressPct !== undefined ? progressPct : null;
-    if (pct === null && !badgeBg) {
-        if (extra && typeof extra === 'string') {
-            const match = extra.match(/(\d+)%/);
-            if (match) pct = parseFloat(match[1]);
-        } else if (typeof extra === 'number') {
-            pct = extra;
-        }
-    }
-
-    return (
-        <div
-            className="fleet-card"
-            data-hl={hl ? 'true' : 'false'}
-            data-hl-blue={hlBlue ? 'true' : 'false'}
-            onClick={onClick}
-            style={{
-                padding: large ? '26px 30px' : '22px 26px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: large ? '12px' : '10px',
-                cursor: onClick ? 'pointer' : 'default',
-                '--fc-bg': gradient,
-                '--fc-border': border,
-                '--fc-accent': defaultAccent
-            }}
-        >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', zIndex: 1 }}>
-                <div>
-                    <div style={{ fontFamily: "'Outfit', sans-serif", fontSize: large ? '14px' : '13px', color: textColor, textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: large ? 800 : 700 }}>
-                        {label}
-                    </div>
-                    {subtext && <div style={{ fontSize: '12px', color: hl ? '#b91c1c' : '#8091a7', marginTop: '4px', fontWeight: 600, letterSpacing: '0.01em', lineHeight: 1.3 }}>{subtext}</div>}
-                </div>
-                {pct !== null && (
-                    <div style={{ flexShrink: 0, marginTop: '-4px' }}>
-                        <ProgressCircle pct={pct} color={defaultAccent} />
-                    </div>
-                )}
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', zIndex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                    <span style={{ fontSize: large ? '40px' : '34px', fontWeight: 900, color: valColor }} className="mono">{value}</span>
-                    {extra && !badgeBg && pct === null && <span style={{ fontSize: '14.5px', fontWeight: 700, color: color }}>{extra}</span>}
-                </div>
-                {extra && badgeBg && (
-                    <div style={{ display: 'inline-flex', padding: '5px 10px', borderRadius: '8px', background: badgeBg, color: color, fontWeight: 700, fontSize: '12px', width: 'fit-content' }}>
-                        {extra}
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-};
-
-const SubBadge = ({ text, color = 'inherit' }) => (
-    <span style={{ display: 'inline-flex', alignItems: 'center', background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.06)', padding: '3px 8px', borderRadius: '8px', fontSize: '11px', fontWeight: 700, color, letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
-        {text}
-    </span>
-);
-
 // ─── Main Component ─────────────────────────────────────────────────────────────
 
-const ImportOutOfChargeSummaryReport = ({
+const ExportLeoSummaryReport = ({
     branchId = '',
     selectedBranch = 'all',
     category = 'all',
@@ -471,12 +384,12 @@ const ImportOutOfChargeSummaryReport = ({
 
     // Fetch report data
     useEffect(() => {
-        const fetchOutOfChargeData = async () => {
+        const fetchLeoData = async () => {
             setLoading(true);
             setError(null);
             try {
                 const apiBase = (process.env.REACT_APP_API_STRING || 'http://localhost:9006/api').replace(/\/$/, '');
-                const endpoint = `${apiBase}/project-nucleus/out-of-charge-summaries`;
+                const endpoint = `${apiBase}/project-nucleus/export-leo-summaries`;
 
                 const effectiveBranch = (localBranch && localBranch !== 'all' && localBranch !== 'ALL') ? localBranch : '';
                 const effectiveCategory = category !== 'all' ? category : selectedCategory;
@@ -502,17 +415,17 @@ const ImportOutOfChargeSummaryReport = ({
                 if (res.data?.success) {
                     setReportData(res.data);
                 } else {
-                    setError(res.data?.message || 'Failed to load Out of Charge report data.');
+                    setError(res.data?.message || 'Failed to load Let Export Order (LEO) report data.');
                 }
             } catch (err) {
-                console.error('Error fetching Out of Charge summaries:', err);
+                console.error('Error fetching Export LEO summaries:', err);
                 setError(err.response?.data?.message || err.message || 'Error connecting to server.');
             } finally {
                 setLoading(false);
             }
         };
 
-        fetchOutOfChargeData();
+        fetchLeoData();
     }, [localBranch, category, selectedCategory, filterType, selectedYear, selectedMonth, selectedQuarter, selectedFinancialYear, selectedDay, dateRange, retryCount]);
 
     // ─── Calculations & Projections ─────────────────────────────────────────────
@@ -530,34 +443,34 @@ const ImportOutOfChargeSummaryReport = ({
         );
     }, [filterType, selectedYear, selectedMonth, selectedQuarter, dateRange, selectedDay, reportData, selectedFinancialYear]);
 
-    const totalOoc = reportData?.totalOoc || 0;
+    const totalLeo = reportData?.totalLeo || reportData?.totalOoc || 0;
     const totalTeus = reportData?.totalTeus || 0;
     const stats = reportData?.stats || {};
     const prevStats = reportData?.prevStats || {};
 
     const avgDaily = useMemo(() => {
         if (!elapsedDays || elapsedDays <= 0) return 0;
-        return Math.round((totalOoc / elapsedDays) * 10) / 10;
-    }, [totalOoc, elapsedDays]);
+        return Math.round((totalLeo / elapsedDays) * 10) / 10;
+    }, [totalLeo, elapsedDays]);
 
-    const prevTotal = prevStats.totalOoc || 0;
+    const prevTotal = prevStats.totalLeo || prevStats.totalOoc || 0;
     const prevAvgDaily = prevStats.avgDaily || 0;
 
     // Projection for all non-daywise filters (week, month, quarter, year, fin-year, custom multi-day)
     const projectedTotal = useMemo(() => {
-        if (isDayWise) return totalOoc;
+        if (isDayWise) return totalLeo;
         if (!elapsedDays || elapsedDays <= 0) return 0;
-        const rate = totalOoc / elapsedDays;
+        const rate = totalLeo / elapsedDays;
         return Math.round(rate * totalDays);
-    }, [isDayWise, totalOoc, elapsedDays, totalDays]);
+    }, [isDayWise, totalLeo, elapsedDays, totalDays]);
 
     const totalGrowthPct = useMemo(() => {
-        if (!prevTotal || prevTotal <= 0) return totalOoc > 0 ? '▲ +100%' : '0%';
-        const comparisonBase = isDayWise ? totalOoc : projectedTotal;
+        if (!prevTotal || prevTotal <= 0) return totalLeo > 0 ? '▲ +100%' : '0%';
+        const comparisonBase = isDayWise ? totalLeo : projectedTotal;
         const diff = comparisonBase - prevTotal;
         const pct = Math.round((diff / prevTotal) * 100);
         return `${pct >= 0 ? '▲ +' : '▼ '}${pct}%`;
-    }, [isDayWise, totalOoc, projectedTotal, prevTotal]);
+    }, [isDayWise, totalLeo, projectedTotal, prevTotal]);
 
     // Projection performance theme vs prev
     const projectionPerfVal = useMemo(() => {
@@ -565,13 +478,7 @@ const ImportOutOfChargeSummaryReport = ({
         return (projectedTotal / prevTotal) * 100;
     }, [projectedTotal, prevTotal]);
 
-    const avgRunRatePerfVal = useMemo(() => {
-        if (!prevAvgDaily || prevAvgDaily <= 0) return 100;
-        return (avgDaily / prevAvgDaily) * 100;
-    }, [avgDaily, prevAvgDaily]);
-
     const projectionTheme = useMemo(() => getColorTheme(projectionPerfVal), [projectionPerfVal]);
-    const avgRunRateTheme = useMemo(() => getColorTheme(avgRunRatePerfVal), [avgRunRatePerfVal]);
 
     useEffect(() => {
         if (reportData?.branchWise && Array.isArray(reportData.branchWise)) {
@@ -694,19 +601,6 @@ const ImportOutOfChargeSummaryReport = ({
         }).sort((a, b) => (b.total || 0) - (a.total || 0));
     }, [reportData, availableBranches, elapsedDays, totalDays, isDayWise]);
 
-    // Top branch projection
-    const topBranch = useMemo(() => {
-        if (!branchTableData.length) return null;
-        return [...branchTableData].sort((a, b) => (b.total || 0) - (a.total || 0))[0];
-    }, [branchTableData]);
-
-    const topBranchPerfVal = useMemo(() => {
-        if (!topBranch || !topBranch.avgDaily) return 100;
-        const prev = topBranch.prevTotal || 1;
-        return (topBranch.projection / prev) * 100;
-    }, [topBranch]);
-    const topBranchTheme = useMemo(() => getColorTheme(topBranchPerfVal), [topBranchPerfVal]);
-
     // Location & Station bifurcation grouped by branch and as flat list with containers / modes
     const branchLocationBifurcation = useMemo(() => {
         const jobs = reportData?.detailedJobs || [];
@@ -727,7 +621,7 @@ const ImportOutOfChargeSummaryReport = ({
 
         jobs.forEach(j => {
             const br = String(j.branch_code || j.branch || 'Unassigned').toUpperCase().trim();
-            const loc = String(j.custom_house || j.location || j.port_of_reporting || 'Unassigned').trim();
+            const loc = String(j.custom_house || j.location || j.port_of_loading || 'Unassigned').trim();
             const m = String(j.mode || '').toLowerCase();
             const cType = String(j.consignment_type || '').toUpperCase();
             const isAir = m.includes('air');
@@ -812,7 +706,7 @@ const ImportOutOfChargeSummaryReport = ({
         const jobs = reportData?.detailedJobs || [];
         const map = {};
         jobs.forEach(j => {
-            const loc = String(j.custom_house || j.location || j.port_of_reporting || 'Unassigned').trim();
+            const loc = String(j.custom_house || j.location || j.port_of_loading || 'Unassigned').trim();
             const br = String(j.branch_code || j.branch || 'Unassigned').toUpperCase().trim();
             const m = String(j.mode || '').toLowerCase();
             const cType = String(j.consignment_type || '').toUpperCase();
@@ -832,7 +726,7 @@ const ImportOutOfChargeSummaryReport = ({
             if (m.includes('air')) map[loc].air += 1;
             else if (cType === 'LCL') map[loc].seaLcl += 1;
             else map[loc].seaFcl += 1;
-            map[loc].teus += (Number(j.total_teus) || (cType === 'LCL' ? 0 : 1));
+            map[loc].teus += (Number(j.total_teus) || Number(j.teus) || (cType === 'LCL' ? 0 : 1));
         });
 
         return Object.values(map).map(locItem => {
@@ -841,7 +735,7 @@ const ImportOutOfChargeSummaryReport = ({
             const projLcl = Math.round((locItem.seaLcl / elapsedDays) * totalDays);
             const projAir = Math.round((locItem.air / elapsedDays) * totalDays);
             const projTeus = Math.round((locItem.teus / elapsedDays) * totalDays);
-            const avgDaily = (locItem.cleared / elapsedDays).toFixed(1);
+            const avgDailyRate = (locItem.cleared / elapsedDays).toFixed(1);
             const sharePct = projectedTotal > 0 ? Math.round((proj / projectedTotal) * 100) : 0;
 
             return {
@@ -851,36 +745,14 @@ const ImportOutOfChargeSummaryReport = ({
                 projLcl,
                 projAir,
                 projTeus,
-                avgDaily,
+                avgDaily: avgDailyRate,
                 sharePct
             };
         }).sort((a, b) => b.projection - a.projection);
     }, [reportData, isDayWise, elapsedDays, totalDays, projectedTotal]);
 
-    // Cargo Mode level projections
-    const modeProjections = useMemo(() => {
-        if (isDayWise || !elapsedDays || elapsedDays <= 0) return { fclProj: 0, lclProj: 0, airProj: 0, fclCleared: 0, lclCleared: 0, airCleared: 0 };
-        const jobs = reportData?.detailedJobs || [];
-        let fcl = 0, lcl = 0, air = 0;
-        jobs.forEach(j => {
-            const m = String(j.mode || '').toLowerCase();
-            const cType = String(j.consignment_type || '').toUpperCase();
-            if (m.includes('air')) air++;
-            else if (cType === 'LCL') lcl++;
-            else fcl++;
-        });
-        return {
-            fclProj: Math.round((fcl / elapsedDays) * totalDays),
-            fclCleared: fcl,
-            lclProj: Math.round((lcl / elapsedDays) * totalDays),
-            lclCleared: lcl,
-            airProj: Math.round((air / elapsedDays) * totalDays),
-            airCleared: air
-        };
-    }, [reportData, isDayWise, elapsedDays, totalDays]);
-
     // Available branches in customerWise data
-    const importerBranches = useMemo(() => {
+    const exporterBranches = useMemo(() => {
         const raw = reportData?.customerWise || [];
         const set = new Set();
         raw.forEach(c => {
@@ -958,11 +830,12 @@ const ImportOutOfChargeSummaryReport = ({
         const raw = reportData?.dailyData || [];
         return raw.map((d, i, arr) => {
             const windowSlice = arr.slice(Math.max(0, i - 6), i + 1);
-            const sum = windowSlice.reduce((acc, curr) => acc + (curr.totalOoc || 0), 0);
+            const sum = windowSlice.reduce((acc, curr) => acc + (curr.totalOoc || curr.totalLeo || 0), 0);
             const mAvg = Math.round((sum / windowSlice.length) * 10) / 10;
             return {
                 ...d,
                 displayDate: d.date?.slice(5),
+                totalLeo: d.totalOoc || d.totalLeo || 0,
                 movingAvg: mAvg
             };
         });
@@ -977,27 +850,22 @@ const ImportOutOfChargeSummaryReport = ({
         }));
     }, [reportData]);
 
-    // Active exception summary analytics & branch/station drill-down stats (DO Expired & Delivery Pending)
+    // Active exception summary analytics & branch/station drill-down stats (LEO Missing Only)
     const activeExceptionStats = useMemo(() => {
-        const rawList = reportData?.exceptionsList || [];
-        const baseList = rawList.filter(item => {
-            if (exceptionFilter === 'doExpired' && !item.isDoExpired) return false;
-            if (exceptionFilter === 'delivery' && !item.isDeliveryPending) return false;
-            if (exceptionFilter === 'oocMissing' && !item.isOocMissing) return false;
-            if (exceptionFilter === 'all' && !item.isDoExpired && !item.isDeliveryPending && !item.isOocMissing) return false;
-            return true;
-        });
-
+        const baseList = reportData?.exceptionsList || [];
         const totalCount = baseList.length;
         const branchCounts = {};
+        let totalFines = 0;
 
         baseList.forEach(item => {
             const br = String(item.branch_code || item.branch || 'Unassigned').toUpperCase().trim();
             branchCounts[br] = (branchCounts[br] || 0) + 1;
+            totalFines += (Number(item.fine_amount) || 0) + (Number(item.penalty_amount) || 0);
         });
 
         const sortedBranches = Object.entries(branchCounts).sort((a, b) => b[1] - a[1]);
 
+        // Branch-scoped items for Level 2 drilldown
         const branchScopedList = baseList.filter(item => {
             if (exceptionBranchFilter && exceptionBranchFilter !== 'all') {
                 const br = String(item.branch_code || item.branch || 'Unassigned').toUpperCase().trim();
@@ -1012,10 +880,10 @@ const ImportOutOfChargeSummaryReport = ({
         let seaFcl = 0, seaLcl = 0, airCount = 0;
 
         branchScopedList.forEach(item => {
-            const loc = String(item.location || item.custom_house || item.port_of_reporting || 'Unassigned').trim();
+            const loc = String(item.location || item.custom_house || item.port_of_loading || 'Unassigned').trim();
             locationCounts[loc] = (locationCounts[loc] || 0) + 1;
 
-            const client = item.importer || 'Unknown';
+            const client = item.exporter || item.importer || 'Unknown';
             clientCounts[client] = (clientCounts[client] || 0) + 1;
 
             const m = String(item.mode || '').toLowerCase();
@@ -1037,26 +905,22 @@ const ImportOutOfChargeSummaryReport = ({
             seaFcl,
             seaLcl,
             airCount,
-            seaCount: seaFcl + seaLcl
+            seaCount: seaFcl + seaLcl,
+            totalFines
         };
-    }, [reportData, exceptionFilter, exceptionBranchFilter]);
+    }, [reportData, exceptionBranchFilter]);
 
-    // Filtered exceptions
+    // Filtered exceptions (LEO Missing Only)
     const filteredExceptions = useMemo(() => {
         const list = reportData?.exceptionsList || [];
         return list.filter(item => {
-            if (exceptionFilter === 'doExpired' && !item.isDoExpired) return false;
-            if (exceptionFilter === 'delivery' && !item.isDeliveryPending) return false;
-            if (exceptionFilter === 'oocMissing' && !item.isOocMissing) return false;
-            if (exceptionFilter === 'all' && !item.isDoExpired && !item.isDeliveryPending && !item.isOocMissing) return false;
-
             if (exceptionBranchFilter && exceptionBranchFilter !== 'all') {
                 const itemBranch = String(item.branch_code || item.branch || 'Unassigned').toUpperCase().trim();
                 if (itemBranch !== exceptionBranchFilter) return false;
             }
 
             if (exceptionLocationFilter && exceptionLocationFilter !== 'all') {
-                const itemLoc = String(item.location || item.custom_house || item.port_of_reporting || 'Unassigned').trim();
+                const itemLoc = String(item.location || item.custom_house || item.port_of_loading || 'Unassigned').trim();
                 if (itemLoc !== exceptionLocationFilter) return false;
             }
 
@@ -1072,17 +936,15 @@ const ImportOutOfChargeSummaryReport = ({
             if (exceptionSearch) {
                 const q = exceptionSearch.toLowerCase();
                 const matchJob = item.job_no?.toLowerCase().includes(q);
-                const matchBe = item.be_no?.toLowerCase().includes(q);
-                const matchImp = item.importer?.toLowerCase().includes(q);
+                const matchBe = (item.be_no || item.sb_no)?.toLowerCase().includes(q);
+                const matchImp = (item.importer || item.exporter)?.toLowerCase().includes(q);
                 const matchBr = item.branch_code?.toLowerCase().includes(q);
-                const matchLoc = (item.location || item.custom_house || item.port_of_reporting)?.toLowerCase().includes(q);
+                const matchLoc = (item.location || item.custom_house || item.port_of_loading)?.toLowerCase().includes(q);
                 if (!matchJob && !matchBe && !matchImp && !matchBr && !matchLoc) return false;
             }
             return true;
         });
-    }, [reportData, exceptionFilter, exceptionBranchFilter, exceptionLocationFilter, exceptionModeFilter, exceptionSearch]);
-
-
+    }, [reportData, exceptionBranchFilter, exceptionLocationFilter, exceptionModeFilter, exceptionSearch]);
 
     // ─── Export to Excel ─────────────────────────────────────────────────────────
 
@@ -1093,7 +955,7 @@ const ImportOutOfChargeSummaryReport = ({
         setExportingExcel(true);
         try {
             await exportNucleusReportToExcel({
-                reportType: 'import_ooc_summary',
+                reportType: 'export_leo_summary',
                 reportData,
                 filterMeta: {
                     filterType,
@@ -1119,16 +981,15 @@ const ImportOutOfChargeSummaryReport = ({
 
     // ─── Navigation Tabs ────────────────────────────────────────────────────────
 
-    const exceptionsCount = (reportData?.exceptionsSummary?.doExpired || 0) + (reportData?.exceptionsSummary?.deliveryPending || 0);
     const navTabs = useMemo(() => [
         { id: 'dashboard', label: '📊 Operations Dashboard' },
         ...(!isDayWise ? [
             { id: 'projection', label: '🎯 Projection Report' }
         ] : []),
         { id: 'trend', label: '📈 Trend & Analytics' },
-        { id: 'exceptions', label: `⚠️ Exceptions (${exceptionsCount})` },
+        { id: 'exceptions', label: `⚠️ LEO Missing (${reportData?.exceptionsSummary?.total || reportData?.exceptionsSummary?.leoMissing || 0})` },
         { id: 'detailed', label: `📑 Detailed Jobs (${reportData?.detailedJobs?.length || 0})` }
-    ], [isDayWise, reportData, exceptionsCount]);
+    ], [isDayWise, reportData]);
 
     // ─── Render States ──────────────────────────────────────────────────────────
 
@@ -1138,10 +999,10 @@ const ImportOutOfChargeSummaryReport = ({
                 <style>{STYLES}</style>
                 <div className="fleet-spinner" />
                 <div style={{ marginTop: '1.5rem', color: '#1e293b', fontWeight: 700, fontFamily: "'Outfit', sans-serif" }}>
-                    Loading Out of Charge (OOC) Summary & Projections...
+                    Loading Let Export Order (LEO) Summary & Projections...
                 </div>
                 <div style={{ color: '#64748b', fontSize: '13px', marginTop: '4px' }}>
-                    Aggregating customs clearances, daily run-rate, and period forecasts
+                    Aggregating export clearances, volumes, and projections
                 </div>
             </div>
         );
@@ -1165,7 +1026,7 @@ const ImportOutOfChargeSummaryReport = ({
         );
     }
 
-    // ─── Main Render ────────────────────────────────────────────────────────────
+    // ─── Main Render ────────────────────────────────────────────────────
 
     return (
         <div className="fleet-root">
@@ -1175,13 +1036,13 @@ const ImportOutOfChargeSummaryReport = ({
             <div className="fleet-header-glass">
                 <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ fontSize: '26px' }}>{isAirMode ? '✈️' : isSeaMode ? '🚢' : '📦'}</span>
+                        <span style={{ fontSize: '26px' }}>{isAirMode ? '✈️' : isSeaMode ? '🚢' : '🛫'}</span>
                         <h3 style={{ margin: 0, fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: '22px', color: '#0f172a', letterSpacing: '-0.02em' }}>
-                            {isAirMode ? 'Air Import Out of Charge (OOC) Summary' : isSeaMode ? 'Sea Import Out of Charge (OOC) Summary' : 'Import Out of Charge (OOC) Summary & Projections'}
+                            {isAirMode ? 'Air Let Export Order (LEO) Summary' : isSeaMode ? 'Sea Let Export Order (LEO) Summary' : 'Let Export Order (LEO) Summary & Projections'}
                         </h3>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', color: '#64748b', fontSize: '13px', marginTop: '6px', fontWeight: 500 }}>
-                        <span>Clearance metrics for <strong style={{ color: '#4f46e5' }}>{selectedFinancialYear ? `FY ${selectedFinancialYear}` : `${selectedMonth}/${selectedYear}`}</strong></span>
+                        <span>Export customs clearance metrics for <strong style={{ color: '#4f46e5' }}>{selectedFinancialYear ? `FY ${selectedFinancialYear}` : `${selectedMonth}/${selectedYear}`}</strong></span>
                         <span>•</span>
                         <span style={{ fontWeight: 700, color: isAirMode ? '#0284c7' : isSeaMode ? '#2563eb' : '#4f46e5' }}>
                             Mode: {isAirMode ? '✈️ AIR ONLY' : isSeaMode ? '🚢 SEA ONLY' : '🌐 ALL MODES'}
@@ -1240,13 +1101,13 @@ const ImportOutOfChargeSummaryReport = ({
                         </div>
                         <div className="kpi-info-tip">
                             <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a', marginBottom: '8px', paddingBottom: '6px', borderBottom: '1px solid #f1f5f9', fontFamily: "'Outfit', sans-serif" }}>
-                                💡 Out of Charge (OOC) Run-Rate & Projections
+                                💡 Let Export Order (LEO) Metrics
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px', color: '#64748b' }}>
-                                <div><strong style={{ color: '#0f172a' }}>Daily Run-Rate:</strong> Total OOC ÷ {elapsedDays} elapsed days in period.</div>
-                                <div><strong style={{ color: '#0f172a' }}>Projection:</strong> Projected monthly output = Run-rate × {totalDays} period days.</div>
-                                <div><strong style={{ color: '#059669' }}>▲ Green (≥ Benchmark):</strong> Current projection surpasses previous month baseline.</div>
-                                <div><strong style={{ color: '#dc2626' }}>▼ Red (&lt; 90%):</strong> Current projection lagging behind previous month benchmark.</div>
+                                <div><strong style={{ color: '#0f172a' }}>Run-Rate:</strong> Daily average clearances = Total LEO ÷ {elapsedDays} elapsed days.</div>
+                                <div><strong style={{ color: '#0f172a' }}>Projection:</strong> Projected monthly/period volume = Run-rate × {totalDays} total period days.</div>
+                                <div><strong style={{ color: '#059669' }}>▲ Green (≥ Last Month):</strong> Pace exceeds or meets prior benchmark.</div>
+                                <div><strong style={{ color: '#dc2626' }}>▼ Red (&lt; 90%):</strong> Pace lagging behind prior benchmark.</div>
                             </div>
                         </div>
                     </div>
@@ -1274,7 +1135,7 @@ const ImportOutOfChargeSummaryReport = ({
                 <>
                     {/* Row 1: Core Hero KPI Cards (Glowing Orbs + Progress Rings) */}
                     <div className="fleet-hero-grid">
-                        {/* Total OOC Cleared: Left Half (Total + Branch-Wise) & Right Half (Deeper Location/Station Bifurcation) */}
+                        {/* Total LEO Cleared: Left Half (Total + Branch-Wise) & Right Half (Location/Station Bifurcation) */}
                         <div
                             className="fleet-card"
                             style={{
@@ -1286,14 +1147,14 @@ const ImportOutOfChargeSummaryReport = ({
                                 '--fc-accent': '#4f46e5'
                             }}
                         >
-                            {/* Left Half: Total OOC Overview & Branch-Wise Clearance List */}
+                            {/* Left Half: Total LEO Overview & Branch-Wise Clearance List */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', zIndex: 1 }}>
                                 {/* Top section: Hero Numbers */}
                                 <div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
                                         <div>
                                             <div style={{ fontFamily: "'Outfit', sans-serif", fontSize: '13px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>
-                                                Total OOC Cleared
+                                                Total LEO Cleared
                                             </div>
                                             <div style={{ fontSize: '12px', color: '#8091a7', marginTop: '3px', fontWeight: 600, letterSpacing: '0.01em', lineHeight: 1.3 }}>
                                                 ⏱️ {elapsedDays} days elapsed • Prev: {prevTotal.toLocaleString()}
@@ -1314,7 +1175,7 @@ const ImportOutOfChargeSummaryReport = ({
 
                                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginTop: '6px' }}>
                                         <span style={{ fontSize: '36px', fontWeight: 900, color: '#0f172a' }} className="mono">
-                                            {totalOoc.toLocaleString()}
+                                            {totalLeo.toLocaleString()}
                                         </span>
                                         <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 600 }}>Total Jobs</span>
                                         {localBranch && localBranch !== 'all' && localBranch !== 'ALL' && (
@@ -1348,7 +1209,7 @@ const ImportOutOfChargeSummaryReport = ({
                                         }}
                                     >
                                         {branchTableData.map(b => {
-                                            const share = totalOoc > 0 ? ((b.total / totalOoc) * 100).toFixed(0) : 0;
+                                            const share = totalLeo > 0 ? ((b.total / totalLeo) * 100).toFixed(0) : 0;
                                             const isSelected = kpiSelectedBranch === b.name.toUpperCase();
                                             return (
                                                 <div
@@ -1420,7 +1281,7 @@ const ImportOutOfChargeSummaryReport = ({
                                 </div>
                             </div>
 
-                            {/* Right Half: Deeper Location / Custom Station / Port Bifurcation */}
+                            {/* Right Half: Customs Stations & Ports Bifurcation */}
                             <div style={{
                                 display: 'flex',
                                 flexDirection: 'column',
@@ -1472,7 +1333,7 @@ const ImportOutOfChargeSummaryReport = ({
                                         ? branchLocationBifurcation.allLocations
                                         : (branchLocationBifurcation.branchMap[kpiSelectedBranch]?.sortedLocations || [])
                                     ))).map((loc, idx) => {
-                                        const locShare = totalOoc > 0 ? (((loc.cleared || 0) / totalOoc) * 100).toFixed(0) : 0;
+                                        const locShare = totalLeo > 0 ? (((loc.cleared || 0) / totalLeo) * 100).toFixed(0) : 0;
                                         return (
                                             <div
                                                 key={`${loc.branch}-${loc.name}-${idx}`}
@@ -1568,7 +1429,7 @@ const ImportOutOfChargeSummaryReport = ({
 
                             <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', zIndex: 1 }}>
                                 <span style={{ fontSize: '36px', fontWeight: 900, color: '#0f172a' }} className="mono">
-                                    {isAirMode ? (stats.airJobs || totalOoc || 0).toLocaleString() : (totalTeus || 0).toLocaleString()}
+                                    {isAirMode ? (stats.airJobs || totalLeo || 0).toLocaleString() : (totalTeus || 0).toLocaleString()}
                                 </span>
                                 <span style={{ fontSize: '13px', fontWeight: 700, color: '#0891b2' }}>
                                     {isAirMode ? 'Air Jobs' : 'TEUs'}
@@ -1602,7 +1463,7 @@ const ImportOutOfChargeSummaryReport = ({
                                 {isAirMode && (
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'rgba(240, 249, 255, 0.8)', border: '1px solid rgba(2, 132, 199, 0.2)', borderRadius: '8px', gridColumn: 'span 3' }}>
                                         <span style={{ fontSize: '11px', fontWeight: 700, color: '#0284c7' }}>Airport Customs Gate-Out</span>
-                                        <span style={{ fontSize: '13px', fontWeight: 900, color: '#0f172a' }} className="mono">{stats.airJobs || totalOoc || 0}</span>
+                                        <span style={{ fontSize: '13px', fontWeight: 900, color: '#0f172a' }} className="mono">{stats.airJobs || totalLeo || 0}</span>
                                     </div>
                                 )}
                             </div>
@@ -1638,7 +1499,7 @@ const ImportOutOfChargeSummaryReport = ({
 
                                 <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', zIndex: 1 }}>
                                     <span style={{ fontSize: '36px', fontWeight: 900, color: '#0f172a' }} className="mono">
-                                        {(stats.airJobs || totalOoc || 0).toLocaleString()}
+                                        {(stats.airJobs || totalLeo || 0).toLocaleString()}
                                     </span>
                                     <span style={{ fontSize: '13px', fontWeight: 700, color: '#0284c7' }}>Air Consignments</span>
                                 </div>
@@ -1657,7 +1518,7 @@ const ImportOutOfChargeSummaryReport = ({
                             const fclTotal = (stats.fcl20 || 0) + (stats.fcl40 || 0);
                             const lclTotal = stats.lclJobs || 0;
                             const seaSum = fclTotal + lclTotal;
-                            const fclPct = seaSum > 0 ? ((fclTotal / seaSum) * 100).toFixed(0) : (totalOoc > 0 ? 100 : 0);
+                            const fclPct = seaSum > 0 ? ((fclTotal / seaSum) * 100).toFixed(0) : (totalLeo > 0 ? 100 : 0);
                             const lclPct = seaSum > 0 ? ((lclTotal / seaSum) * 100).toFixed(0) : 0;
                             return (
                                 <div
@@ -1761,27 +1622,22 @@ const ImportOutOfChargeSummaryReport = ({
                                 {/* Segmented Distribution Bar */}
                                 <div style={{ zIndex: 1, marginTop: 'auto', paddingTop: '8px' }}>
                                     <div style={{ height: '8px', background: '#e2e8f0', borderRadius: '999px', overflow: 'hidden', display: 'flex' }}>
-                                        <div style={{ width: `${totalOoc > 0 ? (((stats.seaJobs || 0) / totalOoc) * 100).toFixed(0) : 0}%`, background: '#3b82f6', transition: 'width 0.6s ease' }} />
-                                        <div style={{ width: `${totalOoc > 0 ? (((stats.airJobs || 0) / totalOoc) * 100).toFixed(0) : 0}%`, background: '#06b6d4', transition: 'width 0.6s ease' }} />
+                                        <div style={{ width: `${totalLeo > 0 ? (((stats.seaJobs || 0) / totalLeo) * 100).toFixed(0) : 0}%`, background: '#3b82f6', transition: 'width 0.6s ease' }} />
+                                        <div style={{ width: `${totalLeo > 0 ? (((stats.airJobs || 0) / totalLeo) * 100).toFixed(0) : 0}%`, background: '#06b6d4', transition: 'width 0.6s ease' }} />
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginTop: '8px', fontWeight: 700, color: '#64748b' }}>
-                                        <span style={{ color: '#2563eb' }}>🚢 Sea ({totalOoc > 0 ? (((stats.seaJobs || 0) / totalOoc) * 100).toFixed(0) : 0}%)</span>
-                                        <span style={{ color: '#0891b2' }}>✈️ Air ({totalOoc > 0 ? (((stats.airJobs || 0) / totalOoc) * 100).toFixed(0) : 0}%)</span>
+                                        <span style={{ color: '#2563eb' }}>🚢 Sea ({totalLeo > 0 ? (((stats.seaJobs || 0) / totalLeo) * 100).toFixed(0) : 0}%)</span>
+                                        <span style={{ color: '#0891b2' }}>✈️ Air ({totalLeo > 0 ? (((stats.airJobs || 0) / totalLeo) * 100).toFixed(0) : 0}%)</span>
                                     </div>
                                 </div>
                             </div>
                         )}
                     </div>
 
-
-
-
-
-
-                    {/* Row 5: Importer Clearance Dynamics (Top Gainers & Fallers + Matrix) */}
+                    {/* Row 5: Exporter Clearance Dynamics (Top Gainers & Fallers + Matrix) */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                         <div style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.03em', display: 'flex', alignItems: 'center', gap: '8px', fontFamily: "'Outfit', sans-serif" }}>
-                            <span>🚀</span> Importer Clearance Dynamics (Volume Movers)
+                            <span>🚀</span> Exporter Clearance Dynamics (Volume Movers)
                         </div>
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '16px' }}>
@@ -1870,22 +1726,22 @@ const ImportOutOfChargeSummaryReport = ({
                             </div>
                         </div>
 
-                        {/* Searchable Importers Matrix with Branch Filter */}
+                        {/* Searchable Exporters Matrix with Branch Filter */}
                         <div className="fleet-table-wrap">
                             <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid rgba(226,232,240,0.6)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                                     <div>
                                         <h4 style={{ margin: 0, fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: '16.5px', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <span>🏢</span> Branch-Wise Importer Clearance Performance
+                                            <span>🏢</span> Branch-Wise Exporter Clearance Performance
                                         </h4>
                                         <span style={{ color: '#64748b', fontSize: '12.5px' }}>
-                                            Volume, container distribution, and period-over-period growth by importer and branch
+                                            Volume, container distribution, and period-over-period growth by exporter and branch
                                         </span>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                         <input
                                             type="text"
-                                            placeholder="🔍 Search Importers..."
+                                            placeholder="🔍 Search Exporters..."
                                             value={customerSearch}
                                             onChange={e => setCustomerSearch(e.target.value)}
                                             style={{
@@ -1899,13 +1755,13 @@ const ImportOutOfChargeSummaryReport = ({
                                             }}
                                         />
                                         <span style={{ color: '#64748b', fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                                            <strong>{filteredCustomers.length}</strong> Importers
+                                            <strong>{filteredCustomers.length}</strong> Exporters
                                         </span>
                                     </div>
                                 </div>
 
                                 {/* Branch Selector Pills */}
-                                {importerBranches.length > 0 && (
+                                {exporterBranches.length > 0 && (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                         <span style={{ fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                                             Branch:
@@ -1927,7 +1783,7 @@ const ImportOutOfChargeSummaryReport = ({
                                         >
                                             All Branches ({(reportData?.customerWise || []).length})
                                         </button>
-                                        {importerBranches.map(b => {
+                                        {exporterBranches.map(b => {
                                             const count = (reportData?.customerWise || []).filter(c => c.branch && c.branch.toUpperCase() === b.toUpperCase()).length;
                                             const isActive = importerBranchFilter.toUpperCase() === b.toUpperCase();
                                             return (
@@ -1968,13 +1824,13 @@ const ImportOutOfChargeSummaryReport = ({
                                                 Location / Port {customerSortField === 'location' && (customerSortDir === 'asc' ? '↑' : '↓')}
                                             </th>
                                             <th onClick={() => { setCustomerSortField('customer'); setCustomerSortDir(customerSortDir === 'asc' ? 'desc' : 'asc'); }} style={{ cursor: 'pointer' }}>
-                                                Importer Name {customerSortField === 'customer' && (customerSortDir === 'asc' ? '↑' : '↓')}
+                                                Exporter Name {customerSortField === 'customer' && (customerSortDir === 'asc' ? '↑' : '↓')}
                                             </th>
                                             <th style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => { setCustomerSortField('current'); setCustomerSortDir(customerSortDir === 'asc' ? 'desc' : 'asc'); }}>
-                                                Current OOC {customerSortField === 'current' && (customerSortDir === 'asc' ? '↑' : '↓')}
+                                                Current LEO {customerSortField === 'current' && (customerSortDir === 'asc' ? '↑' : '↓')}
                                             </th>
                                             <th style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => { setCustomerSortField('prev'); setCustomerSortDir(customerSortDir === 'asc' ? 'desc' : 'asc'); }}>
-                                                Previous OOC {customerSortField === 'prev' && (customerSortDir === 'asc' ? '↑' : '↓')}
+                                                Previous LEO {customerSortField === 'prev' && (customerSortDir === 'asc' ? '↑' : '↓')}
                                             </th>
                                             <th style={{ textAlign: 'center', cursor: 'pointer' }} onClick={() => { setCustomerSortField('diff'); setCustomerSortDir(customerSortDir === 'asc' ? 'desc' : 'asc'); }}>
                                                 Delta {customerSortField === 'diff' && (customerSortDir === 'asc' ? '↑' : '↓')}
@@ -2039,7 +1895,7 @@ const ImportOutOfChargeSummaryReport = ({
                                         {filteredCustomers.length === 0 && (
                                             <tr>
                                                 <td colSpan={importerBranchFilter === 'all' ? (isAirMode ? 8 : isSeaMode ? 10 : 11) : (isAirMode ? 7 : isSeaMode ? 9 : 10)} style={{ textAlign: 'center', color: '#64748b', padding: '32px' }}>
-                                                    No importers found matching search / filter.
+                                                    No exporters found matching search / filter.
                                                 </td>
                                             </tr>
                                         )}
@@ -2075,10 +1931,10 @@ const ImportOutOfChargeSummaryReport = ({
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
                                     <div>
                                         <div style={{ fontFamily: "'Outfit', sans-serif", fontSize: '13px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>
-                                            Projected Period OOC Volume
+                                            Projected Period LEO Volume
                                         </div>
                                         <div style={{ fontSize: '12px', color: '#8091a7', marginTop: '3px', fontWeight: 600, letterSpacing: '0.01em', lineHeight: 1.3 }}>
-                                            ⏱️ Estimated {totalDays}-day volume • Benchmark: {prevTotal.toLocaleString()} OOC
+                                            ⏱️ Estimated {totalDays}-day volume • Benchmark: {prevTotal.toLocaleString()} LEO
                                         </div>
                                     </div>
                                     <div style={{
@@ -2098,7 +1954,7 @@ const ImportOutOfChargeSummaryReport = ({
                                     <span style={{ fontSize: '36px', fontWeight: 900, color: '#0f172a' }} className="mono">
                                         {projectedTotal.toLocaleString()}
                                     </span>
-                                    <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 600 }}>Projected OOC</span>
+                                    <span style={{ fontSize: '13px', color: '#64748b', fontWeight: 600 }}>Projected LEO</span>
                                 </div>
                             </div>
                         </div>
@@ -2210,7 +2066,7 @@ const ImportOutOfChargeSummaryReport = ({
                                             <th>Customs Port / ICD Location</th>
                                             <th style={{ textAlign: 'center' }}>Branch</th>
                                             <th style={{ textAlign: 'center' }}>Actual Cleared</th>
-                                            <th style={{ textAlign: 'center' }}>Avg OOC / Day</th>
+                                            <th style={{ textAlign: 'center' }}>Avg LEO / Day</th>
                                             <th style={{ textAlign: 'center', color: '#4f46e5' }}>Projected Output</th>
                                             <th style={{ textAlign: 'center' }}>Volume Share %</th>
                                             {!isAirMode && <th style={{ textAlign: 'center' }}>Proj FCL</th>}
@@ -2250,8 +2106,6 @@ const ImportOutOfChargeSummaryReport = ({
                 </>
             )}
 
-
-
             {/* ═══════════════════════════════════════════════════════════════════
                 TAB 3: TREND & ANALYTICS
                 ═══════════════════════════════════════════════════════════════════ */}
@@ -2262,27 +2116,28 @@ const ImportOutOfChargeSummaryReport = ({
                         <div className="fleet-chart-card">
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                                 <div>
-                                    <h3 style={{ margin: 0 }}>📈 Daily OOC Trend & 7-Day Moving Avg</h3>
+                                    <h3 style={{ margin: 0 }}>📈 Daily LEO Trend & 7-Day Moving Avg</h3>
                                     <span className="sub">Daily clearance pace with smoothing baseline</span>
                                 </div>
+                                <span className="status-pill-v2" data-variant="info">{dailyTrendData.length} Days Recorded</span>
                             </div>
-                            <div style={{ height: '320px', width: '100%' }}>
+                            <div style={{ height: '360px', width: '100%' }}>
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <ComposedChart data={dailyTrendData} margin={{ top: 10, right: 10, bottom: 20, left: 0 }}>
+                                    <ComposedChart data={dailyTrendData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
                                         <defs>
-                                            <linearGradient id="oocGradient" x1="0" y1="0" x2="0" y2="1">
+                                            <linearGradient id="leoGradient" x1="0" y1="0" x2="0" y2="1">
                                                 <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.4} />
                                                 <stop offset="95%" stopColor="#4f46e5" stopOpacity={0.0} />
                                             </linearGradient>
                                         </defs>
-                                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                                        <XAxis dataKey="displayDate" tick={{ fill: '#64748b', fontSize: 11, fontFamily: "'Outfit', sans-serif" }} />
-                                        <YAxis tick={{ fill: '#64748b', fontSize: 12 }} />
+                                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(226,232,240,0.6)" vertical={false} />
+                                        <XAxis dataKey="displayDate" stroke="#94a3b8" fontSize={11} tickLine={false} />
+                                        <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
                                         <Tooltip content={({ active, payload, label }) => {
                                             if (active && payload && payload.length) {
                                                 return (
                                                     <div className="fleet-tooltip-v2">
-                                                        <div style={{ fontWeight: 800, color: '#0f172a', marginBottom: '4px', fontFamily: "'Outfit', sans-serif" }}>{label}</div>
+                                                        <div style={{ fontWeight: 800, color: '#0f172a', marginBottom: '6px', fontFamily: "'Outfit', sans-serif" }}>Date: {label}</div>
                                                         {payload.map((p, i) => (
                                                             <div key={i} style={{ color: p.color, fontSize: '13px', fontWeight: 600 }}>
                                                                 {p.name}: <strong>{p.value}</strong>
@@ -2309,7 +2164,7 @@ const ImportOutOfChargeSummaryReport = ({
                                                 }}>
                                                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#4f46e5' }}>
                                                         <span style={{ width: '12px', height: '4px', background: '#4f46e5', borderRadius: '2px', display: 'inline-block' }} />
-                                                        <span>Daily OOC</span>
+                                                        <span>Daily LEO</span>
                                                     </div>
                                                     <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#d97706' }}>
                                                         <span style={{ width: '12px', height: '2px', background: '#f59e0b', display: 'inline-block', borderTop: '2px dashed #f59e0b' }} />
@@ -2322,7 +2177,7 @@ const ImportOutOfChargeSummaryReport = ({
                                                 </div>
                                             )}
                                         />
-                                        <Area type="monotone" dataKey="totalOoc" name="Daily OOC" stroke="#4f46e5" strokeWidth={2.5} fill="url(#oocGradient)" />
+                                        <Area type="monotone" dataKey="totalLeo" name="Daily LEO" stroke="#4f46e5" strokeWidth={2.5} fill="url(#leoGradient)" />
                                         <Line type="monotone" dataKey="movingAvg" name="7-Day Moving Avg" stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 4" dot={false} />
                                         <ReferenceLine y={avgDaily} stroke="#10b981" strokeDasharray="3 3" label={{ value: `Avg: ${avgDaily}`, fill: '#10b981', fontSize: 11 }} />
                                     </ComposedChart>
@@ -2353,7 +2208,7 @@ const ImportOutOfChargeSummaryReport = ({
                                         <Tooltip content={({ active, payload }) => {
                                             if (active && payload && payload.length) {
                                                 const d = payload[0];
-                                                const pct = totalOoc > 0 ? ((d.value / totalOoc) * 100).toFixed(1) : 0;
+                                                const pct = totalLeo > 0 ? ((d.value / totalLeo) * 100).toFixed(1) : 0;
                                                 return (
                                                     <div className="fleet-tooltip-v2">
                                                         <div style={{ fontWeight: 800, color: '#0f172a', fontFamily: "'Outfit', sans-serif" }}>{d.name}</div>
@@ -2375,7 +2230,7 @@ const ImportOutOfChargeSummaryReport = ({
                                                     fontFamily: "'Outfit', sans-serif"
                                                 }}>
                                                     {branchDonutData.map((item, idx) => {
-                                                        const pct = totalOoc > 0 ? ((item.value / totalOoc) * 100).toFixed(1) : '0.0';
+                                                        const pct = totalLeo > 0 ? ((item.value / totalLeo) * 100).toFixed(1) : '0.0';
                                                         return (
                                                             <div
                                                                 key={idx}
@@ -2410,29 +2265,29 @@ const ImportOutOfChargeSummaryReport = ({
                                     </PieChart>
                                 </ResponsiveContainer>
                                 <div style={{ position: 'absolute', top: '38%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none' }}>
-                                    <div style={{ fontSize: '24px', fontWeight: 900, color: '#0f172a', fontFamily: "'Outfit', sans-serif" }}>{(totalOoc || 0).toLocaleString()}</div>
-                                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Total OOC</div>
+                                    <div style={{ fontSize: '24px', fontWeight: 900, color: '#0f172a', fontFamily: "'Outfit', sans-serif" }}>{(totalLeo || 0).toLocaleString()}</div>
+                                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Total LEO</div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Importer Monthly Matrix (Apr to Mar) */}
-                    <div className="fleet-table-wrap">
+                    {/* Exporter Monthly Trends Matrix */}
+                    <div className="fleet-table-wrap" style={{ marginTop: '24px' }}>
                         <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid rgba(226,232,240,0.6)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                                 <div>
-                                    <h4 style={{ margin: 0, fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: '16.5px', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <span>📊</span> Importer Monthly Trends & FY Total (Apr – Mar)
+                                    <h4 style={{ margin: 0, fontFamily: "'Outfit', sans-serif", fontWeight: 800, fontSize: '16.5px', color: '#0f172a' }}>
+                                        📅 Exporter Monthly Clearance Trend Matrix (Apr – Mar)
                                     </h4>
                                     <span style={{ color: '#64748b', fontSize: '12.5px' }}>
-                                        Month-by-month clearance distribution across the entire financial year
+                                        Month-by-month clearance distribution across the financial year
                                     </span>
                                 </div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                     <input
                                         type="text"
-                                        placeholder="🔍 Search Importers..."
+                                        placeholder="🔍 Search Exporters..."
                                         value={monthlySearch}
                                         onChange={e => setMonthlySearch(e.target.value)}
                                         style={{
@@ -2446,16 +2301,16 @@ const ImportOutOfChargeSummaryReport = ({
                                         }}
                                     />
                                     <span style={{ color: '#64748b', fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                                        <strong>{filteredMonthlyCustomers.length}</strong> Importers
+                                        <strong>{filteredMonthlyCustomers.length}</strong> Exporters
                                     </span>
                                 </div>
                             </div>
 
-                            {/* FY Total Filters and Sort Controls */}
+                            {/* Monthly Volume Tier Filters */}
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                     <span style={{ fontSize: '12px', fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                                        FY Total Count:
+                                        Volume Filter:
                                     </span>
                                     <button
                                         onClick={() => setMonthlyVolumeFilter('all')}
@@ -2540,7 +2395,7 @@ const ImportOutOfChargeSummaryReport = ({
                                             }}
                                             style={{ cursor: 'pointer' }}
                                         >
-                                            Importer Name {monthlySortField === 'customer' && (monthlySortDir === 'asc' ? '↑' : '↓')}
+                                            Exporter Name {monthlySortField === 'customer' && (monthlySortDir === 'asc' ? '↑' : '↓')}
                                         </th>
                                         {MONTH_NAMES.map(m => (
                                             <th
@@ -2588,7 +2443,7 @@ const ImportOutOfChargeSummaryReport = ({
                                     {filteredMonthlyCustomers.length === 0 && (
                                         <tr>
                                             <td colSpan={14} style={{ textAlign: 'center', color: '#64748b', padding: '32px' }}>
-                                                No importers found matching criteria.
+                                                No exporters found matching criteria.
                                             </td>
                                         </tr>
                                     )}
@@ -2600,10 +2455,7 @@ const ImportOutOfChargeSummaryReport = ({
             )}
 
             {/* ═══════════════════════════════════════════════════════════════════
-                TAB 4: EXCEPTIONS MANAGEMENT (DO EXPIRED & DELIVERY PENDING)
-                ═══════════════════════════════════════════════════════════════════ */}
-            {/* ═══════════════════════════════════════════════════════════════════
-                TAB 4: EXCEPTIONS MANAGEMENT (DO EXPIRED & DELIVERY PENDING)
+                TAB 4: EXCEPTIONS MANAGEMENT
                 ═══════════════════════════════════════════════════════════════════ */}
             {activeTab === 'exceptions' && (
                 <>
@@ -2627,10 +2479,10 @@ const ImportOutOfChargeSummaryReport = ({
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
                                         <div>
                                             <div style={{ fontFamily: "'Outfit', sans-serif", fontSize: '13px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 800 }}>
-                                                Operational Exceptions
+                                                Export Operational Exceptions
                                             </div>
                                             <div style={{ fontSize: '12px', color: '#8091a7', marginTop: '3px', fontWeight: 600, letterSpacing: '0.01em', lineHeight: 1.3 }}>
-                                                DO Expired & Delivery Pending tracking
+                                                Cleared LEO export jobs requiring operational follow-up
                                             </div>
                                         </div>
                                         <div style={{
@@ -2833,7 +2685,7 @@ const ImportOutOfChargeSummaryReport = ({
                             </div>
                         </div>
 
-                        {/* Card 2: DO Expired vs Delivery Pending vs OOC Missing */}
+                        {/* Card 2: LEO Missing Focus Card */}
                         <div
                             className="fleet-card"
                             style={{
@@ -2843,7 +2695,7 @@ const ImportOutOfChargeSummaryReport = ({
                                 justifyContent: 'space-between',
                                 gap: '16px',
                                 minHeight: '280px',
-                                '--fc-accent': '#f59e0b'
+                                '--fc-accent': '#dc2626'
                             }}
                         >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', zIndex: 1 }}>
@@ -2852,135 +2704,87 @@ const ImportOutOfChargeSummaryReport = ({
                                         Exception Categories
                                     </div>
                                     <div style={{ fontSize: '12px', color: '#8091a7', marginTop: '3px', fontWeight: 600 }}>
-                                        DO Expired, Delivery Pending & OOC Missing
+                                        Let Export Order (LEO) Date Missing Tracking
                                     </div>
                                 </div>
-                                <span style={{ fontSize: '11px', fontWeight: 700, color: '#d97706', background: 'rgba(245, 158, 11, 0.1)', padding: '3px 8px', borderRadius: '6px' }}>
-                                    ⚠️ 3 Categories
+                                <span style={{ fontSize: '11px', fontWeight: 700, color: '#dc2626', background: 'rgba(239, 68, 68, 0.1)', padding: '3px 8px', borderRadius: '6px' }}>
+                                    ⚠️ LEO Missing Only
                                 </span>
                             </div>
 
                             <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', zIndex: 1 }}>
                                 <span style={{ fontSize: '36px', fontWeight: 900, color: '#0f172a' }} className="mono">
-                                    {((reportData?.exceptionsSummary?.doExpired || 0) + (reportData?.exceptionsSummary?.deliveryPending || 0) + (reportData?.exceptionsSummary?.oocMissing || 0)).toLocaleString()}
+                                    {(reportData?.exceptionsSummary?.total || 0).toLocaleString()}
                                 </span>
-                                <span style={{ fontSize: '13px', fontWeight: 700, color: '#d97706' }}>
-                                    Total Flagged
+                                <span style={{ fontSize: '13px', fontWeight: 700, color: '#dc2626' }}>
+                                    Total LEO Missing
                                 </span>
                             </div>
 
-                            {/* Breakdown Sub-chips Grid (3 Categories) */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', zIndex: 1, marginTop: 'auto' }}>
+                            {/* LEO Missing Focus Card */}
+                            <div style={{ zIndex: 1, marginTop: 'auto' }}>
                                 <div
-                                    onClick={() => {
-                                        setExceptionFilter(prev => prev === 'doExpired' ? 'all' : 'doExpired');
-                                        setExceptionBranchFilter('all');
-                                        setExceptionLocationFilter('all');
-                                        setExceptionModeFilter('all');
-                                    }}
+                                    onClick={() => { setExceptionBranchFilter('all'); setExceptionLocationFilter('all'); }}
                                     style={{
                                         display: 'flex',
-                                        flexDirection: 'column',
-                                        padding: '8px 10px',
-                                        background: exceptionFilter === 'doExpired' ? 'rgba(254, 243, 199, 0.9)' : 'rgba(255, 251, 235, 0.8)',
-                                        border: exceptionFilter === 'doExpired' ? '1.5px solid #d97706' : '1px solid rgba(217, 119, 6, 0.25)',
-                                        borderRadius: '10px',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        padding: '14px 18px',
+                                        background: 'rgba(254, 242, 242, 0.9)',
+                                        border: '1.5px solid #dc2626',
+                                        borderRadius: '12px',
                                         cursor: 'pointer',
                                         transition: 'all 0.15s'
                                     }}
                                 >
-                                    <span style={{ fontSize: '10px', fontWeight: 800, color: '#d97706', textTransform: 'uppercase' }}>DO EXPIRED</span>
-                                    <span style={{ fontSize: '18px', fontWeight: 900, color: '#0f172a', marginTop: '2px' }} className="mono">
-                                        {(reportData?.exceptionsSummary?.doExpired || 0).toLocaleString()}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <span style={{ fontSize: '20px' }}>⚠️</span>
+                                        <div>
+                                            <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.04em' }}>LEO MISSING</div>
+                                            <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>Let Export Order date missing or pending</div>
+                                        </div>
+                                    </div>
+                                    <span style={{ fontSize: '20px', fontWeight: 900, color: '#dc2626' }} className="mono">
+                                        {(reportData?.exceptionsSummary?.total || 0).toLocaleString()}
                                     </span>
-                                    <span style={{ fontSize: '9.5px', color: '#92400e', marginTop: '2px', lineHeight: 1.2 }}>DO validity passed</span>
-                                </div>
-
-                                <div
-                                    onClick={() => {
-                                        setExceptionFilter(prev => prev === 'delivery' ? 'all' : 'delivery');
-                                        setExceptionBranchFilter('all');
-                                        setExceptionLocationFilter('all');
-                                        setExceptionModeFilter('all');
-                                    }}
-                                    style={{
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        padding: '8px 10px',
-                                        background: exceptionFilter === 'delivery' ? 'rgba(224, 231, 255, 0.9)' : 'rgba(238, 242, 255, 0.8)',
-                                        border: exceptionFilter === 'delivery' ? '1.5px solid #4f46e5' : '1px solid rgba(99, 102, 241, 0.25)',
-                                        borderRadius: '10px',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.15s'
-                                    }}
-                                >
-                                    <span style={{ fontSize: '10px', fontWeight: 800, color: '#4f46e5', textTransform: 'uppercase' }}>DELIVERY PENDING</span>
-                                    <span style={{ fontSize: '18px', fontWeight: 900, color: '#0f172a', marginTop: '2px' }} className="mono">
-                                        {(reportData?.exceptionsSummary?.deliveryPending || 0).toLocaleString()}
-                                    </span>
-                                    <span style={{ fontSize: '9.5px', color: '#3730a3', marginTop: '2px', lineHeight: 1.2 }}>Cargo gate-out pending</span>
-                                </div>
-
-                                <div
-                                    onClick={() => {
-                                        setExceptionFilter(prev => prev === 'oocMissing' ? 'all' : 'oocMissing');
-                                        setExceptionBranchFilter('all');
-                                        setExceptionLocationFilter('all');
-                                        setExceptionModeFilter('all');
-                                    }}
-                                    style={{
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        padding: '8px 10px',
-                                        background: exceptionFilter === 'oocMissing' ? 'rgba(254, 226, 226, 0.9)' : 'rgba(254, 242, 242, 0.8)',
-                                        border: exceptionFilter === 'oocMissing' ? '1.5px solid #dc2626' : '1px solid rgba(239, 68, 68, 0.25)',
-                                        borderRadius: '10px',
-                                        cursor: 'pointer',
-                                        transition: 'all 0.15s'
-                                    }}
-                                >
-                                    <span style={{ fontSize: '10px', fontWeight: 800, color: '#dc2626', textTransform: 'uppercase' }}>OOC MISSING</span>
-                                    <span style={{ fontSize: '18px', fontWeight: 900, color: '#0f172a', marginTop: '2px' }} className="mono">
-                                        {(reportData?.exceptionsSummary?.oocMissing || 0).toLocaleString()}
-                                    </span>
-                                    <span style={{ fontSize: '9.5px', color: '#991b1b', marginTop: '2px', lineHeight: 1.2 }}>OOC date missing</span>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     <div className="fleet-table-wrap" style={{ padding: '20px 24px' }}>
-                        {/* Search Input */}
-                        <div style={{ marginBottom: '16px' }}>
-                            <input
-                                type="text"
-                                placeholder="🔍 Filter by Job No, BE No, Importer, or Branch..."
-                                value={exceptionSearch}
-                                onChange={e => setExceptionSearch(e.target.value)}
-                                style={{
-                                    maxWidth: '380px',
-                                    padding: '8px 16px',
-                                    borderRadius: '12px',
-                                    border: '1px solid #cbd5e1',
-                                    fontSize: '13.5px',
-                                    outline: 'none',
-                                    fontFamily: "'Outfit', sans-serif"
-                                }}
-                            />
-                        </div>
 
-                        {/* Exceptions Table */}
-                        <div style={{ overflowX: 'auto' }}>
-                            <table className="fleet-table">
+                    {/* Search Input */}
+                    <div style={{ marginBottom: '16px' }}>
+                        <input
+                            type="text"
+                            placeholder="🔍 Filter by Job No, SB No, Exporter, or Branch..."
+                            value={exceptionSearch}
+                            onChange={e => setExceptionSearch(e.target.value)}
+                            style={{
+                                maxWidth: '380px',
+                                padding: '8px 16px',
+                                borderRadius: '12px',
+                                border: '1px solid #cbd5e1',
+                                fontSize: '13.5px',
+                                outline: 'none',
+                                fontFamily: "'Outfit', sans-serif"
+                            }}
+                        />
+                    </div>
+
+                    {/* Exceptions Table */}
+                    <div style={{ overflowX: 'auto' }}>
+                        <table className="fleet-table">
                             <thead>
                                 <tr>
                                     <th>Job No</th>
-                                    <th>BE No & Date</th>
-                                    <th>OOC Date</th>
-                                    <th>Importer</th>
+                                    <th>SB No & Date</th>
+                                    <th>LEO Date</th>
+                                    <th>Exporter</th>
                                     <th>Branch</th>
                                     <th>Mode & Type</th>
-                                    <th>Status Issue</th>
+                                    <th>Identified Issue</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -2990,40 +2794,38 @@ const ImportOutOfChargeSummaryReport = ({
                                             {item.job_no || item.job_number}
                                         </td>
                                         <td>
-                                            <div style={{ fontWeight: 700, color: '#0f172a' }} className="mono">{item.be_no || '—'}</div>
-                                            <div style={{ fontSize: '12px', color: '#64748b' }} className="mono">{item.be_date || ''}</div>
+                                            <div style={{ fontWeight: 700, color: '#0f172a' }} className="mono">{item.be_no || item.sb_no || '—'}</div>
+                                            <div style={{ fontSize: '12px', color: '#64748b' }} className="mono">{item.be_date || item.sb_date || ''}</div>
                                         </td>
-                                        <td style={{ fontWeight: 700, color: item.out_of_charge ? '#059669' : '#dc2626' }} className="mono">
-                                            {item.out_of_charge || <span style={{ color: '#dc2626', fontWeight: 800 }}>MISSING</span>}
+                                        <td style={{ fontWeight: 700, color: '#dc2626' }} className="mono">
+                                            <span style={{ color: '#dc2626', fontWeight: 800, fontSize: '11.5px', background: 'rgba(239, 68, 68, 0.1)', padding: '2px 7px', borderRadius: '4px' }}>
+                                                LEO Missing
+                                            </span>
                                         </td>
-                                        <td style={{ fontWeight: 600, color: '#1e293b', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.importer}>
-                                            {item.importer}
+                                        <td style={{ fontWeight: 600, color: '#1e293b', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={item.importer || item.exporter}>
+                                            {item.importer || item.exporter}
                                         </td>
                                         <td><span className="status-pill-v2" data-variant="neutral">{item.branch_code}</span></td>
                                         <td>
-                                             <span className="status-pill-v2" data-variant="info" style={{ marginRight: '4px' }}>{item.mode}</span>
-                                             <span className="status-pill-v2" data-variant="neutral">{item.consignment_type}</span>
+                                            <span className="status-pill-v2" data-variant="info" style={{ marginRight: '4px' }}>{item.mode}</span>
+                                            <span className="status-pill-v2" data-variant="neutral">{item.consignment_type}</span>
                                         </td>
                                         <td>
-                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                                                 {item.isDoExpired && <span className="status-pill-v2" data-variant="warning">DO Expired</span>}
-                                                 {item.isDeliveryPending && <span className="status-pill-v2" data-variant="neutral">Delivery Pending</span>}
-                                                 {item.isOocMissing && <span className="status-pill-v2" data-variant="danger" style={{ background: '#fee2e2', color: '#b91c1c' }}>OOC Missing</span>}
-                                             </div>
+                                            <span className="status-pill-v2" data-variant="error">LEO Missing</span>
                                         </td>
                                     </tr>
                                 ))}
                                 {filteredExceptions.length === 0 && (
                                     <tr>
-                                        <td colSpan={7} style={{ textAlign: 'center', color: '#64748b', padding: '32px' }}>No DO Expired, Delivery Pending, or OOC Missing exceptions found under selected filter.</td>
+                                        <td colSpan={7} style={{ textAlign: 'center', color: '#64748b', padding: '32px' }}>No LEO missing exceptions found under selected filter.</td>
                                     </tr>
                                 )}
                             </tbody>
-                            </table>
-                        </div>
+                        </table>
                     </div>
-                </>
-            )}
+                </div>
+            </>
+        )}
 
             {/* ═══════════════════════════════════════════════════════════════════
                 TAB 5: DETAILED JOBS GRID
@@ -3032,7 +2834,7 @@ const ImportOutOfChargeSummaryReport = ({
                 <div className="fleet-table-wrap" style={{ padding: '24px' }}>
                     <ImportDetailedSummaryTab
                         detailedJobs={reportData?.detailedJobs || []}
-                        reportType="import_ooc_summary"
+                        reportType="export_leo_summary"
                     />
                 </div>
             )}
@@ -3040,4 +2842,4 @@ const ImportOutOfChargeSummaryReport = ({
     );
 };
 
-export default ImportOutOfChargeSummaryReport;
+export default ExportLeoSummaryReport;

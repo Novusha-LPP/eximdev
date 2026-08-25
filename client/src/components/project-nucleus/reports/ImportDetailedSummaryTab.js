@@ -3,7 +3,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import {
     FiSearch, FiDownload, FiFileText, FiChevronLeft, FiChevronRight,
-    FiExternalLink, FiLayers, FiBox, FiUsers
+    FiLayers, FiBox, FiUsers
 } from 'react-icons/fi';
 
 const formatDate = (dateStr) => {
@@ -24,7 +24,7 @@ const formatCurrency = (amount, currency = 'INR') => {
     return `${currency ? currency + ' ' : ''}${num.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
 };
 
-const ImportDetailedSummaryTab = ({ detailedJobs = [], loading = false }) => {
+const ImportDetailedSummaryTab = ({ detailedJobs = [], loading = false, reportType = 'import_out_of_charge_summary' }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [pageSize, setPageSize] = useState(25);
     const [currentPage, setCurrentPage] = useState(1);
@@ -165,17 +165,6 @@ const ImportDetailedSummaryTab = ({ detailedJobs = [], loading = false }) => {
         return sortConfig.direction === 'asc' ? ' ▲' : ' ▼';
     };
 
-    // Helper to generate full direct URL for Job Details
-    const getJobUrl = (j) => {
-        const jobNum = j.job_no || j.job_number;
-        if (!jobNum) return '#';
-        const branchCode = j.branch_code || (j.branch && j.branch !== 'Unassigned' ? j.branch : 'MUM') || 'MUM';
-        const tradeType = j.trade_type || 'IMP';
-        const mode = j.mode || 'Sea';
-        const year = j.year || j.financial_year || j.selected_year || '2025-2026';
-        return `/import-dsr/job/${encodeURIComponent(branchCode)}/${encodeURIComponent(tradeType)}/${encodeURIComponent(mode)}/${encodeURIComponent(jobNum)}/${encodeURIComponent(year)}`;
-    };
-
     // ─── Summary KPIs Calculation ───────────────────────────────────────
     const summaryKPIs = useMemo(() => {
         let totalJobs = filteredJobs.length;
@@ -218,11 +207,19 @@ const ImportDetailedSummaryTab = ({ detailedJobs = [], loading = false }) => {
             workbook.creator = 'AlVision Exim Operations';
             workbook.created = new Date();
 
-            const ws = workbook.addWorksheet('Import Detailed Summary', {
+            const isExport = reportType === 'export_leo_summary';
+            const sheetTitle = isExport ? 'Export Detailed Summary' : 'Import Detailed Summary';
+
+            const ws = workbook.addWorksheet(sheetTitle, {
                 views: [{ state: 'frozen', ySplit: 4 }]
             });
 
-            const headers = [
+            const headers = isExport ? [
+                "Srl No.", "Job No", "Branch", "Location", "Exporter Name",
+                "Commodity", "FOB / Invoice Value", "Currency", "S/B No.", "S/B Date",
+                "Container Nos", "Total Containers", "Size Breakdown", "TEUs",
+                "Clearance Date (LEO)", "Detailed Status", "Job Owner"
+            ] : [
                 "Srl No.", "Job No", "Branch", "Location", "Importer Name",
                 "Commodity", "Price / CIF Amount", "Currency", "B/E No.", "B/E Date",
                 "Container Nos", "Total Containers", "Size Breakdown", "TEUs",
@@ -230,10 +227,10 @@ const ImportDetailedSummaryTab = ({ detailedJobs = [], loading = false }) => {
             ];
 
             const totalCols = headers.length;
-            const lastColLetter = 'S'; // 19th column
+            const lastColLetter = isExport ? 'Q' : 'S';
 
             // Row 1: Banner Title
-            ws.addRow(['ALVISION EXIM — IMPORT OPERATIONS DETAILED SUMMARY REPORT']);
+            ws.addRow([`ALVISION EXIM — ${isExport ? 'EXPORT LEO' : 'IMPORT OPERATIONS'} DETAILED SUMMARY REPORT`]);
             ws.mergeCells(`A1:${lastColLetter}1`);
             const titleRow = ws.getRow(1);
             titleRow.height = 36;
@@ -285,7 +282,7 @@ const ImportDetailedSummaryTab = ({ detailedJobs = [], loading = false }) => {
                 const rowNum = 5 + idx;
                 const bgArgb = idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC';
 
-                const cifVal = Number(j.cif_amount || j.cif_amount_inr || 0);
+                const cifVal = Number(j.cif_amount || j.cif_amount_inr || j.fob_amount || j.invoice_amount || 0);
                 const contCount = Number(j.totalContainers || (j.sizeCounts ? (j.sizeCounts.ft20 + j.sizeCounts.ft40) : 0));
                 const teuVal = Number(j.teus || 0);
 
@@ -293,7 +290,25 @@ const ImportDetailedSummaryTab = ({ detailedJobs = [], loading = false }) => {
                 if (!isNaN(contCount)) sumTotalContainers += contCount;
                 if (!isNaN(teuVal)) sumTeus += teuVal;
 
-                ws.addRow([
+                const rowValues = isExport ? [
+                    idx + 1,
+                    j.job_no || j.jobNumber || j.job_number || '—',
+                    j.branch || j.branch_code || '—',
+                    j.location || j.custom_house || j.port_of_reporting || '—',
+                    j.exporter || j.shipper || '—',
+                    j.commodity || '—',
+                    cifVal || '—',
+                    j.inv_currency || j.currency || 'INR',
+                    j.sb_no || '—',
+                    formatDate(j.sb_date),
+                    Array.isArray(j.containerNumbers) ? j.containerNumbers.join(', ') : (j.container_nos || '—'),
+                    contCount || 0,
+                    j.noOfContrSize || '—',
+                    teuVal || 0,
+                    formatDate(j.leoDate || j.out_of_charge),
+                    j.detailedStatus || j.detailed_status || j.status || '—',
+                    j.job_owner || '—'
+                ] : [
                     idx + 1,
                     j.job_no || j.job_number || '—',
                     j.branch || '—',
@@ -313,7 +328,9 @@ const ImportDetailedSummaryTab = ({ detailedJobs = [], loading = false }) => {
                     j.job_owner || '—',
                     j.RMS || '—',
                     j.cth_no || '—'
-                ]);
+                ];
+
+                ws.addRow(rowValues);
 
                 const row = ws.getRow(rowNum);
                 row.height = 21;
@@ -351,7 +368,25 @@ const ImportDetailedSummaryTab = ({ detailedJobs = [], loading = false }) => {
             // Summary Total Row
             if (sortedJobs.length > 0) {
                 const totalRowNum = 5 + sortedJobs.length;
-                ws.addRow([
+                const totalRowData = isExport ? [
+                    'TOTAL',
+                    `${sortedJobs.length} Jobs`,
+                    '—',
+                    '—',
+                    'All Exporters',
+                    '—',
+                    sumCif,
+                    'INR',
+                    '—',
+                    '—',
+                    '—',
+                    sumTotalContainers,
+                    '—',
+                    sumTeus,
+                    '—',
+                    '—',
+                    '—'
+                ] : [
                     'TOTAL',
                     `${sortedJobs.length} Jobs`,
                     '—',
@@ -371,7 +406,9 @@ const ImportDetailedSummaryTab = ({ detailedJobs = [], loading = false }) => {
                     '—',
                     '—',
                     '—'
-                ]);
+                ];
+
+                ws.addRow(totalRowData);
 
                 const totRow = ws.getRow(totalRowNum);
                 totRow.height = 25;
@@ -412,7 +449,8 @@ const ImportDetailedSummaryTab = ({ detailedJobs = [], loading = false }) => {
             });
 
             const buffer = await workbook.xlsx.writeBuffer();
-            saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `Import_Detailed_Summary_Report_${new Date().toISOString().slice(0, 10)}.xlsx`);
+            const prefix = isExport ? 'Export_Detailed_Summary' : 'Import_Detailed_Summary';
+            saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), `${prefix}_Report_${new Date().toISOString().slice(0, 10)}.xlsx`);
         } catch (err) {
             console.error("Excel export error:", err);
             alert("Failed to export Excel file. Please try again.");
@@ -583,8 +621,19 @@ const ImportDetailedSummaryTab = ({ detailedJobs = [], loading = false }) => {
             </div>
 
             {/* ─── Search & Toolbar ────────────────────────────────────────── */}
-            <div className="fleet-card" style={{ padding: '16px 20px', display: 'flex', flexWrap: 'wrap', gap: '14px', justifyContent: 'space-between', alignItems: 'center', width: '100%', boxSizing: 'border-box' }}>
-                <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flex: '1 1 320px', flexWrap: 'wrap', minWidth: 0 }}>
+            <div
+                className="fleet-card"
+                style={{
+                    padding: '16px 20px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '14px',
+                    width: '100%',
+                    boxSizing: 'border-box'
+                }}
+            >
+                {/* Row 1: Search + Export Buttons */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                     {/* Search Box */}
                     <div style={{
                         display: 'flex',
@@ -594,8 +643,8 @@ const ImportDetailedSummaryTab = ({ detailedJobs = [], loading = false }) => {
                         padding: '8px 14px',
                         borderRadius: '10px',
                         border: '1px solid #e2e8f0',
-                        flex: '1 1 220px',
-                        minWidth: 0,
+                        flex: '1 1 280px',
+                        maxWidth: '460px',
                         boxSizing: 'border-box'
                     }}>
                         <FiSearch style={{ color: '#94a3b8', flexShrink: 0 }} />
@@ -612,7 +661,6 @@ const ImportDetailedSummaryTab = ({ detailedJobs = [], loading = false }) => {
                                 background: 'transparent',
                                 outline: 'none',
                                 width: '100%',
-                                minWidth: 0,
                                 fontSize: '13px',
                                 color: '#1e293b'
                             }}
@@ -627,7 +675,83 @@ const ImportDetailedSummaryTab = ({ detailedJobs = [], loading = false }) => {
                         )}
                     </div>
 
-                    {/* Sizes Breakdown Dropdown Filter */}
+                    {/* Export Action Buttons */}
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                        <button
+                            onClick={exportToExcel}
+                            disabled={sortedJobs.length === 0}
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '7px',
+                                background: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
+                                color: '#ffffff',
+                                border: 'none',
+                                padding: '8px 16px',
+                                borderRadius: '10px',
+                                fontWeight: 600,
+                                fontSize: '13px',
+                                cursor: sortedJobs.length === 0 ? 'not-allowed' : 'pointer',
+                                opacity: sortedJobs.length === 0 ? 0.6 : 1,
+                                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                boxShadow: '0 4px 14px rgba(16, 185, 129, 0.25)',
+                                letterSpacing: '0.2px'
+                            }}
+                        >
+                            <FiDownload style={{ strokeWidth: 2.5 }} />
+                            <span>Download Excel</span>
+                            <span style={{
+                                background: 'rgba(255, 255, 255, 0.22)',
+                                padding: '1px 5px',
+                                borderRadius: '5px',
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                letterSpacing: '0.5px'
+                            }}>XLSX</span>
+                        </button>
+
+                        <button
+                            onClick={exportToPDF}
+                            disabled={sortedJobs.length === 0}
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '7px',
+                                background: 'linear-gradient(135deg, #dc2626 0%, #ef4444 100%)',
+                                color: '#ffffff',
+                                border: 'none',
+                                padding: '8px 16px',
+                                borderRadius: '10px',
+                                fontWeight: 600,
+                                fontSize: '13px',
+                                cursor: sortedJobs.length === 0 ? 'not-allowed' : 'pointer',
+                                opacity: sortedJobs.length === 0 ? 0.6 : 1,
+                                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                boxShadow: '0 4px 14px rgba(239, 68, 68, 0.25)',
+                                letterSpacing: '0.2px'
+                            }}
+                        >
+                            <FiFileText style={{ strokeWidth: 2.5 }} />
+                            <span>Download PDF</span>
+                            <span style={{
+                                background: 'rgba(255, 255, 255, 0.22)',
+                                padding: '1px 5px',
+                                borderRadius: '5px',
+                                fontSize: '10px',
+                                fontWeight: 700,
+                                letterSpacing: '0.5px'
+                            }}>PDF</span>
+                        </button>
+                    </div>
+                </div>
+
+                {/* Row 2: Filter Pills Strip */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', paddingTop: '12px', borderTop: '1px solid #f1f5f9' }}>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginRight: '2px' }}>
+                        Filters:
+                    </span>
+
+                    {/* Sizes Breakdown Dropdown */}
                     <select
                         value={selectedSizeFilter}
                         onChange={(e) => {
@@ -635,12 +759,12 @@ const ImportDetailedSummaryTab = ({ detailedJobs = [], loading = false }) => {
                             setCurrentPage(1);
                         }}
                         style={{
-                            padding: '8px 12px',
-                            borderRadius: '10px',
+                            padding: '6px 34px 6px 12px',
+                            borderRadius: '8px',
                             border: selectedSizeFilter !== 'ALL' ? '1.5px solid #ec4899' : '1px solid #e2e8f0',
-                            background: selectedSizeFilter !== 'ALL' ? '#fdf2f8' : '#f8fafc',
+                            background: selectedSizeFilter !== 'ALL' ? '#fdf2f8' : '#ffffff',
                             fontWeight: selectedSizeFilter !== 'ALL' ? 700 : 500,
-                            fontSize: '13px',
+                            fontSize: '12.5px',
                             color: selectedSizeFilter !== 'ALL' ? '#be185d' : '#334155',
                             outline: 'none',
                             cursor: 'pointer'
@@ -664,12 +788,13 @@ const ImportDetailedSummaryTab = ({ detailedJobs = [], loading = false }) => {
                                 setCurrentPage(1);
                             }}
                             style={{
-                                padding: '8px 12px',
-                                borderRadius: '10px',
-                                border: '1px solid #e2e8f0',
-                                background: '#f8fafc',
-                                fontSize: '13px',
-                                color: '#334155',
+                                padding: '6px 34px 6px 12px',
+                                borderRadius: '8px',
+                                border: selectedBranchFilter !== 'ALL' ? '1.5px solid #3b82f6' : '1px solid #e2e8f0',
+                                background: selectedBranchFilter !== 'ALL' ? '#eff6ff' : '#ffffff',
+                                fontWeight: selectedBranchFilter !== 'ALL' ? 700 : 500,
+                                fontSize: '12.5px',
+                                color: selectedBranchFilter !== 'ALL' ? '#1d4ed8' : '#334155',
                                 outline: 'none',
                                 cursor: 'pointer'
                             }}
@@ -690,71 +815,53 @@ const ImportDetailedSummaryTab = ({ detailedJobs = [], loading = false }) => {
                                 setCurrentPage(1);
                             }}
                             style={{
-                                padding: '8px 12px',
-                                borderRadius: '10px',
-                                border: '1px solid #e2e8f0',
-                                background: '#f8fafc',
-                                fontSize: '13px',
-                                color: '#334155',
+                                padding: '6px 34px 6px 12px',
+                                borderRadius: '8px',
+                                border: selectedStatusFilter !== 'ALL' ? '1.5px solid #8b5cf6' : '1px solid #e2e8f0',
+                                background: selectedStatusFilter !== 'ALL' ? '#f5f3ff' : '#ffffff',
+                                fontWeight: selectedStatusFilter !== 'ALL' ? 700 : 500,
+                                fontSize: '12.5px',
+                                color: selectedStatusFilter !== 'ALL' ? '#6d28d9' : '#334155',
                                 outline: 'none',
                                 cursor: 'pointer'
                             }}
                         >
-                            <option value="ALL">All Statuses</option>
+                            <option value="ALL">All Statuses ({availableStatuses.length})</option>
                             {availableStatuses.map(s => (
                                 <option key={s} value={s}>{s}</option>
                             ))}
                         </select>
                     )}
-                </div>
 
-                {/* Export Buttons */}
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexShrink: 0 }}>
-                    <button
-                        onClick={exportToExcel}
-                        disabled={sortedJobs.length === 0}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            background: '#10b981',
-                            color: '#ffffff',
-                            border: 'none',
-                            padding: '8px 14px',
-                            borderRadius: '10px',
-                            fontWeight: 600,
-                            fontSize: '13px',
-                            cursor: sortedJobs.length === 0 ? 'not-allowed' : 'pointer',
-                            opacity: sortedJobs.length === 0 ? 0.6 : 1,
-                            transition: 'all 0.2s ease',
-                            boxShadow: '0 2px 6px rgba(16, 185, 129, 0.25)'
-                        }}
-                    >
-                        <FiDownload /> Export Excel
-                    </button>
+                    {/* Reset Filters Button */}
+                    {(selectedSizeFilter !== 'ALL' || selectedBranchFilter !== 'ALL' || selectedStatusFilter !== 'ALL' || searchTerm) && (
+                        <button
+                            onClick={() => {
+                                setSelectedSizeFilter('ALL');
+                                setSelectedBranchFilter('ALL');
+                                setSelectedStatusFilter('ALL');
+                                setSearchTerm('');
+                                setCurrentPage(1);
+                            }}
+                            style={{
+                                padding: '5px 10px',
+                                borderRadius: '8px',
+                                border: '1px dashed #ef4444',
+                                background: '#fef2f2',
+                                color: '#dc2626',
+                                fontSize: '12px',
+                                fontWeight: 700,
+                                cursor: 'pointer'
+                            }}
+                        >
+                            ✕ Reset
+                        </button>
+                    )}
 
-                    <button
-                        onClick={exportToPDF}
-                        disabled={sortedJobs.length === 0}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            background: '#ef4444',
-                            color: '#ffffff',
-                            border: 'none',
-                            padding: '8px 14px',
-                            borderRadius: '10px',
-                            fontWeight: 600,
-                            fontSize: '13px',
-                            cursor: sortedJobs.length === 0 ? 'not-allowed' : 'pointer',
-                            opacity: sortedJobs.length === 0 ? 0.6 : 1,
-                            transition: 'all 0.2s ease',
-                            boxShadow: '0 2px 6px rgba(239, 68, 68, 0.25)'
-                        }}
-                    >
-                        <FiFileText /> Export PDF
-                    </button>
+                    {/* Live Counter */}
+                    <div style={{ marginLeft: 'auto', fontSize: '12.5px', color: '#64748b', fontWeight: 500 }}>
+                        Showing <strong style={{ color: '#0f172a' }}>{sortedJobs.length}</strong> of <strong style={{ color: '#0f172a' }}>{detailedJobs.length}</strong> jobs
+                    </div>
                 </div>
             </div>
 
@@ -843,7 +950,6 @@ const ImportDetailedSummaryTab = ({ detailedJobs = [], loading = false }) => {
                                 paginatedJobs.map((j, idx) => {
                                     const srl = pageSize === 'ALL' ? (idx + 1) : ((currentPage - 1) * (parseInt(pageSize, 10) || 25) + idx + 1);
                                     const jobNum = j.job_no || j.job_number;
-                                    const jobUrl = getJobUrl(j);
                                     return (
                                         <tr
                                             key={j._id || idx}
@@ -856,26 +962,8 @@ const ImportDetailedSummaryTab = ({ detailedJobs = [], loading = false }) => {
                                             onMouseLeave={(e) => e.currentTarget.style.background = idx % 2 === 0 ? '#ffffff' : '#f8fafc'}
                                         >
                                             <td style={{ padding: '10px 14px', color: '#475569', fontWeight: 700 }}>{srl}</td>
-                                            <td style={{ padding: '10px 14px', fontWeight: 800, color: '#2563eb' }}>
-                                                <a
-                                                    href={jobUrl}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    style={{
-                                                        cursor: 'pointer',
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        gap: '4px',
-                                                        color: '#2563eb',
-                                                        fontWeight: 800,
-                                                        textDecoration: 'none'
-                                                    }}
-                                                    onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
-                                                    onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
-                                                    title="Open Job Details in New Tab"
-                                                >
-                                                    {jobNum} <FiExternalLink size={12} />
-                                                </a>
+                                            <td style={{ padding: '10px 14px', fontWeight: 800, color: '#1e293b' }}>
+                                                {jobNum}
                                             </td>
                                             <td style={{ padding: '10px 14px', color: '#1e293b' }}>
                                                 <span style={{
@@ -965,7 +1053,7 @@ const ImportDetailedSummaryTab = ({ detailedJobs = [], loading = false }) => {
                                 setCurrentPage(1);
                             }}
                             style={{
-                                padding: '4px 8px',
+                                padding: '4px 28px 4px 8px',
                                 borderRadius: '6px',
                                 border: '1px solid #cbd5e1',
                                 outline: 'none',
@@ -996,15 +1084,16 @@ const ImportDetailedSummaryTab = ({ detailedJobs = [], loading = false }) => {
                                     width: '32px',
                                     height: '32px',
                                     borderRadius: '8px',
-                                    border: '1px solid #cbd5e1',
-                                    background: currentPage === 1 ? '#f1f5f9' : '#ffffff',
-                                    color: currentPage === 1 ? '#94a3b8' : '#334155',
-                                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer'
+                                    border: currentPage === 1 ? '1px solid #e2e8f0' : '1px solid #bfdbfe',
+                                    background: currentPage === 1 ? '#f8fafc' : '#eff6ff',
+                                    color: currentPage === 1 ? '#94a3b8' : '#2563eb',
+                                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                                    fontWeight: 600
                                 }}
                             >
                                 <FiChevronLeft />
                             </button>
-                            <span style={{ fontSize: '13px', color: '#475569', margin: '0 8px', fontWeight: 600 }}>
+                            <span style={{ fontSize: '13px', color: '#1e40af', margin: '0 8px', fontWeight: 600 }}>
                                 Page {currentPage} of {totalPages}
                             </span>
                             <button
@@ -1017,10 +1106,11 @@ const ImportDetailedSummaryTab = ({ detailedJobs = [], loading = false }) => {
                                     width: '32px',
                                     height: '32px',
                                     borderRadius: '8px',
-                                    border: '1px solid #cbd5e1',
-                                    background: currentPage === totalPages ? '#f1f5f9' : '#ffffff',
-                                    color: currentPage === totalPages ? '#94a3b8' : '#334155',
-                                    cursor: currentPage === totalPages ? 'not-allowed' : 'pointer'
+                                    border: currentPage === totalPages ? '1px solid #e2e8f0' : '1px solid #bfdbfe',
+                                    background: currentPage === totalPages ? '#f8fafc' : '#eff6ff',
+                                    color: currentPage === totalPages ? '#94a3b8' : '#2563eb',
+                                    cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                                    fontWeight: 600
                                 }}
                             >
                                 <FiChevronRight />

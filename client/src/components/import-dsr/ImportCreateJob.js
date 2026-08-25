@@ -2379,7 +2379,7 @@ const ImportCreateJob = () => {
                                   <td style={{ padding: '8px 6px', verticalAlign: 'middle', width: '110px' }}>
                                     <Autocomplete
                                       options={["CIF", "FOB", "C&F", "C&I", "EXW", "FCA", "CPT", "CIP", "DAT", "DAP", "DDP"]}
-                                      value={row.toi || "CIF"}
+                                      value={row.toi === "CF" ? "C&F" : (row.toi === "CI" ? "C&I" : (row.toi || "CIF"))}
                                       onChange={(event, newValue) => updateInvoiceRow(rowIndex, "toi", newValue || "CIF")}
                                       renderInput={(params) => (
                                         <TextField

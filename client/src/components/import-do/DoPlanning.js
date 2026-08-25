@@ -1059,7 +1059,22 @@ function DoPlanning() {
         if (isShrunk) {
           return (
             <div>
-              <span style={{ fontWeight: 600 }}>{importerName}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                <span style={{ fontWeight: 600 }}>{importerName}</span>
+                {importerName && importerName !== "-" && importerName !== "N/A" && (
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCopy(e, importerName);
+                    }}
+                    sx={{ p: 0.2 }}
+                    title="Copy Importer"
+                  >
+                    <ContentCopyIcon sx={{ fontSize: "14px", color: "#64748b" }} />
+                  </IconButton>
+                )}
+              </div>
               <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginTop: "2px" }}>
                 {isDoDocPrepared && (
                   <Chip size="small" label="Doc Prep" sx={{ bgcolor: "#dcfce7", color: "#15803d", fontSize: "10px", height: "18px" }} />
@@ -1074,7 +1089,22 @@ function DoPlanning() {
 
         return (
           <React.Fragment>
-            <div>{importerName}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+              <span>{importerName}</span>
+              {importerName && importerName !== "-" && importerName !== "N/A" && (
+                <IconButton
+                  size="small"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCopy(e, importerName);
+                  }}
+                  sx={{ p: 0.2 }}
+                  title="Copy Importer"
+                >
+                  <ContentCopyIcon sx={{ fontSize: "14px", color: "#64748b" }} />
+                </IconButton>
+              )}
+            </div>
             
             {/* Show payment request tags if available from charges */}
             {paymentRequests.length > 0 && (

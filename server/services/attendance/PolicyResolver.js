@@ -125,33 +125,55 @@ class PolicyResolver {
     let resolveDynamically = isRabs;
 
     if (!resolveDynamically) {
-      const hasReferenceTime = !!referenceTime;
-      let hasPunches = false;
-      if (date) {
-        const AttendancePunch = mongoose.model('AttendancePunch');
-        const dateStr = typeof date === 'string' ? date : moment(date).format('YYYY-MM-DD');
-        const firstInPunch = await AttendancePunch.findOne({
-          employee_id: user._id,
-          punch_type: 'IN',
-          punch_date_str: dateStr
-        }).sort({ punch_time: 1 }).lean();
-        if (firstInPunch) {
-          hasPunches = true;
+      const hasAssignedShift = user.shift_id || (Array.isArray(user.shift_ids) && user.shift_ids.filter(Boolean).length > 0);
+      if (!hasAssignedShift) {
+        const hasReferenceTime = !!referenceTime;
+        let hasPunches = false;
+        if (date) {
+          const AttendancePunch = mongoose.model('AttendancePunch');
+          const dateStr = typeof date === 'string' ? date : moment(date).format('YYYY-MM-DD');
+          const firstInPunch = await AttendancePunch.findOne({
+            employee_id: user._id,
+            punch_type: 'IN',
+            punch_date_str: dateStr
+          }).sort({ punch_time: 1 }).lean();
+          if (firstInPunch) {
+            hasPunches = true;
+          }
         }
-      }
-      if (hasReferenceTime || hasPunches) {
-        resolveDynamically = true;
+        if (hasReferenceTime || hasPunches) {
+          resolveDynamically = true;
+        }
       }
     }
 
     if (resolveDynamically) {
       console.log(`[AutoShiftDetection] Executing shift resolution for user: ${user.username}. Auto Shift Detection flag: ${autoShiftEnabled}`);
     } else {
-      console.log(`[AutoShiftDetection] Skipping shift resolution for user: ${user.username} (Non-RABS and no current/past punches). Using standard assigned shift logic.`);
+      console.log(`[AutoShiftDetection] Skipping shift resolution for user: ${user.username} (Using standard assigned shift logic).`);
     }
 
     if (resolveDynamically) {
       const activeShifts = await Shift.find({ company_id: companyId, status: 'active' }).lean();
+
+      // Ensure the user's assigned shift(s) are also considered as candidates if active
+      const assignedShiftIds = [];
+      if (user.shift_id) assignedShiftIds.push(user.shift_id.toString());
+      if (Array.isArray(user.shift_ids)) {
+        user.shift_ids.forEach(id => {
+          if (id) assignedShiftIds.push((id._id || id).toString());
+        });
+      }
+      
+      for (const sId of assignedShiftIds) {
+        if (!activeShifts.some(s => s._id.toString() === sId)) {
+          const sObj = await Shift.findById(sId).lean();
+          if (sObj && sObj.status === 'active') {
+            activeShifts.push(sObj);
+          }
+        }
+      }
+
       if (activeShifts.length > 0) {
         let comparisonTime = referenceTime;
         

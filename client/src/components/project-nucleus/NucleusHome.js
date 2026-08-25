@@ -22,6 +22,7 @@ import ElockBillingReport from './reports/ElockBillingReport';
 import TransportAccountsReport from './reports/TransportAccountsReport';
 import KarmaReport from './reports/KarmaReport';
 import ExportPulseReport from './reports/ExportPulseReport';
+import ExportLeoSummaryReport from './reports/ExportLeoSummaryReport';
 import ImportPendingSummaryReport from './reports/ImportPendingSummaryReport';
 import ImportOutOfChargeSummaryReport from './reports/ImportOutOfChargeSummaryReport';
 import TransportMonitoringReport from './reports/TransportMonitoringReport';
@@ -47,7 +48,8 @@ const NucleusHome = () => {
             label: 'Export',
             icon: '🛫',
             reports: [
-                { id: 'export_pulse', label: 'Export Pulse Dashboard' }
+                { id: 'export_pulse', label: 'Export Pulse Dashboard' },
+                { id: 'export_leo_summary', label: 'Let Export Order (LEO) Summary' }
             ]
         },
         {
@@ -132,10 +134,10 @@ const NucleusHome = () => {
     useEffect(() => {
         if (activeReport === 'transport_monitoring') {
             setFilterType('day');
-        } else if (['import_pending_summary', 'import_out_of_charge_summary'].includes(activeReport)) {
+        } else if (['import_pending_summary'].includes(activeReport)) {
             setFilterType('fin-year');
         } else {
-            if (filterType === 'fin-year') setFilterType('year');
+            if (filterType === 'fin-year' && activeReport !== 'import_out_of_charge_summary') setFilterType('year');
         }
     }, [activeReport]);
 
@@ -158,7 +160,12 @@ const NucleusHome = () => {
                     ? `${apiUrl}/project-nucleus/reports`
                     : `${apiUrl}/api/project-nucleus/reports`;
 
-                const response = await axios.get(endpoint, { withCredentials: true });
+                const params = {
+                    branchId: selectedBranchGroup === 'all' ? '' : selectedBranchGroup,
+                    category: selectedCategory || 'all'
+                };
+
+                const response = await axios.get(endpoint, { params, withCredentials: true });
                 setData(response.data || []);
             } catch (error) {
                 console.error("Error fetching reports:", error);
@@ -168,7 +175,7 @@ const NucleusHome = () => {
         };
 
         fetchReports();
-    }, []);
+    }, [selectedBranchGroup, selectedCategory]);
 
 
 
@@ -218,6 +225,8 @@ const NucleusHome = () => {
                         selectedQuarter={selectedQuarter}
                         dateRange={dateRange}
                         selectedFinancialYear={selectedFinancialYear}
+                        category={selectedCategory}
+                        branchId={selectedBranchGroup === 'all' ? '' : selectedBranchGroup}
                     />
                 );
             case 'udyam':
@@ -230,6 +239,20 @@ const NucleusHome = () => {
                 return <NewCustomersReport />;
             case 'export_pulse':
                 return <ExportPulseReport />;
+            case 'export_leo_summary':
+                return (
+                    <ExportLeoSummaryReport
+                        filterType={filterType}
+                        selectedMonth={selectedMonth}
+                        selectedYear={selectedYear}
+                        selectedQuarter={selectedQuarter}
+                        dateRange={dateRange}
+                        selectedFinancialYear={selectedFinancialYear}
+                        selectedDay={selectedDay}
+                        selectedCategory={selectedCategory}
+                        selectedBranch={selectedBranchGroup === 'all' ? '' : selectedBranchGroup}
+                    />
+                );
             case 'transport_table':
                 return (
                     <Top10TransportersReport
@@ -439,8 +462,12 @@ const NucleusHome = () => {
                                                     if (['fleet_utilization', 'elock_utilization', 'elock_billing', 'transport_accounts'].includes(report.id)) {
                                                         setFilterType('day');
                                                         setSelectedDay(format(new Date(), 'yyyy-MM-dd'));
-                                                    } else if (['import_pending_summary', 'import_out_of_charge_summary'].includes(report.id)) {
+                                                    } else if (report.id === 'import_pending_summary') {
                                                         setFilterType('fin-year');
+                                                    } else if (report.id === 'import_out_of_charge_summary') {
+                                                        if (filterType === 'fin-year') {
+                                                            setFilterType('month');
+                                                        }
                                                     } else {
                                                         if (filterType === 'day') {
                                                             setFilterType('month');
@@ -474,7 +501,7 @@ const NucleusHome = () => {
                     <div className="nucleus-controls-container">
                         <div className="nucleus-filter-section">
                             <div className="filter-row custom-filter-row" style={{ marginTop: 0, paddingLeft: 0, background: 'transparent' }}>
-                                {!["import_pending_summary", "import_out_of_charge_summary"].includes(activeReport) && (
+                                {!["import_pending_summary"].includes(activeReport) && (
                                     <div className="filter-type-selector">
                                         <span className="filter-label" style={{ minWidth: 'auto', marginRight: '10px' }}>Filter Period:</span>
                                         <select
@@ -482,14 +509,14 @@ const NucleusHome = () => {
                                             onChange={(e) => setFilterType(e.target.value)}
                                             className="nucleus-select"
                                         >
-                                            {['transport_monitoring', 'fleet_utilization', 'elock_utilization', 'elock_billing', 'transport_accounts', 'import_pending_summary'].includes(activeReport) && (
+                                            {['transport_monitoring', 'fleet_utilization', 'elock_utilization', 'elock_billing', 'transport_accounts', 'import_pending_summary', 'import_out_of_charge_summary', 'export_leo_summary'].includes(activeReport) && (
                                                 <option value="day">Day Wise</option>
                                             )}
                                             <option value="week">Week Wise</option>
                                             <option value="month">Month Wise</option>
                                             <option value="quarter">Quarter Wise</option>
                                             <option value="year">Year Wise</option>
-                                            {["import_pending_summary", "import_out_of_charge_summary"].includes(activeReport) && <option value="fin-year">Financial Year</option>}
+                                            {["import_pending_summary", "import_out_of_charge_summary", "export_leo_summary"].includes(activeReport) && <option value="fin-year">Financial Year</option>}
                                             <option value="date-range">Date Range</option>
                                             <option value="all">Unfiltered (All Time)</option>
                                         </select>

@@ -27,6 +27,19 @@ import ImportPendingSummaryReport from './reports/ImportPendingSummaryReport';
 import ImportOutOfChargeSummaryReport from './reports/ImportOutOfChargeSummaryReport';
 import TransportMonitoringReport from './reports/TransportMonitoringReport';
 
+// Invoicing & Sales Intelligence Module
+import InvoicingGroupDashboard from './reports/InvoicingGroupDashboard';
+import InvoicingCompanyDashboard from './reports/InvoicingCompanyDashboard';
+import InvoicingDailyGridReport from './reports/InvoicingDailyGridReport';
+import InvoicingPendingUnbilledReport from './reports/InvoicingPendingUnbilledReport';
+import InvoicingProformaReport from './reports/InvoicingProformaReport';
+import InvoicingYoYComparisonReport from './reports/InvoicingYoYComparisonReport';
+import InvoicingExceptionReport from './reports/InvoicingExceptionReport';
+import InvoicingTargetAchievementReport from './reports/InvoicingTargetAchievementReport';
+import InvoicingCreditNoteReport from './reports/InvoicingCreditNoteReport';
+import InvoicingCustomerReport from './reports/InvoicingCustomerReport';
+import InvoicingSettingsReport from './reports/InvoicingSettingsReport';
+
 const NucleusHome = () => {
     const { selectedCategory, selectedBranchGroup } = useContext(BranchContext);
     // Categories Configuration
@@ -83,6 +96,24 @@ const NucleusHome = () => {
                 { id: 'elock_utilization', label: 'E-Lock Utilization' },
                 { id: 'elock_assigned_count', label: 'E-Lock Assigned Count' },
                 { id: 'elock_billing', label: 'E-Lock Billing' }
+            ]
+        },
+        {
+            id: 'invoicing',
+            label: 'Invoicing & Sales',
+            icon: '📊',
+            reports: [
+                { id: 'invoicing_group', label: 'Group Invoicing Dashboard' },
+                { id: 'invoicing_company', label: 'Company Invoicing Deep-Dive' },
+                { id: 'invoicing_daily', label: 'Daily Sales Grid & Overrides' },
+                { id: 'invoicing_targets', label: 'Targets & Projections Matrix' },
+                { id: 'invoicing_unbilled', label: 'Pending Unbilled Jobs (AlVision)' },
+                { id: 'invoicing_proforma', label: 'Proforma Invoice Monitoring' },
+                { id: 'invoicing_credit_notes', label: 'Credit Note Impact & Reversals' },
+                { id: 'invoicing_customers', label: 'Customer Billing Intelligence' },
+                { id: 'invoicing_yoy', label: 'Last Year YoY Comparison' },
+                { id: 'invoicing_exceptions', label: 'Exception Resolution Center' },
+                { id: 'invoicing_settings', label: '⚙️ Settings & Configuration' }
             ]
         },
         {
@@ -389,13 +420,38 @@ const NucleusHome = () => {
                         branchId={selectedBranchGroup === 'all' ? '' : selectedBranchGroup}
                     />
                 );
+            case 'invoicing_group':
+                return <InvoicingGroupDashboard />;
+            case 'invoicing_company':
+                return <InvoicingCompanyDashboard />;
+            case 'invoicing_daily':
+                return <InvoicingDailyGridReport />;
+            case 'invoicing_targets':
+                return <InvoicingTargetAchievementReport />;
+            case 'invoicing_unbilled':
+                return <InvoicingPendingUnbilledReport />;
+            case 'invoicing_proforma':
+                return <InvoicingProformaReport />;
+            case 'invoicing_credit_notes':
+                return <InvoicingCreditNoteReport />;
+            case 'invoicing_customers':
+                return <InvoicingCustomerReport />;
+            case 'invoicing_yoy':
+                return <InvoicingYoYComparisonReport />;
+            case 'invoicing_exceptions':
+                return <InvoicingExceptionReport />;
+            case 'invoicing_settings':
+                return <InvoicingSettingsReport />;
             default:
                 return <div style={{ padding: '20px', color: '#64748b' }}>Select a report from the sidebar</div>;
         }
     };
 
-    // Determine if date controls are needed (udyam, training, client login analytics, new_customers don't need them)
-    const showDateControls = !['udyam', 'training', 'client_login_analytics', 'new_customers', 'export_pulse', 'import_pending_summary'].includes(activeReport);
+    // Determine if date controls are needed (udyam, training, client login analytics, new_customers, invoicing reports don't need them)
+    const showDateControls = ![
+        'udyam', 'training', 'client_login_analytics', 'new_customers', 'export_pulse', 'import_pending_summary',
+        'invoicing_group', 'invoicing_company', 'invoicing_daily', 'invoicing_targets', 'invoicing_unbilled', 'invoicing_proforma', 'invoicing_credit_notes', 'invoicing_customers', 'invoicing_yoy', 'invoicing_exceptions', 'invoicing_settings'
+    ].includes(activeReport);
 
     return (
         <div className="nucleus-layout">

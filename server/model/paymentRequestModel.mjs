@@ -43,8 +43,11 @@ const paymentRequestSchema = new mongoose.Schema({
   requestedBy: { type: String },
   attachments: [{ type: String }],
   createdAt: { type: Date, default: Date.now }
-
 }, { timestamps: true });
+
+paymentRequestSchema.index({ isApproved: 1, isRejected: 1, createdAt: -1 });
+paymentRequestSchema.index({ jobNo: 1 });
+paymentRequestSchema.index({ importer: 1 });
 
 paymentRequestSchema.plugin(auditPlugin, { documentType: "paymentRequest" });
 

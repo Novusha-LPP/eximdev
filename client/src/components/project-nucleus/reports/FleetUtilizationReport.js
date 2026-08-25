@@ -891,8 +891,12 @@ const FleetUtilizationReport = ({
         const projMundraPerf = comparisonData.prevMundraTrips > 0 ? (projMundra / comparisonData.prevMundraTrips) * 100 : 100;
 
         return {
-            avgTripsPerDay: Math.round(avgTripsPerDay), projectionAllPorts: projAll, projectionMundra: projMundra,
-            avgTripsTheme: getColorTheme(avgPerf), projectionAllTheme: getColorTheme(projAllPerf),
+            avgTripsPerDay: Math.round(avgTripsPerDay),
+            rawAvgTripsPerDay: avgTripsPerDay > 0 ? avgTripsPerDay.toFixed(2) : '0',
+            projectionAllPorts: projAll,
+            projectionMundra: projMundra,
+            avgTripsTheme: getColorTheme(avgPerf),
+            projectionAllTheme: getColorTheme(projAllPerf),
             projectionMundraTheme: getColorTheme(projMundraPerf)
         };
     }, [filterType, selectedYear, selectedMonth, selectedQuarter, dateRange, closedLRsList, comparisonData, dailyData, selectedDay]);
@@ -1109,7 +1113,7 @@ const FleetUtilizationReport = ({
         );
     };
 
-    const KpiCard = ({ label, subtext, value, extra, color, gradient, border, badgeBg, large, accentColor, hl, hlBlue }) => {
+    const KpiCard = ({ label, subtext, value, originalValue, extra, color, gradient, border, badgeBg, large, accentColor, hl, hlBlue }) => {
         const defaultAccent = accentColor || color || '#cbd5e1';
         const isHl = hl || hlBlue;
         const textColor = hl ? '#991b1b' : hlBlue ? '#1e40af' : '#64748b';
@@ -1152,6 +1156,11 @@ const FleetUtilizationReport = ({
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', zIndex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
                         <span style={{ fontSize: large ? '42px' : '38px', fontWeight: 900, color: valColor }} className="mono">{value}</span>
+                        {originalValue !== undefined && originalValue !== null && originalValue !== '' && (
+                            <span style={{ fontSize: '14px', fontWeight: 600, color: '#64748b' }} className="mono">
+                                ({originalValue})
+                            </span>
+                        )}
                         {extra && !badgeBg && pct === null && <span style={{ fontSize: '15px', fontWeight: 700, color: color }}>{extra}</span>}
                     </div>
                     {extra && badgeBg && (
@@ -1345,7 +1354,7 @@ const FleetUtilizationReport = ({
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
                                 {[
-                                    { label: 'Average Trips Per Day', value: kpiMetricsObj.avgTripsPerDay, ...kpiMetricsObj.avgTripsTheme, extra: kpiMetricsObj.avgTripsTheme.performanceLabel },
+                                    { label: 'Average Trips Per Day', value: kpiMetricsObj.avgTripsPerDay, originalValue: kpiMetricsObj.rawAvgTripsPerDay, ...kpiMetricsObj.avgTripsTheme, extra: kpiMetricsObj.avgTripsTheme.performanceLabel },
                                     { label: 'Projection Trips – All Ports', value: kpiMetricsObj.projectionAllPorts, ...kpiMetricsObj.projectionAllTheme, extra: kpiMetricsObj.projectionAllTheme.performanceLabel },
                                     { label: 'Projection Trips – Mundra', value: kpiMetricsObj.projectionMundra, ...kpiMetricsObj.projectionMundraTheme, extra: kpiMetricsObj.projectionMundraTheme.performanceLabel }
                                 ].map((m, i) => <KpiCard key={i} large {...m} gradient={m.bg} />)}

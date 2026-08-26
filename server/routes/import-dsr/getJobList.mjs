@@ -327,32 +327,32 @@ router.get(
 
       if (statusLower === "pending") {
         query.$and.push(
-          { status: { $regex: "^pending$", $options: "i" } },
-          { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
+          { status: { $in: ["pending", "Pending", "PENDING"] } },
+          { be_no: { $nin: ["cancelled", "Cancelled", "CANCELLED"] } },
           {
             $or: [
               { bill_date: { $in: [null, ""] } },
-              { status: { $regex: "^pending$", $options: "i" } },
+              { status: { $in: ["pending", "Pending", "PENDING"] } },
               { dsr_queries: { $elemMatch: { select_module: "DSR", resolved: { $ne: true } } } },
             ],
           }
         );
       } else if (statusLower === "completed") {
         query.$and.push(
-          { status: { $regex: "^completed$", $options: "i" } },
-          { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
+          { status: { $in: ["completed", "Completed", "COMPLETED"] } },
+          { be_no: { $nin: ["cancelled", "Cancelled", "CANCELLED"] } },
           {
             $or: [
               { bill_date: { $nin: [null, ""] } },
-              { status: { $regex: "^completed$", $options: "i" } },
+              { status: { $in: ["completed", "Completed", "COMPLETED"] } },
             ],
           }
         );
       } else if (statusLower === "cancelled") {
         query.$and.push({
           $or: [
-            { status: { $regex: "^cancelled$", $options: "i" } },
-            { be_no: { $regex: "^cancelled$", $options: "i" } },
+            { status: { $in: ["cancelled", "Cancelled", "CANCELLED"] } },
+            { be_no: { $in: ["cancelled", "Cancelled", "CANCELLED"] } },
           ],
         });
       } else if (statusLower === "billing_confirmation") {
@@ -372,13 +372,13 @@ router.get(
               { billing_completed_date: "" }
             ]
           },
-          { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
-          { status: { $not: { $regex: "^cancelled$", $options: "i" } } }
+          { be_no: { $nin: ["cancelled", "Cancelled", "CANCELLED"] } },
+          { status: { $nin: ["cancelled", "Cancelled", "CANCELLED"] } }
         );
       } else {
         query.$and.push(
-          { status: { $regex: `^${status}$`, $options: "i" } },
-          { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } }
+          { status: { $in: [status, status.toLowerCase(), status.toUpperCase()] } },
+          { be_no: { $nin: ["cancelled", "Cancelled", "CANCELLED"] } }
         );
       }
 

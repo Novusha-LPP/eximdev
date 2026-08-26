@@ -54,20 +54,19 @@ function formatDateToDDMMMYYYY(dateInput) {
 
 router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchFilter, async (req, res) => {
     try {
-        const { type, year, branchId, mode, detailedStatus, dateFilterType, startDate, endDate, format } = req.query;
+        const { type, year, branchId, mode, detailedStatus, dateFilterType, startDate, endDate, completionStartDate, completionEndDate, format } = req.query;
 
         if (type === 'gpj') {
             const matchQuery = {
                 $and: [
-                    { status: { $not: { $regex: "^completed", $options: "i" } } },
+                    { status: { $nin: ["Completed", "completed", "COMPLETED", "Cancelled", "cancelled", "CANCELLED"] } },
                     { isCompleted: { $ne: true } },
-                    { status: { $not: { $regex: "^cancelled", $options: "i" } } },
                     { isJobCanceled: { $ne: true } }
                 ]
             };
 
             // Apply the year filter
-            if ((!dateFilterType || dateFilterType === 'job_year') && year) {
+            if (year && year !== 'all' && (!dateFilterType || dateFilterType === 'job_year')) {
                 matchQuery.$and.push({ year: year });
             }
 
@@ -94,18 +93,22 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
             }
 
             // Date Range Filter logic
-            if (dateFilterType === 'request_date' && startDate && endDate) {
+            if (startDate && endDate && (!dateFilterType || dateFilterType === 'request_date' || dateFilterType === 'date')) {
                 matchQuery.$and.push({
                     createdAt: {
                         $gte: new Date(startDate),
                         $lte: new Date(new Date(endDate).setHours(23, 59, 59, 999))
                     }
                 });
-            } else if (dateFilterType === 'completion_date' && startDate && endDate) {
+            }
+            
+            const cStartGPJ = completionStartDate || (dateFilterType === 'completion_date' ? startDate : null);
+            const cEndGPJ = completionEndDate || (dateFilterType === 'completion_date' ? endDate : null);
+            if (cStartGPJ && cEndGPJ) {
                 matchQuery.$and.push({
                     billing_completed_date: {
-                        $gte: `${startDate}T00:00`,
-                        $lte: `${endDate}T23:59`
+                        $gte: `${cStartGPJ}T00:00`,
+                        $lte: `${cEndGPJ}T23:59`
                     }
                 });
             }
@@ -168,8 +171,8 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
         // Base match stage
         const jobMatchStage = {};
 
-        // Only filter by job financial year if dateFilterType is 'job_year' or not provided
-        if ((!dateFilterType || dateFilterType === 'job_year') && year) {
+        // Filter by job financial year if provided and not 'all'
+        if (year && year !== 'all') {
             jobMatchStage.year = year;
         }
         
@@ -204,8 +207,8 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
                 custom_clearance_completed: "Custom Clearance Completed",
             };
             const mappedStatus = statusMapping[detailedStatus] || detailedStatus;
-            // More resilient regex for status
-            jobMatchStage.detailed_status = { $regex: new RegExp(`^\\s*${mappedStatus}\\s*$`, 'i') };
+            // Exact status matching (index-backed)
+            jobMatchStage.detailed_status = { $in: [mappedStatus, mappedStatus.trim()] };
         }
 
         console.log("Job Match Stage:", JSON.stringify(jobMatchStage));
@@ -241,36 +244,31 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
             conditions.push({ [chargeMatchField]: { $exists: true, $ne: null, $ne: "" } });
         }
 
-        // Add Date Range Filter logic
-        if (dateFilterType === 'request_date' && startDate && endDate) {
+        // Add Date Range Filter logic (Charge Date / Created Date)
+        if (startDate && endDate && (!dateFilterType || dateFilterType === 'request_date' || dateFilterType === 'date')) {
             const start = new Date(startDate);
             start.setHours(0, 0, 0, 0);
             const end = new Date(endDate);
             end.setHours(23, 59, 59, 999);
             
             conditions.push({ "charges.createdAt": { $gte: start, $lte: end } });
-        } else if (dateFilterType === 'completion_date' && startDate && endDate) {
-            const start = new Date(startDate);
+        }
+
+        // Add Completion Date Range Filter logic
+        const cStart = completionStartDate || (dateFilterType === 'completion_date' ? startDate : null);
+        const cEnd = completionEndDate || (dateFilterType === 'completion_date' ? endDate : null);
+        if (cStart && cEnd) {
+            const start = new Date(cStart);
             start.setHours(0, 0, 0, 0);
-            const end = new Date(endDate);
+            const end = new Date(cEnd);
             end.setHours(23, 59, 59, 999);
 
-            if (type === 'pr') {
-                conditions.push({ "charges.payment_request_approved_at": { $gte: start, $lte: end } });
-            } else if (type === 'pb') {
-                conditions.push({ "charges.purchase_book_approved_at": { $gte: start, $lte: end } });
-            } else if (type === 'pr_no_pb') {
-                conditions.push({ "charges.payment_request_approved_at": { $gte: start, $lte: end } });
-            } else if (type === 'tds') {
-                conditions.push({ "charges.purchase_book_approved_at": { $gte: start, $lte: end } });
-            } else { // type === 'all'
-                conditions.push({
-                    $or: [
-                        { "charges.payment_request_approved_at": { $gte: start, $lte: end } },
-                        { "charges.purchase_book_approved_at": { $gte: start, $lte: end } }
-                    ]
-                });
-            }
+            conditions.push({
+                $or: [
+                    { "charges.purchase_book_approved_at": { $gte: start, $lte: end } },
+                    { "charges.payment_request_approved_at": { $gte: start, $lte: end } }
+                ]
+            });
         }
 
         const chargeMatchStage = { $and: conditions };
@@ -321,13 +319,24 @@ router.get("/api/report/billing-charges-excel", authMiddleware, applyUserBranchF
             // Check if there are any jobs at all with this status to give better feedback
             const totalJobsWithStatus = await JobModel.countDocuments(jobMatchStage);
             
-            // Clean up regex characters for user-friendly display
-            const statusLabel = jobMatchStage.detailed_status 
-                ? `'${jobMatchStage.detailed_status.$regex.source.replace(/^\^|\\s\*|\$/g, '').replace(/\\/g, '')}'`
-                : 'any status';
+            // Clean up status label for user-friendly display
+            let statusLabel = 'any status';
+            if (jobMatchStage.detailed_status) {
+                if (typeof jobMatchStage.detailed_status === 'string') {
+                    statusLabel = `'${jobMatchStage.detailed_status}'`;
+                } else if (jobMatchStage.detailed_status.$in && jobMatchStage.detailed_status.$in.length > 0) {
+                    statusLabel = `'${jobMatchStage.detailed_status.$in[0]}'`;
+                } else if (jobMatchStage.detailed_status.$regex) {
+                    statusLabel = `'${jobMatchStage.detailed_status.$regex.source.replace(/^\^|\\s\*|\$/g, '').replace(/\\/g, '')}'`;
+                }
+            }
             
             let errorMessage = `No records found.`;
-            if (type === 'pr_no_pb') {
+            if (dateFilterType === 'completion_date' && startDate && endDate) {
+                errorMessage = `No records found with completion date between ${startDate} and ${endDate}.`;
+            } else if ((dateFilterType === 'request_date' || dateFilterType === 'date') && startDate && endDate) {
+                errorMessage = `No records found with date between ${startDate} and ${endDate}.`;
+            } else if (type === 'pr_no_pb') {
                 errorMessage = `No Payment Requests found that are pending a Purchase Book for status ${statusLabel}.`;
             } else if (type === 'all') {
                 errorMessage = `No PB or PR records found for status ${statusLabel}.`;

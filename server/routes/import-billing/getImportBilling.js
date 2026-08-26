@@ -210,7 +210,7 @@ router.get(
       } else {
         baseQuery = {
           $and: [
-            { status: { $regex: /^pending$/i } },
+            { status: { $in: ["pending", "Pending", "PENDING"] } },
             {
               bill_document_sent_to_accounts: {
                 $exists: true,
@@ -484,14 +484,14 @@ router.get("/api/get-billing-ready-jobs", icdFilter, async (req, res) => {
     if (detailed_status && detailed_status !== "All") {
       baseQuery.$and.push({
         $and: [
-          { status: { $regex: /^pending$/i } },
+          { status: { $in: ["pending", "Pending", "PENDING"] } },
           { detailed_status: detailed_status },
         ],
       });
     } else {
       baseQuery.$and.push({
         $and: [
-          { status: { $regex: /^pending$/i } },
+          { status: { $in: ["pending", "Pending", "PENDING"] } },
           {
             detailed_status: {
               $in: ["Billing Pending", "Custom Clearance Completed"],
@@ -591,7 +591,7 @@ router.get(
 
       const matchConditions = {
         $and: [
-          { status: { $in: [/pending/i, /Completed/i] } },
+          { status: { $in: ["pending", "Pending", "PENDING", "Completed", "completed", "COMPLETED"] } },
           { charges: { $elemMatch: { [filterField]: { $type: "string", $nin: ["", "undefined", "null"] } } } }
         ],
       };
@@ -914,7 +914,7 @@ router.get(
 
       const matchConditions = {
         $and: [
-          { status: { $in: [/pending/i, /Completed/i] } },
+          { status: { $in: ["pending", "Pending", "PENDING", "Completed", "completed", "COMPLETED"] } },
           { charges: { $elemMatch: { [filterField]: { $type: "string", $nin: ["", "undefined", "null"] }, [isApprovedField]: true } } }
         ],
       };
@@ -1116,7 +1116,7 @@ router.get(
 
       const matchConditions = {
         $and: [
-          { status: { $in: [/pending/i, /Completed/i] } },
+          { status: { $in: ["pending", "Pending", "PENDING", "Completed", "completed", "COMPLETED"] } },
           { charges: { $elemMatch: { [filterField]: { $type: "string", $nin: ["", "undefined", "null"] } } } }
         ],
       };

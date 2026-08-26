@@ -47,31 +47,31 @@ router.get("/api/get-jobs-overview/:year", authMiddleware, applyUserBranchFilter
     // Conditions based on status
     if (statusLower === "pending") {
       matchQuery.$and.push(
-        { status: { $regex: "^pending$", $options: "i" } },
-        { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
+        { status: { $in: ["pending", "Pending", "PENDING"] } },
+        { be_no: { $nin: ["cancelled", "Cancelled", "CANCELLED"] } },
         {
           $or: [
             { bill_date: { $in: [null, ""] } },
-            { status: { $regex: "^pending$", $options: "i" } },
+            { status: { $in: ["pending", "Pending", "PENDING"] } },
           ],
         }
       );
     } else if (statusLower === "completed") {
       matchQuery.$and.push(
-        { status: { $regex: "^completed$", $options: "i" } },
-        { be_no: { $not: { $regex: "^cancelled$", $options: "i" } } },
+        { status: { $in: ["completed", "Completed", "COMPLETED"] } },
+        { be_no: { $nin: ["cancelled", "Cancelled", "CANCELLED"] } },
         {
           $or: [
             { bill_date: { $nin: [null, ""] } },
-            { status: { $regex: "^completed$", $options: "i" } },
+            { status: { $in: ["completed", "Completed", "COMPLETED"] } },
           ],
         }
       );
     } else if (statusLower === "cancelled") {
       matchQuery.$and.push({
         $or: [
-          { status: { $regex: "^cancelled$", $options: "i" } },
-          { be_no: { $regex: "^cancelled$", $options: "i" } },
+          { status: { $in: ["cancelled", "Cancelled", "CANCELLED"] } },
+          { be_no: { $in: ["cancelled", "Cancelled", "CANCELLED"] } },
         ],
       });
     }

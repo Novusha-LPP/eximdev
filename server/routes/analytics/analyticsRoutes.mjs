@@ -1385,6 +1385,12 @@ const getPulsePipeline = (start, end, importer, branchId, category) => {
 
     return [
         {
+            $match: {
+                status: { $in: ["pending", "Pending", "PENDING"] },
+                ...baseMatch
+            }
+        },
+        {
             $facet: {
                 esanchit: [{ $match: pendingEsanchitMatch }, { $count: "count" }],
                 documentation: [{ $match: pendingDocsMatch }, { $count: "count" }],

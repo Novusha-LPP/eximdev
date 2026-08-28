@@ -438,7 +438,9 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
         const recWorkHours = (rec?.total_work_hours && rec.total_work_hours > 0) ? rec.total_work_hours : (computedHours > 0 ? computedHours : 0);
         const hasWorkingPunches = recWorkHours >= 4 || (rec?.first_in && rec?.last_out && computedHours >= 4);
 
-        if (hasWorkingPunches) {
+        const isToday = curr.isSame(moment().tz('Asia/Kolkata'), 'day');
+
+        if (hasWorkingPunches || (isToday && rec?.first_in && !['absent', 'incomplete'].includes(rec?.status))) {
             hStatus = normalizeAttendanceStatus(rec, emp);
             hSession = rec?.half_day_session || leaveSession;
 

@@ -129,6 +129,7 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
     ]
   }).lean();
 
+  const myTeamIds = myTeams.map(t => t._id);
   let visibleUserIds = [objectIdUserId];
 
   if (myTeams && myTeams.length > 0) {
@@ -148,6 +149,11 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
     { ownerId: { $in: uniqueUserIds } },
     { createdBy: { $in: uniqueUserIds } }
   ];
+
+  if (myTeamIds.length > 0) {
+    orConditions.push({ referredFromTeamId: { $in: myTeamIds } });
+    orConditions.push({ referredToTeamId: { $in: myTeamIds } });
+  }
 
   return { $or: orConditions };
 }
@@ -623,7 +629,10 @@ router.get('/:id', async (req, res) => {
       .populate('accountId', 'name')
       .populate('primaryContactId')
       .populate('ownerId', 'username first_name last_name')
-      .populate('createdBy', 'username first_name last_name');
+      .populate('createdBy', 'username first_name last_name')
+      .populate('referredFromTeamId', 'nameCode teamName')
+      .populate('referredToTeamId', 'nameCode teamName')
+      .populate('referredByUserId', 'username first_name last_name');
     if (!opp) return res.status(404).json({ message: 'Opportunity not found' });
 
     const pricingRequests = await PricingRequest.find({
@@ -642,6 +651,42 @@ router.get('/:id', async (req, res) => {
     oppObj.tasks = tasks;
 
     res.json(oppObj);
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// PUT /api/crm/opportunities/:id/refer - Transfer/Refer opportunity/deal to internal team
+router.put('/:id/refer', async (req, res) => {
+  try {
+    const { targetTeamId, fromTeamId } = req.body;
+    const userId = req.user?._id || req.headers['user-id'];
+
+    if (!targetTeamId) {
+      return res.status(400).json({ success: false, message: 'Target team ID is required' });
+    }
+
+    const opp = await Opportunity.findById(req.params.id);
+    if (!opp) {
+      return res.status(404).json({ success: false, message: 'Opportunity not found' });
+    }
+
+    opp.referredToTeamId = targetTeamId;
+    if (fromTeamId) opp.referredFromTeamId = fromTeamId;
+    if (userId) opp.referredByUserId = userId;
+    opp.isReferral = true;
+    opp.lastActivityAt = new Date();
+
+    await opp.save();
+
+    const updatedOpp = await Opportunity.findById(opp._id)
+      .populate('accountId', 'name')
+      .populate('ownerId', 'username first_name last_name')
+      .populate('referredFromTeamId', 'nameCode teamName')
+      .populate('referredToTeamId', 'nameCode teamName')
+      .populate('referredByUserId', 'username first_name last_name');
+
+    res.json({ success: true, message: 'Opportunity referred successfully to target team', opportunity: updatedOpp });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

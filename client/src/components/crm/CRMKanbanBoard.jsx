@@ -81,6 +81,7 @@ export default function CRMKanbanBoard() {
   const [seeAllData, setSeeAllData] = useState(false);
 
   // CR-010 & CR-008 Filter States
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedStage, setSelectedStage] = useState(() => getInitialParam('stage', 'all'));
   const [selectedSource, setSelectedSource] = useState(() => getInitialParam('source', ''));
   const [selectedTimePeriod, setSelectedTimePeriod] = useState(() => getInitialParam('periodType', 'monthly'));
@@ -686,6 +687,28 @@ export default function CRMKanbanBoard() {
         justifyContent: 'space-between'
       }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'center' }}>
+          {/* Live Search Box */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Search:</span>
+            <input
+              type="text"
+              placeholder="Search deals, company, owner..."
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              style={{
+                padding: '8px 14px',
+                border: '1px solid #e2e8f0',
+                borderRadius: '10px',
+                fontSize: '0.85rem',
+                color: '#334155',
+                background: '#ffffff',
+                fontWeight: 600,
+                outline: 'none',
+                width: '200px'
+              }}
+            />
+          </div>
+
           {/* Stage Dropdown */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Stage:</span>
@@ -1080,7 +1103,17 @@ export default function CRMKanbanBoard() {
           }}
         >
           {PIPELINE_STAGES.map(stage => {
-            const opps = board[stage.id] || [];
+            const rawOpps = board[stage.id] || [];
+            const opps = rawOpps.filter(opp => {
+              if (!searchQuery.trim()) return true;
+              const q = searchQuery.toLowerCase();
+              const nameMatch = opp.name?.toLowerCase().includes(q);
+              const accountMatch = opp.accountId?.name?.toLowerCase().includes(q);
+              const ownerMatch = (opp.ownerId?.first_name || opp.ownerId?.username || '').toLowerCase().includes(q);
+              const serviceMatch = opp.services?.some(s => s.toLowerCase().includes(q));
+              const valMatch = opp.value?.toString().includes(q);
+              return nameMatch || accountMatch || ownerMatch || serviceMatch || valMatch;
+            });
             return (
               <div key={stage.id} style={{
                 width: '320px', flexShrink: 0, background: '#ebf1f7', borderRadius: '12px',

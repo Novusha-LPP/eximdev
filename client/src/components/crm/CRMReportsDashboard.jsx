@@ -41,6 +41,29 @@ export default function CRMReportsDashboard() {
   const [repsSearchQuery, setRepsSearchQuery] = useState('');
   const [repsSelectedTeam, setRepsSelectedTeam] = useState('all');
 
+  // Stagnation Report States
+  const [stagnationData, setStagnationData] = useState(null);
+  const [stagnationLoading, setStagnationLoading] = useState(false);
+
+  const fetchStagnationReport = async () => {
+    setStagnationLoading(true);
+    try {
+      const params = {};
+      if (selectedTeam && selectedTeam !== 'all') params.teamId = selectedTeam;
+      if (selectedOwner && selectedOwner !== 'all') params.ownerId = selectedOwner;
+
+      const res = await axios.get(
+        `${process.env.REACT_APP_API_STRING}/crm/reports/stagnation`,
+        { params, withCredentials: true }
+      );
+      setStagnationData(res.data);
+    } catch (err) {
+      console.error('Error fetching stagnation report:', err);
+    } finally {
+      setStagnationLoading(false);
+    }
+  };
+
   const fetchRepsOverview = async () => {
     setRepsLoading(true);
     try {
@@ -231,6 +254,12 @@ export default function CRMReportsDashboard() {
   }, [filters, activeTab, activityFilterType, selectedTeam, selectedVertical, selectedOwner, teams]);
 
   useEffect(() => {
+    if (activeTab === 'stagnation') {
+      fetchStagnationReport();
+    }
+  }, [activeTab, selectedTeam, selectedOwner]);
+
+  useEffect(() => {
     if (activeTab === 'reps_overview') {
       if (isAdmin) {
         fetchRepsOverview();
@@ -402,6 +431,33 @@ export default function CRMReportsDashboard() {
         alignItems: 'center',
         justifyContent: 'flex-start'
       }}>
+        {/* Person / Representative Filter */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>Select Person:</span>
+          <select
+            value={selectedOwner}
+            onChange={(e) => setSelectedOwner(e.target.value)}
+            style={{
+              padding: '8px 14px',
+              border: '1px solid #e2e8f0',
+              borderRadius: '10px',
+              fontSize: '0.85rem',
+              color: '#334155',
+              background: '#ffffff',
+              fontWeight: 600,
+              cursor: 'pointer',
+              outline: 'none'
+            }}
+          >
+            <option value="all">All Persons</option>
+            {users.map(u => (
+              <option key={u._id || u.id} value={u._id || u.id}>
+                {`${u.first_name || ''} ${u.last_name || ''}`.trim() || u.username}
+              </option>
+            ))}
+          </select>
+        </div>
+
         {(!isRestricted || teams.length > 1) && teams && teams.length > 0 && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '0.85rem', fontWeight: 600, color: '#64748b' }}>Select Sales Team:</span>
@@ -629,6 +685,17 @@ export default function CRMReportsDashboard() {
                   }}
                 >
                   <Table size={16} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'text-bottom' }} /> Activity Report
+                </button>
+                <button
+                  onClick={() => setActiveTab('stagnation')}
+                  style={{
+                    padding: '8px 16px', borderRadius: '8px', border: 'none', fontSize: '0.85rem', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+                    background: activeTab === 'stagnation' ? '#ffffff' : 'transparent',
+                    color: activeTab === 'stagnation' ? '#1e293b' : '#64748b',
+                    boxShadow: activeTab === 'stagnation' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                  }}
+                >
+                  <AlertTriangle size={16} style={{ display: 'inline', marginRight: '6px', verticalAlign: 'text-bottom', color: '#f59e0b' }} /> Stagnation Report (2+ Days)
                 </button>
                 {isAdmin && (
                   <button
@@ -1354,6 +1421,110 @@ export default function CRMReportsDashboard() {
                       </div>
                     );
                   })()}
+                </div>
+              )}
+
+              {/* Stagnation Report Section */}
+              {activeTab === 'stagnation' && (
+                <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <div style={{ background: '#fef3c7', border: '1px solid #fde68a', borderRadius: '12px', padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: '#92400e' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <AlertTriangle size={24} color="#d97706" />
+                      <div>
+                        <h4 style={{ margin: 0, fontWeight: 700, fontSize: '0.95rem' }}>Stagnant Records Summary (2+ Days Inactivity)</h4>
+                        <p style={{ margin: 0, fontSize: '0.8rem', opacity: 0.9 }}>Items with no logged activity or stage movement for 2 consecutive days trigger automated owner alerts.</p>
+                      </div>
+                    </div>
+                    <div style={{ fontWeight: 800, fontSize: '1.4rem' }}>
+                      {stagnationData?.totalStagnant || 0} Records
+                    </div>
+                  </div>
+
+                  {stagnationLoading ? (
+                    <div style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>⏳ Loading Stagnation Report...</div>
+                  ) : !stagnationData || (stagnationData.stagnantLeads.length === 0 && stagnationData.stagnantDeals.length === 0) ? (
+                    <div style={{ padding: '40px', textAlign: 'center', color: '#166534', background: '#dcfce7', borderRadius: '12px', fontWeight: 600 }}>
+                      ✅ Great job! No stagnant leads or deals found.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                      {/* Stagnant Leads Table */}
+                      {stagnationData.stagnantLeads.length > 0 && (
+                        <div>
+                          <h4 style={{ margin: '0 0 12px', fontSize: '0.9rem', fontWeight: 700, color: '#334155' }}>
+                            Stagnant Leads ({stagnationData.stagnantLeads.length})
+                          </h4>
+                          <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '12px' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                              <thead>
+                                <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '0.72rem', textTransform: 'uppercase' }}>
+                                  <th style={{ padding: '10px 12px', textAlign: 'left' }}>Lead Name & Company</th>
+                                  <th style={{ padding: '10px 12px', textAlign: 'left' }}>Owner</th>
+                                  <th style={{ padding: '10px 12px', textAlign: 'center' }}>Days Stagnant</th>
+                                  <th style={{ padding: '10px 12px', textAlign: 'center' }}>Status</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {stagnationData.stagnantLeads.map(lead => (
+                                  <tr key={lead._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                    <td style={{ padding: '12px', fontWeight: 700, color: '#1e293b' }}>{lead.name}</td>
+                                    <td style={{ padding: '12px', color: '#475569' }}>
+                                      {lead.ownerId ? `${lead.ownerId.first_name || ''} ${lead.ownerId.last_name || ''}`.trim() || lead.ownerId.username : 'Unassigned'}
+                                    </td>
+                                    <td style={{ padding: '12px', textAlign: 'center' }}>
+                                      <span style={{ background: '#fef2f2', color: '#dc2626', padding: '3px 10px', borderRadius: '12px', fontWeight: 800, fontSize: '0.75rem' }}>
+                                        {lead.daysIdle} days idle
+                                      </span>
+                                    </td>
+                                    <td style={{ padding: '12px', textAlign: 'center', textTransform: 'capitalize', color: '#64748b' }}>{lead.status}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Stagnant Deals Table */}
+                      {stagnationData.stagnantDeals.length > 0 && (
+                        <div>
+                          <h4 style={{ margin: '0 0 12px', fontSize: '0.9rem', fontWeight: 700, color: '#334155' }}>
+                            Stagnant Opportunities / Deals ({stagnationData.stagnantDeals.length})
+                          </h4>
+                          <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '12px' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                              <thead>
+                                <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: '#64748b', fontSize: '0.72rem', textTransform: 'uppercase' }}>
+                                  <th style={{ padding: '10px 12px', textAlign: 'left' }}>Opportunity Name</th>
+                                  <th style={{ padding: '10px 12px', textAlign: 'left' }}>Company</th>
+                                  <th style={{ padding: '10px 12px', textAlign: 'left' }}>Owner</th>
+                                  <th style={{ padding: '10px 12px', textAlign: 'center' }}>Days Stagnant</th>
+                                  <th style={{ padding: '10px 12px', textAlign: 'center' }}>Stage</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {stagnationData.stagnantDeals.map(opp => (
+                                  <tr key={opp._id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                    <td style={{ padding: '12px', fontWeight: 700, color: '#1e293b' }}>{opp.name}</td>
+                                    <td style={{ padding: '12px', color: '#475569' }}>{opp.company}</td>
+                                    <td style={{ padding: '12px', color: '#475569' }}>
+                                      {opp.ownerId ? `${opp.ownerId.first_name || ''} ${opp.ownerId.last_name || ''}`.trim() || opp.ownerId.username : 'Unassigned'}
+                                    </td>
+                                    <td style={{ padding: '12px', textAlign: 'center' }}>
+                                      <span style={{ background: '#fef2f2', color: '#dc2626', padding: '3px 10px', borderRadius: '12px', fontWeight: 800, fontSize: '0.75rem' }}>
+                                        {opp.daysIdle} days idle
+                                      </span>
+                                    </td>
+                                    <td style={{ padding: '12px', textAlign: 'center', textTransform: 'capitalize', color: '#4f46e5', fontWeight: 600 }}>{opp.stage}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

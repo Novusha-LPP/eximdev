@@ -47,6 +47,10 @@ export default function LeadList() {
   const [selectedService, setSelectedService] = useState('');
   const [selectedLeadForDuplicate, setSelectedLeadForDuplicate] = useState(null);
   const [selectedLeadForEdit, setSelectedLeadForEdit] = useState(null);
+  const [selectedLeadForRefer, setSelectedLeadForRefer] = useState(null);
+  const [targetReferTeamId, setTargetReferTeamId] = useState('');
+  const [isReferring, setIsReferring] = useState(false);
+  const [allTeams, setAllTeams] = useState([]);
   const [searchReferral, setSearchReferral] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -133,7 +137,9 @@ export default function LeadList() {
         }
       );
 
-      const myTeams = (res.data.teams || []).filter(team => {
+      const teamsList = res.data.teams || [];
+      setAllTeams(teamsList);
+      const myTeams = teamsList.filter(team => {
         const isManager = team.managerId === userId || team.managerId?._id === userId;
         const isMember = team.memberIds?.some(m => m === userId || m?._id === userId);
         return isManager || isMember;
@@ -141,6 +147,28 @@ export default function LeadList() {
       setUserTeams(myTeams);
     } catch (err) {
       console.error('Error fetching user teams:', err);
+    }
+  };
+
+  const handleReferSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedLeadForRefer || !targetReferTeamId) return;
+    setIsReferring(true);
+    try {
+      await axios.put(
+        `${process.env.REACT_APP_API_STRING}/crm/leads/${selectedLeadForRefer._id}/refer`,
+        { targetTeamId: targetReferTeamId },
+        getHeaders()
+      );
+      message.success('Lead referred to internal team successfully!');
+      setSelectedLeadForRefer(null);
+      setTargetReferTeamId('');
+      fetchLeads();
+    } catch (err) {
+      console.error('Referral failed:', err);
+      message.error(err.response?.data?.message || 'Failed to refer lead');
+    } finally {
+      setIsReferring(false);
     }
   };
 
@@ -221,7 +249,53 @@ export default function LeadList() {
           setIsModalOpen(true);
         }}
         onRefresh={fetchLeads}
-      />
+      {/* Refer Lead Modal */}
+      {selectedLeadForRefer && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+        }}>
+          <div style={{ background: '#fff', padding: '24px', borderRadius: '16px', width: '100%', maxWidth: '420px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+            <h3 style={{ margin: '0 0 12px', fontSize: '1.1rem', color: '#1e293b', fontWeight: 700 }}>
+              Refer Lead to Internal Team
+            </h3>
+            <p style={{ margin: '0 0 16px', fontSize: '0.85rem', color: '#64748b' }}>
+              Refer <strong>{selectedLeadForRefer.company}</strong> to another team (e.g. Team Paramount → Team eLock). Both teams will retain visibility.
+            </p>
+            <form onSubmit={handleReferSubmit}>
+              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>Target Internal Team *</label>
+              <select
+                required
+                value={targetReferTeamId}
+                onChange={e => setTargetReferTeamId(e.target.value)}
+                style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '20px', fontSize: '0.9rem', background: '#fff' }}
+              >
+                <option value="">-- Select Target Team --</option>
+                {allTeams.map(team => (
+                  <option key={team._id} value={team._id}>{team.name || team.teamName}</option>
+                ))}
+              </select>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => setSelectedLeadForRefer(null)}
+                  style={{ background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: '8px', padding: '8px 16px', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isReferring}
+                  style={{ background: '#4f46e5', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', fontWeight: 700, cursor: 'pointer', fontSize: '0.85rem' }}
+                >
+                  {isReferring ? 'Referring...' : 'Confirm Referral'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Error notification */}
       {error && (
@@ -395,6 +469,13 @@ export default function LeadList() {
                         }}>
                           {lead.source}
                         </span>
+                      {lead.isReferral && (
+                        <span style={{
+                          fontSize: '0.65rem', background: '#fef2f2', color: '#b91c1c',
+                          padding: '2px 8px', borderRadius: '12px', fontWeight: 800, border: '1px solid #fecaca'
+                        }}>
+                          ⚡ Referred ({lead.referredFromTeamId?.teamName || lead.referredFromTeamId?.name || 'Team'} → {lead.referredToTeamId?.teamName || lead.referredToTeamId?.name || 'Team'})
+                        </span>
                       )}
                     </div>
                     {lead.source === 'Referral' && lead.referralSourceName && (
@@ -440,6 +521,15 @@ export default function LeadList() {
                         style={{ background: '#f8fafc', color: '#475569', padding: '6px 14px', border: '1px solid #e2e8f0', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
                       >
                         View
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedLeadForRefer(lead);
+                          setTargetReferTeamId('');
+                        }}
+                        style={{ background: '#fef3c7', color: '#92400e', padding: '6px 14px', border: '1px solid #fde68a', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600 }}
+                      >
+                        Refer
                       </button>
                       <button
                         onClick={() => {

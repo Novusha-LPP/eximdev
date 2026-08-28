@@ -7,6 +7,7 @@ import Contact from '../../model/crm/Contact.mjs';
 import Account from '../../model/crm/Account.mjs';
 import SalesTeam from '../../model/crm/SalesTeam.mjs';
 import UserModel from '../../model/userModel.mjs';
+import CRMNotification from '../../model/crm/Notification.mjs';
 import mongoose from 'mongoose';
 
 const router = express.Router();
@@ -1103,6 +1104,111 @@ router.get('/reps-overview', async (req, res) => {
     });
 
     res.json({ success: true, representatives: filteredReps });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// GET /api/crm/reports/stagnation
+// Identifies leads/deals with no activity or stage movement for 2+ consecutive days
+router.get('/stagnation', async (req, res) => {
+  try {
+    const { teamId, ownerId } = req.query;
+    const ownerFilter = await buildOwnerFilter(req.user, teamId, req);
+    const query = { ...ownerFilter };
+
+    if (ownerId && ownerId !== 'all' && mongoose.Types.ObjectId.isValid(ownerId)) {
+      query.ownerId = new mongoose.Types.ObjectId(ownerId);
+    }
+
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+
+    // Stagnant Leads
+    const leadQuery = {
+      ...query,
+      status: { $nin: ['converted', 'lost', 'rejected', 'cancelled'] },
+      $or: [
+        { lastActivityAt: { $lt: twoDaysAgo } },
+        { lastActivityAt: { $exists: false }, updatedAt: { $lt: twoDaysAgo } }
+      ]
+    };
+
+    const stagnantLeadsRaw = await Lead.find(leadQuery)
+      .populate('ownerId', 'username first_name last_name email')
+      .sort({ updatedAt: 1 })
+      .lean();
+
+    const stagnantLeads = stagnantLeadsRaw.map(lead => {
+      const lastTime = lead.lastActivityAt || lead.updatedAt;
+      const daysIdle = Math.floor((Date.now() - new Date(lastTime).getTime()) / (1000 * 60 * 60 * 24));
+      return {
+        ...lead,
+        type: 'Lead',
+        name: `${lead.firstName || ''} ${lead.lastName || ''} (${lead.company})`.trim(),
+        daysIdle: daysIdle < 2 ? 2 : daysIdle,
+        lastActivityDate: lastTime
+      };
+    });
+
+    // Stagnant Opportunities / Deals
+    const oppQuery = {
+      ...query,
+      stage: { $nin: ['won', 'lost'] },
+      $or: [
+        { lastActivityAt: { $lt: twoDaysAgo } },
+        { lastActivityAt: { $exists: false }, updatedAt: { $lt: twoDaysAgo } }
+      ]
+    };
+
+    const stagnantDealsRaw = await Opportunity.find(oppQuery)
+      .populate('ownerId', 'username first_name last_name email')
+      .populate('accountId', 'name')
+      .sort({ updatedAt: 1 })
+      .lean();
+
+    const stagnantDeals = stagnantDealsRaw.map(opp => {
+      const lastTime = opp.lastActivityAt || opp.updatedAt;
+      const daysIdle = Math.floor((Date.now() - new Date(lastTime).getTime()) / (1000 * 60 * 60 * 24));
+      return {
+        ...opp,
+        type: 'Opportunity',
+        company: opp.accountId?.name || 'No Account',
+        daysIdle: daysIdle < 2 ? 2 : daysIdle,
+        lastActivityDate: lastTime
+      };
+    });
+
+    const totalStagnant = stagnantLeads.length + stagnantDeals.length;
+
+    // Trigger Notification for assigned owners if not already notified
+    for (const item of [...stagnantLeads, ...stagnantDeals]) {
+      if (item.ownerId?._id) {
+        const ownerIdStr = item.ownerId._id.toString();
+        const existing = await CRMNotification.findOne({
+          userId: ownerIdStr,
+          relatedId: item._id,
+          createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+        });
+        if (!existing) {
+          await CRMNotification.create({
+            userId: ownerIdStr,
+            title: `Stagnant ${item.type} Alert`,
+            message: `${item.type} "${item.name}" has been idle for ${item.daysIdle} days with no stage movement or logged activity.`,
+            relatedId: item._id,
+            relatedModel: item.type
+          }).catch(e => console.error('Failed to create notification:', e));
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      totalStagnant,
+      leadsCount: stagnantLeads.length,
+      dealsCount: stagnantDeals.length,
+      stagnantLeads,
+      stagnantDeals
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

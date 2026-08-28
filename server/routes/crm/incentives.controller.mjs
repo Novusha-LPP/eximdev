@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import SalesIncentive from '../../model/crm/SalesIncentive.mjs';
 import Opportunity from '../../model/crm/Opportunity.mjs';
 import UserModel from '../../model/userModel.mjs';
+import SalesTeam from '../../model/crm/SalesTeam.mjs';
 import { requireTenant } from './middleware/tenant.mjs';
 
 const router = express.Router();
@@ -60,14 +61,26 @@ router.get('/my', async (req, res) => {
 });
 
 // GET /api/crm/incentives/all
-// Returns tenant-wide incentives dashboard metrics (Admins/Managers only)
+// Returns tenant-wide or team-wise incentives dashboard metrics (Admins/Managers only)
 router.get('/all', async (req, res) => {
   try {
     if (!isManagerOrAdmin(req.user)) {
       return res.status(403).json({ success: false, message: 'Access denied. Managers/Admins only.' });
     }
 
-    const incentives = await SalesIncentive.find({ tenantId: req.tenantId })
+    const { teamId } = req.query;
+    const query = { tenantId: req.tenantId };
+
+    if (teamId && teamId !== 'all' && mongoose.Types.ObjectId.isValid(teamId)) {
+      const team = await SalesTeam.findById(teamId).lean();
+      if (team) {
+        const memberIds = (team.memberIds || []).map(id => id.toString());
+        if (team.managerId) memberIds.push(team.managerId.toString());
+        query.userId = { $in: memberIds.map(id => new mongoose.Types.ObjectId(id)) };
+      }
+    }
+
+    const incentives = await SalesIncentive.find(query)
       .populate('userId', 'username first_name last_name email')
       .populate('opportunityId', 'name value')
       .sort({ createdAt: -1 })

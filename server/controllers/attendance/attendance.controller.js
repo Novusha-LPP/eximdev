@@ -1698,7 +1698,7 @@ export const getRegularizations = async (req, res) => {
 };
 
 const STAGE_2_APPROVER_USERNAME = 'shalini_arun';
-const FINAL_APPROVER_USERNAMES = new Set(['manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'uday_zope']);
+const FINAL_APPROVER_USERNAMES = new Set(['manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'masood_raza']);
 const LEAVE_STAGE = {
     HOD: 'stage_1_hod',
     SHALINI: 'stage_2_shalini',

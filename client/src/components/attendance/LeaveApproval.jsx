@@ -144,7 +144,7 @@ const ApCancelModal = ({ req, onClose, onDone }) => {
 const initials = (n = '') => n.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 const fmt = (d, f) => { try { return formatDate(d, f); } catch { return d || '-'; } };
 const formatSession = (s) => (s === 'first_half' ? '1st Half' : '2nd Half');
-const ALLOWED_USERNAMES = new Set(['shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'uday_zope']);
+const ALLOWED_USERNAMES = new Set(['shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'masood_raza']);
 const normalizeRole = (role) => String(role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
 const isAdminRole = (role) => normalizeRole(role) === 'ADMIN';
 const isAllowedUser = (username) => ALLOWED_USERNAMES.has(String(username || '').toLowerCase());

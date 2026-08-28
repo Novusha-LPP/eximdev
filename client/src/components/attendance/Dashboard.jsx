@@ -24,7 +24,7 @@ import './Dashboard.css';
 
 /* -- Constants -- */
 const AUTHORIZED_DASHBOARD_ADMINS = new Set([
-  'shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'uday_zope'
+  'shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'masood_raza'
 ]);
 
 /* -- Helpers -- */

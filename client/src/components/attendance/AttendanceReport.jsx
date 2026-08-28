@@ -264,7 +264,7 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
     const [companiesLoaded, setCompaniesLoaded] = useState(false); // guard: wait until company is resolved
     const [selectedEmp, setSelectedEmp] = useState(null);
     const { user } = React.useContext(UserContext);
-    const ALLOWED_USERNAMES = React.useMemo(() => new Set(['shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'uday_zope']), []);
+    const ALLOWED_USERNAMES = React.useMemo(() => new Set(['shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'masood_raza']), []);
     const isDynamicAdmin = user?.isAttendanceAllowedAdmin === true;
     const normalizedRole = normalizeRole(user?.role);
     const isHOD = normalizedRole === 'HOD' || normalizedRole === 'HEADOFDEPARTMENT';

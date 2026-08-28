@@ -8,7 +8,7 @@ import './AdminSettings.css';
 import './HolidayCalendar.css';
 
 // Allowed-admin usernames (must match backend list)
-const ALLOWED_USERNAMES = new Set(['shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'uday_zope']);
+const ALLOWED_USERNAMES = new Set(['shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'masood_raza']);
 
 const HOLIDAY_TYPES = [
   { value: 'national', label: '🏛️ National', color: '#1a56db', bg: '#eef4ff' },

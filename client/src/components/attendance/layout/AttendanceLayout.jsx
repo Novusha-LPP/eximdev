@@ -65,7 +65,7 @@ const ALLOWED_USERNAMES = new Set([
     'manu_pillai',
     'suraj_rajan',
     'rajan_aranamkatte',
-    'uday_zope'
+    'masood_raza'
 ]);
 
 const normalizeRole = (role) => String(role || '').trim().toUpperCase().replace(/[^A-Z]/g, '');

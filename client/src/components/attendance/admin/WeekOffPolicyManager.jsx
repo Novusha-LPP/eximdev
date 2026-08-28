@@ -6,7 +6,7 @@ import { FiPlus, FiEdit2, FiTrash2, FiArrowLeft, FiSave, FiList } from 'react-ic
 import { UserContext } from '../../../contexts/UserContext';
 import './AdminSettings.css';
 
-const ALLOWED_USERNAMES = new Set(['shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'uday_zope']);
+const ALLOWED_USERNAMES = new Set(['shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'masood_raza']);
 
 const DAYS = [
   { label: 'Monday', value: 1 },

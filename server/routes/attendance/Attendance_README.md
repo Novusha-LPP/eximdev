@@ -578,7 +578,7 @@ The application maps authentication from the monorepo framework into the attenda
 
 1. **Super Admins**:
    Can read and mutate all resources. System checks for explicit usernames:
-   `['shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'uday_zope']`.
+   `['shalini_arun', 'manu_pillai', 'suraj_rajan', 'rajan_aranamkatte', 'masood_raza']`.
 2. **HOD (Heads of Department)**:
    Authorized to read and approve leaves and regularizations for employees belonging to the teams they manage. A user is resolved as HOD for an employee if:
    - The user is the designated `hodId` of the employee's team.

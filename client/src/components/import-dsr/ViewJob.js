@@ -59,7 +59,7 @@ import {
   Tab,
   CircularProgress,
 } from "@mui/material";
-import { Edit, Delete } from "@mui/icons-material";
+import { Edit, Delete, Sync as SyncIcon } from "@mui/icons-material";
 import FileUpload from "../../components/gallery/FileUpload.js";
 import ConfirmDialog from "../../components/gallery/ConfirmDialog.js";
 import { TabContext } from "../documentation/DocumentationTab.js";
@@ -67,6 +67,7 @@ import { CONTAINER_TYPE_OPTIONS } from "../../config/containerTypes";
 import DeliveryChallanPdf from "./DeliveryChallanPDF.js";
 import IgstModal from "../gallery/IgstModal.js";
 import IgstCalculationPDF from "./IgstCalculationPDF.js";
+import BoePartIIIDutyTable from "./BoePartIIIDutyTable.js";
 import { preventFormSubmitOnEnter } from "../../utils/preventFormSubmitOnEnter.js";
 import JobDocRequests from "../document-collection/JobDocRequests.js";
 import DocRequestCheckbox from "../document-collection/DocRequestCheckbox.js";
@@ -1370,6 +1371,39 @@ function JobDetails() {
   const InBondflag = formik.values.type_of_b_e === "In-Bond";
   const LCLFlag = formik.values.consignment_type === "LCL";
   const isDescriptionTableReadOnly = user?.role !== "Admin" && isSubmissionDate;
+
+  const candidateBoeFiles = useMemo(() => {
+    const list = [];
+    const addUrl = (url, sourceLabel) => {
+      if (!url) return;
+      const strUrl = typeof url === "object" && url !== null ? url.url : url;
+      if (typeof strUrl === "string" && strUrl.trim() !== "") {
+        const fileName = strUrl.split("/").pop().split("?")[0] || "document.pdf";
+        list.push({ url: strUrl, name: decodeURIComponent(fileName), source: sourceLabel });
+      }
+    };
+
+    (formik.values.processed_be_attachment || []).forEach((f) => addUrl(f, "Processed BE Copy"));
+    (formik.values.ex_be_copy_documents || []).forEach((f) => addUrl(f, "InBond/ExBond BE"));
+    (formik.values.in_bond_be_copy || []).forEach((f) => addUrl(f, "InBond BE Copy"));
+    (formik.values.be_copy || []).forEach((f) => addUrl(f, "BE Copy"));
+    (formik.values.checklist || []).forEach((f) => addUrl(f, "Checklist"));
+    (cthDocuments || []).forEach((doc) => {
+      (doc.url || []).forEach((f) => addUrl(f, doc.document_name || "CTH Document"));
+    });
+    (formik.values.all_documents || []).forEach((f) => addUrl(f, "General Document"));
+
+    return list;
+  }, [
+    formik.values.processed_be_attachment,
+    formik.values.ex_be_copy_documents,
+    formik.values.in_bond_be_copy,
+    formik.values.be_copy,
+    formik.values.checklist,
+    cthDocuments,
+    formik.values.all_documents,
+  ]);
+
   const descriptionRows = useMemo(() => {
     return Array.isArray(formik.values.description_details) &&
       formik.values.description_details.length > 0
@@ -5267,6 +5301,7 @@ function JobDetails() {
                 >
                   <Tab label="General Details" sx={{ textTransform: "none", fontWeight: "600", fontSize: "0.95rem" }} />
                   <Tab label="Notifications & Duties" sx={{ textTransform: "none", fontWeight: "600", fontSize: "0.95rem" }} />
+                  <Tab label="BOE Part-III Duties (OCR Table)" sx={{ textTransform: "none", fontWeight: "600", fontSize: "0.95rem" }} />
                 </Tabs>
               </Box>
 
@@ -6019,7 +6054,26 @@ function JobDetails() {
                               Invoice: <strong>{invoiceNo}</strong> | RITC/HS Code: <strong>{activeRow.cth_no || "N/A"}</strong> | Quantity: <strong>{activeRow.quantity || 0} {activeRow.unit || ""}</strong>
                             </div>
                           </div>
-                          <div style={{ display: "flex", gap: "20px", alignItems: "center" }}>
+                          <div style={{ display: "flex", gap: "16px", alignItems: "center" }}>
+                            {candidateBoeFiles.length > 0 && (
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                startIcon={<SyncIcon />}
+                                onClick={() => setProductSubTab(2)}
+                                sx={{
+                                  textTransform: "none",
+                                  fontWeight: 600,
+                                  fontSize: "0.8rem",
+                                  borderColor: "#2563eb",
+                                  color: "#2563eb",
+                                  background: "#ffffff",
+                                  "&:hover": { background: "#eff6ff", borderColor: "#1d4ed8" }
+                                }}
+                              >
+                                Sync Duties from BOE File ({candidateBoeFiles.length})
+                              </Button>
+                            )}
                             <div style={{ textAlign: "right" }}>
                               <div style={{ fontSize: "11px", color: "#64748b", textTransform: "uppercase", fontWeight: "600" }}>Assessable Value (CIF INR)</div>
                               <div style={{ fontSize: "15px", fontWeight: "700", color: "#0f172a" }}>
@@ -6690,6 +6744,83 @@ function JobDetails() {
                       </div>
                     );
                   })()}
+                </div>
+              )}
+
+              {/* Sub Tab 2: BOE Part-III Duties (OCR Table) */}
+              {productSubTab === 2 && (
+                <div style={{ background: "#ffffff", border: "1px solid #dee2e6", borderRadius: "4px", padding: "20px", marginBottom: "20px" }}>
+                  <BoePartIIIDutyTable
+                    duties={formik.values.part_iii_duties || []}
+                    candidateFiles={candidateBoeFiles}
+                    showUploader={true}
+                    onUploadSuccess={(ocrResponse) => {
+                      const extractedDuties = ocrResponse?.data?.PartIIIDuties || [];
+                      if (!extractedDuties || extractedDuties.length === 0) return;
+
+                      const updatedDesc = [...descriptionRows];
+                      extractedDuties.forEach((partIII, idx) => {
+                        const itemDet = partIII.ItemDetails || {};
+                        const itemDuty = partIII.ItemDuty || {};
+                        const otherDuties = partIII.OtherDuties || {};
+
+                        const bcd = itemDuty.BCD || {};
+                        const sws = itemDuty.SWS || {};
+                        const igst = itemDuty.IGST || {};
+                        const gcess = itemDuty["G. CESS"] || {};
+                        const caidc = otherDuties.CAIDC || {};
+                        const sg = itemDuty.SG || {};
+
+                        const updates = {
+                          bcd_notn: bcd.NOTN_NO || "",
+                          bcd_sr_no: bcd.NOTN_SNO || "",
+                          bcd_rate: bcd.RATE || "",
+                          bcd_amount: bcd.AMOUNT || "",
+                          bcd_unit: itemDet["C.UQC"] || "",
+                          bcd_flag: bcd.DUTY_FG || "",
+
+                          aidc_notn: caidc.NOTN_NO || "",
+                          aidc_sr_no: caidc.NOTN_SNO || "",
+                          aidc_rate: caidc.RATE || "",
+                          aidc_amount: caidc.AMOUNT || "",
+                          aidc_unit: itemDet["C.UQC"] || "",
+
+                          sw_surcharge_notn: sws.NOTN_NO || "",
+                          sw_surcharge_sr_no: sws.NOTN_SNO || "",
+                          sw_surcharge_rate: sws.RATE || "10.00",
+                          sw_surcharge_amount: sws.AMOUNT || "",
+
+                          igst_notn: igst.NOTN_NO || "",
+                          igst_sr_no: igst.NOTN_SNO || "",
+                          igst_rate: igst.RATE || "",
+                          igst_amount_inr: igst.AMOUNT || "",
+                          igst_unit: itemDet["C.UQC"] || "",
+
+                          comp_cess_notn: gcess.NOTN_NO || "",
+                          comp_cess_sr_no: gcess.NOTN_SNO || "",
+                          comp_cess_percent: gcess.RATE || "",
+                          comp_cess_amount: gcess.AMOUNT || "",
+                          comp_cess_unit: itemDet["C.UQC"] || "",
+
+                          safeguard_notn: sg.NOTN_NO || "",
+                          safeguard_sr_no: sg.NOTN_SNO || "",
+                          safeguard_rate: sg.RATE || "",
+                          safeguard_amount: sg.AMOUNT || "",
+
+                          standard_uqc_qty: itemDet["S.QTY"] || "",
+                          standard_uqc_unit: itemDet["S.UQC"] || itemDet["C.UQC"] || "KGS",
+                        };
+
+                        if (updatedDesc[idx]) {
+                          updatedDesc[idx] = { ...updatedDesc[idx], ...updates };
+                        }
+                      });
+
+                      formik.setFieldValue("part_iii_duties", extractedDuties);
+                      formik.setFieldValue("description_details", updatedDesc);
+                      toast.success("Autofilled & saved product duties and notifications from Bill of Entry OCR!");
+                    }}
+                  />
                 </div>
               )}
             </div>

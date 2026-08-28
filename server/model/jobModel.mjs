@@ -564,6 +564,7 @@ const jobSchema = new mongoose.Schema({
   examinationPlanning: { type: Boolean },
   examination_planning_date: { type: String, trim: true },
   processed_be_attachment: [{ type: String }],
+  part_iii_duties: { type: Array, default: [] },
   ooc_copies: [{ type: String }],
   in_bond_ooc_copies: [{ type: String }],
   gate_pass_copies: [{ type: String }],

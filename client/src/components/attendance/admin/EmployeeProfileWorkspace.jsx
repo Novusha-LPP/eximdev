@@ -1029,6 +1029,509 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
 
   const handleDownloadOrgReport = (orgName, items) => setExportModal({ open: true, orgName, items });
 
+  // ── Calculation helpers matching AttendanceReport.jsx standard ─────────────
+  const roundLeave = (value) => Math.round(Number(value || 0) * 10) / 10;
+
+  const isPrivilegeLeave = (leaveType = '') => {
+    const type = String(leaveType || '').toLowerCase();
+    return type === 'pl' || type.includes('privilege') || type.includes('earned') || type === 'el';
+  };
+
+  const isLwpLeave = (leaveType = '') => {
+    const type = String(leaveType || '').toLowerCase();
+    return type === 'lwp' || type.includes('without pay') || type.includes('unpaid') || type === 'lop';
+  };
+
+  const isHalfDayLeave = (day) => {
+    if (day?.is_half_day_leave || day?.isHalfDayLeave) return true;
+    const s = String(day?.status || '').toLowerCase();
+    const lt = String(day?.leaveType || day?.leave_type || day?.leaveReason || '').trim();
+    let workHours = 0;
+    if (day?.total_work_hours !== null && day?.total_work_hours !== undefined && Number(day.total_work_hours) > 0) {
+      workHours = Number(day.total_work_hours);
+    } else if (day?.first_in && day?.last_out) {
+      workHours = moment(day.last_out).diff(moment(day.first_in), 'hours', true);
+    }
+    if (day?.is_half_day && (lt || s === 'leave' || workHours < 4)) return true;
+    if (s === 'half_day' && (lt || workHours < 4)) return true;
+    return false;
+  };
+
+  const getPresentDaysForReport = (employee) => {
+    if (!Array.isArray(employee.history) || employee.history.length === 0) {
+      return Number(employee.present || 0);
+    }
+    return employee.history.filter((day) => {
+      const s = String(day?.status || '').toLowerCase();
+      if (s === 'weekly_off' || s === 'weekoff' || s === 'off' || s === 'holiday' || s === 'leave') return false;
+      if (isHalfDayLeave(day)) return false;
+
+      let workHours = 0;
+      if (day?.total_work_hours !== null && day?.total_work_hours !== undefined && Number(day.total_work_hours) > 0) {
+        workHours = Number(day.total_work_hours);
+      } else if (day?.first_in && day?.last_out) {
+        workHours = moment(day.last_out).diff(moment(day.first_in), 'hours', true);
+      }
+
+      if (workHours >= 8) return true;
+      if (workHours >= 4) return false;
+      return (s === 'present' || s === 'late' || s === 'present_late') && workHours === 0 && !day?.first_in;
+    }).length;
+  };
+
+  const getActualHalfDays = (employee) => {
+    if (!Array.isArray(employee.history) || employee.history.length === 0) return Number(employee.halfDay || 0);
+
+    return employee.history.filter((day) => {
+      const s = String(day?.status || '').toLowerCase();
+      if (s === 'weekly_off' || s === 'weekoff' || s === 'off' || s === 'holiday' || s === 'leave') return false;
+      if (isHalfDayLeave(day)) return false;
+
+      let workHours = 0;
+      if (day?.total_work_hours !== null && day?.total_work_hours !== undefined && Number(day.total_work_hours) > 0) {
+        workHours = Number(day.total_work_hours);
+      } else if (day?.first_in && day?.last_out) {
+        workHours = moment(day.last_out).diff(moment(day.first_in), 'hours', true);
+      }
+
+      if (workHours >= 8) return false;
+      if (workHours >= 4) return true;
+      return false;
+    }).length;
+  };
+
+  const getHalfDayLeaveCountForReport = (employee) => {
+    if (!Array.isArray(employee.history) || employee.history.length === 0) return 0;
+    return employee.history.filter((day) => isHalfDayLeave(day)).length;
+  };
+
+  const getFullDayLeaveCountForReport = (employee) => {
+    if (!Array.isArray(employee.history) || employee.history.length === 0) return Number(employee.leaves || 0);
+
+    return employee.history.filter((day) => {
+      const s = String(day?.status || '').toLowerCase();
+      const isHalfLeave = isHalfDayLeave(day);
+      return (s === 'leave' || s === 'pending_leave') && !isHalfLeave;
+    }).length;
+  };
+
+  const getAbsentDaysForReport = (employee) => {
+    if (!Array.isArray(employee.history) || employee.history.length === 0) return Number(employee.absent || 0);
+    return employee.history.filter((day) => {
+      const s = String(day?.status || '').toLowerCase();
+      const lt = String(day?.leaveType || day?.leave_type || day?.leaveReason || '').trim();
+      const isHalfLeave = isHalfDayLeave(day);
+
+      if (s === 'weekly_off' || s === 'weekoff' || s === 'off' || s === 'holiday') return false;
+      if (s === 'leave' || s === 'pending_leave' || isHalfLeave || lt) return false;
+
+      let workHours = 0;
+      if (day?.total_work_hours !== null && day?.total_work_hours !== undefined && Number(day.total_work_hours) > 0) {
+        workHours = Number(day.total_work_hours);
+      } else if (day?.first_in && day?.last_out) {
+        workHours = moment(day.last_out).diff(moment(day.first_in), 'hours', true);
+      }
+
+      if (workHours >= 4) return false;
+      if ((s === 'present' || s === 'late' || s === 'present_late') && workHours === 0 && !day?.first_in) return false;
+      return true;
+    }).length;
+  };
+
+  const getLeaveCountForReport = (employee) => {
+    const halfDayLeaves = getHalfDayLeaveCountForReport(employee);
+    const fullDayLeaves = getFullDayLeaveCountForReport(employee);
+    return roundLeave(fullDayLeaves + (halfDayLeaves * 0.5));
+  };
+
+  const calculateEmployeeLeaveBreakdown = (employee, reportMetricsById = null) => {
+    const metrics = reportMetricsById ? (reportMetricsById.get(String(employee.id || employee._id)) || {}) : employee;
+    const openingBalance = roundLeave(Number(metrics.opening_balance ?? employee.opening_balance ?? 0));
+    const completeLeaves = getLeaveCountForReport(employee);
+
+    if (!Array.isArray(employee.history) || employee.history.length === 0) {
+      const plTaken = roundLeave(Math.min(openingBalance, completeLeaves));
+      const lwpTaken = roundLeave(Math.max(0, completeLeaves - openingBalance));
+      const availableBalance = roundLeave(Math.max(0, openingBalance - plTaken));
+      return { openingBalance, plTaken, lwpTaken, availableBalance };
+    }
+
+    let explicitLwp = 0;
+    let explicitPl = 0;
+
+    employee.history.forEach((day) => {
+      const s = String(day?.status || '').toLowerCase();
+      const lt = String(day?.leaveType || day?.leave_type || day?.leaveReason || '').trim();
+      const isHalfLeave = isHalfDayLeave(day);
+
+      if (s === 'weekly_off' || s === 'weekoff' || s === 'off' || s === 'holiday') return;
+
+      if (isHalfLeave || (s === 'half_day' && lt)) {
+        if (isLwpLeave(lt)) {
+          explicitLwp += 0.5;
+        } else {
+          explicitPl += 0.5;
+        }
+      } else if (s === 'leave' || s === 'pending_leave') {
+        if (isLwpLeave(lt)) {
+          explicitLwp += 1.0;
+        } else {
+          explicitPl += 1.0;
+        }
+      }
+    });
+
+    const plTaken = roundLeave(Math.min(openingBalance, explicitPl));
+    const lwpTaken = roundLeave(explicitLwp + Math.max(0, explicitPl - openingBalance));
+    const availableBalance = roundLeave(Math.max(0, openingBalance - plTaken));
+
+    return { openingBalance, plTaken, lwpTaken, availableBalance };
+  };
+
+  // Helper to build a complete Excel report worksheet identical to AttendanceReport.jsx
+  const buildReportWorksheet = (workbook, groupName, employees, startDate, endDate, reportMetricsById) => {
+    const ws = workbook.addWorksheet(groupName.substring(0, 31));
+    ws.views = [{ showGridLines: true }];
+
+    ws.columns = [
+      { key: 'col1', width: 28 }, // Employee/Date
+      { key: 'col2', width: 13 }, // Present/Day
+      { key: 'col3', width: 30 }, // Absent/Shift
+      { key: 'col4', width: 17 }, // HalfDay/Status
+      { key: 'col5', width: 18 }, // HalfDayLeaves / InTime
+      { key: 'col6', width: 18 }, // FullDayLeaves / OutTime
+      { key: 'col7', width: 18 }, // CompleteLeaves / TotalHours
+      { key: 'col8', width: 28 }, // OpeningBalance / Late In/Out
+      { key: 'col9', width: 14 }, // PL Taken
+      { key: 'col10', width: 14 }, // LWP Taken
+      { key: 'col11', width: 18 }, // Available Balance
+      { key: 'col12', width: 18 }  // Avg Hours/Day
+    ];
+
+    const styleHeader = (row, bgArgb, textArgb = 'FFFFFFFF') => {
+      row.eachCell(cell => {
+        cell.font = { bold: true, color: { argb: textArgb }, name: 'Arial', size: 10 };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: bgArgb } };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+          left: { style: 'thin', color: { argb: 'FF94A3B8' } },
+          bottom: { style: 'thin', color: { argb: 'FF94A3B8' } },
+          right: { style: 'thin', color: { argb: 'FF94A3B8' } }
+        };
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      });
+    };
+
+    const METRIC_STYLES = {
+      present: { bg: 'FFECFDF5', fg: 'FF047857' },
+      absent: { bg: 'FFFEF2F2', fg: 'FFB91C1C' },
+      halfDay: { bg: 'FFEFF6FF', fg: 'FF1D4ED8' },
+      hdLeaves: { bg: 'FFF5F3FF', fg: 'FF6D28D9' },
+      fdLeaves: { bg: 'FFEEF2FF', fg: 'FF4338CA' },
+      compLeaves: { bg: 'FFFAF5FF', fg: 'FF7E22CE' },
+      openBal: { bg: 'FFFFFBEB', fg: 'FFB45309' },
+      plTaken: { bg: 'FFFFF7ED', fg: 'FFC2410C' },
+      lwpTaken: { bg: 'FFFEF2F2', fg: 'FF991B1B' },
+      availBal: { bg: 'FFF0FDF4', fg: 'FF15803D' },
+      avgHours: { bg: 'FFF1F5F9', fg: 'FF334155' },
+    };
+
+    // ── 1. Master Title Block ──
+    const r1 = ws.addRow([`${groupName.toUpperCase()} — ATTENDANCE & LEAVE REGISTER`]);
+    const r2 = ws.addRow([`Period: ${moment(startDate).format('DD MMM YYYY')} to ${moment(endDate).format('DD MMM YYYY')}   |   Generated on: ${moment().format('DD-MMM-YYYY HH:mm')}   |   Staff Count: ${employees.length}`]);
+
+    ws.mergeCells(r1.number, 1, r1.number, 12);
+    ws.mergeCells(r2.number, 1, r2.number, 12);
+
+    r1.height = 30;
+    r1.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+    r1.getCell(1).font = { bold: true, color: { argb: 'FFFFFFFF' }, name: 'Segoe UI', size: 13 };
+    r1.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+
+    r2.height = 22;
+    r2.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
+    r2.getCell(1).font = { color: { argb: 'FFE2E8F0' }, name: 'Segoe UI', size: 9.5, italic: true };
+    r2.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+
+    ws.addRow([]); // Blank spacer
+
+    // ── 2. Master Summary Table ──
+    const COLS = ['Employee', 'Present', 'Absent', 'Half Day', 'Half Day Leaves', 'Full Day Leaves', 'Complete Leaves', 'Opening Balance', 'PL Taken', 'LWP Taken', 'Available Balance', 'Avg Hours/Day'];
+    const sumHeaderRow = ws.addRow(COLS);
+    sumHeaderRow.height = 26;
+    styleHeader(sumHeaderRow, 'FF0F172A', 'FFFFFFFF');
+
+    employees.forEach((e, idx) => {
+      const { openingBalance, plTaken, lwpTaken, availableBalance } = calculateEmployeeLeaveBreakdown(e, reportMetricsById);
+      const presentDays = getPresentDaysForReport(e);
+      const absentDays = getAbsentDaysForReport(e);
+      const actualHalfDays = getActualHalfDays(e);
+      const halfDayLeaves = getHalfDayLeaveCountForReport(e);
+      const fullDayLeaves = getFullDayLeaveCountForReport(e);
+      const completeLeaves = getLeaveCountForReport(e);
+
+      const openB = roundLeave(openingBalance);
+      const plT = roundLeave(plTaken);
+      const lwpT = roundLeave(lwpTaken);
+      const availB = roundLeave(availableBalance);
+
+      const isOdd = idx % 2 === 1;
+      const rowBg = isOdd ? 'FFF8FAFC' : 'FFFFFFFF';
+
+      const empDisplayName = e.name || `${e.first_name || ''} ${e.last_name || ''}`.trim() || e.username;
+
+      const sumValRow = ws.addRow([
+        empDisplayName,
+        presentDays,
+        absentDays,
+        actualHalfDays,
+        halfDayLeaves,
+        fullDayLeaves,
+        completeLeaves,
+        openB,
+        plT,
+        lwpT,
+        availB,
+        e.avgHours || '—',
+      ]);
+      sumValRow.height = 22;
+
+      const nameCell = sumValRow.getCell(1);
+      nameCell.font = { bold: true, name: 'Segoe UI', size: 10, color: { argb: 'FF0F172A' } };
+      nameCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: rowBg } };
+      nameCell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+
+      const metricConfigs = [
+        [2, METRIC_STYLES.present],
+        [3, METRIC_STYLES.absent],
+        [4, METRIC_STYLES.halfDay],
+        [5, METRIC_STYLES.hdLeaves],
+        [6, METRIC_STYLES.fdLeaves],
+        [7, METRIC_STYLES.compLeaves],
+        [8, METRIC_STYLES.openBal],
+        [9, METRIC_STYLES.plTaken],
+        [10, METRIC_STYLES.lwpTaken],
+        [11, METRIC_STYLES.availBal],
+      ];
+
+      metricConfigs.forEach(([col, style]) => {
+        const cell = sumValRow.getCell(col);
+        cell.font = { bold: true, color: { argb: style.fg }, name: 'Segoe UI', size: 10 };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: style.bg } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      });
+
+      const avgCell = sumValRow.getCell(12);
+      avgCell.font = { name: 'Segoe UI', size: 10, color: { argb: METRIC_STYLES.avgHours.fg } };
+      avgCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: METRIC_STYLES.avgHours.bg } };
+      avgCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+      sumValRow.eachCell(cell => {
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+        };
+      });
+    });
+
+    // ── 3. Blank Separator Rows ──
+    ws.addRow([]);
+    ws.addRow([]);
+
+    // ── 4. Detailed Daily Logs Section for Each Employee ──
+    employees.forEach((e) => {
+      const empDisplayName = e.name || `${e.first_name || ''} ${e.last_name || ''}`.trim() || e.username;
+      const empHeaderRow = ws.addRow([`DAILY LOGS: ${empDisplayName.toUpperCase()}`]);
+      empHeaderRow.height = 26;
+      ws.mergeCells(empHeaderRow.number, 1, empHeaderRow.number, 8);
+      const empCell = empHeaderRow.getCell(1);
+      empCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A8A' } };
+      empCell.font = { bold: true, color: { argb: 'FFFFFFFF' }, name: 'Segoe UI', size: 11 };
+      empCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+      const detailCols = ['Date', 'Day', 'Shift', 'Status', 'In Time', 'Out Time', 'Total Hours', 'Late In / Early Out'];
+      const detailHeaderRow = ws.addRow(detailCols);
+      detailHeaderRow.height = 22;
+      styleHeader(detailHeaderRow, 'FF334155', 'FFFFFFFF');
+
+      let totalHoursSum = 0;
+      const metrics = reportMetricsById ? (reportMetricsById.get(String(e.id || e._id)) || e) : e;
+      let runningPl = Number(e.opening_balance ?? metrics?.opening_balance ?? 0);
+      const history = e.history || [];
+
+      history.forEach((day, logIdx) => {
+        const mDate = moment(day.date || day.attendance_date);
+        const dateStr = mDate.format('DD-MM-YYYY');
+        const dayName = mDate.format('ddd');
+
+        const statusLower = String(day.status || '').toLowerCase();
+        const isOffOrHoliday = ['weekly_off', 'holiday', 'leave', 'pending_leave'].includes(statusLower);
+
+        let shiftStr = '—';
+        if (!isOffOrHoliday && statusLower !== 'absent') {
+          shiftStr = day.shift_id?.shift_name
+            ? `${day.shift_id.shift_name} ${day.shift_id.start_time || '09:00'}-${day.shift_id.end_time || '17:30'}`
+            : 'GENERAL SHIFT 09:00-17:30';
+        }
+
+        const inStr = day.first_in ? (formatTime12Hr(day.first_in) || moment(day.first_in).format('h:mm A')) : '';
+        const outStr = day.last_out ? (formatTime12Hr(day.last_out) || moment(day.last_out).format('h:mm A')) : '';
+
+        let hoursStr = '';
+        let workHours = 0;
+        const diffHours = (day.first_in && day.last_out) ? moment(day.last_out).diff(moment(day.first_in), 'hours', true) : 0;
+        if (day.total_work_hours !== null && day.total_work_hours !== undefined && Number(day.total_work_hours) > 0) {
+          workHours = Number(day.total_work_hours);
+        } else if (diffHours > 0 && diffHours < 24) {
+          workHours = diffHours;
+        }
+
+        if (workHours > 0 && workHours < 24) {
+          hoursStr = `${workHours.toFixed(1)} hrs`;
+          totalHoursSum += workHours;
+        }
+
+        const leaveType = String(day?.leaveType || day?.leave_type || day?.leaveReason || '').trim();
+        const isHalfLeave = isHalfDayLeave(day);
+
+        let statusLabel = null;
+        if (statusLower === 'weekly_off' || statusLower === 'weekoff' || statusLower === 'off') {
+          statusLabel = 'Weekly Off';
+        } else if (statusLower === 'holiday') {
+          statusLabel = 'Holiday';
+        } else if (isHalfLeave) {
+          if (isLwpLeave(leaveType)) {
+            statusLabel = 'Half Day (LWP)';
+          } else if (runningPl >= 0.5) {
+            runningPl = roundLeave(runningPl - 0.5);
+            statusLabel = 'Half Day (PL)';
+          } else {
+            statusLabel = 'Half Day (LWP)';
+          }
+        } else if (statusLower === 'leave' || statusLower === 'pending_leave') {
+          if (isLwpLeave(leaveType)) {
+            statusLabel = 'LWP';
+          } else if (runningPl >= 1.0) {
+            runningPl = roundLeave(runningPl - 1.0);
+            statusLabel = 'PL';
+          } else if (runningPl === 0.5) {
+            runningPl = 0;
+            statusLabel = 'PL (0.5) / LWP (0.5)';
+          } else {
+            statusLabel = 'LWP';
+          }
+        } else if (workHours >= 8 || (workHours === 0 && !day?.first_in && (statusLower === 'present' || statusLower === 'late' || statusLower === 'present_late'))) {
+          statusLabel = 'Present';
+        } else if (workHours >= 4 || statusLower === 'half_day') {
+          statusLabel = 'Half Day';
+        } else if (statusLower === 'incomplete' || statusLower === 'missed_punch') {
+          statusLabel = 'Missed Punch';
+        } else {
+          statusLabel = 'Absent';
+        }
+
+        let timingRemarks = '—';
+        const lateText = (day.is_late || (day.late_by_minutes > 0)) ? `Late In (${day.late_by_minutes || 0}m)` : '';
+        const earlyText = (day.is_early_exit || (day.early_exit_minutes > 0)) ? `Early Out (${day.early_exit_minutes || 0}m)` : '';
+        if (lateText && earlyText) {
+          timingRemarks = `${lateText}, ${earlyText}`;
+        } else if (lateText) {
+          timingRemarks = lateText;
+        } else if (earlyText) {
+          timingRemarks = earlyText;
+        } else if (inStr || outStr || workHours > 0) {
+          timingRemarks = 'On Time';
+        }
+
+        const isLogOdd = logIdx % 2 === 1;
+        const logRowBg = isLogOdd ? 'FFF8FAFC' : 'FFFFFFFF';
+
+        const dayRow = ws.addRow([
+          dateStr,
+          dayName,
+          shiftStr,
+          statusLabel,
+          inStr,
+          outStr,
+          hoursStr,
+          timingRemarks
+        ]);
+        dayRow.height = 20;
+
+        [1, 2, 4, 5, 6, 7, 8].forEach(c => {
+          dayRow.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' };
+        });
+        dayRow.getCell(3).alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+
+        dayRow.eachCell(cell => {
+          cell.font = { name: 'Segoe UI', size: 10 };
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: logRowBg } };
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
+          };
+        });
+
+        // Color code status label
+        const sCell = dayRow.getCell(4);
+        sCell.font = { bold: true, name: 'Segoe UI', size: 10 };
+        if (statusLabel === 'Present') {
+          sCell.font.color = { argb: 'FF047857' };
+          sCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFECFDF5' } };
+        } else if (statusLabel === 'Absent') {
+          sCell.font.color = { argb: 'FFB91C1C' };
+          sCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEF2F2' } };
+        } else if (statusLabel === 'PL' || statusLabel === 'Leave') {
+          sCell.font.color = { argb: 'FF7E22CE' };
+          sCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFAF5FF' } };
+        } else if (statusLabel === 'LWP') {
+          sCell.font.color = { argb: 'FFC2410C' };
+          sCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF7ED' } };
+        } else if (statusLabel.startsWith('Half Day')) {
+          sCell.font.color = { argb: 'FF1D4ED8' };
+          sCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEFF6FF' } };
+        } else if (statusLabel === 'Weekly Off') {
+          sCell.font.color = { argb: 'FF64748B' };
+        } else if (statusLabel === 'Holiday') {
+          sCell.font.color = { argb: 'FFD97706' };
+          sCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFFBEB' } };
+        }
+
+        const tCell = dayRow.getCell(8);
+        tCell.font = { name: 'Segoe UI', size: 10, bold: timingRemarks !== '—' && timingRemarks !== 'On Time' };
+        if (lateText || earlyText) tCell.font.color = { argb: 'FFD97706' };
+        else if (timingRemarks === 'On Time') tCell.font.color = { argb: 'FF059669' };
+      });
+
+      // Total worked hours summary row
+      const totEmpRow = ws.addRow([
+        'Total Worked Hours',
+        '', '', '', '', '',
+        `${totalHoursSum.toFixed(1)} hrs`,
+        ''
+      ]);
+      totEmpRow.height = 22;
+      ws.mergeCells(`A${totEmpRow.number}:F${totEmpRow.number}`);
+      for (let c = 1; c <= 8; c++) {
+        const cell = totEmpRow.getCell(c);
+        cell.font = { bold: true, name: 'Segoe UI', size: 10, color: { argb: 'FF0F172A' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FF94A3B8' } },
+          bottom: { style: 'thin', color: { argb: 'FF94A3B8' } }
+        };
+        if (c === 1) cell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+        else if (c === 7) cell.alignment = { horizontal: 'center', vertical: 'middle' };
+      }
+
+      ws.addRow([]);
+    });
+  };
+
   // ── Full Directory Export (all employees, grouped by org or team) ─────────
   const handleFullDirectoryExport = async () => {
     const { startDate: dlStart, endDate: dlEnd, groupBy: dlGroupBy } = epwDlModal;
@@ -1039,397 +1542,66 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     const fileName = `Attendance_Report_${monthLabel}_v${version}.xlsx`;
     const lt = toast.loading('Preparing report…');
     try {
-      const ExcelJSLib = await import('exceljs');
-      const { saveAs: saveAsLib } = await import('file-saver');
-      const wb = new ExcelJSLib.Workbook();
-      wb.creator = 'AlVision Exim';
+      const start = moment(dlStart).format('YYYY-MM-DD');
+      const end = moment(dlEnd).format('YYYY-MM-DD');
 
-      const navy = { argb: 'FF1B365D' };
-      const white = { argb: 'FFFFFFFF' };
-      const light = { argb: 'FFF8FAFC' };
+      let response;
+      if (!id) {
+        response = await attendanceAPI.getAdminAttendanceReport(start, end, undefined, 'all');
+      } else if (teamId && teamId !== 'all') {
+        response = await attendanceAPI.getTeamAttendanceReport(start, end, teamId);
+      } else {
+        response = await attendanceAPI.getAdminAttendanceReport(start, end, undefined, 'all');
+      }
 
-      // Build groups from filteredEmployees
-      let groups = {};
+      const reportDataRaw = response?.data || [];
+      const reportDataEnriched = await enrichReportWithLeaveBalance(reportDataRaw, start, end);
+
+      const filteredEmpIds = new Set(filteredEmployees.map(emp => String(emp._id || emp.id)));
+      const filteredReportData = reportDataEnriched.filter(emp => filteredEmpIds.has(String(emp.id || emp._id)));
+      const reportMetricsById = new Map(filteredReportData.map(row => [String(row.id || row._id), row]));
+
+      const processedReportData = filteredReportData.map(e => ({
+        ...e,
+        history: Array.isArray(e.history) ? e.history : []
+      }));
+
+      if (!processedReportData.length) {
+        toast.dismiss(lt);
+        toast.error('No attendance records found for the selected period');
+        return;
+      }
+
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'AlVision Exim';
+
+      const byGroup = {};
       if (dlGroupBy === 'organization') {
-        filteredEmployees.forEach(emp => {
-          const key = emp.company_id?.company_name || 'No Organization';
-          if (!groups[key]) groups[key] = [];
-          groups[key].push(emp);
+        processedReportData.forEach(e => {
+          const key = e.company_name?.trim() || 'No Organization';
+          if (!byGroup[key]) byGroup[key] = [];
+          byGroup[key].push(e);
         });
       } else if (dlGroupBy === 'team') {
-        filteredEmployees.forEach(emp => {
-          const key = getEmployeeTeamName(emp);
-          if (!groups[key]) groups[key] = [];
-          groups[key].push(emp);
+        processedReportData.forEach(e => {
+          const key = e.team_name || e.team || getEmployeeTeamName(e) || 'No Team';
+          if (!byGroup[key]) byGroup[key] = [];
+          byGroup[key].push(e);
         });
       } else {
-        groups['All Employees'] = filteredEmployees;
+        byGroup['Attendance Report'] = processedReportData;
       }
 
-      const groupNames = sortGroupNamesWithRabsLast(Object.keys(groups));
+      const groupNames = sortGroupNamesWithRabsLast(Object.keys(byGroup));
 
-      for (const groupName of groupNames) {
-        const employees = groups[groupName];
-        if (!employees || employees.length === 0) continue;
+      groupNames.forEach((groupName) => {
+        const employees = byGroup[groupName];
+        if (!employees || !employees.length) return;
+        buildReportWorksheet(workbook, groupName, employees, start, end, reportMetricsById);
+      });
 
-        const sheetName = groupName.substring(0, 31);
-        const ws = wb.addWorksheet(sheetName);
-
-        // ── Row 1: Org Header ──
-        const orgRow = ws.addRow([groupName.toUpperCase()]);
-        orgRow.height = 30;
-        const orgCell = orgRow.getCell(1);
-        orgCell.font = { bold: true, size: 14, name: 'Arial', color: { argb: 'FFFFFFFF' } };
-        orgCell.fill = { type: 'pattern', pattern: 'solid', fgColor: navy };
-        orgCell.alignment = { horizontal: 'center', vertical: 'middle' };
-        ws.mergeCells(`A${orgRow.number}:G${orgRow.number}`);
-
-        // ── Row 2: Period Header ──
-        const periodRow = ws.addRow([`Attendance Log — ${moment(dlStart).format('MMMM YYYY')}`]);
-        periodRow.height = 22;
-        const periodCell = periodRow.getCell(1);
-        periodCell.font = { bold: true, size: 11, name: 'Arial', color: { argb: 'FFFFFFFF' } };
-        periodCell.fill = { type: 'pattern', pattern: 'solid', fgColor: navy };
-        periodCell.alignment = { horizontal: 'center', vertical: 'middle' };
-        ws.mergeCells(`A${periodRow.number}:G${periodRow.number}`);
-
-        // ── Fetch all employees' logs in bulk ──
-        const start = moment(dlStart).format('YYYY-MM-DD');
-        const end = moment(dlEnd).format('YYYY-MM-DD');
-
-        let response;
-        if (!id) {
-          response = await attendanceAPI.getAdminAttendanceReport(start, end, undefined, 'all');
-        } else if (teamId && teamId !== 'all') {
-          response = await attendanceAPI.getTeamAttendanceReport(start, end, teamId);
-        } else {
-          response = await attendanceAPI.getAdminAttendanceReport(start, end, undefined, 'all');
-        }
-
-        const reportDataRaw = response?.data || [];
-        const reportDataEnriched = await enrichReportWithLeaveBalance(reportDataRaw);
-        const reportMap = new Map(reportDataEnriched.map(e => [String(e.id), e]));
-
-        let summaryRows = []; // for in-sheet summary
-
-        employees.forEach((emp) => {
-          try {
-            const p = reportMap.get(String(emp._id));
-            if (!p) {
-              console.warn('No report data found for employee', emp._id);
-              return;
-            }
-            const logs = p.history || [];
-            let empPresent = 0, empAbsent = 0, empHalfDay = 0, empLeaves = 0;
-            let empTotalHours = 0;
-            const empName = [emp.first_name, emp.last_name].filter(Boolean).join(' ').trim() || emp.username || '';
-
-            // Spacer row before each employee name header (except the first employee)
-            if (ws.rowCount > 2) {
-              ws.addRow([]);
-            }
-
-            // Merged Employee Name Header
-            const empHeaderRow = ws.addRow([empName]);
-            empHeaderRow.height = 22;
-            ws.mergeCells(`A${empHeaderRow.number}:H${empHeaderRow.number}`);
-            const empCell = empHeaderRow.getCell(1);
-            empCell.font = { bold: true, color: { argb: 'FFFFFFFF' }, name: 'Arial', size: 11 };
-            empCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2B6CB0' } }; // steel blue
-            empCell.alignment = { horizontal: 'center', vertical: 'middle' };
-
-            // Column Subheaders
-            const subheaderRow = ws.addRow(['Date', 'Day', 'Shift', 'Status', 'In Time', 'Out Time', 'Total Hours', 'Late In / Early Out']);
-            subheaderRow.height = 20;
-            subheaderRow.eachCell(cell => {
-              cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, name: 'Arial', size: 10 };
-              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF3B82F6' } }; // royal blue
-              cell.alignment = { horizontal: 'center', vertical: 'middle' };
-              cell.border = {
-                top: { style: 'thin', color: { argb: 'FFB0C4DE' } },
-                left: { style: 'thin', color: { argb: 'FFB0C4DE' } },
-                bottom: { style: 'thin', color: { argb: 'FFB0C4DE' } },
-                right: { style: 'thin', color: { argb: 'FFB0C4DE' } }
-              };
-            });
-
-            // Sort logs ascending
-            const sortedLogs = [...logs].sort((a, b) => new Date(a.date) - new Date(b.date));
-
-            sortedLogs.forEach(log => {
-              let logStatus = log.status || 'Present';
-
-              const sn = log.shift_id?.shift_name || p.shift_id?.shift_name || '';
-              const st = log.shift_id?.start_time || p.shift_id?.start_time || '';
-              const et = log.shift_id?.end_time || p.shift_id?.end_time || '';
-              const shiftStr = sn ? (st && et ? `${sn} ${st}–${et}` : sn) : (st && et ? `${st}–${et}` : '—');
-
-              const fdt = dt => dt ? moment(dt).format('h:mm A') : '';
-
-              // Calc work hours with reliable fallback
-              let wh = '';
-              let workHoursNum = 0;
-              const computedDiff = (log.first_in && log.last_out) ? moment(log.last_out).diff(moment(log.first_in), 'hours', true) : 0;
-              if (log.total_work_hours !== null && log.total_work_hours !== undefined && Number(log.total_work_hours) > 0) {
-                workHoursNum = Number(log.total_work_hours);
-              } else if (computedDiff > 0 && computedDiff < 24) {
-                workHoursNum = computedDiff;
-              }
-
-              if (workHoursNum > 0 && workHoursNum < 24) {
-                wh = workHoursNum.toFixed(1) + ' hrs';
-                empTotalHours += workHoursNum;
-              }
-
-              // Status mapping based on time calculation (8h full day, 4h half day)
-              let displayStatus = 'Absent';
-              const statusLower = String(logStatus).toLowerCase();
-              const leaveType = String(log.leaveType || log.leave_type || log.leaveReason || '').trim();
-              const lLower = leaveType.toLowerCase();
-              let leaveCode = 'PL';
-              if (lLower.includes('lwp') || lLower.includes('without pay') || lLower.includes('unpaid') || lLower === 'lop') leaveCode = 'LWP';
-              else if (lLower.includes('privilege') || lLower.includes('earned') || lLower === 'pl' || lLower === 'el') leaveCode = 'PL';
-              else if (lLower.includes('casual') || lLower === 'cl') leaveCode = 'CL';
-              else if (lLower.includes('sick') || lLower === 'sl') leaveCode = 'SL';
-              else if (lLower.includes('comp') || lLower === 'co') leaveCode = 'Comp Off';
-              else if (leaveType) leaveCode = leaveType.toUpperCase();
-
-              if (statusLower === 'weekly_off' || statusLower === 'weekoff' || statusLower === 'off') displayStatus = 'Weekly Off';
-              else if (statusLower === 'holiday') displayStatus = 'Holiday';
-              const isHalfLeave = Boolean(log?.is_half_day_leave || log?.is_half_day || log?.isHalfDayLeave);
-              if ((statusLower === 'leave' || statusLower === 'pending_leave') && !isHalfLeave) displayStatus = leaveCode;
-              else if (workHoursNum >= 8 || statusLower === 'present' || statusLower === 'late' || statusLower === 'present_late') displayStatus = 'Present';
-              else if (workHoursNum >= 4 || statusLower === 'half_day' || isHalfLeave) displayStatus = (leaveType || isHalfLeave) ? `Half Day (${leaveCode})` : 'Half Day';
-              else if (statusLower === 'incomplete' || statusLower === 'missed_punch') displayStatus = 'Missed Punch';
-              else displayStatus = 'Absent';
-
-              // Timing remarks
-              let timingRemarks = '—';
-              const lateText = (log.is_late || (log.late_by_minutes > 0)) ? `Late In (${log.late_by_minutes || 0}m)` : '';
-              const earlyText = (log.is_early_exit || (log.early_exit_minutes > 0)) ? `Early Out (${log.early_exit_minutes || 0}m)` : '';
-              if (lateText && earlyText) timingRemarks = `${lateText}, ${earlyText}`;
-              else if (lateText) timingRemarks = lateText;
-              else if (earlyText) timingRemarks = earlyText;
-              else if (log.first_in || log.last_out || workHoursNum > 0) timingRemarks = 'On Time';
-
-              const dateStr = moment(log.date).format('DD-MM-YYYY');
-              const dayStr = moment(log.date).format('ddd');
-
-              const dataRow = ws.addRow([dateStr, dayStr, shiftStr, displayStatus, fdt(log.first_in), fdt(log.last_out), wh, timingRemarks]);
-              dataRow.height = 18;
-
-              dataRow.eachCell((cell, colNumber) => {
-                cell.font = { name: 'Arial', size: 10 };
-                cell.border = {
-                  top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-                  left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-                  bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-                  right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
-                };
-                if (colNumber === 3) {
-                  cell.alignment = { horizontal: 'left', vertical: 'middle' };
-                } else {
-                  cell.alignment = { horizontal: 'center', vertical: 'middle' };
-                }
-              });
-
-              // Style the Status cell
-              const statusCell = dataRow.getCell(4);
-              statusCell.font = { bold: true, name: 'Arial', size: 10 };
-              const sLower = String(displayStatus).toLowerCase();
-
-              if (sLower === 'present') {
-                statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD1FAE5' } };
-                statusCell.font.color = { argb: 'FF065F46' };
-              } else if (sLower === 'absent') {
-                statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
-                statusCell.font.color = { argb: 'FF991B1B' };
-              } else if (sLower === 'pl' || sLower === 'leave') {
-                statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3E8FF' } };
-                statusCell.font.color = { argb: 'FF6B21A8' };
-              } else if (sLower === 'lwp') {
-                statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFEDD5' } };
-                statusCell.font.color = { argb: 'FFC2410C' };
-              } else if (sLower.startsWith('half day')) {
-                statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDBEAFE' } };
-                statusCell.font.color = { argb: 'FF1E40AF' };
-              } else if (sLower === 'weekly off') {
-                statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0FDF4' } };
-                statusCell.font.color = { argb: 'FF15803D' };
-              } else if (sLower === 'holiday') {
-                statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3E8FF' } };
-                statusCell.font.color = { argb: 'FF6B21A8' };
-              } else {
-                statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
-                statusCell.font.color = { argb: 'FF475569' };
-              }
-
-              // Color code Late In / Early Out
-              const tCell = dataRow.getCell(8);
-              tCell.font = { name: 'Arial', size: 10, bold: timingRemarks !== '—' && timingRemarks !== 'On Time' };
-              if (lateText || earlyText) tCell.font.color = { argb: 'FFD97706' };
-              else if (timingRemarks === 'On Time') tCell.font.color = { argb: 'FF059669' };
-
-              if (sLower === 'present' || sLower === 'holiday') empPresent++;
-              else if (sLower === 'absent') empAbsent++;
-              else if (sLower === 'half day') empHalfDay++;
-              else if (sLower === 'leave') empLeaves++;
-            });
-
-            // Add a total hours summary row right after the daily logs for the employee
-            const totalRow = ws.addRow(['Total Worked Hours', '', '', '', '', '', `${empTotalHours.toFixed(1)} hrs`, '']);
-            totalRow.height = 20;
-            ws.mergeCells(`A${totalRow.number}:F${totalRow.number}`);
-            for (let colNum = 1; colNum <= 8; colNum++) {
-              const cell = totalRow.getCell(colNum);
-              cell.font = { bold: true, name: 'Arial', size: 10 };
-              cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } }; // light grey/slate-200
-              cell.border = {
-                top: { style: 'thin', color: { argb: 'FFB0C4DE' } },
-                left: { style: 'thin', color: { argb: 'FFB0C4DE' } },
-                bottom: { style: 'thin', color: { argb: 'FFB0C4DE' } },
-                right: { style: 'thin', color: { argb: 'FFB0C4DE' } }
-              };
-              if (colNum === 1) {
-                cell.alignment = { horizontal: 'right', vertical: 'middle' };
-              } else if (colNum === 7) {
-                cell.alignment = { horizontal: 'center', vertical: 'middle' };
-              }
-            }
-
-            const roundLeave = (value) => Math.round(Number(value || 0) * 10) / 10;
-            const openingBalance = roundLeave(p.opening_balance || 0);
-            const privilegeTaken = roundLeave(p.privilege_taken || 0);
-            const lwpTaken = roundLeave(p.lwp_taken || 0);
-            const availableBalance = roundLeave(p.available_balance || 0);
-
-            summaryRows.push({
-              name: empName,
-              present: empPresent,
-              absent: empAbsent,
-              halfDay: empHalfDay,
-              leaves: empLeaves,
-              total: sortedLogs.length,
-              totalHours: empTotalHours,
-              openingBalance,
-              privilegeTaken,
-              lwpTaken,
-              availableBalance
-            });
-          } catch (e) {
-            console.warn('Failed to process logs for', emp._id, e);
-          }
-        });
-
-        // ── In-sheet Summary ──────────────────────────────────────────────
-        ws.addRow([]); // spacer
-        ws.addRow([]);
-
-        const summaryTitleRow = ws.addRow(['--- SUMMARY ---']);
-        summaryTitleRow.getCell(1).font = { bold: true, size: 11, name: 'Arial', color: white };
-        summaryTitleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1B365D' } };
-        summaryTitleRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
-        summaryTitleRow.height = 24;
-        ws.mergeCells(`A${summaryTitleRow.number}:K${summaryTitleRow.number}`);
-
-        const sumHeaderRow = ws.addRow(['Employee Name', 'Present', 'Absent', 'Half Day', 'Leaves', 'Total Records', 'Total Hours', 'Opening Balance', 'PL Taken', 'LWP Taken', 'Available Balance']);
-        sumHeaderRow.height = 20;
-        sumHeaderRow.eachCell(cell => {
-          cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, name: 'Arial', size: 10 };
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } }; // slate
-          cell.alignment = { horizontal: 'center', vertical: 'middle' };
-          cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-        });
-
-        summaryRows.forEach((sr, idx) => {
-          const sr2 = ws.addRow([
-            sr.name,
-            sr.present,
-            sr.absent,
-            sr.halfDay,
-            sr.leaves,
-            sr.total,
-            `${sr.totalHours.toFixed(1)} hrs`,
-            sr.openingBalance,
-            sr.privilegeTaken,
-            sr.lwpTaken,
-            sr.availableBalance
-          ]);
-          sr2.height = 18;
-          sr2.getCell(1).font = { bold: true, name: 'Arial', size: 10 };
-          if (idx % 2 === 0) sr2.eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: light }; });
-
-          sr2.eachCell((cell, colNumber) => {
-            cell.border = {
-              top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-              left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-              bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
-              right: { style: 'thin', color: { argb: 'FFE2E8F0' } }
-            };
-            if (colNumber === 1) {
-              cell.alignment = { horizontal: 'left', vertical: 'middle' };
-            } else {
-              cell.alignment = { horizontal: 'center', vertical: 'middle' };
-            }
-          });
-        });
-
-        // Totals
-        const totals = summaryRows.reduce((acc, r) => ({
-          present: acc.present + r.present,
-          absent: acc.absent + r.absent,
-          halfDay: acc.halfDay + r.halfDay,
-          leaves: acc.leaves + r.leaves,
-          total: acc.total + r.total,
-          totalHours: acc.totalHours + r.totalHours,
-          openingBalance: acc.openingBalance + r.openingBalance,
-          privilegeTaken: acc.privilegeTaken + r.privilegeTaken,
-          lwpTaken: acc.lwpTaken + r.lwpTaken,
-          availableBalance: acc.availableBalance + r.availableBalance
-        }), { present: 0, absent: 0, halfDay: 0, leaves: 0, total: 0, totalHours: 0, openingBalance: 0, privilegeTaken: 0, lwpTaken: 0, availableBalance: 0 });
-
-        const totalRow2 = ws.addRow([
-          `Total (${summaryRows.length} employees)`,
-          totals.present,
-          totals.absent,
-          totals.halfDay,
-          totals.leaves,
-          totals.total,
-          `${totals.totalHours.toFixed(1)} hrs`,
-          totals.openingBalance,
-          totals.privilegeTaken,
-          totals.lwpTaken,
-          totals.availableBalance
-        ]);
-        totalRow2.height = 22;
-        totalRow2.eachCell(cell => {
-          cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, name: 'Arial', size: 10 };
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } }; // dark navy
-          cell.border = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-        });
-        totalRow2.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
-        [2, 3, 4, 5, 6, 7, 8, 9, 10, 11].forEach(c => { totalRow2.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' }; });
-
-        // Column widths: 1-7 for daily log columns, 8-11 for leave balance summary
-        ws.getColumn(1).width = 14; // Date
-        ws.getColumn(2).width = 10; // Day
-        ws.getColumn(3).width = 28; // Shift
-        ws.getColumn(4).width = 18; // Status
-        ws.getColumn(5).width = 15; // In Time
-        ws.getColumn(6).width = 15; // Out Time
-        ws.getColumn(7).width = 15; // Total Hours
-        // Summary-only columns (leave balance) — need explicit widths or they default to ~8 chars
-        ws.getColumn(8).width = 18;  // Opening Balance
-        ws.getColumn(9).width = 14;  // PL Taken
-        ws.getColumn(10).width = 14; // LWP Taken
-        ws.getColumn(11).width = 18; // Available Balance
-
-        // Freeze top 2 rows
-        ws.views = [{ state: 'frozen', ySplit: 2 }];
-      }
-
-      const buffer = await wb.xlsx.writeBuffer();
-      saveAsLib(new Blob([buffer], { type: 'application/octet-stream' }), fileName);
+      const buffer = await workbook.xlsx.writeBuffer();
+      saveAs(new Blob([buffer], { type: 'application/octet-stream' }), fileName);
       toast.dismiss(lt);
       toast.success(`Report downloaded: ${fileName}`);
     } catch (e) {
@@ -1493,18 +1665,21 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     const lt = toast.loading('Generating Summary Attendance Report...');
 
     try {
+      const start = moment(startDate).format('YYYY-MM-DD');
+      const end = moment(endDate).format('YYYY-MM-DD');
+
       let response;
       if (!id) {
-        response = await attendanceAPI.getAdminAttendanceReport(startDate, endDate, undefined, 'all');
+        response = await attendanceAPI.getAdminAttendanceReport(start, end, undefined, 'all');
       } else if (teamId && teamId !== 'all') {
-        response = await attendanceAPI.getTeamAttendanceReport(startDate, endDate, teamId);
+        response = await attendanceAPI.getTeamAttendanceReport(start, end, teamId);
       } else {
-        response = await attendanceAPI.getAdminAttendanceReport(startDate, endDate, undefined, 'all');
+        response = await attendanceAPI.getAdminAttendanceReport(start, end, undefined, 'all');
       }
 
       let reportDataRaw = response?.data || [];
-      const reportDataEnriched = await enrichReportWithLeaveBalance(reportDataRaw, startDate, endDate);
-      const filteredEmpIds = new Set(filteredEmployees.map(emp => String(emp._id)));
+      const reportDataEnriched = await enrichReportWithLeaveBalance(reportDataRaw, start, end);
+      const filteredEmpIds = new Set(filteredEmployees.map(emp => String(emp._id || emp.id)));
       const filteredReportData = reportDataEnriched.filter(emp => filteredEmpIds.has(String(emp.id || emp._id)));
       const reportMetricsById = new Map(filteredReportData.map(row => [String(row.id || row._id), row]));
 
@@ -1513,11 +1688,9 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
         history: Array.isArray(e.history) ? e.history : []
       }));
 
-      // Setup workbook
       const workbook = new ExcelJS.Workbook();
-      workbook.creator = 'Exim Application';
+      workbook.creator = 'AlVision Exim';
 
-      // ── Helper functions identical to AttendanceReport.jsx ─────────────────
       const styleHeader = (row, bgArgb, textArgb = 'FF0F172A') => {
         row.eachCell(cell => {
           cell.font = { bold: true, color: { argb: textArgb }, name: 'Arial', size: 10 };
@@ -1530,257 +1703,159 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
         });
       };
 
-      const roundLeave = (value) => Math.round(Number(value || 0) * 10) / 10;
-      const getLeaveMetrics = (employeeId) => reportMetricsById.get(String(employeeId)) || {};
-      const isPrivilegeLeave = (leaveType = '') => {
-        const type = String(leaveType || '').toLowerCase();
-        return type.includes('privilege') || type.includes('earned');
-      };
-      const isLwpLeave = (leaveType = '') => {
-        const type = String(leaveType || '').toLowerCase();
-        return type === 'lwp' || type.includes('without pay') || type.includes('unpaid') || type === 'lop';
-      };
-      // Full days present (count of >= 8h or marked present/late, strictly without fractional 0.5 for half days)
-      const getPresentDaysForReport = (employee) => {
-        if (!Array.isArray(employee.history) || employee.history.length === 0) {
-          return Number(employee.present || 0);
-        }
-        return employee.history.filter((day) => {
-          const s = String(day?.status || '').toLowerCase();
-          if (s === 'weekly_off' || s === 'weekoff' || s === 'off' || s === 'holiday') return false;
-          const isHalfLeave = isHalfDayLeave(day);
-          if (isHalfLeave) return false;
-
-          let workHours = 0;
-          if (day?.total_work_hours !== null && day?.total_work_hours !== undefined && Number(day.total_work_hours) > 0) {
-            workHours = Number(day.total_work_hours);
-          } else if (day?.first_in && day?.last_out) {
-            workHours = moment(day.last_out).diff(moment(day.first_in), 'hours', true);
-          }
-
-          if (workHours >= 8) return true;
-          if (workHours > 0 && workHours < 8) return false;
-          return (s === 'present' || s === 'late' || s === 'present_late') && workHours === 0 && !day?.first_in;
-        }).length;
-      };
-      const isHalfDayLeave = (day) => Boolean(day?.is_half_day_leave || day?.is_half_day || day?.isHalfDayLeave);
-      const getActualHalfDays = (employee) => {
-        if (!Array.isArray(employee.history) || employee.history.length === 0) return Number(employee.halfDay || 0);
-
-        return employee.history.filter((day) => {
-          const s = String(day?.status || '').toLowerCase();
-          const leaveType = day?.leaveType || day?.leave_type || '';
-          const isHalfLeave = isHalfDayLeave(day);
-          if (isHalfLeave || leaveType) return false;
-          if (s === 'weekly_off' || s === 'weekoff' || s === 'off' || s === 'holiday') return false;
-
-          let workHours = 0;
-          if (day?.total_work_hours !== null && day?.total_work_hours !== undefined && Number(day.total_work_hours) > 0) {
-            workHours = Number(day.total_work_hours);
-          } else if (day?.first_in && day?.last_out) {
-            workHours = moment(day.last_out).diff(moment(day.first_in), 'hours', true);
-          }
-
-          if (workHours >= 8) return false;
-          if (workHours >= 4) return true;
-          return s === 'half_day' && workHours === 0 && !day?.first_in;
-        }).length;
-      };
-
-      const getHalfDayLeaveCountForReport = (employee) => {
-        if (!Array.isArray(employee.history) || employee.history.length === 0) return 0;
-
-        return employee.history.filter((day) => {
-          const s = String(day?.status || '').toLowerCase();
-          const leaveType = day?.leaveType || day?.leave_type || '';
-          const isHalfLeave = isHalfDayLeave(day);
-          return isHalfLeave || (s === 'half_day' && leaveType) || (s === 'leave' && isHalfLeave);
-        }).length;
-      };
-
-      const getFullDayLeaveCountForReport = (employee) => {
-        if (!Array.isArray(employee.history) || employee.history.length === 0) return Number(employee.leaves || 0);
-
-        return employee.history.filter((day) => {
-          const s = String(day?.status || '').toLowerCase();
-          const isHalfLeave = isHalfDayLeave(day);
-          return (s === 'leave' || s === 'pending_leave') && !isHalfLeave;
-        }).length;
-      };
-
-      // Absent days (unauthorized/unexcused absence with <4h worked and NO approved leave)
-      const getAbsentDaysForReport = (employee) => {
-        if (!Array.isArray(employee.history) || employee.history.length === 0) return Number(employee.absent || 0);
-        return employee.history.filter((day) => {
-          const s = String(day?.status || '').toLowerCase();
-          const lt = String(day?.leaveType || day?.leave_type || day?.leaveReason || '').trim();
-          const isHalfLeave = isHalfDayLeave(day);
-
-          if (s === 'weekly_off' || s === 'weekoff' || s === 'off' || s === 'holiday') return false;
-          if (s === 'leave' || s === 'pending_leave' || isHalfLeave || lt) return false;
-
-          let workHours = 0;
-          if (day?.total_work_hours !== null && day?.total_work_hours !== undefined && Number(day.total_work_hours) > 0) {
-            workHours = Number(day.total_work_hours);
-          } else if (day?.first_in && day?.last_out) {
-            workHours = moment(day.last_out).diff(moment(day.first_in), 'hours', true);
-          }
-
-          if (workHours >= 4) return false;
-          if ((s === 'present' || s === 'late' || s === 'present_late') && workHours === 0 && !day?.first_in) return false;
-          return s === 'absent' || (workHours < 4 && !day?.first_in);
-        }).length;
-      };
-
-      // Complete leaves = sum of [Full Day Leaves] + (0.5 * [Half Day Leaves])
-      const getLeaveCountForReport = (employee) => {
-        const halfDayLeaves = getHalfDayLeaveCountForReport(employee);
-        const fullDayLeaves = getFullDayLeaveCountForReport(employee);
-        return roundLeave(fullDayLeaves + (halfDayLeaves * 0.5));
-      };
-
-      // Calculate exact PL Taken, LWP Taken, Available Balance
-      const calculateEmployeeLeaveBreakdown = (employee) => {
-        const metrics = getLeaveMetrics(employee.id || employee._id);
-        const openingBalance = roundLeave(Number(metrics.opening_balance || 0));
-        const completeLeaves = getLeaveCountForReport(employee);
-
-        if (!Array.isArray(employee.history) || employee.history.length === 0) {
-          const plTaken = roundLeave(Math.min(openingBalance, completeLeaves));
-          const lwpTaken = roundLeave(Math.max(0, completeLeaves - openingBalance));
-          const availableBalance = roundLeave(Math.max(0, openingBalance - plTaken));
-          return { openingBalance, plTaken, lwpTaken, availableBalance };
-        }
-
-        let explicitLwp = 0;
-        let explicitPl = 0;
-
-        employee.history.forEach((day) => {
-          const s = String(day?.status || '').toLowerCase();
-          const lt = String(day?.leaveType || day?.leave_type || day?.leaveReason || '').trim();
-          const isHalfLeave = isHalfDayLeave(day);
-
-          if (s === 'weekly_off' || s === 'weekoff' || s === 'off' || s === 'holiday') return;
-
-          if (isHalfLeave || (s === 'half_day' && lt)) {
-            if (isLwpLeave(lt)) {
-              explicitLwp += 0.5;
-            } else {
-              explicitPl += 0.5;
-            }
-          } else if (s === 'leave' || s === 'pending_leave') {
-            if (isLwpLeave(lt)) {
-              explicitLwp += 1.0;
-            } else {
-              explicitPl += 1.0;
-            }
-          }
-        });
-
-        const plTaken = roundLeave(Math.min(openingBalance, explicitPl));
-        const lwpTaken = roundLeave(explicitLwp + Math.max(0, explicitPl - openingBalance));
-        const availableBalance = roundLeave(Math.max(0, openingBalance - plTaken));
-
-        return { openingBalance, plTaken, lwpTaken, availableBalance };
-      };
       const sumLeaveMetric = (employees, key) => roundLeave(
         employees.reduce((sum, employee) => {
-          const metrics = getLeaveMetrics(employee.id);
-          const breakdown = calculateEmployeeLeaveBreakdown(employee);
+          const breakdown = calculateEmployeeLeaveBreakdown(employee, reportMetricsById);
           let value;
           if (key === 'available_balance') value = breakdown.availableBalance;
           else if (key === 'privilege_taken') value = breakdown.plTaken;
           else if (key === 'lwp_taken') value = breakdown.lwpTaken;
           else if (key === 'opening_balance') value = breakdown.openingBalance;
-          else value = metrics[key] ?? 0;
+          else value = employee[key] ?? 0;
           return sum + Number(value || 0);
         }, 0)
       );
 
-      // Group by company name
-      const byCompany = {};
+      const byOrg = {};
       processedReportData.forEach(e => {
         const co = e.company_name?.trim() || 'Unassigned';
-        if (!byCompany[co]) byCompany[co] = [];
-        byCompany[co].push(e);
+        if (!byOrg[co]) byOrg[co] = [];
+        byOrg[co].push(e);
       });
 
-      // ── Create Summary sheet first ──
-      const summaryWs = workbook.addWorksheet('Summary');
+      const SUMMARY_HEADERS = [
+        'Employee', 'Present', 'Absent', 'Half Day', 'Half Day Leaves',
+        'Full Day Leaves', 'Complete Leaves', 'Opening Balance', 'PL Taken',
+        'LWP Taken', 'Available Balance', 'Avg Hours/Day'
+      ];
+
+      const STATUS_COLORS = {
+        present: 'FF059669',
+        absent: 'FFDC2626',
+        halfDay: 'FFD97706',
+        leaves: 'FF4F46E5',
+        pending: 'FF475569',
+      };
+
+      const summaryWs = workbook.addWorksheet('All Organizations');
       summaryWs.views = [{ state: 'frozen', ySplit: 3 }];
 
-      const sTitleRow = summaryWs.addRow([`All Companies  |  Attendance Summary: ${startDate}  →  ${endDate}`]);
-      sTitleRow.font = { bold: true, size: 13, name: 'Arial', color: { argb: 'FFFFFFFF' } };
-      sTitleRow.height = 28;
-      sTitleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
-      sTitleRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
-      summaryWs.mergeCells(`A1:M1`);
+      const r1 = summaryWs.addRow(['FULL DIRECTORY SUMMARY — ALL ORGANIZATIONS']);
+      const r2 = summaryWs.addRow([`Period: ${moment(start).format('DD MMM YYYY')} to ${moment(end).format('DD MMM YYYY')} | Staff: ${processedReportData.length}`]);
+      summaryWs.mergeCells('A1:L1');
+      summaryWs.mergeCells('A2:L2');
+      r1.height = 30;
+      r2.height = 20;
+      styleHeader(r1, 'FF0F172A', 'FFFFFFFF');
+      r1.getCell(1).font = { bold: true, size: 13, color: { argb: 'FFFFFFFF' }, name: 'Arial' };
+      styleHeader(r2, 'FF1E293B', 'FF94A3B8');
+      r2.getCell(1).font = { size: 10, italic: true, color: { argb: 'FF94A3B8' }, name: 'Arial' };
 
-      summaryWs.addRow([]);
+      const allHeaderRow = summaryWs.addRow(SUMMARY_HEADERS);
+      allHeaderRow.height = 24;
+      styleHeader(allHeaderRow, 'FF0F172A', 'FFFFFFFF');
 
-      const sHeaderRow = summaryWs.addRow(['Company', 'Headcount', 'Present', 'Absent', 'Half Day', 'Half Day Leaves', 'Full Day Leaves', 'Complete Leaves', 'Opening Balance', 'PL Taken', 'LWP Taken', 'Available Balance', 'Avg Hrs/Day']);
-      sHeaderRow.height = 22;
-      styleHeader(sHeaderRow, 'FF334155', 'FFFFFFFF');
+      const allActiveEmps = processedReportData.filter(e => e.employment_status !== 'Resigned' && e.employment_status !== 'Terminated');
 
-      // ── Build one sheet per company and populate Summary rows ──
-      Object.entries(byCompany).sort(([a], [b]) => a.localeCompare(b)).forEach(([companyName, employees], idx) => {
-        // Write row to Summary worksheet
-        const summaryRow = summaryWs.addRow([
-          companyName,
-          employees.length,
-          employees.reduce((s, e) => s + getPresentDaysForReport(e), 0),
-          employees.reduce((s, e) => s + getAbsentDaysForReport(e), 0),
-          employees.reduce((s, e) => s + getActualHalfDays(e), 0),
-          employees.reduce((s, e) => s + getHalfDayLeaveCountForReport(e), 0),
-          employees.reduce((s, e) => s + getFullDayLeaveCountForReport(e), 0),
-          employees.reduce((s, e) => s + getLeaveCountForReport(e), 0),
-          sumLeaveMetric(employees, 'opening_balance'),
-          sumLeaveMetric(employees, 'privilege_taken'),
-          sumLeaveMetric(employees, 'lwp_taken'),
-          sumLeaveMetric(employees, 'available_balance'),
-          (employees.reduce((s, e) => s + parseFloat(e.avgHours || 0), 0) / employees.length).toFixed(1),
+      allActiveEmps.forEach((e, idx) => {
+        const { openingBalance, plTaken, lwpTaken, availableBalance } = calculateEmployeeLeaveBreakdown(e, reportMetricsById);
+        const empDisplayName = e.name || `${e.first_name || ''} ${e.last_name || ''}`.trim() || e.username;
+
+        const row = summaryWs.addRow([
+          empDisplayName,
+          getPresentDaysForReport(e),
+          getAbsentDaysForReport(e),
+          getActualHalfDays(e),
+          getHalfDayLeaveCountForReport(e),
+          getFullDayLeaveCountForReport(e),
+          getLeaveCountForReport(e),
+          openingBalance,
+          plTaken,
+          lwpTaken,
+          availableBalance,
+          e.avgHours || '0.0',
         ]);
-        summaryRow.height = 20;
+        row.height = 20;
+
         if (idx % 2 === 0) {
-          summaryRow.eachCell(cell => {
+          row.eachCell(cell => {
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
           });
         }
-        summaryRow.getCell(1).font = { bold: true, name: 'Arial', size: 10 };
-        [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].forEach(c => { summaryRow.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' }; });
 
-        // Add the company's own worksheet
-        const ws = workbook.addWorksheet(companyName.substring(0, 31));
+        [[2, STATUS_COLORS.present], [3, STATUS_COLORS.absent], [4, STATUS_COLORS.halfDay],
+        [5, STATUS_COLORS.leaves], [6, STATUS_COLORS.leaves], [7, STATUS_COLORS.leaves],
+        [8, STATUS_COLORS.pending], [9, STATUS_COLORS.pending], [10, STATUS_COLORS.pending],
+        [11, STATUS_COLORS.pending]]
+          .forEach(([col, color]) => {
+            const cell = row.getCell(col);
+            cell.font = { bold: true, color: { argb: color }, name: 'Arial', size: 10 };
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          });
 
-        const titleRow = ws.addRow([`${companyName}  |  Attendance Report: ${startDate}  →  ${endDate}`]);
-        titleRow.font = { bold: true, size: 13, name: 'Arial', color: { argb: 'FFFFFFFF' } };
-        titleRow.height = 28;
-        titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
-        titleRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
-        ws.mergeCells(`A${titleRow.number}:L${titleRow.number}`);
+        row.getCell(12).alignment = { horizontal: 'center', vertical: 'middle' };
 
-        ws.addRow([]);
+        row.eachCell(cell => {
+          cell.border = {
+            bottom: { style: 'hair', color: { argb: 'FFE2E8F0' } },
+            right: { style: 'hair', color: { argb: 'FFE2E8F0' } },
+          };
+        });
+      });
 
-        const COLS = ['Employee', 'Present', 'Absent', 'Half Day', 'Half Day Leaves', 'Full Day Leaves', 'Complete Leaves', 'Opening Balance', 'PL Taken', 'LWP Taken', 'Available Balance', 'Avg Hours/Day'];
-        const headerRow = ws.addRow(COLS);
-        headerRow.height = 22;
-        styleHeader(headerRow, 'FF334155', 'FFFFFFFF');
+      summaryWs.addRow([]);
 
-        const STATUS_COLORS = {
-          present: 'FF10B981',
-          absent: 'FFEF4444',
-          halfDay: 'FF3B82F6',
-          leaves: 'FF8B5CF6',
-          pending: 'FFF97316',
-        };
+      const allTotalRow = summaryWs.addRow([
+        `Total  (${allActiveEmps.length} employees)`,
+        allActiveEmps.reduce((s, e) => s + getPresentDaysForReport(e), 0),
+        allActiveEmps.reduce((s, e) => s + getAbsentDaysForReport(e), 0),
+        allActiveEmps.reduce((s, e) => s + getActualHalfDays(e), 0),
+        allActiveEmps.reduce((s, e) => s + getHalfDayLeaveCountForReport(e), 0),
+        allActiveEmps.reduce((s, e) => s + getFullDayLeaveCountForReport(e), 0),
+        allActiveEmps.reduce((s, e) => s + getLeaveCountForReport(e), 0),
+        sumLeaveMetric(allActiveEmps, 'opening_balance'),
+        sumLeaveMetric(allActiveEmps, 'privilege_taken'),
+        sumLeaveMetric(allActiveEmps, 'lwp_taken'),
+        sumLeaveMetric(allActiveEmps, 'available_balance'),
+        (() => {
+          const total = allActiveEmps.reduce((s, e) => s + parseFloat(e.avgHours || 0), 0);
+          return allActiveEmps.length > 0 ? (total / allActiveEmps.length).toFixed(1) : '0.0';
+        })(),
+      ]);
+      allTotalRow.height = 22;
+      styleHeader(allTotalRow, 'FF1E293B', 'FFFFFFFF');
 
-        employees.forEach((e, idxInner) => {
-          const { openingBalance, plTaken, lwpTaken, availableBalance } = calculateEmployeeLeaveBreakdown(e);
-          const presentDays = getPresentDaysForReport(e);
+      summaryWs.getColumn(1).width = 30;
+      [2, 3, 4, 5, 6, 7, 8, 9, 10, 11].forEach(c => summaryWs.getColumn(c).width = 15);
+      summaryWs.getColumn(12).width = 16;
+
+      Object.entries(byOrg).sort(([a], [b]) => a.localeCompare(b)).forEach(([orgName, emps]) => {
+        const ws = workbook.addWorksheet(orgName.substring(0, 31));
+
+        const r1 = ws.addRow([`${orgName.toUpperCase()} — ATTENDANCE SUMMARY`]);
+        const r2 = ws.addRow([`Period: ${moment(start).format('DD MMM YYYY')} to ${moment(end).format('DD MMM YYYY')} | Staff: ${emps.length}`]);
+        ws.mergeCells('A1:L1');
+        ws.mergeCells('A2:L2');
+        r1.height = 30;
+        r2.height = 20;
+        styleHeader(r1, 'FF0F172A', 'FFFFFFFF');
+        r1.getCell(1).font = { bold: true, size: 13, color: { argb: 'FFFFFFFF' }, name: 'Arial' };
+        styleHeader(r2, 'FF1E293B', 'FF94A3B8');
+        r2.getCell(1).font = { size: 10, italic: true, color: { argb: 'FF94A3B8' }, name: 'Arial' };
+
+        const headerRow = ws.addRow(SUMMARY_HEADERS);
+        headerRow.height = 24;
+        styleHeader(headerRow, 'FF0F172A', 'FFFFFFFF');
+
+        const activeEmps = emps.filter(e => e.employment_status !== 'Resigned' && e.employment_status !== 'Terminated');
+
+        activeEmps.forEach((e, idx) => {
+          const { openingBalance, plTaken, lwpTaken, availableBalance } = calculateEmployeeLeaveBreakdown(e, reportMetricsById);
+          const empDisplayName = e.name || `${e.first_name || ''} ${e.last_name || ''}`.trim() || e.username;
 
           const row = ws.addRow([
-            e.name,
-            presentDays,
+            empDisplayName,
+            getPresentDaysForReport(e),
             getAbsentDaysForReport(e),
             getActualHalfDays(e),
             getHalfDayLeaveCountForReport(e),
@@ -1790,14 +1865,11 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
             plTaken,
             lwpTaken,
             availableBalance,
-            e.avgHours,
+            e.avgHours || '0.0',
           ]);
-
           row.height = 20;
-          row.getCell(1).font = { bold: true, name: 'Arial', size: 10 };
-          row.getCell(1).alignment = { vertical: 'middle' };
 
-          if (idxInner % 2 === 0) {
+          if (idx % 2 === 0) {
             row.eachCell(cell => {
               cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
             });
@@ -1826,20 +1898,20 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
         ws.addRow([]);
 
         const totalRow = ws.addRow([
-          `Total  (${employees.length} employees)`,
-          employees.reduce((s, e) => s + getPresentDaysForReport(e), 0),
-          employees.reduce((s, e) => s + getAbsentDaysForReport(e), 0),
-          employees.reduce((s, e) => s + getActualHalfDays(e), 0),
-          employees.reduce((s, e) => s + getHalfDayLeaveCountForReport(e), 0),
-          employees.reduce((s, e) => s + getFullDayLeaveCountForReport(e), 0),
-          employees.reduce((s, e) => s + getLeaveCountForReport(e), 0),
-          sumLeaveMetric(employees, 'opening_balance'),
-          sumLeaveMetric(employees, 'privilege_taken'),
-          sumLeaveMetric(employees, 'lwp_taken'),
-          sumLeaveMetric(employees, 'available_balance'),
+          `Total  (${activeEmps.length} employees)`,
+          activeEmps.reduce((s, e) => s + getPresentDaysForReport(e), 0),
+          activeEmps.reduce((s, e) => s + getAbsentDaysForReport(e), 0),
+          activeEmps.reduce((s, e) => s + getActualHalfDays(e), 0),
+          activeEmps.reduce((s, e) => s + getHalfDayLeaveCountForReport(e), 0),
+          activeEmps.reduce((s, e) => s + getFullDayLeaveCountForReport(e), 0),
+          activeEmps.reduce((s, e) => s + getLeaveCountForReport(e), 0),
+          sumLeaveMetric(activeEmps, 'opening_balance'),
+          sumLeaveMetric(activeEmps, 'privilege_taken'),
+          sumLeaveMetric(activeEmps, 'lwp_taken'),
+          sumLeaveMetric(activeEmps, 'available_balance'),
           (() => {
-            const total = employees.reduce((s, e) => s + parseFloat(e.avgHours || 0), 0);
-            return employees.length > 0 ? (total / employees.length).toFixed(1) : '0.0';
+            const total = activeEmps.reduce((s, e) => s + parseFloat(e.avgHours || 0), 0);
+            return activeEmps.length > 0 ? (total / activeEmps.length).toFixed(1) : '0.0';
           })(),
         ]);
         totalRow.height = 22;
@@ -1852,19 +1924,15 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
         ws.views = [{ state: 'frozen', ySplit: 3 }];
       });
 
-      summaryWs.getColumn(1).width = 32;
-      [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].forEach(c => summaryWs.getColumn(c).width = 15);
-      summaryWs.getColumn(13).width = 14;
-
       const buffer = await workbook.xlsx.writeBuffer();
-      const fileName = `Attendance_Summary_${moment(startDate).format('MMM_YYYY')}.xlsx`;
+      const fileName = `Summary_Attendance_Report_${start}_to_${end}.xlsx`;
       saveAs(new Blob([buffer], { type: 'application/octet-stream' }), fileName);
       toast.dismiss(lt);
-      toast.success(`Summary report downloaded: ${fileName}`);
-    } catch (e) {
-      console.error('Summary directory export failed:', e);
+      toast.success('Summary report exported successfully');
+    } catch (err) {
+      console.error('Summary export failed:', err);
       toast.dismiss(lt);
-      toast.error('Failed to generate summary report');
+      toast.error('Failed to export summary report');
     } finally {
       setEpwDlLoading(false);
       setEpwDlModal(p => ({ ...p, open: false }));
@@ -1877,24 +1945,31 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     setEpwDlLoading(true);
     const lt = toast.loading('Preparing Leave Report…');
     try {
+      const start = moment(dlStart).format('YYYY-MM-DD');
+      const end = moment(dlEnd).format('YYYY-MM-DD');
+
       let response;
       if (!id) {
-        response = await attendanceAPI.getAdminAttendanceReport(dlStart, dlEnd, undefined, 'all');
+        response = await attendanceAPI.getAdminAttendanceReport(start, end, undefined, 'all');
       } else if (teamId && teamId !== 'all') {
-        response = await attendanceAPI.getTeamAttendanceReport(dlStart, dlEnd, teamId);
+        response = await attendanceAPI.getTeamAttendanceReport(start, end, teamId);
       } else {
-        response = await attendanceAPI.getAdminAttendanceReport(dlStart, dlEnd, undefined, 'all');
+        response = await attendanceAPI.getAdminAttendanceReport(start, end, undefined, 'all');
       }
 
       const reportDataRaw = response?.data || [];
-      const reportDataEnriched = await enrichReportWithLeaveBalance(reportDataRaw, dlStart, dlEnd);
+      const reportDataEnriched = await enrichReportWithLeaveBalance(reportDataRaw, start, end);
+      const filteredEmpIds = new Set(filteredEmployees.map(emp => String(emp._id || emp.id)));
+      const filteredReportData = reportDataEnriched.filter(emp => filteredEmpIds.has(String(emp.id || emp._id)));
+      const reportMetricsById = new Map(filteredReportData.map(row => [String(row.id || row._id), row]));
 
-      const processedReportData = reportDataEnriched.map(e => ({
+      const processedReportData = filteredReportData.map(e => ({
         ...e,
         history: Array.isArray(e.history) ? e.history : []
       }));
 
-      const reportMetricsById = new Map(processedReportData.map(row => [String(row.id || row._id), row]));
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'AlVision Exim';
 
       const styleHeader = (row, bgArgb, textArgb = 'FF0F172A') => {
         row.eachCell(cell => {
@@ -1904,282 +1979,163 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
             top: { style: 'thin' }, left: { style: 'thin' },
             bottom: { style: 'thin' }, right: { style: 'thin' }
           };
-          cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
         });
       };
 
-      const roundLeave = (value) => Math.round(Number(value || 0) * 10) / 10;
-      const getLeaveMetrics = (employeeId) => reportMetricsById.get(String(employeeId)) || {};
-      const isPrivilegeLeave = (leaveType = '') => {
-        const type = String(leaveType || '').toLowerCase();
-        return type.includes('privilege') || type.includes('earned');
-      };
-      const isLwpLeave = (leaveType = '') => {
-        const type = String(leaveType || '').toLowerCase();
-        return type === 'lwp' || type.includes('without pay') || type.includes('unpaid') || type === 'lop';
-      };
-      // Full days present (count of >= 8h or marked present/late, strictly without fractional 0.5 for half days)
-      const getPresentDaysForReport = (employee) => {
-        if (!Array.isArray(employee.history) || employee.history.length === 0) {
-          return Number(employee.present || 0);
-        }
-        return employee.history.filter((day) => {
-          const s = String(day?.status || '').toLowerCase();
-          if (s === 'weekly_off' || s === 'weekoff' || s === 'off' || s === 'holiday') return false;
-          const isHalfLeave = isHalfDayLeave(day);
-          if (isHalfLeave) return false;
-
-          let workHours = 0;
-          if (day?.total_work_hours !== null && day?.total_work_hours !== undefined && Number(day.total_work_hours) > 0) {
-            workHours = Number(day.total_work_hours);
-          } else if (day?.first_in && day?.last_out) {
-            workHours = moment(day.last_out).diff(moment(day.first_in), 'hours', true);
-          }
-
-          if (workHours >= 8) return true;
-          if (workHours > 0 && workHours < 8) return false;
-          return (s === 'present' || s === 'late' || s === 'present_late') && workHours === 0 && !day?.first_in;
-        }).length;
-      };
-      const isHalfDayLeave = (day) => Boolean(day?.is_half_day_leave || day?.is_half_day || day?.isHalfDayLeave);
-      const getActualHalfDays = (employee) => {
-        if (!Array.isArray(employee.history) || employee.history.length === 0) return Number(employee.halfDay || 0);
-
-        return employee.history.filter((day) => {
-          const s = String(day?.status || '').toLowerCase();
-          const leaveType = day?.leaveType || day?.leave_type || '';
-          const isHalfLeave = isHalfDayLeave(day);
-          if (isHalfLeave || leaveType) return false;
-          if (s === 'weekly_off' || s === 'weekoff' || s === 'off' || s === 'holiday') return false;
-
-          let workHours = 0;
-          if (day?.total_work_hours !== null && day?.total_work_hours !== undefined && Number(day.total_work_hours) > 0) {
-            workHours = Number(day.total_work_hours);
-          } else if (day?.first_in && day?.last_out) {
-            workHours = moment(day.last_out).diff(moment(day.first_in), 'hours', true);
-          }
-
-          if (workHours >= 8) return false;
-          if (workHours >= 4) return true;
-          return s === 'half_day' && workHours === 0 && !day?.first_in;
-        }).length;
-      };
-
-      const getHalfDayLeaveCountForReport = (employee) => {
-        if (!Array.isArray(employee.history) || employee.history.length === 0) return 0;
-
-        return employee.history.filter((day) => {
-          const s = String(day?.status || '').toLowerCase();
-          const leaveType = day?.leaveType || day?.leave_type || '';
-          const isHalfLeave = isHalfDayLeave(day);
-          return isHalfLeave || (s === 'half_day' && leaveType) || (s === 'leave' && isHalfLeave);
-        }).length;
-      };
-
-      const getFullDayLeaveCountForReport = (employee) => {
-        if (!Array.isArray(employee.history) || employee.history.length === 0) return Number(employee.leaves || 0);
-
-        return employee.history.filter((day) => {
-          const s = String(day?.status || '').toLowerCase();
-          const isHalfLeave = isHalfDayLeave(day);
-          return (s === 'leave' || s === 'pending_leave') && !isHalfLeave;
-        }).length;
-      };
-
-      // Absent days (unauthorized/unexcused absence with <4h worked and NO approved leave)
-      const getAbsentDaysForReport = (employee) => {
-        if (!Array.isArray(employee.history) || employee.history.length === 0) return Number(employee.absent || 0);
-        return employee.history.filter((day) => {
-          const s = String(day?.status || '').toLowerCase();
-          const lt = String(day?.leaveType || day?.leave_type || day?.leaveReason || '').trim();
-          const isHalfLeave = isHalfDayLeave(day);
-
-          if (s === 'weekly_off' || s === 'weekoff' || s === 'off' || s === 'holiday') return false;
-          if (s === 'leave' || s === 'pending_leave' || isHalfLeave || lt) return false;
-
-          let workHours = 0;
-          if (day?.total_work_hours !== null && day?.total_work_hours !== undefined && Number(day.total_work_hours) > 0) {
-            workHours = Number(day.total_work_hours);
-          } else if (day?.first_in && day?.last_out) {
-            workHours = moment(day.last_out).diff(moment(day.first_in), 'hours', true);
-          }
-
-          if (workHours >= 4) return false;
-          if ((s === 'present' || s === 'late' || s === 'present_late') && workHours === 0 && !day?.first_in) return false;
-          return s === 'absent' || (workHours < 4 && !day?.first_in);
-        }).length;
-      };
-
-      // Complete leaves = sum of [Full Day Leaves] + (0.5 * [Half Day Leaves])
-      const getLeaveCountForReport = (employee) => {
-        const halfDayLeaves = getHalfDayLeaveCountForReport(employee);
-        const fullDayLeaves = getFullDayLeaveCountForReport(employee);
-        return roundLeave(fullDayLeaves + (halfDayLeaves * 0.5));
-      };
-
-      // Calculate exact PL Taken, LWP Taken, Available Balance
-      const calculateEmployeeLeaveBreakdown = (employee) => {
-        const metrics = getLeaveMetrics(employee.id || employee._id);
-        const openingBalance = roundLeave(Number(metrics.opening_balance || 0));
-        const completeLeaves = getLeaveCountForReport(employee);
-
-        if (!Array.isArray(employee.history) || employee.history.length === 0) {
-          const plTaken = roundLeave(Math.min(openingBalance, completeLeaves));
-          const lwpTaken = roundLeave(Math.max(0, completeLeaves - openingBalance));
-          const availableBalance = roundLeave(Math.max(0, openingBalance - plTaken));
-          return { openingBalance, plTaken, lwpTaken, availableBalance };
-        }
-
-        let explicitLwp = 0;
-        let explicitPl = 0;
-
-        employee.history.forEach((day) => {
-          const s = String(day?.status || '').toLowerCase();
-          const lt = String(day?.leaveType || day?.leave_type || day?.leaveReason || '').trim();
-          const isHalfLeave = isHalfDayLeave(day);
-
-          if (s === 'weekly_off' || s === 'weekoff' || s === 'off' || s === 'holiday') return;
-
-          if (isHalfLeave || (s === 'half_day' && lt)) {
-            if (isLwpLeave(lt)) {
-              explicitLwp += 0.5;
-            } else {
-              explicitPl += 0.5;
-            }
-          } else if (s === 'leave' || s === 'pending_leave') {
-            if (isLwpLeave(lt)) {
-              explicitLwp += 1.0;
-            } else {
-              explicitPl += 1.0;
-            }
-          }
-        });
-
-        const plTaken = roundLeave(Math.min(openingBalance, explicitPl));
-        const lwpTaken = roundLeave(explicitLwp + Math.max(0, explicitPl - openingBalance));
-        const availableBalance = roundLeave(Math.max(0, openingBalance - plTaken));
-
-        return { openingBalance, plTaken, lwpTaken, availableBalance };
-      };
       const sumLeaveMetric = (employees, key) => roundLeave(
         employees.reduce((sum, employee) => {
-          const metrics = getLeaveMetrics(employee.id);
-          const breakdown = calculateEmployeeLeaveBreakdown(employee);
+          const breakdown = calculateEmployeeLeaveBreakdown(employee, reportMetricsById);
           let value;
           if (key === 'available_balance') value = breakdown.availableBalance;
           else if (key === 'privilege_taken') value = breakdown.plTaken;
           else if (key === 'lwp_taken') value = breakdown.lwpTaken;
           else if (key === 'opening_balance') value = breakdown.openingBalance;
-          else value = metrics[key] ?? 0;
+          else value = employee[key] ?? 0;
           return sum + Number(value || 0);
         }, 0)
       );
 
-      const workbook = new ExcelJS.Workbook();
-      workbook.creator = 'Exim Application';
+      const byOrg = {};
+      processedReportData.forEach(e => {
+        const co = e.company_name?.trim() || 'Unassigned';
+        if (!byOrg[co]) byOrg[co] = [];
+        byOrg[co].push(e);
+      });
 
-      const groups = {};
-      if (dlGroupBy === 'organization') {
-        filteredEmployees.forEach(emp => {
-          const key = emp.company_id?.company_name || 'No Organization';
-          if (!groups[key]) groups[key] = [];
-          groups[key].push(emp);
-        });
-      } else if (dlGroupBy === 'team') {
-        filteredEmployees.forEach(emp => {
-          const key = getEmployeeTeamName(emp);
-          if (!groups[key]) groups[key] = [];
-          groups[key].push(emp);
-        });
-      } else {
-        groups['All Employees'] = filteredEmployees;
-      }
+      const SUMMARY_HEADERS = [
+        'Employee', 'Present', 'Absent', 'Half Day', 'Half Day Leaves',
+        'Full Day Leaves', 'Complete Leaves', 'Opening Balance', 'PL Taken',
+        'LWP Taken', 'Available Balance', 'Avg Hours/Day'
+      ];
 
-      const sortedGroupNames = sortGroupNamesWithRabsLast(Object.keys(groups));
+      const STATUS_COLORS = {
+        present: 'FF059669',
+        absent: 'FFDC2626',
+        halfDay: 'FFD97706',
+        leaves: 'FF4F46E5',
+        pending: 'FF475569',
+      };
 
-      // ── Create Summary sheet first ──
-      const summaryWs = workbook.addWorksheet('Summary');
+      const summaryWs = workbook.addWorksheet('All Organizations');
       summaryWs.views = [{ state: 'frozen', ySplit: 3 }];
 
-      const sTitleRow = summaryWs.addRow([`All Groups  |  Leave & Attendance Report: ${dlStart}  →  ${dlEnd}`]);
-      sTitleRow.font = { bold: true, size: 13, name: 'Arial', color: { argb: 'FFFFFFFF' } };
-      sTitleRow.height = 28;
-      sTitleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
-      sTitleRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
-      summaryWs.mergeCells(`A1:M1`);
+      const r1 = summaryWs.addRow(['FULL DIRECTORY LEAVE SUMMARY — ALL ORGANIZATIONS']);
+      const r2 = summaryWs.addRow([`Period: ${moment(start).format('DD MMM YYYY')} to ${moment(end).format('DD MMM YYYY')} | Staff: ${processedReportData.length}`]);
+      summaryWs.mergeCells('A1:L1');
+      summaryWs.mergeCells('A2:L2');
+      r1.height = 30;
+      r2.height = 20;
+      styleHeader(r1, 'FF0F172A', 'FFFFFFFF');
+      r1.getCell(1).font = { bold: true, size: 13, color: { argb: 'FFFFFFFF' }, name: 'Arial' };
+      styleHeader(r2, 'FF1E293B', 'FF94A3B8');
+      r2.getCell(1).font = { size: 10, italic: true, color: { argb: 'FF94A3B8' }, name: 'Arial' };
 
-      summaryWs.addRow([]);
+      const allHeaderRow = summaryWs.addRow(SUMMARY_HEADERS);
+      allHeaderRow.height = 24;
+      styleHeader(allHeaderRow, 'FF0F172A', 'FFFFFFFF');
 
-      const sHeaderRow = summaryWs.addRow(['Group', 'Headcount', 'Present', 'Absent', 'Half Day', 'Half Day Leaves', 'Full Day Leaves', 'Complete Leaves', 'Opening Balance', 'PL Taken', 'LWP Taken', 'Available Balance', 'Avg Hrs/Day']);
-      sHeaderRow.height = 22;
-      styleHeader(sHeaderRow, 'FF334155', 'FFFFFFFF');
+      const allActiveEmps = processedReportData.filter(e => e.employment_status !== 'Resigned' && e.employment_status !== 'Terminated');
 
-      // ── Build worksheets and populate Summary rows ──
-      sortedGroupNames.forEach((groupName, idx) => {
-        const employees = groups[groupName];
-        if (!employees || employees.length === 0) return;
+      allActiveEmps.forEach((e, idx) => {
+        const { openingBalance, plTaken, lwpTaken, availableBalance } = calculateEmployeeLeaveBreakdown(e, reportMetricsById);
+        const empDisplayName = e.name || `${e.first_name || ''} ${e.last_name || ''}`.trim() || e.username;
 
-        const activeEmps = employees.map(emp => reportMetricsById.get(String(emp._id))).filter(Boolean);
-        if (activeEmps.length === 0) return;
-
-        // Write row to Summary worksheet
-        const summaryRow = summaryWs.addRow([
-          groupName,
-          activeEmps.length,
-          activeEmps.reduce((s, e) => s + getPresentDaysForReport(e), 0),
-          activeEmps.reduce((s, e) => s + getAbsentDaysForReport(e), 0),
-          activeEmps.reduce((s, e) => s + getActualHalfDays(e), 0),
-          activeEmps.reduce((s, e) => s + getHalfDayLeaveCountForReport(e), 0),
-          activeEmps.reduce((s, e) => s + getFullDayLeaveCountForReport(e), 0),
-          activeEmps.reduce((s, e) => s + getLeaveCountForReport(e), 0),
-          sumLeaveMetric(activeEmps, 'opening_balance'),
-          sumLeaveMetric(activeEmps, 'privilege_taken'),
-          sumLeaveMetric(activeEmps, 'lwp_taken'),
-          sumLeaveMetric(activeEmps, 'available_balance'),
-          (activeEmps.reduce((s, e) => s + parseFloat(e.avgHours || 0), 0) / activeEmps.length).toFixed(1),
+        const row = summaryWs.addRow([
+          empDisplayName,
+          getPresentDaysForReport(e),
+          getAbsentDaysForReport(e),
+          getActualHalfDays(e),
+          getHalfDayLeaveCountForReport(e),
+          getFullDayLeaveCountForReport(e),
+          getLeaveCountForReport(e),
+          openingBalance,
+          plTaken,
+          lwpTaken,
+          availableBalance,
+          e.avgHours || '0.0',
         ]);
-        summaryRow.height = 20;
+        row.height = 20;
+
         if (idx % 2 === 0) {
-          summaryRow.eachCell(cell => {
+          row.eachCell(cell => {
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
           });
         }
-        summaryRow.getCell(1).font = { bold: true, name: 'Arial', size: 10 };
-        [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13].forEach(c => { summaryRow.getCell(c).alignment = { horizontal: 'center', vertical: 'middle' }; });
 
-        // Add the group's own worksheet
-        const ws = workbook.addWorksheet(groupName.substring(0, 31));
+        [[2, STATUS_COLORS.present], [3, STATUS_COLORS.absent], [4, STATUS_COLORS.halfDay],
+        [5, STATUS_COLORS.leaves], [6, STATUS_COLORS.leaves], [7, STATUS_COLORS.leaves],
+        [8, STATUS_COLORS.pending], [9, STATUS_COLORS.pending], [10, STATUS_COLORS.pending],
+        [11, STATUS_COLORS.pending]]
+          .forEach(([col, color]) => {
+            const cell = row.getCell(col);
+            cell.font = { bold: true, color: { argb: color }, name: 'Arial', size: 10 };
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          });
 
-        const titleRow = ws.addRow([`${groupName}  |  Leave & Attendance Report: ${dlStart}  →  ${dlEnd}`]);
-        titleRow.font = { bold: true, size: 13, name: 'Arial', color: { argb: 'FFFFFFFF' } };
-        titleRow.height = 28;
-        titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
-        titleRow.getCell(1).alignment = { horizontal: 'left', vertical: 'middle' };
-        ws.mergeCells(`A${titleRow.number}:L${titleRow.number}`);
+        row.getCell(12).alignment = { horizontal: 'center', vertical: 'middle' };
 
-        ws.addRow([]);
+        row.eachCell(cell => {
+          cell.border = {
+            bottom: { style: 'hair', color: { argb: 'FFE2E8F0' } },
+            right: { style: 'hair', color: { argb: 'FFE2E8F0' } },
+          };
+        });
+      });
 
-        const COLS = ['Employee', 'Present', 'Absent', 'Half Day', 'Half Day Leaves', 'Full Day Leaves', 'Complete Leaves', 'Opening Balance', 'PL Taken', 'LWP Taken', 'Available Balance', 'Avg Hours/Day'];
-        const headerRow = ws.addRow(COLS);
-        headerRow.height = 22;
-        styleHeader(headerRow, 'FF334155', 'FFFFFFFF');
+      summaryWs.addRow([]);
 
-        const STATUS_COLORS = {
-          present: 'FF10b981',
-          absent: 'FFef4444',
-          halfDay: 'FF3b82f6',
-          leaves: 'FF8b5cf6',
-          pending: 'FFf97316',
-        };
+      const allTotalRow = summaryWs.addRow([
+        `Total  (${allActiveEmps.length} employees)`,
+        allActiveEmps.reduce((s, e) => s + getPresentDaysForReport(e), 0),
+        allActiveEmps.reduce((s, e) => s + getAbsentDaysForReport(e), 0),
+        allActiveEmps.reduce((s, e) => s + getActualHalfDays(e), 0),
+        allActiveEmps.reduce((s, e) => s + getHalfDayLeaveCountForReport(e), 0),
+        allActiveEmps.reduce((s, e) => s + getFullDayLeaveCountForReport(e), 0),
+        allActiveEmps.reduce((s, e) => s + getLeaveCountForReport(e), 0),
+        sumLeaveMetric(allActiveEmps, 'opening_balance'),
+        sumLeaveMetric(allActiveEmps, 'privilege_taken'),
+        sumLeaveMetric(allActiveEmps, 'lwp_taken'),
+        sumLeaveMetric(allActiveEmps, 'available_balance'),
+        (() => {
+          const total = allActiveEmps.reduce((s, e) => s + parseFloat(e.avgHours || 0), 0);
+          return allActiveEmps.length > 0 ? (total / allActiveEmps.length).toFixed(1) : '0.0';
+        })(),
+      ]);
+      allTotalRow.height = 22;
+      styleHeader(allTotalRow, 'FF1E293B', 'FFFFFFFF');
 
-        activeEmps.forEach((e, idxInner) => {
-          const leaveMetrics = getLeaveMetrics(e.id);
-          const { openingBalance, plTaken, lwpTaken, availableBalance } = calculateEmployeeLeaveBreakdown(e);
-          const presentDays = getPresentDaysForReport(e);
+      summaryWs.getColumn(1).width = 30;
+      [2, 3, 4, 5, 6, 7, 8, 9, 10, 11].forEach(c => summaryWs.getColumn(c).width = 15);
+      summaryWs.getColumn(12).width = 16;
+
+      Object.entries(byOrg).sort(([a], [b]) => a.localeCompare(b)).forEach(([orgName, emps]) => {
+        const ws = workbook.addWorksheet(orgName.substring(0, 31));
+
+        const r1 = ws.addRow([`${orgName.toUpperCase()} — LEAVE SUMMARY`]);
+        const r2 = ws.addRow([`Period: ${moment(start).format('DD MMM YYYY')} to ${moment(end).format('DD MMM YYYY')} | Staff: ${emps.length}`]);
+        ws.mergeCells('A1:L1');
+        ws.mergeCells('A2:L2');
+        r1.height = 30;
+        r2.height = 20;
+        styleHeader(r1, 'FF0F172A', 'FFFFFFFF');
+        r1.getCell(1).font = { bold: true, size: 13, color: { argb: 'FFFFFFFF' }, name: 'Arial' };
+        styleHeader(r2, 'FF1E293B', 'FF94A3B8');
+        r2.getCell(1).font = { size: 10, italic: true, color: { argb: 'FF94A3B8' }, name: 'Arial' };
+
+        const headerRow = ws.addRow(SUMMARY_HEADERS);
+        headerRow.height = 24;
+        styleHeader(headerRow, 'FF0F172A', 'FFFFFFFF');
+
+        const activeEmps = emps.filter(e => e.employment_status !== 'Resigned' && e.employment_status !== 'Terminated');
+
+        activeEmps.forEach((e, idx) => {
+          const { openingBalance, plTaken, lwpTaken, availableBalance } = calculateEmployeeLeaveBreakdown(e, reportMetricsById);
+          const empDisplayName = e.name || `${e.first_name || ''} ${e.last_name || ''}`.trim() || e.username;
 
           const row = ws.addRow([
-            e.name,
-            presentDays,
+            empDisplayName,
+            getPresentDaysForReport(e),
             getAbsentDaysForReport(e),
             getActualHalfDays(e),
             getHalfDayLeaveCountForReport(e),
@@ -2189,14 +2145,11 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
             plTaken,
             lwpTaken,
             availableBalance,
-            e.avgHours,
+            e.avgHours || '0.0',
           ]);
-
           row.height = 20;
-          row.getCell(1).font = { bold: true, name: 'Arial', size: 10 };
-          row.getCell(1).alignment = { vertical: 'middle' };
 
-          if (idxInner % 2 === 0) {
+          if (idx % 2 === 0) {
             row.eachCell(cell => {
               cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
             });
@@ -2256,7 +2209,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
       summaryWs.getColumn(13).width = 14;
 
       const buffer = await workbook.xlsx.writeBuffer();
-      const fileName = `Leave_Report_${dlStart}_to_${dlEnd}.xlsx`;
+      const fileName = `Leave_Report_${start}_to_${end}.xlsx`;
       saveAs(new Blob([buffer], { type: 'application/octet-stream' }), fileName);
       toast.dismiss(lt);
       toast.success('Leave report exported successfully');
@@ -2273,79 +2226,37 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
   const confirmDownloadOrgReport = async (orgName, items, startDt, endDt) => {
     try {
       const lt = toast.loading(`Preparing report for ${orgName}...`);
-      const allLogs = [];
-      const start = moment(startDt).startOf('day').format('YYYY-MM-DD');
-      const end = moment(endDt).endOf('day').format('YYYY-MM-DD');
-      for (let i = 0; i < items.length; i += 5) {
-        const chunk = items.slice(i, i + 5);
-        await Promise.all(chunk.map(async (emp) => {
-          try {
-            const p = await attendanceAPI.getEmployeeFullProfile(emp._id, start, end, emp.company_id?._id || emp.company_id);
-            (p?.attendance || []).forEach(log => {
-              let sn = '', sh = '';
-              if (log.shift_id) { sn = log.shift_id.shift_name || log.shift_id.name || ''; sh = `${log.shift_id.start_time || ''} - ${log.shift_id.end_time || ''}`; }
-              else if (p.employee?.shift_id) { const s = p.employee.shift_id; sn = s.shift_name || s.name || ''; sh = `${s.start_time || ''} - ${s.end_time || ''}`; }
-              const fdt = dt => dt ? moment(dt).format('DD-MM-YYYY h:mm A') : '';
-              let workHoursNum = 0;
-              const computedDiff = (log.first_in && log.last_out) ? moment(log.last_out).diff(moment(log.first_in), 'hours', true) : 0;
-              if (log.total_work_hours !== null && log.total_work_hours !== undefined && Number(log.total_work_hours) > 0) {
-                workHoursNum = Number(log.total_work_hours);
-              } else if (computedDiff > 0 && computedDiff < 24) {
-                workHoursNum = computedDiff;
-              }
+      const start = moment(startDt).format('YYYY-MM-DD');
+      const end = moment(endDt).format('YYYY-MM-DD');
 
-              let fs = 'Absent';
-              const statusLower = String(log.status || '').toLowerCase();
-              const leaveType = String(log.leaveType || log.leave_type || log.leaveReason || '').trim();
-              const lLower = leaveType.toLowerCase();
-              let leaveCode = 'PL';
-              if (lLower.includes('lwp') || lLower.includes('without pay') || lLower.includes('unpaid') || lLower === 'lop') leaveCode = 'LWP';
-              else if (lLower.includes('privilege') || lLower.includes('earned') || lLower === 'pl' || lLower === 'el') leaveCode = 'PL';
-              else if (lLower.includes('casual') || lLower === 'cl') leaveCode = 'CL';
-              else if (lLower.includes('sick') || lLower === 'sl') leaveCode = 'SL';
-              else if (lLower.includes('comp') || lLower === 'co') leaveCode = 'Comp Off';
-              else if (leaveType) leaveCode = leaveType.toUpperCase();
+      const response = await attendanceAPI.getAdminAttendanceReport(start, end, undefined, 'all');
+      const reportDataRaw = response?.data || [];
+      const reportDataEnriched = await enrichReportWithLeaveBalance(reportDataRaw, start, end);
 
-              if (statusLower === 'weekly_off') fs = 'Weekly Off';
-              else if (statusLower === 'holiday') fs = 'Holiday';
-              const isHalfLeave = Boolean(log?.is_half_day_leave || log?.is_half_day || log?.isHalfDayLeave);
-              if ((statusLower === 'leave' || statusLower === 'pending_leave') && !isHalfLeave) fs = leaveCode;
-              else if (workHoursNum >= 8 || statusLower === 'present' || statusLower === 'late') fs = 'Present';
-              else if (workHoursNum >= 4 || statusLower === 'half_day' || isHalfLeave) fs = (leaveType || isHalfLeave) ? `Half Day (${leaveCode})` : 'Half Day';
-              else if (statusLower === 'incomplete' || statusLower === 'missed_punch') fs = 'Missed Punch';
-              else fs = 'Absent';
+      const targetEmpIds = new Set((items || []).map(emp => String(emp._id || emp.id)));
+      const orgEmployees = reportDataEnriched.filter(emp => targetEmpIds.has(String(emp.id || emp._id)));
+      const reportMetricsById = new Map(orgEmployees.map(row => [String(row.id || row._id), row]));
 
-              let timingRemarks = '—';
-              const lateText = (log.is_late || (log.late_by_minutes > 0)) ? `Late In (${log.late_by_minutes || 0}m)` : '';
-              const earlyText = (log.is_early_exit || (log.early_exit_minutes > 0)) ? `Early Out (${log.early_exit_minutes || 0}m)` : '';
-              if (lateText && earlyText) timingRemarks = `${lateText}, ${earlyText}`;
-              else if (lateText) timingRemarks = lateText;
-              else if (earlyText) timingRemarks = earlyText;
-              else if (log.first_in || log.last_out || workHoursNum > 0) timingRemarks = 'On Time';
-
-              allLogs.push({ "NAME": `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || emp.username, "DATE": moment(log.attendance_date).format('YYYY-MM-DD'), "STATUS": fs, "ATTENDANCE INTIME": fdt(log.first_in), "ATTENDANCE OUTTIME": fdt(log.last_out), "SHIFT NAME": sn, "SHIFT HOURS": sh, "LATE IN / EARLY OUT": timingRemarks });
-            });
-          } catch { }
-        }));
+      if (!orgEmployees.length) {
+        toast.dismiss(lt);
+        toast.error(`No logs found for ${orgName}`);
+        return;
       }
-      if (!allLogs.length) { toast.dismiss(lt); toast.error(`No logs found for ${orgName}`); return; }
-      const wb = new ExcelJS.Workbook(), ws = wb.addWorksheet('Attendance Logs');
-      const navy = { fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } }, font: { color: { argb: 'FFFFFFFF' }, bold: true }, alignment: { horizontal: 'center', vertical: 'middle' } };
-      ws.mergeCells('A1:G1'); const cc = ws.getCell('A1'); cc.value = orgName.toUpperCase(); cc.style = navy; ws.getRow(1).height = 35;
-      ws.mergeCells('A2:G2'); const sc = ws.getCell('A2'); sc.value = `ATTENDANCE LOG REPORT: ${moment(start).format('DD MMM YYYY')} TO ${moment(end).format('DD MMM YYYY')}`; sc.font = { bold: true, size: 11, color: { argb: 'FF475569' } }; sc.alignment = { horizontal: 'center' }; ws.getRow(2).height = 20;
-      ws.addRow([]);
-      const dates = [...new Set(allLogs.map(l => l.DATE))].sort((a, b) => new Date(b) - new Date(a));
-      dates.forEach(ds => {
-        const dr = ws.addRow([`DATE: ${moment(ds).format('DD MMMM YYYY, dddd').toUpperCase()}`]); dr.eachCell(c => { c.style = navy; }); ws.mergeCells(`A${dr.number}:G${dr.number}`);
-        const hr = ws.addRow(["NAME", "STATUS", "ATTENDANCE INTIME", "ATTENDANCE OUTTIME", "SHIFT NAME", "SHIFT HOURS", "LATE IN / EARLY OUT"]); hr.eachCell(c => { c.style = { fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } }, font: { bold: true, color: { argb: 'FF0F172A' } }, border: { bottom: { style: 'thin' } } }; });
-        allLogs.filter(l => l.DATE === ds).sort((a, b) => a.NAME.localeCompare(b.NAME)).forEach(l => ws.addRow([l.NAME, l.STATUS, l["ATTENDANCE INTIME"], l["ATTENDANCE OUTTIME"], l["SHIFT NAME"], l["SHIFT HOURS"], l["LATE IN / EARLY OUT"]]));
-        ws.addRow([]);
-      });
-      ws.columns = [{ width: 35 }, { width: 18 }, { width: 25 }, { width: 25 }, { width: 22 }, { width: 22 }, { width: 28 }];
-      const buf = await wb.xlsx.writeBuffer();
-      saveAs(new Blob([buf]), `Attendance_Log_${orgName.replace(/[^a-z0-9]/gi, '_')}_${moment(start).format('MMM_DD_YYYY')}.xlsx`);
-      toast.dismiss(lt); toast.success('Report downloaded');
-    } catch (e) { toast.error('Failed to download report'); }
+
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'AlVision Exim';
+
+      buildReportWorksheet(workbook, orgName, orgEmployees, start, end, reportMetricsById);
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const fileName = `Attendance_Log_${orgName.replace(/[^a-z0-9]/gi, '_')}_${moment(start).format('MMM_DD_YYYY')}.xlsx`;
+      saveAs(new Blob([buffer], { type: 'application/octet-stream' }), fileName);
+      toast.dismiss(lt);
+      toast.success('Report downloaded');
+    } catch (e) {
+      console.error('Download org report failed:', e);
+      toast.error('Failed to download report');
+    }
   };
 
   if (loading) return <div style={{ padding: '20px', color: THEME.muted }}>Loading...</div>;

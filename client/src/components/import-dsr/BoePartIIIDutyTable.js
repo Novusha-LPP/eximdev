@@ -170,41 +170,9 @@ export default function BoePartIIIDutyTable({
   }, [candidateFiles, selectedFileUrl]);
 
   // Helper to send a File/Blob to the OCR API
-  const sendFileToOcr = async (file, fileName) => {
-    setSyncing(true);
-    setErrorMsg("");
-    setSuccessMsg("");
+  const API_BASE = process.env.REACT_APP_API_STRING || "";
 
-    const formData = new FormData();
-    formData.append("file", file, fileName || "bill_of_entry.pdf");
-
-    try {
-      const response = await axios.post("http://3.108.244.38:8002/api/v1/upload", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          accept: "application/json"
-        }
-      });
-
-      if (response.data && response.data.status === "success") {
-        const extractedDuties = response.data.data?.PartIIIDuties || [];
-        setDutiesList(extractedDuties);
-        setSuccessMsg(`Successfully synced & extracted duties for ${extractedDuties.length} product(s) from "${fileName}".`);
-        if (onUploadSuccess) {
-          onUploadSuccess(response.data);
-        }
-      } else {
-        setErrorMsg(response.data?.message || "Failed to parse Bill of Entry file.");
-      }
-    } catch (err) {
-      console.error("BOE OCR sync error:", err);
-      setErrorMsg(err.response?.data?.message || err.message || "Error connecting to BOE OCR Server (http://3.108.244.38:8002).");
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  // Sync from Job's existing attached BOE file
+  // Sync from Job's existing attached BOE file via S3 URL
   const handleSyncFromJobFile = async () => {
     if (!selectedFileUrl) {
       setErrorMsg("Please select a Bill of Entry file to sync.");
@@ -220,18 +188,24 @@ export default function BoePartIIIDutyTable({
       const matched = candidateFiles.find((f) => f.url === selectedFileUrl);
       const fileName = matched?.name || selectedFileUrl.split("/").pop().split("?")[0] || "bill_of_entry.pdf";
 
-      // Fetch the file blob from S3 URL
-      const response = await fetch(selectedFileUrl);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch file from storage (${response.statusText})`);
-      }
-      const blob = await response.blob();
-      const file = new File([blob], fileName, { type: "application/pdf" });
+      const response = await axios.post(`${API_BASE}/import-dsr/boe-ocr`, {
+        fileUrl: selectedFileUrl
+      });
 
-      await sendFileToOcr(file, fileName);
+      if (response.data && response.data.status === "success") {
+        const extractedDuties = response.data.data?.PartIIIDuties || [];
+        setDutiesList(extractedDuties);
+        setSuccessMsg(`Successfully synced & extracted duties for ${extractedDuties.length} product(s) from "${fileName}".`);
+        if (onUploadSuccess) {
+          onUploadSuccess(response.data);
+        }
+      } else {
+        setErrorMsg(response.data?.message || "Failed to parse Bill of Entry file.");
+      }
     } catch (err) {
-      console.error("Failed to fetch attached BOE file:", err);
-      setErrorMsg(`Could not fetch the attached document: ${err.message}`);
+      console.error("BOE OCR sync error:", err);
+      setErrorMsg(err.response?.data?.message || err.message || "Error communicating with BOE OCR Service.");
+    } finally {
       setSyncing(false);
     }
   };
@@ -240,7 +214,38 @@ export default function BoePartIIIDutyTable({
   const handleManualUpload = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    await sendFileToOcr(file, file.name);
+
+    setSyncing(true);
+    setErrorMsg("");
+    setSuccessMsg("");
+
+    const formData = new FormData();
+    formData.append("file", file, file.name || "bill_of_entry.pdf");
+
+    try {
+      const response = await axios.post(`${API_BASE}/import-dsr/boe-ocr`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          accept: "application/json"
+        }
+      });
+
+      if (response.data && response.data.status === "success") {
+        const extractedDuties = response.data.data?.PartIIIDuties || [];
+        setDutiesList(extractedDuties);
+        setSuccessMsg(`Successfully synced & extracted duties for ${extractedDuties.length} product(s) from "${file.name}".`);
+        if (onUploadSuccess) {
+          onUploadSuccess(response.data);
+        }
+      } else {
+        setErrorMsg(response.data?.message || "Failed to parse Bill of Entry file.");
+      }
+    } catch (err) {
+      console.error("BOE OCR manual upload error:", err);
+      setErrorMsg(err.response?.data?.message || err.message || "Error communicating with BOE OCR Service.");
+    } finally {
+      setSyncing(false);
+    }
   };
 
   // Column Configurations matching ICEGATE BOE format

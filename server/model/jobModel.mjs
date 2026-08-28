@@ -985,7 +985,6 @@ jobSchema.index({ job_no: 1, year: 1 });
 jobSchema.index({ awb_bl_no: 1, year: 1 });
 jobSchema.index({ be_no: 1, year: 1 });
 jobSchema.index({ supplier_exporter: 1, year: 1 });
-jobSchema.index({ importer: 1, year: 1, status: 1 });
 
 // NEW: Full-text search index (100-500x faster than regex for text searches)
 // Supports searching across multiple fields simultaneously
@@ -1006,7 +1005,6 @@ jobSchema.index({ year: 1, status: 1, "container_nos.detention_from": 1 });
 
 // NEW: Optimized indexes for Status Ranking and Sorting
 jobSchema.index({ year: 1, status_rank: 1, status_sort_date: 1 });
-jobSchema.index({ year: 1, detailed_status: 1 });
 
 // Indexes for Charge Lookups & Out of Charge Tracking (Atlas Query Profiler)
 jobSchema.index({ "charges._id": 1 });
@@ -1020,18 +1018,13 @@ jobSchema.index({ branch_id: 1, custom_house: 1, mode: 1, year: 1, bill_document
 jobSchema.index({ branch_code: 1, custom_house: 1, mode: 1, year: 1, bill_document_sent_to_accounts: 1, billing_confirmation_date: 1 });
 jobSchema.index({ job_no: 1, updatedAt: 1 });
 jobSchema.index({ branch_id: 1, custom_house: 1, mode: 1, documentation_completed_date_time: 1, job_no: 1 });
-jobSchema.index({ branch_id: 1, documentation_completed_date_time: 1, mode: 1 });
 jobSchema.index({ year: 1, custom_house: 1, mode: 1, out_of_charge: 1, esanchit_completed_date_time: 1, gateway_igm_date: 1 });
 jobSchema.index({ "charges.payment_request_no": 1, year: 1, status: 1 });
 jobSchema.index({ "charges.purchase_book_no": 1, year: 1, status: 1 });
-jobSchema.index({ branch_id: 1, custom_house: 1, year: 1, bill_document_sent_to_accounts: 1 });
-jobSchema.index({ branch_code: 1, custom_house: 1, year: 1, bill_document_sent_to_accounts: 1 });
 jobSchema.index({ "container_nos.container_number": 1, custom_house: 1, mode: 1, year: 1 });
 jobSchema.index({ branch_code: 1, mode: 1, be_no: 1, out_of_charge: 1, status: 1 });
 jobSchema.index({ branch_code: 1, custom_house: 1, mode: 1, documentation_completed_date_time: 1, job_no: 1 });
-jobSchema.index({ isGeneralJob: 1, year: 1, status: 1 });
 jobSchema.index({ isGeneralJob: 1, year: 1, createdAt: -1 });
-jobSchema.index({ isGeneralJob: 1, createdAt: -1 });
 jobSchema.index({ branch_id: 1, year: 1, createdAt: -1 });
 jobSchema.index({ branch_code: 1, year: 1, createdAt: -1 });
 jobSchema.index({ year: 1, createdAt: -1 });
@@ -1046,6 +1039,12 @@ jobSchema.index({ year: 1, branch_id: 1, "charges.payment_request_no": 1 });
 jobSchema.index({ year: 1, branch_id: 1, "charges.purchase_book_no": 1 });
 jobSchema.index({ year: 1, "charges.payment_request_no": 1, "charges.payment_request_is_approved": 1 });
 jobSchema.index({ year: 1, "charges.purchase_book_no": 1, "charges.purchase_book_is_approved": 1 });
+jobSchema.index({ year: 1, status: 1, be_no: 1 });
+jobSchema.index({ year: 1, status: 1, branch_code: 1 });
+jobSchema.index({ year: 1, status: 1, branch_id: 1 });
+jobSchema.index({ year: 1, status: 1, importer: 1 });
+jobSchema.index({ year: 1, status: 1, custom_house: 1 });
+jobSchema.index({ year: 1, status: 1, mode: 1 });
 jobSchema.index({ billing_completed_date: 1, branch_code: 1, mode: 1 });
 jobSchema.index({ billing_completed_date: 1, branch_id: 1, mode: 1 });
 jobSchema.index({ custom_house: 1, mode: 1, status: 1, year: 1 });

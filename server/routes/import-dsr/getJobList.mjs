@@ -272,10 +272,7 @@ router.get(
         importer.toLowerCase() !== "all" &&
         !req.userImporterFilter
       ) {
-        query.importer = {
-          $regex: `^${escapeRegex(importer)}$`,
-          $options: "i",
-        };
+        query.importer = { $in: [importer, importer.trim()] };
       } else if (
         importer &&
         importer.toLowerCase() !== "all" &&
@@ -287,28 +284,19 @@ router.get(
         );
         if (isImporterAllowed) {
           query.$and = query.$and.filter((condition) => !condition.importer);
-          query.importer = {
-            $regex: `^${escapeRegex(importer)}$`,
-            $options: "i",
-          };
+          query.importer = { $in: [importer, importer.trim()] };
         }
       }
 
       // 3) ICD
       if (selectedICD && selectedICD.toLowerCase() !== "all") {
-        query.custom_house = {
-          $regex: `^${escapeRegex(selectedICD)}$`,
-          $options: "i",
-        };
+        query.custom_house = { $in: [selectedICD, selectedICD.trim()] };
       }
 
       // 3.5) Type of BE
       const { typeOfBe } = req.query;
       if (typeOfBe && typeOfBe.toLowerCase() !== "all") {
-        query.type_of_b_e = {
-          $regex: `^${escapeRegex(typeOfBe)}$`,
-          $options: "i",
-        };
+        query.type_of_b_e = { $in: [typeOfBe, typeOfBe.trim()] };
       }
 
       // 3.6) Branch, Trade Type, Mode

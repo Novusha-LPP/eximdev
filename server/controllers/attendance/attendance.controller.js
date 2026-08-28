@@ -353,18 +353,19 @@ const buildPendingLeaveConflict = (leave, attendanceDate, tz = 'Asia/Kolkata') =
 const getAttendanceThresholds = (employee) => {
     const companyConfig = employee?.company_id?.attendance_config || {};
     return {
-        fullDayThreshold: Number(companyConfig.full_day_threshold_hours || 8),
-        halfDayThreshold: Number(companyConfig.half_day_threshold_hours || 4)
+        fullDayThreshold: Number(employee?.shift_id?.full_day_hours || companyConfig.full_day_threshold_hours || 8),
+        halfDayThreshold: Number(employee?.shift_id?.half_day_hours || companyConfig.half_day_threshold_hours || 4)
     };
 };
 
 const normalizeAttendanceStatus = (record, employee) => {
     const status = String(record?.status || '').toLowerCase();
-    if (status !== 'incomplete') return status;
+    if (['leave', 'weekly_off', 'holiday'].includes(status)) return status;
     if (!record?.first_in || !record?.last_out) return status;
 
+    const computedHours = moment(record.last_out).diff(moment(record.first_in), 'hours', true);
     const totalWorkHours = Number(
-        record.total_work_hours ?? moment(record.last_out).diff(moment(record.first_in), 'hours', true) ?? 0
+        (record.total_work_hours && record.total_work_hours > 0) ? record.total_work_hours : (computedHours > 0 ? computedHours : 0)
     );
     const { fullDayThreshold, halfDayThreshold } = getAttendanceThresholds(employee);
 
@@ -408,70 +409,114 @@ const buildPolicyAwareReportRow = async (emp, startDate, endDate, records, empLe
         let hSession = null;
 
         const leave = findLeaveForDate(empLeaves, curr);
-        const isSystemAbsent = rec && String(rec.status).toLowerCase() === 'absent';
-        const isWorking = rec && ['present', 'late', 'half_day'].includes(String(rec.status || '').toLowerCase());
+        const leaveFromStr = leave ? moment(leave.from_date).tz('Asia/Kolkata').format('YYYY-MM-DD') : null;
+        const leaveToStr = leave ? moment(leave.to_date).tz('Asia/Kolkata').format('YYYY-MM-DD') : null;
+        const isSingleDayLeave = leave && leaveFromStr === leaveToStr;
+        const isStartDay = leave && dayStr === leaveFromStr;
+        const isEndDay = leave && dayStr === leaveToStr;
+        const isHalfDayLeave = leave ? Boolean(
+            (isSingleDayLeave && leave.is_half_day) ||
+            (isStartDay && leave.is_start_half_day) ||
+            (isEndDay && leave.is_end_half_day)
+        ) : false;
+        const leaveSession = leave ? (
+            (isSingleDayLeave && leave.half_day_session) ||
+            (isStartDay ? leave.start_half_session : null) ||
+            (isEndDay ? leave.end_half_session : null) ||
+            leave.half_day_session ||
+            null
+        ) : null;
 
-        if (leave && !isWorking) {
-            const isHalf = (leave.is_half_day || leave.is_start_half_day || leave.is_end_half_day);
-            const isPending = String(leave.approval_status || '').toLowerCase() === 'pending';
+        const { weekOffPolicy, holidayPolicy } = await getPoliciesForYear(curr.year());
+        const holidayStatus = PolicyResolver.resolveHolidayStatus(dayStr, holidayPolicy);
+        const weekOffStatus = PolicyResolver.resolveWeeklyOffStatus(dayStr, weekOffPolicy);
 
-            hStatus = isHalf ? 'half_day' : (isPending ? 'pending_leave' : 'leave');
-            hSession = leave.half_day_session || leave.start_half_session || leave.end_half_session;
+        const isHolidayDay = Boolean(holidayStatus?.isHoliday || rec?.status === 'holiday' || rec?.is_holiday);
+        const isWeeklyOffDay = Boolean(weekOffStatus?.isOff || rec?.status === 'weekly_off' || rec?.is_weekly_off);
 
-            if (isHalf) actualHalfDay++;
-            else actualLeaves++;
-        } else if (rec) {
+        const computedHours = (rec?.first_in && rec?.last_out) ? moment(rec.last_out).diff(moment(rec.first_in), 'hours', true) : 0;
+        const recWorkHours = (rec?.total_work_hours && rec.total_work_hours > 0) ? rec.total_work_hours : (computedHours > 0 ? computedHours : 0);
+        const hasWorkingPunches = recWorkHours >= 4 || (rec?.first_in && rec?.last_out && computedHours >= 4);
+
+        if (hasWorkingPunches) {
             hStatus = normalizeAttendanceStatus(rec, emp);
-            hSession = rec.half_day_session;
+            hSession = rec?.half_day_session || leaveSession;
 
-            if (hStatus === 'present') actualPresent++;
+            if (hStatus === 'present' || hStatus === 'late') actualPresent++;
             else if (hStatus === 'half_day') actualHalfDay++;
             else if (hStatus === 'absent') actualAbsent++;
             else if (hStatus === 'leave') actualLeaves++;
-            else if (hStatus === 'incomplete') actualMissedPunch++;
 
-            if (rec.is_late) {
+            if (rec?.is_late) {
                 actualLate++;
                 if (hStatus === 'present') hStatus = 'late';
             }
 
-            if (rec.is_early_in) actualEarlyIn++;
-            if (rec.is_early_exit) actualEarlyOut++;
-            actualTotalHours += rec.total_work_hours || 0;
+            if (rec?.is_early_in) actualEarlyIn++;
+            if (rec?.is_early_exit) actualEarlyOut++;
+            actualTotalHours += recWorkHours;
+            actualDaysWithHours += (hStatus === 'half_day' ? 0.5 : 1);
+        } else if (leave) {
+            const isPending = String(leave.approval_status || '').toLowerCase() === 'pending';
+            hStatus = isHalfDayLeave ? 'half_day' : (isPending ? 'pending_leave' : 'leave');
+            hSession = leaveSession;
 
-            if (rec.first_in && rec.last_out) {
-                const diff = moment(rec.last_out).diff(moment(rec.first_in), 'hours', true);
-                if (diff >= 0 && diff < 24) {
-                    const statusLower = String(hStatus || '').toLowerCase();
-                    const isHalf = statusLower === 'half_day' || statusLower === 'leave';
-                    actualDaysWithHours += isHalf ? 0.5 : 1;
-                }
+            if (isHalfDayLeave) {
+                actualHalfDay++;
+                actualLeaves += 0.5;
+            } else {
+                actualLeaves += 1;
             }
+        } else if (rec && (rec.status === 'half_day' || rec.is_half_day)) {
+            hStatus = 'half_day';
+            hSession = rec.half_day_session || leaveSession;
+            actualHalfDay++;
+            if (recWorkHours > 0) {
+                actualTotalHours += recWorkHours;
+                actualDaysWithHours += 0.5;
+            }
+        } else if (rec && rec.status === 'leave') {
+            hStatus = 'leave';
+            hSession = rec.half_day_session || leaveSession;
+            actualLeaves += 1;
+        } else if (isHolidayDay) {
+            hStatus = 'holiday';
+        } else if (isWeeklyOffDay) {
+            hStatus = 'weekly_off';
+        } else if (rec && rec.first_in && !rec.last_out) {
+            hStatus = 'incomplete';
+            actualMissedPunch++;
+        } else if (curr.isSameOrBefore(moment().tz('Asia/Kolkata'), 'day')) {
+            hStatus = 'absent';
+            actualAbsent++;
         } else {
-            const { weekOffPolicy, holidayPolicy } = await getPoliciesForYear(curr.year());
-            const dayDate = curr.toDate();
-            const holidayStatus = PolicyResolver.resolveHolidayStatus(dayDate, holidayPolicy);
-            const weekOffStatus = PolicyResolver.resolveWeeklyOffStatus(dayDate, weekOffPolicy);
-
-            if (holidayStatus?.isHoliday) {
-                hStatus = 'holiday';
-            } else if (weekOffStatus?.isOff) {
-                hStatus = 'weekly_off';
-            } else if (curr.isBefore(moment().tz('Asia/Kolkata'), 'day')) {
-                actualAbsent++;
-            }
+            hStatus = 'none';
         }
+
+        const computedDayHours = (rec?.first_in && rec?.last_out) ? moment(rec.last_out).diff(moment(rec.first_in), 'hours', true) : null;
+        const finalWorkHours = (rec?.total_work_hours && rec.total_work_hours > 0)
+            ? rec.total_work_hours
+            : (computedDayHours && computedDayHours > 0 ? computedDayHours : null);
+
+        const recIsHalfLeave = Boolean(isHalfDayLeave || (rec?.is_half_day && (rec?.leave_application_id || rec?.is_on_leave || rec?.status === 'leave')));
 
         compactHistory.push({
             date: dayStr,
             status: hStatus || 'absent',
             session: hSession,
-            leaveType: leave?.leave_type || null,
+            leaveType: leave?.leave_type || rec?.leave_type || (recIsHalfLeave ? 'PL' : null),
             leaveStatus: leave?.approval_status || null,
             leaveReason: leave?.reason || null,
-            is_half_day_leave: !!(leave?.is_half_day || leave?.is_start_half_day || leave?.is_end_half_day),
+            is_half_day: Boolean(rec?.is_half_day || isHalfDayLeave || hStatus === 'half_day'),
+            is_half_day_leave: recIsHalfLeave,
             first_in: rec?.first_in || null,
             last_out: rec?.last_out || null,
+            total_work_hours: finalWorkHours,
+            net_work_hours: rec?.net_work_hours ?? null,
+            is_late: rec?.is_late || false,
+            late_by_minutes: rec?.late_by_minutes || 0,
+            is_early_exit: rec?.is_early_exit || false,
+            early_exit_minutes: rec?.early_exit_minutes || 0,
             shift_id: rec?.shift_id || null
         });
         curr.add(1, 'day');
@@ -1167,16 +1212,22 @@ export const getDashboardData = async (req, res) => {
             approval_status: { $nin: ['rejected', 'cancelled', 'withdrawn'] },
             from_date: { $lte: monthEndUTC },
             to_date: { $gte: monthStartUTC }
-        });
-
-        approvedLeaves.forEach(leave => {
+        });        approvedLeaves.forEach(leave => {
             let { start: curr, end } = getLeaveLocalDateRange(leave, tz);
+            const fromStr = moment(leave.from_date).tz(tz).format('YYYY-MM-DD');
+            const toStr = moment(leave.to_date).tz(tz).format('YYYY-MM-DD');
             while (curr.isSameOrBefore(end, 'day')) {
                 const dateStr = curr.format('YYYY-MM-DD');
                 if (dateStr.startsWith(currentYearMonth)) {
                     const existing = calendarMap[dateStr];
-                    const isHalfLeave = Boolean(leave.is_half_day || leave.is_start_half_day || leave.is_end_half_day);
-                    const sessionValue = leave.half_day_session || leave.start_half_session || leave.end_half_session;
+                    const isStartDay = dateStr === fromStr;
+                    const isEndDay = dateStr === toStr;
+                    const isHalfLeave = Boolean(
+                        leave.is_half_day ||
+                        (isStartDay && leave.is_start_half_day) ||
+                        (isEndDay && leave.is_end_half_day)
+                    );
+                    const sessionValue = leave.half_day_session || (isStartDay ? leave.start_half_session : null) || (isEndDay ? leave.end_half_session : null);
                     const mergedStatus = isHalfLeave ? 'half_day' : 'leave';
 
                     if (!existing || ['absent', 'weekly_off'].includes(existing.status)) {
@@ -1200,11 +1251,10 @@ export const getDashboardData = async (req, res) => {
                             half_day_session: sessionValue,
                             is_half_day_leave: isHalfLeave,
                             leaveStatus: leave.approval_status,
-                            status: mergedStatus
-                        };
+                            };
                     }
                 }
-                curr.add(1, 'days');
+                curr.add(1, 'day');
             }
         });
 
@@ -1812,7 +1862,11 @@ export const getAdminDashboardData = async (req, res) => {
         const lateToday = attendanceRecs.filter(r => r.is_late).length;
 
         // 2. Build Daily Summary (Main requested feature)
-        const dailySummary = employees.map(emp => {
+        const targetMoment = (date || start_date) ? moment.tz(date || start_date, tz) : moment().tz(tz);
+        const targetDateObj = targetMoment.toDate();
+        const targetYear = targetMoment.year();
+
+        const dailySummary = await mapWithConcurrency(employees, 20, async (emp) => {
             const empIdStr = emp._id.toString();
             const att = attendanceMap.get(empIdStr);
             const employeeLeaves = leavesMap.get(empIdStr) || [];
@@ -1832,10 +1886,28 @@ export const getAdminDashboardData = async (req, res) => {
                 };
             }
 
-            // Resolve Attendance Status - Prioritize Leave over Weekly Off/Holiday for statistical consistency
-            let status = att?.status || 'absent';
-            if (leaveInfo) {
-                status = 'leave';
+            // Resolve Attendance Status
+            const isWorking = att && ['present', 'late', 'half_day'].includes(String(att.status || '').toLowerCase());
+            let status = att?.status;
+
+            if (isWorking) {
+                status = att.status;
+            } else if (leaveInfo) {
+                const isApproved = String(leaveInfo.status || '').toLowerCase() === 'approved';
+                status = isApproved ? 'leave' : 'pending_leave';
+            } else {
+                // If there's no punch or default absent record, resolve policies for holiday or weekly off
+                const { weekOffPolicy, holidayPolicy } = await PolicyResolver.resolveAll(emp, targetYear, { teamIds: employeeTeamIds });
+                const holidayStatus = PolicyResolver.resolveHolidayStatus(targetDateObj, holidayPolicy);
+                const weekOffStatus = PolicyResolver.resolveWeeklyOffStatus(targetDateObj, weekOffPolicy);
+
+                if (holidayStatus?.isHoliday) {
+                    status = 'holiday';
+                } else if (weekOffStatus?.isOff) {
+                    status = 'weekly_off';
+                } else {
+                    status = att?.status || 'absent';
+                }
             }
 
             return {
@@ -1846,7 +1918,7 @@ export const getAdminDashboardData = async (req, res) => {
                     ? employeeTeamIds.map((teamId) => teamMap.get(teamId)).filter(Boolean).join(', ')
                     : 'Unassigned',
                 department: emp.department_id?.department_name || 'General',
-                status: status,
+                status: status || 'absent',
                 inTime: att?.first_in,
                 outTime: att?.last_out,
                 lateMinutes: att?.late_by_minutes || 0,
@@ -3564,11 +3636,15 @@ async function recalculatePunctuality(record, employee, company) {
 
     if (record.last_out && shift) {
         const earlyLeaveAllowed = shift.early_leave_allowed_minutes || 0;
-        const shiftEnd = moment.tz(`${dateStr} ${shift.end_time}`, 'YYYY-MM-DD HH:mm', tz);
+        const shiftStart = moment.tz(`${dateStr} ${shift.start_time || '09:00'}`, 'YYYY-MM-DD HH:mm', tz);
+        let shiftEnd = moment.tz(`${dateStr} ${shift.end_time || '18:00'}`, 'YYYY-MM-DD HH:mm', tz);
+        if (shiftEnd.isSameOrBefore(shiftStart)) {
+            shiftEnd.add(1, 'days');
+        }
         const punchOut = moment(record.last_out).tz(tz);
         const earlyCutoff = shiftEnd.clone().subtract(earlyLeaveAllowed, 'minutes');
         record.is_early_exit = punchOut.isBefore(earlyCutoff);
-        record.early_exit_minutes = record.is_early_exit ? shiftEnd.diff(punchOut, 'minutes') : 0;
+        record.early_exit_minutes = record.is_early_exit ? Math.min(shiftEnd.diff(punchOut, 'minutes'), 720) : 0;
     }
 
     if (record.first_in && record.last_out) {
@@ -3794,7 +3870,7 @@ export const getEmployeeFullProfile = async (req, res) => {
             const dayStr = dayCursor.format('YYYY-MM-DD');
 
             const { weekOffPolicy, holidayPolicy } = await getPoliciesForYear(dayCursor.year());
-            const holidayStatus = PolicyResolver.resolveHolidayStatus(dayCursor.toDate(), holidayPolicy);
+            const holidayStatus = PolicyResolver.resolveHolidayStatus(dayStr, holidayPolicy);
             const weekOffStatus = PolicyResolver.resolveWeeklyOffStatus(dayCursor.toDate(), weekOffPolicy);
 
             const existingRecord = attendanceByDay.get(dayStr);
@@ -3816,7 +3892,14 @@ export const getEmployeeFullProfile = async (req, res) => {
 
             if (leave) {
                 const isPending = (leave.approval_status || '').toLowerCase() === 'pending';
-                const isHalfLeave = !!(leave.is_half_day || leave.is_start_half_day || leave.is_end_half_day);
+                const isStartDay = dayStr === moment(leave.from_date).tz('Asia/Kolkata').format('YYYY-MM-DD');
+                const isEndDay = dayStr === moment(leave.to_date).tz('Asia/Kolkata').format('YYYY-MM-DD');
+                const isHalfLeave = Boolean(
+                    leave.is_half_day ||
+                    (isStartDay && leave.is_start_half_day) ||
+                    (isEndDay && leave.is_end_half_day)
+                );
+                const halfSession = leave.half_day_session || (isStartDay ? leave.start_half_session : null) || (isEndDay ? leave.end_half_session : null);
 
                 if (!existingRecord || String(existingRecord.status).toLowerCase() === 'absent') {
                     if (existingRecord) {
@@ -3830,7 +3913,7 @@ export const getEmployeeFullProfile = async (req, res) => {
                         status: isHalfLeave ? 'half_day' : 'leave',
                         leaveType: leave.leave_type || null,
                         leaveStatus: leave.approval_status || 'pending',
-                        half_day_session: leave.half_day_session || null,
+                        half_day_session: halfSession,
                         start_half_session: leave.start_half_session || null,
                         end_half_session: leave.end_half_session || null,
                         remarks: isPending ? (leave.reason || 'Pending Leave Application') : (leave.reason || 'Approved Leave'),

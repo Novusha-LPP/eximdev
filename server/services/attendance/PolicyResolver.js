@@ -373,7 +373,9 @@ class PolicyResolver {
    * @returns {{ isOff: boolean, isHalfDay: boolean }}
    */
   static resolveWeeklyOffStatus(date, weekOffPolicy, tz = 'Asia/Kolkata') {
-    const d = moment.tz(date, tz);
+    const d = typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)
+      ? moment.tz(date, 'YYYY-MM-DD', tz)
+      : moment.tz(date, tz);
     const dayOfWeek = d.day(); // 0=Sun … 6=Sat
 
     if (!weekOffPolicy) {
@@ -482,13 +484,20 @@ class PolicyResolver {
    * @param {Object|null} holidayPolicy
    * @returns {{ isHoliday: boolean, isOptional: boolean, name: string|null }}
    */
-  static resolveHolidayStatus(date, holidayPolicy) {
+  static resolveHolidayStatus(date, holidayPolicy, tz = 'Asia/Kolkata') {
     if (!holidayPolicy) return { isHoliday: false, isOptional: false, name: null };
 
-    const d = moment(date).format('YYYY-MM-DD');
-    const entry = (holidayPolicy.holidays || []).find(h =>
-      moment(h.holiday_date).format('YYYY-MM-DD') === d
-    );
+    const targetDateStr = typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)
+      ? date
+      : moment.tz(date, tz).format('YYYY-MM-DD');
+
+    const entry = (holidayPolicy.holidays || []).find(h => {
+      if (!h || !h.holiday_date) return false;
+      const hDateUtcStr = moment.utc(h.holiday_date).format('YYYY-MM-DD');
+      const hDateTzStr = moment.tz(h.holiday_date, tz).format('YYYY-MM-DD');
+      const hDateRawStr = typeof h.holiday_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(h.holiday_date) ? h.holiday_date : null;
+      return hDateUtcStr === targetDateStr || hDateTzStr === targetDateStr || hDateRawStr === targetDateStr;
+    });
 
     if (!entry) return { isHoliday: false, isOptional: false, name: null };
 

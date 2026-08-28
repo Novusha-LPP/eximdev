@@ -96,8 +96,16 @@ export class WorkHoursCalculator {
           // OUT punch is missing
           isIncomplete = true;
           hasIncompleteSession = true;
-          // For incomplete, we calculate up to now (system considers it unfinished)
-          durationHours = this.calculateDurationHours(inTime, new Date());
+          // For incomplete sessions: if today (ongoing), calculate elapsed time capped at max session limit; if past date, 0
+          const inMoment = moment.tz(inTime, 'Asia/Kolkata');
+          const nowMoment = moment.tz('Asia/Kolkata');
+          const isToday = inMoment.isSame(nowMoment, 'day');
+          if (isToday) {
+            const rawElapsed = this.calculateDurationHours(inTime, new Date());
+            durationHours = Math.max(0, Math.min(rawElapsed, shift?.max_session_hours || 12));
+          } else {
+            durationHours = 0;
+          }
         }
 
         sessions.push({
@@ -108,6 +116,7 @@ export class WorkHoursCalculator {
           is_incomplete: isIncomplete,
         });
 
+        // Only add duration to totalWorkHours if session is complete or current ongoing today
         totalWorkHours += durationHours;
         i = sessionEndIndex;
       } else {

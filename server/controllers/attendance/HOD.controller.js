@@ -938,7 +938,7 @@ export const getDashboard = async (req, res) => {
                 }
 
                 const empPolicy = calendarPolicies.get(empId) || { weekOffPolicy: null, holidayPolicy: null };
-                const holidayStatus = PolicyResolver.resolveHolidayStatus(currentDate.toDate(), empPolicy.holidayPolicy);
+                const holidayStatus = PolicyResolver.resolveHolidayStatus(dateStr, empPolicy.holidayPolicy);
                 const weekOffStatus = PolicyResolver.resolveWeeklyOffStatus(currentDate.toDate(), empPolicy.weekOffPolicy);
 
                 if (holidayStatus?.isHoliday) {
@@ -1236,11 +1236,25 @@ export const approveRequest = async (req, res) => {
 
                     const start = moment(application.from_date_str || application.from_date).tz(tz).startOf('day');
                     const end = moment(application.to_date_str || application.to_date).tz(tz).startOf('day');
+                    const fromStr = start.format('YYYY-MM-DD');
+                    const toStr = end.format('YYYY-MM-DD');
                     let curr = start.clone();
 
                     while (curr.isSameOrBefore(end, 'day')) {
                         const dateStr = curr.format('YYYY-MM-DD');
                         const attDate = moment.utc(dateStr, 'YYYY-MM-DD').startOf('day').toDate();
+                        const isSingleDay = fromStr === toStr;
+                        const isStartDay = dateStr === fromStr;
+                        const isEndDay = dateStr === toStr;
+                        const isHalf = Boolean(
+                            (isSingleDay && application.is_half_day) ||
+                            (isStartDay && application.is_start_half_day) ||
+                            (isEndDay && application.is_end_half_day)
+                        );
+                        const session = (isSingleDay && application.half_day_session) ||
+                            (isStartDay ? application.start_half_session : null) ||
+                            (isEndDay ? application.end_half_session : null) ||
+                            application.half_day_session;
 
                         await AttendanceRecord.findOneAndUpdate(
                             { employee_id: application.employee_id, attendance_date: attDate },
@@ -1249,9 +1263,9 @@ export const approveRequest = async (req, res) => {
                                 company_id: application.company_id,
                                 attendance_date: attDate,
                                 attendance_date_str: dateStr,
-                                status: application.is_half_day ? 'half_day' : 'leave',
-                                is_half_day: application.is_half_day || false,
-                                half_day_session: application.half_day_session,
+                                status: isHalf ? 'half_day' : 'leave',
+                                is_half_day: isHalf,
+                                half_day_session: session || null,
                                 year_month: curr.format('YYYY-MM'),
                                 processed_by: processedBy
                             },
@@ -1289,6 +1303,26 @@ export const approveRequest = async (req, res) => {
                     markApprovalChainStage(application, stage, 'rejected', commentText);
                     appendApprovalHistoryEntry(application, actorObjectId, actorName, actorRole, 'rejected', commentText);
                     await application.save();
+
+                    // Revert or clean up virtual leave attendance records created for this application
+                    try {
+                        const start = moment(application.from_date_str || application.from_date).startOf('day');
+                        const end = moment(application.to_date_str || application.to_date).startOf('day');
+                        let curr = start.clone();
+                        while (curr.isSameOrBefore(end, 'day')) {
+                            const attDate = moment.utc(curr.format('YYYY-MM-DD'), 'YYYY-MM-DD').startOf('day').toDate();
+                            await AttendanceRecord.deleteOne({
+                                employee_id: application.employee_id,
+                                attendance_date: attDate,
+                                status: { $in: ['leave', 'half_day'] },
+                                first_in: null,
+                                last_out: null
+                            });
+                            curr.add(1, 'day');
+                        }
+                    } catch (cleanupErr) {
+                        console.error('Error cleaning up leave attendance on rejection:', cleanupErr);
+                    }
 
                     const policy = await LeavePolicy.findById(application.leave_policy_id);
                     if (policy) {
@@ -1636,14 +1670,16 @@ export const getDepartmentAttendanceReport = async (req, res) => {
             if (isAllowedAdmin) {
                 // Allowlisted admins can view all employees in company scope.
                 const userQuery = {
-                    company_id: companyId,
                     isActive: { $ne: false },
                     role: { $nin: ['driver', 'Driver'] }
                 };
+                if (companyId) {
+                    userQuery.company_id = companyId;
+                }
                 if (process.env.NODE_ENV === 'production') {
                     userQuery.username = { $ne: 'dev_master' };
                 }
-                employees = await User.find(userQuery).select('_id first_name last_name username');
+                employees = await User.find(userQuery).select('_id first_name last_name username company_id weekoff_policy_id holiday_policy_id');
             } else {
                 const teams = await TeamModel.find({
                     $or: [
@@ -1677,9 +1713,8 @@ export const getDepartmentAttendanceReport = async (req, res) => {
                 if (process.env.NODE_ENV === 'production') {
                     teamDetailQuery.username = { $ne: 'dev_master' };
                 }
-                employees = await User.find(teamDetailQuery).select('_id first_name last_name username');
+                employees = await User.find(teamDetailQuery).select('_id first_name last_name username company_id weekoff_policy_id holiday_policy_id');
             }
-            employees = await User.find(userQuery).select('_id first_name last_name username company_id');
         } else {
             const teams = await TeamModel.find({
                 $or: [
@@ -1730,7 +1765,7 @@ export const getDepartmentAttendanceReport = async (req, res) => {
             if (process.env.NODE_ENV === 'production') {
                 teamDetailQueryNonAdmin.username = { $ne: 'dev_master' };
             }
-            employees = await User.find(teamDetailQueryNonAdmin).select('_id first_name last_name username company_id');
+            employees = await User.find(teamDetailQueryNonAdmin).select('_id first_name last_name username company_id weekoff_policy_id holiday_policy_id');
         }
 
         employeeIds = employees.map(e => e._id);
@@ -1772,29 +1807,40 @@ export const getDepartmentAttendanceReport = async (req, res) => {
             }
         });
 
-        // 3b. Get Holidays
-        const holidays = await Holiday.find({
-            company_id: companyId,
+        // 3b. Get Holidays fallback
+        const holidaysQuery = {
             holiday_date: {
                 $gte: startOfMonth.toDate(),
                 $lte: endOfMonth.toDate()
             }
-        });
+        };
+        if (companyId) holidaysQuery.company_id = companyId;
+        const holidays = await Holiday.find(holidaysQuery);
         const holidayDates = new Set(holidays.map(h => moment(h.holiday_date).format('YYYY-MM-DD')));
+
+        // Pre-resolve WeekOff & Holiday policies for all employees
+        const employeePolicies = new Map();
+        for (const emp of employees) {
+            const { weekOffPolicy, holidayPolicy } = await PolicyResolver.resolveAll(emp, startOfMonth.year());
+            employeePolicies.set(emp._id.toString(), { weekOffPolicy, holidayPolicy });
+        }
 
         // 4. Transform Data
         const reportData = employees.map(emp => {
             const empId = emp._id.toString();
             const attendanceMap = {};
             const daysInMonth = startOfMonth.daysInMonth();
+            const { weekOffPolicy, holidayPolicy } = employeePolicies.get(empId) || {};
 
             for (let day = 1; day <= daysInMonth; day++) {
                 const currentDay = moment(month, 'YYYY-MM').date(day);
                 const dateStr = currentDay.format('YYYY-MM-DD');
                 const lookupKey = `${empId}_${dateStr}`;
+                const dayDate = currentDay.toDate();
 
-                // Check Holiday
-                if (holidayDates.has(dateStr)) {
+                // Check Holiday via policy or company holidays
+                const holidayStatus = PolicyResolver.resolveHolidayStatus(dateStr, holidayPolicy);
+                if (holidayStatus?.isHoliday || holidayDates.has(dateStr)) {
                     attendanceMap[day] = 'H';
                     continue;
                 }
@@ -1802,7 +1848,14 @@ export const getDepartmentAttendanceReport = async (req, res) => {
                 // Check Leave via Map Lookup
                 const leave = leaveLookup.get(lookupKey);
                 if (leave) {
-                    attendanceMap[day] = 'L';
+                    const fromStr = moment(leave.from_date).format('YYYY-MM-DD');
+                    const toStr = moment(leave.to_date).format('YYYY-MM-DD');
+                    const isSingleDay = fromStr === toStr;
+                    const isStartDay = dateStr === fromStr;
+                    const isEndDay = dateStr === toStr;
+                    const isHalf = Boolean((isSingleDay && leave.is_half_day) || (isStartDay && leave.is_start_half_day) || (isEndDay && leave.is_end_half_day));
+                    const leaveSession = (isSingleDay && leave.half_day_session) || (isStartDay ? leave.start_half_session : null) || (isEndDay ? leave.end_half_session : null) || leave.half_day_session;
+                    attendanceMap[day] = isHalf ? (leaveSession === 'second_half' ? 'H2' : 'H1') : 'L';
                     continue;
                 }
 
@@ -1817,18 +1870,25 @@ export const getDepartmentAttendanceReport = async (req, res) => {
                     else if (record.is_early_exit) attendanceMap[day] = 'E';
                     else if (record.status === 'present') attendanceMap[day] = 'P';
                     else if (record.status === 'absent') attendanceMap[day] = 'A';
+                    else if (record.status === 'weekly_off') attendanceMap[day] = 'WO';
+                    else if (record.status === 'holiday') attendanceMap[day] = 'H';
+                    else if (record.status === 'incomplete') attendanceMap[day] = 'MP';
                     else attendanceMap[day] = 'P';
                 } else {
-                    // Weekend logic
-                    if (currentDay.day() === 0 || currentDay.day() === 6) attendanceMap[day] = 'WO';
-                    else if (currentDay.isAfter(moment(), 'day')) attendanceMap[day] = '';
-                    else attendanceMap[day] = 'A';
+                    const weekOffStatus = PolicyResolver.resolveWeeklyOffStatus(dayDate, weekOffPolicy);
+                    if (weekOffStatus?.isOff) {
+                        attendanceMap[day] = 'WO';
+                    } else if (currentDay.isAfter(moment(), 'day')) {
+                        attendanceMap[day] = '';
+                    } else {
+                        attendanceMap[day] = 'A';
+                    }
                 }
             }
 
             return {
                 id: emp._id,
-                name: emp.first_name ? `${emp.first_name} ${emp.last_name || ''}` : emp.username,
+                name: emp.first_name ? `${emp.first_name} ${emp.last_name || ''}`.trim() : emp.username,
                 attendance: attendanceMap
             };
         });

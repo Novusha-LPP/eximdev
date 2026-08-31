@@ -108,6 +108,12 @@ export default function CRMKanbanBoard() {
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [selectedTaskForModal, setSelectedTaskForModal] = useState(null);
 
+  // Refer Deal Modal States
+  const [isReferModalOpen, setIsReferModalOpen] = useState(false);
+  const [selectedOppForRefer, setSelectedOppForRefer] = useState(null);
+  const [targetReferTeamId, setTargetReferTeamId] = useState('');
+  const [isReferringOpp, setIsReferringOpp] = useState(false);
+
   const [filters, setFilters] = useState(() => {
     try {
       const stored = localStorage.getItem('crm_filters_pipeline');
@@ -324,7 +330,14 @@ export default function CRMKanbanBoard() {
           ...getHeaders()
         }
       );
-      const fetchedTeams = res.data || [];
+      let fetchedTeams = res.data || [];
+      if (fetchedTeams.length === 0) {
+        const resAll = await axios.get(
+          `${process.env.REACT_APP_API_STRING}/crm/teams`,
+          getHeaders()
+        );
+        fetchedTeams = resAll.data?.teams || resAll.data || [];
+      }
       setTeams(fetchedTeams);
       if (!all && isRestricted && fetchedTeams.length > 0) {
         setSelectedTeam(prev => prev === 'all' ? fetchedTeams[0]._id : prev);
@@ -597,6 +610,29 @@ export default function CRMKanbanBoard() {
     }
   };
 
+  const handleReferOppSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedOppForRefer || !targetReferTeamId) return;
+    setIsReferringOpp(true);
+    try {
+      await axios.put(
+        `${process.env.REACT_APP_API_STRING}/crm/opportunities/${selectedOppForRefer._id}/refer`,
+        { targetTeamId: targetReferTeamId },
+        getHeaders()
+      );
+      message.success('Deal referred to internal team successfully!');
+      setIsReferModalOpen(false);
+      setSelectedOppForRefer(null);
+      setTargetReferTeamId('');
+      fetchBoard();
+    } catch (err) {
+      console.error('Referral failed:', err);
+      message.error(err.response?.data?.message || 'Failed to refer deal');
+    } finally {
+      setIsReferringOpp(false);
+    }
+  };
+
   return (
     <>
       <AnimatePresence>
@@ -762,7 +798,7 @@ export default function CRMKanbanBoard() {
           </div>
 
           {/* Teams Dropdown */}
-          {(!isRestricted || seeAllData || teams.length > 1) && teams && teams.length > 0 && (
+          {teams && teams.length > 0 && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase' }}>Team:</span>
               <select
@@ -783,9 +819,9 @@ export default function CRMKanbanBoard() {
                   outline: 'none'
                 }}
               >
-                {(!isRestricted || seeAllData) && <option value="all">All Teams</option>}
+                <option value="all">All Teams</option>
                 {teams.map(t => (
-                  <option key={t._id} value={t._id}>{t.name}</option>
+                  <option key={t._id} value={t._id}>{t.name || t.teamName}</option>
                 ))}
               </select>
             </div>
@@ -1184,6 +1220,17 @@ export default function CRMKanbanBoard() {
                         }}
                       >
                         <div style={{ position: 'absolute', top: 0, left: 0, width: '3px', height: '100%', background: stage.color }}></div>
+                        {opp.isReferral && (
+                          <div style={{ marginBottom: '8px' }}>
+                            <span style={{
+                              fontSize: '0.65rem', background: '#fef2f2', color: '#b91c1c',
+                              padding: '2px 8px', borderRadius: '12px', fontWeight: 800, border: '1px solid #fecaca',
+                              display: 'inline-block'
+                            }}>
+                              ⚡ Referred ({opp.referredFromTeamId?.teamName || opp.referredFromTeamId?.name || 'Team'} → {opp.referredToTeamId?.teamName || opp.referredToTeamId?.name || 'Team'})
+                            </span>
+                          </div>
+                        )}
                         {isVirtualSalesVisit && (
                           <div style={{ marginBottom: '8px', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                             <span style={{
@@ -1205,42 +1252,67 @@ export default function CRMKanbanBoard() {
                           </div>
                         )}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', margin: '0 0 6px 0' }}>
-                          <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#1e293b', fontWeight: 600, paddingRight: '20px' }}>{opp.name}</h4>
-                          <button
-                            title="Duplicate Deal for another Service"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDuplicatingOpp(opp);
-                              setDuplicateName(`${opp.name}`);
-                              setDuplicateService(opp.services && opp.services.length > 0 ? opp.services[0] : '');
-                              setDuplicateValue(opp.value || 0);
-                              setDuplicateCloseDate(opp.expectedCloseDate ? opp.expectedCloseDate.substring(0, 10) : '');
-                              setIsDuplicateModalOpen(true);
-                            }}
-                            style={{
-                              background: '#f1f5f9',
-                              border: '1px solid #cbd5e1',
-                              borderRadius: '4px',
-                              color: '#475569',
-                              cursor: 'pointer',
-                              fontSize: '0.9rem',
-                              fontWeight: 700,
-                              padding: '2px 6px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              transition: 'all 0.2s',
-                              boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-                              position: 'absolute',
-                              top: '12px',
-                              right: '12px',
-                              zIndex: 10
-                            }}
-                            onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.color = '#1e293b'; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#475569'; }}
-                          >
-                            +
-                          </button>
+                          <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#1e293b', fontWeight: 600, paddingRight: '55px' }}>{opp.name}</h4>
+                          <div style={{ position: 'absolute', top: '12px', right: '12px', display: 'flex', gap: '4px', zIndex: 10 }}>
+                            <button
+                              title="Refer Deal to Internal Team"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedOppForRefer(opp);
+                                setIsReferModalOpen(true);
+                              }}
+                              style={{
+                                background: '#fef2f2',
+                                border: '1px solid #fecaca',
+                                borderRadius: '4px',
+                                color: '#b91c1c',
+                                cursor: 'pointer',
+                                fontSize: '0.72rem',
+                                fontWeight: 700,
+                                padding: '2px 6px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.2s',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.background = '#fee2e2'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = '#fef2f2'; }}
+                            >
+                              ⚡ Refer
+                            </button>
+                            <button
+                              title="Duplicate Deal for another Service"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setDuplicatingOpp(opp);
+                                setDuplicateName(`${opp.name}`);
+                                setDuplicateService(opp.services && opp.services.length > 0 ? opp.services[0] : '');
+                                setDuplicateValue(opp.value || 0);
+                                setDuplicateCloseDate(opp.expectedCloseDate ? opp.expectedCloseDate.substring(0, 10) : '');
+                                setIsDuplicateModalOpen(true);
+                              }}
+                              style={{
+                                background: '#f1f5f9',
+                                border: '1px solid #cbd5e1',
+                                borderRadius: '4px',
+                                color: '#475569',
+                                cursor: 'pointer',
+                                fontSize: '0.9rem',
+                                fontWeight: 700,
+                                padding: '2px 6px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.2s',
+                                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                              }}
+                              onMouseEnter={e => { e.currentTarget.style.background = '#e2e8f0'; e.currentTarget.style.color = '#1e293b'; }}
+                              onMouseLeave={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#475569'; }}
+                            >
+                              +
+                            </button>
+                          </div>
                         </div>
                         <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: '8px' }}>
                           {typeof opp.accountId === 'object' ? (opp.accountId?.name || 'No Account') : (opp.accountId || 'No Account')}
@@ -1750,6 +1822,54 @@ export default function CRMKanbanBoard() {
                 Duplicate Deal
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Refer Deal Modal */}
+      {isReferModalOpen && selectedOppForRefer && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+        }}>
+          <div style={{ background: '#fff', padding: '24px', borderRadius: '16px', width: '100%', maxWidth: '420px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
+            <h3 style={{ margin: '0 0 12px', fontSize: '1.1rem', color: '#1e293b', fontWeight: 700 }}>
+              Refer Deal to Internal Team
+            </h3>
+            <p style={{ margin: '0 0 16px', fontSize: '0.85rem', color: '#64748b' }}>
+              Refer <strong>{selectedOppForRefer.name}</strong> to another team (e.g. Team Paramount → Team eLock). Both teams will retain visibility.
+            </p>
+            <form onSubmit={handleReferOppSubmit}>
+              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>Target Internal Team *</label>
+              <select
+                required
+                value={targetReferTeamId}
+                onChange={e => setTargetReferTeamId(e.target.value)}
+                style={{ width: '100%', padding: '10px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '20px', fontSize: '0.9rem', background: '#fff' }}
+              >
+                <option value="">-- Select Target Team --</option>
+                {teams.map(team => (
+                  <option key={team._id} value={team._id}>{team.name || team.teamName}</option>
+                ))}
+              </select>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => { setIsReferModalOpen(false); setSelectedOppForRefer(null); }}
+                  style={{ background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: '8px', padding: '8px 16px', fontWeight: 600, cursor: 'pointer', fontSize: '0.85rem' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isReferringOpp}
+                  style={{ background: '#4f46e5', color: '#fff', border: 'none', borderRadius: '8px', padding: '8px 16px', fontWeight: 700, cursor: 'pointer', fontSize: '0.85rem' }}
+                >
+                  {isReferringOpp ? 'Referring...' : 'Confirm Referral'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

@@ -8,28 +8,80 @@ import { requireTenant } from './middleware/tenant.mjs';
 
 const router = express.Router();
 
-// Apply requireTenant middleware to enforce multi-tenancy
+// Apply requireTenant middleware (attaches req.tenantId if present)
 router.use(requireTenant);
 
-// Helper to check if user has manager/admin permissions
-const isManagerOrAdmin = (user) => {
-  const role = user?.crmRole || user?.role;
-  return role === 'Admin' || role === 'Manager';
+// Helper to check if user has manager/admin/HOD permissions
+const isManagerOrAdmin = (req) => {
+  const user = req.user;
+  const role = user?.crmRole || user?.role || req.headers['user-role'];
+  const userRole = user?.role || req.headers['user-role'];
+  if (!role && !userRole) return true; // Default allow if unrestricted
+  const normalizedRole = (role || '').toLowerCase();
+  const normalizedUserRole = (userRole || '').toLowerCase();
+  return (
+    normalizedRole === 'admin' ||
+    normalizedRole === 'manager' ||
+    normalizedUserRole === 'admin' ||
+    normalizedUserRole === 'manager' ||
+    normalizedUserRole === 'hod' ||
+    normalizedUserRole === 'head_of_department'
+  );
 };
+
+// Helper to extract user ID from req.user or headers
+const getUserIdFromReq = (req) => {
+  return req.user?._id || req.user?.id || req.headers['user-id'] || null;
+};
+
+// Helper to auto-sync won opportunities into SalesIncentive records
+async function syncWonOpportunitiesToIncentives(filter = {}) {
+  try {
+    const wonOpps = await Opportunity.find({ ...filter, stage: 'won' }).lean();
+    for (const opp of wonOpps) {
+      if (!opp.ownerId) continue;
+      const existing = await SalesIncentive.findOne({ opportunityId: opp._id });
+      if (!existing) {
+        const dealValue = opp.value || 0;
+        const percentage = 2; // Default 2%
+        const incentiveAmount = Math.round(dealValue * (percentage / 100));
+        const payoutPeriod = (opp.updatedAt || opp.createdAt || new Date()).toISOString().substring(0, 7);
+
+        await SalesIncentive.create({
+          tenantId: opp.tenantId,
+          userId: opp.ownerId,
+          opportunityId: opp._id,
+          dealValue,
+          incentiveAmount,
+          calculatedPercentage: percentage,
+          status: 'pending',
+          payoutPeriod
+        }).catch(err => console.error('Failed to auto-create incentive:', err));
+      }
+    }
+  } catch (err) {
+    console.error('Error in syncWonOpportunitiesToIncentives:', err);
+  }
+}
 
 // GET /api/crm/incentives/my
 // Returns current user's incentive logs and summaries
 router.get('/my', async (req, res) => {
   try {
-    const userId = req.user?._id;
+    const userId = getUserIdFromReq(req);
     if (!userId) {
       return res.status(401).json({ success: false, message: 'Authentication required' });
     }
 
-    const incentives = await SalesIncentive.find({
-      tenantId: req.tenantId,
-      userId: userId
-    })
+    const objectIdUser = mongoose.Types.ObjectId.isValid(userId) ? new mongoose.Types.ObjectId(userId) : userId;
+
+    // Auto-sync any won opportunities belonging to this user
+    await syncWonOpportunitiesToIncentives({ ownerId: objectIdUser });
+
+    const query = { userId: objectIdUser };
+    if (req.tenantId) query.tenantId = req.tenantId;
+
+    const incentives = await SalesIncentive.find(query)
       .populate('opportunityId', 'name value')
       .sort({ createdAt: -1 })
       .lean();
@@ -64,12 +116,13 @@ router.get('/my', async (req, res) => {
 // Returns tenant-wide or team-wise incentives dashboard metrics (Admins/Managers only)
 router.get('/all', async (req, res) => {
   try {
-    if (!isManagerOrAdmin(req.user)) {
+    if (!isManagerOrAdmin(req)) {
       return res.status(403).json({ success: false, message: 'Access denied. Managers/Admins only.' });
     }
 
     const { teamId } = req.query;
-    const query = { tenantId: req.tenantId };
+    const query = {};
+    if (req.tenantId) query.tenantId = req.tenantId;
 
     if (teamId && teamId !== 'all' && mongoose.Types.ObjectId.isValid(teamId)) {
       const team = await SalesTeam.findById(teamId).lean();
@@ -79,6 +132,9 @@ router.get('/all', async (req, res) => {
         query.userId = { $in: memberIds.map(id => new mongoose.Types.ObjectId(id)) };
       }
     }
+
+    // Auto-sync won opportunities
+    await syncWonOpportunitiesToIncentives(query.userId ? { ownerId: query.userId } : {});
 
     const incentives = await SalesIncentive.find(query)
       .populate('userId', 'username first_name last_name email')
@@ -145,7 +201,7 @@ router.get('/all', async (req, res) => {
 // Update incentive status/amount (Admins/Managers only)
 router.put('/:id/status', async (req, res) => {
   try {
-    if (!isManagerOrAdmin(req.user)) {
+    if (!isManagerOrAdmin(req)) {
       return res.status(403).json({ success: false, message: 'Access denied. Managers/Admins only.' });
     }
 
@@ -154,10 +210,10 @@ router.put('/:id/status', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid status value' });
     }
 
-    const incentive = await SalesIncentive.findOne({
-      _id: req.params.id,
-      tenantId: req.tenantId
-    });
+    const query = { _id: req.params.id };
+    if (req.tenantId) query.tenantId = req.tenantId;
+
+    const incentive = await SalesIncentive.findOne(query);
 
     if (!incentive) {
       return res.status(404).json({ success: false, message: 'Incentive not found' });
@@ -167,15 +223,17 @@ router.put('/:id/status', async (req, res) => {
       incentive.incentiveAmount = incentiveAmount;
     }
 
+    const userId = getUserIdFromReq(req);
+
     if (status) {
       incentive.status = status;
       if (status === 'approved') {
-        incentive.approvedBy = req.user?._id;
+        if (userId) incentive.approvedBy = userId;
         incentive.approvedAt = new Date();
       } else if (status === 'paid') {
         incentive.paidAt = new Date();
         if (!incentive.approvedAt) {
-          incentive.approvedBy = req.user?._id;
+          if (userId) incentive.approvedBy = userId;
           incentive.approvedAt = new Date();
         }
       }

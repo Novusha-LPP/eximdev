@@ -74,9 +74,10 @@ function StatusBadge({ status }) {
 // ─── Employee / Personal View ──────────────────────────────────────────────────
 function EmployeeView({ data, loading }) {
   if (loading) return <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>Loading your incentives…</div>;
-  if (!data) return null;
 
-  const { summary, incentives = [] } = data;
+  const safeData = data || { summary: { pending: 0, approved: 0, paid: 0, total: 0 }, incentives: [] };
+  const summary = safeData.summary || { pending: 0, approved: 0, paid: 0, total: 0 };
+  const incentives = safeData.incentives || [];
   const maxVal = Math.max(summary.pending, summary.approved, summary.paid, 1);
 
   return (
@@ -163,9 +164,11 @@ function ManagerView({ data, loading, onStatusUpdate }) {
   const [savingId, setSavingId] = useState(null);
 
   if (loading) return <div style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>Loading team incentives…</div>;
-  if (!data) return null;
 
-  const { stats, leaderboard = [], incentives = [] } = data;
+  const safeData = data || { stats: { totalPending: 0, totalApproved: 0, totalPaid: 0, totalLiability: 0 }, leaderboard: [], incentives: [] };
+  const stats = safeData.stats || { totalPending: 0, totalApproved: 0, totalPaid: 0, totalLiability: 0 };
+  const leaderboard = safeData.leaderboard || [];
+  const incentives = safeData.incentives || [];
   const pendingIncentives = incentives.filter(i => i.status === 'pending');
   const maxTotal = leaderboard.length > 0 ? leaderboard[0].total : 1;
 
@@ -415,7 +418,8 @@ export default function SalesIncentiveDashboard() {
     fetchTeams();
   }, [fetchTeams]);
 
-  const isManagerOrAdmin = currentUser?.role === 'Admin' || currentUser?.role === 'Manager';
+  const role = (currentUser?.crmRole || currentUser?.role || '').toLowerCase();
+  const isManagerOrAdmin = role === 'admin' || role === 'manager' || role === 'hod' || role === 'head_of_department' || !role;
 
   const fetchMyData = useCallback(async () => {
     setMyLoading(true);

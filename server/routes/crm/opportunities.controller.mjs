@@ -147,7 +147,8 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
 
   const orConditions = [
     { ownerId: { $in: uniqueUserIds } },
-    { createdBy: { $in: uniqueUserIds } }
+    { createdBy: { $in: uniqueUserIds } },
+    { plannedVisits: { $elemMatch: { isCompleted: false, isCancelled: { $ne: true } } } }
   ];
 
   if (myTeamIds.length > 0) {

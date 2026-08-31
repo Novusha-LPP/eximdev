@@ -1109,6 +1109,107 @@ router.get('/reps-overview', async (req, res) => {
   }
 });
 
+// GET /api/crm/reports/team-breakdown
+// Returns team-wise breakdown metrics (pipeline value, lead count, deal count, incentive) for managers/admins
+router.get('/team-breakdown', async (req, res) => {
+  try {
+    const role = req.user?.crmRole || req.user?.role || req.headers['user-role'];
+    const userRole = req.user?.role || req.headers['user-role'];
+    const userId = req.user?._id || req.user?.id || req.headers['user-id'];
+
+    const isHOD = userRole === 'HOD' || userRole === 'Head_of_Department' || (typeof userRole === 'string' && (userRole.toLowerCase() === 'hod' || userRole.toLowerCase() === 'head_of_department'));
+    const isCrmAdmin = role === 'Admin' || (typeof role === 'string' && role.toLowerCase() === 'admin');
+    const isAdmin = (isCrmAdmin || userRole === 'Admin') && !isHOD;
+
+    let teamQuery = { isActive: true };
+    if (!isAdmin && userId) {
+      teamQuery.$or = [
+        { managerId: userId },
+        { memberIds: userId }
+      ];
+    }
+
+    const teams = await SalesTeam.find(teamQuery)
+      .populate('managerId', 'username first_name last_name email')
+      .populate('memberIds', 'username first_name last_name email')
+      .lean();
+
+    const teamBreakdowns = await Promise.all(teams.map(async (team) => {
+      const memberIds = (team.memberIds || []).map(m => m._id ? m._id.toString() : m.toString());
+      if (team.managerId) {
+        const mgrId = team.managerId._id ? team.managerId._id.toString() : team.managerId.toString();
+        if (!memberIds.includes(mgrId)) memberIds.push(mgrId);
+      }
+      const objectIdMemberIds = memberIds.map(id => new mongoose.Types.ObjectId(id));
+
+      const [leadCount, opps, incentives] = await Promise.all([
+        Lead.countDocuments({
+          $or: [
+            { ownerId: { $in: objectIdMemberIds } },
+            { createdBy: { $in: objectIdMemberIds } },
+            { referredToTeamId: team._id }
+          ]
+        }),
+        Opportunity.find({
+          $or: [
+            { ownerId: { $in: objectIdMemberIds } },
+            { createdBy: { $in: objectIdMemberIds } },
+            { referredToTeamId: team._id }
+          ]
+        }).select('value stage').lean(),
+        SalesIncentive.find({ userId: { $in: objectIdMemberIds } }).select('incentiveAmount status').lean()
+      ]);
+
+      let openDealCount = 0;
+      let openPipelineValue = 0;
+      let wonCount = 0;
+      let wonValue = 0;
+
+      opps.forEach(opp => {
+        const val = opp.value || 0;
+        if (opp.stage === 'won') {
+          wonCount++;
+          wonValue += val;
+        } else if (opp.stage !== 'lost') {
+          openDealCount++;
+          openPipelineValue += val;
+        }
+      });
+
+      let totalIncentive = 0;
+      let pendingIncentive = 0;
+      incentives.forEach(inc => {
+        const amt = inc.incentiveAmount || 0;
+        totalIncentive += amt;
+        if (inc.status === 'pending') pendingIncentive += amt;
+      });
+
+      const managerName = team.managerId 
+        ? `${team.managerId.first_name || ''} ${team.managerId.last_name || ''}`.trim() || team.managerId.username
+        : 'Unassigned';
+
+      return {
+        teamId: team._id,
+        teamName: team.name,
+        businessVertical: team.businessVertical || 'Paramount',
+        managerName,
+        memberCount: team.memberIds ? team.memberIds.length : 0,
+        leadCount,
+        openDealCount,
+        openPipelineValue,
+        wonCount,
+        wonValue,
+        totalIncentive,
+        pendingIncentive
+      };
+    }));
+
+    res.json({ success: true, teams: teamBreakdowns });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // GET /api/crm/reports/stagnation
 // Identifies leads/deals with no activity or stage movement for 2+ consecutive days
 router.get('/stagnation', async (req, res) => {

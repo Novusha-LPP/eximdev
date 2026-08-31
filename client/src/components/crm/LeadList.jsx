@@ -249,6 +249,7 @@ export default function LeadList() {
           setIsModalOpen(true);
         }}
         onRefresh={fetchLeads}
+      />
       {/* Refer Lead Modal */}
       {selectedLeadForRefer && (
         <div style={{
@@ -338,15 +339,15 @@ export default function LeadList() {
           </select>
 
           {/* Team Filter Dropdown */}
-          {userTeams.length > 0 && viewScope !== 'all' && (
+          {(userTeams.length > 0 || allTeams.length > 0) && (
             <select
               value={selectedTeamId}
               onChange={(e) => setSelectedTeamId(e.target.value)}
               style={{ padding: '10px 12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontWeight: 500, outline: 'none', cursor: 'pointer' }}
             >
-              <option value="">All My Teams</option>
-              {userTeams.map(team => (
-                <option key={team._id} value={team._id}>{team.name}</option>
+              <option value="">All Teams</option>
+              {(userTeams.length > 0 ? userTeams : allTeams).map(team => (
+                <option key={team._id} value={team._id}>{team.name || team.teamName}</option>
               ))}
             </select>
           )}
@@ -469,6 +470,7 @@ export default function LeadList() {
                         }}>
                           {lead.source}
                         </span>
+                      )}
                       {lead.isReferral && (
                         <span style={{
                           fontSize: '0.65rem', background: '#fef2f2', color: '#b91c1c',

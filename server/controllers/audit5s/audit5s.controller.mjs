@@ -208,6 +208,19 @@ export const saveTemplate = async (req, res) => {
         zone.categories = cleanedCategories;
 
         await zone.save();
+
+        // Synchronize doc control details to all existing checklists of this zone
+        await Audit5sChecklistModel.updateMany(
+            { zoneId: zone._id },
+            {
+                $set: {
+                    docNo: docNo,
+                    revNo: revNo,
+                    revDate: revDate
+                }
+            }
+        );
+
         res.status(200).json({ success: true, data: zone, message: "Zone template configuration saved successfully" });
     } catch (error) {
         console.error("Error in saveTemplate:", error);
@@ -453,7 +466,7 @@ export const getChecklist = async (req, res) => {
 export const updateChecklist = async (req, res) => {
     try {
         const { id } = req.params;
-        const { scores, auditorSignatures, docNo, revNo, revDate, responsiblePerson } = req.body;
+        const { scores, auditorSignatures, docNo, revNo, revDate, responsiblePerson, zoneName, leaderPhoto, prevMonthData } = req.body;
 
         const updateData = {};
         if (scores) updateData.scores = scores;
@@ -462,6 +475,9 @@ export const updateChecklist = async (req, res) => {
         if (revNo) updateData.revNo = revNo;
         if (revDate) updateData.revDate = revDate;
         if (responsiblePerson) updateData.responsiblePerson = responsiblePerson;
+        if (zoneName) updateData.zoneName = zoneName;
+        if (leaderPhoto !== undefined) updateData.leaderPhoto = leaderPhoto;
+        if (prevMonthData) updateData.prevMonthData = prevMonthData;
 
         const updated = await Audit5sChecklistModel.findByIdAndUpdate(
             id,

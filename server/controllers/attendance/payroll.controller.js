@@ -9,6 +9,7 @@
  *   - Excel export
  */
 
+import axios from 'axios';
 import EmployeePayrollConfig from '../../model/attendance/EmployeePayrollConfig.js';
 import PayrollRun from '../../model/attendance/PayrollRun.js';
 import PayrollSummary from '../../model/attendance/PayrollSummary.js';
@@ -202,7 +203,7 @@ export const getPayrollConfigHistory = async (req, res) => {
  */
 export const generatePayroll = async (req, res) => {
   try {
-    const { company_id, year, month } = req.body;
+    const { company_id, year, month, employee_id } = req.body;
     const userId = req.user?._id;
 
     if (!company_id || !year || !month) {
@@ -213,7 +214,8 @@ export const generatePayroll = async (req, res) => {
       companyId: company_id,
       year: parseInt(year, 10),
       month: String(month).padStart(2, '0'),
-      generatedBy: userId
+      generatedBy: userId,
+      employeeId: employee_id
     });
 
     res.json({
@@ -299,9 +301,15 @@ export const getEmployeePayrollSummary = async (req, res) => {
   try {
     const { employeeId, year, month } = req.params;
 
-    const isAuthorized = await checkPayrollAccess(req.user, employeeId, 'read');
+    const isSelf = req.user && String(req.user._id) === String(employeeId);
+    let isAuthorized = isSelf;
+
     if (!isAuthorized) {
-      return res.status(403).json({ success: false, message: 'Authorization denied: Only admins and authorized allowed admins can view payroll summary' });
+      isAuthorized = await checkPayrollAccess(req.user, employeeId, 'read');
+    }
+
+    if (!isAuthorized) {
+      return res.status(403).json({ success: false, message: 'Authorization denied: Only admins, HODs, or the employee themselves can view payroll summary' });
     }
 
     const summary = await PayrollSummary.findOne({
@@ -316,6 +324,39 @@ export const getEmployeePayrollSummary = async (req, res) => {
     res.json({ success: true, data: summary });
   } catch (error) {
     console.error('getEmployeePayrollSummary error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/**
+ * GET /api/payroll/history/:employeeId
+ * Gets an employee's payroll summaries history.
+ */
+export const getEmployeePayrollHistory = async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+
+    const isSelf = req.user && String(req.user._id) === String(employeeId);
+    let isAuthorized = isSelf;
+
+    if (!isAuthorized) {
+      isAuthorized = await checkPayrollAccess(req.user, employeeId, 'read');
+    }
+
+    if (!isAuthorized) {
+      return res.status(403).json({ success: false, message: 'Authorization denied' });
+    }
+
+    const summaries = await PayrollSummary.find({ employee_id: employeeId })
+      .populate('employee_id', 'username first_name last_name employee_code department designation employee_photo bank_account_no bank_name ifsc_code name_on_bank pan_no date_of_birth dob joining_date date_of_joining pf_no esic_no uan_number')
+      .populate('payroll_run_id')
+      .populate('payroll_config_id')
+      .sort({ payroll_year: -1, payroll_month: -1 })
+      .lean();
+
+    res.json({ success: true, data: summaries });
+  } catch (error) {
+    console.error('getEmployeePayrollHistory error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -641,6 +682,24 @@ export const toggleEmployeeOperatorStatus = async (req, res) => {
     });
   } catch (error) {
     console.error('toggleEmployeeOperatorStatus error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const proxyPhoto = async (req, res) => {
+  try {
+    const { url } = req.query;
+    if (!url) {
+      return res.status(400).json({ success: false, message: 'URL is required' });
+    }
+    
+    const response = await axios.get(url, { responseType: 'arraybuffer' });
+    const contentType = response.headers['content-type'] || 'image/jpeg';
+    const base64 = Buffer.from(response.data, 'binary').toString('base64');
+    
+    res.json({ success: true, data: `data:${contentType};base64,${base64}` });
+  } catch (error) {
+    console.error('proxyPhoto error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

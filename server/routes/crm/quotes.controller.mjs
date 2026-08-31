@@ -22,7 +22,7 @@ async function buildOwnerFilter(user, requestedTeamId = null, req = null) {
   const isAdmin = (isCrmAdmin || isSystemAdmin) && !isHOD;
 
   if (!userId) return {};
-
+  
   const objectIdUserId = new mongoose.Types.ObjectId(userId.toString());
 
   if (requestedTeamId && requestedTeamId !== 'all' && mongoose.Types.ObjectId.isValid(requestedTeamId)) {

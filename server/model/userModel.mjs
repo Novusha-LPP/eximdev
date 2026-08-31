@@ -383,6 +383,26 @@ const userSchema = new Schema({
     type: Date,
     default: null,
   },
+  achievement_tag: {
+    type: String,
+    enum: [
+      'Best Employee of the Month',
+      'Best QC Inspector',
+      'Best 5s Zone',
+      'Best Operator',
+      null,
+      ''
+    ],
+    default: null,
+  },
+  achievement_tag_assigned_at: {
+    type: Date,
+    default: null,
+  },
+  achievement_tag_assigned_by: {
+    type: String,
+    default: null,
+  },
 });
 
 userSchema.plugin(auditPlugin, { documentType: "User" });

@@ -31,11 +31,32 @@ const COLORS = {
   half_day: '#8b5cf6'
 };
 
+const getAchievementRingCfg = (tag) => {
+  if (!tag) return null;
+  const t = String(tag).trim();
+  const lower = t.toLowerCase();
+  if (lower.includes('month') || lower.includes('employee')) {
+    return { ring: '0 0 0 2px #f59e0b, 0 0 8px rgba(245, 158, 11, 0.45)', icon: '🌟', color: '#b45309', bg: '#fef3c7', border: '#fcd34d' };
+  }
+  if (lower.includes('qc') || lower.includes('inspector') || lower.includes('quality')) {
+    return { ring: '0 0 0 2px #0284c7, 0 0 8px rgba(2, 132, 199, 0.45)', icon: '🔍', color: '#0369a1', bg: '#f0f9ff', border: '#bae6fd' };
+  }
+  if (lower.includes('5s') || lower.includes('zone') || lower.includes('clean')) {
+    return { ring: '0 0 0 2px #059669, 0 0 8px rgba(5, 150, 105, 0.45)', icon: '🏆', color: '#047857', bg: '#ecfdf5', border: '#a7f3d0' };
+  }
+  if (lower.includes('operator') || lower.includes('machine') || lower.includes('tech')) {
+    return { ring: '0 0 0 2px #4f46e5, 0 0 8px rgba(79, 70, 229, 0.45)', icon: '⚙️', color: '#4338ca', bg: '#eef2ff', border: '#c7d2fe' };
+  }
+  return { ring: '0 0 0 2px #d97706, 0 0 8px rgba(217, 119, 6, 0.45)', icon: '🎖️', color: '#b45309', bg: '#fffbeb', border: '#fde68a' };
+};
+
 const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, onEndDateChange, companies = [], selectedCompanyId, onCompanyChange, isHOD = false, isAdmin = false }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 12;
   const [groupBy, setGroupBy] = useState('none');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [shiftFilter, setShiftFilter] = useState('all');
 
   const [modalConfig, setModalConfig] = useState({
     isOpen: false,
@@ -43,10 +64,17 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
   });
 
   const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [localTags, setLocalTags] = useState({});
+  const [tagModalTarget, setTagModalTarget] = useState(null);
+  const [selectedTag, setSelectedTag] = useState('');
+  const [customTagInput, setCustomTagInput] = useState('');
+  const [savingTag, setSavingTag] = useState(false);
 
   useEffect(() => {
     setCurrentPage(1);
     setStatusFilter('all');
+    setCategoryFilter('all');
+    setShiftFilter('all');
   }, [data]);
 
   const openModal = (type) => {
@@ -55,13 +83,50 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
       type
     });
   };
-  if (loading) return (
-    <div className="adb-analytics-loading">
-        <div className="adb-loader"></div>
-        <span>Fetching detailed company summary...</span>
-    </div>
-  );
-  if (!data) return <div className="adb-empty">No data available for the selected date.</div>;
+
+  const handleOpenTagModal = (emp, e) => {
+    if (e) e.stopPropagation();
+    setTagModalTarget(emp);
+    const currentTag = emp.achievement_tag || '';
+    const presetLabels = [
+      'Best Employee of the Month',
+      'Best QC Inspector',
+      'Best 5s Zone',
+      'Best Operator',
+      'Star Performer',
+      'Best Team Player',
+      'Punctuality Champion'
+    ];
+    if (presetLabels.includes(currentTag)) {
+      setSelectedTag(currentTag);
+      setCustomTagInput('');
+    } else {
+      setSelectedTag('');
+      setCustomTagInput(currentTag);
+    }
+  };
+
+  const handleSaveAchievementTag = async (tagValue) => {
+    if (!tagModalTarget || !tagModalTarget.id) return;
+    setSavingTag(true);
+    try {
+      await attendanceAPI.setAchievementTag({
+        employee_id: tagModalTarget.id,
+        achievement_tag: tagValue || null
+      });
+      setLocalTags(prev => ({
+        ...prev,
+        [tagModalTarget.id]: tagValue || null
+      }));
+      toast.success(tagValue ? `Assigned "${tagValue}" to ${tagModalTarget.name}` : `Achievement tag removed for ${tagModalTarget.name}`);
+      setTagModalTarget(null);
+    } catch (err) {
+      toast.error(err?.message || 'Failed to update achievement tag');
+    } finally {
+      setSavingTag(false);
+    }
+  };
+  // Early returns are moved below React hooks to satisfy rules of hooks
 
   const dailySummarySource =
     (Array.isArray(data?.dailySummary) && data.dailySummary) ||
@@ -84,13 +149,39 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
       outTime: emp?.outTime || emp?.last_out || emp?.lastOut || null,
       lateMinutes: Number(emp?.lateMinutes ?? emp?.late_by_minutes ?? emp?.lateBy ?? 0),
       shiftName: emp?.shiftName || emp?.shift_id?.shift_name || emp?.shift_name || null,
-      leave: emp?.leave || null
+      leave: emp?.leave || null,
+      category: emp?.category || 'Management',
+      achievement_tag: localTags[originalId] !== undefined ? localTags[originalId] : (emp?.achievement_tag || emp?.employee?.achievement_tag || emp?.employee_id?.achievement_tag || null)
     };
   });
 
-  const onLeaveList = dailySummary.filter(e => ['leave', 'pending_leave'].includes(e.status));
-  const presentList = dailySummary.filter(e => ['present', 'late', 'half_day'].includes(e.status));
-  const absentList = dailySummary.filter(e => e.status === 'absent');
+  const categoriesList = React.useMemo(() => {
+    const s = new Set();
+    dailySummary.forEach(e => {
+      if (e.category) s.add(e.category);
+    });
+    return Array.from(s).sort();
+  }, [dailySummary]);
+
+  const shiftsList = React.useMemo(() => {
+    const s = new Set();
+    dailySummary.forEach(e => {
+      if (e.shiftName) s.add(e.shiftName);
+    });
+    return Array.from(s).sort();
+  }, [dailySummary]);
+
+  const categoryShiftFilteredSummary = React.useMemo(() => {
+    return dailySummary.filter(e => {
+      const matchesCategory = categoryFilter === 'all' || String(e.category || '').toLowerCase() === categoryFilter.toLowerCase();
+      const matchesShift = shiftFilter === 'all' || String(e.shiftName || '').toLowerCase() === shiftFilter.toLowerCase();
+      return matchesCategory && matchesShift;
+    });
+  }, [dailySummary, categoryFilter, shiftFilter]);
+
+  const onLeaveList = categoryShiftFilteredSummary.filter(e => ['leave', 'pending_leave'].includes(e.status));
+  const presentList = categoryShiftFilteredSummary.filter(e => ['present', 'late', 'half_day'].includes(e.status));
+  const absentList = categoryShiftFilteredSummary.filter(e => e.status === 'absent');
 
   const stats = {
     present: presentList.length,
@@ -132,8 +223,8 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
   };
 
   const filteredDailySummary = statusFilter === 'all'
-    ? dailySummary
-    : dailySummary.filter(e => {
+    ? categoryShiftFilteredSummary
+    : categoryShiftFilteredSummary.filter(e => {
         if (statusFilter === 'present') return ['present', 'late', 'half_day'].includes(e.status);
         if (statusFilter === 'leave') return ['leave', 'pending_leave'].includes(e.status);
         return e.status === statusFilter;
@@ -158,6 +249,14 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
   const handleMonthChange = (val) => {
     onDateChange(`${val}-01`);
   };
+
+  if (loading) return (
+    <div className="adb-analytics-loading">
+        <div className="adb-loader"></div>
+        <span>Fetching detailed company summary...</span>
+    </div>
+  );
+  if (!data) return <div className="adb-empty">No data available for the selected date.</div>;
 
   return (
     <div className="adb-analytics-tab">
@@ -234,6 +333,40 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
                 <option value="leave">Leave</option>
               </select>
             </div>
+
+            <div className="adb-company-filter-wrap">
+              <FiFilter className="adb-dp-icon" />
+              <select
+                className="adb-company-select"
+                value={categoryFilter}
+                onChange={(e) => {
+                  setCategoryFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+              >
+                <option value="all">All Categories</option>
+                {categoriesList.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="adb-company-filter-wrap">
+              <FiClock className="adb-dp-icon" />
+              <select
+                className="adb-company-select"
+                value={shiftFilter}
+                onChange={(e) => {
+                  setShiftFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+              >
+                <option value="all">All Shifts</option>
+                {shiftsList.map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
          </div>
       </div>
 
@@ -295,16 +428,26 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
       <div className="adb-dashboard-row">
         <div className="adb-summary-table-wrap">
             <div className="adb-table-header">
-              <h3 className="adb-card-title">
-                <FiUsers /> {
-                  statusFilter === 'present' ? 'Total Present' :
-                  statusFilter === 'leave' ? 'On Leave' :
-                  statusFilter === 'absent' ? 'Absent' :
-                  'Employee Daily Summary'
-                }
+              <h3 className="adb-card-title" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <FiUsers /> 
+                <span>
+                  {
+                    statusFilter === 'present' ? 'Total Present' :
+                    statusFilter === 'leave' ? 'On Leave' :
+                    statusFilter === 'absent' ? 'Absent' :
+                    'Employee Daily Summary'
+                  }
+                </span>
+                {(categoryFilter !== 'all' || shiftFilter !== 'all') && (
+                  <span style={{ fontSize: '11px', fontWeight: '500', background: 'var(--surface2)', padding: '2px 8px', borderRadius: '12px', border: '1px solid var(--border)', color: 'var(--ink2)', marginLeft: '8px' }}>
+                    {categoryFilter !== 'all' && `Category: ${categoryFilter}`}
+                    {categoryFilter !== 'all' && shiftFilter !== 'all' && ' • '}
+                    {shiftFilter !== 'all' && `Shift: ${shiftFilter}`}
+                  </span>
+                )}
               </h3>
               <div className="adb-table-header-actions">
-                {groupBy === 'none' && dailySummary.length > itemsPerPage && (
+                {groupBy === 'none' && filteredDailySummary.length > itemsPerPage && (
                     <div className="adb-pagination-controls">
                         <span className="adb-pag-info">Page {currentPage} of {totalPages}</span>
                         <div className="adb-pag-btns">
@@ -355,13 +498,90 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
               <tr><td colSpan="8" className="adb-td-empty">No employee records found</td></tr>
               ) : groupBy === 'none' ? tableData.map((emp) => {
                 const statusStyle = getStatusStyle(emp.status);
+                const achCfg = getAchievementRingCfg(emp.achievement_tag || emp.employee?.achievement_tag);
                 return (
                 <tr key={emp.id} className="analytics-row clickable" onClick={() => setSelectedEmployee(emp)} style={{ cursor: 'pointer' }}>
                   <td>
                   <div className="adb-td-user">
-                    <div className="adb-user-avatar">{emp.name?.split(' ').map(n => n.charAt(0)).join('').slice(0, 2).toUpperCase()}</div>
+                    <div style={{ position: 'relative', flexShrink: 0 }}>
+                      <div
+                        className="adb-user-avatar"
+                        style={{
+                          boxShadow: achCfg ? achCfg.ring : 'none',
+                          border: achCfg ? '1.5px solid #fff' : 'none'
+                        }}
+                      >
+                        {emp.name?.split(' ').map(n => n.charAt(0)).join('').slice(0, 2).toUpperCase()}
+                      </div>
+                      {achCfg && (
+                        <span
+                          title={emp.achievement_tag || emp.employee?.achievement_tag}
+                          style={{ position: 'absolute', bottom: -2, right: -2, fontSize: '10px', lineHeight: 1 }}
+                        >
+                          {achCfg.icon}
+                        </span>
+                      )}
+                    </div>
                     <div className="adb-user-info">
-                      <div className="adb-user-name">{emp.name}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                        <div className="adb-user-name">{emp.name}</div>
+                        {achCfg ? (
+                          <span 
+                            onClick={(e) => (isAdmin || isHOD) && handleOpenTagModal(emp, e)}
+                            title={(isAdmin || isHOD) ? "Click to change/manage achievement tag" : (emp.achievement_tag || emp.employee?.achievement_tag)}
+                            style={{
+                              fontSize: '9.5px',
+                              fontWeight: '700',
+                              color: achCfg.color,
+                              background: achCfg.bg || '#fef3c7',
+                              padding: '1.5px 6px',
+                              borderRadius: '6px',
+                              border: `1px solid ${achCfg.border || '#fcd34d'}`,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '3px',
+                              cursor: (isAdmin || isHOD) ? 'pointer' : 'default',
+                              transition: 'all 0.15s'
+                            }}
+                          >
+                            {achCfg.icon} {emp.achievement_tag || emp.employee?.achievement_tag}
+                            {(isAdmin || isHOD) && <span style={{ opacity: 0.6, fontSize: '8px', marginLeft: '2px' }}>✏️</span>}
+                          </span>
+                        ) : ((isAdmin || isHOD) && (
+                          <button
+                            type="button"
+                            onClick={(e) => handleOpenTagModal(emp, e)}
+                            title="Assign Achievement Tag"
+                            style={{
+                              border: '1px dashed #cbd5e1',
+                              background: 'transparent',
+                              borderRadius: '6px',
+                              padding: '1px 6px',
+                              fontSize: '9.5px',
+                              color: '#64748b',
+                              fontWeight: '600',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '2px',
+                              transition: 'all 0.15s'
+                            }}
+                            onMouseEnter={e => {
+                              e.currentTarget.style.borderColor = '#f59e0b';
+                              e.currentTarget.style.color = '#d97706';
+                              e.currentTarget.style.background = '#fffbeb';
+                            }}
+                            onMouseLeave={e => {
+                              e.currentTarget.style.borderColor = '#cbd5e1';
+                              e.currentTarget.style.color = '#64748b';
+                              e.currentTarget.style.background = 'transparent';
+                            }}
+                          >
+                            <span>✨</span>
+                            <span>Tag</span>
+                          </button>
+                        ))}
+                      </div>
                       {emp.shiftName && <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>{emp.shiftName}</div>}
                     </div>
                   </div>
@@ -410,13 +630,90 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
                   lastGroup = groupLabel;
                 }
                 const statusStyle = getStatusStyle(emp.status);
+                const achCfg = getAchievementRingCfg(emp.achievement_tag || emp.employee?.achievement_tag);
                 rows.push(
                   <tr key={emp.id} className="analytics-row clickable" onClick={() => setSelectedEmployee(emp)} style={{ cursor: 'pointer' }}>
                     <td>
                     <div className="adb-td-user">
-                      <div className="adb-user-avatar">{emp.name?.split(' ').map(n => n.charAt(0)).join('').slice(0, 2).toUpperCase()}</div>
+                      <div style={{ position: 'relative', flexShrink: 0 }}>
+                        <div
+                          className="adb-user-avatar"
+                          style={{
+                            boxShadow: achCfg ? achCfg.ring : 'none',
+                            border: achCfg ? '1.5px solid #fff' : 'none'
+                          }}
+                        >
+                          {emp.name?.split(' ').map(n => n.charAt(0)).join('').slice(0, 2).toUpperCase()}
+                        </div>
+                        {achCfg && (
+                          <span
+                            title={emp.achievement_tag || emp.employee?.achievement_tag}
+                            style={{ position: 'absolute', bottom: -2, right: -2, fontSize: '10px', lineHeight: 1 }}
+                          >
+                            {achCfg.icon}
+                          </span>
+                        )}
+                      </div>
                       <div className="adb-user-info">
-                        <div className="adb-user-name">{emp.name}</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                          <div className="adb-user-name">{emp.name}</div>
+                          {achCfg ? (
+                            <span 
+                              onClick={(e) => (isAdmin || isHOD) && handleOpenTagModal(emp, e)}
+                              title={(isAdmin || isHOD) ? "Click to change/manage achievement tag" : (emp.achievement_tag || emp.employee?.achievement_tag)}
+                              style={{
+                                fontSize: '9.5px',
+                                fontWeight: '700',
+                                color: achCfg.color,
+                                background: achCfg.bg || '#fef3c7',
+                                padding: '1.5px 6px',
+                                borderRadius: '6px',
+                                border: `1px solid ${achCfg.border || '#fcd34d'}`,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px',
+                                cursor: (isAdmin || isHOD) ? 'pointer' : 'default',
+                                transition: 'all 0.15s'
+                              }}
+                            >
+                              {achCfg.icon} {emp.achievement_tag || emp.employee?.achievement_tag}
+                              {(isAdmin || isHOD) && <span style={{ opacity: 0.6, fontSize: '8px', marginLeft: '2px' }}>✏️</span>}
+                            </span>
+                          ) : ((isAdmin || isHOD) && (
+                            <button
+                              type="button"
+                              onClick={(e) => handleOpenTagModal(emp, e)}
+                              title="Assign Achievement Tag"
+                              style={{
+                                border: '1px dashed #cbd5e1',
+                                background: 'transparent',
+                                borderRadius: '6px',
+                                padding: '1px 6px',
+                                fontSize: '9.5px',
+                                color: '#64748b',
+                                fontWeight: '600',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '2px',
+                                transition: 'all 0.15s'
+                              }}
+                              onMouseEnter={e => {
+                                e.currentTarget.style.borderColor = '#f59e0b';
+                                e.currentTarget.style.color = '#d97706';
+                                e.currentTarget.style.background = '#fffbeb';
+                              }}
+                              onMouseLeave={e => {
+                                e.currentTarget.style.borderColor = '#cbd5e1';
+                                e.currentTarget.style.color = '#64748b';
+                                e.currentTarget.style.background = 'transparent';
+                              }}
+                            >
+                              <span>✨</span>
+                              <span>Tag</span>
+                            </button>
+                          ))}
+                        </div>
                         {emp.shiftName && <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '2px' }}>{emp.shiftName}</div>}
                       </div>
                     </div>
@@ -550,6 +847,219 @@ const AdminAnalyticsTab = ({ data, loading, currentDate, endDate, onDateChange, 
         startDate={currentDate}
         endDate={endDate}
       />
+
+      {/* Achievement Tag Assignment / Creation Modal for HOD & Admin */}
+      {tagModalTarget && (
+        <div 
+          className="adb-tag-modal-overlay" 
+          onClick={() => setTagModalTarget(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.45)',
+            backdropFilter: 'blur(6px)',
+            zIndex: 100000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+        >
+          <div 
+            className="adb-tag-modal-card" 
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: '#ffffff',
+              borderRadius: '20px',
+              maxWidth: '480px',
+              width: '100%',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              border: '1px solid #e2e8f0',
+              overflow: 'hidden',
+              animation: 'tagModalPop 0.25s ease-out'
+            }}
+          >
+            <div style={{
+              padding: '20px 24px',
+              borderBottom: '1px solid #f1f5f9',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: 'linear-gradient(135deg, #fffbeb 0%, #ffffff 100%)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '24px' }}>🌟</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#0f172a' }}>
+                    Assign Achievement Tag
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '12px', color: '#64748b' }}>
+                    {tagModalTarget.name} • {tagModalTarget.department || tagModalTarget.organization}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setTagModalTarget(null)}
+                style={{
+                  background: '#f1f5f9',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  color: '#64748b'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Popular Preset Tags
+                </label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                  {[
+                    { label: 'Best Employee of the Month', icon: '🌟' },
+                    { label: 'Best QC Inspector', icon: '🔍' },
+                    { label: 'Best 5s Zone', icon: '🏆' },
+                    { label: 'Best Operator', icon: '⚙️' },
+                    { label: 'Star Performer', icon: '⭐' },
+                    { label: 'Best Team Player', icon: '🤝' },
+                    { label: 'Punctuality Champion', icon: '⏱️' }
+                  ].map(preset => {
+                    const isSelected = selectedTag === preset.label;
+                    return (
+                      <button
+                        key={preset.label}
+                        type="button"
+                        onClick={() => {
+                          setSelectedTag(preset.label);
+                          setCustomTagInput('');
+                        }}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '10px',
+                          border: isSelected ? '2px solid #d97706' : '1px solid #e2e8f0',
+                          background: isSelected ? '#fffbeb' : '#f8fafc',
+                          color: isSelected ? '#b45309' : '#334155',
+                          fontSize: '12px',
+                          fontWeight: isSelected ? '800' : '600',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          transition: 'all 0.15s'
+                        }}
+                      >
+                        <span>{preset.icon}</span>
+                        <span>{preset.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: '800', color: '#64748b', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Or Create / Type Custom Tag
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Kaizen Champion, Safe Operator, Zero Error Hero..."
+                  value={customTagInput}
+                  onChange={e => {
+                    setCustomTagInput(e.target.value);
+                    if (e.target.value) setSelectedTag('');
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    borderRadius: '10px',
+                    border: '1.5px solid #cbd5e1',
+                    fontSize: '13.5px',
+                    color: '#0f172a',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{
+              padding: '16px 24px',
+              background: '#f8fafc',
+              borderTop: '1px solid #f1f5f9',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '10px'
+            }}>
+              {tagModalTarget.achievement_tag ? (
+                <button
+                  type="button"
+                  onClick={() => handleSaveAchievementTag('')}
+                  disabled={savingTag}
+                  style={{
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    border: '1px solid #fca5a5',
+                    background: '#fef2f2',
+                    color: '#dc2626',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Remove Current Tag
+                </button>
+              ) : <div />}
+
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => setTagModalTarget(null)}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: '8px',
+                    border: '1px solid #cbd5e1',
+                    background: '#ffffff',
+                    color: '#475569',
+                    fontSize: '12.5px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={savingTag || (!selectedTag && !customTagInput.trim())}
+                  onClick={() => handleSaveAchievementTag(customTagInput.trim() || selectedTag)}
+                  style={{
+                    padding: '8px 20px',
+                    borderRadius: '8px',
+                    border: 'none',
+                    background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                    color: '#ffffff',
+                    fontSize: '12.5px',
+                    fontWeight: '800',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(217, 119, 6, 0.3)',
+                    opacity: (!selectedTag && !customTagInput.trim()) ? 0.6 : 1
+                  }}
+                >
+                  {savingTag ? 'Saving...' : '✨ Save & Award Tag'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

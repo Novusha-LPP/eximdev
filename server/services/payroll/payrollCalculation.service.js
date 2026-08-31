@@ -36,7 +36,7 @@ const AttendanceAggregator = {
     const records = await AttendanceRecord.find({
       employee_id: employeeId,
       year_month: yearMonth
-    }).populate('shift_id').lean();
+    }).populate('shift_id').populate('leave_application_id').lean();
 
     const counts = {
       present: 0,
@@ -60,7 +60,13 @@ const AttendanceAggregator = {
           counts.absent++;
           break;
         case 'leave':
-          counts.leave++;
+          const isLop = rec.leave_application_id?.is_lop === true || 
+            String(rec.leave_application_id?.leave_type || '').toLowerCase() === 'lwp';
+          if (isLop) {
+            counts.absent++; // LWP counts as absent and is unpaid
+          } else {
+            counts.leave++;  // Paid leave counts toward payable days
+          }
           break;
         case 'weekly_off':
           counts.weeklyOff++;
@@ -313,7 +319,7 @@ const PayrollGenerator = {
    * @param {Object} params { companyId, year, month, generatedBy }
    * @returns {Object} { payrollRun, summaries, errors }
    */
-  async generate({ companyId, year, month, generatedBy }) {
+  async generate({ companyId, year, month, generatedBy, employeeId }) {
     const monthStr = String(month).padStart(2, '0');
     const yearMonth = `${year}-${monthStr}`;
     const errors = [];
@@ -352,11 +358,12 @@ const PayrollGenerator = {
     // 2. Fetch statutory config for this company (once per run)
     const statutoryConfig = await StatutoryConfig.findOne({ company_id: companyId }).lean();
 
-    // 3. Find all employees with ACTIVE payroll configs in this company
-    const payrollConfigs = await EmployeePayrollConfig.find({
-      company_id: companyId,
-      status: 'ACTIVE'
-    }).lean();
+    // 3. Find employees with ACTIVE payroll configs
+    const query = { company_id: companyId, status: 'ACTIVE' };
+    if (employeeId) {
+      query.employee_id = employeeId;
+    }
+    const payrollConfigs = await EmployeePayrollConfig.find(query).lean();
 
     if (payrollConfigs.length === 0) {
       payrollRun.payroll_status = 'DRAFT';
@@ -460,7 +467,8 @@ const PayrollGenerator = {
     const payableDays = attendance.present
       + (attendance.halfDays * 0.5)
       + attendance.weeklyOff
-      + attendance.holiday;
+      + attendance.holiday
+      + attendance.leave;
 
     // Calculate wages with statutory deductions
     const wages = WageCalculator.calculate({

@@ -9,6 +9,7 @@ import {
   FiTrendingDown, FiLock, FiAlertCircle, FiSettings, FiCheck
 } from 'react-icons/fi';
 import './PayrollPages.css';
+const DEFAULT_AVATAR = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23cbd5e1'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>";
 
 const PayrollEntryScreen = () => {
   const { user } = useContext(UserContext);
@@ -94,7 +95,8 @@ const PayrollEntryScreen = () => {
           if (item._id === summaryId) {
             return {
               ...item,
-              ...res.data
+              ...res.data,
+              employee_id: item.employee_id || res.data?.employee_id
             };
           }
           return item;
@@ -228,7 +230,6 @@ const PayrollEntryScreen = () => {
                       <th className="text-right">Other Deduct</th>
                       <th className="text-right">Adjustment</th>
                       <th className="text-right">Net Payable</th>
-                      <th>Remarks</th>
                       <th className="text-center">Action</th>
                     </tr>
                   </thead>
@@ -242,18 +243,17 @@ const PayrollEntryScreen = () => {
                         Number(rowEdit.adjustment_amount) !== (e.adjustment_amount || 0) ||
                         rowEdit.adjustment_remarks !== (e.adjustment_remarks || '') ||
                         Number(rowEdit.other_deductions) !== (e.other_deductions || 0) ||
-                        rowEdit.other_deduction_remarks !== (e.other_deduction_remarks || '') ||
-                        rowEdit.remarks !== (e.remarks || '');
+                        rowEdit.other_deduction_remarks !== (e.other_deduction_remarks || '');
 
                       return (
                         <tr key={e._id}>
                           <td>
                             <div className="emp-cell">
                               <img 
-                                src={e.employee_id?.employee_photo || '/avatar-placeholder.png'} 
+                                src={e.employee_id?.employee_photo || DEFAULT_AVATAR} 
                                 alt="" 
                                 className="emp-cell__avatar"
-                                onError={(el) => { el.target.src = '/avatar-placeholder.png'; }}
+                                onError={(el) => { el.target.onerror = null; el.target.src = DEFAULT_AVATAR; }}
                               />
                               <div className="emp-cell__info">
                                 <span className="emp-cell__name">
@@ -324,17 +324,7 @@ const PayrollEntryScreen = () => {
                             {formatCurrency(e.net_payable_amount)}
                           </td>
                           
-                          {/* Remarks */}
-                          <td>
-                            <input
-                              type="text"
-                              style={{ width: '100px', fontSize: '11px', padding: '4px 8px', border: '1px solid #e2e8f0', borderRadius: '6px', outline: 'none' }}
-                              value={rowEdit.remarks || ''}
-                              onChange={el => handleInputChange(e._id, 'remarks', el.target.value)}
-                              disabled={isLocked || isSaving}
-                              placeholder="General notes"
-                            />
-                          </td>
+
 
                           <td className="text-center">
                             <button

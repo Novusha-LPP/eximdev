@@ -52,6 +52,9 @@ router.get('/admin-leave-requests', attendanceAuthBridge, requireRole('ADMIN'), 
 router.delete('/leave-application/:id', attendanceAuthBridge, requireRole('ADMIN'), hodCtrl.deleteLeaveApplication);
 router.put('/employee-profile-hod/:id', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.updateEmployeeProfileHOD);
 router.post('/approve-request', attendanceAuthBridge, hodCtrl.approveRequest);
+router.post('/achievement-tag', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.setAchievementTag);
+router.get('/achievement-notifications/unread', attendanceAuthBridge, attendanceCtrl.getUnreadAchievementNotifications);
+router.post('/achievement-notifications/mark-read', attendanceAuthBridge, attendanceCtrl.markAchievementNotificationRead);
 router.put('/new', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.createManualAdjustment);
 router.put('/:id', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.updateAttendanceRecord);
 router.delete('/:id', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), attendanceCtrl.deleteAttendanceRecord);

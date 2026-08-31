@@ -8,8 +8,57 @@ import {
   FiArrowLeft, FiPrinter, FiDownload, FiSearch,
   FiLock, FiEye, FiCheckSquare, FiSquare, FiShield, FiUsers
 } from 'react-icons/fi';
-import { generatePayslipPDF, computePay } from '../../../lib/payslip-pdf';
+import { generatePayslipPDF, computePay, computeYTDStatsFromHistory } from '../../../lib/payslip-pdf';
 import './PayrollPages.css';
+
+const makeCircularImage = (base64OrUrl) => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const size = Math.min(img.width, img.height);
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext('2d');
+        
+        const radius = size * 0.1; // 10% corner radius
+        ctx.beginPath();
+        ctx.moveTo(radius, 0);
+        ctx.lineTo(size - radius, 0);
+        ctx.quadraticCurveTo(size, 0, size, radius);
+        ctx.lineTo(size, size - radius);
+        ctx.quadraticCurveTo(size, size, size - radius, size);
+        ctx.lineTo(radius, size);
+        ctx.quadraticCurveTo(0, size, 0, size - radius);
+        ctx.lineTo(0, radius);
+        ctx.quadraticCurveTo(0, 0, radius, 0);
+        ctx.closePath();
+        ctx.clip();
+        
+        ctx.drawImage(
+          img,
+          (img.width - size) / 2,
+          (img.height - size) / 2,
+          size,
+          size,
+          0,
+          0,
+          size,
+          size
+        );
+        resolve(canvas.toDataURL('image/png'));
+      } catch (err) {
+        console.error('Failed to make rounded-square image:', err);
+        resolve(base64OrUrl);
+      }
+    };
+    img.onerror = () => {
+      resolve(base64OrUrl);
+    };
+    img.src = base64OrUrl;
+  });
+};
 
 const PayslipGenerator = () => {
   const { user } = useContext(UserContext);
@@ -41,63 +90,50 @@ const PayslipGenerator = () => {
   }, [user]);
 
   const fetchStatutoryConfig = useCallback(async () => {
-    if (!companyId) return;
-    if (!isAdmin) {
-      setStatutoryConfig({ payslip_password_rule: 'PAN' });
-      return;
-    }
+    const compId = companyId || user?.company_id?._id || user?.company_id;
+    if (!compId) return;
     try {
-      const res = await payrollAPI.getStatutoryConfig(companyId);
+      const res = await payrollAPI.getStatutoryConfig(compId);
       if (res.success) {
         setStatutoryConfig(res.data);
       }
     } catch (err) {
       console.error('Fetch statutory config error:', err);
     }
-  }, [companyId, isAdmin]);
+  }, [companyId, user]);
 
   const fetchEntries = useCallback(async () => {
-    if (!companyId) {
+    const compId = companyId || user?.company_id?._id || user?.company_id;
+    if (!compId) {
       if (user) setLoading(false);
       return;
     }
 
     if (!isAdmin) {
-      // Simulate/mock own payslips history for Employee (showing their own payslip card)
       setLoading(true);
-      setTimeout(() => {
-        setEntries([
-          {
-            _id: 'emp-demo-summary-1',
-            employee_id: {
-              _id: user?._id || 'demo-user-id',
-              first_name: user?.first_name || 'Demo',
-              last_name: user?.last_name || 'Employee',
-              employee_code: user?.employee_code || 'EMP-1001',
-              department: user?.department || 'Engineering',
-              pan_no: 'ABCDE1234F',
-              date_of_birth: '1995-12-03',
-              date_of_joining: '2024-06-01'
-            },
-            payroll_month: selectedMonth,
-            payroll_year: selectedYear,
-            gross_amount: 146767,
-            deduction_amount: 15308,
-            net_payable_amount: 131459,
-            payable_days: 30,
-            total_days_in_month: 31
-          }
-        ]);
-        setPayrollRun({ payroll_status: 'LOCKED' });
+      try {
+        const res = await payrollAPI.getEmployeePayrollSummary(user._id, selectedYear, selectedMonth);
+        if (res.success && res.data) {
+          setEntries([res.data]);
+          setPayrollRun({ payroll_status: res.data.payroll_run_id?.payroll_status || 'LOCKED' });
+        } else {
+          setEntries([]);
+          setPayrollRun(null);
+        }
+      } catch (err) {
+        console.error('Fetch employee payroll summary error:', err);
+        setEntries([]);
+        setPayrollRun(null);
+      } finally {
         setLoading(false);
-      }, 300);
+      }
       return;
     }
 
     // Normal Admin/HR fetch
     setLoading(true);
     try {
-      const res = await payrollAPI.getPayrollEntries(companyId, selectedYear, selectedMonth);
+      const res = await payrollAPI.getPayrollEntries(compId, selectedYear, selectedMonth);
       if (res.success) {
         setEntries(res.data.summaries || []);
         setPayrollRun(res.data.run || null);
@@ -199,16 +235,46 @@ const PayslipGenerator = () => {
   // Toast confirmation and actual encrypted PDF generation
   const handleDownloadPDF = async (e) => {
     try {
-      const emp = e.employee_id || {};
+      const emp = e.employee_id ? { ...e.employee_id } : {};
       const plainPassword = getPasswordValue(emp);
       const maskedPassword = getPasswordHint(emp);
 
       const companyInfo = {
-        name: user?.company_name || 'ALVISION EXIM PRIVATE LIMITED',
+        name: user?.company || user?.company_name || 'ALVISION EXIM PRIVATE LIMITED',
         address: 'Corporate Office Address'
       };
 
-      const doc = await generatePayslipPDF(e, companyInfo, plainPassword, getRuleLabel());
+      // Fetch history for YTD stats
+      let ytdStats = null;
+      try {
+        const historyRes = await payrollAPI.getEmployeePayrollHistory(emp._id);
+        if (historyRes.success && historyRes.data) {
+          ytdStats = computeYTDStatsFromHistory(historyRes.data, e);
+        }
+      } catch (err) {
+        console.error('Failed to fetch YTD stats for admin download:', err);
+      }
+
+      // Fetch photo base64 via proxy to prevent CORS issues
+      const photoUrl = emp.employee_photo || emp.profile_photo_proof?.url;
+      if (photoUrl) {
+        try {
+          const proxyRes = await payrollAPI.proxyPhoto(photoUrl);
+          if (proxyRes.success && proxyRes.data) {
+            emp.photoBase64 = await makeCircularImage(proxyRes.data);
+          }
+        } catch (err) {
+          console.error('Failed to proxy photo:', err);
+        }
+      }
+
+      const originalEmp = e.employee_id;
+      e.employee_id = emp;
+
+      const doc = await generatePayslipPDF(e, companyInfo, plainPassword, getRuleLabel(), ytdStats);
+
+      e.employee_id = originalEmp;
+
       const fileName = `Payslip_${emp.employee_code || 'EMP'}_${selectedPeriod}.pdf`;
       doc.save(fileName);
 
@@ -243,14 +309,44 @@ const PayslipGenerator = () => {
     try {
       // Loop through all visible employees and download each with a short gap
       for (const item of filtered) {
-        const emp = item.employee_id || {};
+        const emp = item.employee_id ? { ...item.employee_id } : {};
         const plainPassword = getPasswordValue(emp);
         const companyInfo = {
-          name: user?.company_name || 'ALVISION EXIM PRIVATE LIMITED',
+          name: user?.company || user?.company_name || 'ALVISION EXIM PRIVATE LIMITED',
           address: 'Corporate Office Address'
         };
 
-        const doc = await generatePayslipPDF(item, companyInfo, plainPassword, getRuleLabel());
+        // Fetch history for YTD stats
+        let ytdStats = null;
+        try {
+          const historyRes = await payrollAPI.getEmployeePayrollHistory(emp._id);
+          if (historyRes.success && historyRes.data) {
+            ytdStats = computeYTDStatsFromHistory(historyRes.data, item);
+          }
+        } catch (err) {
+          console.error('Failed to fetch YTD stats for bulk download:', err);
+        }
+
+        // Fetch photo base64 via proxy to prevent CORS issues
+        const photoUrl = emp.employee_photo || emp.profile_photo_proof?.url;
+        if (photoUrl) {
+          try {
+            const proxyRes = await payrollAPI.proxyPhoto(photoUrl);
+            if (proxyRes.success && proxyRes.data) {
+              emp.photoBase64 = await makeCircularImage(proxyRes.data);
+            }
+          } catch (err) {
+            console.error('Failed to proxy photo:', err);
+          }
+        }
+
+        const originalEmp = item.employee_id;
+        item.employee_id = emp;
+
+        const doc = await generatePayslipPDF(item, companyInfo, plainPassword, getRuleLabel(), ytdStats);
+
+        item.employee_id = originalEmp;
+
         const fileName = `Payslip_${emp.employee_code || 'EMP'}_${selectedPeriod}.pdf`;
         doc.save(fileName);
 
@@ -328,16 +424,240 @@ const PayslipGenerator = () => {
     return name.includes(searchQuery.toLowerCase()) || code.includes(searchQuery.toLowerCase());
   });
 
+  const renderEmployeePortal = () => {
+    const e = entries[0];
+    const passwordHint = e ? getPasswordHint(e.employee_id) : '';
+    
+    // Compute Earnings and Deductions splits
+    const otAmt = e?.overtime_amount || 0;
+    const adjAmt = e?.adjustment_amount || 0;
+    const basicEarn = e?.gross_amount || 0;
+    const earnComponents = [
+      { label: 'Basic & Allowances', value: basicEarn },
+      ...(otAmt > 0 ? [{ label: 'Overtime Earnings', value: otAmt }] : []),
+      ...(adjAmt > 0 ? [{ label: 'Performance / Other Adjustments', value: adjAmt }] : [])
+    ];
+    const totalEarnings = earnComponents.reduce((sum, item) => sum + item.value, 0);
+
+    const pfDed = e?.pf_employee || 0;
+    const esiDed = e?.esi_employee || 0;
+    const ptDed = e?.professional_tax || 0;
+    const otherDed = e?.other_deductions || 0;
+    const dedComponents = [
+      ...(pfDed > 0 ? [{ label: 'Provident Fund (PF)', value: pfDed }] : []),
+      ...(esiDed > 0 ? [{ label: 'Employee State Insurance (ESI)', value: esiDed }] : []),
+      ...(ptDed > 0 ? [{ label: 'Professional Tax (PT)', value: ptDed }] : []),
+      ...(otherDed > 0 ? [{ label: 'Other Deductions', value: otherDed }] : []),
+      ...(adjAmt < 0 ? [{ label: 'Other Adjustments', value: Math.abs(adjAmt) }] : [])
+    ];
+    const totalDeductions = dedComponents.reduce((sum, item) => sum + item.value, 0);
+
+    return (
+      <div className="payroll-page" style={{ maxWidth: '800px', margin: '0 auto', padding: '20px' }}>
+        {/* Header */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 800, color: '#0f172a' }}>My Payslips</h1>
+            <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#64748b' }}>View and download your monthly salary slips</p>
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginLeft: 'auto' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '10px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Select Month</label>
+              <select
+                className="filter-select"
+                style={{ height: '40px', borderRadius: '8px', minWidth: '160px', fontWeight: 600, border: '1px solid #cbd5e1', padding: '0 12px', outline: 'none' }}
+                value={selectedPeriod}
+                onChange={e => handlePeriodChange(e.target.value)}
+              >
+                {getRecentPeriods().map(p => (
+                  <option key={p.value} value={p.value}>{moment(p.value).format('MMMM YYYY')}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Simulation role switcher for actual admin debugging */}
+            {(user?.role === 'ADMIN' || user?.isAttendanceAllowedAdmin === true) && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '10px', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Simulate Role</label>
+                <select
+                  className="filter-select"
+                  style={{ height: '40px', borderRadius: '8px', minWidth: '130px', fontWeight: 600, border: '1px solid #cbd5e1', padding: '0 12px', outline: 'none' }}
+                  value={roleSimulation}
+                  onChange={e => setRoleSimulation(e.target.value)}
+                >
+                  <option value="ADMIN">Admin</option>
+                  <option value="EMPLOYEE">Employee</option>
+                </select>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Content */}
+        {loading ? (
+          <div className="payroll-card" style={{ padding: '60px 20px', textAlign: 'center' }}>
+            <div className="payroll-loading__spinner" style={{ margin: '0 auto 16px auto' }} />
+            <span style={{ color: '#475569', fontWeight: 500 }}>Fetching your salary record...</span>
+          </div>
+        ) : !e ? (
+          <div className="payroll-card" style={{ padding: '60px 20px', textAlign: 'center', background: '#fff', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.05)', border: '1px solid #f1f5f9' }}>
+            <div style={{ fontSize: '48px', marginBottom: '16px' }}>📄</div>
+            <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#1e293b', margin: '0 0 8px 0' }}>No Salary Slip Found</h3>
+            <p style={{ fontSize: '14px', color: '#64748b', margin: 0, maxWidth: '400px', marginLeft: 'auto', marginRight: 'auto' }}>
+              Your salary slip for <strong>{moment(selectedPeriod).format('MMMM YYYY')}</strong> has not been generated or finalized by HR yet. Please check back later.
+            </p>
+          </div>
+        ) : (
+          <div className="payroll-card" style={{ padding: '32px', background: '#fff', borderRadius: '20px', boxShadow: '0 10px 30px rgba(0,0,0,0.04)', border: '1px solid #f1f5f9' }}>
+            {/* Logo and Company Details */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #f1f5f9', paddingBottom: '24px', marginBottom: '24px', alignItems: 'center' }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#4f46e5', letterSpacing: '-0.5px' }}>
+                  {user?.company || user?.company_name || 'ALVISION EXIM PRIVATE LIMITED'}
+                </h2>
+                <span style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.5px' }}>Official Pay Slip</span>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ background: '#e0e7ff', color: '#4338ca', padding: '6px 12px', borderRadius: '9999px', fontSize: '12px', fontWeight: 700 }}>
+                  {moment(selectedPeriod).format('MMMM YYYY')}
+                </span>
+              </div>
+            </div>
+
+            {/* Profile Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', background: '#f8fafc', padding: '20px', borderRadius: '12px', marginBottom: '28px' }}>
+              <div>
+                <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 600 }}>Employee Name</div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b', marginTop: '2px' }}>{e.employee_id?.first_name} {e.employee_id?.last_name}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 600 }}>Employee Code</div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b', marginTop: '2px' }}>{e.employee_id?.employee_code || 'N/A'}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 600 }}>Department & Desg.</div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b', marginTop: '2px' }}>
+                  {e.employee_id?.department || 'Staff'} • {e.employee_id?.designation || 'Executive'}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', fontWeight: 600 }}>Payable Days</div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b', marginTop: '2px' }}>
+                  {e.payable_days} / {e.total_days_in_month} Days
+                </div>
+              </div>
+            </div>
+
+            {/* Earnings and Deductions Side-by-Side */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '32px', marginBottom: '32px' }}>
+              {/* Earnings Column */}
+              <div>
+                <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', margin: '0 0 16px 0', paddingBottom: '8px', borderBottom: '2px solid #ecfdf5', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Earnings</span>
+                  <span style={{ color: '#10b981' }}>Amount</span>
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {earnComponents.map((item, idx) => (
+                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                      <span style={{ color: '#64748b' }}>{item.label}</span>
+                      <span style={{ fontWeight: 600, color: '#1e293b' }}>{formatCardCurrency(item.value)}</span>
+                    </div>
+                  ))}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 700, borderTop: '1px dashed #e2e8f0', paddingTop: '12px', marginTop: '8px' }}>
+                    <span style={{ color: '#0f172a' }}>Gross Earnings</span>
+                    <span style={{ color: '#10b981' }}>{formatCardCurrency(totalEarnings)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Deductions Column */}
+              <div>
+                <h3 style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', margin: '0 0 16px 0', paddingBottom: '8px', borderBottom: '2px solid #fef2f2', display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Deductions</span>
+                  <span style={{ color: '#ef4444' }}>Amount</span>
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {dedComponents.length === 0 ? (
+                    <div style={{ fontSize: '13px', color: '#94a3b8', fontStyle: 'italic' }}>No deductions applicable</div>
+                  ) : (
+                    dedComponents.map((item, idx) => (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                        <span style={{ color: '#64748b' }}>{item.label}</span>
+                        <span style={{ fontWeight: 600, color: '#1e293b' }}>{formatCardCurrency(item.value)}</span>
+                      </div>
+                    ))
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 700, borderTop: '1px dashed #e2e8f0', paddingTop: '12px', marginTop: '8px' }}>
+                    <span style={{ color: '#0f172a' }}>Total Deductions</span>
+                    <span style={{ color: '#ef4444' }}>{formatCardCurrency(totalDeductions)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Total Net Payout Section */}
+            <div style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%)', borderRadius: '16px', padding: '24px 32px', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '28px' }}>
+              <div>
+                <span style={{ fontSize: '12px', textTransform: 'uppercase', fontWeight: 600, opacity: 0.8, letterSpacing: '0.5px' }}>Net Transferable Salary</span>
+                <div style={{ fontSize: '32px', fontWeight: 800, marginTop: '4px' }}>
+                  {formatCardCurrency(e.net_payable_amount)}
+                </div>
+              </div>
+              <button
+                onClick={() => handleDownloadPDF(e)}
+                style={{
+                  background: '#fff',
+                  color: '#4f46e5',
+                  border: 'none',
+                  padding: '12px 24px',
+                  borderRadius: '10px',
+                  fontSize: '14px',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <FiDownload size={16} /> Download Payslip (PDF)
+              </button>
+            </div>
+
+            {/* Password Hint */}
+            <div style={{ display: 'flex', gap: '10px', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '10px', padding: '14px 18px', color: '#166534', fontSize: '13px', lineHeight: '1.4' }}>
+              <FiLock size={18} style={{ flexShrink: 0, marginTop: '2px', color: '#15803d' }} />
+              <div>
+                <strong style={{ fontWeight: 700 }}>Security Note:</strong> The downloaded PDF is password-protected.
+                <div style={{ marginTop: '4px' }}>
+                  Password Hint: <span style={{ fontFamily: 'monospace', background: '#dcfce7', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>{passwordHint}</span> &mdash; {getRuleLabel()}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  if (!isAdmin) {
+    return renderEmployeePortal();
+  }
+
   return (
     <div className="payroll-page">
       {/* Title Header */}
       <div className="payroll-page__header" style={{ marginBottom: '24px' }}>
         <div>
-          <button className="payroll-page__back-btn" onClick={() => navigate('/attendance/admin/payroll-dashboard')}>
-            <FiArrowLeft /> Back to Dashboard
-          </button>
-          <h1 style={{ marginTop: '12px' }}>Payslip Generation</h1>
-          <p>Payroll run {selectedPeriod}</p>
+          {isAdmin && (
+            <button className="payroll-page__back-btn" onClick={() => navigate('/attendance/admin/payroll-dashboard')}>
+              <FiArrowLeft /> Back to Dashboard
+            </button>
+          )}
+          <h1 style={{ marginTop: '12px' }}>{isAdmin ? 'Payslip Generation' : 'My Payslips'}</h1>
+          <p>{isAdmin ? `Payroll run ${selectedPeriod}` : `View and download your payslips`}</p>
         </div>
         
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -352,16 +672,18 @@ const PayslipGenerator = () => {
             </button>
           )}
           
-          {/* Interactive Role Switcher Pill/Dropdown */}
-          <select
-            className="filter-select"
-            style={{ height: '38px', borderRadius: '8px', minWidth: '150px', fontWeight: 600, border: '1px solid #cbd5e1' }}
-            value={roleSimulation}
-            onChange={e => setRoleSimulation(e.target.value)}
-          >
-            <option value="ADMIN">Payroll Admin</option>
-            <option value="EMPLOYEE">Employee (Demo)</option>
-          </select>
+          {/* Interactive Role Switcher Pill/Dropdown (Only shown to actual admins/allowed admins) */}
+          {(user?.role === 'ADMIN' || user?.isAttendanceAllowedAdmin === true) && (
+            <select
+              className="filter-select"
+              style={{ height: '38px', borderRadius: '8px', minWidth: '150px', fontWeight: 600, border: '1px solid #cbd5e1' }}
+              value={roleSimulation}
+              onChange={e => setRoleSimulation(e.target.value)}
+            >
+              <option value="ADMIN">Payroll Admin</option>
+              <option value="EMPLOYEE">Employee (Demo)</option>
+            </select>
+          )}
         </div>
       </div>
 

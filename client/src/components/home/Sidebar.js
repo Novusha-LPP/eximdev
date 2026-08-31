@@ -92,29 +92,76 @@ function Sidebar() {
   return (
     <div className="sidebar">
       <Tooltip
-        title={`Welcome ${user.first_name}`}
+        title={user?.achievement_tag ? `🌟 ${user.achievement_tag} — ${user.first_name}` : `Welcome ${user.first_name}`}
         enterDelay={0}
         placement="right"
       >
         <IconButton onClick={() => navigate(`/profile/${user.username}`)}>
-          <Badge
-            overlap="circular"
-            anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-            badgeContent={
-              user.is_verified ? (
-                <VerifiedIcon
+          {(() => {
+            const getSidebarRing = (tag) => {
+              switch (tag) {
+                case 'Best Employee of the Month':
+                  return { ring: '0 0 0 3px #f59e0b, 0 0 12px rgba(245, 158, 11, 0.55)', icon: '🌟', badgeBg: 'linear-gradient(135deg, #f59e0b, #d97706)', title: 'Best Employee of the Month' };
+                case 'Best QC Inspector':
+                  return { ring: '0 0 0 3px #06b6d4, 0 0 12px rgba(6, 182, 212, 0.55)', icon: '🔍', badgeBg: 'linear-gradient(135deg, #06b6d4, #0891b2)', title: 'Best QC Inspector' };
+                case 'Best 5s Zone':
+                  return { ring: '0 0 0 3px #10b981, 0 0 12px rgba(16, 185, 129, 0.55)', icon: '🏆', badgeBg: 'linear-gradient(135deg, #10b981, #059669)', title: 'Best 5s Zone' };
+                case 'Best Operator':
+                  return { ring: '0 0 0 3px #6366f1, 0 0 12px rgba(99, 102, 241, 0.55)', icon: '⚙️', badgeBg: 'linear-gradient(135deg, #6366f1, #4f46e5)', title: 'Best Operator' };
+                default:
+                  return null;
+              }
+            };
+            const ringCfg = getSidebarRing(user?.achievement_tag);
+            return (
+              <div style={{ position: 'relative' }}>
+                <Avatar
+                  src={user.employee_photo}
+                  alt="Employee Photo"
                   sx={{
-                    color: "#1d9bf0 !important",
-                    fontSize: "0.9rem",
-                    bgcolor: "white",
-                    borderRadius: "50%",
+                    boxShadow: ringCfg ? ringCfg.ring : 'none',
+                    border: ringCfg ? '2px solid #fff' : 'none',
+                    transition: 'all 0.3s ease'
                   }}
                 />
-              ) : null
-            }
-          >
-            <Avatar src={user.employee_photo} alt="Employee Photo" />
-          </Badge>
+                {ringCfg ? (
+                  <span
+                    title={ringCfg.title}
+                    style={{
+                      position: 'absolute',
+                      bottom: -2,
+                      right: -2,
+                      width: 18,
+                      height: 18,
+                      borderRadius: '50%',
+                      background: ringCfg.badgeBg,
+                      border: '1.5px solid #fff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '9.5px',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                      zIndex: 3
+                    }}
+                  >
+                    {ringCfg.icon}
+                  </span>
+                ) : user.is_verified ? (
+                  <VerifiedIcon
+                    sx={{
+                      position: 'absolute',
+                      bottom: -2,
+                      right: -2,
+                      color: "#1d9bf0 !important",
+                      fontSize: "0.9rem",
+                      bgcolor: "white",
+                      borderRadius: "50%",
+                    }}
+                  />
+                ) : null}
+              </div>
+            );
+          })()}
         </IconButton>
       </Tooltip>
 

@@ -3,7 +3,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import {
     FiHome, FiClock, FiFileText, FiCalendar, FiUser,
     FiCheckSquare, FiUsers, FiActivity, FiLogIn, FiLogOut,
-    FiBarChart2
+    FiBarChart2, FiDollarSign
 } from 'react-icons/fi';
 import { useContext } from 'react';
 import { UserContext } from '../../../contexts/UserContext';
@@ -18,6 +18,7 @@ const EMPLOYEE_MENU = [
     { path: '/attendance/dashboard', icon: FiHome, label: 'Dashboard' },
     { section: 'My Attendance & Leave' },
     { path: '/attendance/my-attendance', icon: FiClock, label: 'My Attendance' },
+    { path: '/attendance/my-salary', icon: FiDollarSign, label: 'My Salary' },
     { path: '/attendance/leave', icon: FiFileText, label: 'Apply Leave' },
     { section: 'Calendar' },
     { path: '/attendance/holiday-calendar', icon: FiCalendar, label: 'Holidays' },
@@ -28,6 +29,7 @@ const HOD_MENU = [
     { path: '/attendance/dashboard', icon: FiHome, label: 'Dashboard' },
     { section: 'My Attendance & Leave' },
     { path: '/attendance/my-attendance', icon: FiClock, label: 'My Attendance' },
+    { path: '/attendance/my-salary', icon: FiDollarSign, label: 'My Salary' },
     { path: '/attendance/leave', icon: FiFileText, label: 'Apply Leave' },
     { section: 'Team' },
     { path: '/attendance/hod/report', icon: FiActivity, label: 'Team Attendance' },
@@ -41,8 +43,8 @@ const ADMIN_BASE_MENU = [
     { path: '/attendance/dashboard', icon: FiHome, label: 'Dashboard' },
     { section: 'My Attendance & Leave' },
     { path: '/attendance/my-attendance', icon: FiClock, label: 'My Attendance' },
+    { path: '/attendance/my-salary', icon: FiDollarSign, label: 'My Salary' },
     { path: '/attendance/leave', icon: FiFileText, label: 'Apply Leave' },
-
 ];
 
 const ADMIN_PRIVILEGED_MENU = [
@@ -97,7 +99,7 @@ const AttendanceLayout = () => {
     const [punching, setPunching] = useState(false);
     const [pendingCorrectionCount, setPendingCorrectionCount] = useState(0);
     const [pendingLeavesCount, setPendingLeavesCount] = useState(0);
-    
+
     const isOperatorDesk = location.pathname.includes('/operator-attendance');
 
     // Provide a fallback in case user is not loaded yet
@@ -121,53 +123,62 @@ const AttendanceLayout = () => {
         ? ADMIN_PRIVILEGED_MENU.filter(item => item.label !== 'Team Report' && item.label !== 'Company Report')
         : ADMIN_PRIVILEGED_MENU;
 
-    if (isRabs) {
-        const configIndex = privilegedMenu.findIndex(item => item.section === 'Configuration');
-        if (configIndex !== -1) {
-            const firstPart = privilegedMenu.slice(0, configIndex);
-            const secondPart = privilegedMenu.slice(configIndex);
+    const configIndex = privilegedMenu.findIndex(item => item.section === 'Configuration');
+    if (configIndex !== -1) {
+        const firstPart = privilegedMenu.slice(0, configIndex);
+        const secondPart = privilegedMenu.slice(configIndex);
 
-            // 1. Insert Operations under 'Payroll' in the first part
-            const operationsMenu = [
-                { section: 'Payroll' },
-                { path: '/attendance/admin/payroll-dashboard', icon: FiHome, label: 'Payroll Dashboard', requiresAllowedAdmin: true },
-                { path: '/attendance/admin/payroll-entries', icon: FiCheckSquare, label: 'Payroll Entries', requiresAllowedAdmin: true },
-                { path: '/attendance/admin/payslip-generator', icon: FiFileText, label: 'Payslip Generator', requiresAllowedAdmin: true },
-                { path: '/attendance/admin/bank-transfer', icon: FiActivity, label: 'Bank Transfer', requiresAllowedAdmin: true },
-                { path: '/attendance/admin/payroll-reports', icon: FiBarChart2, label: 'Payroll Reports', requiresAllowedAdmin: true },
-            ];
+        // 1. Insert Operations under 'Payroll' in the first part
+        const operationsMenu = [
+            { section: 'Payroll' },
+            // { path: '/attendance/admin/payroll-dashboard', icon: FiHome, label: 'Payroll Dashboard', requiresAllowedAdmin: true },
+            { path: '/attendance/admin/payroll-entries', icon: FiCheckSquare, label: 'Payroll Entries', requiresAllowedAdmin: true },
+            { path: '/attendance/admin/payslip-generator', icon: FiFileText, label: 'Payslip Generator', requiresAllowedAdmin: true },
+            { path: '/attendance/admin/bank-transfer', icon: FiActivity, label: 'Bank Transfer', requiresAllowedAdmin: true },
+            { path: '/attendance/admin/payroll-reports', icon: FiBarChart2, label: 'Payroll Reports', requiresAllowedAdmin: true },
+        ];
 
-            // 2. Insert Employee Payroll Master right under 'Configuration' section in the second part
-            const configMenu = [
-                secondPart[0], // { section: 'Configuration' }
-                { path: '/attendance/admin/payroll-master', icon: FiUsers, label: 'Employee Payroll Master', requiresAllowedAdmin: true },
-                ...secondPart.slice(1)
-            ];
+        // 2. Insert Employee Payroll Master right under 'Configuration' section in the second part
+        const configMenu = [
+            secondPart[0], // { section: 'Configuration' }
+            { path: '/attendance/admin/payroll-master', icon: FiUsers, label: 'Employee Payroll Master', requiresAllowedAdmin: true },
+            ...secondPart.slice(1)
+        ];
 
-            privilegedMenu = [
-                ...firstPart,
-                ...operationsMenu,
-                ...configMenu
-            ];
-        } else {
-            // Fallback flat-list if Configuration section is not found
-            privilegedMenu = [
-                privilegedMenu[0],
-                { section: 'Payroll' },
-                { path: '/attendance/admin/payroll-dashboard', icon: FiHome, label: 'Payroll Dashboard', requiresAllowedAdmin: true },
-                { path: '/attendance/admin/payroll-entries', icon: FiCheckSquare, label: 'Payroll Entries', requiresAllowedAdmin: true },
-                { path: '/attendance/admin/payroll-master', icon: FiUsers, label: 'Employee Payroll Master', requiresAllowedAdmin: true },
-                { path: '/attendance/admin/payslip-generator', icon: FiFileText, label: 'Payslip Generator', requiresAllowedAdmin: true },
-                { path: '/attendance/admin/bank-transfer', icon: FiActivity, label: 'Bank Transfer', requiresAllowedAdmin: true },
-                { path: '/attendance/admin/payroll-reports', icon: FiBarChart2, label: 'Payroll Reports', requiresAllowedAdmin: true },
-                ...privilegedMenu.slice(1)
-            ];
-        }
+        privilegedMenu = [
+            ...firstPart,
+            ...operationsMenu,
+            ...configMenu
+        ];
+    } else {
+        // Fallback flat-list if Configuration section is not found
+        privilegedMenu = [
+            privilegedMenu[0],
+            { section: 'Payroll' },
+            // { path: '/attendance/admin/payroll-dashboard', icon: FiHome, label: 'Payroll Dashboard', requiresAllowedAdmin: true },
+            { path: '/attendance/admin/payroll-entries', icon: FiCheckSquare, label: 'Payroll Entries', requiresAllowedAdmin: true },
+            { path: '/attendance/admin/payroll-master', icon: FiUsers, label: 'Employee Payroll Master', requiresAllowedAdmin: true },
+            { path: '/attendance/admin/payslip-generator', icon: FiFileText, label: 'Payslip Generator', requiresAllowedAdmin: true },
+            { path: '/attendance/admin/bank-transfer', icon: FiActivity, label: 'Bank Transfer', requiresAllowedAdmin: true },
+            { path: '/attendance/admin/payroll-reports', icon: FiBarChart2, label: 'Payroll Reports', requiresAllowedAdmin: true },
+            ...privilegedMenu.slice(1)
+        ];
     }
 
     let menu = isAdmin
         ? [...baseMenu, ...(isAllowedAdmin ? privilegedMenu : [])]
         : (isHOD ? [...HOD_MENU] : [...EMPLOYEE_MENU]);
+
+    if (!isRabs) {
+        menu = menu.filter(item => {
+            if (item.path === '/attendance/my-salary') return false;
+            if (item.section === 'Payroll') return false;
+            if (item.path && item.path.includes('/payroll')) return false;
+            if (item.path === '/attendance/admin/payslip-generator') return false;
+            if (item.path === '/attendance/admin/bank-transfer') return false;
+            return true;
+        });
+    }
 
     if (username === 'chirag_shah') {
         const hasReports = menu.some(item => item.path === '/attendance/admin/reports');

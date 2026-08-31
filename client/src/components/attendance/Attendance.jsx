@@ -101,6 +101,7 @@ const Attendance = ({ employeeId }) => {
   const [selMonth, setSelMonth] = useState(dflt);
   const [filter,   setFilter]   = useState('all');
   const [page,     setPage]     = useState({ cur: 1, per: 25, total: 0 });
+  const [activeTab, setActiveTab] = useState('attendance');
 
   useEffect(() => { load(); }, [employeeId, user?.id, user?._id]);
   useEffect(() => { process(); }, [selMonth, filter, page.cur, all]);
@@ -163,8 +164,10 @@ const Attendance = ({ employeeId }) => {
 
   const exportCSV = () => {
     const mo = all.filter(r => r.attendance_date?.slice(0, 7) === selMonth);
+    const headers = ['Date','Day','In','Out','Late By','Early In','Early Out','Hours','Status'];
+
     const csv = [
-      ['Date','Day','In','Out','Late By','Early In','Early Out','Hours','Status'],
+      headers,
       ...mo.map(r => [
         formatDate(r.attendance_date, 'dd MMM yyyy'),
         new Date(r.attendance_date).toLocaleDateString('en', { weekday: 'short' }),

@@ -82,7 +82,7 @@ export const getProducts = async (req, res) => {
 
 export const addProduct = async (req, res) => {
     try {
-        const { name, genericName, purpose } = req.body;
+        const { name, genericName, purpose, totalStock } = req.body;
         if (!name || !name.trim()) {
             return res.status(400).json({ message: 'Product name is required.' });
         }
@@ -102,6 +102,7 @@ export const addProduct = async (req, res) => {
             name: name.trim(),
             generic_name: (genericName || '').trim(),
             purpose: (purpose || '').trim(),
+            total_stock: totalStock !== undefined ? Number(totalStock) || 0 : 0,
             company_id: companyId,
             created_by: req.user._id
         });
@@ -117,7 +118,7 @@ export const addProduct = async (req, res) => {
 export const updateProduct = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, status, genericName, purpose } = req.body;
+        const { name, status, genericName, purpose, totalStock } = req.body;
 
         const requester = await UserModel.findById(req.user._id).lean();
         if (!isAuthorizedManager(requester)) {
@@ -133,6 +134,7 @@ export const updateProduct = async (req, res) => {
         if (status !== undefined) product.status = status;
         if (genericName !== undefined) product.generic_name = (genericName || '').trim();
         if (purpose !== undefined) product.purpose = (purpose || '').trim();
+        if (totalStock !== undefined) product.total_stock = Number(totalStock) || 0;
         product.updated_by = req.user._id;
 
         await product.save();

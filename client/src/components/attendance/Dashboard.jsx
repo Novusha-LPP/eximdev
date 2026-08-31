@@ -150,7 +150,8 @@ export default function Dashboard() {
 
   const normalizeRole = (r) => String(r || '').trim().toUpperCase().replace(/[^A-Z]/g, '');
   const nRole = normalizeRole(user?.role);
-  const isAdmin = nRole === 'ADMIN';
+  const isHR = nRole === 'HR';
+  const isAdmin = nRole === 'ADMIN' || isHR;
   const isHOD = nRole === 'HOD' || nRole === 'HEADOFDEPARTMENT' || !!user?.isHOD;
   const isManager = isAdmin || isHOD;
 
@@ -188,8 +189,7 @@ export default function Dashboard() {
   const [companies, setCompanies] = useState([]);
 
   const username = String(user?.username || '').toLowerCase();
-  const isAuthorizedAdmin = AUTHORIZED_DASHBOARD_ADMINS.has(username) || user?.isAttendanceAllowedAdmin === true;
-  const isHR = nRole === 'HR';
+  const isAuthorizedAdmin = AUTHORIZED_DASHBOARD_ADMINS.has(username) || user?.isAttendanceAllowedAdmin === true || isHR;
   const canManagePolicy = isAuthorizedAdmin || isAdmin || isHR;
   const [weekOff, setWeekOff] = useState(0);
 
@@ -307,7 +307,8 @@ export default function Dashboard() {
               type: todayRecord.leaveType || todayRecord.leave_type,
               status: leaveStatus,
               reason: todayRecord.leaveReason || todayRecord.reason || ''
-            } : null
+            } : null,
+            category: row.category || 'Management'
           };
         });
 
@@ -645,8 +646,46 @@ export default function Dashboard() {
       <div className="db-hero">
         <div className="db-hero-inner">
           <div>
-            <h1>{`${greeting()}, ${displayName}`}</h1>
-            <p>{new Date().toLocaleDateString('en', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <h1 style={{ margin: 0 }}>{`${greeting()}, ${displayName}`}</h1>
+              {(() => {
+                const achTag = user?.achievement_tag || dash?.employee?.achievement_tag;
+                if (!achTag) return null;
+                const getTagBadge = (t) => {
+                  switch (t) {
+                    case 'Best Employee of the Month':
+                      return { icon: '🌟', color: '#92400e', bg: 'linear-gradient(135deg, #fef3c7 0%, #fffbeb 100%)', border: '#fcd34d' };
+                    case 'Best QC Inspector':
+                      return { icon: '🔍', color: '#155e75', bg: 'linear-gradient(135deg, #cffafe 0%, #ecfeff 100%)', border: '#67e8f9' };
+                    case 'Best 5s Zone':
+                      return { icon: '🏆', color: '#065f46', bg: 'linear-gradient(135deg, #d1fae5 0%, #ecfdf5 100%)', border: '#6ee7b7' };
+                    case 'Best Operator':
+                      return { icon: '⚙️', color: '#3730a3', bg: 'linear-gradient(135deg, #e0e7ff 0%, #eef2ff 100%)', border: '#a5b4fc' };
+                    default:
+                      return { icon: '🌟', color: '#92400e', bg: 'linear-gradient(135deg, #fef3c7 0%, #fffbeb 100%)', border: '#fcd34d' };
+                  }
+                };
+                const badge = getTagBadge(achTag);
+                return (
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '3px 12px',
+                    borderRadius: '16px',
+                    background: badge.bg,
+                    border: `1.5px solid ${badge.border}`,
+                    color: badge.color,
+                    fontSize: '12px',
+                    fontWeight: '800',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
+                  }}>
+                    {badge.icon} {achTag}
+                  </span>
+                );
+              })()}
+            </div>
+            <p style={{ margin: '4px 0 0' }}>{new Date().toLocaleDateString('en', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
           </div>
         </div>
       </div>

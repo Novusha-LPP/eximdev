@@ -652,6 +652,14 @@ const UserProfile = ({ username: propUsername }) => {
                                 <span className="label">Company</span>
                                 <span className="value">{profileData.company || 'N/A'}</span>
                             </div>
+                            {profileData.achievement_tag && (
+                                <div className="info-row">
+                                    <span className="label">Achievement Tag</span>
+                                    <span className="value strong" style={{ color: '#b45309', fontWeight: '700' }}>
+                                        🌟 {profileData.achievement_tag}
+                                    </span>
+                                </div>
+                            )}
                             <div className="info-row">
                                 <span className="label">Employment Type</span>
                                 <span className="value">{profileData.employment_type || 'N/A'}</span>
@@ -1298,23 +1306,93 @@ const UserProfile = ({ username: propUsername }) => {
             {/* Clean Header Section */}
             <div className="profile-header-clean">
                 <div className="header-left">
-                    <div
-                        className={`avatar-wrapper ${isOwnProfile ? 'clickable' : ''}`}
-                        onClick={handlePhotoClick}
-                    >
-                        <Avatar
-                            src={profileData.employee_photo}
-                            sx={{ width: 80, height: 80, fontSize: '2rem' }}
-                            className="main-avatar"
-                        >
-                            {initials}
-                        </Avatar>
-                        {isOwnProfile && (
-                            <div className="upload-overlay">
-                                {uploading ? <CircularProgress size={20} color="inherit" /> : <CameraAltIcon fontSize="small" />}
+                    {(() => {
+                        const tag = profileData.achievement_tag;
+                        const getTagRing = (t) => {
+                            switch (t) {
+                                case 'Best Employee of the Month':
+                                    return {
+                                        ring: '0 0 0 4px #f59e0b, 0 0 16px rgba(245, 158, 11, 0.5)',
+                                        badgeBg: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                                        icon: '🌟',
+                                        title: 'Best Employee of the Month'
+                                    };
+                                case 'Best QC Inspector':
+                                    return {
+                                        ring: '0 0 0 4px #06b6d4, 0 0 16px rgba(6, 182, 212, 0.5)',
+                                        badgeBg: 'linear-gradient(135deg, #06b6d4, #0891b2)',
+                                        icon: '🔍',
+                                        title: 'Best QC Inspector'
+                                    };
+                                case 'Best 5s Zone':
+                                    return {
+                                        ring: '0 0 0 4px #10b981, 0 0 16px rgba(16, 185, 129, 0.5)',
+                                        badgeBg: 'linear-gradient(135deg, #10b981, #059669)',
+                                        icon: '🏆',
+                                        title: 'Best 5s Zone'
+                                    };
+                                case 'Best Operator':
+                                    return {
+                                        ring: '0 0 0 4px #6366f1, 0 0 16px rgba(99, 102, 241, 0.5)',
+                                        badgeBg: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                                        icon: '⚙️',
+                                        title: 'Best Operator'
+                                    };
+                                default:
+                                    return null;
+                            }
+                        };
+                        const ringCfg = getTagRing(tag);
+                        return (
+                            <div
+                                className={`avatar-wrapper ${isOwnProfile ? 'clickable' : ''}`}
+                                onClick={handlePhotoClick}
+                                style={{
+                                    position: 'relative',
+                                    borderRadius: '50%',
+                                    boxShadow: ringCfg ? ringCfg.ring : 'none',
+                                    transition: 'all 0.3s ease'
+                                }}
+                            >
+                                <Avatar
+                                    src={profileData.employee_photo}
+                                    sx={{ width: 80, height: 80, fontSize: '2rem' }}
+                                    className="main-avatar"
+                                >
+                                    {initials}
+                                </Avatar>
+                                {ringCfg && (
+                                    <div
+                                        title={ringCfg.title}
+                                        style={{
+                                            position: 'absolute',
+                                            bottom: -2,
+                                            right: -2,
+                                            width: 28,
+                                            height: 28,
+                                            borderRadius: '50%',
+                                            background: ringCfg.badgeBg,
+                                            border: '2.5px solid #fff',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            fontSize: '13px',
+                                            boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+                                            zIndex: 4,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        {ringCfg.icon}
+                                    </div>
+                                )}
+                                {isOwnProfile && (
+                                    <div className="upload-overlay">
+                                        {uploading ? <CircularProgress size={20} color="inherit" /> : <CameraAltIcon fontSize="small" />}
+                                    </div>
+                                )}
                             </div>
-                        )}
-                    </div>
+                        );
+                    })()}
                     <Menu
                         anchorEl={anchorEl}
                         open={openMenu}
@@ -1373,6 +1451,23 @@ const UserProfile = ({ username: propUsername }) => {
                         <div className="header-badges">
                             <span className="badge role">{profileData.role || 'User'}</span>
                             <span className="badge emp-id">ID: {profileData.username}</span>
+                            {profileData.achievement_tag && (
+                                <span style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '5px',
+                                    padding: '4px 12px',
+                                    borderRadius: '16px',
+                                    background: 'linear-gradient(135deg, #fef3c7 0%, #fffbeb 100%)',
+                                    border: '1px solid #fcd34d',
+                                    color: '#92400e',
+                                    fontSize: '12px',
+                                    fontWeight: '700',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.08)'
+                                }}>
+                                    🌟 {profileData.achievement_tag}
+                                </span>
+                            )}
                             {(profileData.department === 'Export' || profileData.department === 'Exports') && (
                                 <img src={kpiPioneerBadge} alt="KPI Pioneer" className="kpi-pioneer-img-badge" />
                             )}

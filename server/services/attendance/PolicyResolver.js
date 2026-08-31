@@ -101,6 +101,8 @@ class PolicyResolver {
     const companyId = user.company_id?._id || user.company_id;
     if (!companyId) return null;
 
+    /*
+    // --- AUTO SHIFT DEDUCTION / DETECTION (TEMPORARILY COMMENTED OUT) ---
     let isRabs = false;
     let autoShiftEnabled = false;
     const Company = mongoose.model('Company');
@@ -116,42 +118,63 @@ class PolicyResolver {
       autoShiftEnabled = true;
     }
 
-    // Bypass dynamic routing if the user has an explicitly assigned/custom shift
-    if (isRabs && user?.work_pattern_override?.custom_shift === true) {
+    // Bypass dynamic routing if the user has an explicitly assigned/custom shift and auto shift detection is not enabled
+    const hasAssignedShift = user.shift_id || (Array.isArray(user.shift_ids) && user.shift_ids.filter(Boolean).length > 0);
+    if (isRabs && !autoShiftEnabled && (user?.work_pattern_override?.custom_shift === true || hasAssignedShift)) {
       isRabs = false;
-      autoShiftEnabled = false;
     }
 
     let resolveDynamically = isRabs;
 
     if (!resolveDynamically) {
-      const hasReferenceTime = !!referenceTime;
-      let hasPunches = false;
-      if (date) {
-        const AttendancePunch = mongoose.model('AttendancePunch');
-        const dateStr = typeof date === 'string' ? date : moment(date).format('YYYY-MM-DD');
-        const firstInPunch = await AttendancePunch.findOne({
-          employee_id: user._id,
-          punch_type: 'IN',
-          punch_date_str: dateStr
-        }).sort({ punch_time: 1 }).lean();
-        if (firstInPunch) {
-          hasPunches = true;
+      if (!hasAssignedShift) {
+        const hasReferenceTime = !!referenceTime;
+        let hasPunches = false;
+        if (date) {
+          const AttendancePunch = mongoose.model('AttendancePunch');
+          const dateStr = typeof date === 'string' ? date : moment(date).format('YYYY-MM-DD');
+          const firstInPunch = await AttendancePunch.findOne({
+            employee_id: user._id,
+            punch_type: 'IN',
+            punch_date_str: dateStr
+          }).sort({ punch_time: 1 }).lean();
+          if (firstInPunch) {
+            hasPunches = true;
+          }
         }
-      }
-      if (hasReferenceTime || hasPunches) {
-        resolveDynamically = true;
+        if (hasReferenceTime || hasPunches) {
+          resolveDynamically = true;
+        }
       }
     }
 
     if (resolveDynamically) {
       console.log(`[AutoShiftDetection] Executing shift resolution for user: ${user.username}. Auto Shift Detection flag: ${autoShiftEnabled}`);
     } else {
-      console.log(`[AutoShiftDetection] Skipping shift resolution for user: ${user.username} (Non-RABS and no current/past punches). Using standard assigned shift logic.`);
+      console.log(`[AutoShiftDetection] Skipping shift resolution for user: ${user.username} (Using standard assigned shift logic).`);
     }
 
     if (resolveDynamically) {
       const activeShifts = await Shift.find({ company_id: companyId, status: 'active' }).lean();
+
+      // Ensure the user's assigned shift(s) are also considered as candidates if active
+      const assignedShiftIds = [];
+      if (user.shift_id) assignedShiftIds.push(user.shift_id.toString());
+      if (Array.isArray(user.shift_ids)) {
+        user.shift_ids.forEach(id => {
+          if (id) assignedShiftIds.push((id._id || id).toString());
+        });
+      }
+      
+      for (const sId of assignedShiftIds) {
+        if (!activeShifts.some(s => s._id.toString() === sId)) {
+          const sObj = await Shift.findById(sId).lean();
+          if (sObj && sObj.status === 'active') {
+            activeShifts.push(sObj);
+          }
+        }
+      }
+
       if (activeShifts.length > 0) {
         let comparisonTime = referenceTime;
         
@@ -266,6 +289,8 @@ class PolicyResolver {
         }
       }
     }
+    // --- END AUTO SHIFT DEDUCTION / DETECTION ---
+    */
 
     const assignedShiftIds = Array.isArray(user.shift_ids)
       ? user.shift_ids.map((id) => id?._id || id).filter(Boolean)
@@ -323,10 +348,11 @@ class PolicyResolver {
     const policies = await this.getActiveWeekOffPolicies(companyId);
 
     if (user.weekoff_policy_id) {
-      const explicit = policies.find((p) => String(p._id) === String(user.weekoff_policy_id));
+      const targetId = user.weekoff_policy_id?._id || user.weekoff_policy_id;
+      const explicit = policies.find((p) => String(p._id) === String(targetId));
       if (explicit) return explicit;
 
-      const policy = await WeekOffPolicy.findById(user.weekoff_policy_id).lean();
+      const policy = await WeekOffPolicy.findById(targetId).lean();
       if (policy && policy.status === 'active') return policy;
     }
 
@@ -405,10 +431,11 @@ class PolicyResolver {
 
     // 1. Explicit override
     if (user.holiday_policy_id) {
-      const explicit = policies.find((p) => String(p._id) === String(user.holiday_policy_id));
+      const targetId = user.holiday_policy_id?._id || user.holiday_policy_id;
+      const explicit = policies.find((p) => String(p._id) === String(targetId));
       if (explicit) return explicit;
 
-      const policy = await HolidayPolicy.findById(user.holiday_policy_id).lean();
+      const policy = await HolidayPolicy.findById(targetId).lean();
       if (policy && policy.status === 'active' && policy.year === targetYear) return policy;
     }
 

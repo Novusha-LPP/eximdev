@@ -10,7 +10,7 @@ import html2canvas from "html2canvas";
 import "./Audit5s.css";
 import rabsLogo from "../../assets/rabs_logo.png";
 
-const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
+const Audit5sSheet = ({ month, zoneId, isAdminOrHR, onBack }) => {
     const { user } = useContext(UserContext);
     const [template, setTemplate] = useState(null);
     const [checklist, setChecklist] = useState(null);
@@ -20,7 +20,14 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [editStructureMode, setEditStructureMode] = useState(false);
+    const [showVerticalTotals, setShowVerticalTotals] = useState(false);
     const [confirmModal, setConfirmModal] = useState({ open: false, message: "", onConfirm: null });
+
+    // Monthly scorecard edits
+    const [editMonthlyMode, setEditMonthlyMode] = useState(false);
+    const [editZoneName, setEditZoneName] = useState("");
+    const [editLeaderPhoto, setEditLeaderPhoto] = useState("");
+    const [editPrevMonthData, setEditPrevMonthData] = useState({});
 
     // Form inputs for metadata overrides
     const [docNo, setDocNo] = useState("");
@@ -28,7 +35,26 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
     const [revDate, setRevDate] = useState("");
     const [respPersonId, setRespPersonId] = useState("");
 
+    // Top action bar dropdown menus
+    const [exportMenuOpen, setExportMenuOpen] = useState(false);
+    const [optionsMenuOpen, setOptionsMenuOpen] = useState(false);
+    const exportMenuRef = useRef(null);
+    const optionsMenuRef = useRef(null);
+
     const sheetRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (exportMenuRef.current && !exportMenuRef.current.contains(e.target)) {
+                setExportMenuOpen(false);
+            }
+            if (optionsMenuRef.current && !optionsMenuRef.current.contains(e.target)) {
+                setOptionsMenuOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     // Get days in the selected month
     const daysInMonth = useMemo(() => {
@@ -67,6 +93,12 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
         const day = String(d.getDate()).padStart(2, "0");
         const m = String(d.getMonth() + 1).padStart(2, "0");
         const y = String(d.getFullYear()).slice(-2);
+
+
+
+
+
+        
         return `${day}.${m}.${y}`;
     };
 
@@ -216,18 +248,33 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
         return "bg-range-green";
     }, []);
 
+    // Previous month score helper (returns manual override if no prev checklist sheet exists)
+    const getPrevCategoryScores = useCallback((category) => {
+        if (prevChecklist) {
+            return calculateCategoryScoresForChecklist(prevChecklist, category, prevMonthDays);
+        }
+        
+        // Manual fallback stored on current checklist
+        const catIdStr = String(category._id);
+        const manual = editPrevMonthData[catIdStr] || checklist?.prevMonthData?.[catIdStr] || (checklist?.prevMonthData?.get ? checklist.prevMonthData.get(catIdStr) : undefined);
+        return {
+            actual: manual?.actual ?? 0,
+            max: manual?.max ?? 0
+        };
+    }, [prevChecklist, checklist, prevMonthDays, calculateCategoryScoresForChecklist, editPrevMonthData]);
+
     const prevMonthGrandTotals = useMemo(() => {
         let actual = 0;
         let max = 0;
-        if (!template || !prevChecklist) return { actual, max, pct: 0 };
+        if (!template) return { actual, max, pct: 0 };
         template.categories.forEach(cat => {
-            const catScores = calculateCategoryScoresForChecklist(prevChecklist, cat, prevMonthDays);
+            const catScores = getPrevCategoryScores(cat);
             actual += catScores.actual;
-            max += catScores.max;
+            max += cat.totalScore || catScores.max;
         });
         const pct = max > 0 ? Number(((actual / max) * 100).toFixed(2)) : 0;
         return { actual, max, pct };
-    }, [template, prevChecklist, prevMonthDays, calculateCategoryScoresForChecklist]);
+    }, [template, getPrevCategoryScores]);
 
     const currentMonthGrandTotals = useMemo(() => {
         let actual = 0;
@@ -236,7 +283,7 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
         template.categories.forEach(cat => {
             const catScores = calculateCategoryScoresForChecklist(checklist, cat, daysInMonth);
             actual += catScores.actual;
-            max += catScores.max;
+            max += cat.totalScore || catScores.max;
         });
         const pct = max > 0 ? Number(((actual / max) * 100).toFixed(2)) : 0;
         return { actual, max, pct };
@@ -262,6 +309,23 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
                 setRevNo(chk.revNo || tplRes?.data?.revNo || "00");
                 setRevDate(formatDateYYYYMMDD(chk.revDate || tplRes?.data?.revDate || "2024-12-10"));
                 setRespPersonId(chk.responsiblePerson?._id || chk.responsiblePerson || "");
+                setEditZoneName(chk.zoneName || "");
+                setEditLeaderPhoto(chk.leaderPhoto || "");
+
+                // Initialize manual previous month data from checklist document
+                const initPrevData = {};
+                if (tplRes.data?.categories) {
+                    tplRes.data.categories.forEach(cat => {
+                        const savedMap = chk.prevMonthData || {};
+                        const catIdStr = String(cat._id);
+                        const savedVal = savedMap[catIdStr] || (savedMap.get ? savedMap.get(catIdStr) : undefined);
+                        initPrevData[catIdStr] = {
+                            actual: savedVal?.actual ?? 0,
+                            max: savedVal?.max ?? 0
+                        };
+                    });
+                }
+                setEditPrevMonthData(initPrevData);
             }
             if (prevChkRes && prevChkRes.success) {
                 setPrevChecklist(prevChkRes.data);
@@ -276,7 +340,7 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
                         const compName = u.company || (u.company_id && u.company_id.company_name) || "";
                         return /RABS/i.test(compName);
                     });
-                    setUsers(rabsUsers);
+                    setUsers(rabsUsers.length > 0 ? rabsUsers : userRes.data);
                 }
             }
         } catch (err) {
@@ -404,6 +468,40 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
         return sum;
     }, [scoresMap]);
 
+    // Vertical sum for a category on a specific day
+    const getCategoryDayTotal = useCallback((category, dayNum) => {
+        if (!category?.items || category.items.length === 0) return "";
+        let sum = 0;
+        let anyFilled = false;
+        category.items.forEach(item => {
+            const itemScores = scoresMap.get(item._id);
+            const val = itemScores ? itemScores.get(String(dayNum)) : undefined;
+            if (val !== undefined && val !== null && val !== "") {
+                sum += Number(val);
+                anyFilled = true;
+            }
+        });
+        return anyFilled ? sum : "";
+    }, [scoresMap]);
+
+    // Grand vertical sum across all categories on a specific day
+    const getGrandDayTotal = useCallback((dayNum) => {
+        if (!template?.categories) return "";
+        let sum = 0;
+        let anyFilled = false;
+        template.categories.forEach(cat => {
+            (cat.items || []).forEach(item => {
+                const itemScores = scoresMap.get(item._id);
+                const val = itemScores ? itemScores.get(String(dayNum)) : undefined;
+                if (val !== undefined && val !== null && val !== "") {
+                    sum += Number(val);
+                    anyFilled = true;
+                }
+            });
+        });
+        return anyFilled ? sum : "";
+    }, [template, scoresMap]);
+
     // Category calculation helper: count daily totals only when all items in this category are filled for that day
     const getCategoryScores = useCallback((category) => {
         let actual = 0;
@@ -452,13 +550,43 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
             max += catScores.max;
         });
 
-
-
-        
-
         const pct = max > 0 ? Number(((actual / max) * 100).toFixed(2)) : 0;
         return { actual, max, pct };
     }, [template, getCategoryScores]);
+
+    const handleLeaderPhotoChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setEditLeaderPhoto(reader.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleSaveMonthlyDetails = async () => {
+        if (!checklist) return;
+        try {
+            setSaving(true);
+            const response = await audit5sAPI.updateChecklist(checklist._id, {
+                zoneName: editZoneName,
+                leaderPhoto: editLeaderPhoto,
+                prevMonthData: editPrevMonthData
+            });
+
+            if (response.success) {
+                toast.success("Monthly scorecard details saved successfully!");
+                setEditMonthlyMode(false);
+                loadData();
+            }
+        } catch (err) {
+            console.error("Failed to save monthly details:", err);
+            toast.error("Failed to save monthly scorecard.");
+        } finally {
+            setSaving(false);
+        }
+    };
 
     // Save checklist sheet
     const handleSave = async () => {
@@ -609,10 +737,25 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
 
             // Landscape A4 size is 297mm x 210mm
             const pdf = new jsPDF("l", "mm", "a4");
-            const width = pdf.internal.pageSize.getWidth();
-            const height = pdf.internal.pageSize.getHeight();
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            const imgProps = pdf.getImageProperties(imgData);
+            const pdfHeight = (imgProps.height * pageWidth) / imgProps.width;
 
-            pdf.addImage(imgData, "PNG", 0, 0, width, height);
+            if (pdfHeight <= pageHeight) {
+                pdf.addImage(imgData, "PNG", 0, 0, pageWidth, pdfHeight);
+            } else {
+                let heightLeft = pdfHeight;
+                let position = 0;
+                while (heightLeft > 0) {
+                    pdf.addImage(imgData, "PNG", 0, position, pageWidth, pdfHeight);
+                    heightLeft -= pageHeight;
+                    if (heightLeft > 0) {
+                        position -= pageHeight;
+                        pdf.addPage();
+                    }
+                }
+            }
 
             const monthStr = month ? month.toUpperCase() : "AUDIT";
             const zoneStr = checklist?.zoneName ? checklist.zoneName.toUpperCase() : "ZONE";
@@ -819,14 +962,32 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
                 // Category summary row
                 worksheet.mergeCells(currentRow, 1, currentRow, 2);
                 const summaryLabelCell = worksheet.getCell(currentRow, 1);
-                summaryLabelCell.value = `${cat.name.split(" ")[0]} Score = Total = ${catScores.max > 0 ? `${catScores.actual} / ${catScores.max}` : "0"}`;
+                summaryLabelCell.value = `${cat.name.split(" ")[0]} Score = Total`;
                 summaryLabelCell.font = { name: "Arial", size: 10, bold: true };
                 summaryLabelCell.alignment = { vertical: "middle", horizontal: "left" };
-                summaryLabelCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "E2E8F0" } };
+                summaryLabelCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "CBD5E1" } };
 
-                worksheet.mergeCells(currentRow, 3, currentRow, totalColsCount);
-                const summarySpaceCell = worksheet.getCell(currentRow, 3);
-                summarySpaceCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F1F5F9" } };
+                if (showVerticalTotals) {
+                    daysArray.forEach((day, dIdx) => {
+                        const c = 3 + dIdx;
+                        const cell = worksheet.getCell(currentRow, c);
+                        const daySum = getCategoryDayTotal(cat, day);
+                        cell.value = daySum !== "" ? Number(daySum) : "";
+                        cell.font = { name: "Arial", size: 9, bold: true };
+                        cell.alignment = { vertical: "middle", horizontal: "center" };
+                        cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "CBD5E1" } };
+                    });
+                } else {
+                    worksheet.mergeCells(currentRow, 3, currentRow, totalColsCount - 1);
+                    const summarySpaceCell = worksheet.getCell(currentRow, 3);
+                    summarySpaceCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "F1F5F9" } };
+                }
+
+                const summaryScoreCell = worksheet.getCell(currentRow, totalColsCount);
+                summaryScoreCell.value = `${catScores.actual}${cat.totalScore ? ` / ${cat.totalScore}` : ""}`;
+                summaryScoreCell.font = { name: "Arial", size: 9, bold: true };
+                summaryScoreCell.alignment = { vertical: "middle", horizontal: "center" };
+                summaryScoreCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "CBD5E1" } };
 
                 for (let c = 1; c <= totalColsCount; c++) {
                     worksheet.getCell(currentRow, c).border = thinBorder;
@@ -834,6 +995,38 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
 
                 currentRow++;
             });
+
+            // If vertical totals is enabled, add Grand Daily Total row
+            if (showVerticalTotals) {
+                worksheet.mergeCells(currentRow, 1, currentRow, 2);
+                const grandLabelCell = worksheet.getCell(currentRow, 1);
+                grandLabelCell.value = "Total Daily Score";
+                grandLabelCell.font = { name: "Arial", size: 10, bold: true };
+                grandLabelCell.alignment = { vertical: "middle", horizontal: "left" };
+                grandLabelCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "94A3B8" } };
+
+                daysArray.forEach((day, dIdx) => {
+                    const c = 3 + dIdx;
+                    const cell = worksheet.getCell(currentRow, c);
+                    const grandSum = getGrandDayTotal(day);
+                    cell.value = grandSum !== "" ? Number(grandSum) : "";
+                    cell.font = { name: "Arial", size: 9, bold: true };
+                    cell.alignment = { vertical: "middle", horizontal: "center" };
+                    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "CBD5E1" } };
+                });
+
+                const grandPctCell = worksheet.getCell(currentRow, totalColsCount);
+                grandPctCell.value = `${grandTotals.pct}%`;
+                grandPctCell.font = { name: "Arial", size: 10, bold: true };
+                grandPctCell.alignment = { vertical: "middle", horizontal: "center" };
+                grandPctCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "94A3B8" } };
+
+                for (let c = 1; c <= totalColsCount; c++) {
+                    worksheet.getCell(currentRow, c).border = thinBorder;
+                }
+
+                currentRow++;
+            }
 
             // Auditor signature row
             worksheet.mergeCells(currentRow, 1, currentRow, 2);
@@ -1172,12 +1365,12 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
                 pDescCell.alignment = { vertical: "middle", horizontal: "center" };
 
                 const pTotalCell = monthlySheet.getCell(catRow, 5);
-                pTotalCell.value = prevScores.max;
+                pTotalCell.value = cat.totalScore || prevScores.max;
                 pTotalCell.font = { name: "Arial", size: 9 };
                 pTotalCell.alignment = { vertical: "middle", horizontal: "center" };
 
                 const pReqCell = monthlySheet.getCell(catRow, 6);
-                pReqCell.value = prevScores.max * 0.5;
+                pReqCell.value = (cat.totalScore || prevScores.max) * 0.5;
                 pReqCell.font = { name: "Arial", size: 9 };
                 pReqCell.alignment = { vertical: "middle", horizontal: "center" };
 
@@ -1199,12 +1392,12 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
                 cDescCell.alignment = { vertical: "middle", horizontal: "center" };
 
                 const cTotalCell = monthlySheet.getCell(catRow, 11);
-                cTotalCell.value = currScores.max;
+                cTotalCell.value = cat.totalScore || currScores.max;
                 cTotalCell.font = { name: "Arial", size: 9 };
                 cTotalCell.alignment = { vertical: "middle", horizontal: "center" };
 
                 const cReqCell = monthlySheet.getCell(catRow, 12);
-                cReqCell.value = currScores.max * 0.5;
+                cReqCell.value = (cat.totalScore || currScores.max) * 0.5;
                 cReqCell.font = { name: "Arial", size: 9 };
                 cReqCell.alignment = { vertical: "middle", horizontal: "center" };
 
@@ -1522,75 +1715,144 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
         );
     }
 
-    const currentRespPerson = users.find(u => u._id === respPersonId) || checklist.responsiblePerson;
+    const currentRespPerson = users.find(u => String(u._id) === String(respPersonId)) || checklist.responsiblePerson;
     const respPersonName = currentRespPerson?.first_name
         ? `${currentRespPerson.first_name} ${currentRespPerson.last_name || ""}`.trim()
-        : (currentRespPerson?.username || "—");
+        : (currentRespPerson?.username || (typeof currentRespPerson === "string" && !/^[0-9a-fA-F]{24}$/.test(currentRespPerson) ? currentRespPerson : "—"));
 
 
     return (
         <div className="audit-sheet-workspace">
-            {/* Action Bar */}
-            <div className="audit-sheet-actions no-print">
-                <button
-                    className="btn-audit5s btn-secondary"
-                    onClick={handlePrint}
-                >
-                    🖨️ Local Print
-                </button>
-                <button
-                    className="btn-audit5s btn-secondary"
-                    onClick={handleExportPDF}
-                >
-                    📥 Download PDF
-                </button>
-                <button
-                    type="button"
-                    className="btn-audit5s btn-secondary"
-                    onClick={handleExportDailyExcel}
-                >
-                    🟢 Daily Excel
-                </button>
-                <button
-                    type="button"
-                    className="btn-audit5s btn-secondary"
-                    onClick={handleExportMonthlyExcel}
-                >
-                    📊 Monthly Excel
-                </button>
-                {isAdminOrHR && (
-                    <button
-                        type="button"
-                        className={`btn-audit5s ${editStructureMode ? "btn-primary" : "btn-secondary"}`}
-                        onClick={() => setEditStructureMode(!editStructureMode)}
-                        disabled={saving}
-                    >
-                        {editStructureMode ? "👁️ View Mode" : "✏️ Edit Structure"}
-                    </button>
-                )}
-                <button
-                    className="btn-audit5s btn-primary"
-                    onClick={handleSave}
-                    disabled={saving}
-                >
-                    {saving ? "Saving..." : "💾 Save Changes"}
-                </button>
-            </div>
+            {/* Streamlined Clean Top Action Bar */}
+            <div className="audit-sheet-top-bar no-print">
+                <div className="audit-sheet-top-left">
+                    {onBack && (
+                        <button
+                            className="btn-audit5s btn-secondary compact"
+                            onClick={onBack}
+                            style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+                        >
+                            ← Back
+                        </button>
+                    )}
+                    <div className="audit-subtabs-pill-group">
+                        <button
+                            className={`audit-subtab-pill ${activeSubTab === "daily" ? "active" : ""}`}
+                            onClick={() => setActiveSubTab("daily")}
+                        >
+                            📋 Daily Checklist
+                        </button>
+                        <button
+                            className={`audit-subtab-pill ${activeSubTab === "monthly" ? "active" : ""}`}
+                            onClick={() => setActiveSubTab("monthly")}
+                        >
+                            📊 Monthly Score Report
+                        </button>
+                    </div>
+                </div>
 
-            {/* Sub Tabs Selection */}
-            <div className="audit-subtabs-nav no-print">
-                <button
-                    className={`audit-subtab-btn ${activeSubTab === "daily" ? "active" : ""}`}
-                    onClick={() => setActiveSubTab("daily")}
-                >
-                    📋 Daily Checklist
-                </button>
-                <button
-                    className={`audit-subtab-btn ${activeSubTab === "monthly" ? "active" : ""}`}
-                    onClick={() => setActiveSubTab("monthly")}
-                >
-                    📊 Monthly Score Report
-                </button>
+                <div className="audit-sheet-top-right">
+                    {/* View Options Dropdown */}
+                    <div ref={optionsMenuRef} className="audit-action-dropdown-container">
+                        <button
+                            type="button"
+                            className="btn-audit5s btn-secondary compact"
+                            onClick={() => { setOptionsMenuOpen(!optionsMenuOpen); setExportMenuOpen(false); }}
+                            style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+                        >
+                            ⚙️ Options ▾
+                        </button>
+                        {optionsMenuOpen && (
+                            <div className="audit-action-dropdown-menu">
+                                {activeSubTab === "daily" && (
+                                    <button
+                                        type="button"
+                                        className="audit-dropdown-item"
+                                        onClick={() => { setShowVerticalTotals(!showVerticalTotals); setOptionsMenuOpen(false); }}
+                                    >
+                                        <span>{showVerticalTotals ? "✅" : "⬜"}</span>
+                                        <span>Vertical Totals</span>
+                                    </button>
+                                )}
+                                {isAdminOrHR && activeSubTab === "daily" && (
+                                    <button
+                                        type="button"
+                                        className="audit-dropdown-item"
+                                        onClick={() => { setEditStructureMode(!editStructureMode); setOptionsMenuOpen(false); }}
+                                    >
+                                        <span>{editStructureMode ? "👁️" : "✏️"}</span>
+                                        <span>{editStructureMode ? "View Mode" : "Edit Structure"}</span>
+                                    </button>
+                                )}
+                                {isAdminOrHR && activeSubTab === "monthly" && (
+                                    <button
+                                        type="button"
+                                        className="audit-dropdown-item"
+                                        onClick={() => { setEditMonthlyMode(!editMonthlyMode); setOptionsMenuOpen(false); }}
+                                    >
+                                        <span>{editMonthlyMode ? "👁️" : "✏️"}</span>
+                                        <span>{editMonthlyMode ? "View Mode" : "Edit Scorecard"}</span>
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Export & Print Dropdown */}
+                    <div ref={exportMenuRef} className="audit-action-dropdown-container">
+                        <button
+                            type="button"
+                            className="btn-audit5s btn-secondary compact"
+                            onClick={() => { setExportMenuOpen(!exportMenuOpen); setOptionsMenuOpen(false); }}
+                            style={{ display: "inline-flex", alignItems: "center", gap: "6px" }}
+                        >
+                            📥 Export & Print ▾
+                        </button>
+                        {exportMenuOpen && (
+                            <div className="audit-action-dropdown-menu">
+                                <button
+                                    type="button"
+                                    className="audit-dropdown-item"
+                                    onClick={() => { setExportMenuOpen(false); handlePrint(); }}
+                                >
+                                    🖨️ Local Print
+                                </button>
+                                <button
+                                    type="button"
+                                    className="audit-dropdown-item"
+                                    onClick={() => { setExportMenuOpen(false); handleExportPDF(); }}
+                                >
+                                    📄 Download PDF
+                                </button>
+                                <div className="audit-dropdown-divider" />
+                                <button
+                                    type="button"
+                                    className="audit-dropdown-item"
+                                    onClick={() => { setExportMenuOpen(false); handleExportDailyExcel(); }}
+                                >
+                                    🟢 Daily Excel (.xlsx)
+                                </button>
+                                <button
+                                    type="button"
+                                    className="audit-dropdown-item"
+                                    onClick={() => { setExportMenuOpen(false); handleExportMonthlyExcel(); }}
+                                >
+                                    📊 Monthly Excel (.xlsx)
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Primary Save Button */}
+                    <button
+                        className="btn-audit5s btn-primary compact"
+                        onClick={activeSubTab === "monthly" ? handleSaveMonthlyDetails : handleSave}
+                        disabled={saving}
+                        style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontWeight: "700" }}
+                    >
+                        {saving ? "Saving..." : "💾 Save Changes"}
+                    </button>
+                </div>
             </div>
 
             {/* Print Sheet Viewport */}
@@ -1643,9 +1905,10 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
                                                                 value={respPersonId}
                                                                 onChange={setRespPersonId}
                                                                 options={users.map(u => ({
-                                                                    value: u._id,
-                                                                    label: u.first_name ? `${u.first_name} ${u.last_name || ""}` : u.username
+                                                                    value: String(u._id),
+                                                                    label: (u.first_name || u.last_name) ? `${u.first_name || ""} ${u.last_name || ""}`.trim() : (u.username || "Unknown")
                                                                 }))}
+                                                                fallbackLabel={respPersonName}
                                                                 placeholder="Select Employee"
                                                             />
                                                             <span className="meta-value uppercase print-only">{respPersonName}</span>
@@ -1879,11 +2142,25 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
                                                     <td colSpan="2" className="cat-summary-label">
                                                         {cat.name.split(" ")[0]} Score = Total
                                                     </td>
-                                                    <td colSpan={daysInMonth} className="cat-summary-spacer">
-                                                        {/* empty block spacer */}
-                                                    </td>
-                                                    <td className="total-cell" style={{ fontWeight: "800", backgroundColor: "#cbd5e1" }}>
-                                                        {catScores.actual}
+                                                    {showVerticalTotals ? (
+                                                        daysArray.map(day => {
+                                                            const daySum = getCategoryDayTotal(cat, day);
+                                                            return (
+                                                                <td 
+                                                                    key={day} 
+                                                                    className="cat-summary-day-cell"
+                                                                >
+                                                                    {daySum}
+                                                                </td>
+                                                            );
+                                                        })
+                                                    ) : (
+                                                        <td colSpan={daysInMonth} className="cat-summary-spacer">
+                                                            {/* empty block spacer */}
+                                                        </td>
+                                                    )}
+                                                    <td className="total-cell" style={{ fontWeight: "800", backgroundColor: "#cbd5e1", whiteSpace: "nowrap" }}>
+                                                        {catScores.actual}{cat.totalScore ? ` / ${cat.totalScore}` : ""}
                                                     </td>
                                                 </tr>
                                             </React.Fragment>
@@ -1900,6 +2177,29 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
                                                 >
                                                     ➕ Add New Category Row
                                                 </button>
+                                            </td>
+                                        </tr>
+                                    )}
+
+                                    {/* Overall Grand Daily Total row */}
+                                    {showVerticalTotals && (
+                                        <tr className="grand-daily-total-row">
+                                            <td colSpan="2" className="grand-daily-total-label">
+                                                Total Daily Score
+                                            </td>
+                                            {daysArray.map(day => {
+                                                const grandSum = getGrandDayTotal(day);
+                                                return (
+                                                    <td 
+                                                        key={day} 
+                                                        className="grand-daily-total-cell"
+                                                    >
+                                                        {grandSum}
+                                                    </td>
+                                                );
+                                            })}
+                                            <td className="total-cell" style={{ fontWeight: "900", backgroundColor: "#94a3b8", color: "#0f172a" }}>
+                                                {grandTotals.pct}%
                                             </td>
                                         </tr>
                                     )}
@@ -1982,8 +2282,19 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
 
                             {/* Zone Area & Zone No Row */}
                             <div className="monthly-zone-row">
-                                <div className="zone-area-lbl">
-                                    <strong>ZONE AREA :</strong> {(checklist.zoneName || "OFFICE").toUpperCase()}
+                                <div className="zone-area-lbl" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                                    <strong>ZONE AREA :</strong>
+                                    {editMonthlyMode ? (
+                                        <input
+                                            type="text"
+                                            value={editZoneName}
+                                            onChange={(e) => setEditZoneName(e.target.value)}
+                                            className="sheet-inline-input"
+                                            style={{ textTransform: "uppercase", width: "200px" }}
+                                        />
+                                    ) : (
+                                        (checklist.zoneName || "OFFICE").toUpperCase()
+                                    )}
                                 </div>
                                 <div className="zone-no-lbl">
                                     <strong>ZONE NO:</strong> {checklist.zoneNo || "01"}
@@ -2019,14 +2330,15 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
                                 <tbody>
                                     {template.categories.map((cat, idx) => {
                                         const catName = getCatShortName(cat);
-                                        const prevScores = calculateCategoryScoresForChecklist(prevChecklist, cat, prevMonthDays);
+                                        const prevScores = getPrevCategoryScores(cat);
                                         const currScores = calculateCategoryScoresForChecklist(checklist, cat, daysInMonth);
 
-                                        const prevStatus = prevChecklist && prevScores.max > 0
-                                            ? (prevScores.actual >= prevScores.max * 0.5 ? "OK" : "NG")
+                                        const prevMaxVal = cat.totalScore || prevScores.max;
+                                        const prevStatus = (prevChecklist || prevScores.actual) && prevMaxVal > 0
+                                            ? (prevScores.actual >= prevMaxVal * 0.5 ? "OK" : "NG")
                                             : "";
-                                        const currStatus = currScores.max > 0
-                                            ? (currScores.actual >= currScores.max * 0.5 ? "OK" : "NG")
+                                        const currStatus = (cat.totalScore || currScores.max) > 0
+                                            ? (currScores.actual >= (cat.totalScore || currScores.max) * 0.5 ? "OK" : "NG")
                                             : "";
 
                                         return (
@@ -2034,21 +2346,89 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
                                                 {/* Left Panel: Photo Area spanning categories */}
                                                 {idx === 0 && (
                                                     <td colSpan="2" rowSpan={template.categories.length} className="leader-photo-cell">
-                                                        <div className="leader-avatar-placeholder">
-                                                            <span className="avatar-icon">👤</span>
-                                                            <span className="avatar-lbl">Leader Photo</span>
+                                                        <div className="leader-avatar-placeholder" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", minHeight: "150px", position: "relative" }}>
+                                                            {editLeaderPhoto ? (
+                                                                <img src={editLeaderPhoto} alt="Leader" className="leader-photo-img" style={{ width: "120px", height: "120px", objectFit: "cover", borderRadius: "50%", border: "2px solid #cbd5e1" }} />
+                                                            ) : (
+                                                                <>
+                                                                    <span className="avatar-icon" style={{ fontSize: "40px" }}>👤</span>
+                                                                    <span className="avatar-lbl" style={{ fontSize: "12px", color: "#64748b" }}>Leader Photo</span>
+                                                                </>
+                                                            )}
+                                                            {editMonthlyMode && (
+                                                                <div className="leader-photo-uploader" style={{ marginTop: "8px" }}>
+                                                                    <input
+                                                                        type="file"
+                                                                        accept="image/*"
+                                                                        onChange={handleLeaderPhotoChange}
+                                                                        style={{ display: "none" }}
+                                                                        id="leader-photo-upload-input"
+                                                                    />
+                                                                    <label htmlFor="leader-photo-upload-input" className="btn-audit5s btn-secondary compact" style={{ cursor: "pointer", fontSize: "11px", padding: "4px 8px", backgroundColor: "#cbd5e1", borderRadius: "4px" }}>
+                                                                        Upload Photo
+                                                                    </label>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </td>
                                                 )}
 
                                                 {/* Previous Month Category Detail */}
                                                 <td colSpan="2" className="desc-cell-val font-semibold">{catName}</td>
-                                                <td className="center-val">{prevScores.max || "—"}</td>
-                                                <td className="center-val">{prevScores.max ? prevScores.max * 0.5 : "—"}</td>
-                                                <td className={`center-val ${getRangeColorClass(prevScores.max, prevScores.actual)}`}>{prevChecklist ? prevScores.actual : "—"}</td>
+                                                <td className="center-val">
+                                                    {editMonthlyMode && !prevChecklist ? (
+                                                        <input
+                                                            type="number"
+                                                            className="sheet-inline-input"
+                                                            style={{ width: "60px", textAlign: "center" }}
+                                                            value={editPrevMonthData[String(cat._id)]?.max ?? 0}
+                                                            onChange={(e) => {
+                                                                const val = Number(e.target.value);
+                                                                setEditPrevMonthData({
+                                                                    ...editPrevMonthData,
+                                                                    [String(cat._id)]: {
+                                                                        ...editPrevMonthData[String(cat._id)],
+                                                                        max: val
+                                                                    }
+                                                                });
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        cat.totalScore || prevScores.max || "—"
+                                                    )}
+                                                </td>
+                                                <td className="center-val">
+                                                    {editMonthlyMode && !prevChecklist ? (
+                                                        ((editPrevMonthData[String(cat._id)]?.max ?? 0) * 0.5)
+                                                    ) : (
+                                                        (cat.totalScore || prevScores.max) ? (cat.totalScore || prevScores.max) * 0.5 : "—"
+                                                    )}
+                                                </td>
+                                                <td className={`center-val ${getRangeColorClass(cat.totalScore || prevScores.max, prevScores.actual)}`}>
+                                                    {editMonthlyMode && !prevChecklist ? (
+                                                        <input
+                                                            type="number"
+                                                            className="sheet-inline-input"
+                                                            style={{ width: "60px", textAlign: "center" }}
+                                                            value={editPrevMonthData[String(cat._id)]?.actual ?? 0}
+                                                            onChange={(e) => {
+                                                                const val = Number(e.target.value);
+                                                                setEditPrevMonthData({
+                                                                    ...editPrevMonthData,
+                                                                    [String(cat._id)]: {
+                                                                        ...editPrevMonthData[String(cat._id)],
+                                                                        actual: val
+                                                                    }
+                                                                });
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        prevChecklist || prevScores.actual ? prevScores.actual : "—"
+                                                    )}
+                                                </td>
                                                 <td className="status-cell-val">
                                                     {prevStatus && (
-                                                        <span className={`status-badge ${getBadgeClass(prevScores.max, prevScores.actual)}`}>
+                                                        <span className={`status-badge ${getBadgeClass(cat.totalScore || prevScores.max, prevScores.actual)}`}>
                                                             {prevStatus}
                                                         </span>
                                                     )}
@@ -2056,12 +2436,12 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
 
                                                 {/* Current Month Category Detail */}
                                                 <td colSpan="2" className="desc-cell-val font-semibold">{catName}</td>
-                                                <td className="center-val">{currScores.max}</td>
-                                                <td className="center-val">{currScores.max * 0.5}</td>
-                                                <td className={`center-val ${getRangeColorClass(currScores.max, currScores.actual)}`}>{currScores.actual}</td>
+                                                <td className="center-val">{cat.totalScore || currScores.max}</td>
+                                                <td className="center-val">{(cat.totalScore || currScores.max) * 0.5}</td>
+                                                <td className={`center-val ${getRangeColorClass(cat.totalScore || currScores.max, currScores.actual)}`}>{currScores.actual}</td>
                                                 <td className="status-cell-val">
                                                     {currStatus ? (
-                                                        <span className={`status-badge ${getBadgeClass(currScores.max, currScores.actual)}`}>
+                                                        <span className={`status-badge ${getBadgeClass(cat.totalScore || currScores.max, currScores.actual)}`}>
                                                             {currStatus}
                                                         </span>
                                                     ) : "—"}
@@ -2195,7 +2575,7 @@ const Audit5sSheet = ({ month, zoneId, isAdminOrHR }) => {
     );
 };
 
-const InlineSearchableSelect = ({ value, onChange, options, placeholder, disabled }) => {
+const InlineSearchableSelect = ({ value, onChange, options, placeholder, disabled, fallbackLabel }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState("");
     const dropdownRef = useRef(null);
@@ -2210,10 +2590,11 @@ const InlineSearchableSelect = ({ value, onChange, options, placeholder, disable
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    const selectedOption = options.find(o => o.value === value);
+    const selectedOption = options.find(o => String(o.value) === String(value));
+    const labelText = selectedOption?.label || (fallbackLabel && fallbackLabel !== "—" ? fallbackLabel : null) || placeholder;
 
     const filteredOptions = options.filter(o => 
-        o.label.toLowerCase().includes(search.toLowerCase())
+        (o.label || "").toLowerCase().includes((search || "").toLowerCase())
     );
 
     return (
@@ -2223,25 +2604,29 @@ const InlineSearchableSelect = ({ value, onChange, options, placeholder, disable
                 className="meta-inline-select"
                 style={{
                     cursor: disabled ? "not-allowed" : "pointer",
-                    display: "inline-block",
-                    minWidth: "120px",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    minWidth: "130px",
+                    color: "#0f172a",
+                    fontWeight: "700"
                 }}
             >
-                {selectedOption ? selectedOption.label : placeholder} ▾
+                <span>{labelText}</span>
+                <span style={{ fontSize: "10px", color: "#64748b" }}>▼</span>
             </span>
             {isOpen && (
                 <div style={{
                     position: "absolute",
-                    top: "100%",
-                    left: 0,
+                    top: "calc(100% + 4px)",
+                    right: 0,
                     backgroundColor: "#ffffff",
                     border: "1px solid #cbd5e1",
-                    borderRadius: "6px",
-                    boxShadow: "0 4px 12px rgba(15, 23, 42, 0.12)",
-                    zIndex: 1000,
-                    marginTop: "4px",
-                    maxHeight: "220px",
-                    minWidth: "200px",
+                    borderRadius: "8px",
+                    boxShadow: "0 12px 30px rgba(0, 0, 0, 0.25)",
+                    zIndex: 999999,
+                    maxHeight: "260px",
+                    width: "240px",
                     display: "flex",
                     flexDirection: "column",
                     textTransform: "none",
@@ -2255,7 +2640,7 @@ const InlineSearchableSelect = ({ value, onChange, options, placeholder, disable
                         style={{
                             border: "none",
                             borderBottom: "1px solid #cbd5e1",
-                            padding: "6px 10px",
+                            padding: "8px 10px",
                             fontSize: "12px",
                             outline: "none",
                             width: "100%",
@@ -2263,7 +2648,7 @@ const InlineSearchableSelect = ({ value, onChange, options, placeholder, disable
                         }}
                         autoFocus
                     />
-                    <div style={{ overflowY: "auto", flex: 1, maxHeight: "150px" }}>
+                    <div style={{ overflowY: "auto", flex: 1, maxHeight: "180px" }}>
                         <div 
                             onClick={() => {
                                 onChange("");
@@ -2271,7 +2656,7 @@ const InlineSearchableSelect = ({ value, onChange, options, placeholder, disable
                                 setSearch("");
                             }}
                             style={{
-                                padding: "6px 10px",
+                                padding: "8px 12px",
                                 cursor: "pointer",
                                 fontSize: "12px",
                                 backgroundColor: value === "" ? "#f1f5f9" : "transparent",
@@ -2290,21 +2675,21 @@ const InlineSearchableSelect = ({ value, onChange, options, placeholder, disable
                                     setSearch("");
                                 }}
                                 style={{
-                                    padding: "6px 10px",
+                                    padding: "8px 12px",
                                     cursor: "pointer",
                                     fontSize: "12px",
-                                    backgroundColor: value === o.value ? "#f1f5f9" : "transparent",
+                                    backgroundColor: String(value) === String(o.value) ? "#f1f5f9" : "transparent",
                                     color: "#1e293b",
                                     textAlign: "left"
                                 }}
                                 onMouseEnter={(e) => e.target.style.backgroundColor = "#f8fafc"}
-                                onMouseLeave={(e) => e.target.style.backgroundColor = value === o.value ? "#f1f5f9" : "transparent"}
+                                onMouseLeave={(e) => e.target.style.backgroundColor = String(value) === String(o.value) ? "#f1f5f9" : "transparent"}
                             >
                                 {o.label}
                             </div>
                         ))}
                         {filteredOptions.length === 0 && (
-                            <div style={{ padding: "6px 10px", fontSize: "12px", color: "#64748b" }}>
+                            <div style={{ padding: "8px 12px", fontSize: "12px", color: "#64748b" }}>
                                 No results found
                             </div>
                         )}

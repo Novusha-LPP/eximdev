@@ -320,7 +320,8 @@ const PayrollTab = ({ employeeId, companyId, employeeName }) => {
       const res = await payrollAPI.generatePayroll({
         company_id: companyId,
         year: selectedYear,
-        month: selectedMonth
+        month: selectedMonth,
+        employee_id: employeeId
       });
       if (res.success) {
         toast.success(res.message || 'Payroll generated successfully!');
@@ -900,6 +901,16 @@ const PayrollTab = ({ employeeId, companyId, employeeName }) => {
                   }}>
                     Status: {run.payroll_status}
                   </span>
+
+                  {run.payroll_status !== 'LOCKED' && (
+                    <button
+                      onClick={handleGeneratePayroll}
+                      disabled={generating || !companyId}
+                      style={{ ...S.btn('primary'), padding: '6px 12px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      <FiRefreshCw /> {generating ? 'Regenerating...' : 'Regenerate'}
+                    </button>
+                  )}
 
                   <button
                     onClick={handleLockUnlock}

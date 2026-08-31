@@ -269,6 +269,18 @@ const attendanceAPI = {
   },
 
   /**
+   * Assign or clear achievement tag (RABS Admin/HR only)
+   */
+  setAchievementTag: async (data) => {
+    try {
+      const response = await apiClient.post('/attendance/achievement-tag', data);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to update achievement tag' };
+    }
+  },
+
+  /**
    * Delete attendance record (Admin only)
    */
   deleteAttendanceRecord: async (id) => {
@@ -452,6 +464,30 @@ const attendanceAPI = {
       return response.data;
     } catch (error) {
       throw error.response?.data || { message: 'Failed to fetch pending leaves count' };
+    }
+  },
+
+  /**
+   * Get unread achievement notifications for logged-in user
+   */
+  getUnreadAchievementNotifications: async () => {
+    try {
+      const response = await apiClient.get('/attendance/achievement-notifications/unread');
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to fetch unread achievement notifications' };
+    }
+  },
+
+  /**
+   * Mark achievement notification as read
+   */
+  markAchievementNotificationRead: async (data) => {
+    try {
+      const response = await apiClient.post('/attendance/achievement-notifications/mark-read', data);
+      return response.data;
+    } catch (error) {
+      throw error.response?.data || { message: 'Failed to mark notification as read' };
     }
   }
 };

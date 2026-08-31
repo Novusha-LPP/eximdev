@@ -21,6 +21,10 @@ const templateCategorySchema = new Schema({
         type: String,
         trim: true
     },
+    totalScore: {
+        type: Number,
+        default: 0
+    },
     items: [templateItemSchema]
 });
 

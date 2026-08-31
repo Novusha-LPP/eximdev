@@ -85,6 +85,20 @@ const recordSchema = new mongoose.Schema({
   is_half_day: { type: Boolean, default: false },
   half_day_session: { type: String, enum: ['first_half', 'second_half', null], default: null },
 
+  // ─── Employee Achievement Tags (RABS Exclusivity) ────────────────────────
+  achievement_tag: {
+    type: String,
+    enum: [
+      'Best Employee of the Month',
+      'Best QC Inspector',
+      'Best 5s Zone',
+      'Best Operator',
+      null,
+      ''
+    ],
+    default: null
+  },
+
   // ─── Payroll Integration ─────────────────────────────────────────────────
   regular_hours: { type: Number, default: 0 },        // Hours capped at shift limit
   overtime_minutes: { type: Number, default: 0 },      // Raw OT minutes after grace

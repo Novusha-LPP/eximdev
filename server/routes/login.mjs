@@ -72,7 +72,8 @@ router.post("/api/login", async (req, res) => {
           isHOD: !!isHodOfAnyTeam,
           hodId: isHodOfAnyTeam ? user._id.toString() : undefined,
           passwordExpired: passwordExpired,
-          isAttendanceAllowedAdmin: user.isAttendanceAllowedAdmin
+          isAttendanceAllowedAdmin: user.isAttendanceAllowedAdmin,
+          achievement_tag: user.achievement_tag || null
         };
 
         // Calculate profile completion

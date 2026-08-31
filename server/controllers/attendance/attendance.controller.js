@@ -20,6 +20,7 @@ import PayrollEngine from '../../services/attendance/PayrollEngine.js';
 import PolicyResolver from '../../services/attendance/PolicyResolver.js';
 import ActivityLog from '../../model/attendance/ActivityLog.js';
 import ActiveSession from '../../model/attendance/ActiveSession.js';
+import AchievementNotification from '../../model/attendance/AchievementNotification.js';
 import { WorkHoursCalculator } from '../../services/attendance/WorkHoursCalculator.js';
 import { AttendanceStatusResolver } from '../../services/attendance/AttendanceStatusResolver.js';
 import { ALLOWED_USERNAMES } from '../../middleware/requireAllowedAdmin.mjs';
@@ -184,6 +185,8 @@ const getHodTeamMemberIds = async (hodId) => {
     const hodTeams = await getHodTeams(hodId);
 
     const memberIds = new Set();
+    if (hodId) memberIds.add(hodId.toString());
+
     hodTeams.forEach(team => {
         if (team.members && Array.isArray(team.members)) {
             team.members.forEach(member => {
@@ -1457,6 +1460,14 @@ export const getDashboardData = async (req, res) => {
         }));
 
         res.json({
+            employee: {
+                _id: user._id,
+                username: user.username,
+                first_name: user.first_name,
+                last_name: user.last_name,
+                company: user.company,
+                achievement_tag: user.achievement_tag || null
+            },
             punchStatus,
             monthStats: monthStats || {},
             calendar: calendarMap,
@@ -1508,7 +1519,17 @@ export const getHistory = async (req, res) => {
             if (teamMemberIds.length === 0) {
                 return res.json({ data: [], total: 0 });
             }
-            baseFilters.employee_id = { $in: teamMemberIds };
+            if (req.query.employee_id) {
+                const requestedId = String(req.query.employee_id);
+                if (!teamMemberIds.map(String).includes(requestedId)) {
+                    return res.status(403).json({ message: 'Employee not in your team' });
+                }
+                baseFilters.employee_id = req.query.employee_id;
+            } else {
+                baseFilters.employee_id = { $in: teamMemberIds };
+            }
+        } else if (req.query.employee_id) {
+            baseFilters.employee_id = req.query.employee_id;
         }
 
         const { designation } = queryParams;
@@ -1516,6 +1537,8 @@ export const getHistory = async (req, res) => {
             const userSubQuery = { company_id: companyId, designation };
             if (baseFilters.employee_id?.$in?.length) {
                 userSubQuery._id = { $in: baseFilters.employee_id.$in };
+            } else if (baseFilters.employee_id) {
+                userSubQuery._id = baseFilters.employee_id;
             }
 
             const matchedUsers = await User.find(userSubQuery).select('_id');
@@ -1630,7 +1653,17 @@ export const getRegularizations = async (req, res) => {
             if (teamMemberIds.length === 0) {
                 return res.json({ data: [], total: 0 });
             }
-            baseFilters.employee_id = { $in: teamMemberIds };
+            if (req.query.employee_id) {
+                const requestedId = String(req.query.employee_id);
+                if (!teamMemberIds.map(String).includes(requestedId)) {
+                    return res.status(403).json({ message: 'Employee not in your team' });
+                }
+                baseFilters.employee_id = req.query.employee_id;
+            } else {
+                baseFilters.employee_id = { $in: teamMemberIds };
+            }
+        } else if (req.query.employee_id) {
+            baseFilters.employee_id = req.query.employee_id;
         }
 
         const result = await QueryBuilder.build(
@@ -2833,7 +2866,8 @@ export const updateAttendanceRecord = async (req, res) => {
             apply_status_correction,
             apply_time_correction,
             correction_mode,
-            force_override
+            force_override,
+            achievement_tag
         } = req.body;
         const companyId = resolveCompanyId(req);
 
@@ -3058,6 +3092,13 @@ export const updateAttendanceRecord = async (req, res) => {
         }
 
         if (remarks !== undefined) record.remarks = remarks || '';
+        if (achievement_tag !== undefined) {
+            const isRabs = /RABS/i.test(company?.company_name || '') || /RABS/i.test(employee?.company || '') || /RABS/i.test(employee?.company_name || '');
+            if (achievement_tag && !isRabs) {
+                return res.status(400).json({ message: 'Achievement tags can only be assigned to RABS employees' });
+            }
+            record.achievement_tag = achievement_tag || null;
+        }
         if (pendingLeave && allowOverride) {
             record.remarks = record.remarks
                 ? `${record.remarks} | Override: pending leave exists`
@@ -3126,7 +3167,8 @@ export const createManualAdjustment = async (req, res) => {
             apply_status_correction,
             apply_time_correction,
             correction_mode,
-            force_override
+            force_override,
+            achievement_tag
         } = req.body;
         const companyId = resolveCompanyId(req);
 
@@ -3341,6 +3383,13 @@ export const createManualAdjustment = async (req, res) => {
         }
 
         if (remarks !== undefined) record.remarks = remarks || '';
+        if (achievement_tag !== undefined) {
+            const isRabs = /RABS/i.test(company?.company_name || '') || /RABS/i.test(employee?.company || '') || /RABS/i.test(employee?.company_name || '');
+            if (achievement_tag && !isRabs) {
+                return res.status(400).json({ message: 'Achievement tags can only be assigned to RABS employees' });
+            }
+            record.achievement_tag = achievement_tag || null;
+        }
         if (pendingLeave && allowOverride) {
             record.remarks = record.remarks
                 ? `${record.remarks} | Override: pending leave exists`
@@ -5018,6 +5067,198 @@ export const toggleAttendanceAllowedAdmin = async (req, res) => {
         });
     } catch (err) {
         console.error('Error in toggleAttendanceAllowedAdmin:', err);
+        res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};
+
+// ─── Achievement Tag Assignment (RABS Exclusivity) ──────────────────────────
+export const setAchievementTag = async (req, res) => {
+    try {
+        const { record_id, employee_id, attendance_date, achievement_tag } = req.body;
+        let targetEmployeeId = employee_id;
+        let record = null;
+
+        if (record_id && mongoose.Types.ObjectId.isValid(record_id)) {
+            record = await AttendanceRecord.findById(record_id);
+            if (record) {
+                targetEmployeeId = record.employee_id;
+            }
+        }
+
+        if (!targetEmployeeId) {
+            return res.status(400).json({ message: 'Employee ID is required' });
+        }
+
+        let cleanTag = achievement_tag ? String(achievement_tag).trim() : null;
+        if (cleanTag && cleanTag.length > 100) {
+            cleanTag = cleanTag.substring(0, 100);
+        }
+
+        // Check authorization
+        const userRole = String(req.user.role || '').toUpperCase();
+        const isAdmin = userRole === 'ADMIN';
+        const isHod = userRole === 'HOD' || userRole === 'HEAD_OF_DEPARTMENT' || userRole.replace(/[^A-Z]/g, '') === 'HEADOFDEPARTMENT';
+
+        if (!isAdmin && !isHod) {
+            return res.status(403).json({ message: 'Unauthorized: Only admins and HODs can assign achievement tags' });
+        }
+
+        if (isHod && !isAdmin) {
+            if (!await isHODauthorized(req.user._id, targetEmployeeId)) {
+                return res.status(403).json({ message: 'Forbidden: Member not in your team' });
+            }
+        }
+
+        const isRestrictedAdmin = isRestrictedAllowedAdmin(req.user);
+        if (isRestrictedAdmin) {
+            const allowedIds = await getRestrictedEmployeeIds(req.user);
+            if (!allowedIds || !allowedIds.includes(String(targetEmployeeId))) {
+                return res.status(403).json({ message: 'Forbidden: Member not in your team' });
+            }
+        }
+
+        const employee = await User.findById(targetEmployeeId);
+        if (!employee) {
+            return res.status(404).json({ message: 'Employee not found' });
+        }
+
+        const employeeCompanyId = employee.company_id?._id || employee.company_id;
+        const company = employeeCompanyId ? await Company.findById(employeeCompanyId) : null;
+        const isRabs = /RABS/i.test(company?.company_name || '') || /RABS/i.test(employee?.company || '') || /RABS/i.test(employee?.company_name || '');
+
+        if (!isRabs) {
+            return res.status(400).json({ message: 'Achievement tags can only be assigned to RABS employees' });
+        }
+
+        // 1. Update Employee User model directly
+        employee.achievement_tag = cleanTag;
+        employee.achievement_tag_assigned_at = new Date();
+        employee.achievement_tag_assigned_by = req.user.username || req.user.first_name || 'Admin';
+        await employee.save();
+
+        // 2. If record or date specified, also update AttendanceRecord
+        if (record_id || attendance_date) {
+            if (!record && attendance_date) {
+                const normalizedDateKey = typeof attendance_date === 'string'
+                    ? String(attendance_date).slice(0, 10)
+                    : moment.utc(attendance_date).format('YYYY-MM-DD');
+                const targetDate = moment.utc(normalizedDateKey, 'YYYY-MM-DD', true).startOf('day').toDate();
+
+                record = await AttendanceRecord.findOne({ employee_id: targetEmployeeId, attendance_date: targetDate });
+
+                if (!record) {
+                    record = new AttendanceRecord({
+                        employee_id: targetEmployeeId,
+                        company_id: employeeCompanyId || company?._id,
+                        attendance_date: targetDate,
+                        attendance_date_str: normalizedDateKey,
+                        year_month: moment.utc(targetDate).format('YYYY-MM'),
+                        status: 'present',
+                        achievement_tag: cleanTag,
+                        processed_by: 'admin',
+                        processed_at: new Date()
+                    });
+                } else {
+                    record.achievement_tag = cleanTag;
+                }
+            } else if (record) {
+                record.achievement_tag = cleanTag;
+            }
+
+            if (record) {
+                await record.save();
+            }
+        }
+
+        // 3. Create broadcast achievement notification for all users
+        if (cleanTag) {
+            try {
+                await AchievementNotification.create({
+                    employee_id: employee._id,
+                    employee_name: employee.first_name ? `${employee.first_name} ${employee.last_name || ''}`.trim() : employee.username,
+                    employee_username: employee.username,
+                    employee_photo: employee.employee_photo || '',
+                    company: employee.company || 'RABS',
+                    company_id: employeeCompanyId || company?._id,
+                    achievement_tag: cleanTag,
+                    assigned_by: req.user.first_name ? `${req.user.first_name} ${req.user.last_name || ''}`.trim() : (req.user.username || 'Admin'),
+                    read_by: [req.user._id]
+                });
+            } catch (notifErr) {
+                console.error('Failed to create achievement notification:', notifErr);
+            }
+        }
+
+        await logActivity(req, 'ATTENDANCE', 'UPDATE_ACHIEVEMENT_TAG', `Assigned achievement tag "${cleanTag || 'None'}" for employee ${targetEmployeeId}`, {
+            employee_id: targetEmployeeId,
+            achievement_tag: cleanTag
+        });
+
+        res.json({
+            success: true,
+            message: cleanTag ? `Achievement tag "${cleanTag}" assigned successfully` : 'Achievement tag unassigned successfully',
+            employee: {
+                _id: employee._id,
+                username: employee.username,
+                achievement_tag: employee.achievement_tag
+            },
+            record
+        });
+    } catch (err) {
+        console.error('setAchievementTag error:', err);
+        res.status(500).json({ message: 'Failed to update achievement tag', error: err.message });
+    }
+};
+
+export const getUnreadAchievementNotifications = async (req, res) => {
+    try {
+        const userId = req.user._id;
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+        const notifications = await AchievementNotification.find({
+            createdAt: { $gte: thirtyDaysAgo },
+            read_by: { $ne: userId }
+        })
+        .populate('employee_id', 'first_name last_name employee_photo username')
+        .sort({ createdAt: -1 })
+        .limit(10)
+        .lean();
+
+        const formatted = (notifications || []).map(n => ({
+            ...n,
+            employee_photo: n.employee_id?.employee_photo || n.employee_photo || '',
+            employee_name: n.employee_name || (n.employee_id?.first_name ? `${n.employee_id.first_name} ${n.employee_id.last_name || ''}`.trim() : n.employee_username)
+        }));
+
+        res.json({
+            success: true,
+            notifications: formatted
+        });
+    } catch (err) {
+        console.error('Error fetching unread achievement notifications:', err);
+        res.status(500).json({ message: 'Server error', error: err.message });
+    }
+};
+
+export const markAchievementNotificationRead = async (req, res) => {
+    try {
+        const { notification_id, mark_all } = req.body;
+        const userId = req.user._id;
+
+        if (mark_all) {
+            await AchievementNotification.updateMany(
+                { read_by: { $ne: userId } },
+                { $addToSet: { read_by: userId } }
+            );
+        } else if (notification_id) {
+            await AchievementNotification.findByIdAndUpdate(
+                notification_id,
+                { $addToSet: { read_by: userId } }
+            );
+        }
+
+        res.json({ success: true, message: 'Notification marked as read' });
+    } catch (err) {
+        console.error('Error marking achievement notification as read:', err);
         res.status(500).json({ message: 'Server error', error: err.message });
     }
 };

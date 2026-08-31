@@ -340,6 +340,7 @@ const autoMarkStaleMissedPunchSessions = async () => {
           processed_by: "cron",
         },
       },
+
       { upsert: true }
     );
 
@@ -447,7 +448,7 @@ app.use(
         "http://localhost:3002",
         "http://192.168.1.105:3000",
         "http://192.168.1.105:3001",
-        "http://192.168.2.36:3002",
+        "http://192.168.0.68:3002",
         "http://test-ssl-exim.s3-website.ap-south-1.amazonaws.com",
         "https://import.alvision.in",
         "https://test-frontend.alvision.in",
@@ -562,6 +563,7 @@ app.use(viewCustomerKycDetails);
 app.use(updateCustomerKyc);
 app.use(customerKycApproval);
 app.use(viewCompletedKyc);
+
 app.use(viewCustomerKycDrafts);
 app.use(viewRevisionList);
 app.use(hodApprovalPending);

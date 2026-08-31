@@ -58,6 +58,18 @@ const audit5sChecklistSchema = new Schema({
         of: String, // day number ("1" to "31") -> auditor initials
         default: {}
     },
+    leaderPhoto: {
+        type: String,
+        default: ""
+    },
+    prevMonthData: {
+        type: Map,
+        of: new Schema({
+            actual: { type: Number, default: 0 },
+            max: { type: Number, default: 0 }
+        }, { _id: false }),
+        default: {}
+    },
     createdAt: {
         type: Date,
         default: Date.now

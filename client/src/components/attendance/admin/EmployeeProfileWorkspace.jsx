@@ -282,13 +282,12 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState(null);
   const empCompany = profile?.employee?.company_id?.company_name || profile?.employee?.company || '';
-  const isEmployeeRabs = isRabsOrganization(empCompany);
-
-  useEffect(() => {
-    if (tab === 'payroll' && profile && !isEmployeeRabs) {
-      setTab('performance');
-    }
-  }, [tab, profile, isEmployeeRabs]);
+  const isEmployeeRabs = Boolean(
+    (profile?.employee?.company && /RABS/i.test(profile.employee.company)) ||
+    (profile?.employee?.company_name && /RABS/i.test(profile.employee.company_name)) ||
+    (profile?.employee?.company_id?.company_name && /RABS/i.test(profile.employee.company_id.company_name)) ||
+    (profile?.employee?.company_id && typeof profile?.employee?.company_id === 'string' && profile?.employee?.company_id === '69cd1e3b50e6c73acc73a926')
+  );
 
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [showPendingLeavesModal, setShowPendingLeavesModal] = useState(false);
@@ -610,6 +609,42 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
     return combined.sort((a, b) => new Date(b.createdAt || b.from_date || 0) - new Date(a.createdAt || a.from_date || 0));
   }, [profile?.leaves, profile?.pendingLeaves, showAllLeaveHistory, browseMonth, browseYear]);
 
+  const [quickAchievementTag, setQuickAchievementTag] = useState('');
+  const [savingAchievement, setSavingAchievement] = useState(false);
+
+  useEffect(() => {
+    if (profile?.employee?.achievement_tag) {
+      setQuickAchievementTag(profile.employee.achievement_tag);
+    } else {
+      setQuickAchievementTag('');
+    }
+  }, [profile?.employee?.achievement_tag]);
+
+  const handleAssignAchievement = async (tagToSet) => {
+    if (!id) return;
+    const tag = tagToSet !== undefined ? tagToSet : quickAchievementTag;
+    setSavingAchievement(true);
+    try {
+      const res = await attendanceAPI.setAchievementTag({
+        employee_id: id,
+        achievement_tag: tag || null,
+      });
+      toast.success(res.message || (tag ? `Assigned "${tag}"` : 'Tag unassigned'));
+      setProfile(prev => ({
+        ...prev,
+        employee: {
+          ...(prev?.employee || {}),
+          achievement_tag: tag || null,
+        }
+      }));
+      if (tab === 'performance') fetchBrowseHistory(browseMonth, browseYear);
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err?.message || 'Failed to update achievement tag');
+    } finally {
+      setSavingAchievement(false);
+    }
+  };
+
   const visibleShiftPolicies = useMemo(() => {
     const seen = new Set();
     return (shiftPolicies || []).filter(shift => {
@@ -682,7 +717,8 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
       half_day_session: rec.half_day_session || 'first_half',
       first_in: rec.first_in ? moment(rec.first_in).format('YYYY-MM-DDTHH:mm') : (rec._id ? '' : toEditDateTime(rec.attendance_date, assignedShiftOptions?.[0]?.start_time || '09:00')),
       last_out: rec.last_out ? moment(rec.last_out).format('YYYY-MM-DDTHH:mm') : (rec._id ? '' : toEditDateTime(rec.attendance_date, assignedShiftOptions?.[0]?.end_time || '18:00')),
-      remarks: rec.remarks || ''
+      remarks: rec.remarks || '',
+      achievement_tag: rec.achievement_tag || ''
     });
   };
 
@@ -726,7 +762,7 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
       if (moment(editForm.last_out).isBefore(moment(editForm.first_in))) { toast.error('Punch-Out cannot be before Punch-In'); return; }
     }
     setSaving(true);
-    const payload = { ...editForm, status: editForm.status === 'pending_leave' ? 'leave' : editForm.status, apply_status_correction: mode === 'status_correction', apply_time_correction: mode === 'time_correction' };
+    const payload = { ...editForm, status: editForm.status === 'pending_leave' ? 'leave' : editForm.status, apply_status_correction: mode === 'status_correction', apply_time_correction: mode === 'time_correction', achievement_tag: editForm.achievement_tag || null };
     try {
       if (editingId === 'new') await attendanceAPI.createManualAdjustment(payload);
       else await attendanceAPI.updateAttendanceRecord(editingId, payload);
@@ -2695,18 +2731,102 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
             >
               ← Back
             </button>
-            <div style={{ width: '44px', height: '44px', borderRadius: '10px', background: profile.employee.photo ? `url(${profile.employee.photo}) center/cover` : THEME.primary, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '18px', fontWeight: '800', flexShrink: 0 }}>
-              {!profile.employee.photo && (profile.employee.first_name?.[0] || profile.employee.username?.[0] || 'E').toUpperCase()}
-            </div>
+            {(() => {
+              const tag = isEmployeeRabs ? profile?.employee?.achievement_tag : null;
+              const getRingCfg = (t) => {
+                switch (t) {
+                  case 'Best Employee of the Month':
+                    return { ring: '0 0 0 3.5px #f59e0b, 0 0 14px rgba(245, 158, 11, 0.45)', badgeBg: 'linear-gradient(135deg, #f59e0b, #d97706)', icon: '🌟', title: 'Best Employee of the Month' };
+                  case 'Best QC Inspector':
+                    return { ring: '0 0 0 3.5px #06b6d4, 0 0 14px rgba(6, 182, 212, 0.45)', badgeBg: 'linear-gradient(135deg, #06b6d4, #0891b2)', icon: '🔍', title: 'Best QC Inspector' };
+                  case 'Best 5s Zone':
+                    return { ring: '0 0 0 3.5px #10b981, 0 0 14px rgba(16, 185, 129, 0.45)', badgeBg: 'linear-gradient(135deg, #10b981, #059669)', icon: '🏆', title: 'Best 5s Zone' };
+                  case 'Best Operator':
+                    return { ring: '0 0 0 3.5px #6366f1, 0 0 14px rgba(99, 102, 241, 0.45)', badgeBg: 'linear-gradient(135deg, #6366f1, #4f46e5)', icon: '⚙️', title: 'Best Operator' };
+                  default:
+                    return null;
+                }
+              };
+              const ringCfg = getRingCfg(tag);
+              return (
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                  <div style={{
+                    width: '46px',
+                    height: '46px',
+                    borderRadius: '50%',
+                    background: profile.employee.photo ? `url(${profile.employee.photo}) center/cover` : THEME.primary,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#fff',
+                    fontSize: '18px',
+                    fontWeight: '800',
+                    boxShadow: ringCfg ? ringCfg.ring : 'none',
+                    border: ringCfg ? '2px solid #fff' : 'none',
+                    transition: 'all 0.3s'
+                  }}>
+                    {!profile.employee.photo && (profile.employee.first_name?.[0] || profile.employee.username?.[0] || 'E').toUpperCase()}
+                  </div>
+                  {ringCfg && (
+                    <div
+                      title={ringCfg.title}
+                      style={{
+                        position: 'absolute',
+                        bottom: -2,
+                        right: -2,
+                        width: 20,
+                        height: 20,
+                        borderRadius: '50%',
+                        background: ringCfg.badgeBg,
+                        border: '1.5px solid #fff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '10px',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
+                        zIndex: 2
+                      }}
+                    >
+                      {ringCfg.icon}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: '18px', fontWeight: '800', color: THEME.navy }}>{employeeName}</span>
                 <span style={{ padding: '2px 7px', background: '#ecfdf5', color: '#059669', borderRadius: '10px', fontSize: '10px', fontWeight: '700' }}>Active</span>
+                {isEmployeeRabs && profile?.employee?.achievement_tag && (
+                  <span
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '2px 10px',
+                      borderRadius: '12px',
+                      background: 'linear-gradient(135deg, #fef3c7 0%, #fffbeb 100%)',
+                      border: '1px solid #fcd34d',
+                      color: '#92400e',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.06)'
+                    }}
+                  >
+                    🌟 {profile.employee.achievement_tag}
+                  </span>
+                )}
               </div>
               <div style={{ fontSize: '12px', color: THEME.muted, display: 'flex', gap: '6px', alignItems: 'center' }}>
                 <span style={{ color: THEME.primary, fontWeight: '600' }}>#{profile.employee.employee_code || '-'}</span>
                 <span>·</span>
                 <span>{profile.employee.username}</span>
+                {isEmployeeRabs && (
+                  <>
+                    <span>·</span>
+                    <span style={{ padding: '1px 6px', background: '#eff6ff', color: '#1d4ed8', borderRadius: '6px', fontWeight: '700', fontSize: '10px' }}>RABS</span>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -2842,6 +2962,81 @@ const EmployeeProfileWorkspace = ({ employeeId, preselectedEmployeeIds = [], hea
                   <button onClick={() => setShowLeaveModal(true)} style={{ ...S.btn('ghost'), width: '100%', fontWeight: '700' }}>📬 Apply Leave on Behalf</button>
                   <p style={{ margin: '8px 0 0', fontSize: '11px', color: THEME.muted, lineHeight: 1.4 }}>Marks all working days as present with standard shift times.</p>
                 </div>
+
+                {/* 🏆 Employee Achievement Tag (RABS Exclusivity) */}
+                {isEmployeeRabs && (
+                  <div style={{ padding: '16px', background: 'linear-gradient(135deg, #fffdf5 0%, #fffbeb 100%)', border: '1.5px solid #fde68a', borderRadius: '10px', boxShadow: '0 2px 6px rgba(245, 158, 11, 0.08)' }}>
+                    <div style={{ fontSize: '13px', fontWeight: '800', color: '#92400e', letterSpacing: '0.03em', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>🏆</span> Employee Achievement Tag
+                    </div>
+
+                    {profile?.employee?.achievement_tag ? (
+                      <div style={{ padding: '6px 10px', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '8px', fontSize: '12px', fontWeight: '700', color: '#92400e', marginBottom: '10px' }}>
+                        <span>🌟 Currently: {profile.employee.achievement_tag}</span>
+                      </div>
+                    ) : (
+                      <p style={{ margin: '0 0 10px', fontSize: '11px', color: '#78350f', lineHeight: 1.4 }}>
+                        No achievement tag currently assigned to <strong>{employeeName}</strong>.
+                      </p>
+                    )}
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div>
+                        <label style={{ fontSize: '11px', fontWeight: '700', color: '#92400e', marginBottom: '3px', display: 'block' }}>Select Tag</label>
+                        <select
+                          style={{ ...S.input, background: '#fff', borderColor: '#fcd34d', fontWeight: '600', color: '#92400e', height: '34px', fontSize: '12px' }}
+                          value={quickAchievementTag}
+                          onChange={e => setQuickAchievementTag(e.target.value)}
+                        >
+                          <option value="">-- Select Tag --</option>
+                          <option value="Best Employee of the Month">🌟 Best Employee of the Month</option>
+                          <option value="Best QC Inspector">🔍 Best QC Inspector</option>
+                          <option value="Best 5s Zone">🏆 Best 5s Zone</option>
+                          <option value="Best Operator">⚙️ Best Operator</option>
+                        </select>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '2px' }}>
+                        <button
+                          onClick={() => handleAssignAchievement(quickAchievementTag)}
+                          disabled={savingAchievement || !quickAchievementTag}
+                          style={{
+                            ...S.btn('primary'),
+                            flex: 1,
+                            background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+                            borderColor: '#d97706',
+                            color: '#fff',
+                            fontWeight: '700',
+                            padding: '8px 12px',
+                            fontSize: '12px',
+                            boxShadow: '0 2px 4px rgba(217, 119, 6, 0.25)',
+                            opacity: (!quickAchievementTag || savingAchievement) ? 0.6 : 1
+                          }}
+                        >
+                          {savingAchievement ? 'Saving...' : profile?.employee?.achievement_tag ? 'Update Tag' : '✨ Assign Tag'}
+                        </button>
+
+                        {profile?.employee?.achievement_tag && (
+                          <button
+                            onClick={() => handleAssignAchievement(null)}
+                            disabled={savingAchievement}
+                            style={{
+                              ...S.btn('ghost'),
+                              background: '#fff',
+                              border: '1px solid #f87171',
+                              color: '#dc2626',
+                              fontWeight: '700',
+                              padding: '8px 12px',
+                              fontSize: '12px'
+                            }}
+                          >
+                            Unassign
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Correction Requests */}
                 <div style={{ padding: '14px', background: '#fff', border: `1px solid ${THEME.border}`, borderRadius: '10px' }}>

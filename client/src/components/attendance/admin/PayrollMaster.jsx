@@ -5,6 +5,7 @@ import payrollAPI from '../../../api/attendance/payroll.api';
 import PayrollTab from './PayrollTab';
 import { FiArrowLeft, FiUser, FiSearch, FiGrid, FiSettings } from 'react-icons/fi';
 import './PayrollPages.css';
+const DEFAULT_AVATAR = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23cbd5e1'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>";
 
 const PayrollMaster = () => {
   const { user } = useContext(UserContext);
@@ -110,10 +111,10 @@ const PayrollMaster = () => {
                   >
                     <div className="payroll-master-card__row">
                       <img
-                        src={emp.employee_photo || '/avatar-placeholder.png'}
+                        src={emp.employee_photo || DEFAULT_AVATAR}
                         alt=""
                         style={{ width: '36px', height: '36px', borderRadius: '8px', objectFit: 'cover' }}
-                        onError={el => { el.target.src = '/avatar-placeholder.png'; }}
+                        onError={el => { el.target.onerror = null; el.target.src = DEFAULT_AVATAR; }}
                       />
                       <div style={{ flex: 1 }}>
                         <div style={{ fontWeight: 600, fontSize: '13px', color: '#0f172a' }}>
@@ -156,10 +157,10 @@ const PayrollMaster = () => {
               <div className="payroll-card__header" style={{ padding: '12px 20px', background: '#f8fafc' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <img
-                    src={selectedEmp.employee?.employee_photo || '/avatar-placeholder.png'}
+                    src={selectedEmp.employee?.employee_photo || DEFAULT_AVATAR}
                     alt=""
                     style={{ width: '32px', height: '32px', borderRadius: '6px', objectFit: 'cover' }}
-                    onError={el => { el.target.src = '/avatar-placeholder.png'; }}
+                    onError={el => { el.target.onerror = null; el.target.src = DEFAULT_AVATAR; }}
                   />
                   <div>
                     <h2 style={{ fontSize: '14px', fontWeight: 700, margin: 0 }}>

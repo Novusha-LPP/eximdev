@@ -16,7 +16,8 @@ router.get('/config-history/:employeeId', attendanceAuthBridge, requireRole(['AD
 router.post('/generate', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, payrollCtrl.generatePayroll);
 router.get('/run/:companyId/:year/:month', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), payrollCtrl.getPayrollRun);
 router.get('/summaries/:runId', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), payrollCtrl.getPayrollSummaries);
-router.get('/summary/:employeeId/:year/:month', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), payrollCtrl.getEmployeePayrollSummary);
+router.get('/summary/:employeeId/:year/:month', attendanceAuthBridge, payrollCtrl.getEmployeePayrollSummary);
+router.get('/history/:employeeId', attendanceAuthBridge, payrollCtrl.getEmployeePayrollHistory);
 router.post('/lock/:runId', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, payrollCtrl.lockPayrollRun);
 router.post('/unlock/:runId', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, payrollCtrl.unlockPayrollRun);
 
@@ -30,5 +31,8 @@ router.get('/export/:runId', attendanceAuthBridge, requireRole(['ADMIN', 'HOD'])
 
 // ─── Profile Update ────────────────────────────────────────────────────────
 router.put('/users/:userId/profile', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, payrollCtrl.updateUserProfile);
+
+// ─── Photo Proxy ───────────────────────────────────────────
+router.get('/proxy-photo', attendanceAuthBridge, payrollCtrl.proxyPhoto);
 
 export default router;

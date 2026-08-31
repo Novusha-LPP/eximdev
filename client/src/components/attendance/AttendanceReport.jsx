@@ -784,14 +784,15 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                 toast.error(`Invalid Time: Work duration (${durationHours.toFixed(1)}h) exceeds 20-hour limit. Please check dates.`);
                 return;
             }
-        }
-
+        }        
+        
         setSaving(true);
         const payload = {
             ...editForm,
-                    status: editForm.status === 'pending_leave' ? 'leave' : editForm.status,
+            status: editForm.status === 'pending_leave' ? 'leave' : editForm.status,
             apply_status_correction: mode === 'status_correction',
-            apply_time_correction: mode === 'time_correction'
+            apply_time_correction: mode === 'time_correction',
+            achievement_tag: editForm.achievement_tag || null
         };
 
         try {
@@ -828,13 +829,25 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                     apply_status_correction: true,
                     apply_time_correction: false
                 }));
-                toast.info('Switched to Status Correction (Time Unchanged). Please verify and save again.');
+                toast.error('Time correction is not allowed for non-working status. Mode switched automatically. Please verify & save again.');
                 return;
             }
 
-            toast.error(apiMessage || 'Update failed');
+            const isValidationModeError =
+                apiErrorCode === 'INVALID_MODE_FLAGS' ||
+                apiErrorCode === 'CONFLICT_STATUS_MODE' ||
+                apiMessageLower.includes('mode requires') ||
+                apiMessageLower.includes('time correction mode is not applicable');
+
+            if (isValidationModeError) {
+                toast.error(apiMessage || 'Invalid correction mode parameters. Please re-select the correction mode and save.');
+                return;
+            }
+
+            toast.error(apiMessage || 'Failed to update record');
+        } finally {
+            setSaving(false);
         }
-        finally { setSaving(false); }
     };
 
     const saveProfile = async () => {
@@ -878,7 +891,8 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                 (rec._id ? '' : toEditDateTime(rec.attendance_date, assignedShiftOptions?.[0]?.start_time || '10:00')),
             last_out: rec.last_out ? moment(rec.last_out).format('YYYY-MM-DDTHH:mm') :
                 (rec._id ? '' : toEditDateTime(rec.attendance_date, assignedShiftOptions?.[0]?.end_time || '19:00')),
-            remarks: rec.remarks || ''
+            remarks: rec.remarks || '',
+            achievement_tag: rec.achievement_tag || ''
         };
         setEditingId(rec._id || 'new');
         setHasInitialPunchIn(hasPunchIn);
@@ -1922,6 +1936,15 @@ const AttendanceReport = ({ isAdmin: isAdminProp }) => {
                                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center', width: '100%' }}>
                                                                     {statusBadge && <span className={`ar-day-badge ${statusClass}`}>{statusBadge}</span>}
                                                                     {leaveBadge && <span className={`ar-day-badge ${isLeavePending ? 'pending_leave' : 'leave'}`}>{leaveBadge}</span>}
+                                                                    {rec?.achievement_tag && (
+                                                                        <span
+                                                                            className="ar-day-badge"
+                                                                            style={{ background: '#fef3c7', color: '#b45309', border: '1px solid #fcd34d', fontSize: '9px', padding: '1px 4px', borderRadius: '4px', maxWidth: '90%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                                                            title={`Achievement: ${rec.achievement_tag}`}
+                                                                        >
+                                                                            🌟 {rec.achievement_tag}
+                                                                        </span>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                         );

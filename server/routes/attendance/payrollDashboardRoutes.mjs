@@ -28,7 +28,7 @@ router.post('/payslips/bulk', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']
 router.get('/bank-transfer/:runId', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), dashCtrl.getBankTransferData);
 
 // ─── Statutory Config ──────────────────────────────────────────────────────
-router.get('/statutory-config/:companyId', attendanceAuthBridge, requireRole(['ADMIN', 'HOD']), dashCtrl.getStatutoryConfig);
+router.get('/statutory-config/:companyId', attendanceAuthBridge, dashCtrl.getStatutoryConfig);
 router.put('/statutory-config/:companyId', attendanceAuthBridge, requireRole('ADMIN'), requireAllowedAdmin, dashCtrl.updateStatutoryConfig);
 
 // ─── Payroll Master ────────────────────────────────────────────────────────

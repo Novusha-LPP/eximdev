@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import audit5sAPI from "../../api/audit5s.api";
 import { toast } from "react-hot-toast";
+import moment from "moment";
 import "./Audit5s.css";
 
 const Audit5sTemplate = () => {
@@ -15,6 +16,10 @@ const Audit5sTemplate = () => {
     const [loadingZones, setLoadingZones] = useState(true);
     const [loadingTemplate, setLoadingTemplate] = useState(false);
     const [saving, setSaving] = useState(false);
+    
+    // Checklist check states
+    const [checklistExists, setChecklistExists] = useState(false);
+    const [currentMonthStr, setCurrentMonthStr] = useState("");
 
     // Bulk add helper states
     const [bulkInputText, setBulkInputText] = useState({});
@@ -50,6 +55,22 @@ const Audit5sTemplate = () => {
         }
     };
 
+    // Check if active checklist sheet already exists
+    const checkChecklistExists = useCallback(async (zoneId) => {
+        try {
+            const currentMonth = moment().format("YYYY-MM");
+            setCurrentMonthStr(currentMonth);
+            const res = await audit5sAPI.getChecklist(currentMonth, zoneId);
+            if (res.success && res.data) {
+                setChecklistExists(true);
+            } else {
+                setChecklistExists(false);
+            }
+        } catch (err) {
+            setChecklistExists(false);
+        }
+    }, []);
+
     // Load template for selected zone
     const loadTemplate = useCallback(async (zoneId) => {
         if (!zoneId) return;
@@ -78,8 +99,9 @@ const Audit5sTemplate = () => {
     useEffect(() => {
         if (selectedZoneId) {
             loadTemplate(selectedZoneId);
+            checkChecklistExists(selectedZoneId);
         }
-    }, [selectedZoneId, loadTemplate]);
+    }, [selectedZoneId, loadTemplate, checkChecklistExists]);
 
     // Handle template save
     const handleSave = async (e) => {
@@ -128,6 +150,7 @@ const Audit5sTemplate = () => {
             {
                 name: "New 5S Category",
                 subName: "Description",
+                totalScore: 0,
                 items: []
             }
         ]);
@@ -250,6 +273,14 @@ const Audit5sTemplate = () => {
                     </div>
                 ) : (
                     <form onSubmit={handleSave} className="template-form">
+                        {checklistExists && (
+                            <div className="audit-info-alert" style={{ backgroundColor: "#fffae6", border: "1px solid #ffe58f", padding: "14px 16px", borderRadius: "8px", marginBottom: "20px", color: "#d48806", fontSize: "14px", display: "flex", alignItems: "center", gap: "8px", boxShadow: "0 2px 4px rgba(0,0,0,0.05)" }}>
+                                <span style={{ fontSize: "18px" }}>⚠️</span>
+                                <div>
+                                    <strong>Active checksheet detected:</strong> A 5S audit checklist sheet has already been created for this zone for the current month (<strong>{moment(currentMonthStr, "YYYY-MM").format("MMMM YYYY")}</strong>). Saving template configuration changes will apply directly and immediately to the active checksheet.
+                                </div>
+                            </div>
+                        )}
                         {/* Meta details header card */}
                         <div className="template-meta-card">
                             <h3>Document Control Details</h3>
@@ -330,6 +361,14 @@ const Audit5sTemplate = () => {
                                                     value={cat.subName || ""}
                                                     onChange={(e) => handleCategoryChange(catIdx, "subName", e.target.value)}
                                                     placeholder="Subname (e.g. Organization)"
+                                                />
+                                                <input
+                                                    type="number"
+                                                    className="cat-subheader-input"
+                                                    value={cat.totalScore !== undefined && cat.totalScore !== null ? cat.totalScore : ""}
+                                                    onChange={(e) => handleCategoryChange(catIdx, "totalScore", e.target.value ? Number(e.target.value) : 0)}
+                                                    placeholder="Total Score (e.g. 270)"
+                                                    style={{ width: "130px", marginLeft: "8px" }}
                                                 />
                                             </div>
                                             

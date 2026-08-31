@@ -43,6 +43,11 @@ const payrollAPI = {
     return response.data;
   },
 
+  getEmployeePayrollHistory: async (employeeId) => {
+    const response = await apiClient.get(`/payroll/history/${employeeId}`);
+    return response.data;
+  },
+
   lockPayrollRun: async (runId) => {
     const response = await apiClient.post(`/payroll/lock/${runId}`);
     return response.data;
@@ -162,6 +167,12 @@ const payrollAPI = {
     const response = await apiClient.get('/payroll/master/employees', {
       params: { companyId }
     });
+    return response.data;
+  },
+
+  // ─── Photo Proxy ───────────────────────────────────────────────────────────
+  proxyPhoto: async (url) => {
+    const response = await apiClient.get('/payroll/proxy-photo', { params: { url } });
     return response.data;
   }
 };

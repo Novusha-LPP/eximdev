@@ -31,8 +31,10 @@ import DocumentationJob from "../components/documentation/DocumentationJob.js";
 
 // Attendance
 import AttendanceLayout from "../components/attendance/layout/AttendanceLayout.jsx";
+import AchievementSpotlightOverlay from "../components/attendance/common/AchievementSpotlightOverlay.jsx";
 import DashboardSwitch from "../components/attendance/DashboardSwitch.jsx";
 import AttendancePage from "../components/attendance/Attendance.jsx";
+import MySalary from "../components/attendance/MySalary.jsx";
 import LeaveManagement from "../components/attendance/LeaveManagement.jsx";
 import Regularization from "../components/attendance/Regularization.jsx";
 import HODDashboard from "../components/attendance/HODDashboard.jsx";
@@ -1316,6 +1318,7 @@ function HomePageContent() {
                   <Route index element={<Navigate to="dashboard" replace />} />
                   <Route path="dashboard" element={<DashboardSwitch />} />
                   <Route path="my-attendance" element={<AttendancePage />} />
+                  <Route path="my-salary" element={<MySalary />} />
                   <Route path="leave" element={<LeaveManagement />} />
                   <Route path="regularization" element={<Regularization />} />
                   {/* holiday-calendar: read-only list for all users */}
@@ -1349,6 +1352,7 @@ function HomePageContent() {
               </Routes>
             </Box>
           </Box>
+          <AchievementSpotlightOverlay />
         </SearchQueryProvider>
       </TabValueContext.Provider>
     );

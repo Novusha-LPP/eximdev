@@ -170,7 +170,7 @@ export const getPayrollEntries = async (req, res) => {
     }
 
     const summaries = await PayrollSummary.find(query)
-      .populate('employee_id', 'username first_name last_name employee_code department designation employee_photo bank_account_no bank_name ifsc_code name_on_bank pan_no date_of_birth dob')
+      .populate('employee_id', 'username first_name last_name employee_code department designation employee_photo bank_account_no bank_name ifsc_code name_on_bank pan_no date_of_birth dob joining_date date_of_joining')
       .populate('payroll_config_id')
       .sort({ 'employee_id.first_name': 1 })
       .lean();
@@ -229,7 +229,12 @@ export const updatePayrollEntry = async (req, res) => {
 
     await summary.save();
 
-    res.json({ success: true, data: summary, message: 'Entry updated successfully' });
+    const populatedSummary = await PayrollSummary.findById(summary._id)
+      .populate('employee_id', 'username first_name last_name employee_code department designation employee_photo bank_account_no bank_name ifsc_code name_on_bank pan_no date_of_birth dob joining_date date_of_joining')
+      .populate('payroll_config_id')
+      .lean();
+
+    res.json({ success: true, data: populatedSummary, message: 'Entry updated successfully' });
   } catch (error) {
     console.error('updatePayrollEntry error:', error);
     res.status(500).json({ success: false, message: error.message });
@@ -594,11 +599,14 @@ export const getBankTransferData = async (req, res) => {
  */
 export const getStatutoryConfig = async (req, res) => {
   try {
-    if (!checkDashboardAccess(req.user)) {
+    const { companyId } = req.params;
+
+    const isDashboardAdmin = checkDashboardAccess(req.user);
+    const isSelfCompany = req.user && String(req.user.company_id) === String(companyId);
+
+    if (!isDashboardAdmin && !isSelfCompany) {
       return res.status(403).json({ success: false, message: 'Access denied' });
     }
-
-    const { companyId } = req.params;
     let config = await StatutoryConfig.findOne({ company_id: companyId }).lean();
 
     // Return defaults if none exists

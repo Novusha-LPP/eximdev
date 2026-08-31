@@ -16,6 +16,7 @@ import {
   CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell
 } from 'recharts';
 import './PayrollDashboard.css';
+const DEFAULT_AVATAR = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23cbd5e1'><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>";
 
 const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#f43f5e', '#0ea5e9', '#8b5cf6', '#ec4899', '#14b8a6'];
 
@@ -660,10 +661,10 @@ const PayrollDashboard = () => {
                       <div key={s._id} className="leaderboard-item" onClick={() => setSelectedEmployee(s)} style={{ cursor: 'pointer' }}>
                         <div className="leaderboard-item__emp">
                           <img
-                            src={s.employee_id?.employee_photo || '/avatar-placeholder.png'}
+                            src={s.employee_id?.employee_photo || DEFAULT_AVATAR}
                             alt=""
                             className="leaderboard-item__avatar"
-                            onError={el => { el.target.src = '/avatar-placeholder.png'; }}
+                            onError={el => { el.target.onerror = null; el.target.src = DEFAULT_AVATAR; }}
                           />
                           <div className="leaderboard-item__info">
                             <span className="leaderboard-item__name">{s.employee_id?.first_name} {s.employee_id?.last_name}</span>
@@ -687,10 +688,10 @@ const PayrollDashboard = () => {
                         <div key={s._id} className="leaderboard-item" onClick={() => setSelectedEmployee(s)} style={{ cursor: 'pointer' }}>
                           <div className="leaderboard-item__emp">
                             <img
-                              src={s.employee_id?.employee_photo || '/avatar-placeholder.png'}
+                              src={s.employee_id?.employee_photo || DEFAULT_AVATAR}
                               alt=""
                               className="leaderboard-item__avatar"
-                              onError={el => { el.target.src = '/avatar-placeholder.png'; }}
+                              onError={el => { el.target.onerror = null; el.target.src = DEFAULT_AVATAR; }}
                             />
                             <div className="leaderboard-item__info">
                               <span className="leaderboard-item__name">{s.employee_id?.first_name} {s.employee_id?.last_name}</span>
@@ -718,10 +719,10 @@ const PayrollDashboard = () => {
                         <div key={s._id} className="leaderboard-item" onClick={() => setSelectedEmployee(s)} style={{ cursor: 'pointer' }}>
                           <div className="leaderboard-item__emp">
                             <img
-                              src={s.employee_id?.employee_photo || '/avatar-placeholder.png'}
+                              src={s.employee_id?.employee_photo || DEFAULT_AVATAR}
                               alt=""
                               className="leaderboard-item__avatar"
-                              onError={el => { el.target.src = '/avatar-placeholder.png'; }}
+                              onError={el => { el.target.onerror = null; el.target.src = DEFAULT_AVATAR; }}
                             />
                             <div className="leaderboard-item__info">
                               <span className="leaderboard-item__name">{s.employee_id?.first_name} {s.employee_id?.last_name}</span>
@@ -813,10 +814,10 @@ const PayrollDashboard = () => {
                       <td>
                         <div className="emp-cell">
                           <img
-                            src={s.employee_id?.employee_photo || '/avatar-placeholder.png'}
+                            src={s.employee_id?.employee_photo || DEFAULT_AVATAR}
                             alt=""
                             className="emp-cell__avatar"
-                            onError={el => { el.target.src = '/avatar-placeholder.png'; }}
+                            onError={el => { el.target.onerror = null; el.target.src = DEFAULT_AVATAR; }}
                           />
                           <div className="emp-cell__info">
                             <span className="emp-cell__name">{s.employee_id?.first_name} {s.employee_id?.last_name}</span>
@@ -868,10 +869,10 @@ const PayrollDashboard = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', borderBottom: '1px solid #e2e8f0', paddingBottom: '16px' }}>
               <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
                 <img
-                  src={selectedEmployee.employee_id?.employee_photo || '/avatar-placeholder.png'}
+                  src={selectedEmployee.employee_id?.employee_photo || DEFAULT_AVATAR}
                   alt=""
                   style={{ width: '48px', height: '48px', borderRadius: '50%', border: '1px solid #cbd5e1', objectFit: 'cover' }}
-                  onError={el => { el.target.src = '/avatar-placeholder.png'; }}
+                  onError={el => { el.target.onerror = null; el.target.src = DEFAULT_AVATAR; }}
                 />
                 <div>
                   <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>

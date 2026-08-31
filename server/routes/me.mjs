@@ -9,7 +9,7 @@ const router = express.Router();
 router.get("/api/me", verifyToken, async (req, res) => {
     try {
         const user = await UserModel.findById(req.user._id).select(
-            "username role can_access_exim_bot modules first_name middle_name last_name company company_id employee_photo designation department employment_type email assigned_importer assigned_importer_name selected_icd_codes tenantId is_verified passwordChangedAt hod_id date_of_joining joining_date mobile official_email skill emergency_contact resume address_proof aadhar_photo_front pan_photo isAttendanceAllowedAdmin is_operator category"
+            "username role can_access_exim_bot modules first_name middle_name last_name company company_id employee_photo designation department employment_type email assigned_importer assigned_importer_name selected_icd_codes tenantId is_verified passwordChangedAt hod_id date_of_joining joining_date mobile official_email skill emergency_contact resume address_proof aadhar_photo_front pan_photo isAttendanceAllowedAdmin is_operator category achievement_tag achievement_tag_assigned_at achievement_tag_assigned_by"
         );
 
         if (!user) {

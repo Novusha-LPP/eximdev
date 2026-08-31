@@ -359,9 +359,13 @@ function JobList(props) {
       // Filter based on assigned importers if not Admin
       if (user && user.role !== 'Admin') {
         const assignedImporters = user.assigned_importer_name || [];
-        fetchedImporters = fetchedImporters.filter(item =>
-          assignedImporters.includes(item.importer)
-        );
+        const hasAllAccess = assignedImporters.some(imp => imp && imp.toUpperCase() === 'ALL');
+        if (!hasAllAccess) {
+          const lowerAssigned = new Set(assignedImporters.map(imp => (imp || '').trim().toLowerCase()));
+          fetchedImporters = fetchedImporters.filter(item =>
+            lowerAssigned.has((item.importer || '').trim().toLowerCase())
+          );
+        }
       }
 
       setImporters(fetchedImporters);
@@ -374,8 +378,9 @@ function JobList(props) {
     const seen = new Set();
     return importerData
       .filter((x) => {
-        if (seen.has(x.importer)) return false;
-        seen.add(x.importer);
+        const key = (x.importer || '').trim().toLowerCase();
+        if (seen.has(key)) return false;
+        seen.add(key);
         return true;
       })
       .map((x, i) => ({ label: x.importer, key: `${x.importer}-${i}` }));

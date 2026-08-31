@@ -272,7 +272,7 @@ router.get(
         importer.toLowerCase() !== "all" &&
         !req.userImporterFilter
       ) {
-        query.importer = { $in: [importer, importer.trim()] };
+        query.importer = new RegExp(`^${escapeRegex(importer.trim())}$`, "i");
       } else if (
         importer &&
         importer.toLowerCase() !== "all" &&
@@ -280,11 +280,13 @@ router.get(
       ) {
         const userImporters = req.currentUser?.assignedImporterName || [];
         const isImporterAllowed = userImporters.some(
-          (userImp) => userImp.toLowerCase() === importer.toLowerCase()
+          (userImp) => (userImp || "").trim().toLowerCase() === importer.trim().toLowerCase()
         );
         if (isImporterAllowed) {
           query.$and = query.$and.filter((condition) => !condition.importer);
-          query.importer = { $in: [importer, importer.trim()] };
+          query.importer = new RegExp(`^${escapeRegex(importer.trim())}$`, "i");
+        } else {
+          query.importer = { $in: [] };
         }
       }
 

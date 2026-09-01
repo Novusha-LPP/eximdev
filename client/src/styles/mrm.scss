@@ -227,6 +227,28 @@
                     }
                 }
 
+                &.export-btn {
+                    background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+                    color: white;
+                    border: none;
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+
+                    &:hover {
+                        background: linear-gradient(135deg, #1d3aa3 0%, #1d4fd8 100%);
+                        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.45);
+                        transform: translateY(-1px);
+                    }
+
+                    .export-arrow {
+                        font-size: 0.7rem;
+                        opacity: 0.85;
+                        margin-left: 2px;
+                    }
+                }
+
                 &.danger-btn-outline {
                     background: white;
                     color: #dc2626;
@@ -242,8 +264,21 @@
         }
     }
 
+// Export menu header label (rendered outside .mrm-container via MUI Portal)
+.export-menu-header {
+    padding: 10px 16px 6px 16px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #9ca3af;
+    border-bottom: 1px solid #f3f4f6;
+    margin-bottom: 4px;
+}
+
     // Modern Excel 2024 Grid
     .data-grid-container {
+
         background: white;
         margin: 16px;
         border-radius: 12px;

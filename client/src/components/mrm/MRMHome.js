@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { UserContext } from '../../contexts/UserContext';
 import { fetchMRMItems, createMRMItem, updateMRMItem, deleteMRMItem, bulkDeleteMRMItems, importMRMItems, fetchMRMMetadata, saveMRMMetadata, fetchMRMUsers, reorderMRMItems } from '../../services/mrmService';
@@ -10,6 +10,13 @@ import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import DeleteIcon from '@mui/icons-material/Delete';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import TableChartIcon from '@mui/icons-material/TableChart';
+import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import '../../styles/mrm.scss';
 
 const ReorderRow = ({ item, index, handleFieldChange, handleSaveItem, openDeleteDialog, handleInsertItem, autoResizeTextarea, mrmUsers }) => {
@@ -538,6 +545,7 @@ const MRMHome = () => {
 
     // Helper for labels
     const getMonthName = (m) => new Date(0, m - 1).toLocaleString('default', { month: 'short' });
+    const getMonthLong = (m) => new Date(0, m - 1).toLocaleString('default', { month: 'long' });
     const getYearShort = (y) => String(y).slice(-2);
 
     const currentMonthName = getMonthName(selectedMonth);
@@ -560,6 +568,377 @@ const MRMHome = () => {
 
     // Help Modal State
     const [showHelpModal, setShowHelpModal] = useState(false);
+
+    // Export Menu
+    const [exportMenuAnchor, setExportMenuAnchor] = useState(null);
+
+    // ─── Export Helpers ──────────────────────────────────────────────────────────
+    const getExportRows = () => items.filter(i => !i.isTitleRow);
+
+    const formatDate = (val) => {
+        if (!val) return '';
+        const d = new Date(val);
+        if (isNaN(d)) return val;
+        return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    };
+
+    const STATUS_COLORS = {
+        Green:  { hex: '166534', fill: 'D1FAE5', text: '14532D' },
+        Yellow: { hex: 'CA8A04', fill: 'FEF9C3', text: '713F12' },
+        Red:    { hex: 'DC2626', fill: 'FEE2E2', text: '7F1D1D' },
+    };
+
+    // ─── Excel Export ─────────────────────────────────────────────────────────────
+    const handleExportExcel = async () => {
+        setExportMenuAnchor(null);
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = 'AlVision Exim';
+        workbook.created = new Date();
+
+        const ws = workbook.addWorksheet('MRM', {
+            pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
+            views: [{ state: 'frozen', xSplit: 0, ySplit: 4 }]
+        });
+
+        const COLS = [
+            { header: '#',                    key: 'sno',        width: 6  },
+            { header: 'Process Description', key: 'process',    width: 36 },
+            { header: 'Objective',            key: 'objective',  width: 32 },
+            { header: 'Target',               key: 'target',     width: 14 },
+            { header: 'Freq.',                key: 'freq',       width: 14 },
+            { header: 'Responsibility',       key: 'resp',       width: 20 },
+            { header: `Act. (${prevMonthName}-${getYearShort(prevYearVal)})`, key: 'actual', width: 16 },
+            { header: `Plan (${currentMonthName}-${getYearShort(selectedYear)})`, key: 'plan', width: 16 },
+            { header: 'Action Plan',          key: 'actionPlan', width: 36 },
+            { header: 'Act. Resp.',           key: 'actResp',    width: 20 },
+            { header: 'Target Date',          key: 'targetDate', width: 16 },
+            { header: 'Status',               key: 'status',     width: 14 },
+            { header: 'Remarks',              key: 'remarks',    width: 32 },
+        ];
+        ws.columns = COLS;
+
+        // ── Row 1: Company Header ──
+        ws.mergeCells('A1:M1');
+        const r1 = ws.getRow(1);
+        r1.height = 36;
+        const c1 = ws.getCell('A1');
+        c1.value = 'AlVision Exim - Monthly Review Meeting (MRM)';
+        c1.font = { name: 'Calibri', size: 16, bold: true, color: { argb: 'FFFFFFFF' } };
+        c1.alignment = { horizontal: 'center', vertical: 'middle' };
+        c1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF185A32' } };
+
+        // ── Row 2: Sub-header info ──
+        ws.mergeCells('A2:M2');
+        const c2 = ws.getCell('A2');
+        const reviewDateStr = metadata.reviewDate ? formatDate(metadata.reviewDate) : 'N/A';
+        const meetingDateStr = metadata.meetingDate ? formatDate(metadata.meetingDate) : 'N/A';
+        c2.value = `Month: ${getMonthLong(selectedMonth)} ${selectedYear}   |   Review Date: ${reviewDateStr}   |   Meeting Date: ${meetingDateStr}   |   Exported: ${new Date().toLocaleDateString('en-IN')}`;
+        c2.font = { name: 'Calibri', size: 10.5, color: { argb: 'FFFFFFFF' } };
+        c2.alignment = { horizontal: 'center', vertical: 'middle' };
+        c2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF217346' } };
+        ws.getRow(2).height = 22;
+
+        // ── Row 3: blank spacer ──
+        ws.mergeCells('A3:M3');
+        ws.getRow(3).height = 6;
+        ws.getCell('A3').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE8F5E9' } };
+
+        // ── Row 4: Column headers ──
+        const headerRow = ws.getRow(4);
+        headerRow.height = 28;
+        COLS.forEach((col, ci) => {
+            const cell = headerRow.getCell(ci + 1);
+            cell.value = col.header;
+            cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
+            cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F172A' } };
+            cell.border = {
+                top:    { style: 'medium', color: { argb: 'FF217346' } },
+                bottom: { style: 'medium', color: { argb: 'FF217346' } },
+                left:   { style: 'thin',   color: { argb: 'FF334155' } },
+                right:  { style: 'thin',   color: { argb: 'FF334155' } },
+            };
+        });
+
+        // ── Data rows ──
+        let sno = 0;
+        items.forEach((item) => {
+            if (item.isTitleRow) {
+                // Title separator row spanning all columns (A to M)
+                const titleRowNum = ws.rowCount + 1;
+                ws.mergeCells(`A${titleRowNum}:M${titleRowNum}`);
+                const tr = ws.getRow(titleRowNum);
+                tr.height = 22;
+                const tc = ws.getCell(`A${titleRowNum}`);
+                tc.value = (item.processDescription || '').toUpperCase();
+                tc.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF0F172A' } };
+                tc.alignment = { horizontal: 'center', vertical: 'middle' };
+                tc.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+                tc.border = {
+                    top:    { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                    bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+                };
+                return;
+            }
+
+            sno++;
+            const status = item.status || 'Green';
+            const sc = STATUS_COLORS[status] || STATUS_COLORS.Green;
+            const dataRow = ws.addRow([
+                sno,
+                item.processDescription || '',
+                item.objective || '',
+                item.target || '',
+                item.monitoringFrequency || '',
+                item.responsibility || '',
+                item.actual || '',
+                item.plan || '',
+                item.actionPlan || '',
+                item.responsibilityAction || '',
+                formatDate(item.targetDate),
+                status,
+                item.remarks || '',
+            ]);
+            dataRow.height = 19;
+            dataRow.eachCell({ includeEmpty: true }, (cell, colNum) => {
+                cell.font = { name: 'Calibri', size: 9 };
+                cell.alignment = { vertical: 'top', wrapText: true, horizontal: [1, 4, 5, 7, 8, 11, 12].includes(colNum) ? 'center' : 'left' };
+                cell.border = {
+                    bottom: { style: 'thin', color: { argb: 'FFE5E7EB' } },
+                    right:  { style: 'hair', color: { argb: 'FFE5E7EB' } },
+                };
+                // Status cell coloring (Col 12)
+                if (colNum === 12) {
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: `FF${sc.fill}` } };
+                    cell.font = { name: 'Calibri', size: 9, bold: true, color: { argb: `FF${sc.text}` } };
+                    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                    cell.border = {
+                        top:    { style: 'thin', color: { argb: `FF${sc.hex}` } },
+                        bottom: { style: 'thin', color: { argb: `FF${sc.hex}` } },
+                        left:   { style: 'thin', color: { argb: `FF${sc.hex}` } },
+                        right:  { style: 'thin', color: { argb: `FF${sc.hex}` } },
+                    };
+                }
+                // Alternate row shading
+                if (sno % 2 === 0 && colNum !== 12) {
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+                }
+            });
+        });
+
+        // ── Summary footer ──
+        const footerRowNum = ws.rowCount + 2;
+        ws.mergeCells(`A${footerRowNum}:M${footerRowNum}`);
+        const footerCell = ws.getCell(`A${footerRowNum}`);
+        footerCell.value = `Total Items: ${sno}   |   Green: ${statusCounts.Green}   |   Yellow: ${statusCounts.Yellow}   |   Red: ${statusCounts.Red}`;
+        footerCell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF1F2937' } };
+        footerCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        footerCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF0FDF4' } };
+        footerCell.border = {
+            top:    { style: 'medium', color: { argb: 'FF217346' } },
+            bottom: { style: 'medium', color: { argb: 'FF217346' } },
+        };
+        ws.getRow(footerRowNum).height = 24;
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+            `MRM_${getMonthLong(selectedMonth)}_${selectedYear}.xlsx`);
+    };
+
+    // ─── PDF Export (A4 Landscape) ────────────────────────────────────────────────
+    const handleExportPDF = () => {
+        setExportMenuAnchor(null);
+        // A4 landscape: 297 x 210 mm
+        const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+        const pageW = doc.internal.pageSize.getWidth();   // 297
+        const pageH = doc.internal.pageSize.getHeight();  // 210
+        const margin = 10;
+
+        // ── Header: dark slate top + green accent stripe ──
+        doc.setFillColor(15, 23, 42);    // slate-950
+        doc.rect(0, 0, pageW, 14, 'F');
+        doc.setFillColor(33, 115, 70);   // brand green accent
+        doc.rect(0, 14, pageW, 3, 'F');
+
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(13);
+        doc.setFont('helvetica', 'bold');
+        doc.text('AlVision Exim - Monthly Review Meeting', pageW / 2, 9, { align: 'center' });
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(134, 239, 172);  // green-300
+        doc.text('MRM REPORT', pageW - margin, 9, { align: 'right' });
+
+        // ── Info row ──
+        doc.setFillColor(241, 245, 249);  // slate-100
+        doc.rect(0, 17, pageW, 9, 'F');
+        const reviewDateStr  = metadata.reviewDate  ? formatDate(metadata.reviewDate)  : 'N/A';
+        const meetingDateStr = metadata.meetingDate ? formatDate(metadata.meetingDate) : 'N/A';
+        const exportedBy = user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() : 'N/A';
+        doc.setTextColor(51, 65, 85);
+        doc.setFontSize(7.5);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`${getMonthLong(selectedMonth).toUpperCase()} ${selectedYear}`, margin, 22.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(100, 116, 139);
+        doc.text(
+            `Review Date: ${reviewDateStr}   |   Meeting Date: ${meetingDateStr}   |   Exported: ${new Date().toLocaleDateString('en-IN')}   |   By: ${exportedBy}`,
+            pageW / 2, 22.5, { align: 'center' }
+        );
+
+        // ── Status Summary Pills (Clean ASCII text, no symbols that corrupt) ──
+        const pillY = 28;
+        const pillH = 7;
+        const pills = [
+            { label: 'TOTAL:',  value: items.filter(i => !i.isTitleRow).length, bg: [30, 41, 59],   fg: [255, 255, 255] },
+            { label: 'GREEN:',  value: statusCounts.Green,                      bg: [22, 101, 52],  fg: [220, 252, 231] },
+            { label: 'YELLOW:', value: statusCounts.Yellow,                     bg: [161, 98, 7],   fg: [254, 240, 138] },
+            { label: 'RED:',    value: statusCounts.Red,                        bg: [185, 28, 28],  fg: [254, 226, 226] },
+        ];
+        const pillW = 38;
+        const pillsStartX = (pageW - pills.length * pillW - (pills.length - 1) * 4) / 2;
+        pills.forEach((p, i) => {
+            const x = pillsStartX + i * (pillW + 4);
+            doc.setFillColor(...p.bg);
+            doc.roundedRect(x, pillY, pillW, pillH, 2, 2, 'F');
+            doc.setTextColor(...p.fg);
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`${p.label} ${p.value}`, x + pillW / 2, pillY + 4.8, { align: 'center' });
+        });
+
+        // ── Build table body ──
+        const body = [];
+        let sno = 0;
+        items.forEach((item) => {
+            if (item.isTitleRow) {
+                body.push([{
+                    content: (item.processDescription || '').toUpperCase(),
+                    colSpan: 12,
+                    styles: {
+                        fontStyle: 'bold',
+                        fillColor: [226, 232, 240],
+                        textColor: [15, 23, 42],
+                        halign: 'center',
+                        fontSize: 7.5,
+                        cellPadding: { top: 3, bottom: 3, left: 4, right: 4 },
+                    }
+                }]);
+                return;
+            }
+            sno++;
+            const status = item.status || 'Green';
+            body.push([
+                { content: sno, styles: { halign: 'center', fontStyle: 'bold', textColor: [100, 116, 139] } },
+                item.processDescription || '',
+                item.objective || '',
+                { content: item.target || '', styles: { halign: 'center' } },
+                { content: item.monitoringFrequency || '', styles: { halign: 'center' } },
+                item.responsibility || '',
+                { content: item.actual || '', styles: { halign: 'center' } },
+                { content: item.plan || '', styles: { halign: 'center' } },
+                item.actionPlan || '',
+                item.responsibilityAction || '',
+                { content: formatDate(item.targetDate), styles: { halign: 'center' } },
+                { content: status, styles: getStatusCellStyle(status) },
+            ]);
+        });
+
+        // A4 landscape usable width = 277 mm (10 mm margins each side)
+        // Column widths: 7+42+34+13+13+22+14+14+50+22+18+28 = 277
+        autoTable(doc, {
+            startY: 38,
+            margin: { left: margin, right: margin },
+            head: [[
+                '#',
+                'Process Description',
+                'Objective',
+                'Target',
+                'Freq.',
+                'Responsibility',
+                `Act.\n(${prevMonthName}-${getYearShort(prevYearVal)})`,
+                `Plan\n(${currentMonthName}-${getYearShort(selectedYear)})`,
+                'Action Plan',
+                'Act. Resp.',
+                'Target Date',
+                'Status',
+            ]],
+            body,
+            theme: 'grid',
+            tableWidth: pageW - margin * 2,
+            styles: {
+                font: 'helvetica',
+                fontSize: 6.5,
+                cellPadding: { top: 1.5, bottom: 1.5, left: 2, right: 2 },
+                valign: 'top',
+                overflow: 'linebreak',
+                lineColor: [203, 213, 225],
+                lineWidth: 0.15,
+                textColor: [30, 41, 59],
+            },
+            headStyles: {
+                fillColor: [15, 23, 42],
+                textColor: [255, 255, 255],
+                fontStyle: 'bold',
+                fontSize: 7,
+                halign: 'center',
+                valign: 'middle',
+                cellPadding: { top: 3, bottom: 3, left: 2, right: 2 },
+                lineColor: [51, 65, 85],
+            },
+            alternateRowStyles: {
+                fillColor: [248, 250, 252],
+            },
+            columnStyles: {
+                0:  { cellWidth: 7,  halign: 'center' },
+                1:  { cellWidth: 42 },
+                2:  { cellWidth: 34 },
+                3:  { cellWidth: 13, halign: 'center' },
+                4:  { cellWidth: 13, halign: 'center' },
+                5:  { cellWidth: 22 },
+                6:  { cellWidth: 14, halign: 'center' },
+                7:  { cellWidth: 14, halign: 'center' },
+                8:  { cellWidth: 50 },
+                9:  { cellWidth: 22 },
+                10: { cellWidth: 18, halign: 'center' },
+                11: { cellWidth: 28, halign: 'center' },
+            },
+            didDrawPage: (data) => {
+                // Green accent top stripe on continuation pages
+                doc.setFillColor(33, 115, 70);
+                doc.rect(0, 0, pageW, 2, 'F');
+                // Footer
+                const pageCount = doc.internal.getNumberOfPages();
+                doc.setFillColor(248, 250, 252);
+                doc.rect(0, pageH - 8, pageW, 8, 'F');
+                doc.setDrawColor(226, 232, 240);
+                doc.line(margin, pageH - 8, pageW - margin, pageH - 8);
+                doc.setFontSize(6.5);
+                doc.setFont('helvetica', 'normal');
+                doc.setTextColor(148, 163, 184);
+                doc.text(
+                    `AlVision Exim - MRM Report - ${getMonthLong(selectedMonth)} ${selectedYear}`,
+                    margin, pageH - 3
+                );
+                doc.text(
+                    `Page ${data.pageNumber} of ${pageCount}`,
+                    pageW - margin, pageH - 3,
+                    { align: 'right' }
+                );
+            },
+        });
+
+        doc.save(`MRM_${getMonthLong(selectedMonth)}_${selectedYear}.pdf`);
+    };
+
+    const getStatusCellStyle = (status) => {
+        const map = {
+            Green:  { fillColor: [220, 252, 231], textColor: [22, 101, 52],   fontStyle: 'bold', halign: 'center' },
+            Yellow: { fillColor: [254, 240, 138], textColor: [133, 77, 14],  fontStyle: 'bold', halign: 'center' },
+            Red:    { fillColor: [254, 226, 226], textColor: [153, 27, 27],  fontStyle: 'bold', halign: 'center' },
+        };
+        return map[status] || map.Green;
+    };
 
     return (
         <div className="mrm-container">
@@ -669,13 +1048,82 @@ const MRMHome = () => {
 
                     <button className="secondary" onClick={() => setShowImportModal(true)}>Import / Copy</button>
                     {items.length > 0 && (
-                        <button
-                            className="danger-btn-outline"
-                            onClick={() => setBulkDeleteDialog(true)}
-                            title="Delete all rows for this month"
-                        >
-                            🗑️ Delete Month
-                        </button>
+                        <>
+                            {/* Export Dropdown Button */}
+                            <button
+                                className="export-btn"
+                                onClick={(e) => setExportMenuAnchor(e.currentTarget)}
+                                title="Export MRM data"
+                            >
+                                <FileDownloadIcon sx={{ fontSize: 16 }} />
+                                Export
+                                <span className="export-arrow">▾</span>
+                            </button>
+                            <Menu
+                                anchorEl={exportMenuAnchor}
+                                open={Boolean(exportMenuAnchor)}
+                                onClose={() => setExportMenuAnchor(null)}
+                                PaperProps={{
+                                    sx: {
+                                        borderRadius: '12px',
+                                        boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+                                        minWidth: '200px',
+                                        overflow: 'visible',
+                                        mt: '6px',
+                                        border: '1px solid #e5e7eb',
+                                    }
+                                }}
+                                transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+                                anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+                            >
+                                <div className="export-menu-header">Export {getMonthLong(selectedMonth)} {selectedYear}</div>
+                                <MenuItem
+                                    onClick={handleExportExcel}
+                                    className="export-menu-item"
+                                    sx={{
+                                        gap: '10px',
+                                        py: '10px',
+                                        px: '16px',
+                                        fontSize: '0.875rem',
+                                        fontWeight: 500,
+                                        color: '#166534',
+                                        '&:hover': { background: '#f0fdf4' }
+                                    }}
+                                >
+                                    <TableChartIcon sx={{ fontSize: 20, color: '#16a34a' }} />
+                                    <div>
+                                        <div style={{ fontWeight: 600 }}>Export to Excel</div>
+                                        <div style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 400 }}>Styled .xlsx with colors</div>
+                                    </div>
+                                </MenuItem>
+                                <MenuItem
+                                    onClick={handleExportPDF}
+                                    className="export-menu-item"
+                                    sx={{
+                                        gap: '10px',
+                                        py: '10px',
+                                        px: '16px',
+                                        fontSize: '0.875rem',
+                                        fontWeight: 500,
+                                        color: '#991b1b',
+                                        '&:hover': { background: '#fef2f2' }
+                                    }}
+                                >
+                                    <PictureAsPdfIcon sx={{ fontSize: 20, color: '#dc2626' }} />
+                                    <div>
+                                        <div style={{ fontWeight: 600 }}>Export to PDF</div>
+                                        <div style={{ fontSize: '0.75rem', color: '#6b7280', fontWeight: 400 }}>Landscape A3 format</div>
+                                    </div>
+                                </MenuItem>
+                            </Menu>
+                            <button
+                                className="danger-btn-outline"
+                                onClick={() => setBulkDeleteDialog(true)}
+                                title="Delete all rows for this month"
+                            >
+                                🗑️ Delete Month
+                            </button>
+                        </>
                     )}
                     <button onClick={handleAddItem}>+ Add Row</button>
                 </div>

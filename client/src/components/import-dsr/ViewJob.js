@@ -1370,7 +1370,7 @@ function JobDetails() {
   const ExBondflag = formik.values.type_of_b_e === "Ex-Bond";
   const InBondflag = formik.values.type_of_b_e === "In-Bond";
   const LCLFlag = formik.values.consignment_type === "LCL";
-  const isDescriptionTableReadOnly = user?.role !== "Admin" && isSubmissionDate;
+  const isDescriptionTableReadOnly = false;
 
   const candidateBoeFiles = useMemo(() => {
     const list = [];

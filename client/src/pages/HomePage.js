@@ -1440,7 +1440,6 @@ function HomePageContent() {
               </Route>
             </Routes>
           </Box>
-          </Box>
         </Box>
       </SearchQueryProvider>
     </TabValueContext.Provider>
